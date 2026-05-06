@@ -1,0 +1,50 @@
+databases:
+  - name: rzi-camp-db
+    databaseName: rzi_camp
+    user: rzi_user
+    plan: free
+
+services:
+  # ── BACKEND DJANGO ──
+  - type: web
+    name: rzi-camp-backend
+    plan: free
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn rzi_camp.wsgi --log-file -
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rzi-camp-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # ── FRONTEND REACT ──
+  - type: web
+    name: rzi-camp-frontend
+    plan: free
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: rzi-camp-backend
+          type: web
+          property: host
+          envVarKey: RENDER_EXTERNAL_URL

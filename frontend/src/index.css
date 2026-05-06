@@ -17,8 +17,3 @@ body { font-family: 'DM Sans', 'Segoe UI', sans-serif; background: var(--bg); co
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
-
-
-
-

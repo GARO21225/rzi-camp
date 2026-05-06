@@ -7,34 +7,32 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import MapPage from './pages/MapPage'
 import Residences from './pages/Residences'
+import Personnel from './pages/Personnel'
 import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import AuditPage from './pages/AuditPage'
 
 function PrivateRoute({ children }) {
-  const token = useStore(s => s.token)
-  return token ? children : <Navigate to="/login" replace />
+  const token = useStore(s=>s.token)
+  return token ? children : <Navigate to="/login" replace/>
 }
 
 export default function App() {
   const { token, setUser, logout } = useStore()
-
-  useEffect(() => {
-    if (token) {
-      auth.me().then(r => setUser(r.data)).catch(() => logout())
-    }
-  }, [token])
-
+  useEffect(()=>{
+    if (token) auth.me().then(r=>setUser(r.data)).catch(()=>logout())
+  },[token])
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-        <Route index element={<Dashboard />} />
-        <Route path="carte" element={<MapPage />} />
-        <Route path="residences" element={<Residences />} />
-        <Route path="restauration" element={<Restauration />} />
-        <Route path="maintenance" element={<Maintenance />} />
-        <Route path="audit" element={<AuditPage />} />
+      <Route path="/login" element={<Login/>}/>
+      <Route path="/" element={<PrivateRoute><Layout/></PrivateRoute>}>
+        <Route index element={<Dashboard/>}/>
+        <Route path="carte" element={<MapPage/>}/>
+        <Route path="residences" element={<Residences/>}/>
+        <Route path="personnel" element={<Personnel/>}/>
+        <Route path="restauration" element={<Restauration/>}/>
+        <Route path="maintenance" element={<Maintenance/>}/>
+        <Route path="audit" element={<AuditPage/>}/>
       </Route>
     </Routes>
   )
