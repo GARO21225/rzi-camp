@@ -40,6 +40,7 @@ export const personnel = {
   update: (id,d) => api.patch(`/api/personnel/${id}/`, d),
   delete: (id) => api.delete(`/api/personnel/${id}/`),
   regenererQr: (id) => api.post(`/api/personnel/${id}/regenerer_qr/`),
+  regenererCompte: (id) => api.post(`/api/personnel/${id}/regenerer_compte/`),
 }
 export const incidents = {
   list: (p) => api.get('/api/incidents/', {params:p}),

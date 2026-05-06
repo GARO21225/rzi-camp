@@ -1,24 +1,26 @@
+
 import React, { useEffect, useState } from 'react'
 import { personnel as personnelAPI } from '../api'
+import { useStore } from '../store'
 
 const TYPE_COLORS = {
-  roxgold: { bg:'rgba(240,165,0,.15)', color:'#f0a500' },
-  sous_traitant: { bg:'rgba(59,130,246,.15)', color:'#3b82f6' },
-  visiteur: { bg:'rgba(168,85,247,.15)', color:'#a855f7' },
+  roxgold:{ bg:'rgba(240,165,0,.12)', color:'#d08800', border:'rgba(240,165,0,.3)' },
+  sous_traitant:{ bg:'rgba(37,99,235,.1)', color:'#2563eb', border:'rgba(37,99,235,.2)' },
+  visiteur:{ bg:'rgba(124,58,237,.1)', color:'#7c3aed', border:'rgba(124,58,237,.2)' },
 }
 const TYPE_LABELS = { roxgold:'Agent Roxgold', sous_traitant:'Sous-traitant', visiteur:'Visiteur' }
-
-const inp = { width:'100%', background:'var(--surface2)', border:'1px solid var(--border)',
-  color:'var(--text)', padding:'8px 12px', borderRadius:7, fontSize:13, outline:'none',
-  marginBottom:0, fontFamily:'inherit' }
+const TYPE_PREFIX = { roxgold:'A', sous_traitant:'S', visiteur:'V' }
 
 export default function Personnel() {
+  const { user } = useStore()
+  const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const [modal, setModal] = useState(null) // null | 'create' | 'edit' | 'qr'
-  const [selected, setSelected] = useState(null)
+  const [modal, setModal] = useState(null)
+  const [qrModal, setQrModal] = useState(null)
+  const [credModal, setCredModal] = useState(null)
   const [form, setForm] = useState({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
 
   const load = () => {
@@ -26,23 +28,41 @@ export default function Personnel() {
     const p = {}
     if (search) p.search = search
     if (typeFilter) p.type_personnel = typeFilter
-    personnelAPI.list(p).then(r => setData(r.data.results||r.data)).finally(()=>setLoading(false))
+    personnelAPI.list(p).then(r=>setData(r.data.results||r.data)).finally(()=>setLoading(false))
   }
 
-  useEffect(()=>{ load() }, [search, typeFilter])
+  useEffect(()=>{load()},[search,typeFilter])
 
   const openCreate = () => {
+    if (!isAdmin) return alert('Seul l\'admin peut créer du personnel')
     setForm({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
     setModal('create')
   }
-  const openEdit = (p) => { setSelected(p); setForm({nom:p.nom,prenom:p.prenom,societe:p.societe,numero:p.numero,type_personnel:p.type_personnel,email:p.email||''}); setModal('edit') }
-  const openQR = (p) => { setSelected(p); setModal('qr') }
 
   const save = async () => {
-    if (!form.nom||!form.prenom||!form.societe) return alert('Nom, Prénom et Société obligatoires')
-    if (modal==='create') await personnelAPI.create(form)
-    else await personnelAPI.update(selected.id, form)
-    setModal(null); load()
+    if (!form.nom||!form.prenom||!form.societe) return alert('Nom, Prénom, Société obligatoires')
+    try {
+      const r = await personnelAPI.create(form)
+      // Show credentials if returned
+      if (r.data.login_genere) {
+        setCredModal({ nom:`${r.data.nom} ${r.data.prenom}`, login:r.data.login_genere, password:r.data.password_genere })
+      }
+      setModal(null); load()
+    } catch(e) {
+      alert(e.response?.data?.error || 'Erreur création')
+    }
+  }
+
+  const regenQR = async (id) => {
+    const r = await personnelAPI.regenererQr(id)
+    setQrModal(r.data); load()
+  }
+
+  const regenCompte = async (p) => {
+    try {
+      const r = await personnelAPI.regenererCompte(p.id)
+      setCredModal({ nom:`${p.nom} ${p.prenom}`, login:r.data.login, password:r.data.password })
+    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
   }
 
   const del = async (id) => {
@@ -50,161 +70,215 @@ export default function Personnel() {
     await personnelAPI.delete(id); load()
   }
 
-  const regenQR = async (id) => {
-    const r = await personnelAPI.regenererQr(id)
-    setSelected(r.data); load()
+  // Preview login/pass based on form
+  const previewLogin = () => {
+    if (!form.nom||!form.prenom) return { login:'—', password:'—' }
+    const prefix = {roxgold:'a',sous_traitant:'s',visiteur:'v'}[form.type_personnel]||'u'
+    const prenomSlug = form.prenom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
+    const nomInit = (form.nom[0]||'x').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
+    const login = `${prefix}_${nomInit}${prenomSlug}`
+    const digits = (form.numero||'').replace(/\D/g,'').slice(-4)||'0000'
+    const password = `${(form.nom[0]||'').toUpperCase()}${(form.prenom[0]||'').toUpperCase()}${digits}`
+    return { login, password }
   }
+  const preview = previewLogin()
 
-  const typeCount = { roxgold:0, sous_traitant:0, visiteur:0 }
-  data.forEach(p => typeCount[p.type_personnel] = (typeCount[p.type_personnel]||0)+1)
+  const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
 
   return (
     <div style={{ padding:20 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <div>
-          <h2 style={{ fontSize:20, fontWeight:700 }}>👤 Gestion du Personnel</h2>
-          <p style={{ fontSize:13, color:'var(--text-dim)', marginTop:4 }}>Agents Roxgold · Sous-traitants · Visiteurs</p>
+          <h2 style={{ fontSize:20, fontWeight:700, color:'var(--blue)' }}>👤 Gestion du Personnel</h2>
+          <p style={{ fontSize:13, color:'var(--text-dim)', marginTop:4 }}>Agents Roxgold · Sous-traitants · Visiteurs · Comptes utilisateurs</p>
         </div>
-        <button onClick={openCreate} style={{ background:'var(--accent)', color:'#000', border:'none', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:600 }}>
-          + Déclarer un membre
-        </button>
+        {isAdmin && (
+          <button onClick={openCreate} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>
+            + Déclarer un membre
+          </button>
+        )}
       </div>
 
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
-        {[['Agent Roxgold','roxgold',data.filter(p=>p.type_personnel==='roxgold').length],
-          ['Sous-traitants','sous_traitant',data.filter(p=>p.type_personnel==='sous_traitant').length],
-          ['Visiteurs','visiteur',data.filter(p=>p.type_personnel==='visiteur').length]].map(([l,t,n])=>(
-          <div key={t} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:14,
-            borderTop:`3px solid ${TYPE_COLORS[t].color}`, cursor:'pointer', transition:'.2s',
-            outline: typeFilter===t?`2px solid ${TYPE_COLORS[t].color}`:'none' }}
-            onClick={()=>setTypeFilter(typeFilter===t?'':t)}>
-            <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:700, color:TYPE_COLORS[t].color }}>{n}</div>
-            <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{l}</div>
-          </div>
-        ))}
+        {[['Agent Roxgold','roxgold'],['Sous-traitants','sous_traitant'],['Visiteurs','visiteur']].map(([l,t])=>{
+          const n = data.filter(p=>p.type_personnel===t).length
+          const c = TYPE_COLORS[t]
+          return (
+            <div key={t} onClick={()=>setTypeFilter(typeFilter===t?'':t)}
+              style={{ background:'#fff', border:`2px solid ${typeFilter===t?c.color:'var(--border)'}`, borderRadius:12,
+                padding:16, cursor:'pointer', transition:'.2s', boxShadow:'var(--shadow)',
+                borderTop:`4px solid ${c.color}` }}>
+              <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:700, color:c.color }}>{n}</div>
+              <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{TYPE_PREFIX[t]} — {l}</div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Filtres */}
       <div style={{ display:'flex', gap:10, marginBottom:16 }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher nom, société..."
-          style={{ ...inp, marginBottom:0, width:220 }}/>
-        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}
-          style={{ background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', padding:'7px 10px', borderRadius:7, fontSize:12, outline:'none' }}>
-          <option value="">Tous types</option>
-          <option value="roxgold">Agent Roxgold</option>
-          <option value="sous_traitant">Sous-traitant</option>
-          <option value="visiteur">Visiteur</option>
-        </select>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+          style={{ ...inp, width:200 }}/>
         {(search||typeFilter) && <button onClick={()=>{setSearch('');setTypeFilter('')}}
           style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text-dim)', padding:'7px 12px', borderRadius:7, fontSize:12, cursor:'pointer' }}>✕ Reset</button>}
       </div>
 
-      {/* Table */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' }}>
+      {/* TABLE */}
+      <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
           <thead>
-            <tr style={{ background:'var(--surface2)' }}>
-              {['Nom & Prénom','Société','Type','Téléphone','QR Code','Actions'].map(h=>(
-                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'var(--text-dim)', letterSpacing:1, textTransform:'uppercase', fontWeight:400 }}>{h}</th>
+            <tr style={{ background:'var(--blue)' }}>
+              {['Nom & Prénom','Société','Type','Téléphone','Login','QR Code','Actions'].map(h=>(
+                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'rgba(255,255,255,.85)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={6} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</td></tr>
-            ) : data.length===0 ? (
-              <tr><td colSpan={6} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre déclaré</td></tr>
-            ) : data.map(p=>(
-              <tr key={p.id} style={{ borderTop:'1px solid var(--border)' }}>
-                <td style={{ padding:'10px 14px' }}>
-                  <div style={{ fontWeight:600 }}>{p.nom} {p.prenom}</div>
-                  {p.email && <div style={{ fontSize:11, color:'var(--text-dim)' }}>{p.email}</div>}
-                </td>
-                <td style={{ padding:'10px 14px' }}>{p.societe}</td>
-                <td style={{ padding:'10px 14px' }}>
-                  <span style={{ background:TYPE_COLORS[p.type_personnel]?.bg, color:TYPE_COLORS[p.type_personnel]?.color,
-                    padding:'3px 8px', borderRadius:20, fontSize:11, fontWeight:600 }}>
-                    {TYPE_LABELS[p.type_personnel]||p.type_personnel}
-                  </span>
-                </td>
-                <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12 }}>{p.numero||'—'}</td>
-                <td style={{ padding:'10px 14px' }}>
-                  <button onClick={()=>openQR(p)}
-                    style={{ background:'rgba(240,165,0,.15)', color:'var(--accent)', border:'1px solid rgba(240,165,0,.3)',
-                      padding:'3px 10px', borderRadius:5, cursor:'pointer', fontSize:11 }}>
-                    📱 Voir QR
-                  </button>
-                </td>
-                <td style={{ padding:'10px 14px', display:'flex', gap:6 }}>
-                  <button onClick={()=>openEdit(p)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'4px 10px', borderRadius:5, cursor:'pointer', fontSize:11 }}>✏️</button>
-                  <button onClick={()=>del(p.id)} style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.3)', color:'#ef4444', padding:'4px 10px', borderRadius:5, cursor:'pointer', fontSize:11 }}>🗑️</button>
-                </td>
-              </tr>
-            ))}
+            {loading?<tr><td colSpan={7} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</td></tr>
+            :data.length===0?<tr><td colSpan={7} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre</td></tr>
+            :data.map((p,i)=>{
+              const c=TYPE_COLORS[p.type_personnel]
+              return (
+                <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background:i%2?'var(--surface2)':'#fff' }}>
+                  <td style={{ padding:'10px 14px' }}><div style={{ fontWeight:700, color:'var(--blue)' }}>{p.nom} {p.prenom}</div>{p.email&&<div style={{ fontSize:11, color:'var(--text-dim)' }}>{p.email}</div>}</td>
+                  <td style={{ padding:'10px 14px', fontSize:12 }}>{p.societe}</td>
+                  <td style={{ padding:'10px 14px' }}><span style={{ background:c?.bg, color:c?.color, border:`1px solid ${c?.border}`, padding:'3px 8px', borderRadius:20, fontSize:11, fontWeight:700 }}>{TYPE_PREFIX[p.type_personnel]} — {TYPE_LABELS[p.type_personnel]}</span></td>
+                  <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12 }}>{p.numero||'—'}</td>
+                  <td style={{ padding:'10px 14px' }}>
+                    {p.login_genere
+                      ? <div style={{ fontFamily:'monospace', fontSize:11, background:'var(--surface2)', padding:'4px 8px', borderRadius:6 }}>
+                          <div style={{ color:'var(--blue)', fontWeight:700 }}>{p.login_genere}</div>
+                          {isAdmin && <div style={{ color:'var(--text-dim)', fontSize:10 }}>••••••</div>}
+                        </div>
+                      : <span style={{ color:'var(--text-dim)', fontSize:11 }}>—</span>
+                    }
+                  </td>
+                  <td style={{ padding:'10px 14px' }}>
+                    <button onClick={()=>setQrModal(p)}
+                      style={{ background:c?.bg, color:c?.color, border:`1px solid ${c?.border}`, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
+                      📱 QR
+                    </button>
+                  </td>
+                  <td style={{ padding:'10px 14px' }}>
+                    <div style={{ display:'flex', gap:5 }}>
+                      {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
+                      {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>🗑</button>}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* MODAL FORM */}
-      {(modal==='create'||modal==='edit') && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, width:460, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto' }}>
-            <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between' }}>
-              <h3>{modal==='create'?'👤 Déclarer un membre':'✏️ Modifier le membre'}</h3>
-              <button onClick={()=>setModal(null)} style={{ background:'var(--surface2)', border:'none', color:'var(--text-dim)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+      {/* MODAL CREATE */}
+      {modal==='create' && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+          <div style={{ background:'#fff', borderRadius:16, width:520, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:16 }}>👤 Déclarer un membre du personnel</h3>
+              <button onClick={()=>setModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'20px 24px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               {[['Nom *','nom'],['Prénom *','prenom'],['Société *','societe'],['N° Téléphone','numero'],['Email','email']].map(([l,k])=>(
-                <div key={k} style={{ gridColumn: k==='email'?'span 2':'auto' }}>
+                <div key={k} style={{ gridColumn:k==='email'?'span 2':'auto' }}>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{l}</label>
                   <input value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} style={inp}/>
                 </div>
               ))}
               <div style={{ gridColumn:'span 2' }}>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Type *</label>
+                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Type *</label>
                 <div style={{ display:'flex', gap:8 }}>
-                  {[['roxgold','Agent Roxgold'],['sous_traitant','Sous-traitant'],['visiteur','Visiteur']].map(([v,l])=>(
-                    <button key={v} onClick={()=>setForm({...form,type_personnel:v})}
-                      style={{ flex:1, padding:'8px 6px', borderRadius:7, border:`2px solid ${form.type_personnel===v?TYPE_COLORS[v].color:'var(--border)'}`,
-                        background: form.type_personnel===v?TYPE_COLORS[v].bg:'var(--surface2)',
-                        color: form.type_personnel===v?TYPE_COLORS[v].color:'var(--text-dim)', cursor:'pointer', fontSize:11, fontWeight:600 }}>
-                      {l}
-                    </button>
-                  ))}
+                  {[['roxgold','A — Agent Roxgold'],['sous_traitant','S — Sous-traitant'],['visiteur','V — Visiteur']].map(([v,l])=>{
+                    const c=TYPE_COLORS[v]
+                    return (
+                      <button key={v} onClick={()=>setForm({...form,type_personnel:v})}
+                        style={{ flex:1, padding:'9px 6px', borderRadius:8, border:`2px solid ${form.type_personnel===v?c.color:'var(--border)'}`,
+                          background:form.type_personnel===v?c.bg:'#fff', color:form.type_personnel===v?c.color:'var(--text-dim)',
+                          cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {l}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
-            <div style={{ padding:'12px 24px 20px', background:'rgba(240,165,0,.05)', borderRadius:'0 0 8px 8px', fontSize:11, color:'var(--text-dim)' }}>
-              📱 Un QR Code unique sera généré automatiquement : <b style={{color:'var(--text)'}}>Nom | Prénom | Société | Téléphone</b>
+
+            {/* Compte preview */}
+            <div style={{ margin:'0 24px 20px', background:'rgba(30,58,138,.06)', border:'1px solid rgba(30,58,138,.15)', borderRadius:10, padding:14 }}>
+              <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', letterSpacing:2, marginBottom:8, textTransform:'uppercase' }}>Compte qui sera créé automatiquement</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:13 }}>
+                <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Login :</span><br/><b style={{ fontFamily:'monospace', color:'var(--blue)' }}>{preview.login}</b></div>
+                <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Mot de passe :</span><br/><b style={{ fontFamily:'monospace', color:'var(--blue)' }}>{preview.password}</b></div>
+              </div>
+              <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:8 }}>Format : {'{type}_{initiale_nom}{prenom}'} / {'{Initiale_Nom}{Initiale_Prenom}{4 derniers chiffres}'}</div>
             </div>
-            <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button onClick={()=>setModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={save} style={{ background:'var(--accent)', color:'#000', border:'none', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:600 }}>
-                {modal==='create'?'Déclarer & Générer QR':'Enregistrer'}
-              </button>
+
+            <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button onClick={()=>setModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer' }}>Annuler</button>
+              <button onClick={save} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontWeight:700 }}>Déclarer & Créer compte</button>
             </div>
           </div>
         </div>
       )}
 
       {/* MODAL QR */}
-      {modal==='qr' && selected && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.8)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, width:380, maxWidth:'95vw', padding:30, textAlign:'center' }}>
-            <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>{selected.nom} {selected.prenom}</div>
-            <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:16 }}>{selected.societe} · {TYPE_LABELS[selected.type_personnel]}</div>
-            {selected.qr_code_data
-              ? <img src={`data:image/png;base64,${selected.qr_code_data}`} alt="QR Code"
-                  style={{ width:200, height:200, borderRadius:8, background:'#fff', padding:8, margin:'0 auto 16px', display:'block' }}/>
-              : <div style={{ width:200, height:200, background:'var(--surface2)', borderRadius:8, margin:'0 auto 16px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-dim)' }}>Pas de QR</div>
-            }
-            <div style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 12px', fontSize:11, fontFamily:'monospace', color:'var(--text-dim)', marginBottom:16, wordBreak:'break-all' }}>
-              {selected.qr_code_string}
+      {qrModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+          <div style={{ background:'#fff', borderRadius:14, width:360, maxWidth:'95vw', boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'14px 14px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff' }}>📱 QR Code — {qrModal.nom} {qrModal.prenom}</h3>
+              <button onClick={()=>setQrModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
-            <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
-              <button onClick={()=>regenQR(selected.id)} style={{ background:'rgba(240,165,0,.15)', color:'var(--accent)', border:'1px solid rgba(240,165,0,.3)', padding:'7px 14px', borderRadius:7, cursor:'pointer', fontSize:12 }}>🔄 Régénérer QR</button>
-              <button onClick={()=>setModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'7px 14px', borderRadius:7, cursor:'pointer', fontSize:12 }}>Fermer</button>
+            <div style={{ padding:24, textAlign:'center' }}>
+              <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:12 }}>{qrModal.societe} · {TYPE_LABELS[qrModal.type_personnel]}</div>
+              {qrModal.qr_code_data
+                ? <img src={`data:image/png;base64,${qrModal.qr_code_data}`} alt="QR"
+                    style={{ width:200, height:200, borderRadius:8, border:'3px solid var(--border)', margin:'0 auto 14px', display:'block' }}/>
+                : <div style={{ width:200, height:200, background:'var(--surface2)', borderRadius:8, margin:'0 auto 14px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-dim)' }}>Pas de QR</div>
+              }
+              <div style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 12px', fontSize:11, fontFamily:'monospace', color:'var(--text-dim)', wordBreak:'break-all', marginBottom:14 }}>
+                {qrModal.qr_code_string}
+              </div>
+              {isAdmin && (
+                <button onClick={()=>regenQR(qrModal.id)}
+                  style={{ background:'rgba(37,99,235,.1)', color:'var(--blue)', border:'1px solid rgba(37,99,235,.2)', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                  🔄 Régénérer QR
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CREDENTIALS */}
+      {credModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:3000 }}>
+          <div style={{ background:'#fff', borderRadius:14, width:420, maxWidth:'95vw', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ padding:'18px 24px', background:'#16a34a', borderRadius:'14px 14px 0 0' }}>
+              <h3 style={{ color:'#fff' }}>✅ Compte créé — Communiquer à {credModal.nom}</h3>
+            </div>
+            <div style={{ padding:24 }}>
+              <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:10, padding:18, marginBottom:16 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Login</div>
+                    <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:'var(--blue)', background:'var(--surface2)', padding:'8px 12px', borderRadius:8 }}>{credModal.login}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Mot de passe</div>
+                    <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:'var(--blue)', background:'var(--surface2)', padding:'8px 12px', borderRadius:8 }}>{credModal.password}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize:12, color:'#dc2626', background:'rgba(220,38,38,.06)', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:'8px 12px', marginBottom:16 }}>
+                ⚠️ Notez ces informations et communiquez-les au membre. Le mot de passe ne sera plus affiché.
+              </div>
+              <button onClick={()=>setCredModal(null)} style={{ width:'100%', background:'var(--blue)', color:'#fff', border:'none', padding:12, borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:700 }}>
+                ✅ Compris — Fermer
+              </button>
             </div>
           </div>
         </div>
