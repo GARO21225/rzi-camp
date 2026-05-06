@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import MapPage from './pages/MapPage'
 import Residences from './pages/Residences'
 import Personnel from './pages/Personnel'
+import Voyages from './pages/Voyages'
 import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import AuditPage from './pages/AuditPage'
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="carte" element={<MapPage/>}/>
         <Route path="residences" element={<Residences/>}/>
         <Route path="personnel" element={<Personnel/>}/>
+        <Route path="voyages" element={<Voyages/>}/>
         <Route path="restauration" element={<Restauration/>}/>
         <Route path="maintenance" element={<Maintenance/>}/>
         <Route path="audit" element={<AuditPage/>}/>

@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "simple_history",
     "accounts",
+    "voyages",
     "residences",
     "maintenance",
     "restauration",

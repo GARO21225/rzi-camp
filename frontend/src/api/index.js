@@ -22,7 +22,7 @@ api.interceptors.response.use(r => r, async err => {
 })
 export default api
 export const auth = {
-  login: (u,p) => api.post('/api/auth/login/', {username:u, password:p}),
+  login: (u,p) => api.post('/api/auth/login/', {username:u,password:p}),
   me: () => api.get('/api/auth/me/'),
 }
 export const batiments = {
@@ -32,6 +32,7 @@ export const batiments = {
   update: (id,d) => api.patch(`/api/batiments/${id}/`, d),
   exportCsv: (p) => `${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`,
   exportBlocs: () => `${BASE}/api/batiments/export_par_bloc/`,
+  history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
 }
 export const personnel = {
   list: (p) => api.get('/api/personnel/', {params:p}),
@@ -50,6 +51,13 @@ export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scanner: (d) => api.post('/api/qr/scanner/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
+}
+export const voyages = {
+  list: (p) => api.get('/api/voyages/', {params:p}),
+  create: (d) => api.post('/api/voyages/', d),
+  partir: (id) => api.post(`/api/voyages/${id}/partir/`),
+  revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
+  stats: () => api.get('/api/voyages/stats/'),
 }
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),

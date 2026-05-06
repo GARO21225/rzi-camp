@@ -1,41 +1,45 @@
+
 from django.db import models
 from django.contrib.auth.models import User
+from residences.models import Personnel
 from simple_history.models import HistoricalRecords
-import secrets, hashlib, time
+import secrets, hashlib
 
 class QRToken(models.Model):
+    REPAS_CHOICES = [
+        ("petit_dejeuner","Petit-déjeuner"),
+        ("dejeuner","Déjeuner"),
+        ("diner","Dîner"),
+    ]
     token = models.CharField(max_length=64, unique=True)
-    residence = models.CharField(max_length=20)
+    personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True)
+    residence = models.CharField(max_length=20, blank=True)
     resident = models.CharField(max_length=100)
-    genere_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    type_repas = models.CharField(max_length=20, choices=REPAS_CHOICES, default="dejeuner")
+    genere_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="qr_generes")
     cree_le = models.DateTimeField(auto_now_add=True)
     expire_le = models.DateTimeField()
     utilise = models.BooleanField(default=False)
     utilise_le = models.DateTimeField(blank=True, null=True)
     device_id = models.CharField(max_length=200, blank=True)
 
-    @staticmethod
-    def generer(residence, resident, genere_par, duree_secondes=45):
-        from django.utils import timezone
-        from datetime import timedelta
-        raw = secrets.token_hex(16)
-        sig = hashlib.hmac_new('sha256', raw.encode(), b'rzi-camp-secret').hexdigest()[:16]
-        token = f"{raw[:8]}-{sig}"
-        expire = timezone.now() + timedelta(seconds=duree_secondes)
-        return QRToken.objects.create(token=token, residence=residence, resident=resident,
-                                      genere_par=genere_par, expire_le=expire)
-
     def __str__(self):
-        return f"QR {self.token[:8]}... — {self.resident} ({self.residence})"
+        return f"QR {self.token[:8]} - {self.resident} ({self.type_repas})"
+
 
 class RepasLog(models.Model):
-    qr_token = models.OneToOneField(QRToken, on_delete=models.CASCADE, related_name='repas')
+    qr_token = models.OneToOneField(QRToken, on_delete=models.CASCADE, related_name="repas")
+    personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="repas_pris")
     valide_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     date_validation = models.DateTimeField(auto_now_add=True)
     history = HistoricalRecords()
 
     class Meta:
-        ordering = ['-date_validation']
+        ordering = ["-date_validation"]
+
+    def __str__(self):
+        return f"{self.qr_token.resident} - {self.qr_token.type_repas} - {self.date_validation}"
+
 
 class AuditLog(models.Model):
     utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -46,7 +50,4 @@ class AuditLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-timestamp']
-
-    def __str__(self):
-        return f"[{self.timestamp}] {self.action} — {self.utilisateur}"
+        ordering = ["-timestamp"]
