@@ -12,6 +12,7 @@ export default function Residences() {
   const [statut, setStatut] = useState('')
   const [bloc, setBloc] = useState('')
   const [blocs, setBlocs] = useState([])
+  const [futurDepart, setFuturDepart] = useState(false)
   const [modal, setModal] = useState(null)
   const [histModal, setHistModal] = useState(null)
   const [history, setHistory] = useState([])
@@ -23,6 +24,7 @@ export default function Residences() {
     if (search) p.search = search
     if (statut) p.statut = statut
     if (bloc) p.bloc = bloc
+    if (futurDepart) p.futur_depart = 's1'
     batiments.list(p).then(r=>{
       const items = r.data.results||r.data
       setData(items)
@@ -32,7 +34,7 @@ export default function Residences() {
     personnelAPI.list({page_size:500}).then(r=>setPersonnelList(r.data.results||r.data))
   }
 
-  useEffect(()=>{load()},[search,statut,bloc])
+  useEffect(()=>{load()},[search,statut,bloc,futurDepart])
 
   const openEdit = (b) => {
     setModal(b)
@@ -94,7 +96,13 @@ export default function Residences() {
           <option value="">Tous blocs</option>
           {blocs.map(b=><option key={b}>{b}</option>)}
         </select>
-        <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text-dim)', display:'flex', alignItems:'center', background:'var(--surface2)', padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)' }}>
+        <button onClick={()=>setFuturDepart(!futurDepart)}
+          style={{ padding:'7px 14px', borderRadius:8, border:`1px solid ${futurDepart?'#dc2626':'var(--border)'}`,
+            background:futurDepart?'rgba(220,38,38,.1)':'var(--surface2)', color:futurDepart?'#dc2626':'var(--text-dim)',
+            cursor:'pointer', fontSize:12, fontWeight:futurDepart?700:400 }}>
+          ✈️ Futur départ S-1{futurDepart?' ✓':''}
+        </button>
+        <div style={{ fontSize:12, color:'var(--text-dim)', display:'flex', alignItems:'center', background:'var(--surface2)', padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)' }}>
           {data.length} résidences
         </div>
       </div>
