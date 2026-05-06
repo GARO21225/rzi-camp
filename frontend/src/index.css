@@ -1,0 +1,24 @@
+:root {
+  --bg: #0a0d12;
+  --surface: #111620;
+  --surface2: #181e2a;
+  --border: #1e2736;
+  --accent: #f0a500;
+  --accent2: #e05c1a;
+  --libre: #22c55e;
+  --occupe: #ef4444;
+  --reserve: #3b82f6;
+  --maintenance: #f97316;
+  --text: #e8edf5;
+  --text-dim: #7a8ba0;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+
+
+
+

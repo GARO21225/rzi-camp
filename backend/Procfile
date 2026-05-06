@@ -1,0 +1,2 @@
+web: gunicorn rzi_camp.wsgi --log-file -
+release: python manage.py migrate && python manage.py seed_db
