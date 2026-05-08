@@ -41,6 +41,9 @@ export const personnel = {
   delete: (id) => api.delete(`/api/personnel/${id}/`),
   regenererQr: (id) => api.post(`/api/personnel/${id}/regenerer_qr/`),
   regenererCompte: (id) => api.post(`/api/personnel/${id}/regenerer_compte/`),
+  historiqueVoyages: (id) => api.get(`/api/personnel/${id}/historique_voyages/`),
+  historiqueChambre: (id, p) => api.get(`/api/personnel/${id}/historique_chambres/`, {params:p}),
+  assigRole: (id, role) => api.patch(`/api/personnel/${id}/assigner_role/`, {role}),
 }
 export const incidents = {
   list: (p) => api.get('/api/incidents/', {params:p}),
@@ -52,6 +55,10 @@ export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scanner: (d) => api.post('/api/qr/scanner/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
+}
+export const occupationHistory = {
+  recherche: (p) => api.get('/api/occupation-history/recherche/', {params:p}),
+  list: (p) => api.get('/api/occupation-history/', {params:p}),
 }
 export const voyages = {
   list: (p) => api.get('/api/voyages/', {params:p}),

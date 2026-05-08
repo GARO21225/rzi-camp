@@ -61,6 +61,42 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             Profile.objects.filter(user=p.user).update(role=role)
         return Response({"ok":True,"role":role})
 
+    @action(detail=True, methods=["get"])
+    def historique_voyages(self, request, pk=None):
+        """Nombre de voyages et destinations pour un personnel"""
+        p = self.get_object()
+        from voyages.models import Voyage
+        voys = Voyage.objects.filter(personnel=p).order_by("-date_depart")
+        data = {
+            "personnel": f"{p.nom} {p.prenom}",
+            "total_voyages": voys.count(),
+            "voyages": [
+                {
+                    "id": v.id,
+                    "destination": v.destination or "Non spécifiée",
+                    "motif": v.motif,
+                    "date_depart": str(v.date_depart),
+                    "date_retour_prevue": str(v.date_retour_prevue),
+                    "date_retour_effective": str(v.date_retour_effective) if v.date_retour_effective else None,
+                    "statut": v.statut,
+                    "chambre": v.batiment.residence if v.batiment else None,
+                }
+                for v in voys
+            ]
+        }
+        return Response(data)
+
+    @action(detail=True, methods=["get"])
+    def historique_chambres(self, request, pk=None):
+        """Où a dormi ce personnel (avec filtres dates)"""
+        p = self.get_object()
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+        qs = OccupationHistory.objects.filter(personnel=p).select_related("batiment")
+        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
+        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
+        return Response(OccupationHistorySerializer(qs, many=True).data)
+
 
 class BatimentViewSet(viewsets.ModelViewSet):
     queryset = Batiment.objects.select_related("personnel").all()
@@ -81,14 +117,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
             today = datetime.date.today()
             s1_end = today + datetime.timedelta(days=7)
             qs = qs.filter(date_depart__gte=today, date_depart__lte=s1_end)
-        # Natural sort
         items = list(qs)
-        items = natsorted(items, key=lambda x: x.residence)
-        return items
+        return natsorted(items, key=lambda x: x.residence)
 
     def list(self, request, *args, **kwargs):
         items = self.get_queryset()
-        # Apply search manually after natsort
         search = request.query_params.get("search","")
         if search:
             items = [x for x in items if search.lower() in x.residence.lower()
@@ -98,13 +131,33 @@ class BatimentViewSet(viewsets.ModelViewSet):
         return Response({"count":len(items),"results":serializer.data})
 
     def partial_update(self, request, *args, **kwargs):
-        import datetime
+        """FIX: properly handle personnel assignment and room liberation"""
         instance = self.get_object()
         old_personnel = instance.personnel
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        old_statut = instance.statut
+
+        data = request.data.copy()
+
+        # If personnel is provided as ID string, convert
+        personnel_id = data.get("personnel")
+        personnel_obj = None
+        if personnel_id and str(personnel_id).strip() and str(personnel_id) != "null":
+            try:
+                personnel_obj = Personnel.objects.get(pk=int(personnel_id))
+                if not data.get("occupant"):
+                    data["occupant"] = f"{personnel_obj.nom} {personnel_obj.prenom}"
+                if not data.get("societe"):
+                    data["societe"] = personnel_obj.societe
+            except (Personnel.DoesNotExist, ValueError):
+                pass
+        else:
+            data["personnel"] = None
+
+        serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         obj = serializer.save()
 
+        # Libre → clear everything
         if obj.statut == "Libre":
             Batiment.objects.filter(pk=obj.pk).update(
                 personnel=None, occupant=None, societe=None,
@@ -115,16 +168,21 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 OccupationHistory.objects.filter(
                     batiment=obj, personnel=old_personnel, date_depart__isnull=True
                 ).update(date_depart=datetime.date.today(), motif_depart="Libération manuelle")
-        elif obj.statut == "Occupé" and obj.personnel and obj.date_arrivee:
-            OccupationHistory.objects.get_or_create(
-                batiment=obj, personnel=obj.personnel, date_depart__isnull=True,
-                defaults={
-                    "occupant_nom":f"{obj.personnel.nom} {obj.personnel.prenom}",
-                    "societe":obj.personnel.societe,
-                    "date_arrivee":obj.date_arrivee,
-                    "enregistre_par":request.user,
-                }
-            )
+
+        # Occupé → create history
+        elif obj.statut == "Occupé" and obj.date_arrivee:
+            p = obj.personnel or old_personnel
+            if p:
+                OccupationHistory.objects.get_or_create(
+                    batiment=obj, personnel=p, date_depart__isnull=True,
+                    defaults={
+                        "occupant_nom": obj.occupant or f"{p.nom} {p.prenom}",
+                        "societe": obj.societe or p.societe,
+                        "date_arrivee": obj.date_arrivee,
+                        "enregistre_par": request.user,
+                    }
+                )
+
         return Response(self.get_serializer(obj).data)
 
     @action(detail=False, methods=["get"])
@@ -159,7 +217,6 @@ class BatimentViewSet(viewsets.ModelViewSet):
         total = qs.count()
         par_statut = dict(qs.values_list("statut").annotate(n=Count("id")).values_list("statut","n"))
         par_bloc = list(qs.values("bloc").annotate(total=Count("id")).order_by("bloc"))
-        # S-1 departures
         today = datetime.date.today()
         s1_end = today + datetime.timedelta(days=7)
         departs_s1 = qs.filter(date_depart__gte=today, date_depart__lte=s1_end).count()
@@ -171,8 +228,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])
     def export_csv(self, request):
-        qs = list(Batiment.objects.select_related("personnel").all())
-        qs = natsorted(qs, key=lambda x: x.residence)
+        qs = natsorted(list(Batiment.objects.select_related("personnel").all()), key=lambda x: x.residence)
         statut = request.query_params.get("statut")
         if statut: qs = [b for b in qs if b.statut==statut]
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -213,10 +269,59 @@ class BatimentViewSet(viewsets.ModelViewSet):
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
     serializer_class = OccupationHistorySerializer
+
     def get_queryset(self):
         qs = super().get_queryset()
         batiment = self.request.query_params.get("batiment")
         personnel = self.request.query_params.get("personnel")
+        date_debut = self.request.query_params.get("date_debut")
+        date_fin = self.request.query_params.get("date_fin")
         if batiment: qs = qs.filter(batiment__residence=batiment)
         if personnel: qs = qs.filter(personnel_id=personnel)
+        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
+        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
         return qs
+
+    @action(detail=False, methods=["get"])
+    def recherche(self, request):
+        """
+        Recherche croisée :
+        - Chambre X : qui a dormi là entre date1 et date2 ?
+        - Personne X : où a-t-elle dormi entre date1 et date2 ?
+        """
+        batiment = request.query_params.get("batiment")
+        personnel_id = request.query_params.get("personnel")
+        date_debut = request.query_params.get("date_debut")
+        date_fin = request.query_params.get("date_fin")
+        nom_search = request.query_params.get("nom")
+
+        qs = OccupationHistory.objects.select_related("batiment","personnel").all()
+        if batiment: qs = qs.filter(batiment__residence__icontains=batiment)
+        if personnel_id: qs = qs.filter(personnel_id=personnel_id)
+        if nom_search: qs = qs.filter(occupant_nom__icontains=nom_search)
+        # Date overlap: arrivee <= date_fin AND (depart >= date_debut OR depart is null)
+        if date_debut:
+            from django.db.models import Q
+            qs = qs.filter(Q(date_depart__gte=date_debut)|Q(date_depart__isnull=True))
+        if date_fin:
+            qs = qs.filter(date_arrivee__lte=date_fin)
+
+        results = []
+        for h in qs[:100]:
+            d1 = h.date_arrivee
+            d2 = h.date_depart or datetime.date.today()
+            days = (d2 - d1).days
+            results.append({
+                "id": h.id,
+                "residence": h.batiment.residence,
+                "bloc": h.batiment.bloc,
+                "occupant": h.occupant_nom,
+                "societe": h.societe,
+                "personnel_id": h.personnel_id,
+                "date_arrivee": str(h.date_arrivee),
+                "date_depart": str(h.date_depart) if h.date_depart else None,
+                "duree_jours": days,
+                "en_cours": h.date_depart is None,
+                "motif_depart": h.motif_depart,
+            })
+        return Response({"count":len(results),"results":results})

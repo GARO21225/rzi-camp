@@ -49,18 +49,30 @@ export default function Residences() {
   }
 
   const save = async () => {
-    const payload = { statut: form.statut, date_arrivee: form.date_arrivee||null, date_depart: form.date_depart||null }
-    if (form.personnel) {
-      payload.personnel = form.personnel
-      const p = personnelList.find(x=>x.id==form.personnel)
-      if (p) { payload.occupant=`${p.nom} ${p.prenom}`; payload.societe=p.societe }
-    } else {
-      payload.personnel = null
-      payload.occupant = form.occupant
-      payload.societe = form.societe
+    try {
+      const payload = {
+        statut: form.statut,
+        date_arrivee: form.date_arrivee || null,
+        date_depart: form.date_depart || null,
+      }
+      if (form.personnel && form.personnel !== '') {
+        payload.personnel = parseInt(form.personnel)
+        const p = personnelList.find(x => x.id == form.personnel)
+        if (p) {
+          payload.occupant = `${p.nom} ${p.prenom}`
+          payload.societe = p.societe
+        }
+      } else {
+        payload.personnel = null
+        payload.occupant = form.occupant || null
+        payload.societe = form.societe || null
+      }
+      await batiments.update(modal.id, payload)
+      setModal(null)
+      load()
+    } catch(e) {
+      alert('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
     }
-    await batiments.update(modal.id, payload)
-    setModal(null); load()
   }
 
   const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%', transition:'.2s' }
