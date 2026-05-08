@@ -58,6 +58,35 @@ class VoyageViewSet(viewsets.ModelViewSet):
             "annules": qs.filter(statut="annule").count(),
         })
 
+
+    @action(detail=True, methods=["post"])
+    def annuler(self, request, pk=None):
+        """
+        Annule un voyage planifié SANS toucher à la chambre ni à l'historique.
+        Utilisé pour corriger une erreur de déclaration.
+        """
+        voyage = self.get_object()
+        if voyage.statut == "en_voyage":
+            return Response({"error":"Impossible d'annuler un voyage déjà commencé. Utilisez 'revenir' à la place."}, status=400)
+        if voyage.statut == "retour":
+            return Response({"error":"Voyage déjà terminé"}, status=400)
+        voyage.statut = "annule"
+        voyage.save()
+        return Response({"ok":True,"message":"Voyage annulé. Aucune modification de chambre ni d'historique."})
+
+    @action(detail=True, methods=["delete"])
+    def supprimer_planifie(self, request, pk=None):
+        """
+        Supprime complètement un voyage planifié (erreur de déclaration).
+        Ne crée aucune entrée dans l'historique.
+        """
+        voyage = self.get_object()
+        if voyage.statut != "planifie":
+            return Response({"error":"Seuls les voyages planifiés peuvent être supprimés. Pour annuler un voyage en cours, utilisez l'action 'annuler'."}, status=400)
+        voyage_info = str(voyage)
+        voyage.delete()
+        return Response({"ok":True,"message":f"Voyage supprimé: {voyage_info}. Aucune trace dans l'historique."})
+
     @action(detail=False, methods=["get"])
     def vue_ensemble(self, request):
         """Vue globale de tous les voyages avec stats par personnel"""

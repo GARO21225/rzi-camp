@@ -8,14 +8,14 @@ const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAisAAAEqCAYAAADUGhAQ
 const KPI = ({ value, label, color, icon, onClick }) => (
   <div onClick={onClick} style={{
     background:'#fff', border:'1px solid var(--border)', borderRadius:12,
-    padding:'16px 18px', position:'relative', overflow:'hidden',
+    padding:'14px 16px', position:'relative', overflow:'hidden',
     borderTop:`4px solid ${color}`, boxShadow:'var(--shadow)',
-    cursor:onClick?'pointer':'default', transition:'.18s',
-    ':hover':{transform:'translateY(-2px)'}
+    cursor:onClick?'pointer':'default', WebkitTapHighlightColor:'transparent',
+    transition:'.15s',
   }}>
-    <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:700, color, lineHeight:1 }}>{value}</div>
+    <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:700, color, lineHeight:1 }}>{value}</div>
     <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:6, textTransform:'uppercase', letterSpacing:1 }}>{label}</div>
-    <div style={{ position:'absolute', top:14, right:14, fontSize:20, opacity:.2 }}>{icon}</div>
+    <div style={{ position:'absolute', top:12, right:12, fontSize:18, opacity:.2 }}>{icon}</div>
   </div>
 )
 
@@ -35,108 +35,95 @@ export default function Dashboard() {
   const s = stats?.par_statut || {}
 
   return (
-    <div style={{ padding:24 }}>
-      {/* HERO */}
+    <div style={{ padding:'16px' }}>
+      {/* HERO — responsive */}
       <div style={{
-        background:'linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%)',
-        borderRadius:16, padding:'20px 28px', marginBottom:24,
-        display:'flex', alignItems:'center', gap:24, boxShadow:'0 4px 20px rgba(30,58,138,.25)'
+        background:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+        borderRadius:14, padding:'16px 20px', marginBottom:20,
+        boxShadow:'0 4px 20px rgba(30,58,138,.25)'
       }}>
-        <div style={{ background:'#fff', borderRadius:10, padding:'8px 14px', flexShrink:0 }}>
-          <img src={LOGO} alt="Roxgold Sango" style={{ height:48, objectFit:'contain', display:'block' }}/>
-        </div>
-        <div style={{ width:1, height:56, background:'rgba(255,255,255,.2)', flexShrink:0 }}/>
-        <div>
-          <div style={{ fontFamily:'monospace', fontSize:10, color:'rgba(255,255,255,.55)', letterSpacing:3, textTransform:'uppercase', marginBottom:4 }}>ERP GIS INDUSTRIEL</div>
-          <div style={{ fontSize:20, fontWeight:700, color:'#fff', marginBottom:3 }}>Résidence Roxgold Sango</div>
-          <div style={{ fontSize:12, color:'rgba(255,255,255,.7)' }}>
-            {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:12 }}>
+          <div style={{ background:'#fff', borderRadius:8, padding:'6px 10px', flexShrink:0 }}>
+            <img src={LOGO} alt="Roxgold" style={{ height:38, objectFit:'contain', display:'block' }}/>
+          </div>
+          <div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,.55)', fontFamily:'monospace', letterSpacing:2, textTransform:'uppercase' }}>ERP GIS INDUSTRIEL</div>
+            <div style={{ fontSize:16, fontWeight:700, color:'#fff', marginTop:2 }}>Résidence Roxgold Sango</div>
+          </div>
+          <div style={{ marginLeft:'auto', textAlign:'right' }}>
+            <div style={{ fontFamily:'monospace', fontSize:32, fontWeight:700, color:'#f0a500' }}>{stats?.total??'—'}</div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,.6)', textTransform:'uppercase' }}>Bâtiments</div>
           </div>
         </div>
-        <div style={{ marginLeft:'auto', display:'flex', gap:20 }}>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ fontFamily:'monospace', fontSize:40, fontWeight:700, color:'#f0a500' }}>{stats?.total??'—'}</div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:1 }}>Bâtiments</div>
-          </div>
-          {stats?.departs_s1 > 0 && (
-            <div onClick={()=>setShowDeparts(!showDeparts)}>
-              <div style={{ background:'rgba(220,38,38,.2)', border:'1px solid rgba(220,38,38,.4)',
-                borderRadius:10, padding:'8px 14px', cursor:'pointer', transition:'.2s',
-                background:showDeparts?'rgba(220,38,38,.35)':'rgba(220,38,38,.2)' }}>
-                <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:700, color:'#fca5a5', textAlign:'center' }}>{stats.departs_s1}</div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,.7)', textTransform:'uppercase', letterSpacing:1, textAlign:'center' }}>Départs S-1</div>
-              </div>
-            </div>
-          )}
+        <div style={{ fontSize:12, color:'rgba(255,255,255,.7)' }}>
+          {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
         </div>
+        {stats?.departs_s1 > 0 && (
+          <div onClick={()=>setShowDeparts(!showDeparts)}
+            style={{ marginTop:10, background:'rgba(220,38,38,.25)', border:'1px solid rgba(220,38,38,.4)',
+              borderRadius:8, padding:'8px 14px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ color:'#fca5a5', fontSize:13, fontWeight:700 }}>⚠️ {stats.departs_s1} départ(s) dans les 7 prochains jours</span>
+            <span style={{ color:'rgba(255,255,255,.7)' }}>{showDeparts?'▲':'▼'}</span>
+          </div>
+        )}
       </div>
 
-      {/* S-1 departures list */}
+      {/* Departures list */}
       {showDeparts && stats?.departs_s1_list?.length > 0 && (
-        <div style={{ background:'#fff', border:'1px solid rgba(220,38,38,.3)', borderRadius:12, marginBottom:20, overflow:'hidden', boxShadow:'var(--shadow)' }}>
-          <div style={{ padding:'12px 18px', background:'rgba(220,38,38,.1)', borderBottom:'1px solid rgba(220,38,38,.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontWeight:600, color:'#dc2626', fontSize:14 }}>✈️ Départs prévus dans les 7 prochains jours</span>
-            <button onClick={()=>setShowDeparts(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626', fontSize:16 }}>✕</button>
-          </div>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
-            <thead><tr style={{ background:'var(--surface2)' }}>
-              {['Résidence','Occupant','Date départ'].map(h=>(
-                <th key={h} style={{ padding:'8px 14px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'var(--text-dim)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {stats.departs_s1_list.map((d,i)=>(
-                <tr key={i} style={{ borderTop:'1px solid var(--border)' }}>
-                  <td style={{ padding:'8px 14px', fontFamily:'monospace', fontWeight:700, color:'var(--blue)' }}>{d.residence}</td>
-                  <td style={{ padding:'8px 14px' }}>{d.occupant || (d.personnel__nom?`${d.personnel__nom} ${d.personnel__prenom}`:'—')}</td>
-                  <td style={{ padding:'8px 14px', fontFamily:'monospace', fontSize:11, color:'#dc2626', fontWeight:700 }}>{d.date_depart}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ background:'#fff', border:'1px solid rgba(220,38,38,.3)', borderRadius:12, marginBottom:16, overflow:'hidden' }}>
+          <div style={{ padding:'10px 16px', background:'rgba(220,38,38,.08)', borderBottom:'1px solid rgba(220,38,38,.15)', fontWeight:600, color:'#dc2626', fontSize:13 }}>✈️ Départs prévus S-1</div>
+          {stats.departs_s1_list.map((d,i)=>(
+            <div key={i} style={{ padding:'10px 16px', borderTop:i>0?'1px solid var(--border)':'none', display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:13 }}>
+              <div>
+                <span style={{ fontFamily:'monospace', fontWeight:700, color:'var(--blue)', marginRight:10 }}>{d.residence}</span>
+                <span>{d.occupant||(d.personnel__nom?`${d.personnel__nom} ${d.personnel__prenom}`:'—')}</span>
+              </div>
+              <span style={{ fontFamily:'monospace', fontSize:12, color:'#dc2626', fontWeight:700 }}>{d.date_depart}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))', gap:14, marginBottom:24 }}>
-        <KPI value={s['Libre']??'—'} label="Libres" color="#16a34a" icon="🟢" onClick={()=>navigate('/residences?statut=Libre')}/>
-        <KPI value={s['Occupé']??'—'} label="Occupés" color="#dc2626" icon="🔴" onClick={()=>navigate('/residences?statut=Occupé')}/>
-        <KPI value={s['Réservé']??'—'} label="Réservés" color="#2563eb" icon="🔵" onClick={()=>navigate('/residences?statut=Réservé')}/>
-        <KPI value={s['Maintenance']??'—'} label="Maintenance" color="#ea580c" icon="🟠" onClick={()=>navigate('/residences?statut=Maintenance')}/>
-        <KPI value={stats?.taux_occupation?`${stats.taux_occupation}%`:'—'} label="Taux occup." color="#7c3aed" icon="📈"/>
+      {/* KPIs — auto grid */}
+      <div className="kpi-grid">
+        <KPI value={s['Libre']??'—'} label="Libres" color="#16a34a" icon="🟢" onClick={()=>navigate('/residences')}/>
+        <KPI value={s['Occupé']??'—'} label="Occupés" color="#dc2626" icon="🔴" onClick={()=>navigate('/residences')}/>
+        <KPI value={s['Réservé']??'—'} label="Réservés" color="#2563eb" icon="🔵"/>
+        <KPI value={s['Maintenance']??'—'} label="Maintenance" color="#ea580c" icon="🟠"/>
+        <KPI value={stats?.taux_occupation?`${stats.taux_occupation}%`:'—'} label="Taux" color="#7c3aed" icon="📈"/>
         <KPI value={stats?.departs_s1??'—'} label="Départs S-1" color="#dc2626" icon="✈️" onClick={()=>setShowDeparts(!showDeparts)}/>
         <KPI value={incStats?.ouverts??'—'} label="Incidents" color="#dc2626" icon="🚨" onClick={()=>navigate('/maintenance')}/>
         <KPI value={voyStats?.en_voyage??'—'} label="En voyage" color="#ea580c" icon="✈️" onClick={()=>navigate('/voyages')}/>
       </div>
 
-      {/* Charts */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+      {/* Charts — stack on mobile */}
+      <div className="grid-2">
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
-          <div style={{ padding:'12px 18px', background:'var(--blue)', color:'#fff', fontWeight:600 }}>📦 Occupation par Bloc</div>
-          <div style={{ padding:'14px 16px' }}>
-            {stats?.par_bloc?.slice(0,12).map(b=>(
-              <div key={b.bloc} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:7, fontSize:12 }}>
-                <div style={{ width:68, color:'var(--text-dim)', fontSize:11, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{b.bloc}</div>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:4, height:10, overflow:'hidden' }}>
-                  <div style={{ height:'100%', background:'var(--blue)', borderRadius:4, width:`${Math.min((b.total/(stats?.total||1))*100*5,100)}%`, transition:'width .6s' }}/>
+          <div style={{ padding:'12px 16px', background:'var(--blue)', color:'#fff', fontWeight:600, fontSize:13 }}>📦 Par Bloc</div>
+          <div style={{ padding:'12px 14px' }}>
+            {stats?.par_bloc?.slice(0,10).map(b=>(
+              <div key={b.bloc} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, fontSize:12 }}>
+                <div style={{ width:65, color:'var(--text-dim)', fontSize:11, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flexShrink:0 }}>{b.bloc}</div>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:4, height:9, overflow:'hidden' }}>
+                  <div style={{ height:'100%', background:'var(--blue)', borderRadius:4, width:`${Math.min((b.total/(stats?.total||1))*100*5,100)}%` }}/>
                 </div>
-                <div style={{ width:22, fontFamily:'monospace', fontSize:11, color:'var(--text-dim)', fontWeight:700, textAlign:'right' }}>{b.total}</div>
+                <div style={{ width:22, fontFamily:'monospace', fontSize:11, color:'var(--text-dim)', fontWeight:700, textAlign:'right', flexShrink:0 }}>{b.total}</div>
               </div>
             ))}
           </div>
         </div>
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
-          <div style={{ padding:'12px 18px', background:'var(--blue)', color:'#fff', fontWeight:600 }}>📊 Répartition statuts</div>
-          <div style={{ padding:'18px 16px', display:'flex', flexDirection:'column', gap:14 }}>
-            {[['Libres','Libre','#16a34a'],['Occupés','Occupé','#dc2626'],['Réservés','Réservé','#2563eb'],['Maintenance','Maintenance','#ea580c']].map(([l,k,c])=>{
+          <div style={{ padding:'12px 16px', background:'var(--blue)', color:'#fff', fontWeight:600, fontSize:13 }}>📊 Statuts</div>
+          <div style={{ padding:'16px 14px', display:'flex', flexDirection:'column', gap:12 }}>
+            {[['Libres','Libre','#16a34a'],['Occupés','Occupé','#dc2626'],['Réservés','Réservé','#2563eb'],['Maint.','Maintenance','#ea580c']].map(([l,k,c])=>{
               const val=s[k]||0; const pct=stats?.total?Math.round(val/stats.total*100):0
               return (
                 <div key={k}>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:3 }}>
                     <span style={{ fontWeight:600 }}>{l}</span>
                     <span style={{ fontFamily:'monospace', color:c, fontWeight:700 }}>{val} <span style={{ color:'var(--text-dim)',fontWeight:400 }}>{pct}%</span></span>
                   </div>
-                  <div style={{ background:'var(--surface2)', borderRadius:6, height:12, overflow:'hidden' }}>
+                  <div style={{ background:'var(--surface2)', borderRadius:6, height:10, overflow:'hidden' }}>
                     <div style={{ height:'100%', background:c, borderRadius:6, width:`${pct}%`, transition:'width .8s' }}/>
                   </div>
                 </div>

@@ -13,3 +13,4 @@ qrcode[pil]>=7.4
 natsort>=8.4
 
 
+

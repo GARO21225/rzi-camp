@@ -168,7 +168,9 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
         elif obj.statut == "Occupé":
             p = obj.personnel or old_personnel
-            if p and obj.date_arrivee:
+            # Only create history if explicitly confirmed (confirm=true param)
+            confirm = request.data.get("confirm", "false")
+            if p and obj.date_arrivee and str(confirm).lower() in ("true","1","yes"):
                 OccupationHistory.objects.get_or_create(
                     batiment=obj, personnel=p, date_depart__isnull=True,
                     defaults={
@@ -376,3 +378,23 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         results.sort(key=lambda x: x["date_arrivee"], reverse=True)
         return Response({"count":len(results),"results":results})
+
+
+class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
+    """Admin-only: correct or delete wrong history entries"""
+    queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
+    serializer_class = OccupationHistorySerializer
+
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        instance = self.get_object()
+        batiment = instance.batiment
+        # If this was the current occupant, do NOT free the room — just remove the wrong history
+        instance.delete()
+        return Response({"ok":True,"message":"Entrée historique supprimée (chambre non modifiée)"})
+
+    def update(self, request, *args, **kwargs):
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)

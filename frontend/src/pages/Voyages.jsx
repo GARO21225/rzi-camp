@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { voyages, personnel as personnelAPI, batiments as batsAPI } from '../api'
 
+const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
+
 const STATUT_COLORS = {
   planifie: { bg:'rgba(37,99,235,.12)', color:'#2563eb' },
   en_voyage: { bg:'rgba(234,88,12,.12)', color:'#ea580c' },
@@ -50,6 +52,22 @@ export default function Voyages() {
     const date = prompt('Date de retour effectif (AAAA-MM-JJ):', today)
     if (!date) return
     await voyages.revenir(v.id, { date_retour: date }); load()
+  }
+
+  const annulerVoyage = async (v) => {
+    if (!window.confirm(`Annuler le voyage de ${v.personnel_detail?.nom} ${v.personnel_detail?.prenom} ?\n\nLa chambre ne sera PAS modifiée.\nAucune entrée dans l'historique.`)) return
+    try {
+      await voyages.annuler(v.id)
+      load()
+    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
+  }
+
+  const supprimerVoyage = async (v) => {
+    if (!window.confirm(`⚠️ SUPPRIMER complètement ce voyage ?\n\nUtilisez cette option uniquement en cas d'erreur de saisie.\nLa chambre et l'historique ne seront pas touchés.`)) return
+    try {
+      await voyages.supprimer(v.id)
+      load()
+    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
   }
 
   const inp = { background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
@@ -116,17 +134,28 @@ export default function Voyages() {
                       {STATUT_LABELS[v.statut]||v.statut}
                     </span>
                   </td>
-                  <td style={{ padding:'10px 14px', display:'flex', gap:6 }}>
-                    {v.statut==='planifie' && (
-                      <button onClick={()=>partir(v.id)} style={{ background:'rgba(234,88,12,.12)', color:'#ea580c', border:'1px solid rgba(234,88,12,.3)', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
-                        🚀 Partir
-                      </button>
-                    )}
-                    {v.statut==='en_voyage' && (
-                      <button onClick={()=>revenir(v)} style={{ background:'rgba(22,163,74,.12)', color:'var(--libre)', border:'1px solid rgba(22,163,74,.3)', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
-                        🏠 Retour
-                      </button>
-                    )}
+                  <td style={{ padding:'10px 14px' }}>
+                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                      {v.statut==='planifie' && <>
+                        <button onClick={()=>partir(v.id)} style={{ background:'rgba(234,88,12,.12)', color:'#ea580c', border:'1px solid rgba(234,88,12,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
+                          🚀 Partir
+                        </button>
+                        <button onClick={()=>annulerVoyage(v)} style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }}
+                          title="Annuler sans modifier la chambre ni l'historique">
+                          ✕ Annuler
+                        </button>
+                        <button onClick={()=>supprimerVoyage(v)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }}
+                          title="Supprimer complètement (erreur de saisie)">
+                          🗑
+                        </button>
+                      </>}
+                      {v.statut==='en_voyage' && (
+                        <button onClick={()=>revenir(v)} style={{ background:'rgba(22,163,74,.12)', color:'var(--libre)', border:'1px solid rgba(22,163,74,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
+                          🏠 Retour
+                        </button>
+                      )}
+                      {v.statut==='annule' && <span style={{ fontSize:11, color:'#64748b', fontStyle:'italic' }}>Annulé</span>}
+                    </div>
                   </td>
                 </tr>
               ))

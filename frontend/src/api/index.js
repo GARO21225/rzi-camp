@@ -29,7 +29,8 @@ export const batiments = {
   list: (p) => api.get('/api/batiments/', {params:p}),
   geojson: (p) => api.get('/api/batiments/geojson/', {params:p}),
   stats: () => api.get('/api/batiments/stats/'),
-  update: (id,d) => api.patch(`/api/batiments/${id}/`, d),
+  update: (id,d,confirm=false) => api.patch(`/api/batiments/${id}/`, {...d, confirm}),
+  updateDraft: (id,d) => api.patch(`/api/batiments/${id}/`, {...d, confirm:false}),
   exportCsv: (p) => `${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`,
   exportBlocs: () => `${BASE}/api/batiments/export_par_bloc/`,
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
@@ -56,6 +57,10 @@ export const qr = {
   scanner: (d) => api.post('/api/qr/scanner/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
 }
+export const occupationHistoryAdmin = {
+  delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
+  update: (id,d) => api.patch(`/api/occupation-history-admin/${id}/`, d),
+}
 export const occupationHistory = {
   recherche: (p) => api.get('/api/occupation-history/recherche/', {params:p}),
   list: (p) => api.get('/api/occupation-history/', {params:p}),
@@ -69,6 +74,8 @@ export const voyages = {
   stats: () => api.get('/api/voyages/stats/'),
   vueEnsemble: (p) => api.get('/api/voyages/vue_ensemble/', {params:p}),
   exportCsv: (p) => `${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`,
+  annuler: (id) => api.post(`/api/voyages/${id}/annuler/`),
+  supprimer: (id) => api.delete(`/api/voyages/${id}/supprimer_planifie/`),
 }
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
