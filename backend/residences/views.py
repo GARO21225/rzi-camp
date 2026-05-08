@@ -275,6 +275,31 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
         return qs
 
+
+    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    def export_csv(self, request):
+        import csv
+        from django.http import HttpResponse
+        qs = OccupationHistory.objects.select_related("batiment","personnel").order_by("-date_arrivee")
+        batiment = request.query_params.get("batiment")
+        personnel = request.query_params.get("personnel")
+        if batiment: qs = qs.filter(batiment__residence__icontains=batiment)
+        if personnel: qs = qs.filter(personnel_id=personnel)
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = "attachment; filename=historique_occupation.csv"
+        response.write("\ufeff")
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(["Residence","Bloc","Occupant","Societe","Arrivee","Depart","Duree jours","Motif depart"])
+        import datetime
+        today = datetime.date.today()
+        for h in qs:
+            d1 = h.date_arrivee
+            d2 = h.date_depart or today
+            days = (d2-d1).days
+            writer.writerow([h.batiment.residence,h.batiment.bloc,h.occupant_nom,h.societe or "",
+                str(h.date_arrivee),str(h.date_depart) if h.date_depart else "En cours",days,h.motif_depart or ""])
+        return response
+
     @action(detail=False, methods=["get"])
     def recherche(self, request):
         """

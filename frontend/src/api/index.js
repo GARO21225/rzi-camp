@@ -59,6 +59,7 @@ export const qr = {
 export const occupationHistory = {
   recherche: (p) => api.get('/api/occupation-history/recherche/', {params:p}),
   list: (p) => api.get('/api/occupation-history/', {params:p}),
+  exportCsv: (p) => `${BASE}/api/occupation-history/export_csv/?${new URLSearchParams(p||{})}`,
 }
 export const voyages = {
   list: (p) => api.get('/api/voyages/', {params:p}),
@@ -66,6 +67,8 @@ export const voyages = {
   partir: (id) => api.post(`/api/voyages/${id}/partir/`),
   revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
   stats: () => api.get('/api/voyages/stats/'),
+  vueEnsemble: (p) => api.get('/api/voyages/vue_ensemble/', {params:p}),
+  exportCsv: (p) => `${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`,
 }
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
