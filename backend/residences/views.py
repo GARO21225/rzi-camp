@@ -261,6 +261,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
         return response
 
 
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Suppression réservée à l'admin"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
     serializer_class = OccupationHistorySerializer

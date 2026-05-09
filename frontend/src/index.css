@@ -73,3 +73,8 @@ a { transition: opacity .15s; }
 
 /* Card hover */
 .card-hover:hover { box-shadow: 0 4px 20px rgba(30,58,138,.15) !important; transform: translateY(-1px); }
+
+/* ── Leaflet z-index fix ── */
+.leaflet-pane { z-index: 10 !important; }
+.leaflet-top, .leaflet-bottom { z-index: 20 !important; }
+.leaflet-popup-pane { z-index: 30 !important; }

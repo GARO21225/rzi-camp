@@ -156,7 +156,7 @@ export default function MapPage() {
   const bear=userPos&&target?calcBearing(userPos,target):null
 
   return (
-    <div style={{display:'flex',flexDirection:'column',flex:1,height:'100%',minHeight:0}}>
+    <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,overflow:'hidden',position:'relative'}}>
       {/* TOOLBAR */}
       <div style={{background:'#fff',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
         <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)}
@@ -226,9 +226,9 @@ export default function MapPage() {
       )}
 
       {/* MAP */}
-      <div style={{flex:1,position:'relative',minHeight:0}}>
+      <div style={{flex:1,position:'relative',minHeight:0,overflow:'hidden'}}>
         <MapContainer center={[8.111,-6.822]} zoom={17}
-          style={{position:'absolute',top:0,left:0,right:0,bottom:0}}>
+          style={{width:'100%',height:'100%'}}>
           <TileLayer key={tileId} url={tile.url} attribution=""/>
           {geojson&&(
             <>

@@ -75,12 +75,10 @@ class Command(BaseCommand):
         self.stdout.write("Creation utilisateurs...")
         users_data = [
             {"username":"admin","password":"admin123","fname":"Admin","lname":"RZI","su":True,"role":"admin"},
-            {"username":"manager","password":"manager123","fname":"Manager","lname":"Camp","su":False,"role":"manager"},
             {"username":"agent","password":"agent123","fname":"Agent","lname":"Terrain","su":False,"role":"agent"},
-            {"username":"technicien","password":"tech123","fname":"Technicien","lname":"Maintenance","su":False,"role":"technicien"},
             {"username":"resto","password":"resto123","fname":"Agent","lname":"Restauration","su":False,"role":"restauration"},
-            {"username":"mg","password":"mg123","fname":"Patron","lname":"Moyens Généraux","su":False,"role":"moyens_generaux"},
-            {"username":"rv","password":"rv123","fname":"Chargé","lname":"Resto-Voyages","su":False,"role":"resto_voyages"},
+            {"username":"technicien","password":"tech123","fname":"Technicien","lname":"Maintenance","su":False,"role":"technicien"},
+            {"username":"menage","password":"menage123","fname":"Agent","lname":"Ménage","su":False,"role":"menage"},
         ]
         for u in users_data:
             obj, created = User.objects.get_or_create(username=u["username"],
