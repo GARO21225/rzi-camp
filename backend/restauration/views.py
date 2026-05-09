@@ -94,6 +94,58 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             "type_personnel":personnel.get_type_personnel_display(),
         })
 
+    @action(detail=False, methods=["post"])
+    def valider_par_personnel(self, request):
+        """Valide un repas en sélectionnant directement le personnel (sans QR scan)"""
+        personnel_id = request.data.get("personnel_id")
+        type_repas = request.data.get("type_repas","dejeuner")
+        
+        from residences.models import Personnel
+        from django.utils.timezone import localdate
+        import secrets
+        
+        try:
+            personnel = Personnel.objects.get(pk=personnel_id)
+        except Personnel.DoesNotExist:
+            return Response({"valid":False,"erreur":"Personnel non trouvé"}, status=400)
+        
+        today = localdate()
+        # Check already eaten
+        already = RepasLog.objects.filter(
+            qr_token__personnel=personnel,
+            qr_token__type_repas=type_repas,
+            cree_le__date=today
+        ).exists()
+        if already:
+            return Response({
+                "valid":False,
+                "erreur":f"{personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd\'hui"
+            }, status=400)
+        
+        # Create validation
+        token_str = secrets.token_hex(8)
+        qr_token = QRToken.objects.create(
+            token=token_str,
+            personnel=personnel,
+            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
+            resident=f"{personnel.nom} {personnel.prenom}",
+            type_repas=type_repas,
+            genere_par=request.user,
+            expire_le=timezone.now() + __import__('datetime').timedelta(minutes=1),
+            utilise=True,
+            utilise_le=timezone.now()
+        )
+        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
+        
+        return Response({
+            "valid":True,
+            "resident":f"{personnel.nom} {personnel.prenom}",
+            "residence":qr_token.residence,
+            "type_repas":type_repas,
+            "type_repas_label":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
+            "societe":personnel.societe,
+        })
+
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token","qr_token__personnel","valide_par","personnel").all()
     serializer_class = RepasLogSerializer

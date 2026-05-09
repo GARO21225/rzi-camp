@@ -55,6 +55,7 @@ export const incidents = {
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scanner: (d) => api.post('/api/qr/scanner/', d),
+  validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
 }
 export const occupationHistoryAdmin = {
