@@ -13,11 +13,6 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"])
     def scanner(self, request):
-        """
-        Le restaurant scanne le QR de déclaration du personnel.
-        Le QR contient: Nom|Prénom|Société|Numéro|Type
-        On identifie le personnel par son qr_code_string.
-        """
         qr_data = request.data.get("qr_data","").strip()
         type_repas = request.data.get("type_repas","dejeuner")
         if not qr_data:
@@ -27,27 +22,21 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from django.utils.timezone import localdate
         today = localdate()
 
-        # Find personnel by QR string
         try:
             personnel = Personnel.objects.get(qr_code_string=qr_data)
         except Personnel.DoesNotExist:
-            AuditLog.objects.create(utilisateur=request.user, action="QR_INVALIDE",
-                module="Restauration", detail=f"QR non reconnu: {qr_data[:30]}",
-                ip=request.META.get("REMOTE_ADDR"))
-            return Response({"valid":False,"erreur":"QR non reconnu — Ce personnel n\'est pas déclaré"}, status=400)
+            from evenements.models import AuditLog
+            return Response({"valid":False,"erreur":"QR non reconnu"}, status=400)
 
-        # Check already eaten today for this meal
+        # Check already eaten
         already = RepasLog.objects.filter(
-            personnel=personnel, qr_token__type_repas=type_repas,
-            date_validation__date=today
+            qr_token__personnel=personnel,
+            qr_token__type_repas=type_repas,
+            cree_le__date=today
         ).exists()
         if already:
-            AuditLog.objects.create(utilisateur=request.user, action="QR_FRAUDE",
-                module="Restauration", detail=f"Double repas - {personnel.nom} {personnel.prenom} ({type_repas})",
-                ip=request.META.get("REMOTE_ADDR"))
-            return Response({"valid":False,"erreur":f"FRAUDE - {personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd\'hui"}, status=400)
+            return Response({"valid":False,"erreur":f"FRAUDE - {personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd'hui"}, status=400)
 
-        # Create a scan record (use a dummy token)
         from datetime import timedelta
         import secrets
         token_str = secrets.token_hex(8)
@@ -60,21 +49,17 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             expire_le=timezone.now()+timedelta(minutes=1),
             utilise=True, utilise_le=timezone.now()
         )
-        repas = RepasLog.objects.create(qr_token=qr_token, personnel=personnel, valide_par=request.user)
-        AuditLog.objects.create(utilisateur=request.user, action="QR_VALIDE",
-            module="Restauration",
-            detail=f"Repas valide - {personnel.nom} {personnel.prenom} ({type_repas})",
-            ip=request.META.get("REMOTE_ADDR"))
+        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
 
         return Response({
             "valid":True,
             "resident":f"{personnel.nom} {personnel.prenom}",
             "residence":qr_token.residence,
-            "type_repas":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
+            "type_repas":type_repas,
+            "type_repas_label":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
             "societe":personnel.societe,
             "type_personnel":personnel.get_type_personnel_display(),
         })
-
 
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token","qr_token__personnel","valide_par","personnel").all()
@@ -87,12 +72,15 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
         is_admin = user.is_staff or user.is_superuser
         is_resto = hasattr(user,"profile") and user.profile.role == "restauration"
         if not is_admin and not is_resto:
-            # Filter to own repas via qr_token.personnel
             if hasattr(user,"personnel"):
                 qs = qs.filter(qr_token__personnel=user.personnel)
             else:
-                # Try by username match
-                qs = qs.filter(qr_token__resident__icontains=user.get_full_name() or user.username)
+                # Fallback: filter by name
+                name = user.get_full_name().strip()
+                if name:
+                    qs = qs.filter(qr_token__resident__icontains=name.split()[0])
+                else:
+                    qs = qs.none()
         # Optional filters
         type_repas = self.request.query_params.get("type_repas")
         date = self.request.query_params.get("date")

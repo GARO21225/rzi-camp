@@ -3,14 +3,15 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Evenement, Notification, AlerteCampus
+from .models import Evenement, Notification, AlerteCampus, SimpleNotification
 from .serializers import EvenementSerializer, NotificationSerializer, AlerteSerializer
 import datetime
+
 
 class EvenementViewSet(viewsets.ModelViewSet):
     queryset = Evenement.objects.all()
     serializer_class = EvenementSerializer
-    
+
     def get_queryset(self):
         return Evenement.objects.all().order_by("-date_debut")
 
@@ -23,29 +24,30 @@ class EvenementViewSet(viewsets.ModelViewSet):
     def notifier(self, request, pk=None):
         evt = self.get_object()
         n = evt.notifier_residents()
-        return Response({"ok":True,"residents_notifies":n,"message":f"{n} résident(s) notifié(s)"})
+        return Response({"ok":True,"residents_notifies":n})
 
     @action(detail=True, methods=["patch"])
     def changer_statut(self, request, pk=None):
         evt = self.get_object()
         statut = request.data.get("statut")
-        valid = [s[0] for s in Evenement.STATUT]
-        if statut not in valid:
-            return Response({"error":f"Statut invalide: {statut}"}, status=400)
+        if statut not in [s[0] for s in Evenement.STATUT]:
+            return Response({"error":"Statut invalide"}, status=400)
         evt.statut = statut
         evt.save(update_fields=["statut"])
         return Response(EvenementSerializer(evt).data)
 
     @action(detail=False, methods=["get"])
     def agenda(self, request):
-        now = datetime.datetime.now()
-        qs = Evenement.objects.filter(date_debut__gte=now, statut__in=["planifie","en_cours"]).order_by("date_debut")[:10]
+        import django.utils.timezone as tz
+        qs = Evenement.objects.filter(
+            date_debut__gte=tz.now(), statut__in=["planifie","en_cours"]
+        ).order_by("date_debut")[:10]
         return Response(EvenementSerializer(qs, many=True).data)
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificationSerializer
-    queryset = Notification.objects.none()  # overridden in get_queryset
+    queryset = Notification.objects.none()
 
     def get_queryset(self):
         user = self.request.user
@@ -66,6 +68,9 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             Notification.objects.filter(
                 personnel=request.user.personnel, lu=False
             ).update(lu=True, date_lecture=timezone.now())
+        SimpleNotification.objects.filter(user=request.user, lu=False).update(
+            lu=True, date_lecture=timezone.now()
+        )
         return Response({"ok":True})
 
     @action(detail=False, methods=["get"])
@@ -73,36 +78,74 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         count = 0
         alertes_data = []
         prochain = None
-        
-        # Notification events-based
+        all_notifs = []
+
+        # Event-based notifications
         if hasattr(request.user, "personnel"):
-            count = Notification.objects.filter(
-                personnel=request.user.personnel, lu=False
-            ).count()
-        # System notifications
+            ev_notifs = Notification.objects.filter(
+                personnel=request.user.personnel
+            ).select_related("evenement").order_by("-date_envoi")[:10]
+            count += ev_notifs.filter(lu=False).count()
+            for n in ev_notifs:
+                all_notifs.append({
+                    "id": str(n.id),
+                    "evenement_titre": n.evenement.titre if n.evenement else "Événement",
+                    "evenement_type": n.evenement.type_event if n.evenement else "evenement",
+                    "evenement_date": n.evenement.date_debut.isoformat() if n.evenement else None,
+                    "evenement_lieu": n.evenement.lieu if n.evenement else "",
+                    "lu": n.lu,
+                    "date_envoi": n.date_envoi.isoformat(),
+                    "source": "event",
+                })
+
+        # System notifications (demandes, etc.)
+        sys_notifs = SimpleNotification.objects.filter(
+            user=request.user
+        ).order_by("-date_envoi")[:10]
+        count += sys_notifs.filter(lu=False).count()
+        for n in sys_notifs:
+            all_notifs.append({
+                "id": f"s{n.id}",
+                "evenement_titre": n.titre,
+                "evenement_type": n.type_notif,
+                "evenement_date": None,
+                "evenement_lieu": "",
+                "lu": n.lu,
+                "date_envoi": n.date_envoi.isoformat(),
+                "message": n.message,
+                "source": "system",
+            })
+
+        # Sort by date
+        all_notifs.sort(key=lambda x: x["date_envoi"], reverse=True)
+
+        # Active alerts
         try:
-            from .models import SimpleNotification
-            count += SimpleNotification.objects.filter(user=request.user, lu=False).count()
+            alertes = AlerteCampus.objects.filter(active=True).order_by("-date_creation")[:3]
+            alertes_data = [{"id":a.id,"message":a.message,"type_alerte":a.type_alerte} for a in alertes]
         except Exception:
             pass
-        
-        # Active alerts
-        alertes = AlerteCampus.objects.filter(active=True).order_by("-date_creation")[:3]
-        alertes_data = [{"id":a.id,"message":a.message,"type_alerte":a.type_alerte} for a in alertes]
-        
+
         # Next event
-        now = datetime.datetime.now()
-        import django.utils.timezone as tz
         try:
+            import django.utils.timezone as tz
             evt = Evenement.objects.filter(
                 date_debut__gte=tz.now(), statut__in=["planifie","en_cours"]
             ).order_by("date_debut").first()
             if evt:
-                prochain = {"id":evt.id,"titre":evt.titre,"date_debut":evt.date_debut.isoformat(),"lieu":evt.lieu}
+                prochain = {
+                    "id": evt.id, "titre": evt.titre,
+                    "date_debut": evt.date_debut.isoformat(), "lieu": evt.lieu
+                }
         except Exception:
             pass
-        
-        return Response({"non_lues":count,"alertes":alertes_data,"prochain_evenement":prochain})
+
+        return Response({
+            "non_lues": count,
+            "alertes": alertes_data,
+            "prochain_evenement": prochain,
+            "notifications": all_notifs[:20],
+        })
 
 
 class AlerteViewSet(viewsets.ModelViewSet):
