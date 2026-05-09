@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "residences",
     "maintenance",
     "restauration",
+    "evenements",
+    "channels",
 ]
 
 MIDDLEWARE = [
@@ -76,3 +78,14 @@ SIMPLE_JWT = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# ── CHANNELS (WebSocket) ──
+ASGI_APPLICATION = "rzi_camp.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
+ASGI_APPLICATION="rzi_camp.asgi.application"
+CHANNEL_LAYERS={"default":{"BACKEND":"channels.layers.InMemoryChannelLayer"}}

@@ -80,3 +80,24 @@ export const voyages = {
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
 }
+
+export const evenements = {
+  list: (p) => api.get('/api/evenements/', {params:p}),
+  create: (d) => api.post('/api/evenements/', d),
+  update: (id,d) => api.patch(`/api/evenements/${id}/`, d),
+  delete: (id) => api.delete(`/api/evenements/${id}/`),
+  notifier: (id) => api.post(`/api/evenements/${id}/notifier/`),
+  agenda: () => api.get('/api/evenements/agenda/'),
+  changerStatut: (id,statut) => api.patch(`/api/evenements/${id}/changer_statut/`, {statut}),
+}
+export const notifications = {
+  list: (p) => api.get('/api/notifications/', {params:p}),
+  compteur: () => api.get('/api/notifications/compteur/'),
+  marquerLu: (id) => api.post(`/api/notifications/${id}/marquer_lu/`),
+  toutLire: () => api.post('/api/notifications/tout_lire/'),
+}
+export const alertes = {
+  list: () => api.get('/api/alertes/'),
+  create: (d) => api.post('/api/alertes/', d),
+  desactiver: (id) => api.post(`/api/alertes/${id}/desactiver/`),
+}

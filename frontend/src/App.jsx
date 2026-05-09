@@ -14,6 +14,8 @@ import Voyages from './pages/Voyages'
 import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import AuditPage from './pages/AuditPage'
+import Evenements from './pages/Evenements'
+import Analytics from './pages/Analytics'
 
 function PrivateRoute({ children }) {
   const token = useStore(s=>s.token)
@@ -44,6 +46,8 @@ export default function App() {
         <Route path="voyages" element={<Voyages/>}/>
         <Route path="restauration" element={<Restauration/>}/>
         <Route path="maintenance" element={<Maintenance/>}/>
+        <Route path="evenements" element={<Evenements/>}/>
+        <Route path="analytics" element={<Analytics/>}/>
         <Route path="audit" element={<AuditPage/>}/>
       </Route>
     </Routes>
