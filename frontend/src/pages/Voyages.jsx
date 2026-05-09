@@ -9,7 +9,6 @@ const STATUT_COLORS = {
   retour: { bg:'rgba(22,163,74,.12)', color:'#16a34a' },
   annule: { bg:'rgba(100,116,139,.12)', color:'#64748b' },
 }
-const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
 
 export default function Voyages() {
   const [data, setData] = useState([])

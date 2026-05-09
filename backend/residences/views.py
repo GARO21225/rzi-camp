@@ -305,10 +305,12 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=["get"])
     def recherche(self, request):
         """
-        Recherche croisée :
-        - Chambre X : qui a dormi là entre date1 et date2 ?
-        - Personne X : où a-t-elle dormi entre date1 et date2 ?
-        Also searches current occupants if no history exists.
+        Recherche croisée historisation :
+        - Toutes chambres si pas de filtre batiment
+        - Filtre par résidence (dropdown ou saisie libre)
+        - Filtre par nom occupant (saisie libre)
+        - Filtre par personnel (dropdown)
+        - Filtre par période
         """
         batiment_q = request.query_params.get("batiment","").strip()
         personnel_id = request.query_params.get("personnel","").strip()
@@ -318,11 +320,19 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         from django.db.models import Q
 
-        # Search occupation history
+        # Build history queryset — no mandatory filter, show all if no criteria
         qs = OccupationHistory.objects.select_related("batiment","personnel").all()
-        if batiment_q: qs = qs.filter(batiment__residence__icontains=batiment_q)
-        if personnel_id: qs = qs.filter(personnel_id=personnel_id)
-        if nom_search: qs = qs.filter(occupant_nom__icontains=nom_search)
+        if batiment_q:
+            qs = qs.filter(batiment__residence__icontains=batiment_q)
+        if personnel_id:
+            qs = qs.filter(personnel_id=personnel_id)
+        if nom_search:
+            qs = qs.filter(
+                Q(occupant_nom__icontains=nom_search) |
+                Q(personnel__nom__icontains=nom_search) |
+                Q(personnel__prenom__icontains=nom_search) |
+                Q(batiment__residence__icontains=nom_search)
+            )
         if date_debut:
             qs = qs.filter(Q(date_depart__gte=date_debut)|Q(date_depart__isnull=True))
         if date_fin:
@@ -331,11 +341,19 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         today = datetime.date.today()
         results = []
 
-        # Also include current batiment occupants that might not have history yet
+        # Also include current batiment occupants not yet in history
         bats_qs = Batiment.objects.select_related("personnel").filter(statut="Occupé")
-        if batiment_q: bats_qs = bats_qs.filter(residence__icontains=batiment_q)
-        if personnel_id: bats_qs = bats_qs.filter(personnel_id=personnel_id)
-        if nom_search: bats_qs = bats_qs.filter(occupant__icontains=nom_search)
+        if batiment_q:
+            bats_qs = bats_qs.filter(residence__icontains=batiment_q)
+        if personnel_id:
+            bats_qs = bats_qs.filter(personnel_id=personnel_id)
+        if nom_search:
+            bats_qs = bats_qs.filter(
+                Q(occupant__icontains=nom_search) |
+                Q(personnel__nom__icontains=nom_search) |
+                Q(personnel__prenom__icontains=nom_search) |
+                Q(residence__icontains=nom_search)
+            )
 
         existing_bat_ids = set(qs.values_list("batiment_id", flat=True))
         for b in bats_qs:
@@ -357,7 +375,7 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
                     "source": "current",
                 })
 
-        for h in qs.order_by("-date_arrivee")[:200]:
+        for h in qs.order_by("-date_arrivee")[:500]:
             d1 = h.date_arrivee
             d2 = h.date_depart or today
             days = (d2 - d1).days
@@ -378,6 +396,7 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         results.sort(key=lambda x: x["date_arrivee"], reverse=True)
         return Response({"count":len(results),"results":results})
+
 
 
 class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
