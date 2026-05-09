@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store'
 import { auth } from '../api'
 
@@ -20,6 +20,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const { setToken, setUser } = useStore()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const inactivity = params.get('reason') === 'inactivity'
 
   const doLogin = async (u=username, p=password) => {
     if (!u) return setError('Identifiant requis')
@@ -88,6 +90,11 @@ export default function Login() {
           {loading ? 'CONNEXION...' : '🔐 CONNEXION SÉCURISÉE'}
         </button>
 
+        {inactivity && (
+          <div style={{ background:'rgba(234,88,12,.1)', border:'1px solid rgba(234,88,12,.3)', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#ea580c', marginBottom:10, textAlign:'center' }}>
+            ⏱️ Session expirée après 10 minutes d'inactivité
+          </div>
+        )}
         {error && (
           <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8,
             padding:'10px 14px', fontSize:12, color:'#dc2626', marginTop:10, textAlign:'center' }}>

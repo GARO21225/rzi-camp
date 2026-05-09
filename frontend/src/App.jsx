@@ -2,6 +2,8 @@
 import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
+import { useInactivityLogout } from './hooks/useInactivityLogout'
+import { useState, useEffect } from 'react'
 import { auth } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
@@ -22,6 +24,43 @@ function PrivateRoute({ children }) {
   return token ? children : <Navigate to="/login" replace/>
 }
 
+
+function InactivityWarning() {
+  const [show, setShow] = useState(false)
+  const [remaining, setRemaining] = useState(60)
+
+  useEffect(() => {
+    const handler = (e) => {
+      setRemaining(e.detail.remaining)
+      setShow(true)
+      setTimeout(() => setShow(false), 30000)
+    }
+    window.addEventListener('inactivity-warning', handler)
+    return () => window.removeEventListener('inactivity-warning', handler)
+  }, [])
+
+  if (!show) return null
+  return (
+    <div style={{
+      position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+      background:'#1e3a8a', color:'#fff', padding:'12px 24px', borderRadius:12,
+      boxShadow:'0 8px 32px rgba(30,58,138,.4)', zIndex:9999,
+      display:'flex', alignItems:'center', gap:12, fontSize:13
+    }}>
+      <span>⏱️ Déconnexion dans <b>{remaining}s</b> d'inactivité</span>
+      <button onClick={() => { setShow(false); window.dispatchEvent(new Event('mousedown')) }}
+        style={{ background:'#f0a500', color:'#000', border:'none', padding:'4px 12px', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:12 }}>
+        Rester connecté
+      </button>
+    </div>
+  )
+}
+
+function AppWithInactivity() {
+  useInactivityLogout()
+  return null
+}
+
 function RoleHome() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
@@ -35,7 +74,7 @@ export default function App() {
     if (token) auth.me().then(r=>setUser(r.data)).catch(()=>logout())
   },[token])
   return (
-    <Routes>
+    <InactivityWarning/><AppWithInactivity/><Routes>
       <Route path="/login" element={<Login/>}/>
       <Route path="/" element={<PrivateRoute><Layout/></PrivateRoute>}>
         <Route index element={<RoleHome/>}/>
