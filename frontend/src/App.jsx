@@ -16,6 +16,7 @@ import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import Analytics from './pages/Analytics'
 import AuditPage from './pages/AuditPage'
+import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
 
 // Handle 404.html redirect for SPA routing
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="restauration" element={<Restauration />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="demandes" element={<Demandes/>}/>
           <Route path="audit" element={<AuditPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

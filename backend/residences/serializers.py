@@ -24,3 +24,29 @@ class OccupationHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OccupationHistory
         fields = "__all__"
+
+class DemandeSerializer(serializers.ModelSerializer):
+    demandeur_nom = serializers.SerializerMethodField()
+    traite_par_nom = serializers.SerializerMethodField()
+    type_label = serializers.CharField(source="get_type_demande_display", read_only=True)
+    statut_label = serializers.CharField(source="get_statut_display", read_only=True)
+    
+    class Meta:
+        from .models import Demande
+        model = Demande
+        fields = [
+            "id","type_demande","type_label","statut","statut_label",
+            "demandeur","demandeur_nom","traite_par","traite_par_nom",
+            "donnees","residence_souhaitee","residence_attribuee",
+            "message_demandeur","commentaire_admin","proposition_admin",
+            "date_debut_souhaitee","date_fin_souhaitee",
+            "date_creation","date_traitement","date_reponse"
+        ]
+        read_only_fields = ["demandeur","traite_par","statut","commentaire_admin","proposition_admin",
+                           "residence_attribuee","date_creation","date_traitement","date_reponse"]
+    
+    def get_demandeur_nom(self, obj):
+        return obj.demandeur.get_full_name() or obj.demandeur.username if obj.demandeur else "—"
+    
+    def get_traite_par_nom(self, obj):
+        return obj.traite_par.get_full_name() or obj.traite_par.username if obj.traite_par else None

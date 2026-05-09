@@ -162,7 +162,15 @@ export default function Personnel() {
                   </td>
                   <td style={{ padding:'10px 14px' }}>
                     <div style={{ display:'flex', gap:5 }}>
-                      {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
+                      {isAdmin && (
+                      <select onChange={e=>{ if(e.target.value) personnelAPI.assigRole(p.id,e.target.value).then(load) }}
+                        defaultValue=""
+                        style={{background:'rgba(37,99,235,.1)',color:'#2563eb',border:'1px solid rgba(37,99,235,.2)',padding:'4px 6px',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:600,maxWidth:90}}>
+                        <option value="">⚙️ Rôle</option>
+                        {[['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                      </select>
+                    )}
+                    {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
                       {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>🗑</button>}
                     </div>
                   </td>

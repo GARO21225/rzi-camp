@@ -101,3 +101,16 @@ export const alertes = {
   create: (d) => api.post('/api/alertes/', d),
   desactiver: (id) => api.post(`/api/alertes/${id}/desactiver/`),
 }
+
+export const demandes = {
+  list: (p) => api.get('/api/demandes/', {params:p}),
+  create: (d) => api.post('/api/demandes/', d),
+  delete: (id) => api.delete(`/api/demandes/${id}/`),
+  stats: () => api.get('/api/demandes/stats/'),
+  valider: (id, d) => api.post(`/api/demandes/${id}/valider/`, d),
+  rejeter: (id, d) => api.post(`/api/demandes/${id}/rejeter/`, d),
+  proposer: (id, d) => api.post(`/api/demandes/${id}/proposer/`, d),
+  accepterProposition: (id) => api.post(`/api/demandes/${id}/accepter_proposition/`),
+  refuserProposition: (id) => api.post(`/api/demandes/${id}/refuser_proposition/`),
+  annuler: (id) => api.post(`/api/demandes/${id}/annuler/`),
+}

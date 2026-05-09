@@ -3,8 +3,8 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from .models import Batiment, Personnel, OccupationHistory
-from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer
+from .models import Batiment, Personnel, OccupationHistory, Demande
+from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer
 import csv, datetime
 from django.http import HttpResponse
 from natsort import natsorted
@@ -422,3 +422,197 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.is_superuser:
             return Response({"error":"Admin uniquement"}, status=403)
         return super().partial_update(request, *args, **kwargs)
+
+
+
+from rest_framework import viewsets, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from django.contrib.auth.models import User
+from .models import Demande, Batiment, Personnel
+from .serializers import DemandeSerializer
+
+class DemandeViewSet(viewsets.ModelViewSet):
+    serializer_class = DemandeSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["demandeur__first_name","demandeur__last_name","residence_souhaitee"]
+
+    def get_queryset(self):
+        user = self.request.user
+        is_admin = user.is_staff or user.is_superuser
+        if is_admin:
+            qs = Demande.objects.select_related("demandeur","traite_par").all()
+        else:
+            qs = Demande.objects.filter(demandeur=user)
+        
+        statut = self.request.query_params.get("statut")
+        type_d = self.request.query_params.get("type_demande")
+        if statut: qs = qs.filter(statut=statut)
+        if type_d: qs = qs.filter(type_demande=type_d)
+        return qs
+
+    def perform_create(self, serializer):
+        demande = serializer.save(demandeur=self.request.user)
+        # Notify admins
+        try:
+            demande.notifier_admin()
+        except Exception:
+            pass
+
+    def destroy(self, request, *args, **kwargs):
+        """Only admin can hard-delete; agents can only cancel"""
+        instance = self.get_object()
+        if request.user.is_staff or request.user.is_superuser:
+            return super().destroy(request, *args, **kwargs)
+        return Response({"error":"Admin uniquement pour suppression"}, status=403)
+
+    # ── Admin actions ──
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        """Admin valide la demande"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        demande = self.get_object()
+        if demande.statut not in ("en_attente", "proposition"):
+            return Response({"error":"Demande non en attente"}, status=400)
+        
+        demande.statut = "validee"
+        demande.traite_par = request.user
+        demande.commentaire_admin = request.data.get("commentaire","Demande validée")
+        demande.date_traitement = timezone.now()
+        
+        # Execute the action
+        if demande.type_demande == "reservation_residence":
+            residence = request.data.get("residence_attribuee") or demande.residence_souhaitee or demande.proposition_admin.get("residence")
+            if residence:
+                demande.residence_attribuee = residence
+                try:
+                    bat = Batiment.objects.get(residence=residence)
+                    # Assign if libre
+                    if bat.statut == "Libre":
+                        bat.statut = "Réservé"
+                        bat.occupant = demande.demandeur.get_full_name()
+                        bat.date_arrivee = demande.date_debut_souhaitee
+                        bat.date_depart = demande.date_fin_souhaitee
+                        bat.save()
+                except Batiment.DoesNotExist:
+                    pass
+        
+        elif demande.type_demande == "voyage":
+            from voyages.models import Voyage
+            data = demande.donnees
+            if demande.demandeur:
+                p = getattr(demande.demandeur,"personnel",None)
+                if p:
+                    import datetime
+                    Voyage.objects.create(
+                        personnel=p,
+                        destination=data.get("destination",""),
+                        motif=data.get("motif",""),
+                        date_depart=demande.date_debut_souhaitee or datetime.date.today(),
+                        date_retour_prevue=demande.date_fin_souhaitee or datetime.date.today(),
+                        enregistre_par=request.user,
+                    )
+        
+        demande.save()
+        try:
+            demande.notifier_demandeur(f"✅ Votre demande a été validée.\n{demande.commentaire_admin}")
+        except Exception:
+            pass
+        return Response(DemandeSerializer(demande).data)
+
+    @action(detail=True, methods=["post"])
+    def rejeter(self, request, pk=None):
+        """Admin rejette la demande"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        demande = self.get_object()
+        demande.statut = "rejetee"
+        demande.traite_par = request.user
+        demande.commentaire_admin = request.data.get("commentaire","Demande rejetée")
+        demande.date_traitement = timezone.now()
+        demande.save()
+        try:
+            demande.notifier_demandeur(f"❌ Votre demande a été rejetée.\nMotif: {demande.commentaire_admin}")
+        except Exception:
+            pass
+        return Response(DemandeSerializer(demande).data)
+
+    @action(detail=True, methods=["post"])
+    def proposer(self, request, pk=None):
+        """Admin fait une contre-proposition"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        demande = self.get_object()
+        demande.statut = "proposition"
+        demande.traite_par = request.user
+        demande.commentaire_admin = request.data.get("commentaire","Voir la proposition ci-dessous")
+        demande.proposition_admin = request.data.get("proposition",{})
+        demande.date_traitement = timezone.now()
+        demande.save()
+        
+        prop_str = "\n".join([f"• {k}: {v}" for k,v in demande.proposition_admin.items()])
+        try:
+            demande.notifier_demandeur(f"💬 Proposition de l'admin:\n{prop_str}\n\n{demande.commentaire_admin}")
+        except Exception:
+            pass
+        return Response(DemandeSerializer(demande).data)
+
+    # ── Demandeur actions ──
+    @action(detail=True, methods=["post"])
+    def accepter_proposition(self, request, pk=None):
+        """Demandeur accepte la proposition de l'admin"""
+        demande = self.get_object()
+        if demande.demandeur != request.user:
+            return Response({"error":"Non autorisé"}, status=403)
+        if demande.statut != "proposition":
+            return Response({"error":"Pas de proposition en attente"}, status=400)
+        # Validate with proposition
+        demande.statut = "acceptee"
+        demande.date_reponse = timezone.now()
+        demande.save()
+        return Response(DemandeSerializer(demande).data)
+
+    @action(detail=True, methods=["post"])
+    def refuser_proposition(self, request, pk=None):
+        """Demandeur refuse la proposition"""
+        demande = self.get_object()
+        if demande.demandeur != request.user:
+            return Response({"error":"Non autorisé"}, status=403)
+        if demande.statut != "proposition":
+            return Response({"error":"Pas de proposition"}, status=400)
+        demande.statut = "rejetee"
+        demande.date_reponse = timezone.now()
+        demande.save()
+        return Response(DemandeSerializer(demande).data)
+
+    @action(detail=True, methods=["post"])
+    def annuler(self, request, pk=None):
+        """Demandeur annule sa propre demande"""
+        demande = self.get_object()
+        if demande.demandeur != request.user and not request.user.is_staff:
+            return Response({"error":"Non autorisé"}, status=403)
+        if demande.statut in ("validee","rejetee"):
+            return Response({"error":"Demande déjà traitée"}, status=400)
+        demande.statut = "annulee"
+        demande.date_reponse = timezone.now()
+        demande.save()
+        return Response(DemandeSerializer(demande).data)
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """Stats pour l'admin"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        from django.db.models import Count
+        qs = Demande.objects.all()
+        return Response({
+            "total": qs.count(),
+            "en_attente": qs.filter(statut="en_attente").count(),
+            "validees": qs.filter(statut="validee").count(),
+            "rejetees": qs.filter(statut="rejetee").count(),
+            "propositions": qs.filter(statut="proposition").count(),
+            "par_type": dict(qs.values_list("type_demande").annotate(n=Count("id")).values_list("type_demande","n")),
+        })

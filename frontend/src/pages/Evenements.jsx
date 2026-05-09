@@ -63,6 +63,10 @@ export default function Evenements() {
     alert(`✅ ${r.data.residents_notifies} résident(s) notifié(s) pour "${titre}"`)
   }
 
+  const deleteEvt = async (id, titre) => {
+    if (!window.confirm(`Supprimer "${titre}" ?`)) return
+    try { await evtAPI.delete(id); load() } catch(e) { alert(e.response?.data?.error||e.message) }
+  }
   const changerStatut = async (id, statut) => {
     await evtAPI.changerStatut(id, statut); load()
   }
@@ -182,7 +186,9 @@ export default function Evenements() {
                     </button>
                     {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
                     {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
-                    {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
+                    {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
+                    style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
+                  {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
                   </div>
                 )}
               </div>
