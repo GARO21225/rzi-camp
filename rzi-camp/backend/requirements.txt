@@ -13,3 +13,5 @@ qrcode[pil]>=7.4
 natsort>=8.4
 channels>=4.0
 daphne>=4.0
+
+
