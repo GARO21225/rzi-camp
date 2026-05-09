@@ -77,3 +77,33 @@ class AlerteCampus(models.Model):
 
     def __str__(self):
         return f"[{self.type_alerte}] {self.message[:50]}"
+
+
+class SimpleNotification(models.Model):
+    """System notification not tied to a specific event"""
+    TYPE_CHOICES = [
+        ("systeme","Système"),
+        ("demande","Demande"),
+        ("alerte","Alerte"),
+        ("info","Info"),
+    ]
+    personnel = models.ForeignKey(
+        "residences.Personnel", on_delete=models.CASCADE,
+        related_name="simple_notifications", null=True, blank=True
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="simple_notifications", null=True, blank=True)
+    titre = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+    type_notif = models.CharField(max_length=20, choices=TYPE_CHOICES, default="systeme")
+    lu = models.BooleanField(default=False)
+    date_lecture = models.DateTimeField(blank=True, null=True)
+    date_envoi = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date_envoi"]
+
+    def marquer_lue(self):
+        from django.utils import timezone
+        self.lu = True
+        self.date_lecture = timezone.now()
+        self.save(update_fields=["lu","date_lecture"])

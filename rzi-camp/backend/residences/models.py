@@ -190,25 +190,28 @@ class Demande(models.Model):
 
     def notifier_admin(self):
         """Notifie tous les admins d'une nouvelle demande"""
-        from accounts.models import Profile
-        from evenements.models import Notification
-        admins = User.objects.filter(is_staff=True)
-        for admin in admins:
-            if hasattr(admin, "personnel"):
-                Notification.objects.create(
-                    personnel=admin.personnel,
+        try:
+            from evenements.models import SimpleNotification
+            admins = User.objects.filter(is_staff=True)
+            for admin in admins:
+                SimpleNotification.objects.create(
+                    user=admin,
                     titre=f"📋 Nouvelle demande: {self.get_type_demande_display()}",
                     message=f"De: {self.demandeur.get_full_name()}\nMessage: {self.message_demandeur[:100]}",
-                    type_notif="systeme",
+                    type_notif="demande",
                 )
+        except Exception:
+            pass
 
     def notifier_demandeur(self, message):
         """Notifie le demandeur du traitement"""
-        from evenements.models import Notification
-        if hasattr(self.demandeur, "personnel"):
-            Notification.objects.create(
-                personnel=self.demandeur.personnel,
-                titre=f"📋 Demande traitée: {self.get_statut_display()}",
+        try:
+            from evenements.models import SimpleNotification
+            SimpleNotification.objects.create(
+                user=self.demandeur,
+                titre=f"📋 Demande: {self.get_statut_display()}",
                 message=message,
-                type_notif="systeme",
+                type_notif="demande",
             )
+        except Exception:
+            pass

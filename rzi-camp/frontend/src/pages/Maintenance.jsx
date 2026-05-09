@@ -87,6 +87,15 @@ export default function Maintenance() {
     } finally { setSubmitting(false) }
   }
 
+  const deleteIncident = async (id) => {
+    if (!window.confirm('Supprimer définitivement cet incident ?')) return
+    try {
+      await import('../api').then(m => m.incidents.delete(id))
+      load()
+      if (detailModal?.id === id) setDetailModal(null)
+    } catch(e) { alert(e.response?.data?.error||'Erreur') }
+  }
+
   const resoudre = async (id) => {
     try {
       await incidents.resoudre(id); load()
@@ -161,6 +170,10 @@ export default function Maintenance() {
             <span style={{ background:`${sColor[inc.statut]}18`, color:sColor[inc.statut], padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>{inc.statut}</span>
             <span style={{ background:pBg[inc.priorite], color:pColor[inc.priorite], padding:'2px 8px', borderRadius:20, fontSize:10, fontFamily:'monospace', fontWeight:700 }}>{inc.priorite?.toUpperCase()}</span>
             <button onClick={()=>naviguer(inc)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, width:'100%' }}>🧭 Nav</button>
+            {isAdmin && (
+              <button onClick={()=>deleteIncident(inc.id)}
+                style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, width:'100%' }}>🗑 Suppr.</button>
+            )}
             {canClose && inc.statut!=='Résolu' && (
               <button onClick={()=>resoudre(inc.id)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, width:'100%' }}>✅ Clôturer</button>
             )}

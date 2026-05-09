@@ -49,11 +49,9 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Get notifications for this user via their personnel profile
-        qs = Notification.objects.none()
         if hasattr(user, "personnel"):
-            qs = Notification.objects.filter(personnel=user.personnel).order_by("-date_envoi")
-        return qs
+            return Notification.objects.filter(personnel=user.personnel).order_by("-date_envoi")
+        return Notification.objects.none()
 
     @action(detail=True, methods=["post"])
     def marquer_lu(self, request, pk=None):
@@ -76,10 +74,17 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         alertes_data = []
         prochain = None
         
+        # Notification events-based
         if hasattr(request.user, "personnel"):
             count = Notification.objects.filter(
                 personnel=request.user.personnel, lu=False
             ).count()
+        # System notifications
+        try:
+            from .models import SimpleNotification
+            count += SimpleNotification.objects.filter(user=request.user, lu=False).count()
+        except Exception:
+            pass
         
         # Active alerts
         alertes = AlerteCampus.objects.filter(active=True).order_by("-date_creation")[:3]

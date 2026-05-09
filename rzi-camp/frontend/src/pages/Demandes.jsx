@@ -32,6 +32,7 @@ export default function Demandes() {
   const [detailModal, setDetailModal] = useState(null)
   const [actionModal, setActionModal] = useState(null) // {demande, action:'valider'|'rejeter'|'proposer'}
   const [bats, setBats] = useState([])
+  const [batsLoading, setBatsLoading] = useState(false)
   const [form, setForm] = useState({
     message_demandeur:'', residence_souhaitee:'',
     date_debut_souhaitee:today, date_fin_souhaitee:'',
@@ -47,9 +48,9 @@ export default function Demandes() {
     else if (tab === 'archive') {} // all
     demandesAPI.list(p).then(r => setData(r.data.results||r.data)).finally(()=>setLoading(false))
     if (isAdmin) demandesAPI.stats().then(r => setStats(r.data)).catch(()=>{})
-    batAPI.list({page_size:300, statut:'Libre'}).then(r => {
+    batAPI.list({page_size:300}).then(r => {
       const items = r.data.results||r.data
-      setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
+      setBats([...items].filter(b=>b.statut==='Libre').sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
     })
   }
 

@@ -87,11 +87,12 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
         is_admin = user.is_staff or user.is_superuser
         is_resto = hasattr(user,"profile") and user.profile.role == "restauration"
         if not is_admin and not is_resto:
-            # Filter to own personnel
+            # Filter to own repas via qr_token.personnel
             if hasattr(user,"personnel"):
-                qs = qs.filter(personnel=user.personnel)
+                qs = qs.filter(qr_token__personnel=user.personnel)
             else:
-                qs = qs.none()
+                # Try by username match
+                qs = qs.filter(qr_token__resident__icontains=user.get_full_name() or user.username)
         # Optional filters
         type_repas = self.request.query_params.get("type_repas")
         date = self.request.query_params.get("date")

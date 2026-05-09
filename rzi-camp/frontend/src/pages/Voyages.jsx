@@ -20,6 +20,20 @@ export default function Voyages() {
   const [today] = useState(new Date().toISOString().slice(0,10))
   const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
 
+  // Agent sees only own voyages
+  const [myPersonnelId, setMyPersonnelId] = useState(null)
+  useEffect(() => {
+    if (!isAdmin) {
+      import('../api').then(({personnel:pAPI}) =>
+        pAPI.list({page_size:500}).then(r => {
+          const items = r.data.results||r.data||[]
+          const me = items.find(p => p.login_genere === user?.username || `${p.nom} ${p.prenom}`.toLowerCase().includes((user?.last_name||'').toLowerCase()))
+          if (me) setMyPersonnelId(me.id)
+        })
+      )
+    }
+  }, [user])
+
   const load = () => {
     const p = {}
     if (filterStatut) p.statut = filterStatut

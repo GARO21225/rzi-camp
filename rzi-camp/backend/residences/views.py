@@ -507,14 +507,17 @@ class DemandeViewSet(viewsets.ModelViewSet):
                 p = getattr(demande.demandeur,"personnel",None)
                 if p:
                     import datetime
-                    Voyage.objects.create(
-                        personnel=p,
-                        destination=data.get("destination",""),
-                        motif=data.get("motif",""),
-                        date_depart=demande.date_debut_souhaitee or datetime.date.today(),
-                        date_retour_prevue=demande.date_fin_souhaitee or datetime.date.today(),
-                        enregistre_par=request.user,
-                    )
+                    try:
+                        Voyage.objects.create(
+                            personnel=p,
+                            destination=data.get("destination",""),
+                            motif=data.get("motif",""),
+                            date_depart=demande.date_debut_souhaitee or datetime.date.today(),
+                            date_retour_prevue=demande.date_fin_souhaitee or (demande.date_debut_souhaitee or datetime.date.today()) + datetime.timedelta(days=7),
+                            enregistre_par=request.user,
+                        )
+                    except Exception as ve:
+                        pass  # Continue even if voyage creation fails
         
         demande.save()
         try:
