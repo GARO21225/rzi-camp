@@ -6,6 +6,16 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from .models import QRToken, RepasLog, AuditLog
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
+import unicodedata, re
+
+def normalize_for_compare(text):
+    """Normalize text for comparison: remove accents, lowercase, strip"""
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = re.sub(r"[^a-z0-9]", "", text.lower())
+    return text.strip()
 
 class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = QRToken.objects.all()
@@ -24,41 +34,66 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Multi-strategy QR lookup
         personnel = None
+        qr_normalized = normalize_for_compare(qr_data)
 
-        # Strategy 1: Exact QR string match
-        try:
-            personnel = Personnel.objects.get(qr_code_string=qr_data)
-        except Personnel.DoesNotExist:
-            pass
+        # Strategy 1: Exact QR string match (including normalized comparison)
+        all_personnel = Personnel.objects.all()
+        for p in all_personnel:
+            p_qr_normalized = normalize_for_compare(p.qr_code_string)
+            if p_qr_normalized and (qr_normalized == p_qr_normalized or qr_data == p.qr_code_string):
+                personnel = p
+                break
 
-        # Strategy 2: Parse QR format "NOM|PRENOM|SOCIETE|NUMERO|TYPE"
+        # Strategy 2: Parse QR format "NOM|PRENOM|SOCIETE|NUMERO|TYPE" with normalized comparison
         if not personnel and '|' in qr_data:
             parts = qr_data.split('|')
             if len(parts) >= 2:
-                try:
-                    personnel = Personnel.objects.get(
-                        nom__iexact=parts[0].strip(),
-                        prenom__iexact=parts[1].strip()
-                    )
-                except Personnel.DoesNotExist:
-                    pass
+                qr_nom = normalize_for_compare(parts[0])
+                qr_prenom = normalize_for_compare(parts[1])
+                # Search with normalized comparison
+                for p in all_personnel:
+                    p_nom = normalize_for_compare(p.nom)
+                    p_prenom = normalize_for_compare(p.prenom)
+                    if p_nom and p_prenom and p_nom == qr_nom and p_prenom == qr_prenom:
+                        personnel = p
+                        break
 
         # Strategy 3: Search by numero in QR
         if not personnel and qr_data.strip().isdigit():
             personnel = Personnel.objects.filter(numero=qr_data.strip()).first()
 
-        # Strategy 4: Search by name in QR (if QR contains full name)
+        # Strategy 4: Search by name in QR (if QR contains full name) with normalized comparison
         if not personnel:
             words = qr_data.strip().split()
             if len(words) >= 2:
-                personnel = Personnel.objects.filter(
-                    nom__iexact=words[0], prenom__iexact=words[1]
-                ).first()
+                qr_nom = normalize_for_compare(words[0])
+                qr_prenom = normalize_for_compare(words[1])
+                for p in all_personnel:
+                    p_nom = normalize_for_compare(p.nom)
+                    p_prenom = normalize_for_compare(p.prenom)
+                    if p_nom == qr_nom and p_prenom == qr_prenom:
+                        personnel = p
+                        break
+
+        # Strategy 5: Try partial matching if exact match failed
+        if not personnel and '|' in qr_data:
+            parts = qr_data.split('|')
+            if len(parts) >= 2:
+                qr_nom = normalize_for_compare(parts[0])
+                qr_prenom = normalize_for_compare(parts[1])
+                # Look for partial matches
+                for p in all_personnel:
+                    p_nom = normalize_for_compare(p.nom)
+                    p_prenom = normalize_for_compare(p.prenom)
+                    # Check if QR contains DB name (partial match)
+                    if (qr_nom in p_nom or p_nom in qr_nom) and (qr_prenom in p_prenom or p_prenom in qr_prenom):
+                        personnel = p
+                        break
 
         if not personnel:
             return Response({
                 "valid":False,
-                "erreur":"QR non reconnu — Ce personnel n\'est pas déclaré dans le système"
+                "erreur":"QR non reconnu — Ce personnel n'est pas déclaré dans le système"
             }, status=400)
 
         # Check already eaten
