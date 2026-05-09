@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RZI Camp — ERP GIS Industriel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg: #0a0d12;
+  --surface: #111620;
+  --surface2: #181e2a;
+  --border: #1e2736;
+  --accent: #f0a500;
+  --accent2: #e05c1a;
+  --libre: #22c55e;
+  --occupe: #ef4444;
+  --reserve: #3b82f6;
+  --maintenance: #f97316;
+  --text: #e8edf5;
+  --text-dim: #7a8ba0;
+  --sidebar: 260px;
+  --header: 56px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+#header {
+  height: var(--header);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+#header .logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#header .logo .dot {
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+#header .breadcrumb {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#header .user-badge {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+#header .role-tag {
+  background: rgba(240,165,0,.15);
+  color: var(--accent);
+  border: 1px solid rgba(240,165,0,.3);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+#header .btn-logout {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: .2s;
+}
+#header .btn-logout:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* ── LAYOUT ── */
+#app {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.nav-section {
+  padding: 12px 12px 4px;
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  transition: .15s;
+  border-left: 3px solid transparent;
+  position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,.04); color: var(--text); }
+.nav-item.active {
+  background: rgba(240,165,0,.08);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent2);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-family: 'Space Mono', monospace;
+}
+
+/* ── CONTENT AREA ── */
+#content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── MAP ── */
+#map-container {
+  flex: 1;
+  position: relative;
+  display: none;
+}
+#map-container.active { display: flex; flex-direction: column; }
+#map { flex: 1; }
+
+/* Map legend */
+#map-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 10px;
+  background: rgba(10,13,18,.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  z-index: 900;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+}
+#map-legend h4 {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.legend-item { display:flex; align-items:center; gap:8px; margin:4px 0; }
+.legend-dot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+
+/* Map toolbar */
+#map-toolbar {
+  height: 44px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+#map-toolbar input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  width: 180px;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+}
+#map-toolbar input::placeholder { color: var(--text-dim); }
+#map-toolbar select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+#map-toolbar .map-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  font-family: 'Space Mono', monospace;
+}
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.stat-chip .dot { width:8px; height:8px; border-radius:50%; }
+
+/* ── PANELS ── */
+.panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: none;
+}
+.panel.active { display: block; }
+.panel-header {
+  margin-bottom: 20px;
+}
+.panel-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.panel-header p {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ── KPI CARDS ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--card-color, var(--accent));
+}
+.kpi-card .kpi-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--card-color, var(--accent));
+  line-height: 1;
+}
+.kpi-card .kpi-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.kpi-card .kpi-icon {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-size: 20px;
+  opacity: .4;
+}
+
+/* ── DATA TABLE ── */
+.data-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.data-table-wrap .table-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.data-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.data-table-wrap th {
+  background: var(--surface2);
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+.data-table-wrap td {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.data-table-wrap tr:hover td { background: rgba(255,255,255,.02); }
+
+/* ── STATUS BADGE ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge.libre { background: rgba(34,197,94,.15); color: #22c55e; }
+.badge.occupe { background: rgba(239,68,68,.15); color: #ef4444; }
+.badge.reserve { background: rgba(59,130,246,.15); color: #3b82f6; }
+.badge.maintenance { background: rgba(249,115,22,.15); color: #f97316; }
+
+/* ── BTN ── */
+.btn {
+  padding: 8px 16px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  transition: .2s;
+}
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: #ffb700; }
+.btn-danger { background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.btn-danger:hover { background: rgba(239,68,68,.25); }
+.btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 5px; }
+
+/* ── MODAL ── */
+#modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 480px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-close {
+  width: 28px; height: 28px;
+  background: var(--surface2);
+  border: none;
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-body { padding: 20px 24px; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  transition: .2s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--accent); }
+.form-group textarea { resize: vertical; min-height: 80px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  width: 380px;
+  max-width: 95vw;
+}
+.login-logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.login-sub {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 32px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 1px;
+}
+.login-box .form-group { margin-bottom: 16px; }
+.login-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 1px;
+  transition: .2s;
+  margin-top: 8px;
+}
+.login-btn:hover { background: #ffb700; transform: translateY(-1px); }
+.login-roles {
+  margin-top: 20px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.role-btn {
+  flex: 1;
+  min-width: 80px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  transition: .2s;
+  text-align: center;
+}
+.role-btn:hover { border-color: var(--accent); color: var(--accent); }
+.login-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 12px;
+}
+
+/* ── MAINTENANCE MODULE ── */
+.incident-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: .2s;
+}
+.incident-card:hover { border-color: rgba(240,165,0,.4); }
+.incident-icon {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.incident-info h4 { font-size: 13px; font-weight: 600; }
+.incident-info p { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.incident-info .meta { display:flex; gap:12px; margin-top:6px; font-size:11px; color: var(--text-dim); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 13px;
+  z-index: 9000;
+  display: none;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  max-width: 320px;
+  animation: slideIn .3s ease;
+}
+#toast.show { display: flex; }
+@keyframes slideIn { from { transform: translateY(20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+/* ── LEAFLET OVERRIDES ── */
+.leaflet-container { background: #0d1117 !important; }
+.leaflet-control-zoom a {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── CHART BAR ── */
+.bar-chart { margin-top: 8px; }
+.bar-row { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:12px; }
+.bar-label { width: 80px; color: var(--text-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex:1; background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+.bar-val { width: 30px; text-align: right; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+/* ── QR MODULE ── */
+.qr-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  max-width: 320px;
+  margin: 0 auto;
+}
+.qr-visual {
+  width: 140px;
+  height: 140px;
+  background: #fff;
+  border-radius: 8px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+}
+.qr-timer {
+  font-family: 'Space Mono', monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 8px 0;
+}
+.qr-label { font-size: 12px; color: var(--text-dim); }
+.qr-status { margin-top: 12px; font-size: 13px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🏔 RZI CAMP</div>
+    <div class="login-sub">ERP GIS INDUSTRIEL · SYSTÈME MINIER</div>
+    <div class="form-group">
+      <label>Identifiant</label>
+      <input type="text" id="login-user" placeholder="ex: admin" value="admin">
+    </div>
+    <div class="form-group">
+      <label>Mot de passe</label>
+      <input type="password" id="login-pass" placeholder="••••••••" value="admin123">
+    </div>
+    <button class="login-btn" onclick="doLogin()">CONNEXION SÉCURISÉE</button>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--text-dim)">Ou cliquez directement sur un rôle ci-dessous ↓</div>
+    <div class="login-hint">Connexion rapide par rôle :</div>
+    <div class="login-roles">
+      <button class="role-btn" onclick="quickLogin('admin','Admin')">Admin</button>
+      <button class="role-btn" onclick="quickLogin('manager','Manager')">Manager</button>
+      <button class="role-btn" onclick="quickLogin('agent','Agent')">Terrain</button>
+      <button class="role-btn" onclick="quickLogin('resto','Restauration')">Resto</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo"><div class="dot"></div>RZI CAMP</div>
+  <div class="breadcrumb">
+    <span id="breadcrumb-text">Tableau de bord</span>
+  </div>
+  <div class="user-badge">
+    <span id="username-display" style="font-size:13px;">—</span>
+    <span id="role-display" class="role-tag">—</span>
+    <button id="demo-btn" class="btn-logout" onclick="toggleDemo()" style="background:rgba(240,165,0,.15);border-color:rgba(240,165,0,.4);color:var(--accent);font-weight:700;letter-spacing:1px">▶ MODE DÉMO</button>
+    <button class="btn-logout" onclick="doLogout()">↩ Déconnexion</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="nav-section">Navigation</div>
+    <div class="nav-item active" onclick="switchModule('dashboard')">
+      <span class="icon">📊</span> Tableau de bord
+    </div>
+    <div class="nav-item" onclick="switchModule('map')">
+      <span class="icon">🗺️</span> Carte GIS
+    </div>
+    <div class="nav-section">Modules ERP</div>
+    <div class="nav-item" onclick="switchModule('residences')">
+      <span class="icon">🏠</span> Résidences
+    </div>
+    <div class="nav-item" onclick="switchModule('restauration')">
+      <span class="icon">🍽️</span> Restauration
+    </div>
+    <div class="nav-item" onclick="switchModule('maintenance')">
+      <span class="icon">🛠️</span> Maintenance
+      <span class="nav-badge" id="maint-badge">0</span>
+    </div>
+    <div class="nav-section">Sécurité</div>
+    <div class="nav-item" onclick="switchModule('audit')">
+      <span class="icon">📋</span> Audit Trail
+    </div>
+    <div class="nav-item" onclick="switchModule('identite')">
+      <span class="icon">🔐</span> Identités & Accès
+    </div>
+    <div class="nav-section">Paramètres</div>
+    <div class="nav-item" onclick="switchModule('shapefile')">
+      <span class="icon">📐</span> Shapefile Info
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- MAP -->
+    <div id="module-map" class="active" id="map-container">
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="module-dashboard" class="panel">
+      <div class="panel-header">
+        <h2>📊 Tableau de bord opérationnel</h2>
+        <p>Vue temps réel du camp RZI · <span id="dash-date"></span></p>
+      </div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="data-table-wrap">
+          <div class="table-header">📦 Occupation par Bloc</div>
+          <div style="padding:16px;" id="bloc-chart"></div>
+        </div>
+        <div class="data-table-wrap">
+          <div class="table-header">🕐 Dernières actions</div>
+          <div id="recent-actions" style="padding:0;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESIDENCES -->
+    <div id="module-residences" class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h2>🏠 Gestion des Résidences</h2>
+          <p>204 bâtiments · 19 blocs · Camp RZI</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAffectation()">+ Nouvelle affectation</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" id="res-search" placeholder="Rechercher résidence..." oninput="filterResidences()"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:7px;font-size:13px;outline:none;font-family:DM Sans,sans-serif;width:200px">
+        <select id="res-filter-bloc" onchange="filterResidences()"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-size:12px;outline:none">
+          <option value="">Tous les blocs</option>
+        </select>
+        <select id="res-filter-statut" onchange="filterResidences()"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-size:12px;outline:none">
+          <option value="">Tous statuts</option>
+          <option>Libre</option><option>Occupé</option><option>Réservé</option><option>Maintenance</option>
+        </select>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Résidence</th><th>Bloc</th><th>Statut</th><th>Occupant</th><th>Société</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="residences-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RESTAURATION -->
+    <div id="module-restauration" class="panel">
+      <div class="panel-header">
+        <h2>🍽️ Module Restauration — Système Anti-Fraude</h2>
+        <p>QR dynamique sécurisé · Token HMAC · Validité 45 secondes</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="qr-box">
+            <div class="qr-visual" id="qr-visual">🍴</div>
+            <div class="qr-timer" id="qr-timer">45</div>
+            <div class="qr-label">secondes restantes</div>
+            <div class="qr-status" id="qr-status">—</div>
+            <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+              <button class="btn btn-primary btn-sm" onclick="generateQR()">Générer QR</button>
+              <button class="btn btn-danger btn-sm" onclick="scanQR()">📱 Scanner</button>
+            </div>
+          </div>
+          <div style="margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;">
+            <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px;">SÉCURITÉ ACTIVE</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div>✅ Token HMAC-SHA256 signé</div>
+              <div>✅ Anti double-scan activé</div>
+              <div>✅ Expiration automatique 45s</div>
+              <div>✅ Validation serveur obligatoire</div>
+              <div>✅ Device binding actif</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="data-table-wrap">
+            <div class="table-header">📋 Journal des repas aujourd'hui</div>
+            <table>
+              <thead><tr><th>Heure</th><th>Résident</th><th>Résidence</th><th>Statut</th></tr></thead>
+              <tbody id="repas-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAINTENANCE -->
+    <div id="module-maintenance" class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h2>🛠️ Maintenance Industrielle</h2>
+          <p>Workflow photo obligatoire · GPS automatique · Traçabilité complète</p>
+        </div>
+        <button class="btn btn-primary" onclick="openIncident()">+ Signaler incident</button>
+      </div>
+      <div id="incidents-list"></div>
+    </div>
+
+    <!-- AUDIT -->
+    <div id="module-audit" class="panel">
+      <div class="panel-header">
+        <h2>📋 Audit Trail Global</h2>
+        <p>Toutes les actions tracées · Niveau bancaire · django-simple-history</p>
+      </div>
+      <div class="data-table-wrap">
+        <div class="table-header">Journal d'audit complet</div>
+        <table>
+          <thead><tr><th>Horodatage</th><th>Utilisateur</th><th>Action</th><th>Module</th><th>Détails</th><th>IP</th></tr></thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- IDENTITE -->
+    <div id="module-identite" class="panel">
+      <div class="panel-header">
+        <h2>🔐 Gestion des Identités & Accès (IAM)</h2>
+        <p>RBAC dynamique · Sessions JWT · Fingerprint device</p>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--card-color:#22c55e">
+          <div class="kpi-value">4</div>
+          <div class="kpi-label">Rôles actifs</div>
+          <div class="kpi-icon">🔑</div>
+        </div>
+        <div class="kpi-card" style="--card-color:#3b82f6">
+          <div class="kpi-value">12</div>
+          <div class="kpi-label">Sessions actives</div>
+          <div class="kpi-icon">💻</div>
+        </div>
+        <div class="kpi-card" style="--card-color:#f97316">
+          <div class="kpi-value">0</div>
+          <div class="kpi-label">Tentatives échouées</div>
+          <div class="kpi-icon">⚠️</div>
+        </div>
+      </div>
+      <div class="data-table-wrap">
+        <div class="table-header">Matrice RBAC — Droits par rôle</div>
+        <table>
+          <thead><tr><th>Rôle</th><th>Carte GIS</th><th>Résidences</th><th>Restauration</th><th>Maintenance</th><th>Audit</th><th>Admin</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Admin</strong></td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td><strong>Manager</strong></td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td><strong>Agent terrain</strong></td><td>🔍 Lecture</td><td>❌</td><td>📱 Scan</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td><strong>Restauration</strong></td><td>❌</td><td>❌</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SHAPEFILE INFO -->
+    <div id="module-shapefile" class="panel">
+      <div class="panel-header">
+        <h2>📐 Informations Shapefile</h2>
+        <p>Source géospatiale · Rox_RZEI.shp · Camp minier RZI</p>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--card-color:var(--accent)"><div class="kpi-value">204</div><div class="kpi-label">Bâtiments</div><div class="kpi-icon">🏗️</div></div>
+        <div class="kpi-card" style="--card-color:#3b82f6"><div class="kpi-value">19</div><div class="kpi-label">Blocs</div><div class="kpi-icon">📦</div></div>
+        <div class="kpi-card" style="--card-color:#22c55e"><div class="kpi-value">4326</div><div class="kpi-label">CRS (WGS84)</div><div class="kpi-icon">🌍</div></div>
+        <div class="kpi-card" style="--card-color:#a855f7"><div class="kpi-value">78 KB</div><div class="kpi-label">GeoJSON size</div><div class="kpi-icon">📄</div></div>
+      </div>
+      <div class="data-table-wrap">
+        <div class="table-header">Métadonnées techniques</div>
+        <table>
+          <thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead>
+          <tbody>
+            <tr><td>Fichier source</td><td><code style="font-family:Space Mono,monospace;color:var(--accent)">Rox_RZEI.shp</code></td></tr>
+            <tr><td>CRS original</td><td>EPSG:32629 (UTM Zone 29N)</td></tr>
+            <tr><td>CRS webapp</td><td>EPSG:4326 (WGS84 — Leaflet)</td></tr>
+            <tr><td>Géométrie</td><td>Polygon Z (3D)</td></tr>
+            <tr><td>Attributs</td><td>Bloc, Résidence, Statut</td></tr>
+            <tr><td>Emprise</td><td>-6.823° à -6.821° / 8.110° à 8.113°</td></tr>
+            <tr><td>Localisation</td><td>Côte d'Ivoire (zone minière)</td></tr>
+            <tr><td>Total features</td><td>204 polygones</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- MODAL -->
+<div id="modal-backdrop">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── GEOJSON DATA ──
+const GEOJSON = {"type":"FeatureCollection","name":"buildings","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"Bloc":"Bloc_A1","Résidence":"A3","Statut":"Occupé","Occupant":"Diallo M.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821515547644861,8.110741025784748],[-6.821550307550826,8.110707932218448],[-6.821582576271697,8.110741591369274],[-6.821547816364011,8.11077468493821],[-6.821515547644861,8.110741025784748]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A1","Résidence":"A4","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821480787733272,8.110774119346521],[-6.821515547644861,8.110741025784748],[-6.821547816364009,8.110774684938212],[-6.8215130564507,8.11080777850262],[-6.821480787733272,8.110774119346521]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A1","Résidence":"A1","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821547816364009,8.110774684938212],[-6.821582576271697,8.110741591369274],[-6.821614844997877,8.11077525051891],[-6.82158008508847,8.110808344090486],[-6.821547816364009,8.110774684938212]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A1","Résidence":"A2","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.8215130564507,8.11080777850262],[-6.821547816364011,8.11077468493821],[-6.82158008508847,8.110808344090486],[-6.821545325173438,8.110841437657534],[-6.8215130564507,8.11080777850262]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A2","Résidence":"A7","Statut":"Occupé","Occupant":"Traoré R.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821380443051284,8.110869653565485],[-6.821415202979109,8.110836560016777],[-6.821447471693285,8.11087021917786],[-6.82141271176374,8.110903312729201],[-6.821380443051284,8.110869653565485]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A2","Résidence":"A8","Statut":"Occupé","Occupant":"Touré S.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821345683117835,8.110902747109668],[-6.821380443051284,8.110869653565485],[-6.821412711763739,8.110903312729207],[-6.82137795182857,8.110936406276025],[-6.821345683117835,8.110902747109668]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A2","Résidence":"A5","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821412711763739,8.110903312729207],[-6.821447471693285,8.11087021917786],[-6.821479740412774,8.110903878337755],[-6.821444980481507,8.11093697189174],[-6.821412711763739,8.110903312729207]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A2","Résidence":"A6","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82137795182857,8.110936406276025],[-6.82141271176374,8.110903312729201],[-6.821444980481507,8.11093697189174],[-6.821410220544614,8.110970065441196],[-6.82137795182857,8.110936406276025]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A3","Résidence":"A11","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821245338372743,8.110998281277855],[-6.821280098322428,8.110965187746737],[-6.821312367029913,8.110998846918081],[-6.821277607078506,8.11103194045183],[-6.821245338372743,8.110998281277855]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A3","Résidence":"A12","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821210578417435,8.111031374804444],[-6.821245338372743,8.110998281277855],[-6.821277607078506,8.111031940451834],[-6.821242847121476,8.111065033981061],[-6.821210578417435,8.111031374804444]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A3","Résidence":"A9","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821277607078506,8.111031940451834],[-6.821312367029913,8.110998846918081],[-6.821344635742706,8.111032506088232],[-6.821309875789579,8.111065599624624],[-6.821277607078506,8.111031940451834]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_A3","Résidence":"A10","Statut":"Occupé","Occupant":"Diallo M.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821242847121476,8.111065033981061],[-6.821277607078506,8.11103194045183],[-6.821309875789579,8.111065599624624],[-6.821275115830827,8.111098693156489],[-6.821242847121476,8.111065033981061]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B150","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823278164055832,8.112313973652938],[-6.823245427586008,8.112280135247252],[-6.823272157885395,8.112254454430573],[-6.823304894356521,8.11228829283419],[-6.823278164055832,8.112313973652938]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B156","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823310745274044,8.112347961218735],[-6.823278164055832,8.112313973652938],[-6.823304894356522,8.11228829283419],[-6.823337630833078,8.112322131236573],[-6.823310745274044,8.112347961218735]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B149","Statut":"Occupé","Occupant":"Diallo M.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.823305044607414,8.112288148482172],[-6.823272308136279,8.112254310078567],[-6.823299038432282,8.112228629259189],[-6.823331774904719,8.112262467660727],[-6.823305044607414,8.112288148482172]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B155","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.823337625826957,8.112322136045906],[-6.823305044607414,8.112288148482172],[-6.823331774904719,8.112262467660727],[-6.823364511382586,8.112296306061028],[-6.823337625826957,8.112322136045906]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B148","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823331925155829,8.112262323308943],[-6.823299188683385,8.112228484907417],[-6.823325918976002,8.112202804085337],[-6.823358655449749,8.112236642484794],[-6.823331925155829,8.112262323308943]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B154","Statut":"Occupé","Occupant":"Kouamé A.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.823364506376702,8.11229631087061],[-6.823331925155829,8.112262323308943],[-6.823358655449751,8.112236642484794],[-6.823391391928928,8.112270480883017],[-6.823364506376702,8.11229631087061]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B147","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823358805700726,8.112236498132873],[-6.823326069226971,8.112202659733429],[-6.823352799516205,8.112176978908654],[-6.823385535991263,8.112210817306028],[-6.823358805700726,8.112236498132873]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B153","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823391386922928,8.112270485692477],[-6.823358805700726,8.112236498132873],[-6.823385535991265,8.112210817306028],[-6.823418272471751,8.112244655702167],[-6.823391386922928,8.112270485692477]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B146","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823385686242219,8.11221067295409],[-6.823352949767153,8.112176834556728],[-6.823379680053003,8.112151153729249],[-6.823412416529371,8.112184992124545],[-6.823385686242219,8.11221067295409]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B152","Statut":"Occupé","Occupant":"Touré S.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.823418267465752,8.112244660511625],[-6.823385686242219,8.11221067295409],[-6.823412416529372,8.112184992124545],[-6.82344515301117,8.112218830518602],[-6.823418267465752,8.112244660511625]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B145","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823412566780307,8.11218484777259],[-6.823379830303931,8.11215100937731],[-6.823406560586397,8.112125328547133],[-6.823439297064077,8.112159166940344],[-6.823412566780307,8.11218484777259]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C1","Résidence":"B151","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823445148005171,8.11221883532806],[-6.823412566780307,8.11218484777259],[-6.823439297064077,8.112159166940344],[-6.823472033547186,8.112193005332319],[-6.823445148005171,8.11221883532806]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B162","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823052657439916,8.112532897852095],[-6.823019920980954,8.112499059428902],[-6.823046651308918,8.112473378634913],[-6.823079387769181,8.112507217056036],[-6.823052657439916,8.112532897852095]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B163","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823085238647098,8.112566885435264],[-6.823052657439916,8.112532897852095],[-6.823079387769182,8.112507217056036],[-6.823112124234877,8.112541055475926],[-6.823085238647098,8.112566885435264]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B161","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823079538020234,8.11250707270415],[-6.823046801559963,8.112473234283039],[-6.823073531884543,8.11244755348635],[-6.823106268346116,8.112481391905392],[-6.823079538020234,8.11250707270415]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B164","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823112119228749,8.112541060285254],[-6.823079538020234,8.11250707270415],[-6.823106268346118,8.112481391905392],[-6.823139004813122,8.1125152303232],[-6.823112119228749,8.112541060285254]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B160","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823106418597388,8.112481247553735],[-6.823073682135806,8.112447409134706],[-6.823100412457001,8.11242172833532],[-6.823133148919886,8.112455566752281],[-6.823106418597388,8.112481247553735]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B165","Statut":"Occupé","Occupant":"Doumbia L.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.823138999807233,8.112515235132776],[-6.823106418597388,8.112481247553735],[-6.823133148919887,8.112455566752281],[-6.823165885388202,8.112489405168008],[-6.823138999807233,8.112515235132776]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B159","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823133299171023,8.11245542240049],[-6.82310056270813,8.112421583983542],[-6.823127293025943,8.112395903181453],[-6.823160029490138,8.112429741596332],[-6.823133299171023,8.11245542240049]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B166","Statut":"Occupé","Occupant":"Kouamé A.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.8231658803822,8.11248940997746],[-6.823133299171023,8.11245542240049],[-6.823160029490138,8.112429741596332],[-6.823192765959765,8.112463580009976],[-6.8231658803822,8.11248940997746]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B158","Statut":"Occupé","Occupant":"Touré S.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.823160179741254,8.112429597244523],[-6.82312744327705,8.112395758829654],[-6.823154173591477,8.112370078024869],[-6.823186910056983,8.11240391643767],[-6.823160179741254,8.112429597244523]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B167","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.823192760953759,8.11246358481943],[-6.823160179741254,8.112429597244523],[-6.823186910056984,8.11240391643767],[-6.823219646527921,8.112437754849228],[-6.823192760953759,8.11246358481943]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B157","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82318706030808,8.112403772085843],[-6.823154323842566,8.112369933673058],[-6.82318105415361,8.11234425286557],[-6.823213790620427,8.112378091276288],[-6.82318706030808,8.112403772085843]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_C2","Résidence":"B168","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.823219641521916,8.112437759658686],[-6.82318706030808,8.112403772085843],[-6.823213790620428,8.112378091276288],[-6.823246527092675,8.11241192968577],[-6.823219641521916,8.112437759658686]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B7","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822127367631291,8.110905374258467],[-6.82209341156352,8.110937997129463],[-6.822067641552629,8.11091135947993],[-6.822101597619096,8.110878736611005],[-6.822127367631291,8.110905374258467]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B6","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.822161473373049,8.110872906101989],[-6.822127367631291,8.110905374258467],[-6.822101597619096,8.110878736611005],[-6.822135553680131,8.110846113737745],[-6.822161473373049,8.110872906101989]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B8","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82210145276574,8.1108785868809],[-6.822067496699282,8.11091120974982],[-6.822041726691774,8.110884572099517],[-6.822075682756928,8.11085194923267],[-6.82210145276574,8.1108785868809]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B5","Statut":"Occupé","Occupant":"Traoré R.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.822135558506166,8.110846118726514],[-6.82210145276574,8.1108785868809],[-6.822075682756928,8.11085194923267],[-6.822109638816653,8.11081932636149],[-6.822135558506166,8.110846118726514]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B9","Statut":"Occupé","Occupant":"Koné B.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.82207553790384,8.110851799502331],[-6.822041581838693,8.110884422369164],[-6.822015811834568,8.11085778471809],[-6.822049767898411,8.110825161853324],[-6.82207553790384,8.110851799502331]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B4","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822109643642936,8.110819331350024],[-6.82207553790384,8.110851799502331],[-6.822049767898411,8.110825161853324],[-6.822083723956825,8.110792538984228],[-6.822109643642936,8.110819331350024]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B10","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822049623045221,8.110825012123094],[-6.822015666981386,8.11085763498785],[-6.821989896980645,8.11083099733601],[-6.822023853043176,8.110798374473326],[-6.822049623045221,8.110825012123094]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B3","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822083728782986,8.110792543972877],[-6.822049623045221,8.110825012123094],[-6.822023853043176,8.110798374473324],[-6.822057809100279,8.110765751606305],[-6.822083728782986,8.110792543972877]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B11","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822023708190002,8.11079822474309],[-6.821989752127479,8.110830847605762],[-6.821963982130121,8.110804209953152],[-6.821997938191341,8.110771587092549],[-6.822023708190002,8.11079822474309]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B2","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822057813926437,8.110765756594953],[-6.822023708190002,8.11079822474309],[-6.821997938191341,8.110771587092547],[-6.822031894247133,8.11073896422761],[-6.822057813926437,8.110765756594953]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B12","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821997793338186,8.110771437362311],[-6.821963837276974,8.110804060222902],[-6.821938067282999,8.110777422569523],[-6.821972023342908,8.110744799711002],[-6.821997793338186,8.110771437362311]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B7","Résidence":"B1","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82203189907329,8.110738969216262],[-6.821997793338186,8.110771437362311],[-6.821972023342908,8.110744799711002],[-6.822005979397388,8.110712176848144],[-6.82203189907329,8.110738969216262]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B19","Statut":"Occupé","Occupant":"Bamba K.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.82198264303728,8.111044377724903],[-6.821948686946374,8.111077000577433],[-6.821922916941042,8.111050362919082],[-6.821956873030643,8.111017740068618],[-6.82198264303728,8.111044377724903]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B18","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822016748802141,8.111011909586942],[-6.82198264303728,8.111044377724903],[-6.821956873030643,8.111017740068617],[-6.821990829114816,8.110985117213826],[-6.822016748802141,8.111011909586942]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B20","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821956728177319,8.111017590338468],[-6.821922772087725,8.11105021318892],[-6.821897002085778,8.111023575529801],[-6.821930958174067,8.110990952681417],[-6.821956728177319,8.111017590338468]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B17","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821990833940851,8.110985122202596],[-6.821956728177319,8.111017590338468],[-6.821930958174067,8.110990952681417],[-6.821964914256927,8.110958329828701],[-6.821990833940851,8.110985122202596]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B21","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82193081332101,8.110990802951028],[-6.821896857232727,8.111023425799397],[-6.821871087234163,8.110996788139508],[-6.821905043321141,8.110964165293208],[-6.82193081332101,8.110990802951028]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B16","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821964919083209,8.110958334817239],[-6.82193081332101,8.110990802951028],[-6.821905043321141,8.110964165293206],[-6.821938999402691,8.110931542442573],[-6.821964919083209,8.110958334817239]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B22","Statut":"Occupé","Occupant":"Koné B.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821904898467983,8.110964015562926],[-6.821870942381011,8.110996638409212],[-6.821845172385829,8.110970000748553],[-6.821879128471497,8.110937377904335],[-6.821904898467983,8.110964015562926]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B15","Statut":"Occupé","Occupant":"Bamba K.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821939004228851,8.110931547431221],[-6.821904898467983,8.110964015562926],[-6.821879128471497,8.110937377904335],[-6.821913084551735,8.110904755055781],[-6.821939004228851,8.110931547431221]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B23","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821878983618355,8.110937228174052],[-6.821845027532694,8.11096985101826],[-6.821819257540897,8.11094321335683],[-6.821853213625253,8.110910590514692],[-6.821878983618355,8.110937228174052]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B14","Statut":"Occupé","Occupant":"Diallo M.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.821913089377892,8.110904760044432],[-6.821878983618355,8.110937228174052],[-6.821853213625253,8.110910590514692],[-6.82188716970418,8.110877967668221],[-6.821913089377892,8.110904760044432]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B24","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821853068772129,8.110910440784405],[-6.821819112687781,8.110943063626532],[-6.821793342699365,8.110916425964332],[-6.821827298782411,8.110883803124274],[-6.821853068772129,8.110910440784405]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B8","Résidence":"B13","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821887174530336,8.110877972656873],[-6.821853068772129,8.110910440784405],[-6.821827298782411,8.110883803124272],[-6.821861254860026,8.110851180279885],[-6.821887174530336,8.110877972656873]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B31","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821837907161543,8.111183370088035],[-6.821803951047502,8.1112159929221],[-6.821778181047732,8.11118935525493],[-6.821812137160469,8.111156732422934],[-6.821837907161543,8.111183370088035]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B30","Statut":"Occupé","Occupant":"Diallo M.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.821872012949508,8.111150901968594],[-6.821837907161543,8.111183370088035],[-6.821812137160469,8.111156732422932],[-6.821846093267776,8.11112410958661],[-6.821872012949508,8.111150901968594]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B32µ","Statut":"Occupé","Occupant":"Bamba K.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821811992307175,8.111156582692736],[-6.821778036194445,8.11118920552472],[-6.821752266198059,8.111162567856777],[-6.821786222309484,8.111129945026866],[-6.821811992307175,8.111156582692736]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B29","Statut":"Occupé","Occupant":"Traoré R.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821846098093809,8.111124114575379],[-6.821811992307175,8.111156582692736],[-6.821786222309484,8.111129945026864],[-6.821820178415481,8.111097322192617],[-6.821846098093809,8.111124114575379]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B33","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82178607745646,8.111129795296423],[-6.82175212134504,8.111162418126327],[-6.821726351352036,8.111135780457616],[-6.821760307462151,8.111103157629785],[-6.82178607745646,8.111129795296423]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B28","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821820183241762,8.111097327181154],[-6.82178607745646,8.111129795296423],[-6.821760307462151,8.111103157629783],[-6.821794263566837,8.111070534797616],[-6.821820183241762,8.111097327181154]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B34","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821760162609023,8.111103007899453],[-6.821726206498917,8.111135630727274],[-6.821700436509295,8.111108993057798],[-6.8217343926181,8.111076370232045],[-6.821760162609023,8.111103007899453]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B27","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821794268392996,8.111070539786269],[-6.821760162609023,8.111103007899453],[-6.8217343926181,8.111076370232045],[-6.821768348721474,8.111043747401958],[-6.821794268392996,8.111070539786269]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B35","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821734247764989,8.111076220501712],[-6.821700291656193,8.111108843327452],[-6.821674521669957,8.111082205657203],[-6.821708477777448,8.111049582833536],[-6.821734247764989,8.111076220501712]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B26","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82176835354763,8.111043752390612],[-6.821734247764989,8.111076220501712],[-6.821708477777449,8.111049582833532],[-6.821742433879511,8.11101696000553],[-6.82176835354763,8.111043752390612]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B36","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821708332924356,8.111049433103195],[-6.821674376816872,8.111082055926857],[-6.821648606834019,8.11105541825584],[-6.821682562940198,8.11102279543425],[-6.821708332924356,8.111049433103195]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B9","Résidence":"B25","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821742438705667,8.111016964994183],[-6.821708332924356,8.111049433103195],[-6.821682562940198,8.111022795434248],[-6.821716519040949,8.110990172608327],[-6.821742438705667,8.111016964994183]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B43","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821680142754193,8.11133494366691],[-6.821646186614926,8.111367566480844],[-6.821620416621212,8.111340928804058],[-6.821654372759178,8.111308305992196],[-6.821680142754193,8.11133494366691]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B42","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821714248567349,8.111302475567658],[-6.821680142754193,8.11133494366691],[-6.821654372759178,8.111308305992196],[-6.821688328891711,8.111275683175998],[-6.821714248567349,8.111302475567658]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B44","Statut":"Occupé","Occupant":"Diallo M.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.821654227905918,8.111308156261943],[-6.821620271767961,8.111340779073792],[-6.821594501777634,8.11131414139624],[-6.821628457914286,8.111281518586457],[-6.821654227905918,8.111308156261943]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B41","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821688333717742,8.111275688164772],[-6.821654227905918,8.111308156261943],[-6.821628457914286,8.111281518586454],[-6.821662414045509,8.111248895772343],[-6.821688333717742,8.111275688164772]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B45","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821628313061295,8.111281368855963],[-6.821594356924649,8.111313991665732],[-6.821568586937705,8.111287353987409],[-6.821602543073046,8.111254731179706],[-6.821628313061295,8.111281368855963]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B40","Statut":"Occupé","Occupant":"Diallo M.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821662418871788,8.111248900760879],[-6.821628313061295,8.111281368855963],[-6.821602543073046,8.111254731179706],[-6.821636499202956,8.111222108367675],[-6.821662418871788,8.111248900760879]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B46","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821602398219953,8.111254581449323],[-6.82156844208462,8.111287204257016],[-6.821542672101058,8.11126056657792],[-6.821576628235087,8.111227943772302],[-6.821602398219953,8.111254581449323]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B39","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821636504029115,8.111222113356327],[-6.821602398219953,8.111254581449323],[-6.821576628235087,8.111227943772299],[-6.821610584363687,8.111195320962347],[-6.821636504029115,8.111222113356327]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B47","Statut":"Occupé","Occupant":"Traoré R.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.82157648338201,8.111227794041916],[-6.821542527247989,8.111260416847523],[-6.821516757267811,8.111233779167662],[-6.821550713400529,8.111201156364121],[-6.82157648338201,8.111227794041916]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B38","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821610589189842,8.111195325951003],[-6.82157648338201,8.111227794041916],[-6.821550713400529,8.111201156364121],[-6.821584669527817,8.11116853355625],[-6.821610589189842,8.111195325951003]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B48","Statut":"Occupé","Occupant":"Bamba K.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821550568547471,8.111201006633731],[-6.821516612414761,8.111233629437258],[-6.821490842437967,8.111206991756628],[-6.821524798569373,8.111174368955167],[-6.821550568547471,8.111201006633731]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_10","Résidence":"B37","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821584674353971,8.111168538544904],[-6.821550568547471,8.111201006633731],[-6.821524798569373,8.111174368955167],[-6.821558754695349,8.111141746149377],[-6.821584674353971,8.111168538544904]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B55","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821535409411165,8.111473936787371],[-6.821501453248761,8.111506559582839],[-6.821475683260611,8.111479921897232],[-6.821509639421712,8.111447299103839],[-6.821535409411165,8.111473936787371]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B54","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821569515247425,8.11144146870664],[-6.821535409411165,8.111473936787371],[-6.821509639421712,8.111447299103837],[-6.821543595577382,8.11141467630611],[-6.821569515247425,8.11144146870664]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B56","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821509494568484,8.111447149373536],[-6.82147553840739,8.111479772166918],[-6.821449768422625,8.111453134480545],[-6.821483724582414,8.11142051168923],[-6.821509494568484,8.111447149373536]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B53","Statut":"Occupé","Occupant":"Touré S.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821543600403413,8.111414681294885],[-6.821509494568484,8.111447149373536],[-6.821483724582414,8.11142051168923],[-6.821517680736773,8.111387888893585],[-6.821543600403413,8.111414681294885]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B57","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821483579729453,8.111420361958688],[-6.821449623569672,8.11145298474999],[-6.821423853588289,8.111426347062844],[-6.821457809746767,8.111393724273615],[-6.821483579729453,8.111420361958688]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B52","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821517685563052,8.111387893882123],[-6.821483579729453,8.111420361958688],[-6.821457809746767,8.111393724273613],[-6.821491765899814,8.111361101480046],[-6.821517685563052,8.111387893882123]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B58","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821457664893704,8.11139357454318],[-6.821423708735234,8.111426197332403],[-6.821397938757235,8.11139955964449],[-6.821431894914401,8.111366936857337],[-6.821457664893704,8.11139357454318]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B51","Statut":"Occupé","Occupant":"Kouamé A.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.82149177072597,8.111361106468701],[-6.821457664893704,8.11139357454318],[-6.821431894914401,8.111366936857335],[-6.821465851066137,8.111334314065854],[-6.82149177072597,8.111361106468701]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B59","Statut":"Occupé","Occupant":"Traoré R.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821431750061355,8.1113667871269],[-6.821397793904198,8.111399409914045],[-6.821372023929581,8.11137277222536],[-6.821405980085435,8.111340149440288],[-6.821431750061355,8.1113667871269]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B50","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82146585589229,8.111334319054507],[-6.821431750061355,8.1113667871269],[-6.821405980085435,8.111340149440286],[-6.821439936235859,8.111307526650885],[-6.82146585589229,8.111334319054507]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B60","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821405835232409,8.111339999709848],[-6.821371879076563,8.11137262249491],[-6.821346109105331,8.111345984805455],[-6.821380065259873,8.111313362022472],[-6.821405835232409,8.111339999709848]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B11","Résidence":"B49","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821439941062014,8.111307531639541],[-6.821405835232409,8.111339999709848],[-6.821380065259873,8.11131336202247],[-6.821414021408985,8.111280739235143],[-6.821439941062014,8.111307531639541]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B67","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821390684413898,8.111612939931906],[-6.821356728228356,8.111645562708906],[-6.821330958245768,8.111618925014481],[-6.821364914430005,8.111586302239555],[-6.821390684413898,8.111612939931906]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B66","Statut":"Occupé","Occupant":"Touré S.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821424790273264,8.111580471869695],[-6.821390684413898,8.111612939931906],[-6.821364914430005,8.111586302239555],[-6.821398870608813,8.111553679460291],[-6.821424790273264,8.111580471869695]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B68","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821364769576808,8.1115861525092],[-6.821330813392579,8.111618775284118],[-6.821305043413373,8.111592137588922],[-6.821338999596299,8.11155951481608],[-6.821364769576808,8.1115861525092]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B65","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821398875434843,8.111553684449069],[-6.821364769576808,8.1115861525092],[-6.821338999596299,8.11155951481608],[-6.821372955773795,8.1115268920389],[-6.821398875434843,8.111553684449069]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B69","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82133885474337,8.111559365085483],[-6.821304898560451,8.111591987858322],[-6.821279128584629,8.111565350162357],[-6.821313084766245,8.111532727391594],[-6.82133885474337,8.111559365085483]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B64","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.821372960600073,8.11152689702744],[-6.82133885474337,8.111559365085483],[-6.821313084766245,8.111532727391593],[-6.821347040942428,8.111500104616493],[-6.821372960600073,8.11152689702744]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B70","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.821312939913212,8.11153257766111],[-6.821278983731607,8.111565200431864],[-6.821253213759168,8.11153856273513],[-6.821287169939471,8.111505939966445],[-6.821312939913212,8.11153257766111]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B63","Statut":"Occupé","Occupant":"Koné B.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.821347045768585,8.111500109605151],[-6.821312939913212,8.11153257766111],[-6.821287169939471,8.111505939966445],[-6.821321126114344,8.111473317193429],[-6.821347045768585,8.111500109605151]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B71","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821287025086456,8.111505790235963],[-6.821253068906161,8.111538413004634],[-6.821227298937107,8.111511775307136],[-6.821261255116098,8.111479152540534],[-6.821287025086456,8.111505790235963]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B62","Statut":"Occupé","Occupant":"Bamba K.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821321130940497,8.11147332218209],[-6.821287025086456,8.111505790235963],[-6.821261255116098,8.111479152540532],[-6.82129521128966,8.111446529769594],[-6.821321130940497,8.11147332218209]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B72","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821261110263102,8.11147900281004],[-6.821227154084119,8.111511625576634],[-6.821201384118448,8.111484987878365],[-6.821235340296128,8.111452365113841],[-6.821261110263102,8.11147900281004]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B12","Résidence":"B61","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821295216115812,8.111446534758253],[-6.821261110263102,8.11147900281004],[-6.821235340296128,8.111452365113841],[-6.821269296468376,8.111419742344985],[-6.821295216115812,8.111446534758253]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B79","Statut":"Occupé","Occupant":"Traoré R.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.822435784258016,8.11122417445257],[-6.822401828174644,8.111256797348332],[-6.822376058123486,8.111230159707958],[-6.822410014205556,8.111197536814268],[-6.822435784258016,8.11122417445257]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B78","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822469890015613,8.111191706271276],[-6.822435784258016,8.11122417445257],[-6.822410014205556,8.111197536814267],[-6.822443970282196,8.111164913916241],[-6.822469890015613,8.111191706271276]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B80","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822409869351974,8.111197387084216],[-6.822375913269911,8.111230009977897],[-6.822350143222137,8.111203372336755],[-6.822384099302897,8.111170749445142],[-6.822409869351974,8.111197387084216]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B77","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822443975108239,8.11116491890501],[-6.822409869351974,8.111197387084216],[-6.822384099302897,8.111170749445142],[-6.822418055378225,8.1111381265492],[-6.822443975108239,8.11116491890501]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B81","Statut":"Occupé","Occupant":"Yao P.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.822383954449582,8.111170599714853],[-6.82234999836883,8.111203222606452],[-6.822324228324439,8.111176584964538],[-6.822358184403888,8.111143962075008],[-6.822383954449582,8.111170599714853]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B76","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822418060204517,8.11113813153773],[-6.822383954449582,8.111170599714853],[-6.822358184403888,8.111143962075008],[-6.822392140477906,8.111111339181146],[-6.822418060204517,8.11113813153773]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B82","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822358039550471,8.11114381234483],[-6.82232408347103,8.111176435234349],[-6.822298313430024,8.111149797591667],[-6.82233226950816,8.11111717470422],[-6.822358039550471,8.11114381234483]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B75","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822392145304076,8.111111344169792],[-6.822358039550471,8.11114381234483],[-6.82233226950816,8.111117174704217],[-6.822366225580867,8.111084551812436],[-6.822392145304076,8.111111344169792]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B83","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822332124654761,8.111117024974034],[-6.822298168576632,8.111149647861472],[-6.822272398539008,8.111123010218018],[-6.822306354615834,8.111090387332652],[-6.822332124654761,8.111117024974034]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B74","Statut":"Occupé","Occupant":"Doumbia L.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.822366230407034,8.111084556801083],[-6.822332124654761,8.111117024974034],[-6.822306354615834,8.11109038733265],[-6.82234031068723,8.111057764442949],[-6.822366230407034,8.111084556801083]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B84","Statut":"Occupé","Occupant":"Koné B.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.822306209762454,8.111090237602467],[-6.822272253685634,8.111122860487821],[-6.822246483651395,8.1110962228436],[-6.822280439726909,8.111063599960312],[-6.822306209762454,8.111090237602467]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B1","Résidence":"B73","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822340315513396,8.111057769431598],[-6.822306209762454,8.111090237602467],[-6.822280439726909,8.111063599960312],[-6.822314395796995,8.111030977072696],[-6.822340315513396,8.111057769431598]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B91","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.822291059597476,8.111363178024547],[-6.822257103490965,8.111395800901846],[-6.822231333445367,8.111369163252652],[-6.822265289550574,8.111336540377426],[-6.822291059597476,8.111363178024547]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B90","Statut":"Occupé","Occupant":"Doumbia L.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.822325165378176,8.11133070986177],[-6.822291059597476,8.111363178024547],[-6.822265289550574,8.111336540377424],[-6.822299245650351,8.111303917497867],[-6.822325165378176,8.11133070986177]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B92","Statut":"Occupé","Occupant":"Bamba K.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.822265144697023,8.111336390647324],[-6.822231188591823,8.111369013522541],[-6.822205418549609,8.111342375872578],[-6.822239374653504,8.111309752999432],[-6.822265144697023,8.111336390647324]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B89","Statut":"Occupé","Occupant":"Touré S.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.822299250476393,8.111303922486636],[-6.822265144697023,8.111336390647324],[-6.822239374653504,8.11130975299943],[-6.82227333075197,8.111277130121955],[-6.822299250476393,8.111303922486636]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B93","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82223922980022,8.111309603269095],[-6.822205273696332,8.111342226142227],[-6.822179503657501,8.111315588491495],[-6.822213459760085,8.11128296562043],[-6.82223922980022,8.111309603269095]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B88","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822273335578259,8.111277135110488],[-6.82223922980022,8.111309603269095],[-6.822213459760085,8.111282965620429],[-6.822247415857241,8.111250342745034],[-6.822273335578259,8.111277135110488]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B94","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.8222133149067,8.111282815890203],[-6.822179358804123,8.111315438761256],[-6.822153588768675,8.111288801109751],[-6.822187544869949,8.11125617824077],[-6.8222133149067,8.111282815890203]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B87","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822247420683409,8.111250347733682],[-6.8222133149067,8.111282815890203],[-6.822187544869949,8.11125617824077],[-6.822221500965792,8.111223555367452],[-6.822247420683409,8.111250347733682]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B95","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822187400016581,8.111256028510539],[-6.822153443915314,8.11128865137951],[-6.822127673883251,8.111262013727236],[-6.822161629983212,8.111229390860334],[-6.822187400016581,8.111256028510539]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B86","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822221505791957,8.111223560356102],[-6.822187400016581,8.111256028510539],[-6.822161629983212,8.111229390860334],[-6.822195586077745,8.111196767989101],[-6.822221505791957,8.111223560356102]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B96","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822161485129863,8.1112292411301],[-6.822127529029908,8.111261863996992],[-6.822101759001225,8.11123522634395],[-6.822135715099877,8.11120260347913],[-6.822161485129863,8.1112292411301]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B2","Résidence":"B85","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822195590903909,8.11119677297775],[-6.822161485129863,8.1112292411301],[-6.822135715099877,8.111202603479128],[-6.822169671193099,8.111169980609976],[-6.822195590903909,8.11119677297775]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B103","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822146323655188,8.111502170493234],[-6.82211236752554,8.11153479335206],[-6.822086597485503,8.11150815569405],[-6.822120553613846,8.11147553283729],[-6.822146323655188,8.111502170493234]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B102","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822180429458992,8.111469702348971],[-6.822146323655188,8.111502170493234],[-6.822120553613846,8.111475532837288],[-6.822154509736761,8.111442909976196],[-6.822180429458992,8.111469702348971]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B104","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822120408760327,8.11147538310714],[-6.822086452631989,8.11150800596389],[-6.822060682595336,8.111481368305109],[-6.822094638722368,8.11144874545043],[-6.822120408760327,8.11147538310714]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B101","Statut":"Occupé","Occupant":"Bamba K.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.822154514562802,8.111442914964966],[-6.822120408760327,8.11147538310714],[-6.822094638722368,8.111448745450428],[-6.822128594843972,8.111416122591413],[-6.822154514562802,8.111442914964966]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B105","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822094493869116,8.11144859572004],[-6.822060537742091,8.111481218574706],[-6.82203476770882,8.111454580915158],[-6.822068723834541,8.111421958062559],[-6.822094493869116,8.11144859572004]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B100","Statut":"Occupé","Occupant":"Traoré R.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.822128599670259,8.111416127579952],[-6.822094493869116,8.11144859572004],[-6.822068723834541,8.111421958062557],[-6.822102679954834,8.111389335205628],[-6.822128599670259,8.111416127579952]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B196","Statut":"Occupé","Occupant":"Touré S.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.822068578981188,8.11142180833228],[-6.822034622855473,8.111454431184866],[-6.822008852825586,8.111427793524545],[-6.822042808949996,8.111395170674028],[-6.822068578981188,8.11142180833228]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B99","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822102684781001,8.111389340194275],[-6.822068578981188,8.11142180833228],[-6.822042808949996,8.111395170674028],[-6.822076765068976,8.111362547819176],[-6.822102684781001,8.111389340194275]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B107","Statut":"Occupé","Occupant":"Bamba K.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.82204266409666,8.111395020943746],[-6.822008707972256,8.111427643794253],[-6.821982937945754,8.11140100613316],[-6.822016894068851,8.111368383284727],[-6.82204266409666,8.111395020943746]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B98","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.822076769895141,8.111362552807828],[-6.82204266409666,8.111395020943746],[-6.822016894068851,8.111368383284727],[-6.822050850186521,8.111335760431958],[-6.822076769895141,8.111362552807828]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B108","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822016749215533,8.111368233554442],[-6.821982793092442,8.111400856402867],[-6.821957023069322,8.111374218741007],[-6.821990979191109,8.11134159589465],[-6.822016749215533,8.111368233554442]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B3","Résidence":"B97","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822050855012685,8.111335765420609],[-6.822016749215533,8.111368233554442],[-6.821990979191109,8.111341595894649],[-6.822024935307467,8.111308973043961],[-6.822050855012685,8.111335765420609]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B115","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821988559175328,8.111653744187171],[-6.821954603020454,8.111686367025872],[-6.821928832986474,8.111659729358244],[-6.821962789140045,8.111627106521613],[-6.821988559175328,8.111653744187171]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B114","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.822022665004325,8.111621276063099],[-6.821988559175328,8.111653744187171],[-6.821962789140045,8.111627106521613],[-6.821996745288186,8.111594483680653],[-6.822022665004325,8.111621276063099]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B116","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821962644286559,8.111626956791413],[-6.821928688132995,8.11165957962803],[-6.8219029181024,8.111632941959634],[-6.821936874254659,8.111600319125085],[-6.821962644286559,8.111626956791413]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B113","Statut":"Occupé","Occupant":"Traoré R.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821996750114226,8.111594488669422],[-6.821962644286559,8.111626956791413],[-6.821936874254659,8.111600319125085],[-6.82197083040149,8.111567696286205],[-6.821996750114226,8.111594488669422]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B117","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821936729401442,8.111600169394642],[-6.82190277324919,8.111632792229178],[-6.821877003221977,8.111606154560011],[-6.821910959372925,8.111573531727547],[-6.821936729401442,8.111600169394642]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B112","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821970835227777,8.111567701274739],[-6.821936729401442,8.111600169394642],[-6.821910959372925,8.111573531727547],[-6.821944915518444,8.111540908890746],[-6.821970835227777,8.111567701274739]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B118","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821910814519606,8.111573381997212],[-6.821876858368665,8.111606004829673],[-6.821851088344835,8.111579367159733],[-6.821885044494472,8.111546744329349],[-6.821910814519606,8.111573381997212]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B111","Statut":"Occupé","Occupant":"Touré S.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.82194492034461,8.111540913879399],[-6.821910814519606,8.111573381997212],[-6.821885044494472,8.111546744329347],[-6.821919000638681,8.111514121494627],[-6.82194492034461,8.111540913879399]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B119","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821884899641169,8.111546594599016],[-6.82185094349154,8.111579217429389],[-6.821825173471095,8.111552579758682],[-6.821859129619421,8.11151995693038],[-6.821884899641169,8.111546594599016]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B110","Statut":"Occupé","Occupant":"Doumbia L.","Societe":"SAPH Contractors"},"geometry":{"type":"Polygon","coordinates":[[[-6.821919005464843,8.111514126483279],[-6.821884899641169,8.111546594599016],[-6.821859129619421,8.111519956930378],[-6.821893085762317,8.111487334097738],[-6.821919005464843,8.111514126483279]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B120","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821858984766136,8.11151980720004],[-6.821825028617818,8.111552430028333],[-6.821799258600756,8.11152579235686],[-6.82183321474777,8.111493169530632],[-6.821858984766136,8.11151980720004]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B4","Résidence":"B109","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821893090588479,8.111487339086395],[-6.821858984766136,8.11151980720004],[-6.82183321474777,8.111493169530632],[-6.821867170889355,8.111460546700075],[-6.821893090588479,8.111487339086395]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B127","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821843825765744,8.111792737413184],[-6.821809869587732,8.111825360233416],[-6.821784099559313,8.111798722556971],[-6.821818055736022,8.111766099738809],[-6.821843825765744,8.111792737413184]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B126","Statut":"Occupé","Occupant":"Yao P.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.821877931617847,8.111760269307632],[-6.821843825765744,8.111792737413184],[-6.821818055736022,8.111766099738807],[-6.8218520119073,8.111733476916314],[-6.821877931617847,8.111760269307632]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B128","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821817910882567,8.111765950008555],[-6.821783954705866,8.111798572826709],[-6.821758184680831,8.111771935149491],[-6.821792140856228,8.111739312333409],[-6.821817910882567,8.111765950008555]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B125","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821852016733339,8.111733481905086],[-6.821817910882567,8.111765950008555],[-6.821792140856228,8.111739312333407],[-6.821826097026196,8.111706689512994],[-6.821852016733339,8.111733481905086]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B129","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821791996003041,8.111739162602916],[-6.821758039827652,8.111771785418986],[-6.821732269806001,8.111745147741],[-6.821766225980086,8.111712524927002],[-6.821791996003041,8.111739162602916]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B124","Statut":"Occupé","Occupant":"Yao P.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.821826101852483,8.111706694501535],[-6.821791996003041,8.111739162602916],[-6.821766225980086,8.111712524927],[-6.821800182148743,8.11167990210867],[-6.821826101852483,8.111706694501535]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B130","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821766081126798,8.111712375196621],[-6.821732124952719,8.111744998010607],[-6.821706354934451,8.111718360331853],[-6.821740311107226,8.111685737519933],[-6.821766081126798,8.111712375196621]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B123","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821800186974906,8.11167990709732],[-6.821766081126798,8.111712375196621],[-6.821740311107226,8.111685737519933],[-6.821774267274571,8.111653114703683],[-6.821800186974906,8.11167990709732]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B131","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821740166253954,8.111685587789552],[-6.821706210081187,8.111718210601458],[-6.821680440066303,8.111691572921933],[-6.821714396237765,8.111658950112094],[-6.821740166253954,8.111685587789552]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B122","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821774272100733,8.111653119692336],[-6.821740166253954,8.111685587789552],[-6.821714396237765,8.111658950112092],[-6.821748352403799,8.111626327297923],[-6.821774272100733,8.111653119692336]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B132","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821714251384514,8.111658800381706],[-6.821680295213057,8.111691423191534],[-6.821654525201557,8.111664785511236],[-6.821688481371709,8.111632162703483],[-6.821714251384514,8.111658800381706]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B5","Résidence":"B121","Statut":"Occupé","Occupant":"Bamba K.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.82174835722996,8.11162633228658],[-6.821714251384514,8.111658800381706],[-6.821688481371709,8.111632162703481],[-6.821722437536431,8.11159953989139],[-6.82174835722996,8.11162633228658]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B139","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821699100701928,8.111931740663273],[-6.821665144500778,8.111964363465034],[-6.821639374477919,8.11193772577977],[-6.821673330677766,8.111905102980076],[-6.821699100701928,8.111931740663273]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B138","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821733206577138,8.111899272576236],[-6.821699100701928,8.111931740663273],[-6.821673330677767,8.111905102980074],[-6.821707286872183,8.111872480176048],[-6.821733206577138,8.111899272576236]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B140","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821673185824343,8.111904953249775],[-6.821639229624504,8.111937576049456],[-6.821613459605029,8.111910938363419],[-6.821647415803565,8.111878315565809],[-6.821673185824343,8.111904953249775]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B137","Statut":"Occupé","Occupant":"Koné B.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821707291698222,8.111872485164822],[-6.821673185824343,8.111904953249775],[-6.821647415803565,8.111878315565807],[-6.82168137199667,8.111845692763861],[-6.821707291698222,8.111872485164822]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B141","Statut":"Occupé","Occupant":"Ouattara F.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821647270950409,8.111878165835265],[-6.821613314751882,8.111910788632866],[-6.82158754473579,8.11188415094606],[-6.821621500933015,8.111851528150531],[-6.821647270950409,8.111878165835265]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B136","Statut":"Occupé","Occupant":"Kouamé A.","Societe":"ROXGOLD"},"geometry":{"type":"Polygon","coordinates":[[[-6.821681376822955,8.111845697752402],[-6.821647270950409,8.111878165835265],[-6.821621500933015,8.11185152815053],[-6.821655457124808,8.111818905350665],[-6.821681376822955,8.111845697752402]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B142","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821621356079756,8.111851378420097],[-6.82158739988254,8.111884001215618],[-6.821561629869833,8.111857363528044],[-6.821595586065746,8.111824740734594],[-6.821621356079756,8.111851378420097]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B135","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821655461950972,8.111818910339316],[-6.821621356079756,8.111851378420097],[-6.821595586065746,8.111824740734594],[-6.821629542256229,8.111792117936808],[-6.821655461950972,8.111818910339316]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B143","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821595441212506,8.11182459100416],[-6.821561485016599,8.111857213797599],[-6.821535715007276,8.111830576109256],[-6.821569671201877,8.111797953317884],[-6.821595441212506,8.11182459100416]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B134","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821629547082388,8.111792122925467],[-6.821595441212506,8.11182459100416],[-6.821569671201877,8.111797953317883],[-6.821603627391048,8.11176533052218],[-6.821629547082388,8.111792122925467]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B144","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821569526348656,8.111797803587447],[-6.821535570154063,8.111830426378804],[-6.821509800148122,8.111803788689693],[-6.821543756341412,8.111771165900404],[-6.821569526348656,8.111797803587447]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_B6","Résidence":"B133","Statut":"Occupé","Occupant":"Koné B.","Societe":"SGBCI Mining"},"geometry":{"type":"Polygon","coordinates":[[[-6.821603632217209,8.111765335510837],[-6.821569526348656,8.111797803587447],[-6.821543756341412,8.111771165900402],[-6.821577712529272,8.11173854310678],[-6.821603632217209,8.111765335510837]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B174","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821617258155037,8.110707961588304],[-6.821584521954185,8.11067412311774],[-6.821611252196631,8.110648442408118],[-6.821643988398786,8.110682280876613],[-6.821617258155037,8.110707961588304]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B180","Statut":"Occupé","Occupant":"Diallo M.","Societe":"Orica CI"},"geometry":{"type":"Polygon","coordinates":[[[-6.821649839104609,8.110741949218355],[-6.821617258155037,8.110707961588304],[-6.821643988398787,8.110682280876613],[-6.821676724606371,8.110716119343873],[-6.821649839104609,8.110741949218355]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B173","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821644138649359,8.110682136525195],[-6.821611402447195,8.110648298056715],[-6.821638132686258,8.110622617344395],[-6.821670868889724,8.110656455810808],[-6.821644138649359,8.110682136525195]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B179","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82167671960026,8.110716124153189],[-6.821644138649359,8.110682136525195],[-6.821670868889726,8.110656455810808],[-6.82170360509862,8.110690294275992],[-6.82167671960026,8.110716124153189]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B172","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821671019140514,8.110656311459627],[-6.821638282937039,8.110622472993224],[-6.82166501317272,8.110596792278203],[-6.821697749377497,8.110630630742538],[-6.821671019140514,8.110656311459627]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B178","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821703600092747,8.110690299085551],[-6.821671019140514,8.110656311459627],[-6.821697749377498,8.110630630742538],[-6.821730485587705,8.11066446920564],[-6.821703600092747,8.110690299085551]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B171","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821697899628154,8.11063048639122],[-6.821665163423368,8.110596647926895],[-6.821691893655664,8.110570967209178],[-6.821724629861754,8.11060480567143],[-6.821697899628154,8.11063048639122]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B177","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821730480581718,8.110664474015076],[-6.821697899628154,8.11063048639122],[-6.821724629861755,8.11060480567143],[-6.821757366073272,8.110638644132452],[-6.821730480581718,8.110664474015076]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B170","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821724780112388,8.110604661320096],[-6.82169204390629,8.110570822857856],[-6.821718774135204,8.11054514213743],[-6.821751510342605,8.110578980597605],[-6.821724780112388,8.110604661320096]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B176","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821757361067283,8.110638648941887],[-6.821724780112388,8.110604661320096],[-6.821751510342605,8.110578980597605],[-6.821784246555436,8.110612819056545],[-6.821757361067283,8.110638648941887]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B169","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821751660593221,8.110578836246257],[-6.821718924385811,8.110544997786095],[-6.821745654611341,8.110519317062973],[-6.821778390820054,8.110553155521066],[-6.821751660593221,8.110578836246257]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_13","Résidence":"B175","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821784241549447,8.110612823865983],[-6.821751660593221,8.110578836246257],[-6.821778390820055,8.110553155521066],[-6.821811127034196,8.110586993977924],[-6.821784241549447,8.110612823865983]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B186","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821047567609712,8.111250733960171],[-6.821014831436926,8.1112168954456],[-6.821041561750698,8.111191214793122],[-6.821074297924787,8.111225053305626],[-6.821047567609712,8.111250733960171]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B192","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821080148530804,8.111284721633904],[-6.821047567609712,8.111250733960171],[-6.821074297924789,8.111225053305626],[-6.821107034104307,8.111258891816897],[-6.821080148530804,8.111284721633904]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B185","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82107444817576,8.111224908954535],[-6.821041712001663,8.111191070442038],[-6.82106844231205,8.111165389786864],[-6.821101178487453,8.111199228297286],[-6.82107444817576,8.111224908954535]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B191","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821107029098183,8.111258896626198],[-6.82107444817576,8.111224908954535],[-6.821101178487453,8.111199228297286],[-6.821133914668284,8.111233066806479],[-6.821107029098183,8.111258896626198]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B184","Statut":"Occupé","Occupant":"Coulibaly J.","Societe":"BRGM"},"geometry":{"type":"Polygon","coordinates":[[[-6.821101328738644,8.111199083946426],[-6.821068592563234,8.111165245436013],[-6.82109532287024,8.111139564778137],[-6.821128059046953,8.111173403286479],[-6.821101328738644,8.111199083946426]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B190","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821133909662398,8.111233071616025],[-6.821101328738644,8.111199083946426],[-6.821128059046953,8.111173403286479],[-6.821160795229096,8.111207241793588],[-6.821133909662398,8.111233071616025]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B183","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82112820929801,8.111173258935482],[-6.821095473121288,8.111139420427149],[-6.821122203424909,8.11111373976657],[-6.821154939602935,8.111147578272833],[-6.82112820929801,8.111173258935482]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B189","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821160790223095,8.11120724660302],[-6.82112820929801,8.111173258935482],[-6.821154939602936,8.111147578272833],[-6.82118767578639,8.111181416777862],[-6.821160790223095,8.11120724660302]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B182","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.82115508985397,8.111147433921822],[-6.821122353675936,8.111113595415567],[-6.821149083976175,8.111087914752291],[-6.821181820155512,8.111121753256471],[-6.82115508985397,8.111147433921822]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B188","Statut":"Maintenance","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821187670780388,8.111181421587288],[-6.82115508985397,8.111147433921822],[-6.821181820155513,8.111121753256471],[-6.821214556340279,8.111155591759422],[-6.821187670780388,8.111181421587288]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B181","Statut":"Réservé","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821181970406529,8.111121608905442],[-6.821149234227184,8.111087770401275],[-6.821175964524038,8.111062089735292],[-6.821208700704687,8.111095928237395],[-6.821181970406529,8.111121608905442]]]}},{"type":"Feature","properties":{"Bloc":"Bloc_14","Résidence":"B186","Statut":"Libre","Occupant":null,"Societe":null},"geometry":{"type":"Polygon","coordinates":[[[-6.821214551334276,8.111155596568848],[-6.821181970406529,8.111121608905442],[-6.821208700704688,8.111095928237395],[-6.821241436890765,8.111129766738259],[-6.821214551334276,8.111155596568848]]]}}]};
+
+// ── STATE ──
+let currentUser = null;
+let currentRole = null;
+let map = null;
+let geoLayer = null;
+let qrInterval = null;
+let qrSeconds = 45;
+let currentModule = 'dashboard';
+let buildings = JSON.parse(JSON.stringify(GEOJSON.features.map(f => f.properties)));
+let incidents = [
+  { id:1, titre:'Fuite eau résidence B12', categorie:'Plomberie', priorite:'haute', statut:'En cours', auteur:'Agent terrain', date:'2026-05-04 08:32', residence:'B12', bloc:'Bloc_B3', gps:'8.1112, -6.8221', description:'Fuite importante sous évier', photo:'✅ Photo jointe' },
+  { id:2, titre:'Climatiseur défaillant', categorie:'Électricité', priorite:'moyenne', statut:'Ouvert', auteur:'Koné B.', date:'2026-05-04 14:15', residence:'A7', bloc:'Bloc_A1', gps:'8.1108, -6.8218', description:'Climatiseur ne refroidit plus', photo:'✅ Photo jointe' },
+  { id:3, titre:'Porte cassée bâtiment C', categorie:'Serrurerie', priorite:'basse', statut:'Résolu', auteur:'Diallo M.', date:'2026-05-03 10:00', residence:'C5', bloc:'Bloc_C1', gps:'8.1119, -6.8225', description:'Serrure bloquée', photo:'✅ Photo jointe' },
+];
+let auditLog = [
+  { ts:'2026-05-05 07:45:12', user:'admin', action:'CONNEXION', module:'Auth', detail:'Login réussi', ip:'192.168.1.10' },
+  { ts:'2026-05-05 07:46:03', user:'admin', action:'AFFECTATION', module:'Résidences', detail:'Résidence B150 → Kouamé A.', ip:'192.168.1.10' },
+  { ts:'2026-05-05 08:01:22', user:'agent01', action:'QR_SCAN', module:'Restauration', detail:'Repas valide — Résidence A3', ip:'192.168.1.22' },
+  { ts:'2026-05-05 08:01:55', user:'agent01', action:'QR_REFUSED', module:'Restauration', detail:'Double scan détecté — A3 refusé', ip:'192.168.1.22' },
+  { ts:'2026-05-05 08:32:01', user:'terrain01', action:'INCIDENT', module:'Maintenance', detail:'Nouvel incident B12 créé', ip:'192.168.1.45' },
+  { ts:'2026-05-05 09:12:00', user:'manager', action:'LECTURE_CARTE', module:'GIS', detail:'Carte consultée — filtre Bloc_A1', ip:'192.168.1.11' },
+];
+let repasLog = [
+  { heure:'06:32', resident:'Kouamé A.', residence:'A3', statut:'✅ Validé' },
+  { heure:'06:35', resident:'Diallo M.', residence:'A4', statut:'✅ Validé' },
+  { heure:'06:38', resident:'Koné B.', residence:'A1', statut:'✅ Validé' },
+  { heure:'06:40', resident:'Traoré R.', residence:'B150', statut:'❌ Refusé — double scan' },
+  { heure:'06:45', resident:'Touré S.', residence:'A2', statut:'✅ Validé' },
+];
+
+// ── LOGIN ──
+function quickLogin(user, role) {
+  currentUser = user;
+  currentRole = role;
+  doLogin(user);
+}
+
+function doLogin(forcedUser) {
+  const userEl = document.getElementById('login-user');
+  const user = forcedUser || (userEl ? userEl.value.trim() : '') || 'admin';
+  const roles = { admin:'Admin', manager:'Manager', agent:'Agent Terrain', resto:'Restauration' };
+  currentUser = user;
+  currentRole = roles[user] || 'Admin';
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.style.display = 'none';
+  const ud = document.getElementById('username-display');
+  const rd = document.getElementById('role-display');
+  if (ud) ud.textContent = currentUser;
+  if (rd) rd.textContent = currentRole;
+  switchModule('dashboard');
+  setTimeout(initMap, 400);
+  setTimeout(function(){ showToast('✅ Connecté : ' + currentUser + ' (' + currentRole + ')', 'success'); }, 300);
+}
+
+function doLogout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  showToast('↩ Déconnexion effectuée');
+}
+
+// ── MAP ──
+function initMap() {
+  if (map) return;
+  
+  // Insert map container into the map module
+  const mapMod = document.getElementById('module-map');
+  mapMod.innerHTML = `
+    <div id="map-toolbar">
+      <input type="text" id="map-search" placeholder="🔍 Rechercher résidence..." oninput="filterMap(this.value)">
+      <select id="map-filter-bloc" onchange="filterMapBloc(this.value)">
+        <option value="">Tous blocs</option>
+      </select>
+      <select id="map-filter-statut" onchange="filterMapStatut(this.value)">
+        <option value="">Tous statuts</option>
+        <option>Libre</option><option>Occupé</option><option>Réservé</option><option>Maintenance</option>
+      </select>
+      <div class="map-stats">
+        <div class="stat-chip"><div class="dot" style="background:var(--libre)"></div><span id="ms-libre">0</span> Libres</div>
+        <div class="stat-chip"><div class="dot" style="background:var(--occupe)"></div><span id="ms-occupe">0</span> Occupés</div>
+        <div class="stat-chip"><div class="dot" style="background:var(--reserve)"></div><span id="ms-reserve">0</span> Réservés</div>
+        <div class="stat-chip"><div class="dot" style="background:var(--maintenance)"></div><span id="ms-maint">0</span> Maintenance</div>
+      </div>
+    </div>
+    <div id="map" style="flex:1"></div>
+    <div id="map-legend">
+      <h4>LÉGENDE</h4>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--libre)"></div>Libre</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--occupe)"></div>Occupé</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--reserve)"></div>Réservé</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--maintenance)"></div>Maintenance</div>
+    </div>
+  `;
+  mapMod.style.display = 'flex';
+  mapMod.style.flexDirection = 'column';
+  mapMod.style.flex = '1';
+  
+  map = L.map('map', { zoomControl: true, attributionControl: false });
+  
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '', maxZoom: 22
+  }).addTo(map);
+  
+  renderGeoLayer();
+  
+  const blocs = [...new Set(GEOJSON.features.map(f => f.properties.Bloc))].sort();
+  const sel = document.getElementById('map-filter-bloc');
+  if (sel) blocs.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+  
+  updateMapStats();
+}
+
+function getColor(statut) {
+  const colors = { 'Libre':'#22c55e', 'Occupé':'#ef4444', 'Réservé':'#3b82f6', 'Maintenance':'#f97316' };
+  return colors[statut] || '#666';
+}
+
+function renderGeoLayer(filterFn) {
+  if (geoLayer) { map.removeLayer(geoLayer); }
+  
+  const data = { ...GEOJSON, features: GEOJSON.features.map(f => {
+    const b = buildings.find(b => b.Résidence === f.properties.Résidence);
+    return { ...f, properties: { ...f.properties, ...(b || {}) } };
+  })};
+  
+  const filtered = filterFn ? { ...data, features: data.features.filter(filterFn) } : data;
+  
+  geoLayer = L.geoJSON(filtered, {
+    style: f => ({
+      color: getColor(f.properties.Statut),
+      weight: 1.5,
+      opacity: 0.9,
+      fillColor: getColor(f.properties.Statut),
+      fillOpacity: 0.45
+    }),
+    onEachFeature: (f, layer) => {
+      const p = f.properties;
+      layer.bindPopup(`
+        <div style="font-family:DM Sans,sans-serif;min-width:200px">
+          <div style="font-family:Space Mono,monospace;font-size:13px;font-weight:700;margin-bottom:8px;color:#f0a500">
+            🏠 Résidence ${p.Résidence}
+          </div>
+          <div style="font-size:12px;line-height:1.8">
+            <b>Bloc :</b> ${p.Bloc}<br>
+            <b>Statut :</b> <span style="color:${getColor(p.Statut)};font-weight:600">${p.Statut}</span><br>
+            ${p.Occupant ? '<b>Occupant :</b> '+p.Occupant+'<br>' : ''}
+            ${p.Societe ? '<b>Société :</b> '+p.Societe+'<br>' : ''}
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="quickChangeStatut('${p.Résidence}')" style="background:#f0a500;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:DM Sans,sans-serif">Changer statut</button>
+            <button onclick="switchModule('residences')" style="background:#1e2736;color:#e8edf5;border:1px solid #1e2736;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:DM Sans,sans-serif">Voir liste</button>
+          </div>
+        </div>
+      `, { maxWidth: 260 });
+      layer.on('mouseover', function() { this.setStyle({ fillOpacity: 0.8, weight: 2.5 }); });
+      layer.on('mouseout', function() { this.setStyle({ fillOpacity: 0.45, weight: 1.5 }); });
+    }
+  }).addTo(map);
+  
+  map.fitBounds(geoLayer.getBounds(), { padding: [20, 20] });
+}
+
+function filterMap(q) {
+  if (!map) return;
+  q = q.toLowerCase();
+  renderGeoLayer(f => !q || f.properties.Résidence.toLowerCase().includes(q) || f.properties.Bloc.toLowerCase().includes(q));
+}
+function filterMapBloc(bloc) {
+  if (!map) return;
+  renderGeoLayer(f => !bloc || f.properties.Bloc === bloc);
+}
+function filterMapStatut(statut) {
+  if (!map) return;
+  renderGeoLayer(f => !statut || f.properties.Statut === statut);
+}
+function updateMapStats() {
+  const cnt = { Libre:0, Occupé:0, Réservé:0, Maintenance:0 };
+  buildings.forEach(b => cnt[b.Statut] = (cnt[b.Statut]||0) + 1);
+  const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  el('ms-libre', cnt.Libre); el('ms-occupe', cnt.Occupé); el('ms-reserve', cnt.Réservé); el('ms-maint', cnt.Maintenance);
+}
+
+function quickChangeStatut(residence) {
+  const statuts = ['Libre', 'Occupé', 'Réservé', 'Maintenance'];
+  openModal('Changer statut — ' + residence, `
+    <div class="form-group"><label>Nouveau statut</label>
+      <select id="new-statut">${statuts.map(s=>'<option>'+s+'</option>').join('')}</select>
+    </div>
+    <div class="form-group"><label>Occupant (si Occupé)</label>
+      <input type="text" id="new-occupant" placeholder="Nom de l'occupant">
+    </div>
+    <div class="form-group"><label>Société</label>
+      <input type="text" id="new-societe" placeholder="Société">
+    </div>
+  `, () => {
+    const statut = document.getElementById('new-statut').value;
+    const occupant = document.getElementById('new-occupant').value;
+    const societe = document.getElementById('new-societe').value;
+    const b = buildings.find(b => b.Résidence === residence);
+    if (b) { b.Statut = statut; b.Occupant = occupant || null; b.Societe = societe || null; }
+    renderGeoLayer(); updateMapStats(); renderResidences(); renderDashboard();
+    addAudit('STATUT_CHANGE', 'Résidences', residence + ' → ' + statut);
+    showToast('✅ Statut mis à jour : ' + residence + ' → ' + statut);
+    closeModal(); map.closePopup();
+  });
+}
+
+// ── RESIDENCES ──
+function renderResidences() {
+  const tbody = document.getElementById('residences-tbody');
+  if (!tbody) return;
+  const q = (document.getElementById('res-search')?.value || '').toLowerCase();
+  const bloc = document.getElementById('res-filter-bloc')?.value || '';
+  const statut = document.getElementById('res-filter-statut')?.value || '';
+  
+  const filtered = buildings.filter(b =>
+    (!q || b.Résidence.toLowerCase().includes(q)) &&
+    (!bloc || b.Bloc === bloc) &&
+    (!statut || b.Statut === statut)
+  );
+  
+  tbody.innerHTML = filtered.map(b => `
+    <tr>
+      <td><b style="font-family:Space Mono,monospace">${b.Résidence}</b></td>
+      <td>${b.Bloc}</td>
+      <td><span class="badge ${b.Statut.toLowerCase().replace('é','e').replace('é','e')}">${b.Statut}</span></td>
+      <td>${b.Occupant || '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td>${b.Societe || '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="quickChangeStatut('${b.Résidence}')">Modifier</button>
+        <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);margin-left:4px" onclick="switchModule('map')">🗺️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterResidences() { renderResidences(); }
+
+function initResidences() {
+  const sel = document.getElementById('res-filter-bloc');
+  if (!sel || sel.children.length > 1) return;
+  const blocs = [...new Set(buildings.map(b => b.Bloc))].sort();
+  blocs.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+}
+
+function openAffectation() {
+  openModal('Nouvelle affectation', `
+    <div class="form-group"><label>Résidence</label>
+      <select id="aff-res">${buildings.filter(b=>b.Statut==='Libre').map(b=>'<option value="'+b.Résidence+'">'+b.Résidence+' — '+b.Bloc+'</option>').join('')}</select>
+    </div>
+    <div class="form-group"><label>Nom occupant</label><input type="text" id="aff-nom" placeholder="Prénom Nom"></div>
+    <div class="form-group"><label>Société</label>
+      <select id="aff-soc">
+        <option>ROXGOLD</option><option>SGBCI Mining</option><option>SAPH Contractors</option><option>Orica CI</option><option>BRGM</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Date début</label><input type="date" id="aff-date" value="${new Date().toISOString().slice(0,10)}"></div>
+  `, () => {
+    const res = document.getElementById('aff-res').value;
+    const nom = document.getElementById('aff-nom').value;
+    const soc = document.getElementById('aff-soc').value;
+    if (!nom) { showToast('⚠️ Nom de l'occupant obligatoire', 'warning'); return; }
+    const b = buildings.find(b => b.Résidence === res);
+    if (b) { b.Statut = 'Occupé'; b.Occupant = nom; b.Societe = soc; }
+    renderResidences(); renderDashboard();
+    if (map) { renderGeoLayer(); updateMapStats(); }
+    addAudit('AFFECTATION', 'Résidences', res + ' → ' + nom + ' (' + soc + ')');
+    showToast('✅ Résidence ' + res + ' affectée à ' + nom);
+    closeModal();
+  });
+}
+
+// ── RESTAURATION ──
+let qrToken = null;
+let qrUsed = false;
+
+function generateQR() {
+  clearInterval(qrInterval);
+  qrSeconds = 45;
+  qrUsed = false;
+  qrToken = Math.random().toString(36).substring(2,10).toUpperCase();
+  
+  document.getElementById('qr-visual').textContent = '🔲';
+  document.getElementById('qr-status').innerHTML = '<span style="color:var(--accent);font-family:Space Mono,monospace;font-size:11px">TOKEN: ' + qrToken + '</span>';
+  
+  qrInterval = setInterval(() => {
+    qrSeconds--;
+    document.getElementById('qr-timer').textContent = qrSeconds;
+    const color = qrSeconds > 15 ? 'var(--accent)' : qrSeconds > 5 ? 'var(--maintenance)' : 'var(--occupe)';
+    document.getElementById('qr-timer').style.color = color;
+    
+    if (qrSeconds <= 0) {
+      clearInterval(qrInterval);
+      document.getElementById('qr-visual').textContent = '⌛';
+      document.getElementById('qr-status').innerHTML = '<span style="color:var(--text-dim)">QR expiré — Générer nouveau</span>';
+      document.getElementById('qr-timer').textContent = '0';
+      showToast('⌛ QR code expiré');
+    }
+  }, 1000);
+  showToast('✅ QR généré — Token: ' + qrToken + ' (45s)');
+  addAudit('QR_GENERE', 'Restauration', 'Token: ' + qrToken);
+}
+
+function scanQR() {
+  if (!qrToken) { showToast('⚠️ Générez d'abord un QR code', 'warning'); return; }
+  if (qrSeconds <= 0) { showToast('❌ QR expiré — refusé', 'error'); return; }
+  if (qrUsed) {
+    showToast('🚨 FRAUDE DÉTECTÉE — Double scan refusé !', 'error');
+    addAudit('QR_REFUSED', 'Restauration', 'Double scan — Token: ' + qrToken);
+    document.getElementById('qr-status').innerHTML = '<span style="color:var(--occupe);font-weight:700">🚨 DOUBLE SCAN REFUSÉ</span>';
+    return;
+  }
+  qrUsed = true;
+  clearInterval(qrInterval);
+  document.getElementById('qr-visual').textContent = '✅';
+  document.getElementById('qr-timer').textContent = '✓';
+  document.getElementById('qr-timer').style.color = 'var(--libre)';
+  document.getElementById('qr-status').innerHTML = '<span style="color:var(--libre);font-weight:700">✅ Repas validé</span>';
+  
+  const noms = ['Kouamé A.','Diallo M.','Koné B.','Touré S.','Traoré R.'];
+  const nom = noms[Math.floor(Math.random()*noms.length)];
+  const now = new Date().toTimeString().slice(0,5);
+  repasLog.unshift({ heure: now, resident: nom, residence: 'A'+Math.floor(Math.random()*10+1), statut: '✅ Validé' });
+  renderRepas();
+  addAudit('QR_SCAN', 'Restauration', 'Repas validé — ' + nom);
+  showToast('✅ Repas validé pour ' + nom);
+}
+
+function renderRepas() {
+  const tbody = document.getElementById('repas-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = repasLog.slice(0,10).map(r => `
+    <tr>
+      <td style="font-family:Space Mono,monospace;font-size:11px">${r.heure}</td>
+      <td>${r.resident}</td>
+      <td><b style="font-family:Space Mono,monospace">${r.residence}</b></td>
+      <td style="font-size:11px">${r.statut}</td>
+    </tr>
+  `).join('');
+}
+
+// ── MAINTENANCE ──
+function renderIncidents() {
+  const el = document.getElementById('incidents-list');
+  if (!el) return;
+  const colors = { haute: 'var(--occupe)', moyenne: 'var(--maintenance)', basse: 'var(--reserve)' };
+  const statColors = { 'En cours': 'var(--maintenance)', 'Ouvert': 'var(--occupe)', 'Résolu': 'var(--libre)' };
+  el.innerHTML = incidents.map(i => `
+    <div class="incident-card">
+      <div class="incident-icon" style="background:${colors[i.priorite]}22">
+        ${i.categorie === 'Plomberie' ? '🚿' : i.categorie === 'Électricité' ? '⚡' : '🔧'}
+      </div>
+      <div class="incident-info" style="flex:1">
+        <h4>${i.titre}</h4>
+        <p>${i.description}</p>
+        <div class="meta">
+          <span>📍 ${i.residence} · ${i.bloc}</span>
+          <span>👤 ${i.auteur}</span>
+          <span>🕐 ${i.date}</span>
+          <span style="color:var(--accent)">${i.photo}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span class="badge" style="background:${statColors[i.statut]}22;color:${statColors[i.statut]}">${i.statut}</span>
+        <span style="font-size:10px;color:${colors[i.priorite]};font-family:Space Mono,monospace;letter-spacing:1px">${i.priorite.toUpperCase()}</span>
+        ${i.statut !== 'Résolu' ? `<button class="btn btn-sm btn-primary" onclick="resolveIncident(${i.id})">Résoudre</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+  const badge = document.getElementById('maint-badge');
+  const open = incidents.filter(i => i.statut !== 'Résolu').length;
+  if (badge) badge.textContent = open;
+}
+
+function resolveIncident(id) {
+  const inc = incidents.find(i => i.id === id);
+  if (inc) { inc.statut = 'Résolu'; renderIncidents(); addAudit('INCIDENT_RESOLU', 'Maintenance', inc.titre); showToast('✅ Incident résolu : ' + inc.titre); }
+}
+
+function openIncident() {
+  openModal('🛠️ Signaler un incident', `
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+      📸 <b>Photo obligatoire</b> · 📍 <b>GPS automatique</b> · ⏱️ Horodatage système
+    </div>
+    <div class="form-group"><label>Résidence concernée</label>
+      <select id="inc-res">${buildings.map(b=>'<option>'+b.Résidence+'</option>').join('')}</select>
+    </div>
+    <div class="form-group"><label>Catégorie</label>
+      <select id="inc-cat"><option>Plomberie</option><option>Électricité</option><option>Serrurerie</option><option>Climatisation</option><option>Toiture</option><option>Autre</option></select>
+    </div>
+    <div class="form-group"><label>Priorité</label>
+      <select id="inc-prio"><option value="haute">🔴 Haute</option><option value="moyenne" selected>🟠 Moyenne</option><option value="basse">🔵 Basse</option></select>
+    </div>
+    <div class="form-group"><label>Description</label>
+      <textarea id="inc-desc" placeholder="Décrivez le problème en détail..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Photo (simulée)</label>
+      <div style="background:var(--surface2);border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;font-size:24px;cursor:pointer" onclick="this.textContent='📸 Photo capturée ✅';this.style.borderColor='var(--libre)'">📷 Prendre une photo</div>
+    </div>
+  `, () => {
+    const res = document.getElementById('inc-res').value;
+    const cat = document.getElementById('inc-cat').value;
+    const prio = document.getElementById('inc-prio').value;
+    const desc = document.getElementById('inc-desc').value;
+    if (!desc) { showToast('⚠️ Description obligatoire', 'warning'); return; }
+    
+    const newInc = {
+      id: incidents.length + 1,
+      titre: cat + ' — Résidence ' + res,
+      categorie: cat,
+      priorite: prio,
+      statut: 'Ouvert',
+      auteur: currentUser,
+      date: new Date().toISOString().slice(0,16).replace('T',' '),
+      residence: res,
+      bloc: buildings.find(b=>b.Résidence===res)?.Bloc || '—',
+      gps: '8.1108, -6.8220',
+      description: desc,
+      photo: '✅ Photo jointe'
+    };
+    
+    // Set building to maintenance
+    const b = buildings.find(b => b.Résidence === res);
+    if (b) b.Statut = 'Maintenance';
+    
+    incidents.unshift(newInc);
+    renderIncidents();
+    if (map) { renderGeoLayer(); updateMapStats(); }
+    addAudit('INCIDENT', 'Maintenance', newInc.titre);
+    showToast('✅ Incident signalé : ' + newInc.titre);
+    closeModal();
+  });
+}
+
+// ── AUDIT ──
+function addAudit(action, module, detail) {
+  const now = new Date().toISOString().replace('T',' ').slice(0,19);
+  auditLog.unshift({ ts:now, user:currentUser||'system', action, module, detail, ip:'192.168.1.'+Math.floor(Math.random()*50+10) });
+  renderAudit();
+}
+function renderAudit() {
+  const tbody = document.getElementById('audit-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = auditLog.slice(0,20).map(a => `
+    <tr>
+      <td style="font-family:Space Mono,monospace;font-size:10px;color:var(--text-dim)">${a.ts}</td>
+      <td><b>${a.user}</b></td>
+      <td style="font-family:Space Mono,monospace;font-size:11px;color:var(--accent)">${a.action}</td>
+      <td>${a.module}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${a.detail}</td>
+      <td style="font-family:Space Mono,monospace;font-size:10px;color:var(--text-dim)">${a.ip}</td>
+    </tr>
+  `).join('');
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  
+  const cnt = { Libre:0, Occupé:0, Réservé:0, Maintenance:0 };
+  buildings.forEach(b => cnt[b.Statut] = (cnt[b.Statut]||0) + 1);
+  
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card" style="--card-color:var(--accent)"><div class="kpi-value">${buildings.length}</div><div class="kpi-label">Total bâtiments</div><div class="kpi-icon">🏗️</div></div>
+    <div class="kpi-card" style="--card-color:var(--libre)"><div class="kpi-value">${cnt.Libre}</div><div class="kpi-label">Libres</div><div class="kpi-icon">🟢</div></div>
+    <div class="kpi-card" style="--card-color:var(--occupe)"><div class="kpi-value">${cnt.Occupé}</div><div class="kpi-label">Occupés</div><div class="kpi-icon">🔴</div></div>
+    <div class="kpi-card" style="--card-color:var(--reserve)"><div class="kpi-value">${cnt.Réservé}</div><div class="kpi-label">Réservés</div><div class="kpi-icon">🔵</div></div>
+    <div class="kpi-card" style="--card-color:var(--maintenance)"><div class="kpi-value">${cnt.Maintenance}</div><div class="kpi-label">Maintenance</div><div class="kpi-icon">🟠</div></div>
+    <div class="kpi-card" style="--card-color:#a855f7"><div class="kpi-value">${Math.round(cnt.Occupé/buildings.length*100)}%</div><div class="kpi-label">Taux occupation</div><div class="kpi-icon">📈</div></div>
+    <div class="kpi-card" style="--card-color:#06b6d4"><div class="kpi-value">19</div><div class="kpi-label">Blocs</div><div class="kpi-icon">📦</div></div>
+    <div class="kpi-card" style="--card-color:#ec4899"><div class="kpi-value">${incidents.filter(i=>i.statut!=='Résolu').length}</div><div class="kpi-label">Incidents ouverts</div><div class="kpi-icon">🚨</div></div>
+  `;
+  
+  // Bloc chart
+  const blocs = {};
+  buildings.forEach(b => {
+    if (!blocs[b.Bloc]) blocs[b.Bloc] = { total:0, occupe:0 };
+    blocs[b.Bloc].total++;
+    if (b.Statut === 'Occupé') blocs[b.Bloc].occupe++;
+  });
+  const blocArr = Object.entries(blocs).sort((a,b) => b[1].total - a[1].total).slice(0,8);
+  const maxTotal = Math.max(...blocArr.map(b => b[1].total));
+  document.getElementById('bloc-chart').innerHTML = '<div class="bar-chart">' + blocArr.map(([bloc, d]) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${bloc}">${bloc}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${d.total/maxTotal*100}%;background:var(--accent)"></div></div>
+      <div class="bar-val">${d.total}</div>
+    </div>
+  `).join('') + '</div>';
+  
+  // Recent actions
+  document.getElementById('recent-actions').innerHTML = auditLog.slice(0,6).map(a => `
+    <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <span style="font-family:Space Mono,monospace;font-size:10px;color:var(--accent)">${a.action}</span>
+        <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${a.detail}</div>
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);font-family:Space Mono,monospace">${a.ts.slice(11,16)}</div>
+    </div>
+  `).join('');
+}
+
+// ── MODULE SWITCH ──
+function switchModule(mod) {
+  currentModule = mod;
+  
+  // Hide all
+  document.querySelectorAll('.panel, #module-map').forEach(el => {
+    el.classList.remove('active');
+    el.style.display = '';
+  });
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  
+  // Show target
+  const target = document.getElementById('module-' + mod);
+  if (target) {
+    if (mod === 'map') {
+      target.style.display = 'flex';
+      target.style.flexDirection = 'column';
+      target.style.flex = '1';
+      if (!map) { setTimeout(initMap, 100); }
+    } else {
+      target.classList.add('active');
+    }
+  }
+  
+  // Active nav
+  const navItems = document.querySelectorAll('.nav-item');
+  const labels = { dashboard:'Tableau de bord', map:'Carte GIS', residences:'Résidences', restauration:'Restauration', maintenance:'Maintenance', audit:'Audit Trail', identite:'Identités & Accès', shapefile:'Shapefile Info' };
+  navItems.forEach(el => {
+    if (el.textContent.trim().includes(labels[mod]?.slice(0,8) || '___')) el.classList.add('active');
+  });
+  document.getElementById('breadcrumb-text').textContent = labels[mod] || mod;
+  
+  // Render
+  if (mod === 'dashboard') renderDashboard();
+  if (mod === 'residences') { initResidences(); renderResidences(); }
+  if (mod === 'restauration') renderRepas();
+  if (mod === 'maintenance') renderIncidents();
+  if (mod === 'audit') renderAudit();
+}
+
+// ── MODAL ──
+function openModal(title, body, onConfirm) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="modalConfirm()">Confirmer</button>
+  `;
+  window._modalConfirm = onConfirm;
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-backdrop').classList.remove('open'); }
+function modalConfirm() { if (window._modalConfirm) window._modalConfirm(); }
+
+// ── TOAST ──
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  const icons = { success:'✅', warning:'⚠️', error:'🚨' };
+  t.innerHTML = '<span>' + (icons[type]||'ℹ️') + '</span><span>' + msg + '</span>';
+  t.style.borderColor = type === 'error' ? 'rgba(239,68,68,.4)' : type === 'warning' ? 'rgba(249,115,22,.4)' : 'rgba(34,197,94,.3)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──
+renderDashboard();
+renderIncidents();
+
+// ══════════════════════════════════════
+// 🎬 MODE DÉMO — ENGINE COMPLET
+// ══════════════════════════════════════
+let demoActive = false;
+let demoStep = 0;
+let demoTimers = [];
+let demoOverlay = null;
+
+const DEMO_SCRIPT = [
+  {
+    module: 'dashboard',
+    duration: 4000,
+    title: '📊 Tableau de bord',
+    desc: 'Vue temps réel — 204 bâtiments, 8 KPIs opérationnels, journal des actions',
+    action: () => {
+      renderDashboard();
+      pulseElements(['#kpi-grid', '#bloc-chart', '#recent-actions']);
+    }
+  },
+  {
+    module: 'map',
+    duration: 6000,
+    title: '🗺️ Carte GIS Live',
+    desc: 'Shapefile Rox_RZEI.shp → 204 polygones · CRS EPSG:4326 · Leaflet dark map',
+    action: () => {
+      if (!map) { setTimeout(initMap, 400); }
+      setTimeout(() => {
+        // Simulate filter demo on map
+        if (map) {
+          renderGeoLayer(f => f.properties.Statut === 'Occupé');
+          setTimeout(() => {
+            renderGeoLayer(f => f.properties.Statut === 'Libre');
+            setTimeout(() => renderGeoLayer(), 1500);
+          }, 1800);
+        }
+      }, 800);
+    }
+  },
+  {
+    module: 'residences',
+    duration: 5000,
+    title: '🏠 Module Résidences',
+    desc: '204 bâtiments · 19 blocs · Filtres multi-critères · Affectation temps réel',
+    action: () => {
+      initResidences(); renderResidences();
+      // Simulate search typing
+      let i = 0;
+      const chars = 'Bloc_A';
+      const input = document.getElementById('res-search');
+      const typeInterval = setInterval(() => {
+        if (!demoActive || !input) { clearInterval(typeInterval); return; }
+        if (i <= chars.length) {
+          input.value = chars.slice(0, i++);
+          filterResidences();
+        } else {
+          clearInterval(typeInterval);
+          setTimeout(() => {
+            if (input && demoActive) { input.value = ''; filterResidences(); }
+          }, 1200);
+        }
+      }, 180);
+      demoTimers.push(typeInterval);
+    }
+  },
+  {
+    module: 'restauration',
+    duration: 6000,
+    title: '🍽️ Anti-Fraude Restauration',
+    desc: 'QR dynamique HMAC · Expiration 45s · Double-scan détecté et bloqué',
+    action: () => {
+      renderRepas();
+      setTimeout(() => {
+        if (!demoActive) return;
+        generateQR();
+        showToast('🎬 DÉMO : QR généré — simulation scan dans 2s');
+        setTimeout(() => {
+          if (!demoActive) return;
+          scanQR(); // valid scan
+          setTimeout(() => {
+            if (!demoActive) return;
+            scanQR(); // fraud attempt
+          }, 1500);
+        }, 2000);
+      }, 600);
+    }
+  },
+  {
+    module: 'maintenance',
+    duration: 5000,
+    title: '🛠️ Maintenance Industrielle',
+    desc: 'Incidents avec photo GPS obligatoire · Workflow complet · Statut temps réel',
+    action: () => {
+      renderIncidents();
+      // Add a new incident automatically
+      setTimeout(() => {
+        if (!demoActive) return;
+        const newInc = {
+          id: incidents.length + 1,
+          titre: 'DÉMO — Panne électrique résidence C2',
+          categorie: 'Électricité',
+          priorite: 'haute',
+          statut: 'Ouvert',
+          auteur: 'demo-agent',
+          date: new Date().toISOString().slice(0,16).replace('T',' '),
+          residence: 'C2',
+          bloc: 'Bloc_C1',
+          gps: '8.1115, -6.8222',
+          description: 'Coupure totale courant — détecté automatiquement',
+          photo: '✅ Photo jointe'
+        };
+        incidents.unshift(newInc);
+        const b = buildings.find(b => b.Résidence === 'C2');
+        if (b) b.Statut = 'Maintenance';
+        renderIncidents();
+        addAudit('DEMO_INCIDENT', 'Maintenance', newInc.titre);
+        showToast('🚨 DÉMO : Incident créé automatiquement', 'error');
+      }, 1200);
+    }
+  },
+  {
+    module: 'audit',
+    duration: 4000,
+    title: '📋 Audit Trail Global',
+    desc: 'Toutes les actions tracées en temps réel · Horodatage · IP logging',
+    action: () => {
+      renderAudit();
+      // Flash audit rows
+      setTimeout(() => {
+        const rows = document.querySelectorAll('#audit-tbody tr');
+        rows.forEach((r, i) => {
+          setTimeout(() => {
+            r.style.background = 'rgba(240,165,0,.08)';
+            setTimeout(() => r.style.background = '', 600);
+          }, i * 120);
+        });
+      }, 300);
+    }
+  },
+  {
+    module: 'identite',
+    duration: 4000,
+    title: '🔐 IAM — Identités & Accès',
+    desc: 'RBAC dynamique · 4 rôles · Matrice des permissions complète',
+    action: () => {
+      setTimeout(() => {
+        const rows = document.querySelectorAll('#module-identite table tbody tr');
+        rows.forEach((r, i) => {
+          setTimeout(() => {
+            r.style.background = 'rgba(240,165,0,.06)';
+            r.style.transition = 'background .4s';
+            setTimeout(() => r.style.background = '', 800);
+          }, i * 300);
+        });
+      }, 400);
+    }
+  },
+  {
+    module: 'shapefile',
+    duration: 4000,
+    title: '📐 Source Géospatiale',
+    desc: 'Rox_RZEI.shp · EPSG:32629 → 4326 · 204 polygones · Camp minier RZI',
+    action: () => {}
+  },
+];
+
+function toggleDemo() {
+  if (demoActive) { stopDemo(); } else { startDemo(); }
+}
+
+function startDemo() {
+  demoActive = true;
+  demoStep = 0;
+  document.getElementById('demo-btn').textContent = '⏹ STOP DÉMO';
+  document.getElementById('demo-btn').style.background = 'rgba(239,68,68,.2)';
+  document.getElementById('demo-btn').style.borderColor = 'rgba(239,68,68,.4)';
+  document.getElementById('demo-btn').style.color = '#ef4444';
+  createDemoOverlay();
+  runDemoStep();
+}
+
+function stopDemo() {
+  demoActive = false;
+  demoTimers.forEach(t => clearInterval(t));
+  demoTimers = [];
+  if (demoOverlay) { demoOverlay.remove(); demoOverlay = null; }
+  document.getElementById('demo-btn').textContent = '▶ MODE DÉMO';
+  document.getElementById('demo-btn').style.background = 'rgba(240,165,0,.15)';
+  document.getElementById('demo-btn').style.borderColor = 'rgba(240,165,0,.4)';
+  document.getElementById('demo-btn').style.color = 'var(--accent)';
+  clearInterval(qrInterval);
+  showToast('⏹ Mode démo arrêté');
+}
+
+function runDemoStep() {
+  if (!demoActive) return;
+  if (demoStep >= DEMO_SCRIPT.length) { demoStep = 0; }
+
+  const step = DEMO_SCRIPT[demoStep];
+
+  // Update overlay
+  updateDemoOverlay(step, demoStep + 1, DEMO_SCRIPT.length);
+
+  // Switch module
+  switchModule(step.module);
+
+  // Run action
+  setTimeout(() => { if (demoActive) step.action(); }, 300);
+
+  // Schedule next
+  const t = setTimeout(() => {
+    demoStep++;
+    if (demoActive) runDemoStep();
+  }, step.duration);
+  demoTimers.push(t);
+}
+
+function createDemoOverlay() {
+  demoOverlay = document.createElement('div');
+  demoOverlay.id = 'demo-overlay';
+  demoOverlay.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,13,18,.95);
+    border: 1px solid rgba(240,165,0,.5);
+    border-radius: 14px;
+    padding: 14px 22px;
+    z-index: 8000;
+    font-family: DM Sans, sans-serif;
+    min-width: 420px;
+    max-width: 520px;
+    box-shadow: 0 8px 40px rgba(240,165,0,.15);
+    backdrop-filter: blur(12px);
+  `;
+  document.body.appendChild(demoOverlay);
+}
+
+function updateDemoOverlay(step, current, total) {
+  if (!demoOverlay) return;
+
+  const pct = (current / total) * 100;
+  demoOverlay.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 1s infinite;flex-shrink:0"></div>
+      <div style="font-size:10px;font-family:Space Mono,monospace;color:#ef4444;letter-spacing:2px;text-transform:uppercase">DÉMO EN COURS</div>
+      <div style="margin-left:auto;font-size:10px;font-family:Space Mono,monospace;color:var(--text-dim)">${current} / ${total}</div>
+    </div>
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px">${step.title}</div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.5">${step.desc}</div>
+    <div style="background:var(--surface2);border-radius:6px;height:4px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px;transition:width .4s ease"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;gap:6px">
+      ${DEMO_SCRIPT.map((s, i) => `
+        <div style="flex:1;height:3px;border-radius:2px;background:${i < current ? 'var(--accent)' : i === current-1 ? 'rgba(240,165,0,.6)' : 'var(--border)'}"></div>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:12px">
+      <button onclick="demoStep=Math.max(0,demoStep-2);demoTimers.forEach(clearTimeout);demoTimers=[];runDemoStep()"
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:DM Sans,sans-serif">◀ Préc.</button>
+      <button onclick="demoTimers.forEach(clearTimeout);demoTimers=[];runDemoStep()"
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:DM Sans,sans-serif">⏭ Suivant</button>
+      <button onclick="stopDemo()"
+        style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:DM Sans,sans-serif">⏹ Stop</button>
+    </div>
+  `;
+}
+
+function pulseElements(selectors) {
+  selectors.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.style.transition = 'box-shadow .3s';
+    el.style.boxShadow = '0 0 0 2px rgba(240,165,0,.4)';
+    setTimeout(() => { el.style.boxShadow = ''; }, 1200);
+  });
+}
+
+</body>
+</html>
