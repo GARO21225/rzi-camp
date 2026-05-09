@@ -315,7 +315,7 @@ export default function Residences() {
                 <div style={{ background:'rgba(22,163,74,.08)', border:'1px solid rgba(22,163,74,.25)', borderRadius:10, padding:'12px 16px', marginBottom:14 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:'#16a34a', marginBottom:4 }}>📋 Historique occupation</div>
                   <div style={{ fontSize:12, color:'var(--text-dim)' }}>
-                    Une entrée sera créée dans l'historique d'occupation avec la date d'arrivée.
+                    Une entrée sera créée dans l'historique d'occupation.
                     <br/><b>Si c'est une erreur</b>, cliquer sur "Sauvegarder sans historique".
                   </div>
                 </div>

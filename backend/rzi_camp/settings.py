@@ -89,3 +89,23 @@ CHANNEL_LAYERS = {
 
 ASGI_APPLICATION="rzi_camp.asgi.application"
 CHANNEL_LAYERS={"default":{"BACKEND":"channels.layers.InMemoryChannelLayer"}}
+
+# ── Database connection pooling ──
+import dj_database_url as _dj_db_url
+_db_url = os.environ.get('DATABASE_URL')
+if _db_url:
+    DATABASES = {
+        'default': _dj_db_url.config(
+            default=_db_url,
+            conn_max_age=60,          # Keep connections alive 60s
+            conn_health_checks=True,
+        )
+    }
+    # Connection pooling limits
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 10,
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5,
+    }

@@ -160,7 +160,7 @@ export default function Demandes() {
           {filterData().length === 0 && (
             <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:10 }}>📋</div>
-              <div style={{ fontSize:14 }}>{isAdmin ? 'Aucune demande en attente' : 'Aucune demande soumise'}</div>
+              <div style={{ fontSize:14 }}>{isAdmin ? "Aucune demande en attente" : "Aucune demande soumise"}</div>
               {!isAdmin && <div style={{ fontSize:12, marginTop:6 }}>Utilisez les boutons ci-dessus pour soumettre une demande</div>}
             </div>
           )}

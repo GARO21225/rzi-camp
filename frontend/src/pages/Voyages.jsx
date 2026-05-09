@@ -176,7 +176,7 @@ export default function Voyages() {
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
           <div style={{ fontSize:40, marginBottom:10 }}>✈️</div>
           <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Aucun voyage</div>
-          <div style={{ fontSize:12 }}>{isAdmin ? 'Aucun voyage enregistré' : 'Vous n'avez aucun voyage enregistré'}</div>
+          <div style={{ fontSize:12 }}>{isAdmin ? "Aucun voyage enregistré" : "Aucun voyage à afficher"}</div>
         </div>
       ) : (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>

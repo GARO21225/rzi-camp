@@ -197,7 +197,7 @@ export default function Evenements() {
           {(tab==='agenda'?upcoming:tab==='passes'?past:events).length===0 && (
             <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
-              <div style={{ fontSize:14 }}>{tab==='agenda'?'Aucun événement à venir':'Aucun événement'}</div>
+              <div style={{ fontSize:14 }}>{tab==='agenda'?"Aucun événement à venir":"Aucun événement"}</div>
             </div>
           )}
         </div>
