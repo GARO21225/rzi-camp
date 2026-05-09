@@ -90,4 +90,37 @@ class Command(BaseCommand):
             Profile.objects.get_or_create(user=obj, defaults={"role":u["role"]})
             self.stdout.write(f"  {u['username']} / {u['password']} ({u['role']})")
 
+
+        # Create demo Personnel with QR codes linked to Users
+        self.stdout.write("Creation du personnel de demonstration...")
+        from residences.models import Personnel
+        demo_staff = [
+            {"nom":"ADAMA","prenom":"Kouyaté","societe":"ROXGOLD","numero":"0701234567","type":"roxgold","user_login":"agent"},
+            {"nom":"IGNACE","prenom":"Koné","societe":"ORICA CI","numero":"0709876543","type":"sous_traitant","user_login":None},
+            {"nom":"FATOU","prenom":"Diallo","societe":"ROXGOLD","numero":"0705551234","type":"roxgold","user_login":None},
+            {"nom":"KOUASSI","prenom":"Bamba","societe":"SAPH","numero":"0702223344","type":"visiteur","user_login":None},
+            {"nom":"MARIE","prenom":"Touré","societe":"ROXGOLD","numero":"0708887766","type":"roxgold","user_login":None},
+            {"nom":"IBRAHIM","prenom":"Sanogo","societe":"BRGM","numero":"0703334455","type":"sous_traitant","user_login":None},
+        ]
+        for data in demo_staff:
+            p, created = Personnel.objects.get_or_create(
+                nom=data["nom"], prenom=data["prenom"],
+                defaults={
+                    "societe":data["societe"],
+                    "numero":data["numero"],
+                    "type_personnel":data["type"],
+                }
+            )
+            if created:
+                p.generer_qr()
+                # Link to user if specified
+                if data.get("user_login"):
+                    u = User.objects.filter(username=data["user_login"]).first()
+                    if u:
+                        p.user = u
+                        p.login_genere = data["user_login"]
+                        p.save(update_fields=["user","login_genere"])
+                self.stdout.write(f"  Personnel créé: {p.nom} {p.prenom} | QR: {p.qr_code_string[:40]}...")
+
+        self.stdout.write(f"  Personnel total: {Personnel.objects.count()}")
         self.stdout.write(self.style.SUCCESS("Seed OK!"))

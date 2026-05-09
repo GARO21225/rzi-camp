@@ -111,6 +111,12 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if statut: qs = qs.filter(statut=statut)
         if bloc: qs = qs.filter(bloc=bloc)
         if residence: qs = qs.filter(residence__icontains=residence)
+        # Filter for own residence
+        mon_residence = self.request.query_params.get("mon_residence")
+        if mon_residence == "1":
+            user = self.request.user
+            if hasattr(user, "personnel"):
+                qs = qs.filter(personnel=user.personnel)
         if futur_depart == "s1":
             today = datetime.date.today()
             qs = qs.filter(date_depart__gte=today, date_depart__lte=today+datetime.timedelta(days=7))

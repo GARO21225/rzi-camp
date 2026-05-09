@@ -17,6 +17,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Incident.objects.all()
+        user = self.request.user
+        is_admin = user.is_staff or user.is_superuser
+        is_tech = hasattr(user,"profile") and user.profile.role in ("technicien","menage","admin")
+        # Non-admin: see only own incidents
+        if not is_admin and not is_tech:
+            qs = qs.filter(auteur=user)
         statut = self.request.query_params.get("statut")
         priorite = self.request.query_params.get("priorite")
         if statut: qs = qs.filter(statut=statut)

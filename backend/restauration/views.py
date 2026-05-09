@@ -22,11 +22,44 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from django.utils.timezone import localdate
         today = localdate()
 
+        # Multi-strategy QR lookup
+        personnel = None
+
+        # Strategy 1: Exact QR string match
         try:
             personnel = Personnel.objects.get(qr_code_string=qr_data)
         except Personnel.DoesNotExist:
-            from evenements.models import AuditLog
-            return Response({"valid":False,"erreur":"QR non reconnu"}, status=400)
+            pass
+
+        # Strategy 2: Parse QR format "NOM|PRENOM|SOCIETE|NUMERO|TYPE"
+        if not personnel and '|' in qr_data:
+            parts = qr_data.split('|')
+            if len(parts) >= 2:
+                try:
+                    personnel = Personnel.objects.get(
+                        nom__iexact=parts[0].strip(),
+                        prenom__iexact=parts[1].strip()
+                    )
+                except Personnel.DoesNotExist:
+                    pass
+
+        # Strategy 3: Search by numero in QR
+        if not personnel and qr_data.strip().isdigit():
+            personnel = Personnel.objects.filter(numero=qr_data.strip()).first()
+
+        # Strategy 4: Search by name in QR (if QR contains full name)
+        if not personnel:
+            words = qr_data.strip().split()
+            if len(words) >= 2:
+                personnel = Personnel.objects.filter(
+                    nom__iexact=words[0], prenom__iexact=words[1]
+                ).first()
+
+        if not personnel:
+            return Response({
+                "valid":False,
+                "erreur":"QR non reconnu — Ce personnel n\'est pas déclaré dans le système"
+            }, status=400)
 
         # Check already eaten
         already = RepasLog.objects.filter(
