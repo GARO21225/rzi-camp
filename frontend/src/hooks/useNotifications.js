@@ -8,8 +8,8 @@ export function useNotifications() {
   const [items, setItems] = useState([])
   const [alertes, setAlertes] = useState([])
   const [prochainEvt, setProchainEvt] = useState(null)
-  const wsRef = useRef(null)
   const pollRef = useRef(null)
+  const wsRef = useRef(null)
 
   const fetchCount = useCallback(async () => {
     if (!token) return
@@ -29,47 +29,61 @@ export function useNotifications() {
     } catch {}
   }, [token])
 
-  useEffect(() => {
+  const connectWS = useCallback(() => {
     if (!token) return
-    const base = (import.meta.env.VITE_API_URL || window.location.origin)
-      .replace('https://', 'wss://').replace('http://', 'ws://')
-
-    const connect = () => {
-      try {
-        const ws = new WebSocket(`${base}/ws/notifications/`)
-        wsRef.current = ws
-        ws.onmessage = (e) => {
+    try {
+      const base = (import.meta.env.VITE_API_URL || window.location.origin)
+        .replace('https://', 'wss://')
+        .replace('http://', 'ws://')
+      const ws = new WebSocket(`${base}/ws/notifications/`)
+      wsRef.current = ws
+      ws.onmessage = (e) => {
+        try {
           const d = JSON.parse(e.data)
-          if (d.type === 'count') setCount(d.count)
+          if (d.type === 'count') setCount(d.count || 0)
           if (d.type === 'notification') {
             setCount(c => c + 1)
             fetchList()
             if (window.Notification?.permission === 'granted') {
-              new window.Notification('🏔 Roxgold Sango — ' + d.titre, { body: d.message })
+              new window.Notification('🏔 Roxgold Sango', { body: d.titre || 'Nouvelle notification' })
             }
           }
-        }
-        ws.onclose = () => { setTimeout(connect, 5000) }
-      } catch {}
-    }
+        } catch {}
+      }
+      ws.onclose = () => {
+        wsRef.current = null
+        // Don't reconnect — polling handles it
+      }
+      ws.onerror = () => {
+        wsRef.current = null
+      }
+    } catch {}
+  }, [token, fetchList])
 
-    connect()
+  useEffect(() => {
+    if (!token) return
     fetchCount()
     fetchList()
+    connectWS()
+    // Poll every 30s as fallback
     pollRef.current = setInterval(fetchCount, 30000)
-    return () => { wsRef.current?.close(); clearInterval(pollRef.current) }
+    // Request browser notif permission
+    if (window.Notification?.permission === 'default') {
+      window.Notification.requestPermission().catch(() => {})
+    }
+    return () => {
+      clearInterval(pollRef.current)
+      wsRef.current?.close()
+    }
   }, [token])
 
   const marquerToutLu = async () => {
-    await notifications.toutLire(); setCount(0); fetchList()
+    try {
+      await notifications.toutLire()
+      setCount(0)
+      fetchList()
+    } catch {}
   }
-
-  // Request browser notification permission
-  useEffect(() => {
-    if (window.Notification && window.Notification.permission === 'default') {
-      window.Notification.requestPermission()
-    }
-  }, [])
 
   return { count, items, alertes, prochainEvt, fetchList, marquerToutLu }
 }

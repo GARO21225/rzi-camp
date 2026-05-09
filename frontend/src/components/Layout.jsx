@@ -20,133 +20,260 @@ const ALL_NAV = [
   { to:'/audit', label:'📋 Audit', roles:['admin','manager'] },
 ]
 
+function NotifPanel({ items, count, onClose, onMarkAll, onViewAll }) {
+  const TYPE_ICON = { evenement:'📅', incident:'🚨', voyage:'✈️', systeme:'⚙️', alerte:'⚠️' }
+  return (
+    <div style={{
+      position:'fixed', top:58, right:8, width:340, maxWidth:'calc(100vw - 16px)',
+      background:'#fff', border:'1px solid var(--border)', borderRadius:14,
+      boxShadow:'0 8px 40px rgba(30,58,138,.2)', zIndex:500, overflow:'hidden'
+    }}>
+      {/* Header */}
+      <div style={{ padding:'12px 16px', background:'var(--blue)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>🔔 Notifications</span>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {count>0 && (
+            <button onClick={onMarkAll}
+              style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', padding:'3px 10px', borderRadius:20, cursor:'pointer', fontSize:11, fontWeight:600 }}>
+              ✓ Tout lire
+            </button>
+          )}
+          <button onClick={onClose}
+            style={{ background:'rgba(255,255,255,.15)', border:'none', color:'#fff', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Badge count */}
+      {count > 0 && (
+        <div style={{ padding:'8px 16px', background:'rgba(37,99,235,.06)', borderBottom:'1px solid rgba(37,99,235,.12)', fontSize:12, color:'var(--blue)', fontWeight:600 }}>
+          {count} notification{count>1?"s":""} non lue{count>1?"s":""}
+        </div>
+      )}
+
+      {/* List */}
+      <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
+        {items.length===0
+          ? <div style={{ padding:'28px 16px', textAlign:'center', color:'var(--text-dim)' }}>
+              <div style={{ fontSize:32, marginBottom:8 }}>🔔</div>
+              <div style={{ fontSize:13 }}>Aucune notification</div>
+            </div>
+          : items.map(n=>(
+            <div key={n.id}
+              onClick={()=>{ onClose(); window.location.href='/evenements' }}
+              style={{
+                padding:'12px 16px', borderBottom:'1px solid var(--border)',
+                background:n.lu?'#fff':'rgba(37,99,235,.04)',
+                cursor:'pointer', transition:'.15s', display:'flex', gap:12, alignItems:'flex-start'
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=n.lu?'var(--surface2)':'rgba(37,99,235,.08)'}
+              onMouseLeave={e=>e.currentTarget.style.background=n.lu?'#fff':'rgba(37,99,235,.04)'}>
+              <div style={{ fontSize:22, flexShrink:0, marginTop:2 }}>{TYPE_ICON[n.evenement_type]||'📅'}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:n.lu?500:700, fontSize:13, color:'var(--text)', marginBottom:3,
+                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  {n.evenement_titre}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text-dim)', marginBottom:2 }}>
+                  {n.evenement_lieu && <span>📍 {n.evenement_lieu}</span>}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text-dim)' }}>
+                  📅 {n.evenement_date && new Date(n.evenement_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                </div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                {!n.lu && <div style={{ width:9,height:9,borderRadius:'50%',background:'var(--blue)' }}/>}
+                <span style={{ fontSize:10, color:'var(--text-dim)', whiteSpace:'nowrap' }}>
+                  {new Date(n.date_envoi).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+                </span>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'center' }}>
+        <button onClick={()=>{ onClose(); window.location.href='/evenements' }}
+          style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'7px 20px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, width:'100%' }}>
+          Voir tous les événements →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Layout() {
   const { user, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const { count:notifCount, items:notifItems, marquerToutLu } = useNotifications()
+  const isMobileWidth = () => window.innerWidth < 768
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobileWidth())
   const [notifOpen, setNotifOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const isMobile = window.innerWidth < 768
+  const { count:notifCount, items:notifItems, alertes, prochainEvt, marquerToutLu } = useNotifications()
 
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
-  const visibleNav = isAdmin ? ALL_NAV : ALL_NAV.filter(n => n.roles.includes(role))
 
-  // Close sidebar on route change (mobile)
-  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+  // Filter nav by role — ALL routes visible to admin
+  const visibleNav = isAdmin
+    ? ALL_NAV
+    : ALL_NAV.filter(n => n.roles.includes(role))
+
+  // Close sidebar on mobile when navigating
+  useEffect(() => {
+    if (isMobileWidth()) setSidebarOpen(false)
+    setNotifOpen(false)
+  }, [location.pathname])
+
+  // Handle window resize
+  useEffect(() => {
+    const handler = () => {
+      if (!isMobileWidth() && !sidebarOpen) setSidebarOpen(true)
+    }
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [sidebarOpen])
 
   const doLogout = () => { logout(); navigate('/login') }
+
+  const isMobile = isMobileWidth()
+  const sidebarWidth = sidebarOpen ? 210 : 0
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
       {/* ── HEADER ── */}
       <header style={{
-        height:'var(--header-h)', background:'var(--blue)',
-        borderBottom:'3px solid var(--accent)',
-        display:'flex', alignItems:'center', padding:'0 14px', gap:12,
+        height:54, background:'var(--blue)', borderBottom:'3px solid var(--accent)',
+        display:'flex', alignItems:'center', padding:'0 10px', gap:10,
         flexShrink:0, zIndex:200, boxShadow:'0 2px 12px rgba(30,58,138,.3)'
       }}>
-        {/* Hamburger (mobile) */}
+        {/* Hamburger — always visible */}
         <button onClick={()=>setSidebarOpen(!sidebarOpen)}
-          style={{ background:'rgba(255,255,255,.1)', border:'none', color:'#fff', width:38, height:38,
-            borderRadius:8, cursor:'pointer', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center',
-            flexShrink:0 }}>
+          style={{ background:'rgba(255,255,255,.12)', border:'none', color:'#fff',
+            width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18,
+            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
           {sidebarOpen ? '✕' : '☰'}
         </button>
 
         {/* Logo */}
-        <div style={{ background:'#fff', borderRadius:8, padding:'4px 10px', flexShrink:0 }}>
-          <img src={LOGO} alt="Roxgold" style={{ height:34, objectFit:'contain', display:'block' }}/>
+        <div style={{ background:'#fff', borderRadius:7, padding:'3px 9px', flexShrink:0 }}>
+          <img src={LOGO} alt="Roxgold" style={{ height:32, objectFit:'contain', display:'block' }}/>
         </div>
 
-        <div style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color:'#fff', letterSpacing:1, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+        <div style={{ fontFamily:'monospace', fontSize:10, fontWeight:700, color:'rgba(255,255,255,.9)',
+          letterSpacing:1, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display: isMobile?'none':'block' }}>
           RÉSIDENCE ROXGOLD SANGO
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-        
-        {/* NOTIFICATION BELL */}
+        {/* Alert banner (desktop only) */}
+        {!isMobile && alertes.length>0 && (
+          <div style={{ background:'rgba(220,38,38,.25)', border:'1px solid rgba(220,38,38,.5)', borderRadius:6,
+            padding:'3px 10px', fontSize:11, color:'#fca5a5', maxWidth:180,
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            ⚠️ {alertes[0].message}
+          </div>
+        )}
+
+        {/* Notification Bell */}
         <div style={{ position:'relative', flexShrink:0 }}>
           <button onClick={()=>setNotifOpen(!notifOpen)}
-            style={{ background:'rgba(255,255,255,.1)', border:'none', color:'#fff', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            style={{ background:'rgba(255,255,255,.12)', border:'none', color:'#fff',
+              width:36, height:36, borderRadius:8, cursor:'pointer',
+              position:'relative', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
             🔔
             {notifCount>0 && (
-              <span style={{ position:'absolute', top:2, right:2, background:'#dc2626', color:'#fff', borderRadius:'50%', width:16, height:16, fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <span style={{
+                position:'absolute', top:3, right:3,
+                background:'#dc2626', color:'#fff', borderRadius:'50%',
+                width:16, height:16, fontSize:9, fontWeight:700,
+                display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1
+              }}>
                 {notifCount>9?'9+':notifCount}
               </span>
             )}
           </button>
           {notifOpen && (
-            <div style={{ position:'absolute', top:42, right:0, width:320, background:'#fff', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 32px rgba(30,58,138,.2)', zIndex:500, overflow:'hidden' }}>
-              <div style={{ padding:'10px 14px', background:'var(--blue)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ color:'#fff', fontWeight:600, fontSize:13 }}>🔔 Notifications</span>
-                <div style={{ display:'flex', gap:6 }}>
-                  {notifCount>0&&<button onClick={()=>{marquerToutLu();setNotifCount(0)}} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', padding:'2px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>Tout lire</button>}
-                  <button onClick={()=>setNotifOpen(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:22, height:22, borderRadius:5, cursor:'pointer', fontSize:13 }}>✕</button>
-                </div>
-              </div>
-              <div style={{ maxHeight:300, overflowY:'auto' }}>
-                {notifItems.length===0
-                  ? <div style={{ padding:20, textAlign:'center', color:'var(--text-dim)', fontSize:13 }}>Aucune notification</div>
-                  : notifItems.map(n=>(
-                    <div key={n.id} style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', background:n.lu?'#fff':'var(--blue-light)' }}>
-                      <div style={{ fontWeight:n.lu?400:700, fontSize:12, marginBottom:2 }}>{n.evenement_titre}</div>
-                      <div style={{ fontSize:11, color:'var(--text-dim)' }}>
-                        {n.evenement_lieu} · {n.evenement_date&&new Date(n.evenement_date).toLocaleDateString('fr-FR')}
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
+            <NotifPanel
+              items={notifItems} count={notifCount}
+              onClose={()=>setNotifOpen(false)}
+              onMarkAll={()=>{ marquerToutLu(); setNotifOpen(false) }}
+            />
           )}
         </div>
 
-        <span style={{ background:'var(--accent)', color:'#000', padding:'2px 9px', borderRadius:20, fontSize:10, fontFamily:'monospace', textTransform:'uppercase', fontWeight:700 }}>{role}</span>
-          <button onClick={doLogout} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.3)', color:'#fff', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11 }}>↩</button>
-        </div>
+        {/* Role badge */}
+        <span style={{ background:'var(--accent)', color:'#000', padding:'2px 8px', borderRadius:20,
+          fontSize:9, fontFamily:'monospace', textTransform:'uppercase', fontWeight:700, flexShrink:0 }}>
+          {role}
+        </span>
+        <button onClick={doLogout}
+          style={{ background:'rgba(255,255,255,.12)', border:'1px solid rgba(255,255,255,.25)',
+            color:'#fff', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, flexShrink:0 }}>
+          ↩
+        </button>
       </header>
 
+      {/* Prochain événement banner */}
+      {prochainEvt && (
+        <div style={{ background:'rgba(37,99,235,.08)', borderBottom:'1px solid rgba(37,99,235,.15)',
+          padding:'5px 14px', display:'flex', alignItems:'center', gap:10, fontSize:11,
+          flexShrink:0, overflow:'hidden' }}>
+          <span style={{ fontWeight:700, color:'var(--blue)', flexShrink:0 }}>📅</span>
+          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--text)' }}>
+            <b>{prochainEvt.titre}</b> · {new Date(prochainEvt.date_debut).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · {prochainEvt.lieu}
+          </span>
+        </div>
+      )}
+
       <div style={{ display:'flex', flex:1, overflow:'hidden', position:'relative' }}>
-        {/* ── SIDEBAR OVERLAY (mobile) ── */}
-        {sidebarOpen && (
+        {/* Overlay on mobile when sidebar open */}
+        {sidebarOpen && isMobile && (
           <div onClick={()=>setSidebarOpen(false)}
             style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.4)', zIndex:150 }}/>
         )}
 
         {/* ── SIDEBAR ── */}
         <nav style={{
-          width: sidebarOpen ? 220 : (window.innerWidth >= 768 ? 210 : 0),
+          width: sidebarOpen ? 210 : 0,
           background:'var(--blue)',
-          display:'flex', flexDirection:'column', flexShrink:0, overflowY:'auto', overflowX:'hidden',
-          transition:'width .25s ease',
-          position: window.innerWidth < 768 ? 'absolute' : 'relative',
+          display:'flex', flexDirection:'column',
+          overflowY:'auto', overflowX:'hidden',
+          transition:'width .22s ease',
+          flexShrink:0,
+          position: isMobile ? 'absolute' : 'relative',
           top:0, bottom:0, left:0, zIndex:160,
-          boxShadow: sidebarOpen && window.innerWidth < 768 ? '4px 0 20px rgba(0,0,0,.2)' : 'none'
+          boxShadow: sidebarOpen && isMobile ? '4px 0 20px rgba(0,0,0,.2)' : 'none'
         }}>
-          <div style={{ padding:'14px 14px 6px', fontSize:9, fontFamily:'monospace', color:'rgba(255,255,255,.35)', letterSpacing:2, textTransform:'uppercase', whiteSpace:'nowrap' }}>Navigation</div>
-          {visibleNav.map(n=>(
-            <NavLink key={n.to} to={n.to} end={n.exact}
-              style={({ isActive }) => ({
-                display:'flex', alignItems:'center', padding:'11px 16px', textDecoration:'none',
-                fontSize:13, fontWeight:isActive?600:400, whiteSpace:'nowrap',
-                color:isActive?'#fff':'rgba(255,255,255,.65)',
-                borderLeft:isActive?'3px solid var(--accent)':'3px solid transparent',
-                background:isActive?'rgba(255,255,255,.12)':'transparent', transition:'.15s'
-              })}> {n.label}
-            </NavLink>
-          ))}
-
-          {/* User info bottom */}
-          <div style={{ marginTop:'auto', padding:'12px 14px', borderTop:'1px solid rgba(255,255,255,.1)', fontSize:11, color:'rgba(255,255,255,.6)' }}>
-            {user?.first_name} {user?.last_name}<br/>
-            <span style={{ fontSize:10, color:'rgba(255,255,255,.4)' }}>{user?.email || role}</span>
-          </div>
+          {sidebarOpen && (
+            <>
+              <div style={{ padding:'12px 14px 4px', fontSize:9, fontFamily:'monospace', color:'rgba(255,255,255,.35)', letterSpacing:2, textTransform:'uppercase', whiteSpace:'nowrap' }}>
+                Navigation
+              </div>
+              {visibleNav.map(n=>(
+                <NavLink key={n.to} to={n.to} end={n.exact}
+                  style={({ isActive }) => ({
+                    display:'flex', alignItems:'center', padding:'10px 16px',
+                    textDecoration:'none', fontSize:12.5, fontWeight:isActive?700:400,
+                    whiteSpace:'nowrap', overflow:'hidden',
+                    color:isActive?'#fff':'rgba(255,255,255,.65)',
+                    borderLeft:isActive?'3px solid var(--accent)':'3px solid transparent',
+                    background:isActive?'rgba(255,255,255,.14)':'transparent', transition:'.12s'
+                  })}
+                >
+                  {n.label}
+                </NavLink>
+              ))}
+              <div style={{ marginTop:'auto', padding:'10px 14px', borderTop:'1px solid rgba(255,255,255,.1)', fontSize:10, color:'rgba(255,255,255,.5)', whiteSpace:'nowrap' }}>
+                {user?.first_name} {user?.last_name}
+              </div>
+            </>
+          )}
         </nav>
 
         {/* ── CONTENT ── */}
-        <main style={{ flex:1, overflow:'auto', background:'var(--bg)' }}>
+        <main style={{ flex:1, overflow:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
           <Outlet/>
         </main>
       </div>

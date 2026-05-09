@@ -190,7 +190,7 @@ export default function MapPage() {
   const bearing = userPos && targetPos ? calcBearing(userPos, targetPos) : null
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', flex:1, height:'100%' }}>
+    <div style={{ display:'flex', flexDirection:'column', flex:1, minHeight:0, height:'100%' }}>
       {/* TOOLBAR */}
       <div style={{ background:'#fff', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', padding:'0 10px', gap:6, flexShrink:0, flexWrap:'wrap', minHeight:46 }}>
         <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)}

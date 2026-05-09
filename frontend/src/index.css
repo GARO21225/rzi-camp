@@ -52,3 +52,6 @@ body { font-family:'DM Sans','Segoe UI',sans-serif; background:var(--bg); color:
   .grid-4 { grid-template-columns:1fr 1fr; }
   .kpi-grid { grid-template-columns:1fr 1fr; }
 }
+
+/* Map fills remaining space */
+.leaflet-container { position: absolute !important; top: 0; left: 0; right: 0; bottom: 0; }
