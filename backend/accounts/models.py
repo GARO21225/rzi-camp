@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Profile(models.Model):
-    ROLES = [('admin','Admin'),('manager','Manager Camp'),('agent','Agent Terrain'),('restauration','Restauration'),('technicien','Technicien')]
+    ROLES = [('admin','Admin'),('manager','Manager Camp'),('agent','Agent Terrain'),('restauration','Restauration'),('technicien','Technicien'),
+        ('moyens_generaux','Patron Moyens Généraux'),
+        ('resto_voyages','Chargé Restauration & Voyages')]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=30, choices=ROLES, default='agent')
     societe = models.CharField(max_length=100, blank=True)

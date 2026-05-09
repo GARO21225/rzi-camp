@@ -1,138 +1,115 @@
 
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.utils import timezone
 from .models import Evenement, Notification, AlerteCampus
 from .serializers import EvenementSerializer, NotificationSerializer, AlerteSerializer
-import base64
+import datetime
 
 class EvenementViewSet(viewsets.ModelViewSet):
     queryset = Evenement.objects.all()
     serializer_class = EvenementSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["titre","lieu","description"]
-
+    
     def get_queryset(self):
-        qs = Evenement.objects.all()
-        type_e = self.request.query_params.get("type_event")
-        statut = self.request.query_params.get("statut")
-        if type_e: qs = qs.filter(type_event=type_e)
-        if statut: qs = qs.filter(statut=statut)
-        return qs
+        return Evenement.objects.all().order_by("-date_debut")
 
-    def get_serializer_context(self):
-        ctx = super().get_serializer_context()
-        ctx["request"] = self.request
-        return ctx
-
-    def create(self, request, *args, **kwargs):
-        data = dict(request.data)
-        # Handle image upload
-        img_file = request.FILES.get("image")
-        if img_file:
-            data["image_base64"] = base64.b64encode(img_file.read()).decode()
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        obj = serializer.save()
-        # Auto-notify if requested
-        if str(data.get("notifier_residents","false")).lower() in ("true","1"):
-            nb = obj.notifier_residents()
-            return Response({**serializer.data, "residents_notifies":nb}, status=201)
-        return Response(serializer.data, status=201)
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"])
     def notifier(self, request, pk=None):
         evt = self.get_object()
-        nb = evt.notifier_residents()
-        return Response({"ok":True,"residents_notifies":nb,
-                         "message":f"{nb} résident(s) notifié(s) pour '{evt.titre}'"})
+        n = evt.notifier_residents()
+        return Response({"ok":True,"residents_notifies":n,"message":f"{n} résident(s) notifié(s)"})
 
     @action(detail=True, methods=["patch"])
     def changer_statut(self, request, pk=None):
         evt = self.get_object()
-        new_statut = request.data.get("statut")
-        if new_statut not in dict(Evenement.STATUT):
-            return Response({"error":"Statut invalide"}, status=400)
-        evt.statut = new_statut
-        evt.save()
-        return Response(EvenementSerializer(evt, context={"request":request}).data)
+        statut = request.data.get("statut")
+        valid = [s[0] for s in Evenement.STATUT]
+        if statut not in valid:
+            return Response({"error":f"Statut invalide: {statut}"}, status=400)
+        evt.statut = statut
+        evt.save(update_fields=["statut"])
+        return Response(EvenementSerializer(evt).data)
 
     @action(detail=False, methods=["get"])
     def agenda(self, request):
-        """Prochains événements — 30 jours"""
-        from django.utils import timezone
-        import datetime
-        now = timezone.now()
-        qs = Evenement.objects.filter(
-            date_debut__gte=now,
-            date_debut__lte=now+datetime.timedelta(days=30),
-        ).exclude(statut="annule").order_by("date_debut")[:10]
-        return Response(EvenementSerializer(qs, many=True, context={"request":request}).data)
+        now = datetime.datetime.now()
+        qs = Evenement.objects.filter(date_debut__gte=now, statut__in=["planifie","en_cours"]).order_by("date_debut")[:10]
+        return Response(EvenementSerializer(qs, many=True).data)
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
+    queryset = Notification.objects.none()  # overridden in get_queryset
 
     def get_queryset(self):
         user = self.request.user
-        qs = Notification.objects.select_related("evenement","personnel").all()
-        # Match to user's personnel record
+        # Get notifications for this user via their personnel profile
+        qs = Notification.objects.none()
         if hasattr(user, "personnel"):
-            qs = qs.filter(personnel=user.personnel)
-        elif not (user.is_staff or user.is_superuser):
-            qs = qs.none()
-        lu = self.request.query_params.get("lu")
-        if lu == "false": qs = qs.filter(lu=False)
-        if lu == "true": qs = qs.filter(lu=True)
+            qs = Notification.objects.filter(personnel=user.personnel).order_by("-date_envoi")
         return qs
 
     @action(detail=True, methods=["post"])
     def marquer_lu(self, request, pk=None):
-        notif = self.get_object()
-        notif.lu = True
-        notif.date_lecture = timezone.now()
-        notif.save()
+        n = self.get_object()
+        n.marquer_lue()
         return Response({"ok":True})
 
     @action(detail=False, methods=["post"])
     def tout_lire(self, request):
-        qs = self.get_queryset().filter(lu=False)
-        qs.update(lu=True, date_lecture=timezone.now())
+        from django.utils import timezone
+        if hasattr(request.user, "personnel"):
+            Notification.objects.filter(
+                personnel=request.user.personnel, lu=False
+            ).update(lu=True, date_lecture=timezone.now())
         return Response({"ok":True})
 
     @action(detail=False, methods=["get"])
     def compteur(self, request):
-        """Polling endpoint — retourne le nombre de notifs non lues + alertes actives"""
-        non_lues = self.get_queryset().filter(lu=False).count()
-        alertes = AlerteCampus.objects.filter(active=True).values(
-            "id","message","type_alerte","date_creation"
-        )[:3]
-        prochain_evt = Evenement.objects.filter(
-            statut="planifie",
-            date_debut__gte=timezone.now()
-        ).order_by("date_debut").first()
-        return Response({
-            "non_lues": non_lues,
-            "alertes": list(alertes),
-            "prochain_evenement": EvenementSerializer(prochain_evt, context={"request":request}).data if prochain_evt else None,
-        })
+        count = 0
+        alertes_data = []
+        prochain = None
+        
+        if hasattr(request.user, "personnel"):
+            count = Notification.objects.filter(
+                personnel=request.user.personnel, lu=False
+            ).count()
+        
+        # Active alerts
+        alertes = AlerteCampus.objects.filter(active=True).order_by("-date_creation")[:3]
+        alertes_data = [{"id":a.id,"message":a.message,"type_alerte":a.type_alerte} for a in alertes]
+        
+        # Next event
+        now = datetime.datetime.now()
+        import django.utils.timezone as tz
+        try:
+            evt = Evenement.objects.filter(
+                date_debut__gte=tz.now(), statut__in=["planifie","en_cours"]
+            ).order_by("date_debut").first()
+            if evt:
+                prochain = {"id":evt.id,"titre":evt.titre,"date_debut":evt.date_debut.isoformat(),"lieu":evt.lieu}
+        except Exception:
+            pass
+        
+        return Response({"non_lues":count,"alertes":alertes_data,"prochain_evenement":prochain})
 
 
 class AlerteViewSet(viewsets.ModelViewSet):
-    queryset = AlerteCampus.objects.filter(active=True)
     serializer_class = AlerteSerializer
+    queryset = AlerteCampus.objects.all()
 
-    def get_serializer_context(self):
-        ctx = super().get_serializer_context()
-        ctx["request"] = self.request
-        return ctx
+    def get_queryset(self):
+        return AlerteCampus.objects.filter(active=True).order_by("-date_creation")
 
     @action(detail=True, methods=["post"])
     def desactiver(self, request, pk=None):
-        alerte = self.get_object()
-        alerte.active = False
-        alerte.save()
+        a = self.get_object()
+        a.active = False
+        a.save(update_fields=["active"])
         return Response({"ok":True})

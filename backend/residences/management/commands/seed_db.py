@@ -79,6 +79,8 @@ class Command(BaseCommand):
             {"username":"agent","password":"agent123","fname":"Agent","lname":"Terrain","su":False,"role":"agent"},
             {"username":"technicien","password":"tech123","fname":"Technicien","lname":"Maintenance","su":False,"role":"technicien"},
             {"username":"resto","password":"resto123","fname":"Agent","lname":"Restauration","su":False,"role":"restauration"},
+            {"username":"mg","password":"mg123","fname":"Patron","lname":"Moyens Généraux","su":False,"role":"moyens_generaux"},
+            {"username":"rv","password":"rv123","fname":"Chargé","lname":"Resto-Voyages","su":False,"role":"resto_voyages"},
         ]
         for u in users_data:
             obj, created = User.objects.get_or_create(username=u["username"],
