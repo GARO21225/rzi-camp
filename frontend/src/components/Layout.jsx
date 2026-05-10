@@ -168,9 +168,14 @@ export default function Layout() {
           {notifOpen&&<NotifPanel items={notifItems} count={notifCount} onClose={()=>setNotifOpen(false)} onMarkAll={()=>{marquerToutLu();setNotifOpen(false)}} navigate={navigate}/>}
         </div>
 
-        <span style={{background:'var(--accent)',color:'#000',padding:'2px 9px',borderRadius:20,fontSize:9,fontFamily:'monospace',textTransform:'uppercase',fontWeight:700,flexShrink:0}}>
-          {ROLE_LABELS[role]||role}
-        </span>
+        <div style={{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
+          <span style={{color:'#fff',fontSize:12,fontWeight:700,lineHeight:1.3}}>
+            {user?.first_name||''} {user?.last_name||user?.username||''}
+          </span>
+          <span style={{background:'var(--accent)',color:'#000',padding:'1px 7px',borderRadius:20,fontSize:9,fontFamily:'monospace',textTransform:'uppercase',fontWeight:700}}>
+            {ROLE_LABELS[role]||role}
+          </span>
+        </div>
         <button onClick={()=>{logout();navigate('/login')}}
           style={{background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,flexShrink:0}}>↩</button>
       </header>

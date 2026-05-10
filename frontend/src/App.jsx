@@ -69,6 +69,14 @@ function InactivityGuard() {
   return null
 }
 
+// Keep Render awake — ping every 14 minutes
+const BACKEND = (import.meta.env.VITE_API_URL||'')
+if (BACKEND) {
+  setInterval(() => {
+    fetch(`${BACKEND}/api/auth/me/`, {headers:{Authorization:`Bearer ${localStorage.getItem('access_token')||''}`}}).catch(()=>{})
+  }, 14 * 60 * 1000)
+}
+
 export default function App() {
   const { token, setUser, logout } = useStore()
   useEffect(() => {

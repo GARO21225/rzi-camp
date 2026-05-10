@@ -57,6 +57,7 @@ export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scanner: (d) => api.post('/api/qr/scanner/', d),
   validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
+  validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
 }
 export const occupationHistoryAdmin = {
@@ -115,4 +116,11 @@ export const demandes = {
   accepterProposition: (id) => api.post(`/api/demandes/${id}/accepter_proposition/`),
   refuserProposition: (id) => api.post(`/api/demandes/${id}/refuser_proposition/`),
   annuler: (id) => api.post(`/api/demandes/${id}/annuler/`),
+}
+
+export const adminApi = {
+  users: () => api.get('/api/admin/users/'),
+  toggleActive: (id) => api.post(`/api/admin/users/${id}/toggle-active/`),
+  deleteUser: (id) => api.delete(`/api/admin/users/${id}/delete/`),
+  assignRole: (id, role) => api.post(`/api/admin/users/${id}/role/`, {role}),
 }
