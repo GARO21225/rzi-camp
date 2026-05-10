@@ -26,7 +26,7 @@ export default function Voyages() {
   const [modal, setModal] = useState(false)
   const [filterStatut, setFilterStatut] = useState('')
   const [myPersonnel, setMyPersonnel] = useState(null) // Connected user's Personnel object
-  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
+  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'08:00', date_retour_prevue:'' })
 
   // admin charge immédiatement, agent attend son Personnel
 
@@ -140,8 +140,8 @@ export default function Voyages() {
       {/* KPIs - admin only */}
       {isAdmin && stats && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
-          {[['Total',stats.total,'var(--blue)','✈️'],['Planifiés',stats.planifies,'#2563eb','📅'],
-            ['En voyage',stats.en_voyage,'#ea580c','🚀'],['Retours',stats.retours,'#16a34a','🏠']].map(([l,v,c,ic])=>(
+          {[['Total',(stats?.total ?? 0),'var(--blue)','✈️'],['Planifiés',(stats?.planifies ?? 0),'#2563eb','📅'],
+            ['En voyage',(stats?.en_voyage ?? 0),'#ea580c','🚀'],['Retours',(stats?.retours ?? 0),'#16a34a','🏠']].map(([l,v,c,ic])=>(
             <div key={l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
               <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:700, color:c }}>{v||0}</div>
               <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>

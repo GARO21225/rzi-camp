@@ -7,21 +7,25 @@ import axios from 'axios'
 // 3. Auto-détection depuis le hostname
 // ═══════════════════════════════════════════════════════════════
 function resolveBase() {
-  // Source 1: config.js runtime
+  // 1. config.js (public/config.js — éditer sans rebuild)
   if (window.BACKEND_URL && window.BACKEND_URL.trim()) {
     return window.BACKEND_URL.trim().replace(/\/+$/, '')
   }
-  // Source 2: variable d'env au build
+  // 2. Variable Render au build
   if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim()) {
     return import.meta.env.VITE_API_URL.trim().replace(/\/+$/, '')
   }
-  // Source 3: auto-détection Render
+  // 3. Auto-détection Render: remplace "frontend" par "backend" dans l'URL
   const h = window.location.hostname
-  if (h !== 'localhost' && h !== '127.0.0.1') {
-    // Essayer de remplacer "frontend" par "backend" dans le hostname
-    if (h.includes('frontend')) return 'https://' + h.replace('frontend', 'backend')
-    // Sinon: même host, port 8000 (dev)
+  if (h.includes('onrender.com')) {
+    if (h.includes('frontend')) {
+      return 'https://' + h.replace('frontend', 'backend')
+    }
+    // Si le nom ne contient pas "frontend", utiliser le même service
+    // (pour les configs custom)
+    return window.location.origin
   }
+  // 4. Dev local
   return 'http://localhost:8000'
 }
 

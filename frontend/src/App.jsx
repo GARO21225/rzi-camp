@@ -4,6 +4,7 @@ import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
 import { auth } from './api'
 import Login from './pages/Login'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import MapPage from './pages/MapPage'
@@ -116,17 +117,17 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<RoleHome />} />
-          <Route path="carte" element={<MapPage />} />
-          <Route path="residences" element={<Residences />} />
-          <Route path="personnel" element={<Personnel />} />
-          <Route path="evenements" element={<Evenements />} />
-          <Route path="historique" element={<Historique />} />
-          <Route path="voyages" element={<Voyages />} />
-          <Route path="restauration" element={<Restauration />} />
-          <Route path="maintenance" element={<Maintenance />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="demandes" element={<Demandes/>}/>
-          <Route path="audit" element={<AuditPage />} />
+          <Route path="carte" element={<ErrorBoundary><MapPage/></ErrorBoundary>} />
+          <Route path="residences" element={<ErrorBoundary><Residences/></ErrorBoundary>} />
+          <Route path="personnel" element={<ErrorBoundary><Personnel/></ErrorBoundary>} />
+          <Route path="evenements" element={<ErrorBoundary><Evenements/></ErrorBoundary>} />
+          <Route path="historique" element={<ErrorBoundary><Historique/></ErrorBoundary>} />
+          <Route path="voyages" element={<ErrorBoundary><Voyages/></ErrorBoundary>} />
+          <Route path="restauration" element={<ErrorBoundary><Restauration/></ErrorBoundary>} />
+          <Route path="maintenance" element={<ErrorBoundary><Maintenance/></ErrorBoundary>} />
+          <Route path="analytics" element={<ErrorBoundary><Analytics/></ErrorBoundary>} />
+          <Route path="demandes" element={<ErrorBoundary><Demandes/></ErrorBoundary>}/>
+          <Route path="audit" element={<ErrorBoundary><AuditPage/></ErrorBoundary>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
