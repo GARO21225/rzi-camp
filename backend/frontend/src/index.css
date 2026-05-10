@@ -1,0 +1,77 @@
+
+/* ══════════════════════════════════════════
+   RZI CAMP — Design System v2
+   ══════════════════════════════════════════ */
+:root {
+  --blue: #1e3a8a;
+  --blue-light: #2563eb;
+  --accent: #f0a500;
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-dim: #64748b;
+  --shadow: 0 1px 4px rgba(30,58,138,.08);
+  --shadow-md: 0 4px 16px rgba(30,58,138,.12);
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+
+/* Thème sombre */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #1e2d3d;
+    --border: #334155; --text: #f1f5f9; --text-dim: #94a3b8;
+    --shadow: 0 1px 4px rgba(0,0,0,.3); --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+  }
+}
+
+/* Reset & base */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
+#root { height:100vh; display:flex; flex-direction:column; }
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+/* Animations */
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Transitions globales */
+button { transition:all .15s ease; cursor:pointer; }
+button:active { transform:scale(.97); }
+button:hover { filter:brightness(1.05); }
+a { transition:opacity .15s; }
+input, select, textarea { font-family:inherit; }
+
+/* Classes utilitaires */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); }
+.card-hover { transition:box-shadow .2s, transform .2s; }
+.card-hover:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+.badge { padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; display:inline-block; }
+.table-row-hover:hover { background:var(--surface2) !important; }
+.spin { animation:spin 1s linear infinite; }
+
+/* Leaflet z-index fix */
+.leaflet-pane { z-index:10 !important; }
+.leaflet-top, .leaflet-bottom { z-index:20 !important; }
+.leaflet-popup-pane { z-index:30 !important; }
+
+/* Responsive mobile */
+@media (max-width: 768px) {
+  .hide-mobile { display:none !important; }
+  .grid-2-col { grid-template-columns:1fr !important; }
+}
+
+/* Print */
+@media print {
+  header, nav, .no-print { display:none !important; }
+  body { background:#fff; }
+}
