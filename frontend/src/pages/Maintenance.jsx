@@ -91,7 +91,7 @@ export default function Maintenance() {
     try {
       const payload = new FormData()
       Object.entries(form).forEach(([k,v]) => { if(v) payload.append(k,v) })
-      if (photoB64) payload.append('photo_b64', photoB64)
+      if (photoB64) { payload.append('photo_b64', photoB64); payload.append('photo_base64', photoB64) }
       if (gps) { payload.append('latitude', gps[0]); payload.append('longitude', gps[1]) }
       await incidents.create(payload, { headers:{ 'Content-Type':'multipart/form-data' } })
       setModal(false); resetForm(); load()
@@ -271,7 +271,7 @@ export default function Maintenance() {
                 <div style={{ fontSize:13, color:'#1e293b', lineHeight:1.6 }}>{detail.description}</div>
               </div>
               {detail.photo_b64 && (
-                <img src={`data:image/jpeg;base64,${detail.photo_b64}`} alt="Photo incident"
+                <img src={`data:${detail.photo_mime||"image/jpeg"};base64,${detail.photo_b64}`} alt="Photo incident"
                   style={{ width:'100%', borderRadius:10, maxHeight:260, objectFit:'cover', marginBottom:14 }}/>
               )}
               {detail.latitude && (

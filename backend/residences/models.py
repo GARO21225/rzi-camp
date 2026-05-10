@@ -77,14 +77,9 @@ class Personnel(models.Model):
         return username, password
 
     def generer_qr(self):
-        import unicodedata
-        def ascii_clean(s):
-            s = str(s or "").strip()
-            return ''.join(c for c in unicodedata.normalize('NFD', s)
-                          if unicodedata.category(c) != 'Mn').upper()
-        # Format ASCII pur: PAS d'accents, PAS de caractères spéciaux
-        # Le scanner QR peut mal encoder les accents
-        qr_string = f"{ascii_clean(self.nom)}|{ascii_clean(self.prenom)}|{self.numero}"
+        # SOLUTION DÉFINITIVE: ID numérique uniquement
+        # Impossible d'avoir un problème d'encodage avec des chiffres
+        qr_string = f"RZI{self.pk}"
         self.qr_code_string = qr_string
         qr = qrcode.QRCode(version=1, box_size=8, border=2)
         qr.add_data(qr_string)
