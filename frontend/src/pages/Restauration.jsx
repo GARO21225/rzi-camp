@@ -8,7 +8,6 @@ const REPAS = [
   { key:'diner',          label:'Dîner',           emoji:'🌙', color:'#7c3aed', time:'18h–20h' },
 ]
 
-/* ── Scanner QR caméra ── */
 function QRScanner({ onResult, color }) {
   const [phase, setPhase] = useState('idle')
   const [err, setErr] = useState('')
@@ -25,61 +24,34 @@ function QRScanner({ onResult, color }) {
       if(!live.current) return
       const s = new Html5Qrcode('_qr_')
       scanRef.current = s; setPhase('scanning')
-      await s.start({facingMode:'environment'},{fps:10,qrbox:250},
-        async txt=>{ await cleanup(); if(!live.current) return; setPhase('done'); onResult(txt) },()=>{})
-    } catch { if(!live.current) return; setPhase('error'); setErr('Caméra non accessible') }
+      await s.start(
+        { facingMode:'environment' },
+        { fps:10, qrbox:{ width:280, height:280 } },
+        async txt=>{ await cleanup(); if(!live.current) return; setPhase('done'); onResult(txt) },
+        ()=>{}
+      )
+    } catch { if(!live.current) return; setPhase('error'); setErr('Caméra inaccessible — vérifiez les permissions') }
   }
   const stop = async () => { await cleanup(); setPhase('idle') }
   return (
     <div>
-      {(phase==='idle'||phase==='done')&&(
-        <button onClick={start} style={{width:'100%',padding:'20px 16px',borderRadius:14,background:`${color}08`,border:`2px solid ${color}`,color,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-          <span style={{fontSize:48}}>📷</span>
-          {phase==='done'?'🔄 Scanner un autre':'Activer la caméra pour scanner'}
-          <span style={{fontSize:11,fontWeight:400,color:'#64748b'}}>L'agent présente son QR code</span>
+      {(phase==='idle'||phase==='done') && (
+        <button onClick={start} style={{width:'100%',padding:'24px 16px',borderRadius:14,background:`${color}08`,border:`2px solid ${color}`,color,cursor:'pointer',fontWeight:700,fontSize:14,display:'flex',flexDirection:'column',alignItems:'center',gap:10,transition:'.2s'}}>
+          <span style={{fontSize:52}}>📷</span>
+          {phase==='done' ? '🔄 Scanner un autre QR' : 'Activer la caméra'}
+          <span style={{fontSize:11,fontWeight:400,color:'#64748b'}}>Pointez vers le QR code du résident</span>
         </button>
       )}
-      {phase==='loading'&&<div style={{padding:28,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#64748b'}}><div style={{fontSize:30,marginBottom:8}}>📡</div>Démarrage...</div>}
+      {phase==='loading' && <div style={{padding:28,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#64748b'}}><div style={{fontSize:30,marginBottom:8}}>📡</div>Démarrage caméra...</div>}
       <div id="_qr_" style={{display:phase==='scanning'?'block':'none',borderRadius:12,overflow:'hidden',border:`3px solid ${color}`}}/>
-      {phase==='scanning'&&<button onClick={stop} style={{width:'100%',marginTop:8,background:'rgba(220,38,38,.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,.3)',padding:'9px',borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>✕ Arrêter</button>}
-      {phase==='error'&&<div style={{background:'rgba(220,38,38,.06)',border:'1px solid rgba(220,38,38,.2)',borderRadius:12,padding:16,textAlign:'center'}}>
-        <div style={{fontSize:28,marginBottom:6}}>📵</div>
-        <div style={{fontSize:13,color:'#dc2626',fontWeight:600,marginBottom:8}}>{err}</div>
-        <button onClick={()=>setPhase('idle')} style={{background:'#dc2626',color:'#fff',border:'none',padding:'8px 18px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>Réessayer</button>
-      </div>}
-    </div>
-  )
-}
-
-/* ── Saisie par numéro de téléphone ── */
-function SaisieNumero({ typeRepas, color, onOk, onErr }) {
-  const [num, setNum] = useState('')
-  const [busy, setBusy] = useState(false)
-  const valider = async () => {
-    if(!num.trim()) return
-    setBusy(true)
-    try {
-      const r = await qr.validerParNumero({numero:num.trim(), type_repas:typeRepas})
-      onOk(r.data); setNum('')
-    } catch(e) { onErr(e.response?.data?.erreur||'Numéro non trouvé') }
-    finally { setBusy(false) }
-  }
-  return (
-    <div style={{marginTop:14,padding:'14px 16px',background:'#f8fafc',borderRadius:12,border:'1px solid #e2e8f0'}}>
-      <div style={{fontSize:12,color:'#64748b',fontWeight:600,marginBottom:10}}>
-        📱 Saisir le numéro de téléphone de l'agent
-      </div>
-      <div style={{display:'flex',gap:8}}>
-        <input value={num} onChange={e=>setNum(e.target.value)} onKeyDown={e=>e.key==='Enter'&&valider()}
-          placeholder="Ex: 0701234567" type="tel"
-          style={{flex:1,border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'monospace'}}
-          onFocus={e=>e.target.style.borderColor=color}
-          onBlur={e=>e.target.style.borderColor='#e2e8f0'}/>
-        <button onClick={valider} disabled={!num.trim()||busy}
-          style={{background:num.trim()?color:'#e2e8f0',color:num.trim()?'#fff':'#94a3b8',border:'none',padding:'10px 16px',borderRadius:9,cursor:num.trim()?'pointer':'default',fontWeight:700,fontSize:13,transition:'.15s'}}>
-          {busy?'...':'✅'}
-        </button>
-      </div>
+      {phase==='scanning' && <button onClick={stop} style={{width:'100%',marginTop:8,background:'rgba(220,38,38,.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,.3)',padding:'9px',borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>✕ Arrêter</button>}
+      {phase==='error' && (
+        <div style={{background:'rgba(220,38,38,.06)',border:'1px solid rgba(220,38,38,.2)',borderRadius:12,padding:20,textAlign:'center'}}>
+          <div style={{fontSize:32,marginBottom:8}}>📵</div>
+          <div style={{fontSize:13,color:'#dc2626',fontWeight:600,marginBottom:10}}>{err}</div>
+          <button onClick={()=>setPhase('idle')} style={{background:'#dc2626',color:'#fff',border:'none',padding:'8px 20px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>Réessayer</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -148,7 +120,7 @@ export default function Restauration() {
         .catch(()=>{
           personnelAPI.list({page_size:500}).then(r=>{
             const items=r.data.results||r.data||[]
-            const me=items.find(p=>p.login_genere===user?.username||(p.nom?.toLowerCase()===(user?.last_name||'').toLowerCase()&&p.prenom?.toLowerCase()===(user?.first_name||'').toLowerCase()))
+            const me=items.find(p=>p.login_genere===user?.username||(p.nom?.toUpperCase()===(user?.last_name||'').toUpperCase()&&p.prenom?.toUpperCase()===(user?.first_name||'').toUpperCase()))
             setMyQR(me||null)
           }).catch(()=>{})
         })
@@ -159,23 +131,21 @@ export default function Restauration() {
   const showResult = (ok,msg,sub='')=>{ setResult({ok,msg,sub}); setTimeout(()=>setResult(null),8000) }
 
   const handleScan = async (decoded)=>{
-    showResult(null,'⏳ Validation...')
+    showResult(null,'⏳ Validation en cours...')
     try {
-      const r = await qr.scanner({qr_data:decoded,type_repas:typeRepas})
-      showResult(true,`✅ ${r.data.resident}`,`${r.data.type_repas_label} validé`)
+      const r = await qr.scanner({qr_data:decoded.trim(),type_repas:typeRepas})
+      showResult(true,`✅ ${r.data.resident}`,`${r.data.type_repas_label} validé · ${r.data.societe||''}`)
       loadRepas()
     } catch(e) { showResult(false,`❌ ${e.response?.data?.erreur||'QR non reconnu'}`) }
   }
 
-  const handleNumero = (data)=>{ showResult(true,`✅ ${data.resident}`,`${data.type_repas_label} validé`); loadRepas() }
-
-  const repas = REPAS.find(r=>r.key===typeRepas)
-  const todayLog = repasLog.filter(r=>r.date_validation?.startsWith(today))
+  const repas=REPAS.find(r=>r.key===typeRepas)
+  const todayLog=repasLog.filter(r=>r.date_validation?.startsWith(today))
 
   return (
     <div style={{padding:16}}>
       <h2 style={{fontSize:18,fontWeight:700,color:'#1e3a8a',marginBottom:4}}>🍽️ Restauration</h2>
-      <p style={{fontSize:11,color:'#64748b',marginBottom:14}}>{canValidate?'Scanner QR · Numéro téléphone · Historique':'Mon QR · Mes repas'}</p>
+      <p style={{fontSize:11,color:'#64748b',marginBottom:14}}>{canValidate?'Scanner le QR du résident · Validation · Historique':'Mon QR de repas · Historique'}</p>
 
       <div style={{display:'flex',gap:8,marginBottom:14}}>
         {REPAS.map(r=>(
@@ -187,7 +157,7 @@ export default function Restauration() {
       </div>
 
       <div style={{display:'flex',gap:3,marginBottom:14,background:'#f8fafc',padding:4,borderRadius:10,border:'1px solid #e2e8f0'}}>
-        {(canValidate?[['scanner','📷 Scanner'],['auj',"Auj."],['hist','Hist.']]:[['mon_qr','📱 Mon QR'],['mes_repas','🍽️ Mes repas']]).map(([k,l])=>(
+        {(canValidate?[['scanner','📷 Scanner'],['auj',"Aujourd'hui"],['hist','Historique']]:[['mon_qr','📱 Mon QR'],['mes_repas','🍽️ Mes repas']]).map(([k,l])=>(
           <button key={k} onClick={()=>{setTab(k);if(k!=='scanner')loadRepas()}}
             style={{flex:1,padding:'8px 0',border:'none',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600,background:tab===k?'#fff':'transparent',color:tab===k?'#1e3a8a':'#64748b',boxShadow:tab===k?'0 1px 4px rgba(0,0,0,.08)':'none'}}>
             {l}
@@ -198,9 +168,8 @@ export default function Restauration() {
       {tab==='scanner'&&canValidate&&(
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
           <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:18}}>
-            <div style={{fontWeight:700,fontSize:14,color:'#1e3a8a',marginBottom:12}}>{repas?.emoji} {repas?.label}</div>
+            <div style={{fontWeight:700,fontSize:14,color:'#1e3a8a',marginBottom:12}}>{repas?.emoji} Scanner le QR — {repas?.label}</div>
             <QRScanner key={`qs-${scanKey}-${typeRepas}`} onResult={handleScan} color={repas?.color||'#2563eb'}/>
-            <SaisieNumero typeRepas={typeRepas} color={repas?.color||'#2563eb'} onOk={handleNumero} onErr={msg=>showResult(false,`❌ ${msg}`)}/>
             {result&&(
               <div style={{marginTop:14,background:result.ok===true?'rgba(22,163,74,.08)':result.ok===false?'rgba(220,38,38,.08)':'rgba(37,99,235,.06)',border:`1px solid ${result.ok===true?'rgba(22,163,74,.3)':result.ok===false?'rgba(220,38,38,.3)':'rgba(37,99,235,.2)'}`,borderRadius:12,padding:'16px',textAlign:'center'}}>
                 <div style={{fontSize:28,marginBottom:6}}>{result.ok===true?'✅':result.ok===false?'❌':'⏳'}</div>
@@ -210,7 +179,7 @@ export default function Restauration() {
             )}
           </div>
           <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:18}}>
-            <div style={{fontWeight:600,color:'#1e3a8a',fontSize:13,marginBottom:10}}>Validés aujourd'hui</div>
+            <div style={{fontWeight:600,color:'#1e3a8a',fontSize:13,marginBottom:10}}>Validés aujourd'hui — {repas?.label}</div>
             <div style={{fontFamily:'monospace',fontSize:56,fontWeight:700,color:repas?.color,textAlign:'center',lineHeight:1,marginBottom:8}}>{todayLog.length}</div>
             <div style={{maxHeight:260,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
               {todayLog.map(r=>(
@@ -219,35 +188,35 @@ export default function Restauration() {
                   <span style={{color:'#94a3b8',fontFamily:'monospace',fontSize:11}}>{r.date_validation&&new Date(r.date_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
                 </div>
               ))}
-              {todayLog.length===0&&<div style={{textAlign:'center',color:'#94a3b8',padding:16,fontSize:12}}>Aucun repas validé</div>}
+              {todayLog.length===0&&<div style={{textAlign:'center',color:'#94a3b8',padding:16,fontSize:12}}>Aucun repas validé ce service</div>}
             </div>
           </div>
         </div>
       )}
       {tab==='auj'&&<RepasTable data={todayLog} title={`Repas du jour — ${repas?.label}`} loading={loading}/>}
-      {tab==='hist'&&<RepasTable data={repasLog} title={`Historique — ${repas?.label}`} loading={loading} showDate/>}
+      {tab==='hist'&&<RepasTable data={repasLog} title={`Historique complet — ${repas?.label}`} loading={loading} showDate/>}
       {tab==='mon_qr'&&(
-        <div style={{maxWidth:360,margin:'0 auto'}}>
-          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:24,textAlign:'center',boxShadow:'0 2px 12px rgba(30,58,138,.08)'}}>
-            <div style={{fontWeight:700,fontSize:16,color:'#1e3a8a',marginBottom:6}}>📱 Mon QR de repas</div>
-            <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>Présentez ce QR au restaurant</div>
+        <div style={{maxWidth:380,margin:'0 auto'}}>
+          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:24,textAlign:'center',boxShadow:'0 4px 20px rgba(30,58,138,.1)'}}>
+            <div style={{fontWeight:700,fontSize:17,color:'#1e3a8a',marginBottom:6}}>📱 Mon QR de repas</div>
+            <div style={{fontSize:12,color:'#64748b',marginBottom:18}}>Présentez ce QR code au restaurant</div>
             {myQRLoading
               ? <div style={{padding:40,color:'#94a3b8'}}><div style={{fontSize:36,marginBottom:10}}>⏳</div>Chargement...</div>
               : myQR?.qr_code_data
                 ? <>
-                    <img src={`data:image/png;base64,${myQR.qr_code_data}`} alt="QR"
-                      style={{width:240,height:240,borderRadius:12,border:'3px solid #e2e8f0',margin:'0 auto 16px',display:'block',imageRendering:'pixelated'}}/>
-                    <div style={{background:'#f8fafc',borderRadius:10,padding:'10px 14px',marginBottom:8}}>
-                      <div style={{fontWeight:700,color:'#1e3a8a',fontSize:14}}>{myQR.nom} {myQR.prenom}</div>
-                      <div style={{color:'#64748b',fontSize:12}}>{myQR.societe}</div>
+                    <div style={{background:'#fff',padding:12,borderRadius:14,border:'2px solid #1e3a8a',display:'inline-block',margin:'0 auto 16px'}}>
+                      <img src={`data:image/png;base64,${myQR.qr_code_data}`} alt="Mon QR"
+                        style={{width:256,height:256,display:'block',imageRendering:'pixelated'}}/>
                     </div>
-                    <div style={{background:'#1e3a8a',borderRadius:8,padding:'8px 12px',fontSize:11,color:'rgba(255,255,255,.8)',fontFamily:'monospace'}}>
-                      Code: <b style={{color:'#f0a500'}}>{myQR.numero}</b> (si QR non lisible)
+                    <div style={{background:'#1e3a8a',borderRadius:10,padding:'12px 16px'}}>
+                      <div style={{fontWeight:700,color:'#fff',fontSize:15}}>{myQR.nom} {myQR.prenom}</div>
+                      <div style={{color:'rgba(255,255,255,.7)',fontSize:12,marginTop:2}}>{myQR.societe}</div>
                     </div>
                   </>
-                : <div style={{padding:40,color:'#94a3b8'}}><div style={{fontSize:48,marginBottom:12}}>📱</div>
+                : <div style={{padding:40,color:'#94a3b8'}}>
+                    <div style={{fontSize:52,marginBottom:12}}>📱</div>
                     <div style={{fontSize:14,fontWeight:600}}>QR non disponible</div>
-                    <div style={{fontSize:12,marginTop:6}}>Contactez l'administrateur</div>
+                    <div style={{fontSize:12,marginTop:6}}>Votre profil n'est pas déclaré. Contactez l'admin.</div>
                   </div>
             }
           </div>

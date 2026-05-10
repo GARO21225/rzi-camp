@@ -64,7 +64,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(obj).data, status=201)
 
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
+        if not is_admin:
             return Response({"error":"Admin uniquement"}, status=403)
         return super().destroy(request, *args, **kwargs)
 

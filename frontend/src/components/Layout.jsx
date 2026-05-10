@@ -170,7 +170,9 @@ export default function Layout() {
 
         <div style={{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
           <span style={{color:'#fff',fontSize:12,fontWeight:700,lineHeight:1.3}}>
-            {user?.first_name||''} {user?.last_name||user?.username||''}
+            {(user?.first_name && user?.last_name)
+              ? `${user.first_name} ${user.last_name}`
+              : user?.username||''}
           </span>
           <span style={{background:'var(--accent)',color:'#000',padding:'1px 7px',borderRadius:20,fontSize:9,fontFamily:'monospace',textTransform:'uppercase',fontWeight:700}}>
             {ROLE_LABELS[role]||role}

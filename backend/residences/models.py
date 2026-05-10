@@ -81,16 +81,27 @@ class Personnel(models.Model):
         # Impossible d'avoir un problème d'encodage avec des chiffres
         qr_string = f"RZI{self.pk}"
         self.qr_code_string = qr_string
-        qr = qrcode.QRCode(version=1, box_size=8, border=2)
-        qr.add_data(qr_string)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
+        import qrcode.constants
+        qr_obj = qrcode.QRCode(
+            version=2,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,  # 30% correction
+            box_size=14,   # Grande taille — lisible même sur petit écran
+            border=4,      # Marge standard recommandée
+        )
+        qr_obj.add_data(qr_string)
+        qr_obj.make(fit=True)
+        img = qr_obj.make_image(fill_color="black", back_color="white")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         self.qr_code_data = base64.b64encode(buf.getvalue()).decode()
         self.save(update_fields=["qr_code_data", "qr_code_string"])
 
     def save(self, *args, **kwargs):
+        # Forcer les majuscules pour tous les champs texte
+        if self.nom: self.nom = self.nom.strip().upper()
+        if self.prenom: self.prenom = self.prenom.strip().upper()
+        if self.societe: self.societe = self.societe.strip().upper()
+        if self.numero: self.numero = self.numero.strip()
         super().save(*args, **kwargs)
         if not self.qr_code_data and self.pk:
             self.generer_qr()
