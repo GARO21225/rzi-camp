@@ -4,32 +4,12 @@ from .models import Batiment, Personnel, OccupationHistory
 
 class PersonnelSerializer(serializers.ModelSerializer):
     type_label = serializers.SerializerMethodField()
-    login_genere = serializers.CharField(read_only=True)
-    password_genere = serializers.CharField(read_only=True)
-    user_active = serializers.SerializerMethodField()
-    user_role = serializers.SerializerMethodField()
-    
     class Meta:
         model = Personnel
-        fields = [
-            "id","nom","prenom","societe","numero","type_personnel","type_label",
-            "email","qr_code_data","qr_code_string","actif","date_creation",
-            "login_genere","password_genere","user_active","user_role","role_camp"
-        ]
-        read_only_fields = ["qr_code_data","qr_code_string","date_creation","login_genere","password_genere"]
-
+        fields = ["id","nom","prenom","societe","numero","type_personnel","type_label","email","qr_code_data","qr_code_string","actif","date_creation"]
+        read_only_fields = ["qr_code_data","qr_code_string","date_creation"]
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
-    
-    def get_user_active(self, obj):
-        return obj.user.is_active if obj.user else True
-    
-    def get_user_role(self, obj):
-        # Use user.profile.role if available, else fall back to role_camp
-        if obj.user and hasattr(obj.user, 'profile'):
-            try: return obj.user.profile.role
-            except: pass
-        return getattr(obj, 'role_camp', None) or 'agent' 
 
 class BatimentSerializer(serializers.ModelSerializer):
     personnel_detail = PersonnelSerializer(source="personnel", read_only=True)

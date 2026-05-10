@@ -73,9 +73,6 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if not role or role not in valid_roles:
             return Response({"error":f"Role invalide. Valeurs acceptées: {valid_roles}"}, status=400)
         from accounts.models import Profile
-        # Toujours stocker le rôle sur le Personnel (même sans user)
-        p.role_camp = role
-        p.save(update_fields=["role_camp"])
         if p.user:
             prof, _ = Profile.objects.get_or_create(user=p.user)
             prof.role = role
@@ -115,85 +112,6 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
         if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
         return Response(OccupationHistorySerializer(qs, many=True).data)
-
-
-    def destroy(self, request, *args, **kwargs):
-        u = request.user
-        try: role = u.profile.role
-        except: role = ''
-        if not (u.is_staff or u.is_superuser or role == 'admin'):
-            return Response({"error": "Admin uniquement"}, status=403)
-        return super().destroy(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-        u = request.user
-        try: role = u.profile.role
-        except: role = ''
-        if not (u.is_staff or u.is_superuser or role == 'admin'):
-            return Response({"error": "Admin uniquement"}, status=403)
-        return super().partial_update(request, *args, **kwargs)
-
-    @action(detail=True, methods=["post"])
-    def toggle_active(self, request, pk=None):
-        u = request.user
-        try: role = u.profile.role
-        except: role = ''
-        if not (u.is_staff or u.is_superuser or role == 'admin'):
-            return Response({"error": "Admin uniquement"}, status=403)
-        p = self.get_object()
-        if not p.user:
-            return Response({"error": "Ce personnel n'a pas de compte"}, status=400)
-        p.user.is_active = not p.user.is_active
-        p.user.save(update_fields=["is_active"])
-        return Response({"ok": True, "is_active": p.user.is_active})
-
-
-    @action(detail=False, methods=["get"])
-    def mon_profil(self, request):
-        """Retourne le Personnel lié à l'utilisateur connecté"""
-        user = request.user
-        # Chercher par user FK
-        p = None
-        try:
-            p = Personnel.objects.get(user=user)
-        except Personnel.DoesNotExist:
-            pass
-        
-        # Fallback: chercher par login_genere
-        if not p:
-            p = Personnel.objects.filter(login_genere=user.username).first()
-        
-        # Fallback: chercher par nom/prenom
-        if not p and user.last_name:
-            p = Personnel.objects.filter(
-                nom__iexact=user.last_name,
-                prenom__iexact=user.first_name
-            ).first()
-        
-        if not p:
-            return Response({"detail": "Aucun profil personnel lié"}, status=404)
-        
-        return Response(PersonnelSerializer(p).data)
-
-
-
-
-class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
-    serializer_class = OccupationHistorySerializer
-
-    def get_queryset(self):
-        qs = OccupationHistory.objects.select_related("batiment","personnel").all()
-        batiment = self.request.query_params.get("batiment")
-        personnel = self.request.query_params.get("personnel")
-        date_debut = self.request.query_params.get("date_debut")
-        date_fin = self.request.query_params.get("date_fin")
-        if batiment: qs = qs.filter(batiment__residence__iexact=batiment)
-        if personnel: qs = qs.filter(personnel_id=personnel)
-        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
-        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
-        return qs
-
 
 
 class BatimentViewSet(viewsets.ModelViewSet):
@@ -238,6 +156,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(items, many=True)
         return Response({"count":len(items),"results":serializer.data})
 
+    def partial_update(self, request, *args, **kwargs):
+        # Use standard queryset for object lookup
+        instance = Batiment.objects.get(pk=kwargs["pk"])
+        old_personnel = instance.personnel
+        data = request.data.copy()
 
         # Resolve personnel
         personnel_id = data.get("personnel")
@@ -369,11 +292,49 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Suppression réservée à l'admin"}, status=403)
         return super().destroy(request, *args, **kwargs)
+    @action(detail=False, methods=["get"])
+    def mon_profil(self, request):
+        """Retourne le Personnel lié à l'utilisateur connecté"""
+        user = request.user
+        # Chercher par user FK
+        p = None
+        try:
+            p = Personnel.objects.get(user=user)
+        except Personnel.DoesNotExist:
+            pass
+        
+        # Fallback: chercher par login_genere
+        if not p:
+            p = Personnel.objects.filter(login_genere=user.username).first()
+        
+        # Fallback: chercher par nom/prenom
+        if not p and user.last_name:
+            p = Personnel.objects.filter(
+                nom__iexact=user.last_name,
+                prenom__iexact=user.first_name
+            ).first()
+        
+        if not p:
+            return Response({"detail": "Aucun profil personnel lié"}, status=404)
+        
+        return Response(PersonnelSerializer(p).data)
 
-    @action(detail=True, methods=["post"])
 
+class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
+    serializer_class = OccupationHistorySerializer
 
-
+    def get_queryset(self):
+        qs = OccupationHistory.objects.select_related("batiment","personnel").all()
+        batiment = self.request.query_params.get("batiment")
+        personnel = self.request.query_params.get("personnel")
+        date_debut = self.request.query_params.get("date_debut")
+        date_fin = self.request.query_params.get("date_fin")
+        if batiment: qs = qs.filter(batiment__residence__iexact=batiment)
+        if personnel: qs = qs.filter(personnel_id=personnel)
+        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
+        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
+        return qs
 
 
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])

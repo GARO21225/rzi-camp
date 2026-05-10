@@ -17,7 +17,6 @@ import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import Analytics from './pages/Analytics'
 import AuditPage from './pages/AuditPage'
-import StatusPage from './pages/StatusPage'
 import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
 
@@ -70,29 +69,6 @@ function InactivityGuard() {
   useInactivityLogout()
   return null
 }
-
-
-// Test de connexion au backend au démarrage
-async function testBackendConnection() {
-  try {
-    const url = window.__BACKEND_URL_USED__ || ''
-    const r = await fetch(`${url}/api/auth/login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '_test_', password: '_test_' })
-    })
-    // 400 = backend accessible (bad credentials = normal)
-    if (r.status === 400 || r.status === 401) {
-      console.log('✅ Backend accessible:', url)
-      return true
-    }
-    throw new Error(`HTTP ${r.status}`)
-  } catch(e) {
-    console.error('❌ Backend inaccessible:', e.message)
-    return false
-  }
-}
-testBackendConnection()
 
 // Keep Render awake — ping every 14 minutes
 const BACKEND = (import.meta.env.VITE_API_URL||'')
