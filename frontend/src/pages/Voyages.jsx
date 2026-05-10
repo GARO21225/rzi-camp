@@ -278,11 +278,20 @@ export default function Voyages() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Date départ *</label>
-                  <input type="date" value={form.date_depart} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>
+                  <input type="date" value={form.date_depart} min={today} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>
                 </div>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
-                  <input type="date" value={form.date_retour_prevue} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
+                  </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Heure départ *</label>
+                  <input type="time" value={form.heure_depart} onChange={e=>setForm({...form,heure_depart:e.target.value})} style={inp}/>
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
+                  <input type="date" value={form.date_retour_prevue} min={form.date_depart||today} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
                 </div>
               </div>
             </div>

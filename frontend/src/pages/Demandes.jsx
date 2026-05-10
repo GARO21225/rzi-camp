@@ -273,11 +273,11 @@ export default function Demandes() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Date départ':'Date arrivée'}</label>
-                  <input type="date" value={form.date_debut_souhaitee} onChange={e=>setForm({...form,date_debut_souhaitee:e.target.value})} style={inp}/>
+                  <input type="date" value={form.date_debut_souhaitee} min={today} onChange={e=>setForm({...form,date_debut_souhaitee:e.target.value})} style={inp}/>
                 </div>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Retour prévu':'Date départ'}</label>
-                  <input type="date" value={form.date_fin_souhaitee} onChange={e=>setForm({...form,date_fin_souhaitee:e.target.value})} style={inp}/>
+                  <input type="date" value={form.date_fin_souhaitee} min={form.date_debut_souhaitee||today} onChange={e=>setForm({...form,date_fin_souhaitee:e.target.value})} style={inp}/>
                 </div>
               </div>
 

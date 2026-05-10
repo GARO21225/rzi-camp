@@ -81,13 +81,17 @@ class Command(BaseCommand):
             {"username":"menage","password":"menage123","fname":"Agent","lname":"Ménage","su":False,"role":"menage"},
         ]
         for u in users_data:
-            obj, created = User.objects.get_or_create(username=u["username"],
-                defaults={"first_name":u["fname"],"last_name":u["lname"],
-                          "is_superuser":u["su"],"is_staff":u["su"]})
+            obj, created = User.objects.get_or_create(username=u["username"])
+            obj.first_name = u["fname"]
+            obj.last_name = u["lname"]
+            obj.is_superuser = u["su"]
+            obj.is_staff = u["su"]  # TOUJOURS mettre à jour
             if created:
                 obj.set_password(u["password"])
-                obj.save()
-            Profile.objects.get_or_create(user=obj, defaults={"role":u["role"]})
+            obj.save()
+            p, _ = Profile.objects.get_or_create(user=obj)
+            p.role = u["role"]
+            p.save(update_fields=["role"])
             self.stdout.write(f"  {u['username']} / {u['password']} ({u['role']})")
 
 

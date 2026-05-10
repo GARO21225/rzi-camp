@@ -205,12 +205,17 @@ class Demande(models.Model):
         """Notifie tous les admins d'une nouvelle demande"""
         try:
             from evenements.models import SimpleNotification
-            admins = User.objects.filter(is_staff=True)
-            for admin in admins:
+            from accounts.models import Profile
+            # Chercher tous les admins: is_staff OU role=admin
+            admin_users = set()
+            for u in User.objects.filter(is_staff=True): admin_users.add(u)
+            for p in Profile.objects.filter(role="admin").select_related("user"): admin_users.add(p.user)
+            nom = self.demandeur.get_full_name() or self.demandeur.username
+            for admin in admin_users:
                 SimpleNotification.objects.create(
                     user=admin,
                     titre=f"📋 Nouvelle demande: {self.get_type_demande_display()}",
-                    message=f"De: {self.demandeur.get_full_name()}\nMessage: {self.message_demandeur[:100]}",
+                    message=f"De: {nom} · {self.message_demandeur[:120]}",
                     type_notif="demande",
                 )
         except Exception:

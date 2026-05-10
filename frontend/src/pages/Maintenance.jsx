@@ -22,8 +22,8 @@ const inp = {
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
-  const canClose = isAdmin || role === 'technicien'
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' || user?.profile?.role === 'admin'
+  const canClose = isAdmin || ['technicien','menage'].includes(role)
   const canCreate = isAdmin || ['agent','technicien','menage'].includes(role)
 
   const [data, setData]           = useState([])
@@ -145,29 +145,29 @@ export default function Maintenance() {
         </div>
       )}
 
-      {/* Filtres */}
-      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:3, background:'#f8fafc', borderRadius:9, padding:3, border:'1px solid #e2e8f0' }}>
-          {['','Ouvert','En cours','Résolu'].map(s => (
-            <button key={s} onClick={()=>setFilter(s)}
-              style={{ padding:'5px 12px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:600,
-                background:filterStatut===s?'#1e3a8a':'transparent',
-                color:filterStatut===s?'#fff':'#64748b' }}>
-              {s||'Tous'}
-            </button>
-          ))}
-        </div>
-        <div style={{ display:'flex', gap:3, background:'#f8fafc', borderRadius:9, padding:3, border:'1px solid #e2e8f0' }}>
-          {['','haute','moyenne','basse'].map(p => (
-            <button key={p} onClick={()=>setFilterP(p)}
-              style={{ padding:'5px 12px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:600,
-                background:filterPrio===p?'#1e3a8a':'transparent',
-                color:filterPrio===p?'#fff':'#64748b' }}>
-              {p||'Priorités'}
-            </button>
-          ))}
-        </div>
-        <span style={{ fontSize:12, color:'#94a3b8', display:'flex', alignItems:'center' }}>{data.length} incident(s)</span>
+      {/* Filtres — listes déroulantes */}
+      <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+        <select value={filterStatut} onChange={e=>setFilter(e.target.value)}
+          style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12, outline:'none', color:'#1e293b', cursor:'pointer' }}>
+          <option value="">📋 Tous les statuts</option>
+          <option value="Ouvert">🔴 Ouvert</option>
+          <option value="En cours">🟠 En cours</option>
+          <option value="Résolu">✅ Résolu</option>
+        </select>
+        <select value={filterPrio} onChange={e=>setFilterP(e.target.value)}
+          style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12, outline:'none', color:'#1e293b', cursor:'pointer' }}>
+          <option value="">⚡ Toutes priorités</option>
+          <option value="haute">🔴 Haute</option>
+          <option value="moyenne">🟠 Moyenne</option>
+          <option value="basse">🔵 Basse</option>
+        </select>
+        {(filterStatut||filterPrio) && (
+          <button onClick={()=>{setFilter('');setFilterP('')}}
+            style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+            ✕ Reset
+          </button>
+        )}
+        <span style={{ fontSize:12, color:'#94a3b8', marginLeft:'auto' }}>{data.length} incident(s)</span>
       </div>
 
       {/* Liste */}

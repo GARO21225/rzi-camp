@@ -192,6 +192,21 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
+    @action(detail=False, methods=["delete"])
+    def vider_historique(self, request):
+        """Vider l'historique des repas (admin seulement)"""
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and user.profile.role=="admin")
+        if not is_admin:
+            return Response({"error":"Admin uniquement"}, status=403)
+        type_repas = request.query_params.get("type_repas")
+        qs = RepasLog.objects.all()
+        if type_repas:
+            qs = qs.filter(qr_token__type_repas=type_repas)
+        count = qs.count()
+        qs.delete()
+        return Response({"ok":True,"deleted":count})
+
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token","qr_token__personnel","valide_par","personnel").all()
     serializer_class = RepasLogSerializer

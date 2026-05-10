@@ -16,7 +16,7 @@ class EvenementViewSet(viewsets.ModelViewSet):
         return Evenement.objects.all().order_by("-date_debut")
 
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         return super().destroy(request, *args, **kwargs)
 

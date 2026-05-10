@@ -22,7 +22,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Seul l'admin peut créer du personnel."}, status=403)
         response = super().create(request, *args, **kwargs)
         p = Personnel.objects.get(id=response.data["id"])
@@ -50,16 +50,24 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch"])
     def assigner_role(self, request, pk=None):
-        if not request.user.is_staff and not request.user.is_superuser:
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
+        if not is_admin:
             return Response({"error":"Admin uniquement"}, status=403)
         p = self.get_object()
         role = request.data.get("role")
-        if not role:
-            return Response({"error":"role requis"}, status=400)
+        valid_roles = ["admin","agent","restauration","technicien","menage"]
+        if not role or role not in valid_roles:
+            return Response({"error":f"Role invalide. Valeurs acceptées: {valid_roles}"}, status=400)
+        from accounts.models import Profile
         if p.user:
-            from accounts.models import Profile
-            Profile.objects.filter(user=p.user).update(role=role)
-        return Response({"ok":True,"role":role,"message":f"Role {role} attribue a {p.nom} {p.prenom}"})
+            prof, _ = Profile.objects.get_or_create(user=p.user)
+            prof.role = role
+            prof.save(update_fields=["role"])
+            if role == "admin":
+                p.user.is_staff = True
+                p.user.save(update_fields=["is_staff"])
+        return Response({"ok":True,"role":role,"message":f"Role '{role}' attribué à {p.nom} {p.prenom}"})
 
     @action(detail=True, methods=["get"])
     def historique_voyages(self, request, pk=None):
@@ -268,7 +276,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
 
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Suppression réservée à l'admin"}, status=403)
         return super().destroy(request, *args, **kwargs)
     @action(detail=False, methods=["get"])
@@ -443,7 +451,7 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
     serializer_class = OccupationHistorySerializer
 
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         instance = self.get_object()
         batiment = instance.batiment
@@ -452,7 +460,7 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
         return Response({"ok":True,"message":"Entrée historique supprimée (chambre non modifiée)"})
 
     def update(self, request, *args, **kwargs):
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         return super().partial_update(request, *args, **kwargs)
 
@@ -505,7 +513,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
         """Admin valide la demande"""
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         demande = self.get_object()
         if demande.statut not in ("en_attente", "proposition"):
@@ -562,7 +570,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def rejeter(self, request, pk=None):
         """Admin rejette la demande"""
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         demande = self.get_object()
         demande.statut = "rejetee"
@@ -579,7 +587,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def proposer(self, request, pk=None):
         """Admin fait une contre-proposition"""
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         demande = self.get_object()
         demande.statut = "proposition"
@@ -640,7 +648,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def stats(self, request):
         """Stats pour l'admin"""
-        if not request.user.is_staff and not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         from django.db.models import Count
         qs = Demande.objects.all()
