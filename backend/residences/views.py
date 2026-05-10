@@ -148,6 +148,54 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return Response({"ok": True, "is_active": p.user.is_active})
 
 
+    @action(detail=False, methods=["get"])
+    def mon_profil(self, request):
+        """Retourne le Personnel lié à l'utilisateur connecté"""
+        user = request.user
+        # Chercher par user FK
+        p = None
+        try:
+            p = Personnel.objects.get(user=user)
+        except Personnel.DoesNotExist:
+            pass
+        
+        # Fallback: chercher par login_genere
+        if not p:
+            p = Personnel.objects.filter(login_genere=user.username).first()
+        
+        # Fallback: chercher par nom/prenom
+        if not p and user.last_name:
+            p = Personnel.objects.filter(
+                nom__iexact=user.last_name,
+                prenom__iexact=user.first_name
+            ).first()
+        
+        if not p:
+            return Response({"detail": "Aucun profil personnel lié"}, status=404)
+        
+        return Response(PersonnelSerializer(p).data)
+
+
+
+
+class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
+    serializer_class = OccupationHistorySerializer
+
+    def get_queryset(self):
+        qs = OccupationHistory.objects.select_related("batiment","personnel").all()
+        batiment = self.request.query_params.get("batiment")
+        personnel = self.request.query_params.get("personnel")
+        date_debut = self.request.query_params.get("date_debut")
+        date_fin = self.request.query_params.get("date_fin")
+        if batiment: qs = qs.filter(batiment__residence__iexact=batiment)
+        if personnel: qs = qs.filter(personnel_id=personnel)
+        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
+        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
+        return qs
+
+
+
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
     queryset = Batiment.objects.select_related("personnel").all()
@@ -326,52 +374,6 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
 
 
-
-    @action(detail=False, methods=["get"])
-    def mon_profil(self, request):
-        """Retourne le Personnel lié à l'utilisateur connecté"""
-        user = request.user
-        # Chercher par user FK
-        p = None
-        try:
-            p = Personnel.objects.get(user=user)
-        except Personnel.DoesNotExist:
-            pass
-        
-        # Fallback: chercher par login_genere
-        if not p:
-            p = Personnel.objects.filter(login_genere=user.username).first()
-        
-        # Fallback: chercher par nom/prenom
-        if not p and user.last_name:
-            p = Personnel.objects.filter(
-                nom__iexact=user.last_name,
-                prenom__iexact=user.first_name
-            ).first()
-        
-        if not p:
-            return Response({"detail": "Aucun profil personnel lié"}, status=404)
-        
-        return Response(PersonnelSerializer(p).data)
-
-
-
-
-class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
-    serializer_class = OccupationHistorySerializer
-
-    def get_queryset(self):
-        qs = OccupationHistory.objects.select_related("batiment","personnel").all()
-        batiment = self.request.query_params.get("batiment")
-        personnel = self.request.query_params.get("personnel")
-        date_debut = self.request.query_params.get("date_debut")
-        date_fin = self.request.query_params.get("date_fin")
-        if batiment: qs = qs.filter(batiment__residence__iexact=batiment)
-        if personnel: qs = qs.filter(personnel_id=personnel)
-        if date_debut: qs = qs.filter(date_arrivee__gte=date_debut)
-        if date_fin: qs = qs.filter(date_arrivee__lte=date_fin)
-        return qs
 
 
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])

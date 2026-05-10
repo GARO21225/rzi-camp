@@ -34,7 +34,7 @@ export default function Personnel() {
   useEffect(()=>{load()},[search,typeFilter])
 
   const openCreate = () => {
-    if (!isAdmin) return alert('Seul l\'admin peut créer du personnel')
+    // all users can view alert('Seul l\'admin peut créer du personnel')
     setForm({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
     setModal('create')
   }
