@@ -57,7 +57,7 @@ export default function Historique() {
       const items = r.data.results||r.data
       setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
     })
-    voyagesAPI.vueEnsemble().then(r => setVoyEnsemble(r.data)).catch(()=>{})
+    voyagesAPI.list({page_size:500}).then(r => setVoyEnsemble(r.data.results||r.data||[])).catch(()=>{})
   }, [])
 
   const searchChambre = async () => {
