@@ -2,40 +2,27 @@
  * RESTAURATION — Scanner QR
  * Stack: React 18 + Vite + html5-qrcode + Django REST
  * API: POST /api/qr/scanner/ {qr_data, type_repas}
- * 
- * Ne modifie PAS l'architecture existante.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
+import { qr as qrAPI } from '../api'
 
-const API_BASE = (() => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
-  const h = window.location.hostname
-  if (h !== 'localhost' && h !== '127.0.0.1' && h.includes('onrender.com'))
-    return 'https://' + h.replace('frontend', 'backend')
-  return 'http://localhost:8000'
-})()
-
-const TOKEN = () => localStorage.getItem('access_token') || ''
-
-// ── Appels API existants ──────────────────────────────────────────
+// Appels API — utilise le client axios partagé (même BASE URL que toute l'app)
 async function apiScanQR(qr_data, type_repas) {
-  const r = await fetch(`${API_BASE}/api/qr/scanner/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-    body: JSON.stringify({ qr_data: qr_data.trim(), type_repas })
-  })
-  const json = await r.json()
-  if (!r.ok) throw new Error(json.erreur || json.detail || `Erreur ${r.status}`)
-  return json
+  try {
+    const r = await qrAPI.scanner({ qr_data: qr_data.trim(), type_repas })
+    return r.data
+  } catch(e) {
+    const msg = e.response?.data?.erreur || e.response?.data?.detail || e.message || 'Erreur'
+    throw new Error(msg)
+  }
 }
 
 async function apiGetRepas(type_repas) {
-  const r = await fetch(`${API_BASE}/api/repas/?type_repas=${type_repas}&page_size=100`, {
-    headers: { Authorization: `Bearer ${TOKEN()}` }
-  })
-  const json = await r.json()
-  return json.results || json || []
+  try {
+    const r = await qrAPI.repas({ type_repas, page_size: 100 })
+    return r.data.results || r.data || []
+  } catch { return [] }
 }
 
 // ── Configuration repas ───────────────────────────────────────────
@@ -225,9 +212,11 @@ export default function Restauration() {
   useEffect(() => {
     if (canScan) loadRepas()
     else {
-      fetch(`${API_BASE}/api/batiments/mon_profil/`, {
-        headers: { Authorization: `Bearer ${TOKEN()}` }
-      }).then(r => r.ok ? r.json() : null).then(d => d && setMyQR(d)).catch(() => {})
+      import('../api').then(({ personnel }) => {
+        personnel.monProfil()
+          .then(r => setMyQR(r.data))
+          .catch(() => {})
+      })
     }
   }, [typeRepas])
 

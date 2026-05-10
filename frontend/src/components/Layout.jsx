@@ -230,7 +230,7 @@ export default function Layout() {
           </nav>
         )}
 
-        <main style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
           <Outlet />
         </main>
       </div>
