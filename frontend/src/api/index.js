@@ -1,11 +1,40 @@
 import axios from 'axios'
-const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
+// Détermination de l'URL du backend:
+// 1. Variable d'environnement au build (VITE_API_URL)
+// 2. window.__BACKEND_URL__ configurable au runtime
+// 3. Auto-détection basée sur l'URL courante
+function getBackendUrl() {
+  // Build-time
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
+  }
+  // Runtime override
+  if (window.__BACKEND_URL__) {
+    return window.__BACKEND_URL__.replace(/\/+$/, '')
+  }
+  // Auto-détection: frontend = rzi-camp-frontend.onrender.com → backend = rzi-camp-backend.onrender.com
+  const host = window.location.hostname
+  if (host.includes('onrender.com')) {
+    return 'https://' + host.replace('frontend', 'backend')
+  }
+  // Localhost development
+  return 'http://localhost:8000'
+}
+
+const BASE = getBackendUrl()
+
+// Exposer pour debug
+window.__BACKEND_URL_USED__ = BASE
+
 const api = axios.create({ baseURL: BASE })
+
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('access_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
   return cfg
 })
+
 api.interceptors.response.use(r => r, async err => {
   if (err.response?.status === 401) {
     const refresh = localStorage.getItem('refresh_token')
@@ -15,12 +44,16 @@ api.interceptors.response.use(r => r, async err => {
         localStorage.setItem('access_token', data.access)
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
-      } catch { localStorage.clear(); window.location.href = '/login' }
+      } catch {
+        localStorage.clear()
+        window.location.href = '/login'
+      }
     }
   }
   return Promise.reject(err)
 })
-export default api
+
+
 export const auth = {
   login: (u,p) => api.post('/api/auth/login/', {username:u,password:p}),
   me: () => api.get('/api/auth/me/'),

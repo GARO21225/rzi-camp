@@ -20,6 +20,7 @@ const ROLE_NAV = {
     { to:'/historique', label:'📋 Historique' },
     { to:'/analytics', label:'📈 Analytics' },
     { to:'/audit', label:'🔍 Audit' },
+    { to:'/status', label:'🔧 Diagnostic' },
   ],
   agent: [
     { to:'/carte', label:'🗺️ Carte GIS' },
