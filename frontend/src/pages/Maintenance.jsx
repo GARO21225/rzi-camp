@@ -22,8 +22,10 @@ const inp = {
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' || user?.profile?.role === 'admin'
-  const canClose = isAdmin || ['technicien','menage'].includes(role)
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' || 
+    user?.profile?.role === 'admin'
+  const isAdminOrTech = isAdmin || ['technicien','menage'].includes(role)
+  const canClose = isAdminOrTech
   const canCreate = isAdmin || ['agent','technicien','menage'].includes(role)
 
   const [data, setData]           = useState([])
