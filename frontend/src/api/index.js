@@ -62,7 +62,7 @@ api.interceptors.response.use(
 
 // ── Auth ──
 export const auth = {
-  login:  d => api.post('/api/auth/login/', d),
+  login:  (u, p) => api.post('/api/auth/login/', typeof u === 'object' ? u : { username: u, password: p }),
   me:     () => api.get('/api/auth/me/'),
   refresh: d => api.post('/api/auth/refresh/', d),
 }
