@@ -59,8 +59,7 @@ export default function Voyages() {
   const load = useCallback(() => {
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    // Admin: charge tout. Agent: filtre par son Personnel
-    if (!isAdmin && myPersonnel) p.personnel = myPersonnel.id
+    if (!isAdmin && myPersonnel?.id) p.personnel = myPersonnel.id
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
     voyages.stats().then(r => setStats(r.data)).catch(()=>{})
   }, [filterStatut, myPersonnel, isAdmin])

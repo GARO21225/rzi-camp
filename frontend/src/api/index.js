@@ -1,33 +1,34 @@
 import axios from 'axios'
 
-// Détermination de l'URL du backend:
-// 1. Variable d'environnement au build (VITE_API_URL)
-// 2. window.__BACKEND_URL__ configurable au runtime
-// 3. Auto-détection basée sur l'URL courante
-function getBackendUrl() {
-  // Build-time
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
+// ═══════════════════════════════════════════════════════════════
+// URL DU BACKEND — 3 sources dans l'ordre de priorité:
+// 1. window.BACKEND_URL (fichier public/config.js — modifiable sans rebuild)
+// 2. import.meta.env.VITE_API_URL (variable Render au build)
+// 3. Auto-détection depuis le hostname
+// ═══════════════════════════════════════════════════════════════
+function resolveBase() {
+  // Source 1: config.js runtime
+  if (window.BACKEND_URL && window.BACKEND_URL.trim()) {
+    return window.BACKEND_URL.trim().replace(/\/+$/, '')
   }
-  // Runtime override
-  if (window.__BACKEND_URL__) {
-    return window.__BACKEND_URL__.replace(/\/+$/, '')
+  // Source 2: variable d'env au build
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim()) {
+    return import.meta.env.VITE_API_URL.trim().replace(/\/+$/, '')
   }
-  // Auto-détection: frontend = rzi-camp-frontend.onrender.com → backend = rzi-camp-backend.onrender.com
-  const host = window.location.hostname
-  if (host.includes('onrender.com')) {
-    return 'https://' + host.replace('frontend', 'backend')
+  // Source 3: auto-détection Render
+  const h = window.location.hostname
+  if (h !== 'localhost' && h !== '127.0.0.1') {
+    // Essayer de remplacer "frontend" par "backend" dans le hostname
+    if (h.includes('frontend')) return 'https://' + h.replace('frontend', 'backend')
+    // Sinon: même host, port 8000 (dev)
   }
-  // Localhost development
   return 'http://localhost:8000'
 }
 
-const BASE = getBackendUrl()
+const BASE = resolveBase()
+window.__API_BASE__ = BASE  // Exposer pour debug
 
-// Exposer pour debug
-window.__BACKEND_URL_USED__ = BASE
-
-const api = axios.create({ baseURL: BASE })
+const api = axios.create({ baseURL: BASE, timeout: 15000 })
 
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('access_token')
@@ -35,128 +36,153 @@ api.interceptors.request.use(cfg => {
   return cfg
 })
 
-api.interceptors.response.use(r => r, async err => {
-  if (err.response?.status === 401) {
-    const refresh = localStorage.getItem('refresh_token')
-    if (refresh) {
-      try {
-        const { data } = await axios.post(`${BASE}/api/auth/refresh/`, { refresh })
-        localStorage.setItem('access_token', data.access)
-        err.config.headers.Authorization = `Bearer ${data.access}`
-        return api(err.config)
-      } catch {
+api.interceptors.response.use(
+  res => res,
+  async err => {
+    if (err.response?.status === 401) {
+      const refresh = localStorage.getItem('refresh_token')
+      if (refresh) {
+        try {
+          const { data } = await axios.post(`${BASE}/api/auth/refresh/`, { refresh })
+          localStorage.setItem('access_token', data.access)
+          err.config.headers.Authorization = `Bearer ${data.access}`
+          return api(err.config)
+        } catch {
+          localStorage.clear()
+          window.location.href = '/login'
+        }
+      } else {
         localStorage.clear()
         window.location.href = '/login'
       }
     }
+    return Promise.reject(err)
   }
-  return Promise.reject(err)
-})
+)
 
-
+// ── Auth ──
 export const auth = {
-  login: (u,p) => api.post('/api/auth/login/', {username:u,password:p}),
-  me: () => api.get('/api/auth/me/'),
-}
-export const batiments = {
-  list: (p) => api.get('/api/batiments/', {params:p}),
-  geojson: (p) => api.get('/api/batiments/geojson/', {params:p}),
-  stats: () => api.get('/api/batiments/stats/'),
-  update: (id,d,confirm=false) => api.patch(`/api/batiments/${id}/`, {...d, confirm}),
-  updateDraft: (id,d) => api.patch(`/api/batiments/${id}/`, {...d, confirm:false}),
-  exportCsv: (p) => `${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`,
-  exportBlocs: () => `${BASE}/api/batiments/export_par_bloc/`,
-  history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
-}
-export const personnel = {
-  list: (p) => api.get('/api/personnel/', {params:p}),
-  monProfil: () => api.get('/api/personnel/mon_profil/'),
-  create: (d) => api.post('/api/personnel/', d),
-  update: (id,d) => api.patch(`/api/personnel/${id}/`, d),
-  delete: (id) => api.delete(`/api/personnel/${id}/`),
-  regenererQr: (id) => api.post(`/api/personnel/${id}/regenerer_qr/`),
-  regenererCompte: (id) => api.post(`/api/personnel/${id}/regenerer_compte/`),
-  historiqueVoyages: (id) => api.get(`/api/personnel/${id}/historique_voyages/`),
-  historiqueChambre: (id, p) => api.get(`/api/personnel/${id}/historique_chambres/`, {params:p}),
-  assigRole: (id, role) => api.patch(`/api/personnel/${id}/assigner_role/`, {role}),
-}
-export const incidents = {
-  list: (p) => api.get('/api/incidents/', {params:p}),
-  create: (d) => api.post('/api/incidents/', d, {headers:{'Content-Type':'multipart/form-data'}}),
-  resoudre: (id) => api.post(`/api/incidents/${id}/resoudre/`),
-  stats: () => api.get('/api/incidents/stats/'),
-}
-export const qr = {
-  generer: (d) => api.post('/api/qr/generer/', d),
-  scanner: (d) => api.post('/api/qr/scanner/', d),
-  validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
-  viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
-  validerMonRepas: (d) => api.post('/api/qr/valider_mon_repas/', d),
-  qrRestaurant: () => api.get('/api/qr/qr_restaurant/'),
-  validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
-  repas: (p) => api.get('/api/repas/', {params:p}),
-}
-export const occupationHistoryAdmin = {
-  delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
-  update: (id,d) => api.patch(`/api/occupation-history-admin/${id}/`, d),
-}
-export const occupationHistory = {
-  recherche: (p) => api.get('/api/occupation-history/recherche/', {params:p}),
-  list: (p) => api.get('/api/occupation-history/', {params:p}),
-  exportCsv: (p) => `${BASE}/api/occupation-history/export_csv/?${new URLSearchParams(p||{})}`,
-}
-export const voyages = {
-  list: (p) => api.get('/api/voyages/', {params:p}),
-  create: (d) => api.post('/api/voyages/', d),
-  partir: (id) => api.post(`/api/voyages/${id}/partir/`),
-  revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
-  stats: () => api.get('/api/voyages/stats/'),
-  vueEnsemble: (p) => api.get('/api/voyages/vue_ensemble/', {params:p}),
-  exportCsv: (p) => `${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`,
-  annuler: (id) => api.post(`/api/voyages/${id}/annuler/`),
-  supprimer: (id) => api.delete(`/api/voyages/${id}/supprimer_planifie/`),
-}
-export const audit = {
-  list: (p) => api.get('/api/audit/', {params:p}),
+  login:  d => api.post('/api/auth/login/', d),
+  me:     () => api.get('/api/auth/me/'),
+  refresh: d => api.post('/api/auth/refresh/', d),
 }
 
+// ── Bâtiments ──
+export const batiments = {
+  list:       p => api.get('/api/batiments/', { params: p }),
+  get:        id => api.get(`/api/batiments/${id}/`),
+  update:     (id, d) => api.patch(`/api/batiments/${id}/`, d),
+  stats:      () => api.get('/api/batiments/stats/'),
+  geojson:    () => api.get('/api/batiments/geojson/'),
+  export:     () => api.get('/api/batiments/export_csv/', { responseType: 'blob' }),
+}
+
+// ── Personnel ──
+export const personnel = {
+  list:             p => api.get('/api/personnel/', { params: p }),
+  get:              id => api.get(`/api/personnel/${id}/`),
+  create:           d => api.post('/api/personnel/', d),
+  update:           (id, d) => api.patch(`/api/personnel/${id}/`, d),
+  delete:           id => api.delete(`/api/personnel/${id}/`),
+  monProfil:        () => api.get('/api/personnel/mon_profil/'),
+  assigRole:        (id, role) => api.post(`/api/personnel/${id}/assigner_role/`, { role }),
+  toggleActive:     id => api.post(`/api/personnel/${id}/toggle_active/`),
+  regenererQR:      id => api.post(`/api/personnel/${id}/regenerer_qr/`),
+  regenererCompte:  id => api.post(`/api/personnel/${id}/regenerer_compte/`),
+  regenererTousQR:  () => api.post('/api/personnel/regenerer_tous_qr/'),
+  stats:            () => api.get('/api/personnel/stats/').catch(() => ({ data: {} })),
+}
+
+// ── Voyages ──
+export const voyages = {
+  list:   p => api.get('/api/voyages/', { params: p }),
+  create: d => api.post('/api/voyages/', d),
+  update: (id, d) => api.patch(`/api/voyages/${id}/`, d),
+  delete: id => api.delete(`/api/voyages/${id}/`),
+  partir:  id => api.post(`/api/voyages/${id}/partir/`),
+  revenir: id => api.post(`/api/voyages/${id}/revenir/`),
+  annuler: id => api.post(`/api/voyages/${id}/annuler/`),
+  stats:  () => api.get('/api/voyages/stats/'),
+}
+
+// ── Incidents ──
+export const incidents = {
+  list:    p => api.get('/api/incidents/', { params: p }),
+  create:  d => api.post('/api/incidents/', d),
+  update:  (id, d) => api.patch(`/api/incidents/${id}/`, d),
+  delete:  id => api.delete(`/api/incidents/${id}/`),
+  resoudre: id => api.post(`/api/incidents/${id}/resoudre/`),
+  stats:   () => api.get('/api/incidents/stats/'),
+}
+
+// ── Restauration QR ──
+export const qr = {
+  scanner:          d => api.post('/api/qr/scanner/', d),
+  repas:            p => api.get('/api/qr/repas/', { params: p }),
+  validerParPersonnel: d => api.post('/api/qr/valider_par_personnel/', d),
+  qrRestaurant:     () => api.get('/api/qr/qr_restaurant/'),
+  viderHistorique:  t => api.delete(`/api/qr/vider_historique/?type_repas=${t}`),
+}
+
+// ── Événements ──
 export const evenements = {
-  list: (p) => api.get('/api/evenements/', {params:p}),
-  create: (d) => api.post('/api/evenements/', d),
-  update: (id,d) => api.patch(`/api/evenements/${id}/`, d),
-  delete: (id) => api.delete(`/api/evenements/${id}/`),
-  notifier: (id) => api.post(`/api/evenements/${id}/notifier/`),
-  agenda: () => api.get('/api/evenements/agenda/'),
-  changerStatut: (id,statut) => api.patch(`/api/evenements/${id}/changer_statut/`, {statut}),
+  list:    p => api.get('/api/evenements/', { params: p }),
+  create:  d => api.post('/api/evenements/', d),
+  delete:  id => api.delete(`/api/evenements/${id}/`),
+  notifs:  () => api.get('/api/notifications/'),
+  marquerLu: id => api.post(`/api/notifications/${id}/marquer_lu/`),
+  marquerToutLu: () => api.post('/api/notifications/marquer_tout_lu/'),
+  simpleNotifs: () => api.get('/api/simple-notifications/'),
+  marquerSimpleLu: id => api.post(`/api/simple-notifications/${id}/marquer_lu/`),
+  alertes: () => api.get('/api/alertes/'),
+  creerAlerte: d => api.post('/api/alertes/', d),
 }
-export const notifications = {
-  list: (p) => api.get('/api/notifications/', {params:p}),
-  compteur: () => api.get('/api/notifications/compteur/'),
-  marquerLu: (id) => api.post(`/api/notifications/${id}/marquer_lu/`),
-  toutLire: () => api.post('/api/notifications/tout_lire/'),
+
+// ── Demandes ──
+export const demandes = {
+  list:    p => api.get('/api/demandes/', { params: p }),
+  create:  d => api.post('/api/demandes/', d),
+  delete:  id => api.delete(`/api/demandes/${id}/`),
+  valider: (id, d) => api.post(`/api/demandes/${id}/valider/`, d),
+  rejeter: (id, d) => api.post(`/api/demandes/${id}/rejeter/`, d),
+  proposer:(id, d) => api.post(`/api/demandes/${id}/proposer/`, d),
+  accepter: id => api.post(`/api/demandes/${id}/accepter/`),
+  refuser:  id => api.post(`/api/demandes/${id}/refuser/`),
 }
+
+// ── Historique ──
+export const historique = {
+  occupation: p => api.get('/api/occupation-history/', { params: p }),
+  adminList:  p => api.get('/api/occupation-history-admin/', { params: p }),
+}
+
+// ── Admin accounts ──
+export const adminApi = {
+  users:       () => api.get('/api/admin/users/'),
+  toggleActive:(id) => api.post(`/api/admin/users/${id}/toggle-active/`),
+  deleteUser:  (id) => api.delete(`/api/admin/users/${id}/delete/`),
+  assignRole:  (id, role) => api.post(`/api/admin/users/${id}/role/`, { role }),
+}
+
+export default api
+
+// Alias pour compatibilité avec useNotifications.js
+export const notifications = evenements
+
+// Alias pour Residences.jsx et Historique.jsx
+export const occupationHistory = {
+  ...historique,
+  recherche: (p) => api.get('/api/occupation-history/', { params: p }),
+  adminRecherche: (p) => api.get('/api/occupation-history-admin/', { params: p }),
+}
+
+export const occupationHistoryAdmin = historique
+
 export const alertes = {
   list: () => api.get('/api/alertes/'),
   create: (d) => api.post('/api/alertes/', d),
+  delete: (id) => api.delete(`/api/alertes/${id}/`),
   desactiver: (id) => api.post(`/api/alertes/${id}/desactiver/`),
 }
 
-export const demandes = {
-  list: (p) => api.get('/api/demandes/', {params:p}),
-  create: (d) => api.post('/api/demandes/', d),
-  delete: (id) => api.delete(`/api/demandes/${id}/`),
-  stats: () => api.get('/api/demandes/stats/'),
-  valider: (id, d) => api.post(`/api/demandes/${id}/valider/`, d),
-  rejeter: (id, d) => api.post(`/api/demandes/${id}/rejeter/`, d),
-  proposer: (id, d) => api.post(`/api/demandes/${id}/proposer/`, d),
-  accepterProposition: (id) => api.post(`/api/demandes/${id}/accepter_proposition/`),
-  refuserProposition: (id) => api.post(`/api/demandes/${id}/refuser_proposition/`),
-  annuler: (id) => api.post(`/api/demandes/${id}/annuler/`),
-}
-
-export const adminApi = {
-  users: () => api.get('/api/admin/users/'),
-  toggleActive: (id) => api.post(`/api/admin/users/${id}/toggle-active/`),
-  deleteUser: (id) => api.delete(`/api/admin/users/${id}/delete/`),
-  assignRole: (id, role) => api.post(`/api/admin/users/${id}/role/`, {role}),
-}
+export const audit = api
