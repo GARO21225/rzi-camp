@@ -32,6 +32,19 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         data["password_genere"] = password
         return Response(data, status=201)
 
+
+    @action(detail=False, methods=["post"])
+    def regenerer_tous_qr(self, request):
+        """Régénère les QR codes de tous les personnels (admin)"""
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
+        if not is_admin:
+            return Response({"error":"Admin uniquement"}, status=403)
+        count = 0
+        for p in Personnel.objects.all():
+            p.generer_qr()
+            count += 1
+        return Response({"ok":True,"regenerated":count,"message":f"{count} QR régénérés"})
     @action(detail=True, methods=["post"])
     def regenerer_qr(self, request, pk=None):
         p = self.get_object()

@@ -77,25 +77,26 @@ class Personnel(models.Model):
         return username, password
 
     def generer_qr(self):
-        # SOLUTION DÉFINITIVE: ID numérique uniquement
-        # Impossible d'avoir un problème d'encodage avec des chiffres
-        qr_string = f"RZI{self.pk}"
-        self.qr_code_string = qr_string
+        """QR numérique pur: juste le PK en 4 chiffres.
+        Chiffres seuls = mode numérique QR = cases 3x plus grosses = scan fiable depuis écran."""
         import qrcode.constants
+        # Format: "0001", "0042", "1234" — QR en mode numérique pur
+        qr_string = f"{self.pk:04d}"
+        self.qr_code_string = qr_string
+        # Génération haute qualité
         qr_obj = qrcode.QRCode(
-            version=2,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,  # 30% correction
-            box_size=14,   # Grande taille — lisible même sur petit écran
-            border=4,      # Marge standard recommandée
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=20,
+            border=6,
         )
-        qr_obj.add_data(qr_string)
+        qr_obj.add_data(qr_string, optimize=0)
         qr_obj.make(fit=True)
-        img = qr_obj.make_image(fill_color="black", back_color="white")
+        img = qr_obj.make_image(fill_color="#000000", back_color="#ffffff")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         self.qr_code_data = base64.b64encode(buf.getvalue()).decode()
         self.save(update_fields=["qr_code_data", "qr_code_string"])
-
     def save(self, *args, **kwargs):
         # Forcer les majuscules pour tous les champs texte
         if self.nom: self.nom = self.nom.strip().upper()

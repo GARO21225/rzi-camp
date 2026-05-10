@@ -130,7 +130,7 @@ function BadgeScanner({ typeRepas, color, onValidated }) {
         </span>
         <div>
           {status==='waiting' && <div style={{color:'rgba(255,255,255,.8)',fontSize:14,fontWeight:600}}>En attente du QR code...</div>}
-          {status==='scanning' && <div style={{color:'rgba(255,255,255,.8)',fontSize:14,fontWeight:600}}>Présentez votre QR code</div>}
+          {status==='scanning' && <div style={{color:'rgba(255,255,255,.8)',fontSize:14,fontWeight:600}}>Présentez votre QR code à la caméra</div>}
           {status==='processing' && <div style={{color:'#fff',fontSize:14,fontWeight:600}}>Validation en cours...</div>}
           {status==='ok' && (
             <>

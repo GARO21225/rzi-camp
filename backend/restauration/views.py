@@ -27,41 +27,45 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         today = localdate()
 
         personnel = None
+        qr_clean = qr_data.strip()
 
-        # S1: Format actuel RZI{id} — le plus fiable
-        if qr_data.startswith("RZI") and qr_data[3:].isdigit():
+        # STRATÉGIE 1: Format numérique pur "0001", "0042" (NOUVEAU FORMAT)
+        if qr_clean.isdigit():
             try:
-                personnel = Personnel.objects.get(pk=int(qr_data[3:]))
-            except Personnel.DoesNotExist:
-                pass
+                personnel = Personnel.objects.get(pk=int(qr_clean))
+            except (Personnel.DoesNotExist, ValueError):
+                # Chercher par qr_code_string exact
+                personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
 
-        # S2: Correspondance exacte avec qr_code_string
+        # STRATÉGIE 2: Format RZI{id} (ancien format)
+        if not personnel and qr_clean.upper().startswith("RZI"):
+            num_part = qr_clean[3:]
+            if num_part.isdigit():
+                try:
+                    personnel = Personnel.objects.get(pk=int(num_part))
+                except Personnel.DoesNotExist:
+                    pass
+
+        # STRATÉGIE 3: Correspondance exacte qr_code_string
         if not personnel:
-            try:
-                personnel = Personnel.objects.get(qr_code_string=qr_data.strip())
-            except Personnel.DoesNotExist:
-                pass
+            personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
 
-        # S3: Ancien format NOM|PRENOM|NUMERO ou NOM|PRENOM|SOCIETE|NUMERO|TYPE
-        if not personnel and "|" in qr_data:
-            parts = [p.strip() for p in qr_data.split("|")]
-            # Chercher par numéro (dernière partie numérique)
-            for part in reversed(parts):
-                if part.replace("+","").replace(" ","").isdigit() and len(part) >= 8:
-                    p = Personnel.objects.filter(numero=part).first()
-                    if p: personnel = p; break
-            # Chercher par nom+prénom
-            if not personnel and len(parts) >= 2:
-                import unicodedata
-                def norm(s): return ''.join(c for c in unicodedata.normalize('NFD', str(s or '').upper()) if unicodedata.category(c) != 'Mn')
+        # STRATÉGIE 4: Format NOM|PRENOM|... (très ancien)
+        if not personnel and "|" in qr_clean:
+            import unicodedata
+            def norm(s):
+                return "".join(c for c in unicodedata.normalize("NFD", str(s or "").upper()) if unicodedata.category(c) != "Mn")
+            parts = [p.strip() for p in qr_clean.split("|")]
+            if len(parts) >= 2:
                 for p in Personnel.objects.all():
                     if norm(p.nom) == norm(parts[0]) and norm(p.prenom) == norm(parts[1]):
-                        personnel = p; break
+                        personnel = p
+                        break
 
         if not personnel:
             return Response({
                 "valid": False,
-                "erreur": f"Personnel non trouvé. QR lu: {qr_data[:60]}"
+                "erreur": f"Code non reconnu: [{qr_clean}]"
             }, status=400)
 
         # Check already eaten
