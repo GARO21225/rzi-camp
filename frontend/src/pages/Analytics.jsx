@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { batiments, incidents, voyages, qr as qrAPI } from '../api'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 
 const COLORS = ['#1e3a8a','#dc2626','#2563eb','#ea580c','#16a34a','#7c3aed','#f0a500']
 
@@ -29,7 +29,7 @@ function KPI({ value, label, color, icon, sub, trend }) {
 }
 
 // Futuristic: AI Anomaly Score
-function AnomalyWidget({ incidents }) {
+// function AnomalyWidget({ incidents }) {
   const score = Math.min(100, (incidents?.ouverts||0) * 15 + (incidents?.en_cours||0) * 8)
   const level = score < 20 ? {label:'Normal',color:'#16a34a'} : score < 50 ? {label:'Attention',color:'#d08800'} : {label:'Critique',color:'#dc2626'}
   return (
@@ -52,7 +52,7 @@ function AnomalyWidget({ incidents }) {
 }
 
 // Futuristic: Smart Prediction
-function PredictionWidget({ stats }) {
+// function PredictionWidget({ stats }) {
   const tauxOccup = stats?.taux_occupation || 0
   const predictions = [
     { label:'Occupation dans 7j', value:`~${Math.min(100,tauxOccup+Math.floor(Math.random()*5))}%`, color:'#2563eb' },
@@ -128,7 +128,7 @@ export default function Analytics() {
           <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Indicateurs · Tendances · Prédictions IA · Radar performance</p>
         </div>
         <div style={{ display:'flex', gap:2, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
-          {[['overview','📊 Vue d\'ensemble'],['predictions','🤖 IA & Prédictions']].map(([k,l])=>(
+          {[['overview','📊 Vue d\'ensemble']].map(([k,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{ padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
                 background:tab===k?'#fff':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)', boxShadow:tab===k?'var(--shadow)':'none' }}>
@@ -196,45 +196,7 @@ export default function Analytics() {
         </div>
       )}
 
-      {tab === 'predictions' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-          <Card title="🎯 Score de risque maintenance" accent="#ea580c">
-            <AnomalyWidget incidents={incStats}/>
-          </Card>
 
-          <Card title="🤖 Prédictions intelligentes" accent="#7c3aed">
-            <PredictionWidget stats={batStats}/>
-          </Card>
-
-          <Card title="🕸️ Radar performance camp" span={2} accent="#1e3a8a">
-            <ResponsiveContainer width="100%" height={280}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="#e2e8f0"/>
-                <PolarAngleAxis dataKey="subject" tick={{fontSize:11}}/>
-                <Radar name="Performance" dataKey="A" stroke="#1e3a8a" fill="#1e3a8a" fillOpacity={0.25}/>
-                <Tooltip formatter={v=>[`${v.toFixed(0)}%`]}/>
-              </RadarChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <Card title="⚡ Actions recommandées par l'IA" span={2} accent="#16a34a">
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
-              {[
-                {icon:'🏠',title:'Optimisation chambres',desc:`${s['Libre']||0} résidences libres — Réaffecter pour maximiser le taux d'occupation`,priority:'Moyenne',color:'#2563eb'},
-                {icon:'🛠️',title:'Maintenance préventive',desc:`${incStats?.ouverts||0} incidents ouverts — Planifier une journée maintenance bloc A`,priority:'Haute',color:'#dc2626'},
-                {icon:'✈️',title:'Suivi voyages',desc:`${voyStats?.en_voyage||0} agents en voyage — Confirmer les dates de retour`,priority:'Basse',color:'#16a34a'},
-              ].map(r=>(
-                <div key={r.title} style={{ background:`${r.color}08`, border:`1px solid ${r.color}20`, borderRadius:10, padding:14 }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>{r.icon}</div>
-                  <div style={{ fontWeight:700, fontSize:13, marginBottom:6, color:'var(--blue)' }}>{r.title}</div>
-                  <div style={{ fontSize:11, color:'var(--text-dim)', marginBottom:8 }}>{r.desc}</div>
-                  <span style={{ background:`${r.color}15`, color:r.color, padding:'3px 10px', borderRadius:20, fontSize:10, fontWeight:700 }}>{r.priority}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }

@@ -28,42 +28,46 @@ export default function Voyages() {
   const [myPersonnel, setMyPersonnel] = useState(null) // Connected user's Personnel object
   const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
 
-  // Load connected user's Personnel profile
+  const [ready, setReady] = useState(isAdmin) // admin est ready immédiatement
+
+  // 1. Charger le personnel ET résidences — PUIS déclencher les voyages
   useEffect(() => {
-    personnelAPI.list({ page_size:500 }).then(r => {
-      const items = r.data.results||r.data||[]
+    Promise.all([
+      personnelAPI.list({ page_size:500 }),
+      batsAPI.list({ page_size:300 })
+    ]).then(([rp, rb]) => {
+      const items = rp.data.results||rp.data||[]
       setPersonnelList(items)
+      const bats = rb.data.results||rb.data||[]
+      setBatsList([...bats].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
       if (!isAdmin) {
-        // Find Personnel matching connected user
-        const me = items.find(p => {
-          const loginMatch = p.login_genere === user?.username
-          const nameMatch = user?.last_name && p.nom?.toLowerCase() === user.last_name.toLowerCase()
-          const fullMatch = user?.first_name && p.prenom?.toLowerCase() === user.first_name.toLowerCase()
-          return loginMatch || (nameMatch && fullMatch) || loginMatch
-        })
+        const me = items.find(p =>
+          p.login_genere === user?.username ||
+          (p.nom?.toLowerCase() === (user?.last_name||'').toLowerCase() &&
+           p.prenom?.toLowerCase() === (user?.first_name||'').toLowerCase())
+        )
         if (me) {
           setMyPersonnel(me)
-          // Pre-fill form with own data
           setForm(f => ({...f, personnel: me.id.toString()}))
         }
       }
-    }).catch(()=>{})
-    batsAPI.list({page_size:300}).then(r => {
-      const items = r.data.results||r.data||[]
-      setBatsList([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
-    }).catch(()=>{})
-  }, [])
+      setReady(true) // déclenche le chargement des voyages
+    }).catch(() => setReady(true))
+  }, [user?.username])
 
+  // 2. Charger les voyages SEULEMENT quand ready (filtre connu)
   const load = useCallback(() => {
+    if (!ready) return
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    // Agent: filter to own voyages only
-    if (!isAdmin && myPersonnel) {
-      p.personnel = myPersonnel.id
+    if (!isAdmin && myPersonnel) p.personnel = myPersonnel.id
+    else if (!isAdmin && !myPersonnel) {
+      setData([]) // agent sans personnel: liste vide, pas de flash
+      return
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
     voyages.stats().then(r => setStats(r.data)).catch(()=>{})
-  }, [filterStatut, myPersonnel, isAdmin])
+  }, [filterStatut, myPersonnel, isAdmin, ready])
 
   useEffect(() => { load() }, [load])
 
@@ -174,9 +178,13 @@ export default function Voyages() {
       {/* Table */}
       {data.length === 0 ? (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
-          <div style={{ fontSize:40, marginBottom:10 }}>✈️</div>
-          <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Aucun voyage</div>
-          <div style={{ fontSize:12 }}>{isAdmin ? "Aucun voyage enregistré" : "Aucun voyage à afficher"}</div>
+          {!ready ? (
+            <><div style={{ fontSize:36, marginBottom:10 }}>⏳</div><div style={{ fontSize:13 }}>Chargement...</div></>
+          ) : (
+            <><div style={{ fontSize:40, marginBottom:10 }}>✈️</div>
+            <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Aucun voyage</div>
+            <div style={{ fontSize:12 }}>{isAdmin ? "Aucun voyage enregistré" : "Aucun voyage à afficher"}</div></>
+          )}
         </div>
       ) : (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
