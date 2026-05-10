@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+body { margin:0; background:var(--bg); font-family:var(--font-sans); padding:24px; }
+.card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(15,23,42,.06); }
+.head { font-weight:700; color:#1e3a8a; margin-bottom:14px; font-size:13px; }
+.row { margin-bottom:10px; }
+.row:last-child { margin-bottom:0; }
+.lr { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
+.name { font-weight:600; }
+.val { font-family:var(--font-mono); font-weight:700; }
+.dim { color:var(--text-dim); font-weight:400; }
+.bar { background:var(--border); border-radius:6px; height:8px; overflow:hidden; }
+.fill { height:100%; border-radius:6px; }
+</style></head><body>
+<div class="card">
+  <div class="head">📊 Statuts résidences</div>
+  <div class="row"><div class="lr"><span class="name">Libres</span><span class="val" style="color:#16a34a">42 <span class="dim">31%</span></span></div><div class="bar"><div class="fill" style="width:31%;background:#16a34a"></div></div></div>
+  <div class="row"><div class="lr"><span class="name">Occupés</span><span class="val" style="color:#dc2626">87 <span class="dim">65%</span></span></div><div class="bar"><div class="fill" style="width:65%;background:#dc2626"></div></div></div>
+  <div class="row"><div class="lr"><span class="name">Réservés</span><span class="val" style="color:#2563eb">2 <span class="dim">1%</span></span></div><div class="bar"><div class="fill" style="width:1%;background:#2563eb"></div></div></div>
+  <div class="row"><div class="lr"><span class="name">Maintenance</span><span class="val" style="color:#ea580c">3 <span class="dim">2%</span></span></div><div class="bar"><div class="fill" style="width:2%;background:#ea580c"></div></div></div>
+</div>
+</body></html>

@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+body { margin:0; background:var(--bg); font-family:var(--font-sans); padding:24px; }
+.grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.t { background:#fff; border:1px solid var(--border); border-top:4px solid var(--rzi-blue); border-radius:12px; padding:14px 16px; }
+.t.green  { border-top-color:#16a34a; }
+.t.red    { border-top-color:#dc2626; }
+.t.orange { border-top-color:#ea580c; }
+.num { font-family:var(--font-mono); font-size:30px; font-weight:700; line-height:1; }
+.lab { font-size:10px; color:var(--text-dim); margin-top:8px; text-transform:uppercase; letter-spacing:1px; }
+</style></head><body>
+<div class="grid">
+  <div class="t green"><div class="num" style="color:#16a34a">42</div><div class="lab">🟢 Libres</div></div>
+  <div class="t red"><div class="num" style="color:#dc2626">87</div><div class="lab">🔴 Occupés</div></div>
+  <div class="t orange"><div class="num" style="color:#ea580c">5</div><div class="lab">🛠️ Maintenance</div></div>
+  <div class="t"><div class="num" style="color:#f0a500">134</div><div class="lab">🏢 Bâtiments</div></div>
+</div>
+<div style="margin-top:14px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text-mute)">Numbers &middot; mono · 700 · 26-30px &middot; coloured by status</div>
+</body></html>

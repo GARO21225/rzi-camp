@@ -1,0 +1,198 @@
+/* ══════════════════════════════════════════════════════════════
+   RZI CAMP — Design System
+   Tokens for color, type, spacing, radii, shadow.
+   Source of truth: GARO21225/rzi-camp · frontend/src/index.css
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── BRAND ─────────────────────────────────────────────────── */
+  --rzi-blue:        #1e3a8a;   /* primary brand blue, navy        */
+  --rzi-blue-700:    #2563eb;   /* gradient secondary, link blue   */
+  --rzi-gold:        #f0a500;   /* accent gold, headline numbers   */
+
+  /* alias names (semantic) */
+  --brand-primary:   var(--rzi-blue);
+  --brand-secondary: var(--rzi-blue-700);
+  --brand-accent:    var(--rzi-gold);
+
+  /* ── STATUS / SEMANTIC ────────────────────────────────────── */
+  --green:    #16a34a;   /* libre / success / available             */
+  --red:      #dc2626;   /* occupé / danger / urgent incident       */
+  --orange:   #ea580c;   /* maintenance / warning / en voyage       */
+  --purple:   #7c3aed;   /* événements / planning                   */
+  --yellow:   #f0a500;   /* demandes / departs / pending            */
+
+  /* tinted backgrounds — `<color>0d` over white                   */
+  --green-bg:  rgba(22,163,74,.06);
+  --red-bg:    rgba(220,38,38,.06);
+  --orange-bg: rgba(234,88,12,.06);
+  --purple-bg: rgba(124,58,237,.06);
+  --blue-bg:   rgba(30,58,138,.06);
+
+  /* tinted borders — `<color>25`                                  */
+  --green-bd:  rgba(22,163,74,.25);
+  --red-bd:    rgba(220,38,38,.25);
+  --orange-bd: rgba(234,88,12,.25);
+  --purple-bd: rgba(124,58,237,.25);
+  --blue-bd:   rgba(30,58,138,.25);
+
+  /* ── NEUTRALS ──────────────────────────────────────────────── */
+  --bg:         #f5f7fb;        /* app canvas, light cool gray      */
+  --bg-alt:     #eef1f7;        /* slightly darker panel             */
+  --surface:    #ffffff;        /* cards, sheets                     */
+  --border:     #e5e7eb;        /* hairlines, dividers               */
+  --border-strong: #d1d5db;
+  --text:       #0f172a;        /* primary copy, near black          */
+  --text-dim:   #64748b;        /* secondary copy, slate             */
+  --text-mute:  #94a3b8;        /* tertiary, captions                */
+
+  /* ── GRADIENTS ─────────────────────────────────────────────── */
+  --gradient-header: linear-gradient(135deg, #1e3a8a, #2563eb);
+  --gradient-gold:   linear-gradient(135deg, #f0a500, #f59e0b);
+
+  /* ── TYPOGRAPHY ────────────────────────────────────────────── */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono",
+               Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* type scale — used in app */
+  --t-xs:   10px;   /* uppercase labels under KPIs               */
+  --t-sm:   11px;   /* fine print, captions                      */
+  --t-base: 12px;   /* body / form labels                        */
+  --t-md:   13px;   /* card headings                             */
+  --t-lg:   16px;   /* page subtitle                             */
+  --t-xl:   20px;
+  --t-2xl:  26px;   /* KPI numbers                               */
+  --t-3xl:  38px;   /* hero number on dashboard                  */
+
+  --lh-tight: 1;
+  --lh-snug:  1.25;
+  --lh-base:  1.5;
+
+  --tracking-wide:   1px;     /* uppercase mini-labels          */
+  --tracking-wider:  2px;     /* monospace tag-style labels     */
+
+  /* ── RADII ─────────────────────────────────────────────────── */
+  --r-xs: 6px;    /* progress bars                              */
+  --r-sm: 9px;    /* small buttons                              */
+  --r-md: 10px;   /* logo plate                                 */
+  --r-lg: 12px;   /* cards, callouts                            */
+  --r-xl: 16px;   /* hero header banner                         */
+  --r-pill: 999px;
+
+  /* ── SHADOW ────────────────────────────────────────────────── */
+  --shadow-card:   0 2px 8px rgba(15,23,42,.06);
+  --shadow-hero:   0 4px 20px rgba(30,58,138,.25);
+  --shadow-hover:  0 6px 16px rgba(15,23,42,.10);
+
+  /* ── SPACING (4px base) ────────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  6px;
+  --sp-3:  8px;
+  --sp-4:  10px;
+  --sp-5:  12px;
+  --sp-6:  14px;
+  --sp-7:  16px;
+  --sp-8:  18px;
+  --sp-9:  20px;
+  --sp-10: 24px;
+
+  /* ── MOTION ────────────────────────────────────────────────── */
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --dur-fast:   .15s;
+  --dur-base:   .3s;
+  --dur-slow:   1s;
+}
+
+/* ════ SEMANTIC TYPE STYLES ════════════════════════════════════ */
+
+.h1 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--rzi-blue);
+  letter-spacing: -.2px;
+}
+.h2 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--rzi-blue);
+}
+.h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--rzi-blue);
+}
+.label-tag {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-dim);
+}
+.label-cap {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.body {
+  font-family: var(--font-sans);
+  font-size: var(--t-md);
+  color: var(--text);
+  line-height: var(--lh-base);
+}
+.caption {
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+.kpi-number {
+  font-family: var(--font-mono);
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+.kpi-hero {
+  font-family: var(--font-mono);
+  font-size: var(--t-3xl);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--rzi-gold);
+}
+
+/* ════ COMPONENT PRIMITIVES ════════════════════════════════════ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.card-hover { transition: box-shadow var(--dur-base) var(--ease-standard),
+                          transform   var(--dur-base) var(--ease-standard); }
+.card-hover:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--rzi-blue);
+  border-radius: var(--r-lg);
+  padding: var(--sp-7) var(--sp-8);
+  box-shadow: var(--shadow-card);
+}
+
+.banner-hero {
+  background: var(--gradient-header);
+  border-radius: var(--r-xl);
+  padding: var(--sp-8) var(--sp-9);
+  box-shadow: var(--shadow-hero);
+  color: #fff;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); }
+                    to   { opacity: 1; transform: none; } }
+.animate-in { animation: fadeIn var(--dur-base) var(--ease-standard); }

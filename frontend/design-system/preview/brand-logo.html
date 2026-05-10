@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+body { margin:0; background:#fff; font-family:var(--font-sans); padding:28px; display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap; }
+.col { display:flex; flex-direction:column; gap:8px; }
+.card { border:1px solid var(--border); border-radius:12px; padding:24px 28px; display:flex; align-items:center; justify-content:center; }
+.card.white { background:#fff; }
+.card.navy  { background:#1e3a8a; }
+.card.gold  { background:#f0a500; }
+.plate { background:#fff; border-radius:8px; padding:6px 12px; display:inline-flex; }
+.plate img { display:block; height:42px; }
+.bare img { display:block; height:42px; }
+.label { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1.2px; }
+.cap { font-size:11px; color:var(--text-dim); margin-top:2px; }
+</style></head><body>
+<div class="col">
+  <div class="card white bare"><img src="../assets/roxgold-logo.png" alt="Roxgold Sango"></div>
+  <div class="label">on white · primary</div>
+  <div class="cap">Native lockup. Use wherever bg is light.</div>
+</div>
+<div class="col">
+  <div class="card navy"><div class="plate"><img src="../assets/roxgold-logo.png" alt="Roxgold Sango"></div></div>
+  <div class="label">on navy · plated</div>
+  <div class="cap">Sit inside a 8px-radius white plate on the navy header.</div>
+</div>
+<div class="col">
+  <div class="card gold bare"><img src="../assets/roxgold-logo.png" alt="Roxgold Sango"></div>
+  <div class="label">on gold · avoid</div>
+  <div class="cap">Low contrast on the orange in “SANGO.” Plate it.</div>
+</div>
+</body></html>

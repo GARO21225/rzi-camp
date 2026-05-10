@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+body { margin:0; background:var(--bg); font-family:var(--font-sans); padding:24px; }
+.swatches { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+.sw { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+.sw .chip { height:64px; }
+.sw .meta { padding:8px 10px; }
+.sw .name { font-size:11px; font-weight:700; color:var(--text); }
+.sw .hex  { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); margin-top:2px; letter-spacing:.5px; }
+.sw .role { font-size:9px; color:var(--text-mute); margin-top:2px; text-transform:uppercase; letter-spacing:1px; }
+</style></head><body>
+<div class="swatches">
+  <div class="sw"><div class="chip" style="background:#16a34a"></div><div class="meta"><div class="name">Green</div><div class="hex">#16A34A</div><div class="role">Libre / OK</div></div></div>
+  <div class="sw"><div class="chip" style="background:#dc2626"></div><div class="meta"><div class="name">Red</div><div class="hex">#DC2626</div><div class="role">Occupé / Danger</div></div></div>
+  <div class="sw"><div class="chip" style="background:#ea580c"></div><div class="meta"><div class="name">Orange</div><div class="hex">#EA580C</div><div class="role">Maintenance / Voyage</div></div></div>
+  <div class="sw"><div class="chip" style="background:#7c3aed"></div><div class="meta"><div class="name">Purple</div><div class="hex">#7C3AED</div><div class="role">Événements</div></div></div>
+  <div class="sw"><div class="chip" style="background:#f0a500"></div><div class="meta"><div class="name">Gold</div><div class="hex">#F0A500</div><div class="role">Pending / Departs</div></div></div>
+</div>
+</body></html>
