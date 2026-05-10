@@ -37,6 +37,7 @@ export const batiments = {
 }
 export const personnel = {
   list: (p) => api.get('/api/personnel/', {params:p}),
+  monProfil: () => api.get('/api/personnel/mon_profil/'),
   create: (d) => api.post('/api/personnel/', d),
   update: (id,d) => api.patch(`/api/personnel/${id}/`, d),
   delete: (id) => api.delete(`/api/personnel/${id}/`),

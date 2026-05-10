@@ -271,6 +271,33 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.is_superuser:
             return Response({"error":"Suppression réservée à l'admin"}, status=403)
         return super().destroy(request, *args, **kwargs)
+    @action(detail=False, methods=["get"])
+    def mon_profil(self, request):
+        """Retourne le Personnel lié à l'utilisateur connecté"""
+        user = request.user
+        # Chercher par user FK
+        p = None
+        try:
+            p = Personnel.objects.get(user=user)
+        except Personnel.DoesNotExist:
+            pass
+        
+        # Fallback: chercher par login_genere
+        if not p:
+            p = Personnel.objects.filter(login_genere=user.username).first()
+        
+        # Fallback: chercher par nom/prenom
+        if not p and user.last_name:
+            p = Personnel.objects.filter(
+                nom__iexact=user.last_name,
+                prenom__iexact=user.first_name
+            ).first()
+        
+        if not p:
+            return Response({"detail": "Aucun profil personnel lié"}, status=404)
+        
+        return Response(PersonnelSerializer(p).data)
+
 
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OccupationHistory.objects.select_related("batiment","personnel").all()

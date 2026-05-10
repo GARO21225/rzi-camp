@@ -1,263 +1,298 @@
-
 import React, { useEffect, useState, useRef } from 'react'
 import { incidents, batiments as batAPI } from '../api'
 import { useStore } from '../store'
 
-const pColor = { haute:'#dc2626', moyenne:'#ea580c', basse:'#2563eb' }
-const pBg = { haute:'rgba(220,38,38,.1)', moyenne:'rgba(234,88,12,.1)', basse:'rgba(37,99,235,.1)' }
-const sColor = { 'Ouvert':'#dc2626', 'En cours':'#ea580c', 'Résolu':'#16a34a' }
+const PRIORITE = {
+  haute:  { color:'#dc2626', bg:'rgba(220,38,38,.1)',  label:'🔴 Haute' },
+  moyenne:{ color:'#ea580c', bg:'rgba(234,88,12,.1)',  label:'🟠 Moyenne' },
+  basse:  { color:'#2563eb', bg:'rgba(37,99,235,.1)',  label:'🔵 Basse' },
+}
+const STATUT = {
+  'Ouvert':  { color:'#dc2626', bg:'rgba(220,38,38,.1)',  icon:'🔴' },
+  'En cours':{ color:'#ea580c', bg:'rgba(234,88,12,.1)',  icon:'🟠' },
+  'Résolu':  { color:'#16a34a', bg:'rgba(22,163,74,.1)',   icon:'✅' },
+}
+const CATS = ['Plomberie','Électricité','Serrurerie','Climatisation','Toiture','Menuiserie','Autre']
+
+const inp = {
+  width:'100%', border:'2px solid #e2e8f0', borderRadius:9, padding:'9px 12px',
+  fontSize:13, outline:'none', fontFamily:'inherit', color:'#1e293b', background:'#f8fafc'
+}
 
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const canClose = ['admin','manager','technicien'].includes(role) || user?.is_staff || user?.is_superuser
-  const canCreate = ['admin','manager','agent','technicien'].includes(role) || user?.is_staff
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const canClose = isAdmin || role === 'technicien'
+  const canCreate = isAdmin || ['agent','technicien','menage'].includes(role)
 
-  const [data, setData] = useState([])
-  const [stats, setStats] = useState(null)
-  const [modal, setModal] = useState(false)
-  const [detailModal, setDetailModal] = useState(null)
-  const [bats, setBats] = useState([])
-  const [photo, setPhoto] = useState(null)       // File object
-  const [photoB64, setPhotoB64] = useState('')   // base64 string for preview
-  const [photoMime, setPhotoMime] = useState('image/jpeg')
-  const [gps, setGps] = useState(null)
-  const [gpsLoading, setGpsLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'' })
+  const [data, setData]           = useState([])
+  const [stats, setStats]         = useState(null)
+  const [bats, setBats]           = useState([])
+  const [modal, setModal]         = useState(false)
+  const [detail, setDetail]       = useState(null)
+  const [filterStatut, setFilter] = useState('')
+  const [filterPrio, setFilterP]  = useState('')
+  const [loading, setLoading]     = useState(true)
+  const [submitting, setSub]      = useState(false)
+  const [gpsLoading, setGpsLoad]  = useState(false)
+  const [gps, setGps]             = useState(null)
+  const [photoB64, setPhotoB64]   = useState('')
+  const [form, setForm]           = useState({
+    titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:''
+  })
   const fileRef = useRef()
 
   const load = () => {
-    incidents.list().then(r => setData(r.data.results||r.data))
-    incidents.stats().then(r => setStats(r.data))
+    setLoading(true)
+    const p = {}
+    if (filterStatut) p.statut = filterStatut
+    if (filterPrio) p.priorite = filterPrio
+    incidents.list(p)
+      .then(r => setData(r.data.results||r.data||[]))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false))
+    incidents.stats().then(r => setStats(r.data)).catch(()=>{})
     batAPI.list({ page_size:300 }).then(r => {
-      const items = r.data.results||r.data
+      const items = r.data.results||r.data||[]
       setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
-    })
+    }).catch(()=>{})
   }
-  useEffect(() => { load() }, [])
+
+  useEffect(() => { load() }, [filterStatut, filterPrio])
+
+  const getGPS = () => {
+    setGpsLoad(true)
+    navigator.geolocation?.getCurrentPosition(
+      p => { setGps([p.coords.latitude, p.coords.longitude]); setGpsLoad(false) },
+      () => { setGps(null); setGpsLoad(false) },
+      { enableHighAccuracy:true, timeout:8000 }
+    )
+  }
 
   const handlePhoto = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setPhoto(file)
-    setPhotoMime(file.type || 'image/jpeg')
-    // Convert to base64 immediately for preview and upload
     const reader = new FileReader()
-    reader.onload = ev => {
-      const result = ev.target.result // data:image/jpeg;base64,XXX
-      const b64 = result.split(',')[1]
-      setPhotoB64(b64)
-    }
+    reader.onload = ev => setPhotoB64(ev.target.result.split(',')[1])
     reader.readAsDataURL(file)
   }
 
-  const getGPS = () => {
-    setGpsLoading(true)
-    navigator.geolocation?.getCurrentPosition(
-      pos => { setGps({ lat:pos.coords.latitude, lng:pos.coords.longitude }); setGpsLoading(false) },
-      () => { setGps({ lat:8.111, lng:-6.822 }); setGpsLoading(false) },
-      { timeout:8000 }
-    )
+  const resetForm = () => {
+    setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'' })
+    setPhotoB64(''); setGps(null)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const submit = async () => {
-    if (!form.titre) return alert('Titre obligatoire')
-    if (!form.description) return alert('Description obligatoire')
-    if (!form.residence) return alert('Résidence obligatoire')
-    if (!photoB64) return alert('📸 Photo obligatoire')
-    setSubmitting(true)
+    if (!form.titre.trim()) return alert('Le titre est obligatoire')
+    if (!form.description.trim()) return alert('La description est obligatoire')
+    setSub(true)
     try {
-      // Send as JSON with base64 photo (avoids FormData multipart issues on some servers)
-      const { default: api } = await import('../api')
-      const payload = {
-        ...form,
-        photo_base64: photoB64,
-        photo_mime: photoMime,
-        latitude: gps?.lat || null,
-        longitude: gps?.lng || null,
-      }
-      await api.post('/api/incidents/', payload, { headers:{ 'Content-Type':'application/json' } })
-      setModal(false)
-      setPhoto(null); setPhotoB64(''); setGps(null)
-      setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'' })
-      load()
+      const payload = new FormData()
+      Object.entries(form).forEach(([k,v]) => { if(v) payload.append(k,v) })
+      if (photoB64) payload.append('photo_b64', photoB64)
+      if (gps) { payload.append('latitude', gps[0]); payload.append('longitude', gps[1]) }
+      await incidents.create(payload, { headers:{ 'Content-Type':'multipart/form-data' } })
+      setModal(false); resetForm(); load()
     } catch(e) {
-      alert('Erreur: '+(e.response?.data ? JSON.stringify(e.response.data) : e.message))
-    } finally { setSubmitting(false) }
-  }
-
-  const deleteIncident = async (id) => {
-    if (!window.confirm('Supprimer définitivement cet incident ?')) return
-    try {
-      await import('../api').then(m => m.incidents.delete(id))
-      load()
-      if (detailModal?.id === id) setDetailModal(null)
-    } catch(e) { alert(e.response?.data?.error||'Erreur') }
+      alert(e.response?.data ? JSON.stringify(e.response.data) : 'Erreur lors de la soumission')
+    } finally { setSub(false) }
   }
 
   const resoudre = async (id) => {
-    try {
-      await incidents.resoudre(id); load()
-      if (detailModal?.id === id) setDetailModal(prev => ({...prev, statut:'Résolu'}))
-    } catch(e) { alert(e.response?.data?.error||'Erreur clôture') }
+    if (!window.confirm('Marquer cet incident comme résolu ?')) return
+    try { await incidents.resoudre(id); load() }
+    catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
-  const naviguer = (inc) => {
-    const url = inc.latitude && inc.longitude
-      ? `https://www.google.com/maps/dir/?api=1&destination=${inc.latitude},${inc.longitude}`
-      : `https://www.google.com/maps/search/Résidence+${inc.residence}+Roxgold+Sango`
-    window.open(url,'_blank')
+  const supprimer = async (id) => {
+    if (!window.confirm('Supprimer définitivement cet incident ?')) return
+    try { await incidents.delete(id); setDetail(null); load() }
+    catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
-
-  const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
 
   return (
-    <div style={{ padding:20 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+    <div style={{ padding:16 }}>
+      {/* En-tête */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:20, fontWeight:700, color:'var(--blue)' }}>🛠️ Maintenance Industrielle</h2>
-          <p style={{ fontSize:13, color:'var(--text-dim)', marginTop:4 }}>📸 Photo persistante en base · GPS · Traçabilité complète</p>
+          <h2 style={{ fontSize:19, fontWeight:700, color:'#1e3a8a', margin:0 }}>🛠️ Maintenance</h2>
+          <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>Incidents · Signalements · Suivi résolution</p>
         </div>
         {canCreate && (
-          <button onClick={()=>setModal(true)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>
-            + Signaler incident
+          <button onClick={()=>{ resetForm(); setModal(true) }}
+            style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'9px 18px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, boxShadow:'0 2px 8px rgba(30,58,138,.3)' }}>
+            + Signaler un incident
           </button>
         )}
       </div>
 
       {/* KPIs */}
       {stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-          {[['Total',stats.total,'var(--blue)','📋'],['Ouverts',stats.ouverts,'#dc2626','🚨'],['En cours',stats.en_cours,'#ea580c','⚙️'],['Résolus',stats.resolus,'#16a34a','✅']].map(([l,v,c,ic])=>(
-            <div key={l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:16, borderTop:`4px solid ${c}`, boxShadow:'var(--shadow)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:700, color:c }}>{v}</div>
-              <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:10, marginBottom:16 }}>
+          {[
+            ['Total', stats.total, '#1e3a8a', '📋'],
+            ['Ouverts', stats.ouverts, '#dc2626', '🔴'],
+            ['En cours', stats.en_cours, '#ea580c', '🟠'],
+            ['Résolus', stats.resolus, '#16a34a', '✅'],
+          ].map(([l,v,c,ic]) => (
+            <div key={l} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+              <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:700, color:c }}>{v||0}</div>
+              <div style={{ fontSize:10, color:'#64748b', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* INCIDENTS LIST */}
-      {data.map(inc => (
-        <div key={inc.id} onClick={()=>setDetailModal(inc)}
-          style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:14, marginBottom:10,
-            display:'flex', gap:14, boxShadow:'var(--shadow)', cursor:'pointer', transition:'.15s' }}
-          onMouseEnter={e=>e.currentTarget.style.borderColor='var(--blue)'}
-          onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
-
-          {/* Photo thumbnail */}
-          <div style={{ width:70, height:70, borderRadius:8, overflow:'hidden', flexShrink:0, border:'2px solid var(--border)', background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            {inc.photo_url
-              ? <img src={inc.photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-              : <span style={{ fontSize:26, opacity:.4 }}>📷</span>
-            }
-          </div>
-
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--blue)', marginBottom:2 }}>{inc.titre}</div>
-            <div style={{ fontSize:12, color:'var(--text-dim)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:6 }}>{inc.description}</div>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap', fontSize:11, color:'var(--text-dim)' }}>
-              <span style={{ background:'var(--surface2)', padding:'2px 8px', borderRadius:6, fontWeight:600 }}>📍 {inc.residence}</span>
-              <span>👤 {inc.auteur_nom}</span>
-              <span>🕐 {new Date(inc.date_creation).toLocaleString('fr-FR')}</span>
-              {inc.photo_url && <span style={{ color:'#16a34a', fontWeight:700 }}>📸 ✓</span>}
-              {inc.latitude && <span style={{ color:'#2563eb', fontWeight:700 }}>📡 GPS</span>}
-            </div>
-          </div>
-
-          <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end', flexShrink:0, minWidth:90 }} onClick={e=>e.stopPropagation()}>
-            <span style={{ background:`${sColor[inc.statut]}18`, color:sColor[inc.statut], padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>{inc.statut}</span>
-            <span style={{ background:pBg[inc.priorite], color:pColor[inc.priorite], padding:'2px 8px', borderRadius:20, fontSize:10, fontFamily:'monospace', fontWeight:700 }}>{inc.priorite?.toUpperCase()}</span>
-            <button onClick={()=>naviguer(inc)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, width:'100%' }}>🧭 Nav</button>
-            {isAdmin && (
-              <button onClick={()=>deleteIncident(inc.id)}
-                style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, width:'100%' }}>🗑 Suppr.</button>
-            )}
-            {canClose && inc.statut!=='Résolu' && (
-              <button onClick={()=>resoudre(inc.id)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, width:'100%' }}>✅ Clôturer</button>
-            )}
-          </div>
+      {/* Filtres */}
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:3, background:'#f8fafc', borderRadius:9, padding:3, border:'1px solid #e2e8f0' }}>
+          {['','Ouvert','En cours','Résolu'].map(s => (
+            <button key={s} onClick={()=>setFilter(s)}
+              style={{ padding:'5px 12px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:600,
+                background:filterStatut===s?'#1e3a8a':'transparent',
+                color:filterStatut===s?'#fff':'#64748b' }}>
+              {s||'Tous'}
+            </button>
+          ))}
         </div>
-      ))}
+        <div style={{ display:'flex', gap:3, background:'#f8fafc', borderRadius:9, padding:3, border:'1px solid #e2e8f0' }}>
+          {['','haute','moyenne','basse'].map(p => (
+            <button key={p} onClick={()=>setFilterP(p)}
+              style={{ padding:'5px 12px', borderRadius:7, border:'none', cursor:'pointer', fontSize:11, fontWeight:600,
+                background:filterPrio===p?'#1e3a8a':'transparent',
+                color:filterPrio===p?'#fff':'#64748b' }}>
+              {p||'Priorités'}
+            </button>
+          ))}
+        </div>
+        <span style={{ fontSize:12, color:'#94a3b8', display:'flex', alignItems:'center' }}>{data.length} incident(s)</span>
+      </div>
 
-      {data.length===0 && !stats && <div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div>}
-      {data.length===0 && stats && <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:40,textAlign:'center',color:'var(--text-dim)',boxShadow:'var(--shadow)'}}>Aucun incident signalé</div>}
+      {/* Liste */}
+      {loading ? (
+        <div style={{ padding:40, textAlign:'center', color:'#94a3b8' }}>🔄 Chargement...</div>
+      ) : data.length === 0 ? (
+        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:48, textAlign:'center', color:'#94a3b8', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>🛠️</div>
+          <div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>Aucun incident</div>
+          <div style={{ fontSize:13 }}>Aucun incident{filterStatut?` "${filterStatut}"`:''} signalé</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {data.map(inc => {
+            const st = STATUT[inc.statut] || STATUT['Ouvert']
+            const pr = PRIORITE[inc.priorite] || PRIORITE.moyenne
+            return (
+              <div key={inc.id}
+                onClick={() => setDetail(inc)}
+                style={{ background:'#fff', border:`1px solid ${inc.statut==='Ouvert'?'rgba(220,38,38,.25)':'#e2e8f0'}`,
+                  borderRadius:12, padding:16, cursor:'pointer', display:'flex', gap:14, alignItems:'flex-start',
+                  boxShadow:'0 1px 4px rgba(0,0,0,.06)', transition:'box-shadow .2s' }}
+                onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(30,58,138,.12)'}
+                onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}>
 
-      {/* ── DETAIL MODAL ── */}
-      {detailModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:640, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
-              <div>
-                <h3 style={{ color:'#fff', fontSize:16, marginBottom:2 }}>{detailModal.titre}</h3>
-                <div style={{ fontSize:11, color:'rgba(255,255,255,.7)', fontFamily:'monospace' }}>Incident #{detailModal.id} · {new Date(detailModal.date_creation).toLocaleString('fr-FR')}</div>
+                {/* Icône priorité */}
+                <div style={{ width:44, height:44, borderRadius:12, background:pr.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
+                  {pr.label.split(' ')[0]}
+                </div>
+
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
+                    <span style={{ fontWeight:700, fontSize:14, color:'#1e3a8a' }}>{inc.titre}</span>
+                    <span style={{ background:st.bg, color:st.color, padding:'2px 9px', borderRadius:20, fontSize:11, fontWeight:700 }}>
+                      {st.icon} {inc.statut}
+                    </span>
+                    <span style={{ background:pr.bg, color:pr.color, padding:'2px 9px', borderRadius:20, fontSize:10, fontWeight:600 }}>
+                      {pr.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:12, color:'#64748b', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {inc.description}
+                  </div>
+                  <div style={{ display:'flex', gap:12, fontSize:11, color:'#94a3b8', flexWrap:'wrap' }}>
+                    {inc.residence && <span>🏠 {inc.residence}</span>}
+                    {inc.categorie && <span>🔧 {inc.categorie}</span>}
+                    <span>📅 {new Date(inc.date_signalement).toLocaleDateString('fr-FR')}</span>
+                    {inc.auteur_nom && <span>👤 {inc.auteur_nom}</span>}
+                  </div>
+                </div>
+
+                {/* Actions rapides */}
+                <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                  {canClose && inc.statut !== 'Résolu' && (
+                    <button onClick={()=>resoudre(inc.id)}
+                      style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                      ✅ Résoudre
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={()=>supprimer(inc.id)}
+                      style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                      🗑 Supprimer
+                    </button>
+                  )}
+                </div>
               </div>
-              <button onClick={()=>setDetailModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:8, cursor:'pointer', width:32, height:32, fontSize:18 }}>✕</button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── MODAL DÉTAIL ── */}
+      {detail && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}
+          onClick={()=>setDetail(null)}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:540, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{ padding:'16px 20px', background:'#1e3a8a', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🛠️ {detail.titre}</h3>
+              <button onClick={()=>setDetail(null)} style={{ background:'rgba(255,255,255,.15)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
             </div>
-
-            <div style={{ padding:'20px 24px' }}>
-              {/* PHOTO en grand */}
-              {detailModal.photo_url ? (
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>📸 Photo de l'incident</div>
-                  <img src={detailModal.photo_url} alt="Incident"
-                    style={{ width:'100%', maxHeight:350, objectFit:'cover', borderRadius:12, border:'2px solid var(--border)' }}/>
-                </div>
-              ) : (
-                <div style={{ background:'var(--surface2)', borderRadius:12, padding:24, textAlign:'center', marginBottom:20, color:'var(--text-dim)', fontSize:13 }}>
-                  📷 Aucune photo associée
-                </div>
-              )}
-
-              {/* Infos grille */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16 }}>
+            <div style={{ padding:'20px' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
                 {[
-                  ['📍 Résidence',detailModal.residence],
-                  ['🔧 Catégorie',detailModal.categorie],
-                  ['⚡ Priorité',detailModal.priorite?.toUpperCase()],
-                  ['📋 Statut',detailModal.statut],
-                  ['👤 Déclaré par',detailModal.auteur_nom],
-                  ['🕐 Date',new Date(detailModal.date_creation).toLocaleString('fr-FR')],
-                ].map(([l,v])=>(
-                  <div key={l} style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
-                    <div style={{ fontSize:10, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:3 }}>{l}</div>
-                    <div style={{ fontWeight:700, fontSize:13, color:'var(--blue)' }}>{v||'—'}</div>
+                  ['Statut', (STATUT[detail.statut]?.icon||'')+ ' '+detail.statut],
+                  ['Priorité', PRIORITE[detail.priorite]?.label||detail.priorite],
+                  ['Catégorie', detail.categorie],
+                  ['Résidence', detail.residence||'—'],
+                  ['Signalé par', detail.auteur_nom||'—'],
+                  ['Date', new Date(detail.date_signalement).toLocaleDateString('fr-FR')],
+                ].map(([k,v])=>(
+                  <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 12px' }}>
+                    <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2, textTransform:'uppercase', letterSpacing:1 }}>{k}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#1e3a8a' }}>{v}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Occupant résidence */}
-              <OccupantInfo residence={detailModal.residence}/>
-
-              {/* Description */}
-              <div style={{ background:'var(--surface2)', borderRadius:8, padding:'12px 16px', marginBottom:14 }}>
-                <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>📝 Description</div>
-                <div style={{ fontSize:13, lineHeight:1.7, color:'var(--text)' }}>{detailModal.description}</div>
+              <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px 14px', marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#94a3b8', marginBottom:6, textTransform:'uppercase', letterSpacing:1 }}>Description</div>
+                <div style={{ fontSize:13, color:'#1e293b', lineHeight:1.6 }}>{detail.description}</div>
               </div>
-
-              {/* GPS */}
-              {detailModal.latitude && (
-                <div style={{ background:'rgba(37,99,235,.06)', border:'1px solid rgba(37,99,235,.15)', borderRadius:8, padding:'10px 14px', marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#2563eb', fontFamily:'monospace', marginBottom:4 }}>📡 GPS CAPTURÉ</div>
-                  <div style={{ fontFamily:'monospace', fontSize:12 }}>{detailModal.latitude}, {detailModal.longitude}</div>
-                </div>
+              {detail.photo_b64 && (
+                <img src={`data:image/jpeg;base64,${detail.photo_b64}`} alt="Photo incident"
+                  style={{ width:'100%', borderRadius:10, maxHeight:260, objectFit:'cover', marginBottom:14 }}/>
               )}
-
-              {detailModal.date_resolution && (
-                <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:8, padding:'10px 14px' }}>
-                  <div style={{ fontSize:11, color:'#16a34a', fontFamily:'monospace', marginBottom:4 }}>✅ RÉSOLU LE</div>
-                  <div style={{ fontSize:12, fontWeight:600 }}>{new Date(detailModal.date_resolution).toLocaleString('fr-FR')}</div>
-                </div>
+              {detail.latitude && (
+                <a href={`https://www.google.com/maps?q=${detail.latitude},${detail.longitude}`}
+                  target="_blank" rel="noreferrer"
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(37,99,235,.08)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'7px 14px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:600, marginBottom:14 }}>
+                  📍 Voir sur Google Maps
+                </a>
               )}
-            </div>
-
-            <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between' }}>
-              <button onClick={()=>naviguer(detailModal)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'9px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>🧭 Naviguer</button>
-              <div style={{ display:'flex', gap:10 }}>
-                <button onClick={()=>setDetailModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'9px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Fermer</button>
-                {canClose && detailModal.statut!=='Résolu' && (
-                  <button onClick={()=>resoudre(detailModal.id)} style={{ background:'#16a34a', color:'#fff', border:'none', padding:'9px 20px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>✅ Clôturer l'incident</button>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {canClose && detail.statut !== 'Résolu' && (
+                  <button onClick={()=>{ resoudre(detail.id); setDetail(null) }}
+                    style={{ flex:1, background:'#16a34a', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    ✅ Marquer comme résolu
+                  </button>
+                )}
+                {isAdmin && (
+                  <button onClick={()=>supprimer(detail.id)}
+                    style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.25)', padding:'10px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    🗑 Supprimer
+                  </button>
                 )}
               </div>
             </div>
@@ -265,119 +300,73 @@ export default function Maintenance() {
         </div>
       )}
 
-      {/* ── SIGNALER MODAL ── */}
+      {/* ── MODAL SIGNALEMENT ── */}
       {modal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:520, maxWidth:'95vw', maxHeight:'92vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
-            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff' }}>🛠️ Signaler un incident</h3>
-              <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ padding:'16px 20px', background:'#dc2626', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🚨 Signaler un incident</h3>
+              <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
             </div>
-            <div style={{ padding:'18px 24px' }}>
-              <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'8px 12px', fontSize:12, marginBottom:14, color:'#991b1b' }}>
-                📸 Photo obligatoire · 📍 GPS requis · ⏱️ Horodatage automatique
+            <div style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Titre *</label>
+                <input value={form.titre} onChange={e=>setForm({...form,titre:e.target.value})} style={inp} placeholder="Ex: Fuite d'eau chambre 12"/>
               </div>
-
-              {/* PHOTO */}
-              <div style={{ marginBottom:14 }}>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>📸 Photo *</label>
-                <div onClick={()=>fileRef.current?.click()}
-                  style={{ border:`2px dashed ${photoB64?'#16a34a':'var(--border)'}`, borderRadius:10, padding:14, textAlign:'center', cursor:'pointer', background:photoB64?'rgba(22,163,74,.04)':'var(--surface2)', transition:'.2s' }}>
-                  {photoB64
-                    ? <img src={`data:${photoMime};base64,${photoB64}`} style={{ maxHeight:120, borderRadius:6, maxWidth:'100%' }} alt="preview"/>
-                    : <div style={{ color:'var(--text-dim)', fontSize:13 }}>📷 Toucher pour choisir/prendre une photo</div>
-                  }
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display:'none' }}/>
-                {photo && <div style={{ fontSize:11, color:'#16a34a', marginTop:4, fontWeight:600 }}>✅ {photo.name}</div>}
-              </div>
-
-              {/* GPS */}
-              <div style={{ marginBottom:14 }}>
-                <button onClick={getGPS} disabled={gpsLoading}
-                  style={{ width:'100%', background:gps?'rgba(22,163,74,.1)':'var(--surface2)', border:`1px solid ${gps?'#16a34a':'var(--border)'}`, color:gps?'#16a34a':'var(--text-dim)', padding:'9px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
-                  {gpsLoading?'📡 Acquisition...' : gps?`✅ GPS : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`:'📍 Capturer GPS'}
-                </button>
-              </div>
-
-              {/* Résidence */}
-              <div style={{ marginBottom:12 }}>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Résidence * (tri alphabétique naturel)</label>
-                <select value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})} style={inp}>
-                  <option value="">— Choisir résidence —</option>
-                  {bats.map(b=><option key={b.id} value={b.residence}>{b.residence} — {b.bloc} {b.occupant?`(${b.occupant})`:'(Libre)'}</option>)}
-                </select>
-              </div>
-
-              {/* Titre */}
-              <div style={{ marginBottom:12 }}>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Titre *</label>
-                <input value={form.titre} onChange={e=>setForm({...form,titre:e.target.value})} style={inp} placeholder="Ex: Fuite eau résidence A3"/>
-              </div>
-
-              {/* Catégorie + Priorité */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Catégorie</label>
+                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Catégorie</label>
                   <select value={form.categorie} onChange={e=>setForm({...form,categorie:e.target.value})} style={inp}>
-                    {['Plomberie','Électricité','Serrurerie','Climatisation','Toiture','Autre'].map(o=><option key={o}>{o}</option>)}
+                    {CATS.map(c=><option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Priorité</label>
-                  <div style={{ display:'flex', gap:6 }}>
-                    {[['haute','🔴'],['moyenne','🟠'],['basse','🔵']].map(([v,ic])=>(
-                      <button key={v} onClick={()=>setForm({...form,priorite:v})}
-                        style={{ flex:1, padding:'8px 4px', borderRadius:8, border:`2px solid ${form.priorite===v?pColor[v]:'var(--border)'}`,
-                          background:form.priorite===v?pBg[v]:'var(--surface2)', color:form.priorite===v?pColor[v]:'var(--text-dim)', cursor:'pointer', fontSize:12, fontWeight:700 }}>
-                        {ic}
-                      </button>
-                    ))}
-                  </div>
+                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Priorité</label>
+                  <select value={form.priorite} onChange={e=>setForm({...form,priorite:e.target.value})} style={inp}>
+                    <option value="basse">Basse</option>
+                    <option value="moyenne">Moyenne</option>
+                    <option value="haute">Haute</option>
+                  </select>
                 </div>
               </div>
-
-              {/* Description */}
               <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Description *</label>
-                <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={3}
-                  style={{ ...inp, resize:'vertical' }} placeholder="Décrivez le problème en détail..."/>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Résidence concernée</label>
+                <select value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})} style={inp}>
+                  <option value="">— Sélectionner (optionnel) —</option>
+                  {bats.map(b=><option key={b.id} value={b.residence}>{b.residence} — {b.bloc}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Description *</label>
+                <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}
+                  rows={4} style={{ ...inp, resize:'vertical' }}
+                  placeholder="Décrivez le problème en détail..."/>
+              </div>
+              {/* Photo */}
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Photo (optionnel)</label>
+                <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhoto}
+                  style={{ fontSize:12, color:'#64748b' }}/>
+                {photoB64 && <img src={`data:image/jpeg;base64,${photoB64}`} alt="preview" style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:8, marginTop:8 }}/>}
+              </div>
+              {/* GPS */}
+              <div>
+                <button onClick={getGPS} disabled={gpsLoading}
+                  style={{ background:'rgba(37,99,235,.08)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                  {gpsLoading ? '📡 Localisation...' : gps ? `📍 ${gps[0].toFixed(5)}, ${gps[1].toFixed(5)}` : '📍 Ajouter ma position GPS'}
+                </button>
               </div>
             </div>
-            <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
-              <button onClick={()=>setModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={submit} disabled={submitting} style={{ background:submitting?'#94a3b8':'var(--blue)', color:'#fff', border:'none', padding:'9px 20px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                {submitting?'Envoi en cours...':'🚀 Signaler'}
+            <div style={{ padding:'12px 20px', borderTop:'1px solid #e2e8f0', display:'flex', gap:8 }}>
+              <button onClick={()=>setModal(false)} style={{ background:'#f8fafc', border:'1px solid #e2e8f0', color:'#64748b', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13 }}>Annuler</button>
+              <button onClick={submit} disabled={submitting}
+                style={{ flex:1, background:'#dc2626', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                {submitting ? '⏳ Envoi...' : '🚨 Signaler l\'incident'}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function OccupantInfo({ residence }) {
-  const [bat, setBat] = React.useState(null)
-  React.useEffect(() => {
-    if (!residence) return
-    import('../api').then(({ batiments }) =>
-      batiments.list({ residence, page_size:1 }).then(r => {
-        const items = r.data.results||r.data
-        if (items.length > 0) setBat(items[0])
-      })
-    )
-  }, [residence])
-  if (!bat?.occupant) return null
-  return (
-    <div style={{ background:'rgba(37,99,235,.06)', border:'1px solid rgba(37,99,235,.15)', borderRadius:8, padding:'10px 14px', marginBottom:14 }}>
-      <div style={{ fontSize:11, color:'#2563eb', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>🏠 Occupant de la résidence</div>
-      <div style={{ display:'flex', gap:20, fontSize:13, flexWrap:'wrap' }}>
-        <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Nom :</span> <b>{bat.occupant}</b></div>
-        {bat.societe && <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Société :</span> <b>{bat.societe}</b></div>}
-        {bat.date_arrivee && <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Arrivée :</span> <b>{bat.date_arrivee}</b></div>}
-        {bat.date_depart && <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Départ prévu :</span> <b style={{color:'#dc2626'}}>{bat.date_depart}</b></div>}
-      </div>
     </div>
   )
 }
