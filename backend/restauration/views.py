@@ -26,41 +26,57 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from django.utils.timezone import localdate
         today = localdate()
 
+        import unicodedata
+        def ascii_clean(s):
+            s = str(s or "").strip()
+            return ''.join(c for c in unicodedata.normalize('NFD', s)
+                          if unicodedata.category(c) != 'Mn').upper()
+
         personnel = None
 
-        # Stratégie 1: correspondance exacte normalisée
+        # Stratégie 1: correspondance exacte
         try:
             personnel = Personnel.objects.get(qr_code_string=qr_data)
         except Personnel.DoesNotExist:
             pass
 
-        # Stratégie 2: normaliser les deux côtés (accents, casse)
+        # Stratégie 2: correspondance ASCII normalisée (ignore accents et casse)
         if not personnel:
+            qr_ascii = ascii_clean(qr_data)
             for p in Personnel.objects.all():
-                ps = unicodedata.normalize("NFC", p.qr_code_string or "").strip()
-                if ps == qr_data or ps.lower() == qr_data.lower():
+                stored = ascii_clean(p.qr_code_string or "")
+                if stored == qr_ascii:
                     personnel = p
                     break
 
-        # Stratégie 3: parser le format NOM|PRENOM|SOCIETE|NUMERO|TYPE
+        # Stratégie 3: parser NOM|PRENOM|NUMERO (nouveau format ASCII)
         if not personnel and "|" in qr_data:
             parts = [p.strip() for p in qr_data.split("|")]
-            if len(parts) >= 2:
-                nom, prenom = parts[0], parts[1]
-                personnel = Personnel.objects.filter(
-                    nom__iexact=nom, prenom__iexact=prenom
-                ).first()
-                if not personnel and len(parts) >= 4:
-                    personnel = Personnel.objects.filter(numero=parts[3]).first()
+            if len(parts) >= 1:
+                nom = parts[0]
+                # Chercher par nom ASCII
+                for p in Personnel.objects.all():
+                    if ascii_clean(p.nom) == ascii_clean(nom):
+                        # Vérifier prenom si disponible
+                        if len(parts) >= 2:
+                            if ascii_clean(p.prenom) == ascii_clean(parts[1]):
+                                personnel = p; break
+                        else:
+                            personnel = p; break
 
-        # Stratégie 4: recherche par numéro seul
-        if not personnel and qr_data.replace("+","").replace(" ","").isdigit():
-            personnel = Personnel.objects.filter(numero=qr_data.strip()).first()
+        # Stratégie 4: numero de téléphone dans le QR
+        if not personnel:
+            # Chercher un numéro de 10 chiffres dans le QR
+            import re
+            nums = re.findall(r'[0-9]{8,}', qr_data)
+            for num in nums:
+                p = Personnel.objects.filter(numero__icontains=num).first()
+                if p: personnel = p; break
 
         if not personnel:
             return Response({
                 "valid": False,
-                "erreur": f"QR non reconnu. Contenu lu: '{qr_data[:50]}'"
+                "erreur": f"QR non reconnu. Code lu: '{qr_data[:80]}'"
             }, status=400)
 
         # Check already eaten
