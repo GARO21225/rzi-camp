@@ -246,25 +246,30 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
                 "erreur": f"QR restaurant invalide. Lu: [{qr_data}]"
             }, status=400)
         
-        # Trouver le personnel de l'utilisateur connecté
         user = request.user
         p = None
-        # Stratégie 1: liaison directe user FK
+        # S1: liaison directe user FK
         p = Personnel.objects.filter(user=user).first()
-        # Stratégie 2: par login_genere
+        # S2: par login_genere
         if not p:
             p = Personnel.objects.filter(login_genere=user.username).first()
-        # Stratégie 3: par nom/prénom depuis le profil user
+        # S3: par nom/prénom
         if not p and user.last_name:
-            p = Personnel.objects.filter(
-                nom__iexact=user.last_name.upper()
-            ).first()
-        # Stratégie 4: créer automatiquement un personnel lié si l'user n'en a pas
+            p = Personnel.objects.filter(nom__iexact=user.last_name.upper()).first()
+        # S4: créer automatiquement le Personnel si connecté mais pas déclaré
         if not p:
-            return Response({
-                "valid": False,
-                "erreur": f"Votre profil ({user.username}) n'est pas déclaré comme Personnel. L'admin doit vous créer dans l'onglet Personnel."
-            }, status=400)
+            import unicodedata
+            def clean(s): return ''.join(c for c in unicodedata.normalize('NFD',str(s or '').upper()) if unicodedata.category(c)!='Mn')
+            p = Personnel.objects.create(
+                nom=clean(user.last_name) or user.username.upper(),
+                prenom=clean(user.first_name) or '',
+                societe='ROXGOLD',
+                numero='',
+                type_personnel='roxgold',
+                user=user,
+                login_genere=user.username,
+            )
+            p.generer_qr()
         
         today = localdate()
         already = RepasLog.objects.filter(

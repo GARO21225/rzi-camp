@@ -14,7 +14,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
         fields = [
             "id","nom","prenom","societe","numero","type_personnel","type_label",
             "email","qr_code_data","qr_code_string","actif","date_creation",
-            "login_genere","password_genere","user_active","user_role"
+            "login_genere","password_genere","user_active","user_role","role_camp"
         ]
         read_only_fields = ["qr_code_data","qr_code_string","date_creation","login_genere","password_genere"]
 
@@ -25,9 +25,11 @@ class PersonnelSerializer(serializers.ModelSerializer):
         return obj.user.is_active if obj.user else True
     
     def get_user_role(self, obj):
+        # Use user.profile.role if available, else fall back to role_camp
         if obj.user and hasattr(obj.user, 'profile'):
-            return obj.user.profile.role
-        return None
+            try: return obj.user.profile.role
+            except: pass
+        return getattr(obj, 'role_camp', None) or 'agent' 
 
 class BatimentSerializer(serializers.ModelSerializer):
     personnel_detail = PersonnelSerializer(source="personnel", read_only=True)

@@ -30,6 +30,7 @@ class Personnel(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")
     login_genere = models.CharField(max_length=100, blank=True)
+    role_camp = models.CharField(max_length=20, blank=True, default="agent", help_text="Rôle dans le camp")
     password_genere = models.CharField(max_length=100, blank=True)
     history = HistoricalRecords()
 
