@@ -47,8 +47,11 @@ const ROLE_NAV = {
 }
 
 const ROLE_LABELS = {
-  admin:'Admin', agent:'Terrain', restauration:'Resto',
-  technicien:'Technicien', menage:'Ménage'
+  admin:'Administrateur',
+  agent:'Agent',
+  restauration:'Restauration',
+  technicien:'Technicien',
+  menage:'Ménage',
 }
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
@@ -168,13 +171,13 @@ export default function Layout() {
           {notifOpen&&<NotifPanel items={notifItems} count={notifCount} onClose={()=>setNotifOpen(false)} onMarkAll={()=>{marquerToutLu();setNotifOpen(false)}} navigate={navigate}/>}
         </div>
 
-        <div style={{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1}}>
-          <span style={{color:'#fff',fontSize:12,fontWeight:700,lineHeight:1.3}}>
+        <div style={{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,maxWidth:140}}>
+          <span style={{color:'#fff',fontSize:12,fontWeight:700,lineHeight:1.2,textAlign:'right',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
             {(user?.first_name && user?.last_name)
               ? `${user.first_name} ${user.last_name}`
               : user?.username||''}
           </span>
-          <span style={{background:'var(--accent)',color:'#000',padding:'1px 7px',borderRadius:20,fontSize:9,fontFamily:'monospace',textTransform:'uppercase',fontWeight:700}}>
+          <span style={{background:'rgba(240,165,0,.9)',color:'#000',padding:'2px 8px',borderRadius:20,fontSize:9,fontFamily:'monospace',textTransform:'uppercase',fontWeight:700,whiteSpace:'nowrap'}}>
             {ROLE_LABELS[role]||role}
           </span>
         </div>

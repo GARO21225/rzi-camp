@@ -55,15 +55,18 @@ export default function Voyages() {
     }).catch(() => setReady(true))
   }, [user?.username])
 
-  // 2. Charger les voyages SEULEMENT quand ready (filtre connu)
+  // Charger les voyages
   const load = useCallback(() => {
-    if (!ready) return
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    if (!isAdmin && myPersonnel) p.personnel = myPersonnel.id
-    else if (!isAdmin && !myPersonnel) {
-      setData([]) // agent sans personnel: liste vide, pas de flash
+    if (!isAdmin && myPersonnel) {
+      p.personnel = myPersonnel.id
+    } else if (!isAdmin && !myPersonnel && ready) {
+      // Agent sans Personnel: liste vide après init
+      setData([])
       return
+    } else if (!isAdmin && !ready) {
+      return // Pas encore prêt
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
     voyages.stats().then(r => setStats(r.data)).catch(()=>{})

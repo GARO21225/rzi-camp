@@ -299,6 +299,44 @@ class BatimentViewSet(viewsets.ModelViewSet):
             return Response({"error":"Admin uniquement"}, status=403)
         return super().destroy(request, *args, **kwargs)
 
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        """Activer/désactiver le compte User d'un Personnel"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        p = self.get_object()
+        if not p.user:
+            return Response({"error":"Ce personnel n'a pas de compte utilisateur"}, status=400)
+        p.user.is_active = not p.user.is_active
+        p.user.save(update_fields=["is_active"])
+        return Response({
+            "ok":True,
+            "is_active": p.user.is_active,
+            "message": f"Compte {'activé' if p.user.is_active else 'désactivé'} pour {p.nom} {p.prenom}"
+        })
+
+
+    def destroy(self, request, *args, **kwargs):
+        """Suppression d'un personnel — admin uniquement"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Modification partielle — admin uniquement"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
     @action(detail=False, methods=["get"])
     def mon_profil(self, request):
         """Retourne le Personnel lié à l'utilisateur connecté"""
@@ -325,6 +363,45 @@ class BatimentViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Aucun profil personnel lié"}, status=404)
         
         return Response(PersonnelSerializer(p).data)
+
+
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        """Activer/désactiver le compte User d'un Personnel"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        p = self.get_object()
+        if not p.user:
+            return Response({"error":"Ce personnel n'a pas de compte utilisateur"}, status=400)
+        p.user.is_active = not p.user.is_active
+        p.user.save(update_fields=["is_active"])
+        return Response({
+            "ok":True,
+            "is_active": p.user.is_active,
+            "message": f"Compte {'activé' if p.user.is_active else 'désactivé'} pour {p.nom} {p.prenom}"
+        })
+
+
+    def destroy(self, request, *args, **kwargs):
+        """Suppression d'un personnel — admin uniquement"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Modification partielle — admin uniquement"""
+        u = request.user
+        try: role = u.profile.role
+        except: role = ''
+        if not (u.is_staff or u.is_superuser or role == 'admin'):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
 
 
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):

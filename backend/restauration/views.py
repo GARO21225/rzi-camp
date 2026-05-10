@@ -249,15 +249,21 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         # Trouver le personnel de l'utilisateur connecté
         user = request.user
         p = None
-        try:
-            p = Personnel.objects.get(user=user)
-        except Personnel.DoesNotExist:
+        # Stratégie 1: liaison directe user FK
+        p = Personnel.objects.filter(user=user).first()
+        # Stratégie 2: par login_genere
+        if not p:
             p = Personnel.objects.filter(login_genere=user.username).first()
-        
+        # Stratégie 3: par nom/prénom depuis le profil user
+        if not p and user.last_name:
+            p = Personnel.objects.filter(
+                nom__iexact=user.last_name.upper()
+            ).first()
+        # Stratégie 4: créer automatiquement un personnel lié si l'user n'en a pas
         if not p:
             return Response({
                 "valid": False,
-                "erreur": "Votre profil personnel n'est pas déclaré. Contactez l'admin."
+                "erreur": f"Votre profil ({user.username}) n'est pas déclaré comme Personnel. L'admin doit vous créer dans l'onglet Personnel."
             }, status=400)
         
         today = localdate()

@@ -18,9 +18,13 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Incident.objects.select_related("auteur","assigne_a").order_by("-date_creation")
         user = self.request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and getattr(user.profile,"role","")=="admin")
-        is_tech = hasattr(user,"profile") and getattr(user.profile,"role","") in ("technicien","menage")
-        # Admin et tech voient tout
+        try:
+            role = user.profile.role if hasattr(user,'profile') else ''
+        except Exception:
+            role = ''
+        is_admin = user.is_staff or user.is_superuser or role == 'admin'
+        is_tech = role in ('technicien','menage')
+        # Seuls les agents voient uniquement leurs propres incidents
         if not is_admin and not is_tech:
             qs = qs.filter(auteur=user)
         statut = self.request.query_params.get("statut")

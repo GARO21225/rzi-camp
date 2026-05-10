@@ -163,15 +163,22 @@ export default function Personnel() {
                   <td style={{ padding:'10px 14px' }}>
                     <div style={{ display:'flex', gap:5 }}>
                       {isAdmin && (
-                      <select onChange={e=>{ if(e.target.value) personnelAPI.assigRole(p.id,e.target.value).then(load) }}
-                        defaultValue=""
-                        style={{background:'rgba(37,99,235,.1)',color:'#2563eb',border:'1px solid rgba(37,99,235,.2)',padding:'4px 6px',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:600,maxWidth:90}}>
+                      <select
+                        value={p.user_role||''}
+                        onChange={e=>{ if(e.target.value) personnelAPI.assigRole(p.id,e.target.value).then(load) }}
+                        style={{background:'rgba(37,99,235,.1)',color:'#2563eb',border:'1px solid rgba(37,99,235,.2)',padding:'4px 6px',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:600,maxWidth:95}}>
                         <option value="">⚙️ Rôle</option>
-                        {[['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                        {[['admin','👑 Admin'],['agent','🧑 Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                       </select>
                     )}
-                    {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
-                      {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>🗑</button>}
+                    {isAdmin && (
+                      <button onClick={()=>()=>personnelAPI.toggleActive(p.id).then(load).catch(e=>alert(e.response?.data?.error||'Erreur'))}
+                        style={{ background:p.user_active===false?'rgba(22,163,74,.1)':'rgba(100,116,139,.1)', color:p.user_active===false?'#16a34a':'#64748b', border:`1px solid ${p.user_active===false?'rgba(22,163,74,.3)':'rgba(100,116,139,.2)'}`, padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>
+                        {p.user_active===false?'✅ Activer':'⛔ Désact.'}
+                      </button>
+                    )}
+                    {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
+                    {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:700 }}>🗑 Suppr.</button>}
                     </div>
                   </td>
                 </tr>
