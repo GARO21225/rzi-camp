@@ -26,7 +26,7 @@ export default function Voyages() {
   const [modal, setModal] = useState(false)
   const [filterStatut, setFilterStatut] = useState('')
   const [myPersonnel, setMyPersonnel] = useState(null) // Connected user's Personnel object
-  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'08:00', date_retour_prevue:'' })
+  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
 
   const [ready, setReady] = useState(isAdmin) // admin est ready immédiatement
 
