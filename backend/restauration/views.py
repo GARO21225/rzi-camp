@@ -211,6 +211,115 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         qs.delete()
         return Response({"ok":True,"deleted":count})
 
+    @action(detail=False, methods=["post"])
+    def valider_mon_repas(self, request):
+        """
+        L'agent scanne le QR STATIQUE du restaurant.
+        Son identité = son token JWT. Repas validé pour lui.
+        QR statique contient: "ROXGOLD-{TYPE_REPAS}"
+        """
+        qr_data = str(request.data.get("qr_data","")).strip().upper()
+        type_repas = request.data.get("type_repas","")
+        
+        from residences.models import Personnel
+        from django.utils.timezone import localdate
+        import secrets
+        import datetime
+        
+        # Identifier le type de repas depuis le QR ou le paramètre
+        REPAS_MAP = {
+            "ROXGOLD-PETIT-DEJEUNER": "petit_dejeuner",
+            "ROXGOLD-DEJEUNER": "dejeuner",
+            "ROXGOLD-DINER": "diner",
+            "PETIT-DEJEUNER": "petit_dejeuner",
+            "DEJEUNER": "dejeuner",
+            "DINER": "diner",
+            "RZI-PETIT-DEJ": "petit_dejeuner",
+            "RZI-DEJ": "dejeuner",
+            "RZI-DINER": "diner",
+        }
+        
+        repas_type = REPAS_MAP.get(qr_data) or type_repas
+        if not repas_type:
+            return Response({
+                "valid": False,
+                "erreur": f"QR restaurant invalide. Lu: [{qr_data}]"
+            }, status=400)
+        
+        # Trouver le personnel de l'utilisateur connecté
+        user = request.user
+        p = None
+        try:
+            p = Personnel.objects.get(user=user)
+        except Personnel.DoesNotExist:
+            p = Personnel.objects.filter(login_genere=user.username).first()
+        
+        if not p:
+            return Response({
+                "valid": False,
+                "erreur": "Votre profil personnel n'est pas déclaré. Contactez l'admin."
+            }, status=400)
+        
+        today = localdate()
+        already = RepasLog.objects.filter(
+            qr_token__personnel=p,
+            qr_token__type_repas=repas_type,
+            cree_le__date=today
+        ).exists()
+        if already:
+            return Response({
+                "valid": False,
+                "erreur": f"Vous avez déjà pris votre {dict(QRToken.REPAS_CHOICES).get(repas_type, repas_type)} aujourd'hui"
+            }, status=400)
+        
+        # Créer la validation
+        token_str = secrets.token_hex(8)
+        residence = p.batiments.first().residence if p.batiments.exists() else ""
+        qr_token = QRToken.objects.create(
+            token=token_str, personnel=p,
+            residence=residence,
+            resident=f"{p.nom} {p.prenom}",
+            type_repas=repas_type,
+            genere_par=user,
+            expire_le=timezone.now()+datetime.timedelta(minutes=1),
+            utilise=True, utilise_le=timezone.now()
+        )
+        RepasLog.objects.create(qr_token=qr_token, valide_par=user)
+        
+        return Response({
+            "valid": True,
+            "resident": f"{p.nom} {p.prenom}",
+            "residence": residence,
+            "type_repas": repas_type,
+            "type_repas_label": dict(QRToken.REPAS_CHOICES).get(repas_type, repas_type),
+            "societe": p.societe,
+        })
+
+    @action(detail=False, methods=["get"])
+    def qr_restaurant(self, request):
+        """Retourne les QR codes statiques du restaurant à imprimer/afficher"""
+        import qrcode, base64, io, qrcode.constants
+        codes = []
+        REPAS = [
+            ("ROXGOLD-PETIT-DEJEUNER", "Petit-déjeuner", "🌅"),
+            ("ROXGOLD-DEJEUNER", "Déjeuner", "☀️"),
+            ("ROXGOLD-DINER", "Dîner", "🌙"),
+        ]
+        for code, label, emoji in REPAS:
+            qr_obj = qrcode.QRCode(
+                version=1, error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=18, border=5
+            )
+            qr_obj.add_data(code, optimize=0)
+            qr_obj.make(fit=True)
+            img = qr_obj.make_image(fill_color="#000000", back_color="#ffffff")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            codes.append({"code": code, "label": label, "emoji": emoji, "qr_image": b64})
+        return Response({"qr_codes": codes})
+
+
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token","qr_token__personnel","valide_par","personnel").all()
     serializer_class = RepasLogSerializer

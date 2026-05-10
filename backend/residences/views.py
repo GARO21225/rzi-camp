@@ -292,6 +292,13 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Suppression réservée à l'admin"}, status=403)
         return super().destroy(request, *args, **kwargs)
+    def destroy(self, request, *args, **kwargs):
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and getattr(user.profile,'role','')=='admin')
+        if not is_admin:
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=False, methods=["get"])
     def mon_profil(self, request):
         """Retourne le Personnel lié à l'utilisateur connecté"""

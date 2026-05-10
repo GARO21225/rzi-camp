@@ -16,10 +16,10 @@ class IncidentViewSet(viewsets.ModelViewSet):
     search_fields = ["titre","residence","bloc"]
 
     def get_queryset(self):
-        qs = Incident.objects.all()
+        qs = Incident.objects.select_related("auteur","assigne_a").order_by("-date_creation")
         user = self.request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and user.profile.role=="admin")
-        is_tech = hasattr(user,"profile") and user.profile.role in ("technicien","menage")
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and getattr(user.profile,"role","")=="admin")
+        is_tech = hasattr(user,"profile") and getattr(user.profile,"role","") in ("technicien","menage")
         # Admin et tech voient tout
         if not is_admin and not is_tech:
             qs = qs.filter(auteur=user)
@@ -89,7 +89,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def stats(self, request):
         from django.db.models import Count
-        qs = Incident.objects.all()
+        qs = Incident.objects.select_related("auteur","assigne_a").order_by("-date_creation")
         return Response({
             "total":qs.count(),
             "ouverts":qs.filter(statut="Ouvert").count(),
