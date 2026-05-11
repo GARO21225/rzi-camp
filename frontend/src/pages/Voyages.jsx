@@ -28,7 +28,6 @@ export default function Voyages() {
   const [myPersonnel, setMyPersonnel] = useState(null) // Connected user's Personnel object
   const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
 
-  const [ready, setReady] = useState(isAdmin) // admin est ready immédiatement
 
   // 1. Charger le personnel ET résidences — PUIS déclencher les voyages
   useEffect(() => {
@@ -57,13 +56,12 @@ export default function Voyages() {
 
   // 2. Charger les voyages SEULEMENT quand ready (filtre connu)
   const load = useCallback(() => {
-    if (!ready) return
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    if (!isAdmin && myPersonnel) p.personnel = myPersonnel.id
-    else if (!isAdmin && !myPersonnel) {
-      setData([]) // agent sans personnel: liste vide, pas de flash
-      return
+    // Admin: charge tout. Agent: filtre par son Personnel
+    if (!isAdmin) {
+      if (!myPersonnel) { setData([]); return }
+      p.personnel = myPersonnel.id
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
     voyages.stats().then(r => setStats(r.data)).catch(()=>{})

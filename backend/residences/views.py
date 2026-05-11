@@ -114,6 +114,61 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return Response(OccupationHistorySerializer(qs, many=True).data)
 
 
+    # ── Accès admin uniquement ──────────────────────────────────────────
+    @staticmethod
+    def _is_admin(user):
+        """Vérifie si l'utilisateur est admin (is_staff OU profile.role='admin')"""
+        if user.is_staff or user.is_superuser:
+            return True
+        try:
+            return user.profile.role == 'admin'
+        except Exception:
+            return False
+
+    def destroy(self, request, *args, **kwargs):
+        """Supprimer un personnel — admin uniquement"""
+        if not self._is_admin(request.user):
+            return Response({"error": "Admin requis"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Modifier un personnel — admin uniquement"""
+        if not self._is_admin(request.user):
+            return Response({"error": "Admin requis"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        """Activer/désactiver le compte User d'un Personnel"""
+        if not self._is_admin(request.user):
+            return Response({"error": "Admin requis"}, status=403)
+        p = self.get_object()
+        if not p.user:
+            return Response({"error": "Ce personnel n'a pas de compte utilisateur"}, status=400)
+        p.user.is_active = not p.user.is_active
+        p.user.save(update_fields=["is_active"])
+        return Response({
+            "ok": True,
+            "is_active": p.user.is_active,
+            "message": f"Compte {'activé' if p.user.is_active else 'désactivé'}"
+        })
+
+    @action(detail=False, methods=["get"])
+    def mon_profil(self, request):
+        """Personnel lié à l'utilisateur connecté"""
+        user = request.user
+        p = None
+        try:
+            p = Personnel.objects.get(user=user)
+        except Personnel.DoesNotExist:
+            p = Personnel.objects.filter(login_genere=user.username).first()
+        if not p and user.last_name:
+            p = Personnel.objects.filter(nom__iexact=user.last_name.upper()).first()
+        if not p:
+            return Response({"detail": "Profil non trouvé"}, status=404)
+        return Response(PersonnelSerializer(p).data)
+
+
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
     queryset = Batiment.objects.select_related("personnel").all()

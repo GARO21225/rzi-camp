@@ -13,7 +13,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "id","titre","description","categorie","priorite","statut",
             "residence","bloc","auteur","auteur_nom","assigne_a",
             "photo_b64","photo_mime","latitude","longitude",
-            "date_creation","date_resolution"
+            "date_creation","date_resolution","date_signalement"
         ]
         read_only_fields = ["auteur","date_creation","photo_b64","photo_mime"]
 

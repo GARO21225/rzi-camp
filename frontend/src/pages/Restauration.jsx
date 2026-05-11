@@ -212,10 +212,26 @@ export default function Restauration() {
   useEffect(() => {
     if (canScan) loadRepas()
     else {
-      import('../api').then(({ personnel }) => {
-        personnel.monProfil()
+      import('../api').then(({ personnel: personnelAPI }) => {
+        personnelAPI.monProfil()
           .then(r => setMyQR(r.data))
-          .catch(() => {})
+          .catch(() => {
+            // Fallback: chercher par login_genere ou nom dans la liste
+            personnelAPI.list({ page_size: 500 }).then(r => {
+              const items = r.data.results || r.data || []
+              // Essayer de trouver via le token décodé (username)
+              const token = localStorage.getItem('access_token') || ''
+              let username = ''
+              try {
+                username = JSON.parse(atob(token.split('.')[1])).username || ''
+              } catch {}
+              const me = items.find(p =>
+                p.login_genere === username ||
+                (username && p.nom && p.nom.toUpperCase().includes(username.toUpperCase()))
+              ) || (items.length > 0 ? null : null)
+              if (me) setMyQR(me)
+            }).catch(() => {})
+          })
       })
     }
   }, [typeRepas])

@@ -229,6 +229,12 @@ export default function Maintenance() {
                       ✅ Résoudre
                     </button>
                   )}
+                  {isAdmin && inc.statut === 'Résolu' && (
+                    <button onClick={()=>{ if(window.confirm('Réouvrir cet incident?')) incidents.update(inc.id,{statut:'Ouvert'}).then(load) }}
+                      style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                      🔄 Réouvrir
+                    </button>
+                  )}
                   {isAdmin && (
                     <button onClick={()=>supprimer(inc.id)}
                       style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
