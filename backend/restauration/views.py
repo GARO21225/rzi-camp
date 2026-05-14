@@ -181,7 +181,7 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             expire_le=timezone.now() + timedelta(minutes=1),
             utilise=True, utilise_le=timezone.now()
         )
-        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
+        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=personnel)
 
         return Response({
             "valid": True,
@@ -235,8 +235,8 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             utilise=True,
             utilise_le=timezone.now()
         )
-        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
-        
+        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=personnel)
+
         return Response({
             "valid":True,
             "resident":f"{personnel.nom} {personnel.prenom}",
@@ -280,7 +280,7 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             expire_le=timezone.now()+datetime.timedelta(minutes=1),
             utilise=True, utilise_le=timezone.now()
         )
-        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
+        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=p)
         return Response({
             "valid":True, "resident":f"{p.nom} {p.prenom}",
             "residence":qr_token.residence, "type_repas":type_repas,
@@ -311,14 +311,13 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        # Non-admin/resto : see only own history
+        # Admin/resto sees all, others see only own
         is_admin = user.is_staff or user.is_superuser
-        is_resto = hasattr(user,"profile") and user.profile.role == "restauration"
+        is_resto = hasattr(user,"profile") and user.profile.role in ["admin","restauration"]
         if not is_admin and not is_resto:
             if hasattr(user,"personnel"):
                 qs = qs.filter(qr_token__personnel=user.personnel)
             else:
-                # Fallback: filter by name
                 name = user.get_full_name().strip()
                 if name:
                     qs = qs.filter(qr_token__resident__icontains=name.split()[0])

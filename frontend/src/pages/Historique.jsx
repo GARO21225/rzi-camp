@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI } from '../api'
+import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr } from '../api'
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -39,6 +39,9 @@ export default function Historique() {
   const [voyData, setVoyData] = useState(null)
   const [voyEnsemble, setVoyEnsemble] = useState(null)
   const [voyLoading, setVoyLoading] = useState(false)
+  const [repasData, setRepasData] = useState([])
+  const [repasLoading, setRepasLoading] = useState(false)
+  const [repasFilter, setRepasFilter] = useState('all')
 
   // Chambre search — résidence optionnelle, recherche sur tout si vide
   const [chambreQ, setChambreQ] = useState({
@@ -100,6 +103,16 @@ export default function Historique() {
     finally { setVoyLoading(false) }
   }
 
+  const loadRepas = async () => {
+    setRepasLoading(true)
+    try {
+      const p = repasFilter !== 'all' ? { type_repas: repasFilter } : {}
+      const r = await qr.historiqueScans(p)
+      setRepasData(r.data.results || r.data || [])
+    } catch(e) { console.error(e) }
+    finally { setRepasLoading(false) }
+  }
+
   const exportChambre = () => {
     const bat = chambreQ.batiment_saisie || chambreQ.batiment
     const p = {}
@@ -113,6 +126,7 @@ export default function Historique() {
     ['personne','👤 Parcours d\'un résident'],
     ['voyages_pers','✈️ Voyages personnel'],
     ['ensemble','🌍 Tous les voyages'],
+    ['repas','🍽️ Restaurant'],
   ]
 
   return (
@@ -343,6 +357,63 @@ export default function Historique() {
               <VoyageTable voyages={voyEnsemble.voyages||[]} showPersonnel/>
             </div>
           ):<div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div>}
+        </div>
+      )}
+
+      {/* ── RESTAURANT ── */}
+      {tab==='repas' && (
+        <div>
+          <SearchCard title="🍽️ Historique des repas restaurant" color="#7c3aed">
+            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+              <select value={repasFilter} onChange={e=>{setRepasFilter(e.target.value);loadRepas()}}
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13}}>
+                <option value="all">Tous les repas</option>
+                <option value="petit_dejeuner">🌅 Petit-déjeuner</option>
+                <option value="dejeuner">☀️ Déjeuner</option>
+                <option value="diner">🌙 Dîner</option>
+              </select>
+              <button onClick={loadRepas} disabled={repasLoading}
+                style={{background:'#7c3aed',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                {repasLoading?'Chargement...':'🔄 Actualiser'}
+              </button>
+            </div>
+          </SearchCard>
+
+          {repasData.length > 0 ? (
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+              <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between'}}>
+                <span>📋 {repasData.length} scan(s)</span>
+                <span style={{background:'rgba(255,255,255,.2)',padding:'2px 10px',borderRadius:20}}>{repasData.length}</span>
+              </div>
+              <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr style={{background:'var(--surface2)'}}>
+                    {['Personnel','Société','Type repas','Date/Hora','Validé par'].map(h=>(
+                      <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {repasData.map((r,i)=>{
+                      const dt = r.date_validation ? new Date(r.date_validation) : null
+                      return (
+                        <tr key={r.id||i} style={{borderTop:'1px solid var(--border)',background:i%2?'var(--surface2)':'#fff'}}>
+                          <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{r.resident||'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}</td>
+                          <td style={{padding:'9px 12px'}}><span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span></td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>
+                            {dt ? dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}
+                          </td>
+                          <td style={{padding:'9px 12px',fontSize:11,color:'var(--text-dim)'}}>{r.valide_par_nom||'—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon="🍽️" text="Aucun scan enregistré. Utilisez la page Restaurant pour scanner les repas."/>
+          )}
         </div>
       )}
     </div>
