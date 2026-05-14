@@ -28,7 +28,7 @@ export default function Voyages() {
   const [filterStatut, setFilterStatut] = useState('')
   const [myPersonnel, setMyPersonnel] = useState(null)
   const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'', date_retour_prevue:'' })
-  const [ready, setReady] = useState(false)
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -50,11 +50,12 @@ export default function Voyages() {
           setForm(f => ({...f, personnel: me.id.toString()}))
         }
       }
-      setReady(true)
-    }).catch(() => setReady(true))
+      setIsReady(true)
+    }).catch(() => setIsReady(true))
   }, [user?.username])
 
-  const load = useCallback(() => {
+  const loadVoyages = useCallback(() => {
+    if (!isReady) return // Don't load until ready
     const p = {}
     if (filterStatut) p.statut = filterStatut
     if (!isAdmin && myPersonnel) {
@@ -62,31 +63,31 @@ export default function Voyages() {
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
     voyages.stats().then(r => setStats(r.data)).catch(()=>{})
-  }, [filterStatut, myPersonnel, isAdmin, ready])
+  }, [filterStatut, myPersonnel, isAdmin, isReady])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { loadVoyages() }, [loadVoyages])
 
   const partir = async (id) => {
-    try { await voyages.partir(id); load() }
+    try { await voyages.partir(id); loadVoyages() }
     catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
   const revenir = async (v) => {
     const date = prompt('Date de retour effectif (AAAA-MM-JJ):', today)
     if (!date) return
-    try { await voyages.revenir(v.id, { date_retour: date }); load() }
+    try { await voyages.revenir(v.id, { date_retour: date }); loadVoyages() }
     catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
   const annulerVoyage = async (v) => {
     if (!window.confirm(`Annuler le voyage de ${v.personnel_detail?.nom||''} ${v.personnel_detail?.prenom||''} ?`)) return
-    try { await voyages.annuler(v.id); load() }
+    try { await voyages.annuler(v.id); loadVoyages() }
     catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
   const supprimerVoyage = async (v) => {
     if (!window.confirm('Supprimer ce voyage ? (erreur de saisie uniquement)')) return
-    try { await voyages.supprimer(v.id); load() }
+    try { await voyages.supprimer(v.id); loadVoyages() }
     catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
@@ -106,7 +107,7 @@ export default function Voyages() {
     try {
       await voyages.update(editModal.id, formData)
       setEditModal(null)
-      load()
+      loadVoyages()
     } catch(e) { alert(e.response?.data?.error || e.response?.data?.detail || 'Erreur modification') }
   }
 
@@ -121,7 +122,7 @@ export default function Voyages() {
       await voyages.create(payload)
       setModal(false)
       setForm({ personnel: myPersonnel?.id?.toString()||'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'', date_retour_prevue:'' })
-      load()
+      loadVoyages()
     } catch(e) { alert(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
@@ -186,7 +187,7 @@ export default function Voyages() {
       {/* Table */}
       {data.length === 0 ? (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
-          {!ready ? (
+          {!isReady ? (
             <><div style={{ fontSize:36, marginBottom:10 }}>⏳</div><div style={{ fontSize:13 }}>Chargement...</div></>
           ) : (
             <><div style={{ fontSize:40, marginBottom:10 }}>✈️</div>

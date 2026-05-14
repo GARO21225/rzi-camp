@@ -133,7 +133,15 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             # Get the object first
             obj = self.get_object()
             personnel_info = f"{obj.nom} {obj.prenom}"
-            # Delete the object directly
+
+            # Delete related voyages first (avoid FK issues)
+            try:
+                from voyages.models import Voyage
+                Voyage.objects.filter(personnel=obj).delete()
+            except Exception:
+                pass  # Ignore if voyages app not available
+
+            # Delete the object
             obj.delete()
             return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
         except Exception as e:
