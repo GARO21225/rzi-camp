@@ -102,6 +102,99 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
     @action(detail=False, methods=["post"])
+    def scanner_personnel(self, request):
+        """Scanne le QR code du personnel (restaurant_flux) pour historiser les repas"""
+        raw = request.data.get("qr_data", "")
+        import unicodedata
+        qr_data = unicodedata.normalize("NFC", raw).strip()
+        type_repas = request.data.get("type_repas", "dejeuner")
+
+        if not qr_data:
+            return Response({"valid": False, "erreur": "QR vide"}, status=400)
+
+        from residences.models import Personnel
+        from django.utils.timezone import localdate
+        today = localdate()
+
+        personnel = None
+        qr_clean = qr_data.strip()
+
+        # STRATÉGIE 1: Format numérique pur "0001", "0042"
+        if qr_clean.isdigit():
+            try:
+                personnel = Personnel.objects.get(pk=int(qr_clean))
+            except (Personnel.DoesNotExist, ValueError):
+                personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
+
+        # STRATÉGIE 2: Format RZI{id}
+        if not personnel and qr_clean.upper().startswith("RZI"):
+            num_part = qr_clean[3:]
+            if num_part.isdigit():
+                try:
+                    personnel = Personnel.objects.get(pk=int(num_part))
+                except Personnel.DoesNotExist:
+                    pass
+
+        # STRATÉGIE 3: Correspondance exacte qr_code_string
+        if not personnel:
+            personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
+
+        # STRATÉGIE 4: Format NOM|PRENOM|...
+        if not personnel and "|" in qr_clean:
+            def norm(s):
+                return "".join(c for c in unicodedata.normalize("NFD", str(s or "").upper()) if unicodedata.category(c) != "Mn")
+            parts = [p.strip() for p in qr_clean.split("|")]
+            if len(parts) >= 2:
+                for p in Personnel.objects.all():
+                    if norm(p.nom) == norm(parts[0]) and norm(p.prenom) == norm(parts[1]):
+                        personnel = p
+                        break
+
+        if not personnel:
+            return Response({
+                "valid": False,
+                "erreur": f"Code personnel non reconnu: [{qr_clean}]"
+            }, status=400)
+
+        # Vérifier si repas déjà pris aujourd'hui
+        already = RepasLog.objects.filter(
+            qr_token__personnel=personnel,
+            qr_token__type_repas=type_repas,
+            cree_le__date=today
+        ).exists()
+        if already:
+            return Response({
+                "valid": False,
+                "erreur": f"⚠️ {personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd'hui"
+            }, status=400)
+
+        # Créer l'entrée d'historique
+        from datetime import timedelta
+        import secrets
+        token_str = secrets.token_hex(8)
+        qr_token = QRToken.objects.create(
+            token=token_str, personnel=personnel,
+            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
+            resident=f"{personnel.nom} {personnel.prenom}",
+            type_repas=type_repas,
+            genere_par=request.user,
+            expire_le=timezone.now() + timedelta(minutes=1),
+            utilise=True, utilise_le=timezone.now()
+        )
+        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
+
+        return Response({
+            "valid": True,
+            "resident": f"{personnel.nom} {personnel.prenom}",
+            "residence": qr_token.residence,
+            "type_repas": type_repas,
+            "type_repas_label": dict(QRToken.REPAS_CHOICES).get(type_repas, type_repas),
+            "societe": personnel.societe,
+            "type_personnel": personnel.get_type_personnel_display(),
+            "date_validation": repas.date_validation.isoformat() if repas.date_validation else None,
+        })
+
+    @action(detail=False, methods=["post"])
     def valider_par_personnel(self, request):
         """Valide un repas en sélectionnant directement le personnel (sans QR scan)"""
         personnel_id = request.data.get("personnel_id")

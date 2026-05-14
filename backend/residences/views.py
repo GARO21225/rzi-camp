@@ -154,6 +154,23 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=False, methods=["get"])
+    def scans_historique(self, request):
+        """Historique des scans de repas pour le restaurant"""
+        from restauration.models import RepasLog
+        from restauration.serializers import RepasLogSerializer
+        type_repas = request.query_params.get("type_repas")
+        date = request.query_params.get("date")
+        qs = RepasLog.objects.select_related(
+            "qr_token", "qr_token__personnel", "valide_par"
+        ).all().order_by("-date_validation")
+        if type_repas:
+            qs = qs.filter(qr_token__type_repas=type_repas)
+        if date:
+            qs = qs.filter(date_validation__date=date)
+        serializer = RepasLogSerializer(qs[:500], many=True)
+        return Response({"count": len(serializer.data), "results": serializer.data})
+
+    @action(detail=False, methods=["get"])
     def mon_profil(self, request):
         """Personnel lié à l'utilisateur connecté"""
         user = request.user
