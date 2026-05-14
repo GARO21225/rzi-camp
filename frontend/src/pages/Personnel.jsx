@@ -83,7 +83,13 @@ export default function Personnel() {
 
   const del = async (id) => {
     if (!window.confirm('Supprimer ce membre ?')) return
-    await personnelAPI.delete(id).then(() => load()).catch(e => alert(e.response?.data?.error || 'Erreur'))
+    try {
+      await personnelAPI.delete(id)
+      load()
+    } catch(e) {
+      const errMsg = e.response?.data?.error || e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur suppression'
+      alert('Suppression impossible: ' + errMsg)
+    }
   }
 
   // Preview login/pass based on form

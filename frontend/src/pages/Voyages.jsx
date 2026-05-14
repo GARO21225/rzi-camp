@@ -57,8 +57,7 @@ export default function Voyages() {
   const load = useCallback(() => {
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    if (!isAdmin) {
-      if (!myPersonnel) { setData([]); return }
+    if (!isAdmin && myPersonnel) {
       p.personnel = myPersonnel.id
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
