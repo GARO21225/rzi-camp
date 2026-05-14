@@ -106,8 +106,16 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
+
+  // Apply theme
+  useEffect(() => {
+    const t = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
+    document.documentElement.setAttribute('data-theme', t)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
@@ -189,6 +197,12 @@ export default function Layout() {
         <button onClick={() => { logout(); navigate('/login') }}
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
           ⎋
+        </button>
+
+        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : t === 'light' ? 'auto' : 'dark')}
+          title="Changer le thème"
+          style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '🌓'}
         </button>
       </header>
 
