@@ -17,6 +17,9 @@ importers:
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
+      pnpm-store:
+        specifier: link:/tmp/pnpm-store
+        version: link:../../../tmp/pnpm-store
       react:
         specifier: ^18.2.0
         version: 18.3.1
