@@ -61,14 +61,13 @@ export const incidents = {
   list: (p) => api.get('/api/incidents/', {params:p}),
   create: (d) => api.post('/api/incidents/', d, {headers:{'Content-Type':'multipart/form-data'}}),
   update: (id, d) => api.patch(`/api/incidents/${id}/`, d),
-  delete: (id) => api.delete(`/api/incidents/${id}/`),
   resoudre: (id) => api.post(`/api/incidents/${id}/resoudre/`),
   stats: () => api.get('/api/incidents/stats/'),
 }
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
-  scan: (d) => api.post('/api/qr/scan/', d),
-  scannerPersonnel: (d) => api.post('/api/qr/scan/', d),
+  scanner: (d) => api.post('/api/qr/scanner/', d),
+  scannerPersonnel: (d) => api.post('/api/qr/scanner_personnel/', d),
   validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
   viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),

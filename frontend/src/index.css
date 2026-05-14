@@ -11,16 +11,16 @@
   --blue: var(--rzi-blue);
   --blue-light: var(--rzi-blue-light);
   --accent: var(--rzi-gold);
-  --bg: #e0f2fe;
-  --surface: #ffffff;
-  --surface2: #f0f9ff;
-  --border: #bae6fd;
-  --text: #0c4a6e;
-  --text-dim: #0369a1;
-  --shadow: 0 1px 4px rgba(30,58,138,.08);
-  --shadow-md: 0 4px 20px rgba(30,58,138,.12);
-  --radius: 10px;
-  --radius-lg: 16px;
+  --bg: var(--rzi-bg);
+  --surface: var(--rzi-surface);
+  --surface2: var(--rzi-surface-2);
+  --border: var(--rzi-border);
+  --text: var(--rzi-text);
+  --text-dim: var(--rzi-text-dim);
+  --shadow: var(--rzi-shadow-sm);
+  --shadow-md: var(--rzi-shadow-md);
+  --radius: var(--rzi-radius);
+  --radius-lg: var(--rzi-radius-lg);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,13 +29,6 @@
     --border: #334155; --text: #f1f5f9; --text-dim: #94a3b8;
     --shadow: 0 1px 4px rgba(0,0,0,.3); --shadow-md: 0 4px 16px rgba(0,0,0,.4);
   }
-}
-
-/* Light mode override - ciel clair */
-[data-theme="light"] {
-  --bg: #e0f2fe; --surface: #ffffff; --surface2: #f0f9ff;
-  --border: #bae6fd; --text: #0c4a6e; --text-dim: #0369a1;
-  --shadow: 0 1px 4px rgba(14,116,144,.08); --shadow-md: 0 4px 20px rgba(14,116,144,.12);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

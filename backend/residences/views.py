@@ -129,47 +129,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         """Supprimer un personnel — admin uniquement"""
         if not self._is_admin(request.user):
             return Response({"error": "Admin requis"}, status=403)
-        try:
-            # Get the object first
-            obj = self.get_object()
-            personnel_info = f"{obj.nom} {obj.prenom}"
-
-            # Delete related voyages first (avoid FK issues)
-            # Use raw SQL to bypass simple_history signals that fail if migrations not applied
-            try:
-                from django.db import connection
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "DELETE FROM voyages_voyage WHERE personnel_id = %s",
-                        [obj.id]
-                    )
-            except Exception:
-                pass  # Ignore if voyages app not available
-
-            # Delete historical records first (if simple_history exists)
-            try:
-                from django.db import connection
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s",
-                        [obj.id]
-                    )
-            except Exception:
-                pass  # Ignore if table doesn't exist
-
-            # Delete the object - use raw SQL to avoid any model-level FK issues
-            try:
-                from django.db import connection
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "DELETE FROM residences_personnel WHERE id = %s",
-                        [obj.id]
-                    )
-                return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
-            except Exception as e:
-                return Response({"error": f"Erreur SQL: {str(e)}"}, status=400)
-        except Exception as e:
-            return Response({"error": f"Erreur suppression: {str(e)}"}, status=400)
+        return super().destroy(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         """Modifier un personnel — admin uniquement"""

@@ -97,15 +97,3 @@ class IncidentViewSet(viewsets.ModelViewSet):
             "resolus":qs.filter(statut="Résolu").count(),
             "par_priorite":dict(qs.values_list("priorite").annotate(n=Count("id")).values_list("priorite","n")),
         })
-
-    @action(detail=True, methods=["delete"])
-    def supprimer(self, request, pk=None):
-        """Supprimer un incident (admin uniquement)"""
-        user = request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
-        if not is_admin:
-            return Response({"error":"Admin uniquement"}, status=403)
-        incident = self.get_object()
-        incident_info = str(incident)
-        incident.delete()
-        return Response({"ok":True,"message":f"Incident supprimé: {incident_info}"})
