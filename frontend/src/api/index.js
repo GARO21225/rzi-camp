@@ -61,6 +61,7 @@ export const incidents = {
   list: (p) => api.get('/api/incidents/', {params:p}),
   create: (d) => api.post('/api/incidents/', d, {headers:{'Content-Type':'multipart/form-data'}}),
   update: (id, d) => api.patch(`/api/incidents/${id}/`, d),
+  delete: (id) => api.delete(`/api/incidents/${id}/`),
   resoudre: (id) => api.post(`/api/incidents/${id}/resoudre/`),
   stats: () => api.get('/api/incidents/stats/'),
 }

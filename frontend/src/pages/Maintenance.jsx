@@ -150,9 +150,9 @@ export default function Maintenance() {
   const supprimer = async (id) => {
     if (!window.confirm('Supprimer définitivement cet incident ?')) return
     try {
-      await incidents.update(id, { statut: '__DELETE__' })
+      await incidents.delete(id)
       setDetail(null); load()
-    } catch(e) { alert(e.response?.data?.error||'Erreur') }
+    } catch(e) { alert(e.response?.data?.error || 'Erreur suppression') }
   }
 
   return (
