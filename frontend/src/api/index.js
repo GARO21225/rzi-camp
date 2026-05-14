@@ -72,7 +72,7 @@ export const qr = {
   viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
-  historiqueScans: (p) => api.get('/api/personnel/scans_historique/', {params:p}),
+  historiqueScans: (p) => api.get('/api/repas/', {params:p}),
 }
 export const occupationHistoryAdmin = {
   delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
