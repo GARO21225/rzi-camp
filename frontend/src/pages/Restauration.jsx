@@ -52,7 +52,6 @@ async function apiGetHistorique(type_repas, jours = 7) {
   try {
     const r = await qrAPI.repas({ page_size: 500, type_repas })
     const all = r.data.results || r.data || []
-    // Filtrer par type_repas et derniers jours
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - jours)
     return all.filter(item => {
@@ -134,7 +133,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
             if (!alive.current) return
             const msg = e.message || ''
             setMsg(msg)
-            const isAlready = msg.toLowerCase().includes('déjà') || msg.toLowerCase().includes('déjà')
+            const isAlready = msg.toLowerCase().includes('déjà') || msg.toLowerCase().includes('déja')
             setPhase(isAlready ? 'already' : 'error')
             playSound(isAlready ? 'already' : 'error')
             onError && onError(msg)
@@ -151,7 +150,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
     } catch {
       if (!alive.current) return
       setPhase('nocam')
-      setMsg('Caméra indisponible')
+      setMsg('Caméra indisponible - Veuillez autoriser l\'accès')
     }
   }
 
@@ -162,7 +161,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
     ok:      { bg: '#14532d', icon: '✅', text: message || 'Validé', sub: result?.societe || '' },
     already: { bg: '#7c2d12', icon: '⛔', text: 'Déjà pris', sub: message || 'Repas déjà validé aujourd\'hui' },
     error:   { bg: '#450a0a', icon: '❌', text: 'QR non reconnu', sub: message || 'Vérifiez le code QR' },
-    nocam:   { bg: '#1e1e2e', icon: '📵', text: 'Caméra indisponible', sub: 'Vérifiez les permissions du navigateur' },
+    nocam:   { bg: '#1e1e2e', icon: '📵', text: 'Caméra indisponible', sub: 'Veuillez autoriser l\'accès à la caméra' },
   }
   const cfg = PHASE_CONFIG[phase] || PHASE_CONFIG.scan
 
@@ -216,6 +215,18 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
             <div style={{ color: 'rgba(255,255,255,.8)', fontSize: 13, marginTop: 4, textAlign: 'center', padding: '0 20px' }}>{message}</div>
           </div>
         )}
+        {phase === 'nocam' && (
+          <div style={{ position: 'absolute', inset: 0, background: '#1e1e2e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <span style={{ fontSize: 64 }}>📵</span>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginTop: 16, textAlign: 'center' }}>Caméra indisponible</div>
+            <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+              Pour scanner les codes QR, veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.
+            </div>
+            <button onClick={() => startCamera()} style={{ marginTop: 20, background: '#7c3aed', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+              🔄 Réessayer
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Retry hint */}
@@ -264,11 +275,9 @@ function HistoriqueList({ data, onRefresh, onClear, loading }) {
   const hier = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
 
   const filteredData = data.filter(r => {
-    // Filtre par période
     const itemDate = (r.date_validation || r.cree_le || '').slice(0, 10)
     if (filterJour === 'today' && itemDate !== today) return false
     if (filterJour === 'hier' && itemDate !== hier) return false
-    // Filtre par recherche
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       return (r.resident || '').toLowerCase().includes(term) || (r.societe || '').toLowerCase().includes(term)

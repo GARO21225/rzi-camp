@@ -80,11 +80,13 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from datetime import timedelta
         import secrets
         token_str = secrets.token_hex(8)
-        # Get residence safely
+        # Get residence safely - use Batiment.objects.filter directly
         residence = ""
         try:
-            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
-                residence = personnel.batiments.first().residence or ""
+            from residences.models import Batiment
+            bat = Batiment.objects.filter(personnel=personnel).first()
+            if bat:
+                residence = bat.residence or ""
         except Exception:
             residence = ""
         qr_token = QRToken.objects.create(
@@ -179,11 +181,13 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from datetime import timedelta
         import secrets
         token_str = secrets.token_hex(8)
-        # Get residence safely
+        # Get residence safely - use Batiment.objects.filter directly
         residence = ""
         try:
-            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
-                residence = personnel.batiments.first().residence or ""
+            from residences.models import Batiment
+            bat = Batiment.objects.filter(personnel=personnel).first()
+            if bat:
+                residence = bat.residence or ""
         except Exception:
             residence = ""
         qr_token = QRToken.objects.create(
@@ -240,8 +244,10 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         token_str = secrets.token_hex(8)
         residence = ""
         try:
-            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
-                residence = personnel.batiments.first().residence or ""
+            from residences.models import Batiment
+            bat = Batiment.objects.filter(personnel=personnel).first()
+            if bat:
+                residence = bat.residence or ""
         except Exception:
             residence = ""
         qr_token = QRToken.objects.create(
@@ -294,8 +300,10 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         token_str = secrets.token_hex(8)
         residence = ""
         try:
-            if hasattr(p, 'batiments') and p.batiments.exists():
-                residence = p.batiments.first().residence or ""
+            from residences.models import Batiment
+            bat = Batiment.objects.filter(personnel=p).first()
+            if bat:
+                residence = bat.residence or ""
         except Exception:
             residence = ""
         qr_token = QRToken.objects.create(

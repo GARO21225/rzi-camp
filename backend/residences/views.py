@@ -135,15 +135,39 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             personnel_info = f"{obj.nom} {obj.prenom}"
 
             # Delete related voyages first (avoid FK issues)
+            # Use raw SQL to bypass simple_history signals that fail if migrations not applied
             try:
-                from voyages.models import Voyage
-                Voyage.objects.filter(personnel=obj).delete()
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "DELETE FROM voyages_voyage WHERE personnel_id = %s",
+                        [obj.id]
+                    )
             except Exception:
                 pass  # Ignore if voyages app not available
 
-            # Delete the object
-            obj.delete()
-            return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
+            # Delete historical records first (if simple_history exists)
+            try:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s",
+                        [obj.id]
+                    )
+            except Exception:
+                pass  # Ignore if table doesn't exist
+
+            # Delete the object - use raw SQL to avoid any model-level FK issues
+            try:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "DELETE FROM residences_personnel WHERE id = %s",
+                        [obj.id]
+                    )
+                return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
+            except Exception as e:
+                return Response({"error": f"Erreur SQL: {str(e)}"}, status=400)
         except Exception as e:
             return Response({"error": f"Erreur suppression: {str(e)}"}, status=400)
 
