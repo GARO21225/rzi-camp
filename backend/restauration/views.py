@@ -18,7 +18,7 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         import unicodedata
         qr_data = unicodedata.normalize("NFC", raw).strip()
         type_repas = request.data.get("type_repas","dejeuner")
-        
+
         if not qr_data:
             return Response({"valid":False,"erreur":"QR vide"}, status=400)
 
@@ -80,9 +80,16 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from datetime import timedelta
         import secrets
         token_str = secrets.token_hex(8)
+        # Get residence safely
+        residence = ""
+        try:
+            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
+                residence = personnel.batiments.first().residence or ""
+        except Exception:
+            residence = ""
         qr_token = QRToken.objects.create(
             token=token_str, personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
+            residence=residence,
             resident=f"{personnel.nom} {personnel.prenom}",
             type_repas=type_repas,
             genere_par=request.user,
@@ -172,9 +179,16 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         from datetime import timedelta
         import secrets
         token_str = secrets.token_hex(8)
+        # Get residence safely
+        residence = ""
+        try:
+            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
+                residence = personnel.batiments.first().residence or ""
+        except Exception:
+            residence = ""
         qr_token = QRToken.objects.create(
             token=token_str, personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
+            residence=residence,
             resident=f"{personnel.nom} {personnel.prenom}",
             type_repas=type_repas,
             genere_par=request.user,
@@ -224,10 +238,16 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
         
         # Create validation
         token_str = secrets.token_hex(8)
+        residence = ""
+        try:
+            if hasattr(personnel, 'batiments') and personnel.batiments.exists():
+                residence = personnel.batiments.first().residence or ""
+        except Exception:
+            residence = ""
         qr_token = QRToken.objects.create(
             token=token_str,
             personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
+            residence=residence,
             resident=f"{personnel.nom} {personnel.prenom}",
             type_repas=type_repas,
             genere_par=request.user,
@@ -272,9 +292,15 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"valid":False,"erreur":f"{p.nom} {p.prenom} a déjà pris ce repas"}, status=400)
         import datetime
         token_str = secrets.token_hex(8)
+        residence = ""
+        try:
+            if hasattr(p, 'batiments') and p.batiments.exists():
+                residence = p.batiments.first().residence or ""
+        except Exception:
+            residence = ""
         qr_token = QRToken.objects.create(
             token=token_str, personnel=p,
-            residence=p.batiments.first().residence if p.batiments.exists() else "",
+            residence=residence,
             resident=f"{p.nom} {p.prenom}", type_repas=type_repas,
             genere_par=request.user,
             expire_le=timezone.now()+datetime.timedelta(minutes=1),
@@ -314,15 +340,18 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
         # Admin/resto sees all, others see only own
         is_admin = user.is_staff or user.is_superuser
         is_resto = hasattr(user,"profile") and user.profile.role in ["admin","restauration"]
-        if not is_admin and not is_resto:
-            if hasattr(user,"personnel"):
-                qs = qs.filter(qr_token__personnel=user.personnel)
+        # Admins and restaurant role can see all data
+        if is_admin or is_resto:
+            # Return all, no filtering
+            pass
+        elif hasattr(user,"personnel"):
+            qs = qs.filter(qr_token__personnel=user.personnel)
+        else:
+            name = user.get_full_name().strip()
+            if name:
+                qs = qs.filter(qr_token__resident__icontains=name.split()[0])
             else:
-                name = user.get_full_name().strip()
-                if name:
-                    qs = qs.filter(qr_token__resident__icontains=name.split()[0])
-                else:
-                    qs = qs.none()
+                qs = qs.none()
         # Optional filters
         type_repas = self.request.query_params.get("type_repas")
         date = self.request.query_params.get("date")
