@@ -16,13 +16,11 @@ class Voyage(models.Model):
     destination = models.CharField(max_length=200, blank=True)
     motif = models.TextField(blank=True)
     date_depart = models.DateField()
-    heure_depart = models.TimeField(null=True, blank=True)
     date_retour_prevue = models.DateField()
     date_retour_effective = models.DateField(blank=True, null=True)
     statut = models.CharField(max_length=20, choices=STATUT, default="planifie")
     enregistre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    history = HistoricalRecords()
 
     class Meta:
         ordering = ["-date_depart"]

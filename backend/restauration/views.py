@@ -86,6 +86,10 @@ class QRTokenViewSet(viewsets.ViewSet):
                     VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
                 """, [token_str, pers_id, f"{nom} {prenom}", type_repas, user_id, now, now, now])
 
+                # Récupérer l'ID du token créé
+                cursor.execute("SELECT lastval()")
+                token_id = cursor.fetchone()[0]
+
                 # Créer RepasLog
                 cursor.execute("""
                     INSERT INTO restauration_repaslog

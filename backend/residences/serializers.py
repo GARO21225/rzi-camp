@@ -4,12 +4,29 @@ from .models import Batiment, Personnel, OccupationHistory
 
 class PersonnelSerializer(serializers.ModelSerializer):
     type_label = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
+    user_active = serializers.SerializerMethodField()
+    login_genere = serializers.SerializerMethodField()
     class Meta:
         model = Personnel
-        fields = ["id","nom","prenom","societe","numero","type_personnel","type_label","email","qr_code_data","qr_code_string","actif","date_creation"]
+        fields = ["id","nom","prenom","societe","numero","type_personnel","type_label","email","qr_code_data","qr_code_string","actif","date_creation","user_role","user_active","login_genere"]
         read_only_fields = ["qr_code_data","qr_code_string","date_creation"]
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
+    def get_user_role(self, obj):
+        try:
+            if obj.user and hasattr(obj.user, 'profile'):
+                return obj.user.profile.role
+        except: pass
+        return None
+    def get_user_active(self, obj):
+        try:
+            if obj.user:
+                return obj.user.is_active
+        except: pass
+        return None
+    def get_login_genere(self, obj):
+        return getattr(obj, 'login_genere', None) or (obj.user.username if obj.user else None)
 
 class BatimentSerializer(serializers.ModelSerializer):
     personnel_detail = PersonnelSerializer(source="personnel", read_only=True)

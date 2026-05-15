@@ -14,6 +14,7 @@ class RepasLogSerializer(serializers.ModelSerializer):
     type_repas = serializers.CharField(source="qr_token.type_repas")
     type_repas_label = serializers.CharField(source="qr_token.get_type_repas_display")
     personnel_id = serializers.IntegerField(source="qr_token.personnel_id", allow_null=True)
+    date_validation = serializers.DateTimeField(read_only=True)
     valide_par_nom = serializers.SerializerMethodField()
     class Meta:
         model = RepasLog

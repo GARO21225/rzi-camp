@@ -22,7 +22,7 @@ const inp = {
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' || 
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' ||
     user?.profile?.role === 'admin'
   const isAdminOrTech = isAdmin || ['technicien','menage'].includes(role)
   const canClose = isAdminOrTech
@@ -32,6 +32,7 @@ export default function Maintenance() {
   const [stats, setStats]         = useState(null)
   const [bats, setBats]           = useState([])
   const [modal, setModal]         = useState(false)
+  const [editModal, setEditModal] = useState(null)
   const [detail, setDetail]       = useState(null)
   const [filterStatut, setFilter] = useState('')
   const [filterPrio, setFilterP]  = useState('')
@@ -43,7 +44,11 @@ export default function Maintenance() {
   const [form, setForm]           = useState({
     titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:''
   })
+  const [editForm, setEditForm]   = useState({
+    titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', statut:'Ouvert'
+  })
   const fileRef = useRef()
+  const editFileRef = useRef()
 
   const load = () => {
     setLoading(true)
@@ -80,10 +85,30 @@ export default function Maintenance() {
     reader.readAsDataURL(file)
   }
 
+  const handleEditPhoto = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setEditForm({...editForm, photo_b64: ev.target.result.split(',')[1]})
+    reader.readAsDataURL(file)
+  }
+
   const resetForm = () => {
     setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'' })
     setPhotoB64(''); setGps(null)
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const openEdit = (inc) => {
+    setEditForm({
+      titre: inc.titre,
+      description: inc.description,
+      categorie: inc.categorie || 'Plomberie',
+      priorite: inc.priorite || 'moyenne',
+      statut: inc.statut || 'Ouvert',
+      photo_b64: inc.photo_b64 || ''
+    })
+    setEditModal(inc)
   }
 
   const submit = async () => {
@@ -102,6 +127,20 @@ export default function Maintenance() {
     } finally { setSub(false) }
   }
 
+  const saveEdit = async () => {
+    if (!editForm.titre.trim()) return alert('Le titre est obligatoire')
+    if (!editForm.description.trim()) return alert('La description est obligatoire')
+    setSub(true)
+    try {
+      const payload = new FormData()
+      Object.entries(editForm).forEach(([k,v]) => { if(v !== undefined && v !== null && v !== '') payload.append(k,v) })
+      await incidents.update(editModal.id, payload)
+      setEditModal(null); load()
+    } catch(e) {
+      alert(e.response?.data ? JSON.stringify(e.response.data) : 'Erreur modification')
+    } finally { setSub(false) }
+  }
+
   const resoudre = async (id) => {
     if (!window.confirm('Marquer cet incident comme résolu ?')) return
     try { await incidents.resoudre(id); load() }
@@ -110,8 +149,10 @@ export default function Maintenance() {
 
   const supprimer = async (id) => {
     if (!window.confirm('Supprimer définitivement cet incident ?')) return
-    try { await incidents.delete(id); setDetail(null); load() }
-    catch(e) { alert(e.response?.data?.error||'Erreur') }
+    try {
+      await incidents.delete(id)
+      setDetail(null); load()
+    } catch(e) { alert(e.response?.data?.error || 'Erreur suppression') }
   }
 
   return (
@@ -188,9 +229,8 @@ export default function Maintenance() {
             const pr = PRIORITE[inc.priorite] || PRIORITE.moyenne
             return (
               <div key={inc.id}
-                onClick={() => setDetail(inc)}
                 style={{ background:'#fff', border:`1px solid ${inc.statut==='Ouvert'?'rgba(220,38,38,.25)':'#e2e8f0'}`,
-                  borderRadius:12, padding:16, cursor:'pointer', display:'flex', gap:14, alignItems:'flex-start',
+                  borderRadius:12, padding:16, display:'flex', gap:14, alignItems:'flex-start',
                   boxShadow:'0 1px 4px rgba(0,0,0,.06)', transition:'box-shadow .2s' }}
                 onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(30,58,138,.12)'}
                 onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}>
@@ -222,17 +262,17 @@ export default function Maintenance() {
                 </div>
 
                 {/* Actions rapides */}
-                <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }}>
+                  {isAdmin && (
+                    <button onClick={()=>openEdit(inc)}
+                      style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                      ✏️ Modifier
+                    </button>
+                  )}
                   {canClose && inc.statut !== 'Résolu' && (
                     <button onClick={()=>resoudre(inc.id)}
                       style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                       ✅ Résoudre
-                    </button>
-                  )}
-                  {isAdmin && inc.statut === 'Résolu' && (
-                    <button onClick={()=>{ if(window.confirm('Réouvrir cet incident?')) incidents.update(inc.id,{statut:'Ouvert'}).then(load) }}
-                      style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      🔄 Réouvrir
                     </button>
                   )}
                   {isAdmin && (
@@ -290,6 +330,12 @@ export default function Maintenance() {
                 </a>
               )}
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {isAdmin && (
+                  <button onClick={()=>{ openEdit(detail); setDetail(null) }}
+                    style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'10px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    ✏️ Modifier
+                  </button>
+                )}
                 {canClose && detail.statut !== 'Résolu' && (
                   <button onClick={()=>{ resoudre(detail.id); setDetail(null) }}
                     style={{ flex:1, background:'#16a34a', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
@@ -370,6 +416,69 @@ export default function Maintenance() {
               <button onClick={submit} disabled={submitting}
                 style={{ flex:1, background:'#dc2626', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 {submitting ? '⏳ Envoi...' : '🚨 Signaler l\'incident'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL ÉDITION ── */}
+      {editModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ padding:'16px 20px', background:'#7c3aed', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>✏️ Modifier l'incident</h3>
+              <button onClick={()=>setEditModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Titre *</label>
+                <input value={editForm.titre} onChange={e=>setEditForm({...editForm,titre:e.target.value})} style={inp}/>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Statut</label>
+                  <select value={editForm.statut} onChange={e=>setEditForm({...editForm,statut:e.target.value})} style={inp}>
+                    <option value="Ouvert">🔴 Ouvert</option>
+                    <option value="En cours">🟠 En cours</option>
+                    <option value="Résolu">✅ Résolu</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Priorité</label>
+                  <select value={editForm.priorite} onChange={e=>setEditForm({...editForm,priorite:e.target.value})} style={inp}>
+                    <option value="basse">🔵 Basse</option>
+                    <option value="moyenne">🟠 Moyenne</option>
+                    <option value="haute">🔴 Haute</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Catégorie</label>
+                  <select value={editForm.categorie} onChange={e=>setEditForm({...editForm,categorie:e.target.value})} style={inp}>
+                    {CATS.map(c=><option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Description *</label>
+                <textarea value={editForm.description} onChange={e=>setEditForm({...editForm,description:e.target.value})}
+                  rows={4} style={{ ...inp, resize:'vertical' }}/>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Photo (optionnel)</label>
+                <input type="file" accept="image/*" capture="environment" ref={editFileRef} onChange={handleEditPhoto}
+                  style={{ fontSize:12, color:'#64748b' }}/>
+                {(editForm.photo_b64 || editModal.photo_b64) && (
+                  <img src={`data:image/jpeg;base64,${editForm.photo_b64 || editModal.photo_b64}`} alt="Photo"
+                    style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:8, marginTop:8 }}/>
+                )}
+              </div>
+            </div>
+            <div style={{ padding:'12px 20px', borderTop:'1px solid #e2e8f0', display:'flex', gap:8 }}>
+              <button onClick={()=>setEditModal(null)} style={{ background:'#f8fafc', border:'1px solid #e2e8f0', color:'#64748b', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13 }}>Annuler</button>
+              <button onClick={saveEdit} disabled={submitting}
+                style={{ flex:1, background:'#7c3aed', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                {submitting ? '⏳...' : '💾 Enregistrer'}
               </button>
             </div>
           </div>
