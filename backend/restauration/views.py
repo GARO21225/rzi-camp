@@ -1,17 +1,17 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils import timezone
 from django.db import connection
 from .models import QRToken, RepasLog, AuditLog
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
 
-class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = QRToken.objects.all()
-    serializer_class = QRTokenSerializer
+class QRTokenViewSet(viewsets.ViewSet):
+    """ViewSet pour QR Token avec scan POST"""
+    permission_classes = [AllowAny]  # Permettre scan sans auth
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def scan(self, request):
         """Scan QR personnel — version ultra-simplifiée sans risque 500"""
         try:
@@ -76,6 +76,7 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             import secrets
             token_str = secrets.token_hex(8)
             now = timezone.now()
+            user_id = request.user.id if request.user and request.user.is_authenticated else None
 
             with connection.cursor() as cursor:
                 # Créer QRToken avec device_id
@@ -83,18 +84,14 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
                     INSERT INTO restauration_qrtoken
                     (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
                     VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
-                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, request.user.id, now, now, now])
-
-                # Récupérer l'ID du token créé
-                cursor.execute("SELECT lastval()")
-                token_id = cursor.fetchone()[0]
+                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, user_id, now, now, now])
 
                 # Créer RepasLog
                 cursor.execute("""
                     INSERT INTO restauration_repaslog
                     (qr_token_id, personnel_id, valide_par_id, date_validation)
                     VALUES (%s, %s, %s, %s)
-                """, [token_id, pers_id, request.user.id, now])
+                """, [token_id, pers_id, user_id, now])
 
             return Response({
                 "valid": True,
@@ -111,12 +108,12 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
                 "erreur": f"Erreur serveur: {str(e)[:100]}"
             }, status=400)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def scanner_personnel(self, request):
         """Alias de scan pour compatibilité"""
         return self.scan(request)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def valider_par_personnel(self, request):
         """Valide un repas via ID personnel direct"""
         try:
@@ -161,13 +158,14 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
             import secrets
             token_str = secrets.token_hex(8)
             now = timezone.now()
+            user_id = request.user.id if request.user and request.user.is_authenticated else None
 
             with connection.cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO restauration_qrtoken
                     (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
                     VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
-                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, request.user.id, now, now, now])
+                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, user_id, now, now, now])
 
                 cursor.execute("SELECT lastval()")
                 token_id = cursor.fetchone()[0]
@@ -176,7 +174,7 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
                     INSERT INTO restauration_repaslog
                     (qr_token_id, personnel_id, valide_par_id, date_validation)
                     VALUES (%s, %s, %s, %s)
-                """, [token_id, pers_id, request.user.id, now])
+                """, [token_id, pers_id, user_id, now])
 
             return Response({
                 "valid": True,
