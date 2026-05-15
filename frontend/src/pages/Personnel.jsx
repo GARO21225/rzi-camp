@@ -58,14 +58,6 @@ export default function Personnel() {
     setQrModal(r.data); load()
   }
 
-  const handleRoleChange = async (p, newRole) => {
-    if (!newRole) return
-    try {
-      await personnelAPI.assigRole(p.id, newRole)
-      load()
-    } catch(e) { alert(e.response?.data?.error || 'Erreur assignation rôle') }
-  }
-
   const regenCompte = async (p) => {
     try {
       const r = await personnelAPI.regenererCompte(p.id)
@@ -73,23 +65,9 @@ export default function Personnel() {
     } catch(e) { alert(e.response?.data?.error || 'Erreur') }
   }
 
-  const handleToggleActive = async (p) => {
-    try {
-      const r = await personnelAPI.toggleActive(p.id)
-      load()
-      alert(r.data?.message || 'Compte mis à jour')
-    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
-  }
-
   const del = async (id) => {
     if (!window.confirm('Supprimer ce membre ?')) return
-    try {
-      await personnelAPI.delete(id)
-      load()
-    } catch(e) {
-      const errMsg = e.response?.data?.error || e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur suppression'
-      alert('Suppression impossible: ' + errMsg)
-    }
+    await personnelAPI.delete(id); load()
   }
 
   // Preview login/pass based on form
@@ -187,14 +165,15 @@ export default function Personnel() {
                       {isAdmin && (
                       <select
                         value={p.user_role || p.role_camp || ''}
-                        onChange={e => handleRoleChange(p, e.target.value)}
+                        onChange={e=>{ if(e.target.value) personnelAPI.assigRole(p.id,e.target.value).then(load) }}
                         style={{background:'rgba(37,99,235,.1)',color:'#2563eb',border:'1px solid rgba(37,99,235,.2)',padding:'4px 6px',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:600,maxWidth:90}}>
                         <option value="">⚙️ Rôle</option>
                         {[['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                       </select>
                     )}
                     {isAdmin && (
-                      <button onClick={() => handleToggleActive(p)} style={{ background:p.user_active===false?'rgba(22,163,74,.1)':'rgba(100,116,139,.1)', color:p.user_active===false?'#16a34a':'#64748b', border:'1px solid currentColor', padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>
+                      <button onClick={()=>personnelAPI.toggleActive(p.id).then(load).catch(e=>alert(e.response?.data?.error||'Erreur'))}
+                        style={{ background:p.user_active===false?'rgba(22,163,74,.1)':'rgba(100,116,139,.1)', color:p.user_active===false?'#16a34a':'#64748b', border:'1px solid currentColor', padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>
                         {p.user_active===false?'✅ Activer':'⛔ Désact.'}
                       </button>
                     )}

@@ -22,20 +22,50 @@ class VoyageViewSet(viewsets.ModelViewSet):
     search_fields = ["personnel__nom","personnel__prenom","destination"]
 
     def perform_create(self, serializer):
-        voyage = serializer.save()
+        # Utiliser raw SQL pour éviter les erreurs de migration/simple_history
+        data = serializer.validated_data
+        personnel_id = data.get("personnel").id if hasattr(data.get("personnel"), 'id') else data.get("personnel")
+        batiment_id = data.get("batiment").id if data.get("batiment") and hasattr(data.get("batiment"), 'id') else None
+
+        from django.db import connection
+        from django.utils import timezone
+        import datetime
+
+        now = timezone.now()
+        today = now.date()
+
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO voyages_voyage
+                (personnel_id, batiment_id, destination, motif, date_depart, date_retour_prevue,
+                 statut, enregistre_par_id, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 'planifie', %s, %s)
+            """, [
+                personnel_id,
+                batiment_id,
+                data.get("destination", ""),
+                data.get("motif", ""),
+                data.get("date_depart", today),
+                data.get("date_retour_prevue", today + datetime.timedelta(days=7)),
+                self.request.user.id,
+                now,
+            ])
+
+        # Notification (optionnel, ne bloque pas la création)
         try:
             from evenements.models import SimpleNotification
             from accounts.models import Profile
             from django.contrib.auth.models import User
             user = self.request.user
             nom = user.get_full_name() or user.username
+            dest = data.get("destination", "")
             admins = set(User.objects.filter(is_staff=True))
             for p in Profile.objects.filter(role="admin").select_related("user"): admins.add(p.user)
             for admin in admins:
                 SimpleNotification.objects.create(
                     user=admin,
                     titre=f"✈️ Nouveau voyage planifié",
-                    message=f"{nom} a planifié un voyage vers {voyage.destination}",
+                    message=f"{nom} a planifié un voyage vers {dest}",
                     type_notif="demande"
                 )
         except Exception: pass

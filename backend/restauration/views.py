@@ -1,9 +1,9 @@
-
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.db import connection
 from .models import QRToken, RepasLog, AuditLog
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
 
@@ -12,324 +12,232 @@ class QRTokenViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = QRTokenSerializer
 
     @action(detail=False, methods=["post"])
-    def scanner(self, request):
-        raw = request.data.get("qr_data","")
-        # Normalize: strip whitespace, normalize unicode
-        import unicodedata
-        qr_data = unicodedata.normalize("NFC", raw).strip()
-        type_repas = request.data.get("type_repas","dejeuner")
-        
-        if not qr_data:
-            return Response({"valid":False,"erreur":"QR vide"}, status=400)
+    def scan(self, request):
+        """Scan QR personnel — version ultra-simplifiée sans risque 500"""
+        try:
+            # 1. Extraire les données
+            qr_raw = request.data.get("qr_data", "") or ""
+            type_repas = request.data.get("type_repas", "dejeuner") or "dejeuner"
 
-        from residences.models import Personnel
-        from django.utils.timezone import localdate
-        today = localdate()
+            if not qr_raw or len(qr_raw.strip()) == 0:
+                return Response({"valid": False, "erreur": "QR vide"}, status=400)
 
-        personnel = None
-        qr_clean = qr_data.strip()
+            qr_clean = str(qr_raw).strip()
 
-        # STRATÉGIE 1: Format numérique pur "0001", "0042" (NOUVEAU FORMAT)
-        if qr_clean.isdigit():
-            try:
-                personnel = Personnel.objects.get(pk=int(qr_clean))
-            except (Personnel.DoesNotExist, ValueError):
-                # Chercher par qr_code_string exact
-                personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
+            # 2. Chercher le personnel par ID numérique (format: "0001", "0042")
+            personnel_id = None
+            if qr_clean.isdigit():
+                personnel_id = int(qr_clean)
 
-        # STRATÉGIE 2: Format RZI{id} (ancien format)
-        if not personnel and qr_clean.upper().startswith("RZI"):
-            num_part = qr_clean[3:]
-            if num_part.isdigit():
-                try:
-                    personnel = Personnel.objects.get(pk=int(num_part))
-                except Personnel.DoesNotExist:
-                    pass
+            # 3. Requête SQL directe pour éviter tout problème ORM
+            with connection.cursor() as cursor:
+                if personnel_id:
+                    # Chercher par ID exact
+                    cursor.execute(
+                        "SELECT id, nom, prenom, societe, type_personnel FROM residences_personnel WHERE id = %s AND actif = true",
+                        [personnel_id]
+                    )
+                else:
+                    # Chercher par qr_code_string
+                    cursor.execute(
+                        "SELECT id, nom, prenom, societe, type_personnel FROM residences_personnel WHERE qr_code_string = %s AND actif = true",
+                        [qr_clean]
+                    )
 
-        # STRATÉGIE 3: Correspondance exacte qr_code_string
-        if not personnel:
-            personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
+                row = cursor.fetchone()
 
-        # STRATÉGIE 4: Format NOM|PRENOM|... (très ancien)
-        if not personnel and "|" in qr_clean:
-            import unicodedata
-            def norm(s):
-                return "".join(c for c in unicodedata.normalize("NFD", str(s or "").upper()) if unicodedata.category(c) != "Mn")
-            parts = [p.strip() for p in qr_clean.split("|")]
-            if len(parts) >= 2:
-                for p in Personnel.objects.all():
-                    if norm(p.nom) == norm(parts[0]) and norm(p.prenom) == norm(parts[1]):
-                        personnel = p
-                        break
+            if not row:
+                return Response({
+                    "valid": False,
+                    "erreur": f"Personnel non trouvé: [{qr_clean}]"
+                }, status=400)
 
-        if not personnel:
+            pers_id, nom, prenom, societe, type_pers = row
+
+            # 4. Vérifier si repas déjà pris aujourd'hui (SQL direct)
+            from datetime import date
+            today = date.today()
+
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM restauration_repaslog r
+                    JOIN restauration_qrtoken q ON r.qr_token_id = q.id
+                    WHERE q.personnel_id = %s AND q.type_repas = %s AND DATE(r.date_validation) = %s
+                """, [pers_id, type_repas, today])
+                count = cursor.fetchone()[0]
+
+            if count > 0:
+                return Response({
+                    "valid": False,
+                    "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
+                }, status=400)
+
+            # 5. Créer le token et le log (SQL direct)
+            import secrets
+            token_str = secrets.token_hex(8)
+            now = timezone.now()
+
+            with connection.cursor() as cursor:
+                # Créer QRToken avec device_id
+                cursor.execute("""
+                    INSERT INTO restauration_qrtoken
+                    (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
+                    VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
+                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, request.user.id, now, now, now])
+
+                # Récupérer l'ID du token créé
+                cursor.execute("SELECT lastval()")
+                token_id = cursor.fetchone()[0]
+
+                # Créer RepasLog
+                cursor.execute("""
+                    INSERT INTO restauration_repaslog
+                    (qr_token_id, personnel_id, valide_par_id, date_validation)
+                    VALUES (%s, %s, %s, %s)
+                """, [token_id, pers_id, request.user.id, now])
+
+            return Response({
+                "valid": True,
+                "resident": f"{nom} {prenom}",
+                "residence": "",
+                "type_repas": type_repas,
+                "societe": societe or "",
+                "type_personnel": type_pers or "Agent",
+            })
+
+        except Exception as e:
             return Response({
                 "valid": False,
-                "erreur": f"Code non reconnu: [{qr_clean}]"
+                "erreur": f"Erreur serveur: {str(e)[:100]}"
             }, status=400)
-
-        # Check already eaten
-        already = RepasLog.objects.filter(
-            qr_token__personnel=personnel,
-            qr_token__type_repas=type_repas,
-            cree_le__date=today
-        ).exists()
-        if already:
-            return Response({"valid":False,"erreur":f"FRAUDE - {personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd'hui"}, status=400)
-
-        from datetime import timedelta
-        import secrets
-        token_str = secrets.token_hex(8)
-        qr_token = QRToken.objects.create(
-            token=token_str, personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
-            resident=f"{personnel.nom} {personnel.prenom}",
-            type_repas=type_repas,
-            genere_par=request.user,
-            expire_le=timezone.now()+timedelta(minutes=1),
-            utilise=True, utilise_le=timezone.now()
-        )
-        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user)
-
-        return Response({
-            "valid":True,
-            "resident":f"{personnel.nom} {personnel.prenom}",
-            "residence":qr_token.residence,
-            "type_repas":type_repas,
-            "type_repas_label":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
-            "societe":personnel.societe,
-            "type_personnel":personnel.get_type_personnel_display(),
-        })
 
     @action(detail=False, methods=["post"])
     def scanner_personnel(self, request):
-        """Scanne le QR code du personnel (restaurant_flux) pour historiser les repas"""
-        raw = request.data.get("qr_data", "")
-        import unicodedata
-        qr_data = unicodedata.normalize("NFC", raw).strip()
-        type_repas = request.data.get("type_repas", "dejeuner")
-
-        if not qr_data:
-            return Response({"valid": False, "erreur": "QR vide"}, status=400)
-
-        from residences.models import Personnel
-        from django.utils.timezone import localdate
-        today = localdate()
-
-        personnel = None
-        qr_clean = qr_data.strip()
-
-        # STRATÉGIE 1: Format numérique pur "0001", "0042"
-        if qr_clean.isdigit():
-            try:
-                personnel = Personnel.objects.get(pk=int(qr_clean))
-            except (Personnel.DoesNotExist, ValueError):
-                personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
-
-        # STRATÉGIE 2: Format RZI{id}
-        if not personnel and qr_clean.upper().startswith("RZI"):
-            num_part = qr_clean[3:]
-            if num_part.isdigit():
-                try:
-                    personnel = Personnel.objects.get(pk=int(num_part))
-                except Personnel.DoesNotExist:
-                    pass
-
-        # STRATÉGIE 3: Correspondance exacte qr_code_string
-        if not personnel:
-            personnel = Personnel.objects.filter(qr_code_string=qr_clean).first()
-
-        # STRATÉGIE 4: Format NOM|PRENOM|...
-        if not personnel and "|" in qr_clean:
-            def norm(s):
-                return "".join(c for c in unicodedata.normalize("NFD", str(s or "").upper()) if unicodedata.category(c) != "Mn")
-            parts = [p.strip() for p in qr_clean.split("|")]
-            if len(parts) >= 2:
-                for p in Personnel.objects.all():
-                    if norm(p.nom) == norm(parts[0]) and norm(p.prenom) == norm(parts[1]):
-                        personnel = p
-                        break
-
-        if not personnel:
-            return Response({
-                "valid": False,
-                "erreur": f"Code personnel non reconnu: [{qr_clean}]"
-            }, status=400)
-
-        # Vérifier si repas déjà pris aujourd'hui
-        already = RepasLog.objects.filter(
-            qr_token__personnel=personnel,
-            qr_token__type_repas=type_repas,
-            cree_le__date=today
-        ).exists()
-        if already:
-            return Response({
-                "valid": False,
-                "erreur": f"⚠️ {personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd'hui"
-            }, status=400)
-
-        # Créer l'entrée d'historique
-        from datetime import timedelta
-        import secrets
-        token_str = secrets.token_hex(8)
-        qr_token = QRToken.objects.create(
-            token=token_str, personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
-            resident=f"{personnel.nom} {personnel.prenom}",
-            type_repas=type_repas,
-            genere_par=request.user,
-            expire_le=timezone.now() + timedelta(minutes=1),
-            utilise=True, utilise_le=timezone.now()
-        )
-        repas = RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=personnel)
-
-        return Response({
-            "valid": True,
-            "resident": f"{personnel.nom} {personnel.prenom}",
-            "residence": qr_token.residence,
-            "type_repas": type_repas,
-            "type_repas_label": dict(QRToken.REPAS_CHOICES).get(type_repas, type_repas),
-            "societe": personnel.societe,
-            "type_personnel": personnel.get_type_personnel_display(),
-            "date_validation": repas.date_validation.isoformat() if repas.date_validation else None,
-        })
+        """Alias de scan pour compatibilité"""
+        return self.scan(request)
 
     @action(detail=False, methods=["post"])
     def valider_par_personnel(self, request):
-        """Valide un repas en sélectionnant directement le personnel (sans QR scan)"""
-        personnel_id = request.data.get("personnel_id")
-        type_repas = request.data.get("type_repas","dejeuner")
-        
-        from residences.models import Personnel
-        from django.utils.timezone import localdate
-        import secrets
-        
+        """Valide un repas via ID personnel direct"""
         try:
-            personnel = Personnel.objects.get(pk=personnel_id)
-        except Personnel.DoesNotExist:
-            return Response({"valid":False,"erreur":"Personnel non trouvé"}, status=400)
-        
-        today = localdate()
-        # Check already eaten
-        already = RepasLog.objects.filter(
-            qr_token__personnel=personnel,
-            qr_token__type_repas=type_repas,
-            cree_le__date=today
-        ).exists()
-        if already:
+            personnel_id = request.data.get("personnel_id")
+            type_repas = request.data.get("type_repas", "dejeuner") or "dejeuner"
+
+            if not personnel_id:
+                return Response({"valid": False, "erreur": "ID requis"}, status=400)
+
+            # Chercher le personnel
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, nom, prenom, societe, type_personnel FROM residences_personnel WHERE id = %s AND actif = true",
+                    [int(personnel_id)]
+                )
+                row = cursor.fetchone()
+
+            if not row:
+                return Response({"valid": False, "erreur": "Personnel non trouvé"}, status=400)
+
+            pers_id, nom, prenom, societe, type_pers = row
+
+            # Vérifier repas déjà pris
+            from datetime import date
+            today = date.today()
+
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM restauration_repaslog r
+                    JOIN restauration_qrtoken q ON r.qr_token_id = q.id
+                    WHERE q.personnel_id = %s AND q.type_repas = %s AND DATE(r.date_validation) = %s
+                """, [pers_id, type_repas, today])
+                count = cursor.fetchone()[0]
+
+            if count > 0:
+                return Response({
+                    "valid": False,
+                    "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
+                }, status=400)
+
+            # Créer token et log
+            import secrets
+            token_str = secrets.token_hex(8)
+            now = timezone.now()
+
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO restauration_qrtoken
+                    (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
+                    VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
+                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, request.user.id, now, now, now])
+
+                cursor.execute("SELECT lastval()")
+                token_id = cursor.fetchone()[0]
+
+                cursor.execute("""
+                    INSERT INTO restauration_repaslog
+                    (qr_token_id, personnel_id, valide_par_id, date_validation)
+                    VALUES (%s, %s, %s, %s)
+                """, [token_id, pers_id, request.user.id, now])
+
             return Response({
-                "valid":False,
-                "erreur":f"{personnel.nom} {personnel.prenom} a déjà pris ce repas aujourd\'hui"
+                "valid": True,
+                "resident": f"{nom} {prenom}",
+                "societe": societe or "",
+                "type_repas": type_repas,
+            })
+
+        except Exception as e:
+            return Response({
+                "valid": False,
+                "erreur": f"Erreur: {str(e)[:100]}"
             }, status=400)
-        
-        # Create validation
-        token_str = secrets.token_hex(8)
-        qr_token = QRToken.objects.create(
-            token=token_str,
-            personnel=personnel,
-            residence=personnel.batiments.first().residence if personnel.batiments.exists() else "",
-            resident=f"{personnel.nom} {personnel.prenom}",
-            type_repas=type_repas,
-            genere_par=request.user,
-            expire_le=timezone.now() + __import__('datetime').timedelta(minutes=1),
-            utilise=True,
-            utilise_le=timezone.now()
-        )
-        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=personnel)
-
-        return Response({
-            "valid":True,
-            "resident":f"{personnel.nom} {personnel.prenom}",
-            "residence":qr_token.residence,
-            "type_repas":type_repas,
-            "type_repas_label":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
-            "societe":personnel.societe,
-        })
-
-    @action(detail=False, methods=["post"])
-    def valider_par_numero(self, request):
-        """Valide un repas via numéro de téléphone — fallback sans QR"""
-        numero = str(request.data.get("numero","")).strip()
-        type_repas = request.data.get("type_repas","dejeuner")
-        if not numero:
-            return Response({"valid":False,"erreur":"Numéro requis"}, status=400)
-        from residences.models import Personnel
-        from django.utils.timezone import localdate
-        import secrets
-        # Chercher par numéro exact
-        p = Personnel.objects.filter(numero=numero).first()
-        if not p:
-            digits = ''.join(c for c in numero if c.isdigit())
-            if len(digits) >= 6:
-                p = Personnel.objects.filter(numero__endswith=digits[-8:]).first()
-        if not p:
-            return Response({"valid":False,"erreur":f"Aucun personnel avec numéro {numero}"}, status=400)
-        today = localdate()
-        already = RepasLog.objects.filter(
-            qr_token__personnel=p, qr_token__type_repas=type_repas, cree_le__date=today
-        ).exists()
-        if already:
-            return Response({"valid":False,"erreur":f"{p.nom} {p.prenom} a déjà pris ce repas"}, status=400)
-        import datetime
-        token_str = secrets.token_hex(8)
-        qr_token = QRToken.objects.create(
-            token=token_str, personnel=p,
-            residence=p.batiments.first().residence if p.batiments.exists() else "",
-            resident=f"{p.nom} {p.prenom}", type_repas=type_repas,
-            genere_par=request.user,
-            expire_le=timezone.now()+datetime.timedelta(minutes=1),
-            utilise=True, utilise_le=timezone.now()
-        )
-        RepasLog.objects.create(qr_token=qr_token, valide_par=request.user, personnel=p)
-        return Response({
-            "valid":True, "resident":f"{p.nom} {p.prenom}",
-            "residence":qr_token.residence, "type_repas":type_repas,
-            "type_repas_label":dict(QRToken.REPAS_CHOICES).get(type_repas,type_repas),
-            "societe":p.societe,
-        })
-
 
     @action(detail=False, methods=["delete"])
     def vider_historique(self, request):
-        """Vider l'historique des repas (admin seulement)"""
+        """Vider l'historique (admin seulement)"""
         user = request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and user.profile.role=="admin")
+        is_admin = user.is_staff or user.is_superuser or (hasattr(user, "profile") and user.profile.role == "admin")
         if not is_admin:
-            return Response({"error":"Admin uniquement"}, status=403)
+            return Response({"error": "Admin requis"}, status=403)
+
         type_repas = request.query_params.get("type_repas")
-        qs = RepasLog.objects.all()
-        if type_repas:
-            qs = qs.filter(qr_token__type_repas=type_repas)
-        count = qs.count()
-        qs.delete()
-        return Response({"ok":True,"deleted":count})
+
+        with connection.cursor() as cursor:
+            if type_repas:
+                cursor.execute("""
+                    DELETE FROM restauration_repaslog
+                    WHERE qr_token_id IN (SELECT id FROM restauration_qrtoken WHERE type_repas = %s)
+                """, [type_repas])
+            else:
+                cursor.execute("DELETE FROM restauration_repaslog")
+
+        return Response({"ok": True})
+
 
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = RepasLog.objects.select_related("qr_token","qr_token__personnel","valide_par","personnel").all()
+    queryset = RepasLog.objects.select_related("qr_token", "qr_token__personnel", "valide_par", "personnel").all()
     serializer_class = RepasLogSerializer
 
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        # Admin/resto sees all, others see only own
         is_admin = user.is_staff or user.is_superuser
-        is_resto = hasattr(user,"profile") and user.profile.role in ["admin","restauration"]
-        if not is_admin and not is_resto:
-            if hasattr(user,"personnel"):
-                qs = qs.filter(qr_token__personnel=user.personnel)
+        is_resto = hasattr(user, "profile") and user.profile.role in ["admin", "restauration"]
+
+        if is_admin or is_resto:
+            pass  # Voir tout
+        elif hasattr(user, "personnel"):
+            qs = qs.filter(qr_token__personnel=user.personnel)
+        else:
+            name = user.get_full_name().strip()
+            if name:
+                qs = qs.filter(qr_token__resident__icontains=name.split()[0])
             else:
-                name = user.get_full_name().strip()
-                if name:
-                    qs = qs.filter(qr_token__resident__icontains=name.split()[0])
-                else:
-                    qs = qs.none()
-        # Optional filters
+                qs = qs.none()
+
         type_repas = self.request.query_params.get("type_repas")
-        date = self.request.query_params.get("date")
-        personnel = self.request.query_params.get("personnel")
-        if type_repas: qs = qs.filter(qr_token__type_repas=type_repas)
-        if date: qs = qs.filter(date_validation__date=date)
-        if personnel: qs = qs.filter(personnel_id=personnel)
+        if type_repas:
+            qs = qs.filter(qr_token__type_repas=type_repas)
+
         return qs
 
 

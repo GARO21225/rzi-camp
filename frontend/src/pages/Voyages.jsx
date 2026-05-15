@@ -24,12 +24,12 @@ export default function Voyages() {
   const [personnelList, setPersonnelList] = useState([])
   const [batsList, setBatsList] = useState([])
   const [modal, setModal] = useState(false)
-  const [editModal, setEditModal] = useState(null)
   const [filterStatut, setFilterStatut] = useState('')
-  const [myPersonnel, setMyPersonnel] = useState(null)
-  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'', date_retour_prevue:'' })
-  const [ready, setReady] = useState(false)
+  const [myPersonnel, setMyPersonnel] = useState(null) // Connected user's Personnel object
+  const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
 
+
+  // 1. Charger le personnel ET résidences — PUIS déclencher les voyages
   useEffect(() => {
     Promise.all([
       personnelAPI.list({ page_size:500 }),
@@ -50,14 +50,17 @@ export default function Voyages() {
           setForm(f => ({...f, personnel: me.id.toString()}))
         }
       }
-      setReady(true)
+      setReady(true) // déclenche le chargement des voyages
     }).catch(() => setReady(true))
   }, [user?.username])
 
+  // 2. Charger les voyages SEULEMENT quand ready (filtre connu)
   const load = useCallback(() => {
     const p = {}
     if (filterStatut) p.statut = filterStatut
-    if (!isAdmin && myPersonnel) {
+    // Admin: charge tout. Agent: filtre par son Personnel
+    if (!isAdmin) {
+      if (!myPersonnel) { setData([]); return }
       p.personnel = myPersonnel.id
     }
     voyages.list(p).then(r => setData(r.data.results||r.data||[])).catch(()=>setData([]))
@@ -90,41 +93,20 @@ export default function Voyages() {
     catch(e) { alert(e.response?.data?.error||'Erreur') }
   }
 
-  const openEdit = (v) => {
-    setEditModal(v)
-  }
-
-  const saveEdit = async () => {
-    const formData = {
-      personnel: editModal.personnel_id,
-      destination: editModal.destination,
-      motif: editModal.motif || '',
-      date_depart: editModal.date_depart,
-      date_retour_prevue: editModal.date_retour_prevue,
-    }
-    if (editModal.heure_depart) formData.heure_depart = editModal.heure_depart
-    try {
-      await voyages.update(editModal.id, formData)
-      setEditModal(null)
-      load()
-    } catch(e) { alert(e.response?.data?.error || e.response?.data?.detail || 'Erreur modification') }
-  }
-
   const createVoyage = async () => {
     if (!form.personnel) return alert('Sélectionner le personnel')
     if (!form.destination) return alert('Destination requise')
     if (!form.date_depart) return alert('Date départ requise')
     if (!form.date_retour_prevue) return alert('Date retour prévue requise')
     try {
-      const payload = { ...form }
-      if (form.heure_depart) payload.heure_depart = form.heure_depart
-      await voyages.create(payload)
+      await voyages.create(form)
       setModal(false)
-      setForm({ personnel: myPersonnel?.id?.toString()||'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'', date_retour_prevue:'' })
+      setForm({ personnel: myPersonnel?.id?.toString()||'', batiment:'', destination:'', motif:'', date_depart:today, date_retour_prevue:'' })
       load()
     } catch(e) { alert(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
+  // Agent can only create voyage for themselves
   const filteredPersonnel = isAdmin ? personnelList : (myPersonnel ? [myPersonnel] : personnelList)
 
   return (
@@ -133,7 +115,7 @@ export default function Voyages() {
         <div>
           <h2 style={{ fontSize:19, fontWeight:700, color:'var(--blue)' }}>✈️ Gestion des Voyages</h2>
           <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>
-            {isAdmin ? 'Tous les voyages · Modification · Suivi' : `Mes voyages${myPersonnel?' — '+myPersonnel.nom+' '+myPersonnel.prenom:''}` }
+            {isAdmin ? 'Tous les voyages · Validation · Suivi' : `Mes voyages${myPersonnel?' — '+myPersonnel.nom+' '+myPersonnel.prenom:''}` }
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -146,6 +128,7 @@ export default function Voyages() {
         </div>
       </div>
 
+      {/* Info box for agent */}
       {!isAdmin && myPersonnel && (
         <div style={{ background:'rgba(37,99,235,.06)', border:'1px solid rgba(37,99,235,.15)', borderRadius:10, padding:'10px 14px', marginBottom:14, fontSize:12 }}>
           👤 Vous voyez uniquement vos voyages : <b>{myPersonnel.nom} {myPersonnel.prenom}</b> · {myPersonnel.societe}
@@ -183,6 +166,13 @@ export default function Voyages() {
         {filterStatut && <button onClick={()=>setFilterStatut('')} style={{ padding:'5px 12px', borderRadius:20, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text-dim)', cursor:'pointer', fontSize:11 }}>✕ Reset</button>}
       </div>
 
+      {/* Info line on client-side filter */}
+      {!isAdmin && (
+        <div style={{ background:'rgba(240,165,0,.06)', border:'1px solid rgba(240,165,0,.2)', borderRadius:8, padding:'7px 12px', marginBottom:12, fontSize:11, color:'#d08800' }}>
+          💡 Seuls vos voyages sont affichés. Utilisez le bouton ci-dessus pour en déclarer un nouveau.
+        </div>
+      )}
+
       {/* Table */}
       {data.length === 0 ? (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
@@ -197,9 +187,9 @@ export default function Voyages() {
       ) : (
         <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
           <div style={{ overflowX:'auto' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5, minWidth:800 }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5, minWidth:700 }}>
             <thead><tr style={{ background:'var(--blue)' }}>
-              {[isAdmin&&'Personnel','Destination','Motif','Départ','Heure','Retour','Statut','Actions'].filter(Boolean).map(h=>(
+              {[isAdmin&&'Personnel','Résidence','Destination','Motif','Départ','Retour prévu','Retour réel','Statut','Actions'].filter(Boolean).map(h=>(
                 <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'rgba(255,255,255,.85)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
               ))}
             </tr></thead>
@@ -214,11 +204,12 @@ export default function Voyages() {
                         <div style={{ fontSize:11, color:'var(--text-dim)' }}>{v.personnel_detail?.societe}</div>
                       </td>
                     )}
+                    <td style={{ padding:'10px 12px', fontFamily:'monospace', color:'var(--blue)', fontWeight:700 }}>{v.batiment_nom||'—'}</td>
                     <td style={{ padding:'10px 12px', fontWeight:600 }}>{v.destination||'—'}</td>
-                    <td style={{ padding:'10px 12px', fontSize:11, color:'var(--text-dim)', maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.motif||'—'}</td>
+                    <td style={{ padding:'10px 12px', fontSize:11, color:'var(--text-dim)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v.motif||'—'}</td>
                     <td style={{ padding:'10px 12px', fontFamily:'monospace', fontSize:11 }}>{v.date_depart}</td>
-                    <td style={{ padding:'10px 12px', fontFamily:'monospace', fontSize:11, color:'#7c3aed' }}>{v.heure_depart || '—'}</td>
                     <td style={{ padding:'10px 12px', fontFamily:'monospace', fontSize:11 }}>{v.date_retour_prevue}</td>
+                    <td style={{ padding:'10px 12px', fontFamily:'monospace', fontSize:11, color:v.date_retour_effective?'inherit':'#ea580c' }}>{v.date_retour_effective||'En cours'}</td>
                     <td style={{ padding:'10px 12px' }}>
                       <span style={{ background:sc.bg, color:sc.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>
                         {STATUT_LABELS[v.statut]||v.statut}
@@ -226,16 +217,13 @@ export default function Voyages() {
                     </td>
                     <td style={{ padding:'10px 12px' }}>
                       <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                        {isAdmin && (
-                          <button onClick={()=>openEdit(v)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:10, fontWeight:700 }}>✏️</button>
-                        )}
                         {v.statut==='planifie' && <>
-                          <button onClick={()=>partir(v.id)} style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🚀</button>
+                          <button onClick={()=>partir(v.id)} style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🚀 Partir</button>
                           <button onClick={()=>annulerVoyage(v)} style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:10 }}>✕</button>
                           {isAdmin && <button onClick={()=>supprimerVoyage(v)} style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:10 }}>🗑</button>}
                         </>}
                         {v.statut==='en_voyage' && (
-                          <button onClick={()=>revenir(v)} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🏠</button>
+                          <button onClick={()=>revenir(v)} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🏠 Retour</button>
                         )}
                       </div>
                     </td>
@@ -271,6 +259,13 @@ export default function Voyages() {
                 )}
               </div>
               <div>
+                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Résidence (optionnel)</label>
+                <select value={form.batiment} onChange={e=>setForm({...form,batiment:e.target.value})} style={inp}>
+                  <option value="">— Aucune résidence assignée —</option>
+                  {batsList.filter(b=>b.statut==='Occupé').map(b=><option key={b.id} value={b.id}>{b.residence} — {b.occupant}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Destination *</label>
                 <input value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} style={inp} placeholder="Ville, pays..."/>
               </div>
@@ -284,76 +279,24 @@ export default function Voyages() {
                   <input type="date" value={form.date_depart} min={today} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>
                 </div>
                 <div>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
+                  </div>
+                <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Heure départ *</label>
                   <input type="time" value={form.heure_depart} onChange={e=>setForm({...form,heure_depart:e.target.value})} style={inp}/>
                 </div>
               </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
-                <input type="date" value={form.date_retour_prevue} min={form.date_depart||today} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
+                  <input type="date" value={form.date_retour_prevue} min={form.date_depart||today} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
+                </div>
               </div>
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
               <button onClick={createVoyage} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 🚀 Déclarer le voyage
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT MODAL */}
-      {editModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
-            <div style={{ padding:'16px 20px', background:'#7c3aed', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15 }}>✏️ Modifier le voyage</h3>
-              <button onClick={()=>setEditModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
-            </div>
-            <div style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:12 }}>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Personnel</label>
-                <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', fontSize:13, fontWeight:600, color:'var(--blue)' }}>
-                  {editModal.personnel_detail?.nom} {editModal.personnel_detail?.prenom} · {editModal.personnel_detail?.societe}
-                </div>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Destination *</label>
-                <input value={editModal.destination} onChange={e=>setEditModal({...editModal, destination:e.target.value})} style={inp} placeholder="Ville, pays..."/>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Motif</label>
-                <input value={editModal.motif || ''} onChange={e=>setEditModal({...editModal, motif:e.target.value})} style={inp} placeholder="Raison du voyage..."/>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Date départ *</label>
-                  <input type="date" value={editModal.date_depart} onChange={e=>setEditModal({...editModal, date_depart:e.target.value})} style={inp}/>
-                </div>
-                <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Heure départ</label>
-                  <input type="time" value={editModal.heure_depart || ''} onChange={e=>setEditModal({...editModal, heure_depart:e.target.value})} style={inp}/>
-                </div>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Retour prévu *</label>
-                <input type="date" value={editModal.date_retour_prevue} onChange={e=>setEditModal({...editModal, date_retour_prevue:e.target.value})} style={inp}/>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Statut</label>
-                <select value={editModal.statut} onChange={e=>setEditModal({...editModal, statut:e.target.value})} style={inp}>
-                  <option value="planifie">Planifié</option>
-                  <option value="en_voyage">En voyage</option>
-                  <option value="retour">Retour camp</option>
-                  <option value="annule">Annulé</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={()=>setEditModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={saveEdit} style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                💾 Enregistrer
               </button>
             </div>
           </div>

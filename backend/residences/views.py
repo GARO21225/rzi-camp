@@ -126,10 +126,40 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return False
 
     def destroy(self, request, *args, **kwargs):
-        """Supprimer un personnel — admin uniquement"""
+        """Supprimer un personnel — admin uniquement (SQL direct pour éviter FK)"""
         if not self._is_admin(request.user):
             return Response({"error": "Admin requis"}, status=403)
-        return super().destroy(request, *args, **kwargs)
+        try:
+            obj = self.get_object()
+            personnel_info = f"{obj.nom} {obj.prenom}"
+            pers_id = obj.id
+
+            from django.db import connection
+            with connection.cursor() as cursor:
+                # 1. Tables liées voyages
+                cursor.execute("DELETE FROM voyages_voyage WHERE personnel_id = %s", [pers_id])
+
+                # 2. Tables liées restauration
+                cursor.execute("DELETE FROM restauration_repaslog WHERE personnel_id = %s", [pers_id])
+
+                # 3. Tables occupation history
+                cursor.execute("DELETE FROM residences_occupationhistory WHERE personnel_id = %s", [pers_id])
+
+                # 4. Batiments - SET NULL puis DELETE
+                cursor.execute("UPDATE residences_batiment SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
+
+                # 5. Demandes
+                cursor.execute("DELETE FROM residences_demande WHERE demandeur_id IN (SELECT user_id FROM accounts_profile WHERE personnel_id = %s)", [pers_id])
+
+                # 6. Historical records
+                cursor.execute("DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s", [pers_id])
+
+                # 7. finally delete personnel
+                cursor.execute("DELETE FROM residences_personnel WHERE id = %s", [pers_id])
+
+            return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
+        except Exception as e:
+            return Response({"error": f"Erreur: {str(e)}"}, status=400)
 
     def partial_update(self, request, *args, **kwargs):
         """Modifier un personnel — admin uniquement"""

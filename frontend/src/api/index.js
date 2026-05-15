@@ -55,24 +55,20 @@ export const personnel = {
   historiqueVoyages: (id) => api.get(`/api/personnel/${id}/historique_voyages/`),
   historiqueChambre: (id, p) => api.get(`/api/personnel/${id}/historique_chambres/`, {params:p}),
   assigRole: (id, role) => api.patch(`/api/personnel/${id}/assigner_role/`, {role}),
-  toggleActive: (id) => api.post(`/api/personnel/${id}/toggle_active/`),
 }
 export const incidents = {
   list: (p) => api.get('/api/incidents/', {params:p}),
   create: (d) => api.post('/api/incidents/', d, {headers:{'Content-Type':'multipart/form-data'}}),
-  update: (id, d) => api.patch(`/api/incidents/${id}/`, d),
   resoudre: (id) => api.post(`/api/incidents/${id}/resoudre/`),
   stats: () => api.get('/api/incidents/stats/'),
 }
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scanner: (d) => api.post('/api/qr/scanner/', d),
-  scannerPersonnel: (d) => api.post('/api/qr/scanner_personnel/', d),
   validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
   viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
-  historiqueScans: (p) => api.get('/api/repas/', {params:p}),
 }
 export const occupationHistoryAdmin = {
   delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
@@ -86,7 +82,6 @@ export const occupationHistory = {
 export const voyages = {
   list: (p) => api.get('/api/voyages/', {params:p}),
   create: (d) => api.post('/api/voyages/', d),
-  update: (id, d) => api.patch(`/api/voyages/${id}/`, d),
   partir: (id) => api.post(`/api/voyages/${id}/partir/`),
   revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
   stats: () => api.get('/api/voyages/stats/'),
