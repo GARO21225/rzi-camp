@@ -103,6 +103,31 @@ export default function Historique() {
     finally { setVoyLoading(false) }
   }
 
+
+  const exportRepasCSV = () => {
+    if (!repasData.length) return
+    const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
+    const rows = repasData.map(r => {
+      const dt = r.date_validation ? new Date(r.date_validation) : null
+      return [
+        r.resident || '',
+        r.societe || '',
+        r.type_repas_label || r.type_repas || '',
+        dt ? dt.toLocaleDateString('fr-FR') : '',
+        dt ? dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '',
+        r.valide_par_nom || ''
+      ]
+    })
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `repas_restauration_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const loadRepas = async () => {
     setRepasLoading(true)
     try {
@@ -376,14 +401,23 @@ export default function Historique() {
                 style={{background:'#7c3aed',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
                 {repasLoading?'Chargement...':'🔄 Actualiser'}
               </button>
+              {repasData.length > 0 && (
+                <button onClick={exportRepasCSV}
+                  style={{background:'rgba(124,58,237,.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,.3)',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+                  ⬇ Export CSV ({repasData.length})
+                </button>
+              )}
             </div>
           </SearchCard>
 
           {repasData.length > 0 ? (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
-              <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between'}}>
-                <span>📋 {repasData.length} scan(s)</span>
-                <span style={{background:'rgba(255,255,255,.2)',padding:'2px 10px',borderRadius:20}}>{repasData.length}</span>
+              <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span>📋 {repasData.length} scan(s) de repas</span>
+                <button onClick={exportRepasCSV}
+                  style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.4)',padding:'4px 12px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>
+                  ⬇ CSV
+                </button>
               </div>
               <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>

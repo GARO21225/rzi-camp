@@ -16,6 +16,13 @@ class RepasLogSerializer(serializers.ModelSerializer):
     personnel_id = serializers.IntegerField(source="qr_token.personnel_id", allow_null=True)
     date_validation = serializers.DateTimeField(read_only=True)
     valide_par_nom = serializers.SerializerMethodField()
+    societe = serializers.SerializerMethodField()
+    
+    def get_societe(self, obj):
+        try:
+            return obj.qr_token.personnel.societe if obj.qr_token.personnel else ''
+        except Exception:
+            return ''
     class Meta:
         model = RepasLog
         fields = ["id","resident","residence","type_repas","type_repas_label","personnel_id","date_validation","valide_par_nom"]
