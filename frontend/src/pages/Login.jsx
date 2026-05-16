@@ -30,6 +30,8 @@ export default function Login() {
       localStorage.setItem('refresh_token', r.data.refresh)
       const me = await auth.me()
       setUser(me.data)
+      // Marquer qu'on vient de se connecter pour afficher le toast
+      sessionStorage.setItem('just_logged_in', '1')
       navigate('/')
     } catch { setError('Identifiants incorrects') }
     finally { setLoading(false) }

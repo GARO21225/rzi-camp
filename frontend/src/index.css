@@ -1,87 +1,305 @@
-/* ══════════════════════════════════════════
-   RZI CAMP — Design System v3
-   Tokens live in ../../design-system/colors_and_type.css
-   This file: imports tokens + app-level base/reset
-   ══════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════
+   RZI CAMP — Design System v4
+   Responsive · iOS-safe · Light-only
+   ════════════════════════════════════════════════════ */
 @import '../design-system/colors_and_type.css';
 
+/* ── Force LIGHT MODE partout (fix iPhone noir) ────── */
 :root {
-  /* Legacy aliases — preserved so the rest of the app keeps working
-     while we migrate inline styles to the canonical tokens below. */
-  --blue: var(--rzi-blue);
-  --blue-light: var(--rzi-blue-light);
-  --accent: var(--rzi-gold);
-  --bg: #e0f2fe;
-  --surface: #ffffff;
-  --surface2: #f0f9ff;
-  --border: #bae6fd;
-  --text: #0c4a6e;
-  --text-dim: #0369a1;
-  --shadow: 0 1px 4px rgba(30,58,138,.08);
-  --shadow-md: 0 4px 20px rgba(30,58,138,.12);
-  --radius: 10px;
-  --radius-lg: 16px;
+  color-scheme: light only;
+
+  /* Brand */
+  --blue:       #1e3a8a;
+  --blue-mid:   #2563eb;
+  --accent:     #f0a500;
+
+  /* Surfaces */
+  --bg:         #f1f5f9;
+  --surface:    #ffffff;
+  --surface2:   #f8fafc;
+
+  /* Borders & Text */
+  --border:     #e2e8f0;
+  --text:       #1e293b;
+  --text-dim:   #64748b;
+
+  /* Shadows */
+  --shadow:     0 1px 4px rgba(30,58,138,.08);
+  --shadow-md:  0 4px 20px rgba(30,58,138,.12);
+
+  /* Radii */
+  --radius:     10px;
+  --radius-lg:  14px;
+
+  /* Sidebar */
+  --sidebar-w:  240px;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Désactiver le dark mode système (fix iPhone noir) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f172a; --surface: #1e293b; --surface2: #1e2d3d;
-    --border: #334155; --text: #f1f5f9; --text-dim: #94a3b8;
-    --shadow: 0 1px 4px rgba(0,0,0,.3); --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+    color-scheme: light;
+    --bg: #f1f5f9 !important;
+    --surface: #ffffff !important;
+    --surface2: #f8fafc !important;
+    --border: #e2e8f0 !important;
+    --text: #1e293b !important;
+    --text-dim: #64748b !important;
   }
 }
 
-/* Light mode override - ciel clair */
-[data-theme="light"] {
-  --bg: #e0f2fe; --surface: #ffffff; --surface2: #f0f9ff;
-  --border: #bae6fd; --text: #0c4a6e; --text-dim: #0369a1;
-  --shadow: 0 1px 4px rgba(14,116,144,.08); --shadow-md: 0 4px 20px rgba(14,116,144,.12);
+/* ── Reset ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
 body {
-  margin: 0;
   font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  /* Fix iOS safe area */
+  padding-bottom: env(safe-area-inset-bottom);
 }
-#root { height: 100vh; display: flex; flex-direction: column; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+#root {
+  height: 100dvh; /* dynamic viewport height — fix iOS Safari */
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Scrollbar slim ──────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
-@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .6 } }
-@keyframes spin { to { transform: rotate(360deg) } }
-
-button { transition: all .15s ease; cursor: pointer; }
-button:active { transform: scale(.97); }
-button:hover { filter: brightness(1.05); }
-a { transition: opacity .15s; }
-input, select, textarea { font-family: inherit; }
-
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
-.card-hover { transition: box-shadow .2s, transform .2s; }
-.card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-.badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; }
-.table-row-hover:hover { background: var(--surface2) !important; }
-.spin { animation: spin 1s linear infinite; }
-
-.leaflet-pane { z-index: 10 !important; }
-.leaflet-top, .leaflet-bottom { z-index: 20 !important; }
-.leaflet-popup-pane { z-index: 30 !important; }
-
-@media (max-width: 768px) {
-  .hide-mobile { display: none !important; }
-  .grid-2-col { grid-template-columns: 1fr !important; }
+/* ── Animations ──────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .5; }
 }
 
-@media print {
-  header, nav, .no-print { display: none !important; }
-  body { background: #fff; }
+.animate-in { animation: fadeIn .25s ease forwards; }
+
+/* ── Layout Shell ────────────────────────────────── */
+.app-shell {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--blue);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform .25s ease;
+  z-index: 100;
+}
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+/* ── Main content ────────────────────────────────── */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.main-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Header ──────────────────────────────────────── */
+.topbar {
+  background: var(--blue);
+  color: #fff;
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+/* ── Cards ───────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+/* ── Tables ──────────────────────────────────────── */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 12px; text-align: left; }
+thead tr { background: var(--surface2); }
+tbody tr { border-top: 1px solid var(--border); }
+tbody tr:hover { background: var(--surface2); }
+
+/* ── Forms ───────────────────────────────────────── */
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color .15s;
+  width: 100%;
+  -webkit-appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--blue-mid);
+}
+
+/* ── Buttons ─────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-mid); }
+.btn-danger { background: rgba(220,38,38,.1); color: #dc2626; border: 1px solid rgba(220,38,38,.2); }
+.btn-success { background: rgba(22,163,74,.1); color: #16a34a; border: 1px solid rgba(22,163,74,.2); }
+
+/* ── Grid responsive ─────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* ── KPI row ─────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+
+/* ── Badges ──────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Modal ───────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+@media (min-width: 600px) {
+  .modal-backdrop { align-items: center; }
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 40px rgba(0,0,0,.25);
+}
+@media (min-width: 600px) {
+  .modal { border-radius: var(--radius-lg); }
+}
+
+/* ══════════════════════════════════════════════
+   BREAKPOINTS RESPONSIVE
+   ══════════════════════════════════════════════ */
+
+/* Tablet / Mobile */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: block !important; }
+
+  /* Page padding réduit sur mobile */
+  .page-content { padding: 12px !important; }
+
+  /* Tables: horizontal scroll */
+  table { min-width: 480px; }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .btn { font-size: 12px; padding: 8px 12px; }
+}
+
+/* Desktop large */
+@media (min-width: 1200px) {
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ── iOS Safari specific fixes ───────────────────── */
+@supports (-webkit-touch-callout: none) {
+  /* Empêcher le bounce iOS de casser le layout */
+  body { overflow: hidden; }
+  .main-scroll { overflow-y: scroll; -webkit-overflow-scrolling: touch; }
+
+  /* Fix input zoom sur iOS */
+  input, select, textarea { font-size: 16px; }
+
+  /* Fix bottom bar iOS */
+  .topbar { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ── Notification toast ──────────────────────────── */
+.notif-toast {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  z-index: 9999;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: fadeIn .2s ease;
 }

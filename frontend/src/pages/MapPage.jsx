@@ -156,7 +156,7 @@ export default function MapPage() {
   const bear=userPos&&target?calcBearing(userPos,target):null
 
   return (
-    <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,overflow:'hidden',position:'relative'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - 54px)',overflow:'hidden',position:'relative'}}>
       {/* TOOLBAR */}
       <div style={{background:'#fff',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
         <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)}

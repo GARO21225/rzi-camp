@@ -100,10 +100,48 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   )
 }
 
+
+function WelcomeToast({ user, onClose }) {
+  const role = user?.profile?.role || 'agent'
+  const ROLE_ICONS = { admin:'👑', agent:'🏗️', restauration:'🍽️', technicien:'🔧', menage:'🧹' }
+  const name = user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || ''
+  return (
+    <div style={{
+      position: 'fixed', top: 72, right: 16, zIndex: 9999,
+      width: 'min(320px, calc(100vw - 32px))',
+      background: '#fff', border: '1px solid #e2e8f0',
+      borderLeft: '4px solid var(--rzi-blue)',
+      borderRadius: 14, padding: '14px 16px',
+      boxShadow: '0 8px 30px rgba(30,58,138,.2)',
+      animation: 'fadeIn .3s ease',
+      display: 'flex', alignItems: 'flex-start', gap: 12,
+    }}>
+      <div style={{ fontSize: 32 }}>{ROLE_ICONS[role] || '👤'}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, color: 'var(--rzi-blue)', fontSize: 14, marginBottom: 2 }}>
+          Bienvenue, {name} 👋
+        </div>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          Connecté en tant que <b>{ROLE_LABELS[role] || role}</b> · {new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'})}
+        </div>
+      </div>
+      <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16, padding:0, flexShrink:0 }}>✕</button>
+    </div>
+  )
+}
+
 export default function Layout() {
   const { user, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const [showWelcome, setShowWelcome] = useState(sessionStorage.getItem("just_logged_in") === "1")
+  React.useEffect(() => {
+    if (showWelcome) {
+      sessionStorage.removeItem("just_logged_in")
+      const t = setTimeout(() => setShowWelcome(false), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [showWelcome])
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
@@ -135,7 +173,7 @@ export default function Layout() {
   const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: 'light' }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -182,7 +220,8 @@ export default function Layout() {
               </span>
             )}
           </button>
-          {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
+    {showWelcome && <WelcomeToast user={user} onClose={() => setShowWelcome(false)} />}
+      {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
         </div>
 
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, maxWidth: 140 }}>
@@ -199,23 +238,32 @@ export default function Layout() {
           ⎋
         </button>
 
-        <button onClick={() => setTheme(t => t === 'dark' ? 'light' : t === 'light' ? 'auto' : 'dark')}
-          title="Changer le thème"
-          style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '🌓'}
-        </button>
       </header>
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Backdrop mobile */}
+        {sidebarOpen && isMobile && (
+          <div onClick={() => setSidebarOpen(false)}
+            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
+        )}
         {sidebarOpen && (
           <nav style={{
             width: 240,
             background: 'var(--surface)',
             borderRight: '1px solid var(--border)',
             overflowY: 'auto',
+            overflowX: 'hidden',
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
+            ...(isMobile ? {
+              position: 'fixed',
+              top: 54,
+              left: 0,
+              bottom: 0,
+              zIndex: 95,
+              boxShadow: '4px 0 20px rgba(0,0,0,.25)',
+            } : {}),
           }}>
             <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -244,9 +292,20 @@ export default function Layout() {
           </nav>
         )}
 
-        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-          <Outlet />
-        </main>
+        <main style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            background: 'var(--bg)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}>
+            <div style={{ flex: 1, minHeight: '100%' }}>
+              <Outlet />
+            </div>
+          </main>
       </div>
     </div>
   )
