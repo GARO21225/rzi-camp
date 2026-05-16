@@ -72,30 +72,36 @@ class QRTokenViewSet(viewsets.ViewSet):
                     "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
                 }, status=400)
 
-            # 5. Créer le token et le log (SQL direct)
-            import secrets
-            token_str = secrets.token_hex(8)
+            # 5. Créer le token et le log via Django ORM (compatible SQLite + PostgreSQL)
+            from .models import QRToken, RepasLog
+            from residences.models import Personnel as P
+
             now = timezone.now()
-            user_id = request.user.id if request.user and request.user.is_authenticated else None
+            valide_par = request.user if request.user and request.user.is_authenticated else None
+            pers_obj   = P.objects.filter(pk=pers_id).first()
 
-            with connection.cursor() as cursor:
-                # Créer QRToken avec device_id
-                cursor.execute("""
-                    INSERT INTO restauration_qrtoken
-                    (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
-                    VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
-                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, user_id, now, now, now])
+            # Créer QRToken
+            import uuid as _uuid
+            qt = QRToken.objects.create(
+                token      = _uuid.uuid4().hex,
+                personnel  = pers_obj,
+                resident   = f"{nom} {prenom}",
+                residence  = "",
+                type_repas = type_repas,
+                genere_par = valide_par,
+                cree_le    = now,
+                expire_le  = now,
+                utilise    = True,
+                utilise_le = now,
+            )
 
-                # Récupérer l'ID du token créé
-                cursor.execute("SELECT lastval()")
-                token_id = cursor.fetchone()[0]
-
-                # Créer RepasLog
-                cursor.execute("""
-                    INSERT INTO restauration_repaslog
-                    (qr_token_id, personnel_id, valide_par_id, date_validation)
-                    VALUES (%s, %s, %s, %s)
-                """, [token_id, pers_id, user_id, now])
+            # Créer RepasLog
+            RepasLog.objects.create(
+                qr_token     = qt,
+                personnel    = pers_obj,
+                valide_par   = valide_par,
+                date_validation = now,
+            )
 
             return Response({
                 "valid": True,
@@ -158,32 +164,38 @@ class QRTokenViewSet(viewsets.ViewSet):
                     "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
                 }, status=400)
 
-            # Créer token et log
-            import secrets
-            token_str = secrets.token_hex(8)
-            now = timezone.now()
-            user_id = request.user.id if request.user and request.user.is_authenticated else None
+            # Créer QRToken + RepasLog via ORM (compatible SQLite ET PostgreSQL)
+            import uuid
+            from .models import QRToken as QT, RepasLog as RL
+            from residences.models import Personnel as P
 
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO restauration_qrtoken
-                    (token, personnel_id, residence, resident, type_repas, genere_par_id, cree_le, expire_le, utilise, utilise_le, device_id)
-                    VALUES (%s, %s, '', %s, %s, %s, %s, %s, true, %s, 'web_scanner')
-                """, [token_str, pers_id, f"{nom} {prenom}", type_repas, user_id, now, now, now])
+            now       = timezone.now()
+            pers_obj  = P.objects.filter(pk=pers_id).first()
+            valide_by = request.user if request.user and request.user.is_authenticated else None
 
-                cursor.execute("SELECT lastval()")
-                token_id = cursor.fetchone()[0]
-
-                cursor.execute("""
-                    INSERT INTO restauration_repaslog
-                    (qr_token_id, personnel_id, valide_par_id, date_validation)
-                    VALUES (%s, %s, %s, %s)
-                """, [token_id, pers_id, user_id, now])
+            qt = QT.objects.create(
+                token      = str(uuid.uuid4()).replace("-",""),
+                personnel  = pers_obj,
+                resident   = f"{nom} {prenom}",
+                residence  = "",
+                type_repas = type_repas,
+                genere_par = valide_by,
+                cree_le    = now,
+                expire_le  = now,
+                utilise    = True,
+                utilise_le = now,
+            )
+            RL.objects.create(
+                qr_token        = qt,
+                personnel       = pers_obj,
+                valide_par      = valide_by,
+                date_validation = now,
+            )
 
             return Response({
-                "valid": True,
+                "valid":    True,
                 "resident": f"{nom} {prenom}",
-                "societe": societe or "",
+                "societe":  societe or "",
                 "type_repas": type_repas,
             })
 

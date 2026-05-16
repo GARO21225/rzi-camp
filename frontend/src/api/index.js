@@ -70,6 +70,8 @@ export const qr = {
   scan: (d) => api.post('/api/qr/scan/', d),
   scannerPersonnel: (d) => api.post('/api/qr/scan/', d),
   validerParPersonnel: (d) => api.post('/api/qr/valider_par_personnel/', d),
+  repas:            (p) => api.get('/api/repas/', { params: p }),
+  historiqueScans:  (p) => api.get('/api/repas/', { params: p }),
   viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
   repas: (p) => api.get('/api/repas/', {params:p}),
