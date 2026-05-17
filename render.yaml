@@ -19,9 +19,9 @@ services:
 
   - type: web
     name: rzi-camp-frontend
-    runtime: static
+    runtime: pnpm
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: pnpm install && pnpm run build
     staticPublishPath: dist
     routes:
       - type: rewrite

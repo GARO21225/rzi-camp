@@ -312,6 +312,9 @@ packages:
   d3-path@1.0.9:
     resolution: {integrity: sha512-VLaYcn81dtHVTmEHs1XfL9K0zFwYq7s/E4N62dq4KTC76zd0r9Q1yl4/1rVJ6qB6w7J6bIS0y4e4ejQ2XHzL5jCQ==}
 
+  follow-redirects@1.15.9:
+    resolution: {integrity: sha512-gew4pzXishnPnZxxM/76x2WkYlJ9IoH7pfcKbkqJ6KrPAXva5MfWD4G4zbzu2Wd4FSwRDGHRHFXbCJ7wGop1ZzJA==}
+
   d3-shape@1.3.7:
     resolution: {integrity: sha512-EgQ9eKhtJKVwULhd2NA9A5W0xBWVl7g8KjVF8mf4H4fDvj7X3zGfKo4r5YQ0O4T4L6H8oqbRx7P1IgcxlLVg0Vg==}
 
