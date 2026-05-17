@@ -17,7 +17,7 @@ export default function Voyages() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
-  const canCreate = user?.is_staff === true || user?.is_superuser === true || ['admin','agent'].includes(user?.profile?.role || user?.role || '')
+  const canCreate = ['admin','agent'].includes(role) || user?.is_staff
 
   const [data, setData] = useState([])
   const [stats, setStats] = useState(null)
@@ -138,10 +138,12 @@ export default function Voyages() {
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button onClick={()=>setModal(true)}
-            style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:700 }}>
-            + {user?.is_staff || user?.is_superuser ? 'Nouveau voyage' : 'Déclarer mon voyage'}
-          </button>
+          {canCreate && (
+            <button onClick={()=>setModal(true)}
+              style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              + {isAdmin?'Nouveau voyage':'Déclarer mon voyage'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -294,7 +296,7 @@ export default function Voyages() {
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={createVoyage} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              <button onClick={createVoyage} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 🚀 Déclarer le voyage
               </button>
             </div>

@@ -63,22 +63,16 @@ async function apiGetHistorique(type_repas, jours = 7) {
 
 async function apiGetStats(type_repas) {
   try {
-    const all = await qrAPI.repas({ page_size: 1000 })
+    const all = await qrAPI.repas({ page_size: 500, type_repas })
     const data = all.data.results || all.data || []
     const today = new Date().toISOString().slice(0, 10)
     const todayItems = data.filter(r => (r.date_validation || r.cree_le || '').slice(0, 10) === today)
-    const byType = {
-      petit_dejeuner: todayItems.filter(r => r.type_repas === 'petit_dejeuner').length,
-      dejeuner:       todayItems.filter(r => r.type_repas === 'dejeuner').length,
-      diner:          todayItems.filter(r => r.type_repas === 'diner').length,
-    }
     return {
-      today:    todayItems.length,
-      semaine:  data.length,
-      byType,
+      today: todayItems.length,
+      semaine: data.length,
       lastScan: data[0] || null
     }
-  } catch { return { today: 0, semaine: 0, byType: { petit_dejeuner:0, dejeuner:0, diner:0 }, lastScan: null } }
+  } catch { return { today: 0, semaine: 0, lastScan: null } }
 }
 
 async function apiViderHistorique(type_repas) {
@@ -183,8 +177,8 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
       </div>
 
       {/* Camera view */}
-      <div style={{ background: '#000', position: 'relative', minHeight: 200, maxHeight: 260 }}>
-        <div id="qr_viewport" style={{ width: '100%', minHeight: 200, maxHeight: 260 }} />
+      <div style={{ background: '#000', position: 'relative', minHeight: 240, maxHeight: 300 }}>
+        <div id="qr_viewport" style={{ width: '100%', minHeight: 240, maxHeight: 300 }} />
 
         {/* Crosshair guide */}
         {phase === 'scan' && (
@@ -273,7 +267,7 @@ function LastScanCard({ scan }) {
 }
 
 // ── Liste historique ────────────────────────────────────────────────
-function HistoriqueList({ data, onRefresh, loading }) {
+function HistoriqueList({ data, onRefresh, onClear, loading }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterJour, setFilterJour] = useState('today')
 
@@ -327,7 +321,11 @@ function HistoriqueList({ data, onRefresh, loading }) {
       <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
         <div style={{ padding: '12px 14px', background: '#7c3aed', color: '#fff', fontWeight: 600, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>👥 Personnel ({filteredData.length})</span>
-
+          {onClear && (
+            <button onClick={onClear} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+              🗑 Vider
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -387,7 +385,7 @@ export default function Restauration() {
 
   const [typeRepas, setTypeRepas] = useState('dejeuner')
   const [historique, setHistorique] = useState([])
-  const [stats, setStats] = useState({ today: 0, semaine: 0, byType: { petit_dejeuner:0, dejeuner:0, diner:0 }, lastScan: null })
+  const [stats, setStats] = useState({ today: 0, semaine: 0, lastScan: null })
   const [loading, setLoading] = useState(false)
   const [myQR, setMyQR] = useState(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -419,6 +417,16 @@ export default function Restauration() {
     }
   }, [typeRepas])
 
+  const handleClearHistorique = async () => {
+    if (!window.confirm('Vider tout l\'historique de ce repas ?')) return
+    const ok = await apiViderHistorique(typeRepas)
+    if (ok) {
+      setHistorique([])
+      setStats({ today: 0, semaine: 0, lastScan: null })
+    } else {
+      alert('Erreur lors du vidage')
+    }
+  }
 
   // ── Interface Restaurant (scan personnel) ──
   if (isResto) {
@@ -445,41 +453,17 @@ export default function Restauration() {
           </div>
         </div>
 
-        {/* Stats redesign: TOTAL du jour + breakdown par type */}
-        <div style={{ marginBottom: 16 }}>
-          {/* Chiffre principal */}
-          <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #2d4fa3)', borderRadius: 16, padding: '18px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.65)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>📅 Aujourd'hui — Total</div>
-              <div style={{ fontFamily: 'monospace', fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{stats.today}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', marginTop: 4 }}>repas validés ce jour</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Cette semaine</div>
-              <div style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,.9)' }}>{stats.semaine}</div>
-            </div>
-          </div>
-          {/* Breakdown par type */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {[
-              { key:'petit_dejeuner', icon:'🌅', label:'Petit-déj.', color:'#f97316', bg:'rgba(249,115,22,.1)', border:'rgba(249,115,22,.25)' },
-              { key:'dejeuner',       icon:'☀️',  label:'Déjeuner',  color:'#2563eb', bg:'rgba(37,99,235,.1)',  border:'rgba(37,99,235,.25)' },
-              { key:'diner',          icon:'🌙', label:'Dîner',     color:'#7c3aed', bg:'rgba(124,58,237,.1)', border:'rgba(124,58,237,.25)' },
-            ].map(t => (
-              <div key={t.key} style={{ background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{t.icon}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, color: t.color }}>{stats.byType?.[t.key] || 0}</div>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: .8, marginTop: 2 }}>{t.label}</div>
-              </div>
-            ))}
-          </div>
+        {/* Stats cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <StatsCard count={stats.today} title="Aujourd'hui" color="#16a34a" icon="📅" />
+          <StatsCard count={stats.semaine} title="Semaine" color="#2563eb" icon="📊" />
         </div>
 
         {/* Dernier scan */}
         <LastScanCard scan={stats.lastScan} />
 
         {/* Layout : Scanner + Historique */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start', maxHeight: 'calc(100vh - 280px)' }}>
           {/* Scanner */}
           <div>
             <QRScanner
@@ -495,7 +479,8 @@ export default function Restauration() {
           <HistoriqueList
             data={historique}
             onRefresh={loadHistorique}
-              loading={loading}
+            onClear={handleClearHistorique}
+            loading={loading}
           />
         </div>
       </div>

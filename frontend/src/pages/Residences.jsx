@@ -145,7 +145,7 @@ export default function Residences() {
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={batiments.exportCsv({})} style={{ background:'#16a34a', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ CSV</a>
-          <a href={batiments.exportBlocs()} style={{ background:'#1e3a8a', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
+          <a href={batiments.exportBlocs()} style={{ background:'var(--blue)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
         </div>
       </div>
 
@@ -204,7 +204,7 @@ export default function Residences() {
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontSize:11, color:b.date_depart?'#dc2626':'var(--text-dim)' }}>{b.date_depart||'—'}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <div style={{ display:'flex', gap:5 }}>
-                        <button onClick={()=>openEdit(b)} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>
+                        <button onClick={()=>openEdit(b)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>
                         <button onClick={()=>openHistory(b)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text-dim)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋</button>
                       </div>
                     </td>
@@ -273,7 +273,7 @@ export default function Residences() {
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setEditModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={preview} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              <button onClick={preview} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Aperçu avant confirmation →
               </button>
             </div>
@@ -331,7 +331,7 @@ export default function Residences() {
                   ✅ Confirmer + Enregistrer dans l'historique
                 </button>
               )}
-              <button onClick={()=>confirmSave(false)} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'11px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, width:'100%' }}>
+              <button onClick={()=>confirmSave(false)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'11px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, width:'100%' }}>
                 💾 Sauvegarder sans créer d'historique
               </button>
               <button onClick={()=>{ setConfirmModal(null); setEditModal(confirmModal.batiment) }}
@@ -407,7 +407,7 @@ export default function Residences() {
               )}
             </div>
             <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', flexShrink:0 }}>
-              <button onClick={()=>setHistModal(null)} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Fermer</button>
+              <button onClick={()=>setHistModal(null)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Fermer</button>
             </div>
           </div>
         </div>

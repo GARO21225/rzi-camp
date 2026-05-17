@@ -1,16 +1,59 @@
 :root {
+  /* Core Brand Colors */
   --rzi-blue:        #1e3a8a;
   --rzi-blue-light:  #2563eb;
   --rzi-gold:        #f0a500;
+  --rzi-gold-light:  #fbbf24;
+
+  /* Background & Surface */
   --rzi-bg:          #f1f5f9;
   --rzi-surface:     #ffffff;
   --rzi-surface-2:   #f8fafc;
+  --rzi-surface-3:   #f1f5f9;
+
+  /* Borders */
   --rzi-border:      #e2e8f0;
+  --rzi-border-light:#f1f5f9;
+
+  /* Text Colors */
   --rzi-text:        #1e293b;
   --rzi-text-dim:    #64748b;
-  --rzi-shadow-sm:   0 1px 4px rgba(30,58,138,.08);
-  --rzi-shadow-md:   0 4px 20px rgba(30,58,138,.15);
-  --rzi-radius:      10px;
-  --rzi-radius-lg:   16px;
+  --rzi-text-muted:  #94a3b8;
+
+  /* Shadows - Modern & Premium */
+  --rzi-shadow-sm:   0 1px 2px rgba(30, 58, 138, 0.04), 0 1px 3px rgba(30, 58, 138, 0.06);
+  --rzi-shadow:     0 4px 6px -1px rgba(30, 58, 138, 0.08), 0 2px 4px -1px rgba(30, 58, 138, 0.04);
+  --rzi-shadow-md:   0 10px 15px -3px rgba(30, 58, 138, 0.1), 0 4px 6px -2px rgba(30, 58, 138, 0.05);
+  --rzi-shadow-lg:    0 20px 25px -5px rgba(30, 58, 138, 0.12), 0 10px 10px -5px rgba(30, 58, 138, 0.04);
+  --rzi-shadow-xl:   0 25px 50px -12px rgba(30, 58, 138, 0.2);
+
+  /* Gradients */
+  --rzi-gradient-primary: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  --rzi-gradient-gold: linear-gradient(135deg, #f0a500 0%, #fbbf24 100%);
+  --rzi-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --rzi-gradient-dark: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+
+  /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Border Radius */
+  --rzi-radius-xs:   4px;
+  --rzi-radius:      10px;
+  --rzi-radius-md:   12px;
+  --rzi-radius-lg:   16px;
+  --rzi-radius-xl:   24px;
+  --rzi-radius-2xl:  32px;
+  --rzi-radius-full: 9999px;
+
+  /* Transitions */
+  --rzi-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --rzi-transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --rzi-transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Premium Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--rzi-surface-2); border-radius: var(--rzi-radius-full); }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%); border-radius: var(--rzi-radius-full); }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%); }

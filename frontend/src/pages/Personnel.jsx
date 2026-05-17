@@ -1,504 +1,646 @@
-import React, { useEffect, useState, useCallback } from 'react'
+
+import React, { useEffect, useState } from 'react'
 import { personnel as personnelAPI, importCSV } from '../api'
 import { useStore } from '../store'
 
-// ── Constantes ──────────────────────────────────────────────────
-const TYPES = [
-  { value:'roxgold',      label:'Agent Roxgold',  badge:'#d97706', bg:'#fef3c7' },
-  { value:'sous_traitant',label:'Sous-traitant',  badge:'#2563eb', bg:'#dbeafe' },
-  { value:'visiteur',     label:'Visiteur',        badge:'#7c3aed', bg:'#ede9fe' },
-]
-const ROLES = [['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']]
-const EMPTY_FORM = { nom:'', prenom:'', societe:'ROXGOLD', numero:'', email:'', type_personnel:'roxgold' }
-
-// ── Badge type ───────────────────────────────────────────────────
-function TypeBadge({ type }) {
-  const t = TYPES.find(x => x.value === type) || TYPES[0]
-  return <span style={{ background:t.bg, color:t.badge, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>{t.label}</span>
+const TYPE_COLORS = {
+  roxgold:{ bg:'rgba(240,165,0,.12)', color:'#d08800', border:'rgba(240,165,0,.3)' },
+  sous_traitant:{ bg:'rgba(37,99,235,.1)', color:'#2563eb', border:'rgba(37,99,235,.2)' },
+  visiteur:{ bg:'rgba(124,58,237,.1)', color:'#7c3aed', border:'rgba(124,58,237,.2)' },
 }
+const TYPE_LABELS = { roxgold:'Agent Roxgold', sous_traitant:'Sous-traitant', visiteur:'Visiteur' }
+const TYPE_PREFIX = { roxgold:'A', sous_traitant:'S', visiteur:'V' }
 
-// ── Export CSV ───────────────────────────────────────────────────
-function exportCSV(rows) {
-  const H = ['Nom','Prénom','Société','Type','Téléphone','Email','Login','Actif','QR']
-  const data = rows.map(p => [
-    p.nom, p.prenom, p.societe, p.type_label||p.type_personnel,
-    p.numero, p.email, p.login_genere, p.actif?'Oui':'Non', p.qr_code_string
-  ])
-  const csv = [H, ...data].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n')
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}))
-  a.download = `personnel_${new Date().toISOString().slice(0,10)}.csv`
-  a.click()
-}
-
-// ════════════════════════════════════════════════════════════════
 export default function Personnel() {
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
-
-  // Data
-  const [data,       setData]       = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [search,     setSearch]     = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-
-  // Sélection en masse
-  const [selected, setSelected] = useState(new Set())
-  const [bulkRole, setBulkRole] = useState('')
-
-  // Modals
-  const [modal,        setModal]        = useState(null)  // 'create'
-  const [editModal,    setEditModal]    = useState(null)  // objet personnel
-  const [qrModal,      setQrModal]      = useState(null)
-  const [importModal,  setImportModal]  = useState(false)
+  const [importModal, setImportModal] = useState(false)
   const [importResult, setImportResult] = useState(null)
-  const [importing,    setImporting]    = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [modal, setModal] = useState(null)
+  const [qrModal, setQrModal] = useState(null)
+  const [credModal, setCredModal] = useState(null)
+  const [editModal, setEditModal] = useState(null) // personnel en cours d'édition
+  const [editForm, setEditForm] = useState({})
+  const [editLoading, setEditLoading] = useState(false)
+  const [form, setForm] = useState({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
 
-  // Formulaires
-  const [form,      setForm]      = useState(EMPTY_FORM)
-  const [editForm,  setEditForm]  = useState({})
-  const [submitting,setSubmitting]= useState(false)
-  const [editSaving,setEditSaving]= useState(false)
-  const [err,       setErr]       = useState('')
-
-  // ── Chargement ──
-  const load = useCallback(() => {
+  const load = () => {
     setLoading(true)
-    personnelAPI.list({ page_size:500 })
-      .then(r => setData(r.data.results || r.data || []))
-      .catch(() => setData([]))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  // ── Filtrage ──
-  const filtered = data.filter(p => {
-    const q = search.toLowerCase()
-    const matchSearch = !q || [p.nom,p.prenom,p.societe,p.email,p.login_genere].some(v => (v||'').toLowerCase().includes(q))
-    const matchType   = !typeFilter || p.type_personnel === typeFilter
-    return matchSearch && matchType
-  })
-
-  // ── KPIs ──
-  const counts = TYPES.reduce((a,t) => ({ ...a, [t.value]: data.filter(p => p.type_personnel === t.value).length }), {})
-
-  // ── Sélection ──
-  const toggleSelect = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const selectAll    = ()  => setSelected(new Set(filtered.map(p => p.id)))
-  const clearSelect  = ()  => setSelected(new Set())
-
-  // ── Actions ──
-  const del = async (id) => {
-    if (!window.confirm('Supprimer ce membre ?')) return
-    await personnelAPI.delete(id).catch(() => {})
-    load()
+    const p = {}
+    if (search) p.search = search
+    if (typeFilter) p.type_personnel = typeFilter
+    personnelAPI.list(p).then(r=>setData(r.data.results||r.data)).finally(()=>setLoading(false))
   }
 
-  const handleToggleActive = async (p) => {
-    await personnelAPI.toggleActive(p.id).catch(() => {})
-    load()
+  useEffect(()=>{load()},[search,typeFilter])
+
+  const openCreate = () => {
+    if (!isAdmin) return alert('Seul l\'admin peut créer du personnel')
+    setForm({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
+    setModal('create')
+  }
+
+  const save = async () => {
+    if (!form.nom||!form.prenom||!form.societe) return alert('Nom, Prénom, Société obligatoires')
+    try {
+      const r = await personnelAPI.create(form)
+      // Show credentials if returned
+      if (r.data.login_genere) {
+        setCredModal({ nom:`${r.data.nom} ${r.data.prenom}`, login:r.data.login_genere, password:r.data.password_genere })
+      }
+      setModal(null); load()
+    } catch(e) {
+      alert(e.response?.data?.error || 'Erreur création')
+    }
+  }
+
+  const regenQR = async (id) => {
+    const r = await personnelAPI.regenererQr(id)
+    setQrModal(r.data); load()
+  }
+
+  const handleRoleChange = async (p, newRole) => {
+    if (!newRole) return
+    try {
+      await personnelAPI.assigRole(p.id, newRole)
+      load()
+    } catch(e) { alert(e.response?.data?.error || 'Erreur assignation rôle') }
   }
 
   const regenCompte = async (p) => {
-    if (!window.confirm(`Régénérer le compte de ${p.nom} ${p.prenom} ?`)) return
-    const r = await personnelAPI.regenererCompte(p.id).catch(e => ({ data: e.response?.data }))
-    if (r?.data) setQrModal({ ...p, ...r.data })
-    load()
+    try {
+      const r = await personnelAPI.regenererCompte(p.id)
+      setCredModal({ nom:`${p.nom} ${p.prenom}`, login:r.data.login, password:r.data.password })
+    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
   }
 
+  const handleToggleActive = async (p) => {
+    try {
+      const r = await personnelAPI.toggleActive(p.id)
+      load()
+      alert(r.data?.message || 'Compte mis à jour')
+    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
+  }
+
+  const del = async (id) => {
+    if (!window.confirm('Supprimer ce membre ?')) return
+    try {
+      await personnelAPI.delete(id)
+      load()
+    } catch(e) {
+      const errMsg = e.response?.data?.error || e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur suppression'
+      alert('Suppression impossible: ' + errMsg)
+    }
+  }
+
+  // ─── ÉDITION INDIVIDUELLE ───
   const openEdit = (p) => {
-    setEditForm({ nom:p.nom||'', prenom:p.prenom||'', societe:p.societe||'', numero:p.numero||'', email:p.email||'', type_personnel:p.type_personnel||'roxgold' })
+    setEditForm({
+      nom:            p.nom || '',
+      prenom:         p.prenom || '',
+      societe:        p.societe || '',
+      numero:         p.numero || '',
+      email:          p.email || '',
+      type_personnel: p.type_personnel || 'roxgold',
+    })
     setEditModal(p)
   }
 
   const saveEdit = async () => {
-    if (!editForm.nom || !editForm.prenom) return setErr('Nom et Prénom requis')
-    setEditSaving(true); setErr('')
+    if (!editForm.nom || !editForm.prenom) return alert('Nom et Prénom requis')
+    setEditLoading(true)
     try {
       await personnelAPI.update(editModal.id, editForm)
       setEditModal(null)
       load()
     } catch(e) {
-      setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
-    } finally { setEditSaving(false) }
+      alert(e.response?.data?.detail || 'Erreur lors de la modification')
+    } finally { setEditLoading(false) }
   }
 
-  const create = async () => {
-    if (!form.nom || !form.prenom) return setErr('Nom et Prénom requis')
-    setSubmitting(true); setErr('')
-    try {
-      await personnelAPI.create(form)
-      setModal(null); setForm(EMPTY_FORM); load()
-    } catch(e) { setErr(e.response?.data?.detail || 'Erreur') }
-    finally { setSubmitting(false) }
-  }
+  // ─── ÉDITION EN MASSE ───
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkAction, setBulkAction] = useState('type') // type | societe | activate | deactivate
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([])
 
-  // ── Action en masse ──
-  const bulkAction = async (action) => {
-    const ids = [...selected]
-    if (!ids.length) return
-    if (action === 'delete') {
-      if (!window.confirm(`Supprimer ${ids.length} membre(s) ?`)) return
-      await Promise.all(ids.map(id => personnelAPI.delete(id).catch(() => {})))
-    } else if (action === 'role' && bulkRole) {
-      await Promise.all(ids.map(id => personnelAPI.assigRole(id, bulkRole).catch(() => {})))
-    } else if (action === 'deactivate') {
-      await Promise.all(ids.map(id => personnelAPI.toggleActive(id).catch(() => {})))
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  }
+  const toggleSelectAll = () => {
+    if (selectedIds.length === data.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(data.map(p => p.id))
     }
-    clearSelect(); load()
   }
 
-  // ── Import CSV ──
+  const handleBulkAction = async () => {
+    if (selectedIds.length === 0) return alert('Sélectionnez au moins un membre')
+    if (bulkAction === 'type' && !bulkValue) return alert('Sélectionnez un type')
+    if (bulkAction === 'societe' && !bulkValue) return alert('Entrez une société')
+    setBulkLoading(true)
+    try {
+      const promises = selectedIds.map(id => {
+        const p = data.find(x => x.id === id)
+        if (bulkAction === 'type') return personnelAPI.update(id, { ...p, type_personnel: bulkValue })
+        if (bulkAction === 'societe') return personnelAPI.update(id, { ...p, societe: bulkValue.toUpperCase() })
+        if (bulkAction === 'activate') return personnelAPI.toggleActive(id)
+        if (bulkAction === 'deactivate') return personnelAPI.toggleActive(id)
+      })
+      await Promise.all(promises)
+      setBulkModal(false)
+      setSelectedIds([])
+      setBulkValue('')
+      load()
+      alert(`${selectedIds.length} membre(s) mis à jour`)
+    } catch(e) {
+      alert(e.response?.data?.error || 'Erreur modification en masse')
+    } finally { setBulkLoading(false) }
+  }
+
+  // ─── EXPORT CSV ───
+  const exportCSV = () => {
+    const headers = ['Nom', 'Prénom', 'Société', 'Type', 'Téléphone', 'Email', 'Login', 'Actif']
+    const rows = data.map(p => [
+      p.nom, p.prenom, p.societe,
+      TYPE_LABELS[p.type_personnel] || p.type_personnel,
+      p.numero || '', p.email || '',
+      p.login_genere || '', p.user_active === false ? 'Non' : 'Oui'
+    ])
+    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
+    const BOM = '\ufeff'
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `personnel_rzi_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Preview login/pass based on form
+  const previewLogin = () => {
+    if (!form.nom||!form.prenom) return { login:'—', password:'—' }
+    const prefix = {roxgold:'a',sous_traitant:'s',visiteur:'v'}[form.type_personnel]||'u'
+    const prenomSlug = form.prenom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
+    const nomInit = (form.nom[0]||'x').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
+    const login = `${prefix}_${nomInit}${prenomSlug}`
+    const digits = (form.numero||'').replace(/\D/g,'').slice(-4)||'0000'
+    const password = `${(form.nom[0]||'').toUpperCase()}${(form.prenom[0]||'').toUpperCase()}${digits}`
+    return { login, password }
+  }
+  const preview = previewLogin()
+
+  const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
+
+
   const handleImport = async (e) => {
-    const file = e.target.files[0]; if (!file) return
+    const file = e.target.files[0]
+    if (!file) return
     setImporting(true); setImportResult(null)
     try {
       const r = await importCSV(file)
-      setImportResult(r.data); load()
-    } catch(e) { setImportResult({ error: e.response?.data?.error || 'Erreur import' }) }
-    finally { setImporting(false); e.target.value = '' }
-  }
-
-  // ── Style helpers ──
-  const btn = (bg, color, border='none') => ({
-    background: bg, color, border, padding:'7px 14px', borderRadius:8,
-    cursor:'pointer', fontSize:12, fontWeight:700, whiteSpace:'nowrap',
-    transition:'.15s', fontFamily:'inherit'
-  })
-  const inputStyle = {
-    width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
-    padding:'10px 12px', fontSize:14, boxSizing:'border-box', outline:'none', fontFamily:'inherit'
+      setImportResult(r.data)
+      load()
+    } catch(err) {
+      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
+    } finally { setImporting(false) }
   }
 
   return (
-    <div className="page page-xl">
-
-      {/* ── HEADER ── */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:10 }}>
+    <div style={{ padding:20 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>👤 Gestion du Personnel</h2>
-          <p style={{ fontSize:13, color:'#64748b', margin:'4px 0 0' }}>
-            {data.length} membres · Agents Roxgold · Sous-traitants · Visiteurs
-          </p>
+          <h2 style={{ fontSize:20, fontWeight:700, color:'var(--blue)' }}>👤 Gestion du Personnel</h2>
+          <p style={{ fontSize:13, color:'var(--text-dim)', marginTop:4 }}>Agents Roxgold · Sous-traitants · Visiteurs · Comptes utilisateurs</p>
         </div>
         {isAdmin && (
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={() => setImportModal(true)}
-              style={btn('rgba(30,58,138,.1)','#1e3a8a','1px solid rgba(30,58,138,.3)')}>
-              📥 Importer CSV
+              style={{ background:'rgba(30,58,138,.1)', color:'var(--blue)', border:'1px solid rgba(30,58,138,.3)', padding:'9px 14px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700, display:'flex', alignItems:'center', gap:6 }}>
+              📥 Importer CSV/Excel
             </button>
-            <button onClick={() => exportCSV(filtered)}
-              style={btn('rgba(22,163,74,.1)','#16a34a','1px solid rgba(22,163,74,.3)')}>
-              ⬇ Exporter CSV ({filtered.length})
-            </button>
-            <button onClick={() => { setModal('create'); setErr('') }}
-              style={btn('#1e3a8a','#fff')}>
+            <button onClick={openCreate}
+              style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>
               + Déclarer un membre
             </button>
           </div>
         )}
       </div>
 
-      {/* ── KPIs ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10, marginBottom:18 }}>
-        {TYPES.map(t => (
-          <div key={t.value}
-            onClick={() => setTypeFilter(typeFilter===t.value ? '' : t.value)}
-            style={{ background:'#fff', border:`2px solid ${typeFilter===t.value ? t.badge : '#e2e8f0'}`, borderRadius:12, padding:'14px 16px', cursor:'pointer', transition:'.15s' }}>
-            <div style={{ fontFamily:'monospace', fontSize:32, fontWeight:900, color:t.badge }}>{counts[t.value]||0}</div>
-            <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>{t.label}</div>
-          </div>
-        ))}
-        <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:12, padding:'14px 16px' }}>
-          <div style={{ fontFamily:'monospace', fontSize:32, fontWeight:900, color:'#1e3a8a' }}>{data.length}</div>
-          <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>Total</div>
-        </div>
+      {/* KPIs */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
+        {[['Agent Roxgold','roxgold'],['Sous-traitants','sous_traitant'],['Visiteurs','visiteur']].map(([l,t])=>{
+          const n = data.filter(p=>p.type_personnel===t).length
+          const c = TYPE_COLORS[t]
+        
+
+  return (
+            <div key={t} onClick={()=>setTypeFilter(typeFilter===t?'':t)}
+              style={{ background:'#fff', border:`2px solid ${typeFilter===t?c.color:'var(--border)'}`, borderRadius:12,
+                padding:16, cursor:'pointer', transition:'.2s', boxShadow:'var(--shadow)',
+                borderTop:`4px solid ${c.color}` }}>
+              <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:700, color:c.color }}>{n}</div>
+              <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{TYPE_PREFIX[t]} — {l}</div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* ── FILTRES ── */}
-      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-        <div style={{ position:'relative', flex:1, minWidth:200 }}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher nom, prénom, société..."
-            style={{ ...inputStyle, paddingLeft:14 }} />
-        </div>
-        {typeFilter && (
-          <button onClick={() => setTypeFilter('')}
-            style={btn('rgba(220,38,38,.1)','#dc2626','1px solid rgba(220,38,38,.2)')}>
-            ✕ {TYPES.find(t=>t.value===typeFilter)?.label}
+      {/* Filtres & Actions */}
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+          style={{ ...inp, width:200 }}/>
+        {(search||typeFilter) && <button onClick={()=>{setSearch('');setTypeFilter('')}}
+          style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text-dim)', padding:'7px 12px', borderRadius:7, fontSize:12, cursor:'pointer' }}>✕ Reset</button>}
+        <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+          <button onClick={exportCSV}
+            style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'7px 12px', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+            📤 Exporter CSV
           </button>
-        )}
-        {selected.size > 0 && isAdmin && (
-          <div style={{ display:'flex', gap:6, alignItems:'center', padding:'4px 10px', background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:10 }}>
-            <span style={{ fontSize:12, fontWeight:700, color:'#0369a1' }}>{selected.size} sélectionné(s)</span>
-            <select value={bulkRole} onChange={e=>setBulkRole(e.target.value)}
-              style={{ fontSize:12, border:'1px solid #bae6fd', borderRadius:6, padding:'4px 8px', background:'#fff' }}>
-              <option value="">Changer rôle...</option>
-              {ROLES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            {bulkRole && <button onClick={()=>bulkAction('role')} style={btn('#2563eb','#fff')}>Appliquer rôle</button>}
-            <button onClick={()=>bulkAction('deactivate')} style={btn('rgba(100,116,139,.1)','#64748b','1px solid #e2e8f0')}>⛔ Désact.</button>
-            <button onClick={()=>bulkAction('delete')} style={btn('rgba(220,38,38,.1)','#dc2626','1px solid rgba(220,38,38,.2)')}>🗑 Suppr.</button>
-            <button onClick={clearSelect} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16 }}>✕</button>
-          </div>
-        )}
+          {isAdmin && (
+            <button onClick={() => setBulkModal(true)} disabled={selectedIds.length === 0}
+              style={{ background: selectedIds.length > 0 ? 'rgba(217,119,6,.1)' : 'var(--surface2)', color: selectedIds.length > 0 ? '#d97706' : 'var(--text-dim)', border:'1px solid currentColor', padding:'7px 12px', borderRadius:7, cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed', fontSize:12, fontWeight:600 }}>
+              ✏️ Modifier en masse {selectedIds.length > 0 && `(${selectedIds.length})`}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* ── TABLEAU ── */}
-      <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(30,58,138,.06)' }}>
-        {loading ? (
-          <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:32 }}>⏳</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding:48, textAlign:'center', color:'#94a3b8' }}>
-            <div style={{ fontSize:40, marginBottom:10 }}>👤</div>
-            <div style={{ fontSize:14 }}>Aucun membre trouvé</div>
-          </div>
-        ) : (
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:700 }}>
-              <thead>
-                <tr style={{ background:'#1e3a8a' }}>
-                  {isAdmin && (
-                    <th style={{ padding:'10px 14px', textAlign:'center', width:40 }}>
-                      <input type="checkbox"
-                        checked={selected.size===filtered.length && filtered.length>0}
-                        onChange={e => e.target.checked ? selectAll() : clearSelect()}
-                        style={{ cursor:'pointer', accentColor:'#f0a500' }} />
-                    </th>
-                  )}
-                  {['Nom & Prénom','Société','Type','Téléphone','Login','QR','Actions'].map(h => (
-                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', color:'rgba(255,255,255,.85)', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:.8 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p, i) => (
-                  <tr key={p.id} style={{ borderTop:'1px solid #f1f5f9', background: selected.has(p.id) ? '#eff6ff' : (i%2 ? '#fafafa' : '#fff'), transition:'.1s' }}>
-                    {isAdmin && (
-                      <td style={{ padding:'10px 14px', textAlign:'center' }}>
-                        <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)}
-                          style={{ cursor:'pointer', accentColor:'#2563eb' }} />
-                      </td>
-                    )}
-                    <td style={{ padding:'10px 14px' }}>
-                      <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:13 }}>{p.nom} {p.prenom}</div>
-                      {p.email && <div style={{ fontSize:11, color:'#94a3b8' }}>{p.email}</div>}
-                    </td>
-                    <td style={{ padding:'10px 14px', fontSize:12, color:'#475569' }}>{p.societe || '—'}</td>
-                    <td style={{ padding:'10px 14px' }}><TypeBadge type={p.type_personnel} /></td>
-                    <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12, color:'#475569' }}>{p.numero || '—'}</td>
-                    <td style={{ padding:'10px 14px' }}>
-                      <div style={{ fontSize:11, color:'#475569', fontFamily:'monospace' }}>{p.login_genere || '—'}</div>
-                      {isAdmin ? (
-                        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                          <span style={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }} id={`pwd_${p.id}`}>••••••</span>
-                          <button
-                            onClick={e => {
-                              const el = document.getElementById(`pwd_${p.id}`)
-                              if (el.textContent === '••••••') {
-                                el.textContent = p.password_genere || '(non défini)'
-                                el.style.color = '#dc2626'
-                                e.currentTarget.textContent = '🙈'
-                              } else {
-                                el.textContent = '••••••'
-                                el.style.color = '#94a3b8'
-                                e.currentTarget.textContent = '👁️'
-                              }
-                            }}
-                            style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, padding:0, lineHeight:1, color:'#94a3b8' }}
-                            title="Voir/cacher le mot de passe">
-                            👁️
-                          </button>
-                          {p.password_genere && (
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(p.password_genere); alert('✅ Mot de passe copié !') }}
-                              style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, padding:0, lineHeight:1 }}
-                              title="Copier le mot de passe">
-                              📋
-                            </button>
-                          )}
+      {/* TABLE */}
+      <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
+          <thead>
+            <tr style={{ background:'var(--blue)' }}>
+              <th style={{ padding:'10px 12px', textAlign:'center', width:40 }}>
+                <input type="checkbox" checked={selectedIds.length === data.length && data.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer', width:16, height:16 }}/>
+              </th>
+              {['Nom & Prénom','Société','Type','Téléphone','Login','QR Code','Actions'].map(h=>(
+                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'rgba(255,255,255,.85)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading?<tr><td colSpan={8} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</td></tr>
+            :data.length===0?<tr><td colSpan={8} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre</td></tr>
+            :data.map((p,i)=>{
+              const c=TYPE_COLORS[p.type_personnel]
+              const isSelected = selectedIds.includes(p.id)
+              return (
+                <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background: isSelected ? 'rgba(37,99,235,.08)' : (i%2?'var(--surface2)':'#fff') }}>
+                  <td style={{ padding:'10px 12px', textAlign:'center' }}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(p.id)} style={{ cursor:'pointer', width:16, height:16 }}/>
+                  </td>
+                  <td style={{ padding:'10px 14px' }}><div style={{ fontWeight:700, color:'var(--blue)' }}>{p.nom} {p.prenom}</div>{p.email&&<div style={{ fontSize:11, color:'var(--text-dim)' }}>{p.email}</div>}</td>
+                  <td style={{ padding:'10px 14px', fontSize:12 }}>{p.societe}</td>
+                  <td style={{ padding:'10px 14px' }}><span style={{ background:c?.bg, color:c?.color, border:`1px solid ${c?.border}`, padding:'3px 8px', borderRadius:20, fontSize:11, fontWeight:700 }}>{TYPE_PREFIX[p.type_personnel]} — {TYPE_LABELS[p.type_personnel]}</span></td>
+                  <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12 }}>{p.numero||'—'}</td>
+                  <td style={{ padding:'10px 14px' }}>
+                    {p.login_genere
+                      ? <div style={{ fontFamily:'monospace', fontSize:11, background:'var(--surface2)', padding:'4px 8px', borderRadius:6 }}>
+                          <div style={{ color:'var(--blue)', fontWeight:700 }}>{p.login_genere}</div>
+                          {isAdmin && <div style={{ color:'var(--text-dim)', fontSize:10 }}>••••••</div>}
                         </div>
-                      ) : (
-                        <div style={{ fontSize:10, color:'#94a3b8' }}>••••••</div>
-                      )}
-                    </td>
-                    <td style={{ padding:'10px 14px', textAlign:'center' }}>
-                      {p.qr_code_data && (
-                        <button onClick={() => setQrModal(p)}
-                          style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 8px', cursor:'pointer', fontSize:11, fontWeight:700, color:'#1e3a8a' }}>
-                          🔲 QR
-                        </button>
-                      )}
-                    </td>
-                    <td style={{ padding:'10px 14px' }}>
-                      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                        {isAdmin && (
-                          <select value={p.user_role||''} onChange={e => e.target.value && personnelAPI.assigRole(p.id, e.target.value).then(load)}
-                            style={{ background:'#f0f4ff', color:'#2563eb', border:'1px solid #bfdbfe', padding:'4px 6px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, maxWidth:88 }}>
-                            <option value="">⚙️ Rôle</option>
-                            {ROLES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                          </select>
-                        )}
-                        {isAdmin && (
-                          <button onClick={() => openEdit(p)}
-                            style={{ background:'#eff6ff', color:'#2563eb', border:'1px solid #bfdbfe', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                            ✏️
-                          </button>
-                        )}
-                        {isAdmin && (
-                          <button onClick={() => handleToggleActive(p)}
-                            style={{ background: p.user_active===false ? '#f0fdf4' : '#f8fafc', color: p.user_active===false ? '#16a34a' : '#64748b', border:'1px solid currentColor', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                            {p.user_active===false ? '✅' : '⛔'}
-                          </button>
-                        )}
-                        {isAdmin && (
-                          <button onClick={() => regenCompte(p)}
-                            title="Régénérer compte"
-                            style={{ background:'#fffbeb', color:'#d97706', border:'1px solid #fde68a', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }}>
-                            🔑
-                          </button>
-                        )}
-                        {isAdmin && (
-                          <button onClick={() => del(p.id)}
-                            style={{ background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }}>
-                            🗑
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      : <span style={{ color:'var(--text-dim)', fontSize:11 }}>—</span>
+                    }
+                  </td>
+                  <td style={{ padding:'10px 14px' }}>
+                    <button onClick={()=>setQrModal(p)}
+                      style={{ background:c?.bg, color:c?.color, border:`1px solid ${c?.border}`, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>
+                      📱 QR
+                    </button>
+                  </td>
+                  <td style={{ padding:'10px 14px' }}>
+                    <div style={{ display:'flex', gap:5 }}>
+                      {isAdmin && (
+                      <select
+                        value={p.user_role || p.role_camp || ''}
+                        onChange={e => handleRoleChange(p, e.target.value)}
+                        style={{background:'rgba(37,99,235,.1)',color:'#2563eb',border:'1px solid rgba(37,99,235,.2)',padding:'4px 6px',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:600,maxWidth:90}}>
+                        <option value="">⚙️ Rôle</option>
+                        {[['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                      </select>
+                    )}
+                    {isAdmin && (
+                      <button onClick={() => handleToggleActive(p)} style={{ background:p.user_active===false?'rgba(22,163,74,.1)':'rgba(100,116,139,.1)', color:p.user_active===false?'#16a34a':'#64748b', border:'1px solid currentColor', padding:'4px 7px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>
+                        {p.user_active===false?'✅ Activer':'⛔ Désact.'}
+                      </button>
+                    )}
+                    {isAdmin && <button onClick={()=>openEdit(p)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>✏️</button>}
+                    {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
+                      {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>🗑</button>}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {/* ═══ MODAL CRÉER ═══ */}
-      {modal === 'create' && (
-        <ModalWrapper title="+ Nouveau membre" onClose={() => setModal(null)}>
-          <PersonnelForm form={form} setForm={setForm} err={err} inputStyle={inputStyle} />
-          <ModalFooter onCancel={() => setModal(null)} onSave={create} saving={submitting} saveLabel="Créer le membre" />
-        </ModalWrapper>
-      )}
+      {/* MODAL CREATE */}
+      {modal==='create' && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+          <div style={{ background:'#fff', borderRadius:16, width:520, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:16 }}>👤 Déclarer un membre du personnel</h3>
+              <button onClick={()=>setModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:'20px 24px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              {[['Nom *','nom'],['Prénom *','prenom'],['Société *','societe'],['N° Téléphone','numero'],['Email','email']].map(([l,k])=>(
+                <div key={k} style={{ gridColumn:k==='email'?'span 2':'auto' }}>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{l}</label>
+                  <input value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} style={inp}/>
+                </div>
+              ))}
+              <div style={{ gridColumn:'span 2' }}>
+                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Type *</label>
+                <div style={{ display:'flex', gap:8 }}>
+                  {[['roxgold','A — Agent Roxgold'],['sous_traitant','S — Sous-traitant'],['visiteur','V — Visiteur']].map(([v,l])=>{
+                    const c=TYPE_COLORS[v]
+                  
 
-      {/* ═══ MODAL ÉDITER ═══ */}
-      {editModal && (
-        <ModalWrapper title={`✏️ Modifier — ${editModal.nom} ${editModal.prenom}`} onClose={() => setEditModal(null)}>
-          {err && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:13, color:'#dc2626', fontWeight:600 }}>❌ {err}</div>}
-          <PersonnelForm form={editForm} setForm={setEditForm} inputStyle={inputStyle} />
-          <ModalFooter onCancel={() => setEditModal(null)} onSave={saveEdit} saving={editSaving} saveLabel="💾 Enregistrer" />
-        </ModalWrapper>
-      )}
+  const openEdit = (p) => {
+    setEditForm({
+      nom:           p.nom || '',
+      prenom:        p.prenom || '',
+      societe:       p.societe || '',
+      numero:        p.numero || '',
+      email:         p.email || '',
+      type_personnel: p.type_personnel || 'roxgold',
+    })
+    setEditModal(p)
+  }
 
-      {/* ═══ MODAL QR ═══ */}
-      {qrModal && (
-        <ModalWrapper title={`📱 QR — ${qrModal.nom} ${qrModal.prenom}`} onClose={() => setQrModal(null)}>
-          <div style={{ textAlign:'center', padding:'10px 0' }}>
-            {qrModal.qr_code_data && (
-              <img src={`data:image/png;base64,${qrModal.qr_code_data}`} alt="QR"
-                style={{ width:220, height:220, imageRendering:'pixelated', border:'3px solid #1e3a8a', borderRadius:12, padding:8, background:'#fff' }} />
-            )}
-            <div style={{ marginTop:14, fontWeight:700, color:'#1e3a8a', fontSize:15 }}>{qrModal.nom} {qrModal.prenom}</div>
-            {qrModal.login_genere && <div style={{ fontFamily:'monospace', color:'#64748b', marginTop:4 }}>{qrModal.login_genere} / {qrModal.password_genere||'••••••'}</div>}
+  const saveEdit = async () => {
+    if (!editForm.nom || !editForm.prenom) return alert('Nom et Prénom requis')
+    setEditLoading(true)
+    try {
+      await personnelAPI.update(editModal.id, editForm)
+      setEditModal(null)
+      load()
+    } catch(e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la modification')
+    } finally { setEditLoading(false) }
+  }
+
+
+  return (
+                      <button key={v} onClick={()=>setForm({...form,type_personnel:v})}
+                        style={{ flex:1, padding:'9px 6px', borderRadius:8, border:`2px solid ${form.type_personnel===v?c.color:'var(--border)'}`,
+                          background:form.type_personnel===v?c.bg:'#fff', color:form.type_personnel===v?c.color:'var(--text-dim)',
+                          cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        {l}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Compte preview */}
+            <div style={{ margin:'0 24px 20px', background:'rgba(30,58,138,.06)', border:'1px solid rgba(30,58,138,.15)', borderRadius:10, padding:14 }}>
+              <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', letterSpacing:2, marginBottom:8, textTransform:'uppercase' }}>Compte qui sera créé automatiquement</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:13 }}>
+                <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Login :</span><br/><b style={{ fontFamily:'monospace', color:'var(--blue)' }}>{preview.login}</b></div>
+                <div><span style={{ color:'var(--text-dim)', fontSize:11 }}>Mot de passe :</span><br/><b style={{ fontFamily:'monospace', color:'var(--blue)' }}>{preview.password}</b></div>
+              </div>
+              <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:8 }}>Format : {'{type}_{initiale_nom}{prenom}'} / {'{Initiale_Nom}{Initiale_Prenom}{4 derniers chiffres}'}</div>
+            </div>
+
+            <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button onClick={()=>setModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer' }}>Annuler</button>
+              <button onClick={save} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontWeight:700 }}>Déclarer & Créer compte</button>
+            </div>
           </div>
-        </ModalWrapper>
+        </div>
+      )}
+
+      {/* MODAL QR */}
+      {qrModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+          <div style={{ background:'#fff', borderRadius:14, width:360, maxWidth:'95vw', boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ padding:'18px 24px', background:'var(--blue)', borderRadius:'14px 14px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff' }}>📱 QR Code — {qrModal.nom} {qrModal.prenom}</h3>
+              <button onClick={()=>setQrModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:24, textAlign:'center' }}>
+              <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:12 }}>{qrModal.societe} · {TYPE_LABELS[qrModal.type_personnel]}</div>
+              {qrModal.qr_code_data
+                ? <img src={`data:image/png;base64,${qrModal.qr_code_data}`} alt="QR"
+                    style={{ width:200, height:200, borderRadius:8, border:'3px solid var(--border)', margin:'0 auto 14px', display:'block' }}/>
+                : <div style={{ width:200, height:200, background:'var(--surface2)', borderRadius:8, margin:'0 auto 14px', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-dim)' }}>Pas de QR</div>
+              }
+              <div style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 12px', fontSize:11, fontFamily:'monospace', color:'var(--text-dim)', wordBreak:'break-all', marginBottom:14 }}>
+                {qrModal.qr_code_string}
+              </div>
+              {isAdmin && (
+                <button onClick={()=>regenQR(qrModal.id)}
+                  style={{ background:'rgba(37,99,235,.1)', color:'var(--blue)', border:'1px solid rgba(37,99,235,.2)', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                  🔄 Régénérer QR
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CREDENTIALS */}
+      {credModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:3000 }}>
+          <div style={{ background:'#fff', borderRadius:14, width:420, maxWidth:'95vw', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ padding:'18px 24px', background:'#16a34a', borderRadius:'14px 14px 0 0' }}>
+              <h3 style={{ color:'#fff' }}>✅ Compte créé — Communiquer à {credModal.nom}</h3>
+            </div>
+            <div style={{ padding:24 }}>
+              <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:10, padding:18, marginBottom:16 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Login</div>
+                    <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:'var(--blue)', background:'var(--surface2)', padding:'8px 12px', borderRadius:8 }}>{credModal.login}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:'var(--text-dim)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Mot de passe</div>
+                    <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:'var(--blue)', background:'var(--surface2)', padding:'8px 12px', borderRadius:8 }}>{credModal.password}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize:12, color:'#dc2626', background:'rgba(220,38,38,.06)', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:'8px 12px', marginBottom:16 }}>
+                ⚠️ Notez ces informations et communiquez-les au membre. Le mot de passe ne sera plus affiché.
+              </div>
+              <button onClick={()=>setCredModal(null)} style={{ width:'100%', background:'var(--blue)', color:'#fff', border:'none', padding:12, borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:700 }}>
+                ✅ Compris — Fermer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ═══ MODAL IMPORT CSV ═══ */}
       {importModal && (
-        <ModalWrapper title="📥 Importer du personnel" onClose={() => { setImportModal(false); setImportResult(null) }}>
-          <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:10, padding:'12px 14px', marginBottom:16, fontSize:12, color:'#0369a1' }}>
-            <b>Colonnes attendues (CSV ou Excel) :</b><br />
-            <code>Nom, Prénom, Société, Poste/Type, Téléphone, Email</code>
-          </div>
-          <a href="#" onClick={e => {
-            e.preventDefault()
-            const csv = "Nom,Prénom,Société,Type,Téléphone,Email\nDIALLO,Mamadou,ROXGOLD,Agent Roxgold,0701020304,m.diallo@example.com"
-            const a = document.createElement('a')
-            a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}))
-            a.download = 'modele_personnel.csv'; a.click()
-          }} style={{ fontSize:12, color:'#2563eb', display:'block', marginBottom:16, fontWeight:600 }}>
-            ⬇ Télécharger le modèle CSV
-          </a>
-          <label style={{ display:'block', background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:10, padding:'24px', textAlign:'center', cursor:'pointer' }}>
-            <input type="file" accept=".csv,.xlsx,.xls" onChange={handleImport} style={{ display:'none' }} />
-            <div style={{ fontSize:36, marginBottom:8 }}>📂</div>
-            <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:14 }}>Cliquer ou glisser un fichier</div>
-            <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>CSV ou Excel (.xlsx)</div>
-          </label>
-          {importing && <div style={{ textAlign:'center', color:'#2563eb', fontWeight:600, marginTop:12 }}>⏳ Import en cours…</div>}
-          {importResult && (
-            <div style={{ marginTop:12, padding:'12px 14px', background: importResult.error ? '#fef2f2':'#f0fdf4', border:`1px solid ${importResult.error?'#fca5a5':'#86efac'}`, borderRadius:10, fontSize:13 }}>
-              {importResult.error
-                ? <span style={{ color:'#dc2626' }}>❌ {importResult.error}</span>
-                : <><div style={{ fontWeight:700, color:'#16a34a' }}>✅ {importResult.message}</div>
-                   {importResult.errors?.length > 0 && <ul style={{ fontSize:11, color:'#64748b', margin:'6px 0 0 16px' }}>{importResult.errors.map((e,i) => <li key={i}>{e}</li>)}</ul>}</>
-              }
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e => e.target===e.currentTarget && setImportModal(false)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:480,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'var(--blue)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>📥 Importer une liste de personnel</span>
+              <button onClick={()=>setImportModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
             </div>
-          )}
-        </ModalWrapper>
-      )}
-    </div>
-  )
-}
-
-// ── Composants utilitaires ───────────────────────────────────────
-function PersonnelForm({ form, setForm, err, inputStyle }) {
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      {err && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#dc2626', fontWeight:600 }}>❌ {err}</div>}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        {[['Nom *','nom'],['Prénom *','prenom']].map(([label,field]) => (
-          <div key={field}>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-            <input value={form[field]||''} onChange={e => setForm({...form,[field]:e.target.value.toUpperCase()})} style={inputStyle} />
+            <div style={{ padding:20 }}>
+              <div style={{ background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:10,padding:'12px 14px',marginBottom:16,fontSize:12,color:'#0369a1' }}>
+                <b>Colonnes attendues (CSV ou Excel):</b><br/>
+                <code>Nom, Prénom, Société, Poste, Téléphone, Email</code><br/>
+                <span style={{ opacity:.7 }}>Première ligne = en-têtes. Les noms existants sont ignorés.</span>
+              </div>
+              <a href="#" onClick={e => {
+                e.preventDefault()
+                const csv = "Nom,Prénom,Société,Poste,Téléphone,Email\nDIALLO,Mamadou,ROXGOLD,Agent,0701020304,m.diallo@roxgold.com"
+                const b = new Blob([csv], {type:'text/csv'})
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(b)
+                a.download = 'modele_personnel.csv'
+                a.click()
+              }} style={{ fontSize:12,color:'var(--blue)',display:'block',marginBottom:16,fontWeight:600 }}>
+                ⬇ Télécharger le modèle CSV
+              </a>
+              <label style={{ display:'block',background:'var(--bg)',border:'2px dashed var(--border)',borderRadius:10,padding:'20px',textAlign:'center',cursor:'pointer' }}>
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleImport} style={{ display:'none' }} />
+                <div style={{ fontSize:32,marginBottom:8 }}>📂</div>
+                <div style={{ fontWeight:700,color:'var(--blue)',fontSize:14 }}>Cliquez pour choisir un fichier</div>
+                <div style={{ fontSize:11,color:'var(--text-dim)',marginTop:4 }}>CSV ou Excel (.xlsx)</div>
+              </label>
+              {importing && <div style={{ marginTop:12,textAlign:'center',color:'var(--blue)',fontWeight:600 }}>⏳ Import en cours...</div>}
+              {importResult && (
+                <div style={{ marginTop:12,padding:'12px 14px',background:importResult.error?'#fef2f2':'#f0fdf4',border:`1px solid ${importResult.error?'#fca5a5':'#86efac'}`,borderRadius:10,fontSize:13 }}>
+                  {importResult.error
+                    ? <span style={{ color:'#dc2626' }}>❌ {importResult.error}</span>
+                    : <>
+                        <div style={{ fontWeight:700,color:'#16a34a',marginBottom:4 }}>✅ {importResult.message}</div>
+                        {importResult.errors?.length > 0 && (
+                          <ul style={{ fontSize:11,color:'#64748b',margin:'4px 0 0 16px' }}>
+                            {importResult.errors.map((e,i) => <li key={i}>{e}</li>)}
+                          </ul>
+                        )}
+                      </>
+                  }
+                </div>
+              )}
+            </div>
           </div>
-        ))}
-      </div>
-      {[['Société','societe'],['Téléphone','numero'],['Email','email']].map(([label,field]) => (
-        <div key={field}>
-          <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-          <input value={form[field]||''} onChange={e => setForm({...form,[field]:e.target.value})} style={inputStyle} />
         </div>
-      ))}
-      <div>
-        <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>Type</label>
-        <select value={form.type_personnel||'roxgold'} onChange={e => setForm({...form,type_personnel:e.target.value})} style={{ ...inputStyle }}>
-          {[{value:'roxgold',label:'Agent Roxgold'},{value:'sous_traitant',label:'Sous-traitant'},{value:'visiteur',label:'Visiteur'}].map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  )
-}
-
-function ModalWrapper({ title, onClose, children }) {
-  return (
-    <div style={{ position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:1000,display:'flex',alignItems:'flex-end',justifyContent:'center',padding:0 }}
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:'#fff',borderRadius:'16px 16px 0 0',width:'100%',maxWidth:520,maxHeight:'92vh',overflow:'auto',boxShadow:'0 -8px 40px rgba(0,0,0,.2)' }}>
-        <div style={{ position:'sticky',top:0,background:'#1e3a8a',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:10 }}>
-          <span style={{ fontWeight:700,fontSize:15 }}>{title}</span>
-          <button onClick={onClose} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+      )}
+      {/* ═══ MODAL ÉDITION ═══ */}
+      {editModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setEditModal(null)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:480,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'var(--blue)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>✏️ Modifier — {editModal.nom} {editModal.prenom}</span>
+              <button onClick={()=>setEditModal(null)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:14 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
+                {[['Nom','nom'],['Prénom','prenom']].map(([label,field])=>(
+                  <div key={field}>
+                    <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>{label} *</label>
+                    <input value={editForm[field]||''} onChange={e=>setEditForm({...editForm,[field]:e.target.value.toUpperCase()})}
+                      style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                  </div>
+                ))}
+              </div>
+              {[['Société','societe'],['Téléphone','numero'],['Email','email']].map(([label,field])=>(
+                <div key={field}>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>{label}</label>
+                  <input value={editForm[field]||''} onChange={e=>setEditForm({...editForm,[field]:e.target.value})}
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                </div>
+              ))}
+              <div>
+                <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>Type</label>
+                <select value={editForm.type_personnel||'roxgold'} onChange={e=>setEditForm({...editForm,type_personnel:e.target.value})}
+                  style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14 }}>
+                  <option value="roxgold">Agent Roxgold</option>
+                  <option value="sous_traitant">Sous-traitant</option>
+                  <option value="visiteur">Visiteur</option>
+                </select>
+              </div>
+              <div style={{ display:'flex',gap:10,marginTop:4 }}>
+                <button onClick={()=>setEditModal(null)}
+                  style={{ flex:1,background:'var(--surface2)',color:'var(--text-dim)',border:'1px solid var(--border)',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
+                  Annuler
+                </button>
+                <button onClick={saveEdit} disabled={editLoading}
+                  style={{ flex:2,background:editLoading?'#94a3b8':'var(--blue)',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:editLoading?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
+                  {editLoading ? '⏳ Sauvegarde...' : '💾 Enregistrer les modifications'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style={{ padding:20 }}>{children}</div>
-      </div>
-    </div>
-  )
-}
+      )}
 
-function ModalFooter({ onCancel, onSave, saving, saveLabel }) {
-  return (
-    <div style={{ display:'flex',gap:10,marginTop:20 }}>
-      <button onClick={onCancel} style={{ flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
-        Annuler
-      </button>
-      <button onClick={onSave} disabled={saving}
-        style={{ flex:2,background:saving?'#94a3b8':'#1e3a8a',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:saving?'wait':'pointer',fontSize:14,fontWeight:700 }}>
-        {saving ? '⏳ En cours…' : saveLabel}
-      </button>
+      {/* ═══ MODAL ÉDITION EN MASSE ═══ */}
+      {bulkModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setBulkModal(false)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:440,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'#d97706',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>✏️ Modification en masse — {selectedIds.length} membre(s)</span>
+              <button onClick={()=>setBulkModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:16 }}>
+              <div>
+                <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Action à effectuer</label>
+                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
+                  {[['type','Type du personnel'],['societe','Société'],['activate','Activer comptes'],['deactivate','Désactiver comptes']].map(([v,l])=>(
+                    <button key={v} onClick={()=>{setBulkAction(v);setBulkValue('')}}
+                      style={{ padding:'12px 8px',borderRadius:8,border:`2px solid ${bulkAction===v?'#d97706':'var(--border)'}`,
+                        background: bulkAction===v?'rgba(217,119,6,.1)':'#fff', color: bulkAction===v?'#d97706':'var(--text)',
+                        cursor:'pointer',fontSize:12,fontWeight:600 }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {bulkAction === 'type' && (
+                <div>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Nouveau type</label>
+                  <select value={bulkValue} onChange={e=>setBulkValue(e.target.value)}
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14 }}>
+                    <option value="">— Choisir un type —</option>
+                    <option value="roxgold">Agent Roxgold</option>
+                    <option value="sous_traitant">Sous-traitant</option>
+                    <option value="visiteur">Visiteur</option>
+                  </select>
+                </div>
+              )}
+              {bulkAction === 'societe' && (
+                <div>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Nouvelle société</label>
+                  <input value={bulkValue} onChange={e=>setBulkValue(e.target.value.toUpperCase())} placeholder="ROXGOLD"
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                </div>
+              )}
+              <div style={{ display:'flex',gap:10,marginTop:4 }}>
+                <button onClick={()=>setBulkModal(false)}
+                  style={{ flex:1,background:'var(--surface2)',color:'var(--text-dim)',border:'1px solid var(--border)',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
+                  Annuler
+                </button>
+                <button onClick={handleBulkAction} disabled={bulkLoading}
+                  style={{ flex:2,background:bulkLoading?'#94a3b8':'#d97706',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:bulkLoading?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
+                  {bulkLoading ? '⏳ Traitement...' : `✏️ Appliquer à ${selectedIds.length} membre(s)`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
