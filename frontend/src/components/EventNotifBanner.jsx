@@ -25,7 +25,7 @@ export default function EventNotifBanner() {
           const updated = [...seen, fresh[0].id]
           localStorage.setItem('rzi_seen_events', JSON.stringify(updated.slice(-20)))
           setNotifs([])
-        }, 8000)
+        }, 45000)  // 45 secondes
       }
     } catch {}
   }, [])
@@ -115,7 +115,7 @@ export default function EventNotifBanner() {
       {/* Barre de progression auto-dismiss */}
       <style>{`
         @keyframes shrink { from { width: 100% } to { width: 0% } }
-        .notif-progress { animation: shrink 8s linear forwards; }
+        .notif-progress { animation: shrink 45s linear forwards; }
       `}</style>
       <div style={{ position: 'absolute', bottom: 0, left: 0, height: 3, background: 'rgba(255,255,255,.3)', width: '100%' }}>
         <div className="notif-progress" style={{ height: '100%', background: style.accent }} />

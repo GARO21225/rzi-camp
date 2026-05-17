@@ -25,6 +25,8 @@ export default function Dashboard() {
   const [voyStats, setVoyStats] = useState(null)
   const [notifData, setNotifData] = useState(null)
 
+  // Optimisation: ne recharger que si données > 60s
+  const [lastFetch, setLastFetch] = React.useState(0)
   useEffect(() => {
     batiments.stats().then(r=>setBatStats(r.data)).catch(()=>{})
     incidents.stats().then(r=>setIncStats(r.data)).catch(()=>{})

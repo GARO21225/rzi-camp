@@ -1,11 +1,12 @@
-// RZI CAMP — Service Worker v3 — Offline + Background Sync
-const CACHE = 'rzi-v3'
-const STATIC = ['/', '/index.html', '/manifest.json', '/roxgold-logo.png']
+// RZI CAMP — Service Worker v4 — Optimisé
+// Stratégie: cache ASSETS statiques uniquement, API = network direct
+const CACHE = 'rzi-assets-v4'
+const ASSETS = ['/index.html', '/roxgold-logo.png', '/manifest.json']
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(STATIC).catch(() => {}))
+      .then(c => Promise.allSettled(ASSETS.map(a => c.add(a))))
       .then(() => self.skipWaiting())
   )
 })
@@ -21,115 +22,80 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
 
-  // Mutations API → intercepter pour offline queue
+  // Mutations API (POST/PUT/PATCH/DELETE) → offline queue si réseau absent
   if (e.request.method !== 'GET' && url.pathname.startsWith('/api/')) {
     e.respondWith(mutateFetch(e.request))
     return
   }
 
-  // API GET → Network first + cache fallback
-  if (url.pathname.startsWith('/api/')) {
+  // Assets statiques → cache-first
+  if (ASSETS.includes(url.pathname) || url.pathname.match(/\.(js|css|png|ico|woff2)$/)) {
     e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
-          return res
-        })
-        .catch(() => caches.match(e.request).then(cached =>
-          cached || new Response(
-            JSON.stringify({ offline: true, message: 'Données en cache (hors-ligne)' }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } }
-          )
-        ))
+      caches.match(e.request).then(cached => cached || fetch(e.request))
     )
     return
   }
 
-  // Tout le reste → Network avec fallback index.html
+  // TOUT le reste (API GET + navigation) → network direct, PAS de cache
+  // Fallback index.html seulement si vraiment hors-ligne
   e.respondWith(
     fetch(e.request).catch(() =>
-      caches.match(e.request).then(c => c || caches.match('/index.html'))
+      url.pathname.startsWith('/api/')
+        ? new Response(JSON.stringify({ offline: true, results: [], count: 0 }), {
+            headers: { 'Content-Type': 'application/json' }
+          })
+        : caches.match('/index.html')
     )
   )
 })
 
-// ── Queue offline des mutations ──────────────────────────────────
+// ── Queue offline mutations ──────────────────────────────────────
 async function mutateFetch(req) {
-  try {
-    return await fetch(req.clone())
-  } catch {
-    const body = await req.text().catch(() => '')
-    const entry = {
-      id: Date.now() + Math.random(),
-      url: req.url,
-      method: req.method,
-      headers: Object.fromEntries(req.headers.entries()),
-      body,
-      at: new Date().toISOString()
-    }
-    const q = await getQueue()
-    q.push(entry)
-    await saveQueue(q)
-    const clients = await self.clients.matchAll()
-    clients.forEach(c => c.postMessage({ type: 'QUEUED', count: q.length }))
-    return new Response(
-      JSON.stringify({ queued: true, message: 'Sauvegardé localement. Sera synchronisé dès que le réseau revient.' }),
-      { status: 202, headers: { 'Content-Type': 'application/json' } }
-    )
+  try { return await fetch(req.clone()) }
+  catch {
+    const body  = await req.text().catch(() => '')
+    const entry = { id: Date.now(), url: req.url, method: req.method, headers: Object.fromEntries(req.headers.entries()), body, at: new Date().toISOString() }
+    const q = await getQueue(); q.push(entry); await saveQueue(q)
+    const cs = await self.clients.matchAll()
+    cs.forEach(c => c.postMessage({ type: 'QUEUED', count: q.length }))
+    return new Response(JSON.stringify({ queued: true, message: 'Sauvegardé hors-ligne. Sync au retour du réseau.' }), {
+      status: 202, headers: { 'Content-Type': 'application/json' }
+    })
   }
 }
 
-async function getQueue() {
-  const c = await caches.open('rzi-queue')
-  const r = await c.match('q')
-  return r ? r.json() : []
-}
+async function getQueue() { const c = await caches.open('rzi-queue'); const r = await c.match('q'); return r ? r.json() : [] }
+async function saveQueue(q) { const c = await caches.open('rzi-queue'); await c.put('q', new Response(JSON.stringify(q), { headers: { 'Content-Type': 'application/json' } })) }
 
-async function saveQueue(q) {
-  const c = await caches.open('rzi-queue')
-  await c.put('q', new Response(JSON.stringify(q), { headers: { 'Content-Type': 'application/json' } }))
-}
-
-// ── Sync quand le réseau revient ─────────────────────────────────
-self.addEventListener('sync', e => {
-  if (e.tag === 'rzi-sync') e.waitUntil(syncAll())
-})
-
-self.addEventListener('message', e => {
-  if (e.data?.type === 'SYNC_NOW') syncAll()
-})
+// ── Sync ─────────────────────────────────────────────────────────
+self.addEventListener('sync', e => { if (e.tag === 'rzi-sync') e.waitUntil(syncAll()) })
+self.addEventListener('message', e => { if (e.data?.type === 'SYNC_NOW') syncAll() })
 
 async function syncAll() {
-  const q = await getQueue()
-  if (!q.length) return
+  const q = await getQueue(); if (!q.length) return
   const done = [], fail = []
   for (const entry of q) {
     try {
-      const res = await fetch(entry.url, {
-        method: entry.method,
-        headers: entry.headers,
-        body: entry.body || undefined
-      })
-      if (res.ok || res.status < 500) done.push(entry.id)
-      else fail.push(entry)
+      const r = await fetch(entry.url, { method: entry.method, headers: entry.headers, body: entry.body || undefined })
+      if (r.ok || r.status < 500) done.push(entry.id); else fail.push(entry)
     } catch { fail.push(entry) }
   }
   await saveQueue(fail)
-  const clients = await self.clients.matchAll()
-  clients.forEach(c => c.postMessage({ type: 'SYNCED', done: done.length, fail: fail.length }))
+  const cs = await self.clients.matchAll()
+  cs.forEach(c => c.postMessage({ type: 'SYNCED', done: done.length, fail: fail.length }))
 }
 
-// ── Push Notifications ───────────────────────────────────────────
+// ── Push notifications ───────────────────────────────────────────
 self.addEventListener('push', e => {
   let data = {}
   try { data = e.data.json() } catch { data = { title: e.data?.text() || 'RZI Camp' } }
   e.waitUntil(
     self.registration.showNotification(data.title || '📢 RZI Camp', {
-      body:    data.body  || 'Nouvel événement sur la résidence',
-      icon:    '/roxgold-logo.png',
-      badge:   '/roxgold-logo.png',
+      body: data.body || 'Nouvel événement sur la résidence',
+      icon: '/roxgold-logo.png',
+      badge: '/roxgold-logo.png',
       vibrate: [200, 100, 200],
-      data:    { url: data.url || '/evenements' }
+      data: { url: data.url || '/evenements' }
     })
   )
 })

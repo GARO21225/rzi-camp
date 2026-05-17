@@ -17,7 +17,7 @@ export default function Voyages() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
-  const canCreate = ['admin','agent'].includes(role) || user?.is_staff
+  const canCreate = ['admin','agent'].includes(role) || user?.is_staff || user?.is_superuser || !!user
 
   const [data, setData] = useState([])
   const [stats, setStats] = useState(null)
