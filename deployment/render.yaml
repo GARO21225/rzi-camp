@@ -17,7 +17,7 @@ services:
   - type: web
     name: rzi-camp-frontend
     env: static
-    buildCommand: cd frontend && pnpm install --no-frozen-lockfile && pnpm build
+    buildCommand: cd frontend && pnpm install && pnpm build
     staticPublishPath: frontend/dist
     headers:
       - path: /*

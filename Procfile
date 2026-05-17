@@ -1,2 +1,0 @@
-web: daphne -b 0.0.0.0 -p $PORT rzi_camp.asgi:application
-release: python manage.py migrate --no-input && python manage.py seed_db

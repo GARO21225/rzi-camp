@@ -19,9 +19,9 @@ services:
 
   - type: web
     name: rzi-camp-frontend
-    runtime: pnpm
+    runtime: static
     rootDir: frontend
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
       - type: rewrite
