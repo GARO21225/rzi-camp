@@ -24,6 +24,9 @@ export default function Personnel() {
   const [modal, setModal] = useState(null)
   const [qrModal, setQrModal] = useState(null)
   const [credModal, setCredModal] = useState(null)
+  const [editModal, setEditModal] = useState(null) // personnel en cours d'édition
+  const [editForm, setEditForm] = useState({})
+  const [editLoading, setEditLoading] = useState(false)
   const [form, setForm] = useState({ nom:'', prenom:'', societe:'ROXGOLD', numero:'', type_personnel:'roxgold', email:'' })
 
   const load = () => {
@@ -226,6 +229,7 @@ export default function Personnel() {
                         {p.user_active===false?'✅ Activer':'⛔ Désact.'}
                       </button>
                     )}
+                    {isAdmin && <button onClick={()=>openEdit(p)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>✏️</button>}
                     {isAdmin && <button onClick={()=>regenCompte(p)} style={{ background:'rgba(240,165,0,.1)', color:'#d08800', border:'1px solid rgba(240,165,0,.3)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600 }}>🔑</button>}
                       {isAdmin && <button onClick={()=>del(p.id)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:5, cursor:'pointer', fontSize:10 }}>🗑</button>}
                     </div>
@@ -258,6 +262,31 @@ export default function Personnel() {
                   {[['roxgold','A — Agent Roxgold'],['sous_traitant','S — Sous-traitant'],['visiteur','V — Visiteur']].map(([v,l])=>{
                     const c=TYPE_COLORS[v]
                   
+
+  const openEdit = (p) => {
+    setEditForm({
+      nom:           p.nom || '',
+      prenom:        p.prenom || '',
+      societe:       p.societe || '',
+      numero:        p.numero || '',
+      email:         p.email || '',
+      type_personnel: p.type_personnel || 'roxgold',
+    })
+    setEditModal(p)
+  }
+
+  const saveEdit = async () => {
+    if (!editForm.nom || !editForm.prenom) return alert('Nom et Prénom requis')
+    setEditLoading(true)
+    try {
+      await personnelAPI.update(editModal.id, editForm)
+      setEditModal(null)
+      load()
+    } catch(e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la modification')
+    } finally { setEditLoading(false) }
+  }
+
 
   return (
                       <button key={v} onClick={()=>setForm({...form,type_personnel:v})}
@@ -398,6 +427,55 @@ export default function Personnel() {
                   }
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ═══ MODAL ÉDITION ═══ */}
+      {editModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setEditModal(null)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:480,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'var(--blue)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>✏️ Modifier — {editModal.nom} {editModal.prenom}</span>
+              <button onClick={()=>setEditModal(null)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:14 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
+                {[['Nom','nom'],['Prénom','prenom']].map(([label,field])=>(
+                  <div key={field}>
+                    <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>{label} *</label>
+                    <input value={editForm[field]||''} onChange={e=>setEditForm({...editForm,[field]:e.target.value.toUpperCase()})}
+                      style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                  </div>
+                ))}
+              </div>
+              {[['Société','societe'],['Téléphone','numero'],['Email','email']].map(([label,field])=>(
+                <div key={field}>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>{label}</label>
+                  <input value={editForm[field]||''} onChange={e=>setEditForm({...editForm,[field]:e.target.value})}
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                </div>
+              ))}
+              <div>
+                <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:5,textTransform:'uppercase' }}>Type</label>
+                <select value={editForm.type_personnel||'roxgold'} onChange={e=>setEditForm({...editForm,type_personnel:e.target.value})}
+                  style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14 }}>
+                  <option value="roxgold">Agent Roxgold</option>
+                  <option value="sous_traitant">Sous-traitant</option>
+                  <option value="visiteur">Visiteur</option>
+                </select>
+              </div>
+              <div style={{ display:'flex',gap:10,marginTop:4 }}>
+                <button onClick={()=>setEditModal(null)}
+                  style={{ flex:1,background:'var(--surface2)',color:'var(--text-dim)',border:'1px solid var(--border)',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
+                  Annuler
+                </button>
+                <button onClick={saveEdit} disabled={editLoading}
+                  style={{ flex:2,background:editLoading?'#94a3b8':'var(--blue)',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:editLoading?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
+                  {editLoading ? '⏳ Sauvegarde...' : '💾 Enregistrer les modifications'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
