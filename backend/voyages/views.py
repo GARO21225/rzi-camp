@@ -47,6 +47,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
 
+        # SMS admin
+        try:
+            from rzi_camp.notifications import notifier_admins_sms
+            notifier_admins_sms(f"✈️ Voyage: {str(voyage.personnel)[:20]} → {voyage.destination[:20]}")
+        except Exception:
+            pass
+
 
     def destroy(self, request, *args, **kwargs):
         u = request.user

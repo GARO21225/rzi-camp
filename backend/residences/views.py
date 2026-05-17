@@ -125,6 +125,20 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         except Exception:
             return False
 
+    def perform_create(self, serializer):
+        personnel = serializer.save()
+        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
+        try:
+            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
+            import threading
+            def send():
+                envoyer_email_bienvenue(personnel)
+                envoyer_sms_bienvenue(personnel)
+            threading.Thread(target=send, daemon=True).start()
+        except Exception:
+            pass
+
+
     def destroy(self, request, *args, **kwargs):
         """Supprimer un personnel — admin uniquement (SQL direct pour éviter FK)"""
         if not self._is_admin(request.user):
@@ -483,6 +497,20 @@ class BatimentViewSet(viewsets.ModelViewSet):
         return response
 
 
+    def perform_create(self, serializer):
+        personnel = serializer.save()
+        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
+        try:
+            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
+            import threading
+            def send():
+                envoyer_email_bienvenue(personnel)
+                envoyer_sms_bienvenue(personnel)
+            threading.Thread(target=send, daemon=True).start()
+        except Exception:
+            pass
+
+
     def destroy(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Suppression réservée à l'admin"}, status=403)
@@ -658,6 +686,20 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
     queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
     serializer_class = OccupationHistorySerializer
 
+    def perform_create(self, serializer):
+        personnel = serializer.save()
+        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
+        try:
+            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
+            import threading
+            def send():
+                envoyer_email_bienvenue(personnel)
+                envoyer_sms_bienvenue(personnel)
+            threading.Thread(target=send, daemon=True).start()
+        except Exception:
+            pass
+
+
     def destroy(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
@@ -709,6 +751,20 @@ class DemandeViewSet(viewsets.ModelViewSet):
             demande.notifier_admin()
         except Exception:
             pass
+
+    def perform_create(self, serializer):
+        personnel = serializer.save()
+        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
+        try:
+            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
+            import threading
+            def send():
+                envoyer_email_bienvenue(personnel)
+                envoyer_sms_bienvenue(personnel)
+            threading.Thread(target=send, daemon=True).start()
+        except Exception:
+            pass
+
 
     def destroy(self, request, *args, **kwargs):
         """Only admin can hard-delete; agents can only cancel"""

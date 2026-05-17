@@ -1,3 +1,4 @@
+import { useSessionGuard } from '../hooks/useSessionGuard'
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
@@ -20,8 +21,10 @@ const ROLE_NAV = {
     { to:'/analytics', label:'📈 Analytics' },
     { to:'/audit', label:'🔍 Audit' },
     { to:'/status', label:'🔧 Diagnostic' },
+  { to:'/mon-compte', label:'👤 Mon compte' },
   ],
   agent: [
+    { to:'/mon-compte', label:'👤 Mon compte' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/demandes', label:'📝 Mes demandes' },
     { to:'/evenements', label:'📅 Événements' },
@@ -131,6 +134,7 @@ function WelcomeToast({ user, onClose }) {
 }
 
 export default function Layout() {
+  useSessionGuard()
   const { user, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -173,7 +177,7 @@ export default function Layout() {
   const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: 'light' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: 'light'  }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -292,19 +296,8 @@ export default function Layout() {
           </nav>
         )}
 
-        <main style={{
-            flex: 1,
-            overflowY: 'scroll',  /* scroll toujours actif */
-            overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch',
-            background: 'var(--bg)',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}>
-            <div style={{ flex: 1, minHeight: '100%' }}>
-              <Outlet />
-            </div>
+        <main className="main-scroll">
+            <Outlet />
           </main>
       </div>
     </div>
