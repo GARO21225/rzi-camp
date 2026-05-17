@@ -98,6 +98,93 @@ export default function Personnel() {
     }
   }
 
+  // ─── ÉDITION INDIVIDUELLE ───
+  const openEdit = (p) => {
+    setEditForm({
+      nom:            p.nom || '',
+      prenom:         p.prenom || '',
+      societe:        p.societe || '',
+      numero:         p.numero || '',
+      email:          p.email || '',
+      type_personnel: p.type_personnel || 'roxgold',
+    })
+    setEditModal(p)
+  }
+
+  const saveEdit = async () => {
+    if (!editForm.nom || !editForm.prenom) return alert('Nom et Prénom requis')
+    setEditLoading(true)
+    try {
+      await personnelAPI.update(editModal.id, editForm)
+      setEditModal(null)
+      load()
+    } catch(e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la modification')
+    } finally { setEditLoading(false) }
+  }
+
+  // ─── ÉDITION EN MASSE ───
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkAction, setBulkAction] = useState('type') // type | societe | activate | deactivate
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([])
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  }
+  const toggleSelectAll = () => {
+    if (selectedIds.length === data.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(data.map(p => p.id))
+    }
+  }
+
+  const handleBulkAction = async () => {
+    if (selectedIds.length === 0) return alert('Sélectionnez au moins un membre')
+    if (bulkAction === 'type' && !bulkValue) return alert('Sélectionnez un type')
+    if (bulkAction === 'societe' && !bulkValue) return alert('Entrez une société')
+    setBulkLoading(true)
+    try {
+      const promises = selectedIds.map(id => {
+        const p = data.find(x => x.id === id)
+        if (bulkAction === 'type') return personnelAPI.update(id, { ...p, type_personnel: bulkValue })
+        if (bulkAction === 'societe') return personnelAPI.update(id, { ...p, societe: bulkValue.toUpperCase() })
+        if (bulkAction === 'activate') return personnelAPI.toggleActive(id)
+        if (bulkAction === 'deactivate') return personnelAPI.toggleActive(id)
+      })
+      await Promise.all(promises)
+      setBulkModal(false)
+      setSelectedIds([])
+      setBulkValue('')
+      load()
+      alert(`${selectedIds.length} membre(s) mis à jour`)
+    } catch(e) {
+      alert(e.response?.data?.error || 'Erreur modification en masse')
+    } finally { setBulkLoading(false) }
+  }
+
+  // ─── EXPORT CSV ───
+  const exportCSV = () => {
+    const headers = ['Nom', 'Prénom', 'Société', 'Type', 'Téléphone', 'Email', 'Login', 'Actif']
+    const rows = data.map(p => [
+      p.nom, p.prenom, p.societe,
+      TYPE_LABELS[p.type_personnel] || p.type_personnel,
+      p.numero || '', p.email || '',
+      p.login_genere || '', p.user_active === false ? 'Non' : 'Oui'
+    ])
+    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
+    const BOM = '\ufeff'
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `personnel_rzi_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // Preview login/pass based on form
   const previewLogin = () => {
     if (!form.nom||!form.prenom) return { login:'—', password:'—' }
@@ -167,12 +254,24 @@ export default function Personnel() {
         })}
       </div>
 
-      {/* Filtres */}
-      <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+      {/* Filtres & Actions */}
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
           style={{ ...inp, width:200 }}/>
         {(search||typeFilter) && <button onClick={()=>{setSearch('');setTypeFilter('')}}
           style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text-dim)', padding:'7px 12px', borderRadius:7, fontSize:12, cursor:'pointer' }}>✕ Reset</button>}
+        <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+          <button onClick={exportCSV}
+            style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'7px 12px', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+            📤 Exporter CSV
+          </button>
+          {isAdmin && (
+            <button onClick={() => setBulkModal(true)} disabled={selectedIds.length === 0}
+              style={{ background: selectedIds.length > 0 ? 'rgba(217,119,6,.1)' : 'var(--surface2)', color: selectedIds.length > 0 ? '#d97706' : 'var(--text-dim)', border:'1px solid currentColor', padding:'7px 12px', borderRadius:7, cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed', fontSize:12, fontWeight:600 }}>
+              ✏️ Modifier en masse {selectedIds.length > 0 && `(${selectedIds.length})`}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TABLE */}
@@ -180,20 +279,25 @@ export default function Personnel() {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
           <thead>
             <tr style={{ background:'var(--blue)' }}>
+              <th style={{ padding:'10px 12px', textAlign:'center', width:40 }}>
+                <input type="checkbox" checked={selectedIds.length === data.length && data.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer', width:16, height:16 }}/>
+              </th>
               {['Nom & Prénom','Société','Type','Téléphone','Login','QR Code','Actions'].map(h=>(
                 <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'rgba(255,255,255,.85)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading?<tr><td colSpan={7} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</td></tr>
-            :data.length===0?<tr><td colSpan={7} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre</td></tr>
+            {loading?<tr><td colSpan={8} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</td></tr>
+            :data.length===0?<tr><td colSpan={8} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre</td></tr>
             :data.map((p,i)=>{
               const c=TYPE_COLORS[p.type_personnel]
-            
-
-  return (
-                <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background:i%2?'var(--surface2)':'#fff' }}>
+              const isSelected = selectedIds.includes(p.id)
+              return (
+                <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background: isSelected ? 'rgba(37,99,235,.08)' : (i%2?'var(--surface2)':'#fff') }}>
+                  <td style={{ padding:'10px 12px', textAlign:'center' }}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(p.id)} style={{ cursor:'pointer', width:16, height:16 }}/>
+                  </td>
                   <td style={{ padding:'10px 14px' }}><div style={{ fontWeight:700, color:'var(--blue)' }}>{p.nom} {p.prenom}</div>{p.email&&<div style={{ fontSize:11, color:'var(--text-dim)' }}>{p.email}</div>}</td>
                   <td style={{ padding:'10px 14px', fontSize:12 }}>{p.societe}</td>
                   <td style={{ padding:'10px 14px' }}><span style={{ background:c?.bg, color:c?.color, border:`1px solid ${c?.border}`, padding:'3px 8px', borderRadius:20, fontSize:11, fontWeight:700 }}>{TYPE_PREFIX[p.type_personnel]} — {TYPE_LABELS[p.type_personnel]}</span></td>
@@ -474,6 +578,63 @@ export default function Personnel() {
                 <button onClick={saveEdit} disabled={editLoading}
                   style={{ flex:2,background:editLoading?'#94a3b8':'var(--blue)',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:editLoading?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
                   {editLoading ? '⏳ Sauvegarde...' : '💾 Enregistrer les modifications'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL ÉDITION EN MASSE ═══ */}
+      {bulkModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setBulkModal(false)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:440,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'#d97706',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>✏️ Modification en masse — {selectedIds.length} membre(s)</span>
+              <button onClick={()=>setBulkModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:16 }}>
+              <div>
+                <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Action à effectuer</label>
+                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
+                  {[['type','Type du personnel'],['societe','Société'],['activate','Activer comptes'],['deactivate','Désactiver comptes']].map(([v,l])=>(
+                    <button key={v} onClick={()=>{setBulkAction(v);setBulkValue('')}}
+                      style={{ padding:'12px 8px',borderRadius:8,border:`2px solid ${bulkAction===v?'#d97706':'var(--border)'}`,
+                        background: bulkAction===v?'rgba(217,119,6,.1)':'#fff', color: bulkAction===v?'#d97706':'var(--text)',
+                        cursor:'pointer',fontSize:12,fontWeight:600 }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {bulkAction === 'type' && (
+                <div>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Nouveau type</label>
+                  <select value={bulkValue} onChange={e=>setBulkValue(e.target.value)}
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14 }}>
+                    <option value="">— Choisir un type —</option>
+                    <option value="roxgold">Agent Roxgold</option>
+                    <option value="sous_traitant">Sous-traitant</option>
+                    <option value="visiteur">Visiteur</option>
+                  </select>
+                </div>
+              )}
+              {bulkAction === 'societe' && (
+                <div>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--text-dim)',marginBottom:8,textTransform:'uppercase',letterSpacing:1 }}>Nouvelle société</label>
+                  <input value={bulkValue} onChange={e=>setBulkValue(e.target.value.toUpperCase())} placeholder="ROXGOLD"
+                    style={{ width:'100%',border:'2px solid var(--border)',borderRadius:9,padding:'10px 12px',fontSize:14,boxSizing:'border-box' }}/>
+                </div>
+              )}
+              <div style={{ display:'flex',gap:10,marginTop:4 }}>
+                <button onClick={()=>setBulkModal(false)}
+                  style={{ flex:1,background:'var(--surface2)',color:'var(--text-dim)',border:'1px solid var(--border)',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
+                  Annuler
+                </button>
+                <button onClick={handleBulkAction} disabled={bulkLoading}
+                  style={{ flex:2,background:bulkLoading?'#94a3b8':'#d97706',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:bulkLoading?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
+                  {bulkLoading ? '⏳ Traitement...' : `✏️ Appliquer à ${selectedIds.length} membre(s)`}
                 </button>
               </div>
             </div>

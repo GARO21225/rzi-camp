@@ -463,7 +463,7 @@ export default function Restauration() {
         <LastScanCard scan={stats.lastScan} />
 
         {/* Layout : Scanner + Historique */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start', maxHeight: 'calc(100vh - 280px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start', maxHeight: 'calc(100vh - 280px)' }}>
           {/* Scanner */}
           <div>
             <QRScanner
