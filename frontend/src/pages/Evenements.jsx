@@ -25,7 +25,7 @@ const todayDT = new Date().toISOString().slice(0,16)
 export default function Evenements() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = ['admin','manager'].includes(role) || user?.is_staff || user?.is_superuser
+  const isAdmin = user?.is_staff === true || user?.is_superuser === true || user?.profile?.role === 'admin'
 
   const [events, setEvents] = useState([])
   const [alertes, setAlertes] = useState([])
@@ -90,16 +90,15 @@ export default function Evenements() {
           <h2 style={{ fontSize:19, fontWeight:700, color:'var(--blue)' }}>📅 Événements du Campus</h2>
           <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications automatiques aux résidents · WebSocket temps réel</p>
         </div>
-        {isAdmin && (
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
               ⚠️ Alerte campus
             </button>
-            <button onClick={()=>setModal(true)} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+            <button onClick={()=>setModal(true)} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
               + Créer événement
             </button>
           </div>
-        )}
+
       </div>
 
       {/* Alertes actives */}
@@ -244,7 +243,7 @@ export default function Evenements() {
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
               <button onClick={()=>setModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={createEvt} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>🚀 Créer & Notifier</button>
+              <button onClick={createEvt} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>🚀 Créer & Notifier</button>
             </div>
           </div>
         </div>

@@ -1,3 +1,19 @@
+
+// ── Enregistrement Service Worker (offline mode) ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        // Sync au retour du réseau
+        window.addEventListener('online', () => {
+          if (reg.sync) reg.sync.register('rzi-sync').catch(() => {})
+          reg.active?.postMessage({ type: 'SYNC_NOW' })
+        })
+      })
+      .catch(() => {})
+  })
+}
+
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
@@ -17,8 +33,11 @@ import Maintenance from './pages/Maintenance'
 import MonCompte from './pages/MonCompte'
 import Analytics from './pages/Analytics'
 import AuditPage from './pages/AuditPage'
+import StatusPage from './pages/StatusPage'
 import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
+import OfflineBanner from './components/OfflineBanner'
+import EventNotifBanner from './components/EventNotifBanner'
 
 // Handle 404.html redirect for SPA routing
 const urlParams = new URLSearchParams(window.location.search)
@@ -87,6 +106,8 @@ export default function App() {
   return (
     <>
       <InactivityWarning />
+      <OfflineBanner />
+      <EventNotifBanner />
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>
@@ -104,6 +125,8 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="demandes" element={<Demandes/>}/>
           <Route path="audit" element={<AuditPage />} />
+          <Route path="mon-compte" element={<MonCompte />} />
+          <Route path="status" element={<StatusPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
