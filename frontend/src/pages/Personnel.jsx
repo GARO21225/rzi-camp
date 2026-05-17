@@ -14,6 +14,9 @@ const TYPE_PREFIX = { roxgold:'A', sous_traitant:'S', visiteur:'V' }
 export default function Personnel() {
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
+  const [importModal, setImportModal] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const [importing, setImporting] = useState(false)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -107,6 +110,20 @@ export default function Personnel() {
 
   const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
 
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const r = await importCSV(file)
+      setImportResult(r.data)
+      load()
+    } catch(err) {
+      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
+    } finally { setImporting(false) }
+  }
+
   return (
     <div style={{ padding:20 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
@@ -126,7 +143,21 @@ export default function Personnel() {
         {[['Agent Roxgold','roxgold'],['Sous-traitants','sous_traitant'],['Visiteurs','visiteur']].map(([l,t])=>{
           const n = data.filter(p=>p.type_personnel===t).length
           const c = TYPE_COLORS[t]
-          return (
+        
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const r = await importCSV(file)
+      setImportResult(r.data)
+      load()
+    } catch(err) {
+      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
+    } finally { setImporting(false) }
+  }
+
+  return (
             <div key={t} onClick={()=>setTypeFilter(typeFilter===t?'':t)}
               style={{ background:'#fff', border:`2px solid ${typeFilter===t?c.color:'var(--border)'}`, borderRadius:12,
                 padding:16, cursor:'pointer', transition:'.2s', boxShadow:'var(--shadow)',
@@ -161,7 +192,21 @@ export default function Personnel() {
             :data.length===0?<tr><td colSpan={7} style={{ padding:24, textAlign:'center', color:'var(--text-dim)' }}>Aucun membre</td></tr>
             :data.map((p,i)=>{
               const c=TYPE_COLORS[p.type_personnel]
-              return (
+            
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const r = await importCSV(file)
+      setImportResult(r.data)
+      load()
+    } catch(err) {
+      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
+    } finally { setImporting(false) }
+  }
+
+  return (
                 <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background:i%2?'var(--surface2)':'#fff' }}>
                   <td style={{ padding:'10px 14px' }}><div style={{ fontWeight:700, color:'var(--blue)' }}>{p.nom} {p.prenom}</div>{p.email&&<div style={{ fontSize:11, color:'var(--text-dim)' }}>{p.email}</div>}</td>
                   <td style={{ padding:'10px 14px', fontSize:12 }}>{p.societe}</td>
@@ -229,7 +274,21 @@ export default function Personnel() {
                 <div style={{ display:'flex', gap:8 }}>
                   {[['roxgold','A — Agent Roxgold'],['sous_traitant','S — Sous-traitant'],['visiteur','V — Visiteur']].map(([v,l])=>{
                     const c=TYPE_COLORS[v]
-                    return (
+                  
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const r = await importCSV(file)
+      setImportResult(r.data)
+      load()
+    } catch(err) {
+      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
+    } finally { setImporting(false) }
+  }
+
+  return (
                       <button key={v} onClick={()=>setForm({...form,type_personnel:v})}
                         style={{ flex:1, padding:'9px 6px', borderRadius:8, border:`2px solid ${form.type_personnel===v?c.color:'var(--border)'}`,
                           background:form.type_personnel===v?c.bg:'#fff', color:form.type_personnel===v?c.color:'var(--text-dim)',
@@ -315,6 +374,59 @@ export default function Personnel() {
               <button onClick={()=>setCredModal(null)} style={{ width:'100%', background:'var(--blue)', color:'#fff', border:'none', padding:12, borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:700 }}>
                 ✅ Compris — Fermer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL IMPORT CSV ═══ */}
+      {importModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+          onClick={e => e.target===e.currentTarget && setImportModal(false)}>
+          <div style={{ background:'#fff',borderRadius:16,width:'100%',maxWidth:480,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'var(--blue)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>📥 Importer une liste de personnel</span>
+              <button onClick={()=>setImportModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <div style={{ background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:10,padding:'12px 14px',marginBottom:16,fontSize:12,color:'#0369a1' }}>
+                <b>Colonnes attendues (CSV ou Excel):</b><br/>
+                <code>Nom, Prénom, Société, Poste, Téléphone, Email</code><br/>
+                <span style={{ opacity:.7 }}>Première ligne = en-têtes. Les noms existants sont ignorés.</span>
+              </div>
+              <a href="#" onClick={e => {
+                e.preventDefault()
+                const csv = "Nom,Prénom,Société,Poste,Téléphone,Email\nDIALLO,Mamadou,ROXGOLD,Agent,0701020304,m.diallo@roxgold.com"
+                const b = new Blob([csv], {type:'text/csv'})
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(b)
+                a.download = 'modele_personnel.csv'
+                a.click()
+              }} style={{ fontSize:12,color:'var(--blue)',display:'block',marginBottom:16,fontWeight:600 }}>
+                ⬇ Télécharger le modèle CSV
+              </a>
+              <label style={{ display:'block',background:'var(--bg)',border:'2px dashed var(--border)',borderRadius:10,padding:'20px',textAlign:'center',cursor:'pointer' }}>
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleImport} style={{ display:'none' }} />
+                <div style={{ fontSize:32,marginBottom:8 }}>📂</div>
+                <div style={{ fontWeight:700,color:'var(--blue)',fontSize:14 }}>Cliquez pour choisir un fichier</div>
+                <div style={{ fontSize:11,color:'var(--text-dim)',marginTop:4 }}>CSV ou Excel (.xlsx)</div>
+              </label>
+              {importing && <div style={{ marginTop:12,textAlign:'center',color:'var(--blue)',fontWeight:600 }}>⏳ Import en cours...</div>}
+              {importResult && (
+                <div style={{ marginTop:12,padding:'12px 14px',background:importResult.error?'#fef2f2':'#f0fdf4',border:`1px solid ${importResult.error?'#fca5a5':'#86efac'}`,borderRadius:10,fontSize:13 }}>
+                  {importResult.error
+                    ? <span style={{ color:'#dc2626' }}>❌ {importResult.error}</span>
+                    : <>
+                        <div style={{ fontWeight:700,color:'#16a34a',marginBottom:4 }}>✅ {importResult.message}</div>
+                        {importResult.errors?.length > 0 && (
+                          <ul style={{ fontSize:11,color:'#64748b',margin:'4px 0 0 16px' }}>
+                            {importResult.errors.map((e,i) => <li key={i}>{e}</li>)}
+                          </ul>
+                        )}
+                      </>
+                  }
+                </div>
+              )}
             </div>
           </div>
         </div>

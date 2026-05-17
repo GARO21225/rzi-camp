@@ -216,6 +216,99 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return Response(PersonnelSerializer(p).data)
 
 
+    @action(detail=False, methods=["post"])
+    def import_csv(self, request):
+        """Importer une liste de personnel depuis CSV/Excel"""
+        if not self._is_admin(request.user):
+            return Response({"error": "Admin requis"}, status=403)
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"error": "Fichier requis (CSV ou Excel)"}, status=400)
+
+        filename = file.name.lower()
+        rows = []
+
+        try:
+            if filename.endswith(".csv"):
+                import csv, codecs
+                reader = csv.DictReader(codecs.iterdecode(file, "utf-8-sig"))
+                rows = list(reader)
+            elif filename.endswith((".xlsx", ".xls")):
+                import openpyxl
+                wb = openpyxl.load_workbook(file, read_only=True)
+                ws = wb.active
+                headers = [str(c.value or "").strip() for c in next(ws.iter_rows())]
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    rows.append(dict(zip(headers, row)))
+            else:
+                return Response({"error": "Format non supporté. Utilisez .csv ou .xlsx"}, status=400)
+        except Exception as e:
+            return Response({"error": f"Erreur lecture fichier: {str(e)[:100]}"}, status=400)
+
+        # Mapping colonnes flexibles
+        COL_MAP = {
+            "nom": ["nom","name","last_name","Nom","NOM"],
+            "prenom": ["prenom","prénom","first_name","Prénom","PRENOM"],
+            "societe": ["societe","société","company","Société","SOCIETE","entreprise"],
+            "type_personnel": ["type","type_personnel","poste","Poste","TYPE"],
+            "numero": ["numero","numéro","phone","tel","Téléphone","NUMERO"],
+            "email": ["email","mail","Email","EMAIL"],
+        }
+
+        def get_val(row, keys):
+            for k in keys:
+                if k in row and row[k]:
+                    return str(row[k]).strip()
+            return ""
+
+        created, skipped = 0, 0
+        errors = []
+
+        for i, row in enumerate(rows, 1):
+            nom    = get_val(row, COL_MAP["nom"]).upper()
+            prenom = get_val(row, COL_MAP["prenom"]).upper()
+            if not nom or not prenom:
+                skipped += 1
+                errors.append(f"Ligne {i}: nom/prénom manquant")
+                continue
+
+            try:
+                p, created_flag = Personnel.objects.get_or_create(
+                    nom=nom, prenom=prenom,
+                    defaults={
+                        "societe":         get_val(row, COL_MAP["societe"]) or "ROXGOLD",
+                        "type_personnel":  get_val(row, COL_MAP["type_personnel"]) or "Agent",
+                        "numero":          get_val(row, COL_MAP["numero"]),
+                        "email":           get_val(row, COL_MAP["email"]),
+                    }
+                )
+                if created_flag:
+                    # Générer QR
+                    import qrcode, io, base64
+                    qr_str = f"{p.pk:04d}"
+                    p.qr_code_string = qr_str
+                    qr_img = qrcode.make(qr_str, box_size=20, border=2)
+                    buf = io.BytesIO()
+                    qr_img.save(buf, format="PNG")
+                    p.qr_code_data = base64.b64encode(buf.getvalue()).decode()
+                    p.save(update_fields=["qr_code_string","qr_code_data"])
+                    created += 1
+                else:
+                    skipped += 1
+            except Exception as e:
+                errors.append(f"Ligne {i}: {str(e)[:60]}")
+                skipped += 1
+
+        return Response({
+            "created": created,
+            "skipped": skipped,
+            "total":   len(rows),
+            "errors":  errors[:10],
+            "message": f"{created} personnel(s) importé(s), {skipped} ignoré(s)"
+        })
+
+
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
     queryset = Batiment.objects.select_related("personnel").all()

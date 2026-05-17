@@ -126,6 +126,14 @@ export default function Historique() {
   }
 
 
+
+  const filteredRepas = repasData.filter(r => {
+    if (repasDateFilter && !(r.date_validation||'').startsWith(repasDateFilter)) return false
+    if (repasSearch) {
+      const q = repasSearch.toLowerCase()
+      if (!(r.resident||'').toLowerCase().includes(q) && !(r.societe||'').toLowerCase().includes(q)) return false
+    }
+    return true
   const exportRepasCSV = () => {
     if (!filteredRepas.length) return
     const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
@@ -150,13 +158,6 @@ export default function Historique() {
     URL.revokeObjectURL(url)
   }
 
-  const filteredRepas = repasData.filter(r => {
-    if (repasDateFilter && !(r.date_validation||'').startsWith(repasDateFilter)) return false
-    if (repasSearch) {
-      const q = repasSearch.toLowerCase()
-      if (!(r.resident||'').toLowerCase().includes(q) && !(r.societe||'').toLowerCase().includes(q)) return false
-    }
-    return true
   })
 
   const loadRepas = async () => {

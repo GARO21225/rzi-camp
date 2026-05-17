@@ -1,7 +1,10 @@
 from django.urls import path
+from . import views
 from .views import me, liste_users, toggle_user_active, delete_user, assigner_role
 
 urlpatterns = [
+    path("change-password/", views.change_password, name="change_password"),
+    path("reset-password/<int:user_id>/", views.reset_user_password, name="reset_user_password"),
     path("auth/me/", me),
     path("admin/users/", liste_users),
     path("admin/users/<int:user_id>/toggle-active/", toggle_user_active),

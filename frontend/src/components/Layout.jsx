@@ -294,7 +294,7 @@ export default function Layout() {
 
         <main style={{
             flex: 1,
-            overflowY: 'auto',
+            overflowY: 'scroll',  /* scroll toujours actif */
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             background: 'var(--bg)',

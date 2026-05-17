@@ -142,3 +142,18 @@ export const adminApi = {
   deleteUser: (id) => api.delete(`/api/admin/users/${id}/delete/`),
   assignRole: (id, role) => api.post(`/api/admin/users/${id}/role/`, {role}),
 }
+
+// ── Mot de passe ──
+export const password = {
+  change: (d) => api.post('/api/change-password/', d),
+  resetUser: (id, pwd) => api.post(`/api/reset-password/${id}/`, { mot_de_passe: pwd }),
+}
+
+// ── Import CSV Personnel ──
+export const importCSV = (file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post('/api/personnel/import_csv/', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
