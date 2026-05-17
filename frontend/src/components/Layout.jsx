@@ -296,7 +296,7 @@ export default function Layout() {
           </nav>
         )}
 
-        <main className="main-scroll">
+        <main className="main-scroll" style={{ background: 'var(--bg)' }}>
             <Outlet />
           </main>
       </div>

@@ -98,7 +98,7 @@ export default function Maintenance() {
   const countByStatus = s => data.filter(d => d.statut === s).length
 
   return (
-    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
+    <div className="page page-xl">
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>

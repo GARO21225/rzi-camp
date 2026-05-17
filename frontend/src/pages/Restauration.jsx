@@ -177,8 +177,8 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
       </div>
 
       {/* Camera view */}
-      <div style={{ background: '#000', position: 'relative', minHeight: 240, maxHeight: 300 }}>
-        <div id="qr_viewport" style={{ width: '100%', minHeight: 240, maxHeight: 300 }} />
+      <div style={{ background: '#000', position: 'relative', minHeight: 200, maxHeight: 260 }}>
+        <div id="qr_viewport" style={{ width: '100%', minHeight: 200, maxHeight: 260 }} />
 
         {/* Crosshair guide */}
         {phase === 'scan' && (
@@ -463,7 +463,7 @@ export default function Restauration() {
         <LastScanCard scan={stats.lastScan} />
 
         {/* Layout : Scanner + Historique */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start', maxHeight: 'calc(100vh - 280px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
           {/* Scanner */}
           <div>
             <QRScanner

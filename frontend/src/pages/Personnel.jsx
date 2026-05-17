@@ -172,7 +172,7 @@ export default function Personnel() {
   }
 
   return (
-    <div style={{ padding:20, maxWidth:1200, margin:'0 auto' }}>
+    <div className="page page-xl">
 
       {/* ── HEADER ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:10 }}>

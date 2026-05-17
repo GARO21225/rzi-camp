@@ -1,2 +1,2 @@
-// Build 1779028720
-export const BUILD_ID = '1779028720'
+// Build 1779029501 — UI Designer v6
+export const BUILD_ID = '1779029501'
