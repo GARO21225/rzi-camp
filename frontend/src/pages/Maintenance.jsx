@@ -1,83 +1,56 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { incidents, batiments as batAPI } from '../api'
+/**
+ * MAINTENANCE — Liste complète + Détail avec photo + Actions admin
+ */
+import React, { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
+import { incidents, batiments as batAPI } from '../api'
 
-const PRIORITE = {
-  haute:  { color:'#dc2626', bg:'rgba(220,38,38,.1)',  label:'🔴 Haute' },
-  moyenne:{ color:'#ea580c', bg:'rgba(234,88,12,.1)',  label:'🟠 Moyenne' },
-  basse:  { color:'#2563eb', bg:'rgba(37,99,235,.1)',  label:'🔵 Basse' },
-}
-const STATUT = {
-  'Ouvert':  { color:'#dc2626', bg:'rgba(220,38,38,.1)',  icon:'🔴' },
-  'En cours':{ color:'#ea580c', bg:'rgba(234,88,12,.1)',  icon:'🟠' },
-  'Résolu':  { color:'#16a34a', bg:'rgba(22,163,74,.1)',   icon:'✅' },
-}
-const CATS = ['Plomberie','Électricité','Serrurerie','Climatisation','Toiture','Menuiserie','Autre']
-
-const inp = {
-  width:'100%', border:'2px solid #e2e8f0', borderRadius:9, padding:'9px 12px',
-  fontSize:13, outline:'none', fontFamily:'inherit', color:'#1e293b', background:'#f8fafc'
-}
+const PRIO_COLOR = { haute:'#dc2626', moyenne:'#f97316', basse:'#16a34a' }
+const STAT_COLOR = { 'Ouvert':'#dc2626', 'En cours':'#f97316', 'Résolu':'#16a34a' }
+const CATS = ['Plomberie','Électricité','Climatisation','Serrurerie','Menuiserie','Peinture','Autre']
+const PRIOS = ['haute','moyenne','basse']
 
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin' ||
-    user?.profile?.role === 'admin'
-  const isAdminOrTech = isAdmin || ['technicien','menage'].includes(role)
-  const canClose = isAdminOrTech
-  const canCreate = isAdmin || ['agent','technicien','menage'].includes(role)
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const isTech  = isAdmin || ['technicien','menage'].includes(role)
 
-  const [data, setData]           = useState([])
-  const [stats, setStats]         = useState(null)
-  const [bats, setBats]           = useState([])
-  const [modal, setModal]         = useState(false)
-  const [editModal, setEditModal] = useState(null)
-  const [detail, setDetail]       = useState(null)
-  const [filterStatut, setFilter] = useState('')
-  const [filterPrio, setFilterP]  = useState('')
-  const [loading, setLoading]     = useState(true)
-  const [submitting, setSub]      = useState(false)
-  const [gpsLoading, setGpsLoad]  = useState(false)
-  const [gps, setGps]             = useState(null)
-  const [photoB64, setPhotoB64]   = useState('')
-  const [form, setForm]           = useState({
-    titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:''
+  const [data,       setData]       = useState([])
+  const [loading,    setLoading]    = useState(false)
+  const [filterStat, setFilterStat] = useState('')
+  const [filterPrio, setFilterPrio] = useState('')
+  const [filterCat,  setFilterCat]  = useState('')
+  const [modal,      setModal]      = useState(null)  // 'create'
+  const [detail,     setDetail]     = useState(null)  // incident object
+  const [photoB64,   setPhotoB64]   = useState('')
+  const [gps,        setGps]        = useState(null)
+  const [batList,    setBatList]    = useState([])
+  const [form, setForm] = useState({
+    titre:'', description:'', categorie:'Plomberie',
+    priorite:'haute', residence:'', bloc:''
   })
-  const [editForm, setEditForm]   = useState({
-    titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', statut:'Ouvert'
-  })
-  const fileRef = useRef()
-  const editFileRef = useRef()
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState('')
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
     const p = {}
-    if (filterStatut) p.statut = filterStatut
+    if (filterStat) p.statut = filterStat
     if (filterPrio) p.priorite = filterPrio
+    if (filterCat)  p.categorie = filterCat
     incidents.list(p)
-      .then(r => setData(r.data.results||r.data||[]))
+      .then(r => setData(r.data.results || r.data || []))
       .catch(() => setData([]))
       .finally(() => setLoading(false))
-    incidents.stats().then(r => setStats(r.data)).catch(()=>{})
-    batAPI.list({ page_size:300 }).then(r => {
-      const items = r.data.results||r.data||[]
-      setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
-    }).catch(()=>{})
-  }
+  }, [filterStat, filterPrio, filterCat])
 
-  useEffect(() => { load() }, [filterStatut, filterPrio])
+  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    batAPI.list({ page_size: 300 }).then(r => setBatList(r.data.results || r.data || [])).catch(() => {})
+  }, [])
 
-  const getGPS = () => {
-    setGpsLoad(true)
-    navigator.geolocation?.getCurrentPosition(
-      p => { setGps([p.coords.latitude, p.coords.longitude]); setGpsLoad(false) },
-      () => { setGps(null); setGpsLoad(false) },
-      { enableHighAccuracy:true, timeout:8000 }
-    )
-  }
-
-  const handlePhoto = (e) => {
+  const handlePhoto = e => {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
@@ -85,266 +58,268 @@ export default function Maintenance() {
     reader.readAsDataURL(file)
   }
 
-  const handleEditPhoto = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setEditForm({...editForm, photo_b64: ev.target.result.split(',')[1]})
-    reader.readAsDataURL(file)
-  }
-
-  const resetForm = () => {
-    setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'' })
-    setPhotoB64(''); setGps(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
-
-  const openEdit = (inc) => {
-    setEditForm({
-      titre: inc.titre,
-      description: inc.description,
-      categorie: inc.categorie || 'Plomberie',
-      priorite: inc.priorite || 'moyenne',
-      statut: inc.statut || 'Ouvert',
-      photo_b64: inc.photo_b64 || ''
-    })
-    setEditModal(inc)
+  const getGPS = () => {
+    navigator.geolocation?.getCurrentPosition(
+      p => setGps({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => {}
+    )
   }
 
   const submit = async () => {
-    if (!form.titre.trim()) return alert('Le titre est obligatoire')
-    if (!form.description.trim()) return alert('La description est obligatoire')
-    setSub(true)
+    if (!form.titre.trim()) return setErr('Le titre est requis')
+    setSubmitting(true); setErr('')
     try {
       const payload = new FormData()
-      Object.entries(form).forEach(([k,v]) => { if(v) payload.append(k,v) })
+      Object.entries(form).forEach(([k,v]) => v && payload.append(k, v))
       if (photoB64) { payload.append('photo_b64', photoB64); payload.append('photo_base64', photoB64) }
-      if (gps) { payload.append('latitude', gps[0]); payload.append('longitude', gps[1]) }
-      await incidents.create(payload, { headers:{ 'Content-Type':'multipart/form-data' } })
-      setModal(false); resetForm(); load()
+      if (gps)      { payload.append('latitude', gps.lat); payload.append('longitude', gps.lng) }
+      await incidents.create(Object.fromEntries(payload.entries()))
+      setModal(null); setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'haute', residence:'', bloc:'' })
+      setPhotoB64(''); setGps(null); load()
     } catch(e) {
-      alert(e.response?.data ? JSON.stringify(e.response.data) : 'Erreur lors de la soumission')
-    } finally { setSub(false) }
+      setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur serveur')
+    } finally { setSubmitting(false) }
   }
 
-  const saveEdit = async () => {
-    if (!editForm.titre.trim()) return alert('Le titre est obligatoire')
-    if (!editForm.description.trim()) return alert('La description est obligatoire')
-    setSub(true)
-    try {
-      const payload = new FormData()
-      Object.entries(editForm).forEach(([k,v]) => { if(v !== undefined && v !== null && v !== '') payload.append(k,v) })
-      await incidents.update(editModal.id, payload)
-      setEditModal(null); load()
-    } catch(e) {
-      alert(e.response?.data ? JSON.stringify(e.response.data) : 'Erreur modification')
-    } finally { setSub(false) }
+  const resoudre = id => {
+    if (!window.confirm('Marquer comme résolu ?')) return
+    incidents.resoudre(id).then(load)
   }
 
-  const resoudre = async (id) => {
-    if (!window.confirm('Marquer cet incident comme résolu ?')) return
-    try { await incidents.resoudre(id); load() }
-    catch(e) { alert(e.response?.data?.error||'Erreur') }
+  const supprimer = id => {
+    if (!window.confirm('Supprimer cet incident ?')) return
+    incidents.delete(id).then(load).catch(() => alert('Erreur'))
   }
 
-  const supprimer = async (id) => {
-    if (!window.confirm('Supprimer définitivement cet incident ?')) return
-    try {
-      await incidents.delete(id)
-      setDetail(null); load()
-    } catch(e) { alert(e.response?.data?.error || 'Erreur suppression') }
+  const changerStatut = (id, statut) => {
+    incidents.update(id, { statut }).then(load).catch(() => {})
   }
+
+  const countByStatus = s => data.filter(d => d.statut === s).length
 
   return (
-    <div style={{ padding:16 }}>
-      {/* En-tête */}
+    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
+      {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:19, fontWeight:700, color:'#1e3a8a', margin:0 }}>🛠️ Maintenance</h2>
-          <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>Incidents · Signalements · Suivi résolution</p>
+          <h2 style={{ fontSize:20, fontWeight:700, color:'var(--blue)', margin:0 }}>🔧 Maintenance</h2>
+          <p style={{ fontSize:12, color:'var(--text-dim)', margin:'4px 0 0' }}>
+            Incidents du camp · {data.length} total
+          </p>
         </div>
-        {canCreate && (
-          <button onClick={()=>{ resetForm(); setModal(true) }}
-            style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'9px 18px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, boxShadow:'0 2px 8px rgba(30,58,138,.3)' }}>
-            + Signaler un incident
+        <button onClick={() => setModal('create')}
+          style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'10px 18px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+          + Déclarer un incident
+        </button>
+      </div>
+
+      {/* ── KPIs ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:14 }}>
+        {[['Total','📋',data.length,'#2563eb'],['Ouverts','🔴',countByStatus('Ouvert'),'#dc2626'],
+          ['En cours','🟠',countByStatus('En cours'),'#f97316'],['Résolus','✅',countByStatus('Résolu'),'#16a34a']
+        ].map(([l,e,n,c]) => (
+          <div key={l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px', borderLeft:`4px solid ${c}` }}>
+            <div style={{ fontSize:22 }}>{e}</div>
+            <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:900, color:c, lineHeight:1 }}>{n}</div>
+            <div style={{ fontSize:10, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:1 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Filtres ── */}
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        {[
+          [filterStat, setFilterStat, [['','Tous statuts'],['Ouvert','🔴 Ouvert'],['En cours','🟠 En cours'],['Résolu','✅ Résolu']]],
+          [filterPrio, setFilterPrio, [['','Toutes priorités'],['haute','🔴 Haute'],['moyenne','🟠 Moyenne'],['basse','🟢 Basse']]],
+          [filterCat,  setFilterCat,  [['','Toutes catégories'], ...CATS.map(c=>[c,c])]],
+        ].map(([val, setter, opts], i) => (
+          <select key={i} value={val} onChange={e => setter(e.target.value)}
+            style={{ background:'#fff', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:9, fontSize:12, cursor:'pointer' }}>
+            {opts.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        ))}
+        <button onClick={load} disabled={loading}
+          style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+          {loading ? '⏳' : '🔄'} Actualiser
+        </button>
+        {(filterStat||filterPrio||filterCat) && (
+          <button onClick={() => { setFilterStat(''); setFilterPrio(''); setFilterCat('') }}
+            style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'8px 12px', borderRadius:9, cursor:'pointer', fontSize:12 }}>
+            ✕ Réinitialiser
           </button>
         )}
       </div>
 
-      {/* KPIs */}
-      {stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:10, marginBottom:16 }}>
-          {[
-            ['Total', stats.total, '#1e3a8a', '📋'],
-            ['Ouverts', stats.ouverts, '#dc2626', '🔴'],
-            ['En cours', stats.en_cours, '#ea580c', '🟠'],
-            ['Résolus', stats.resolus, '#16a34a', '✅'],
-          ].map(([l,v,c,ic]) => (
-            <div key={l} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:700, color:c }}>{v||0}</div>
-              <div style={{ fontSize:10, color:'#64748b', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
+      {/* ── Liste ── */}
+      {loading ? (
+        <div style={{ padding:48, textAlign:'center', color:'var(--text-dim)', fontSize:32 }}>⏳</div>
+      ) : data.length === 0 ? (
+        <div style={{ padding:48, textAlign:'center' }}>
+          <div style={{ fontSize:52, marginBottom:12 }}>🔧</div>
+          <div style={{ fontWeight:700, color:'var(--blue)' }}>Aucun incident</div>
+          <div style={{ color:'var(--text-dim)', fontSize:13, marginTop:4 }}>Cliquez sur "+ Déclarer" pour signaler un problème</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {data.map(inc => (
+            <div key={inc.id} style={{
+              background:'#fff', border:'1px solid var(--border)', borderRadius:14,
+              padding:'14px 16px', borderLeft:`4px solid ${STAT_COLOR[inc.statut]||'#94a3b8'}`,
+              boxShadow:'0 1px 4px rgba(30,58,138,.06)'
+            }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
+                {/* Infos */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:6 }}>
+                    <span style={{ fontWeight:700, fontSize:15, color:'var(--blue)' }}>{inc.titre}</span>
+                    <span style={{ background:`${PRIO_COLOR[inc.priorite]}18`, color:PRIO_COLOR[inc.priorite], padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:700 }}>
+                      {inc.priorite?.toUpperCase()}
+                    </span>
+                    <span style={{ background:`${STAT_COLOR[inc.statut]||'#94a3b8'}18`, color:STAT_COLOR[inc.statut]||'#94a3b8', padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:700 }}>
+                      {inc.statut}
+                    </span>
+                    <span style={{ background:'rgba(99,102,241,.1)', color:'#6366f1', padding:'2px 8px', borderRadius:20, fontSize:10 }}>
+                      {inc.categorie}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:12.5, color:'var(--text-dim)', marginBottom:4 }}>{inc.description}</div>
+                  <div style={{ display:'flex', gap:12, flexWrap:'wrap', fontSize:11, color:'var(--text-dim)' }}>
+                    {inc.residence && <span>📍 {inc.residence}{inc.bloc ? ` · ${inc.bloc}` : ''}</span>}
+                    <span>👤 {inc.auteur_nom || '—'}</span>
+                    <span>📅 {inc.date_creation ? new Date(inc.date_creation).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</span>
+                    {inc.photo_b64 && <span style={{ color:'#7c3aed' }}>📷 Photo</span>}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', flexShrink:0 }}>
+                  <button onClick={() => setDetail(inc)}
+                    style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'6px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                    🔍 Détails
+                  </button>
+                  {isTech && inc.statut === 'Ouvert' && (
+                    <button onClick={() => changerStatut(inc.id,'En cours')}
+                      style={{ background:'rgba(249,115,22,.1)', color:'#f97316', border:'1px solid rgba(249,115,22,.2)', padding:'6px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                      🔄 En cours
+                    </button>
+                  )}
+                  {isTech && inc.statut !== 'Résolu' && (
+                    <button onClick={() => resoudre(inc.id)}
+                      style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                      ✅ Résoudre
+                    </button>
+                  )}
+                  {isAdmin && inc.statut === 'Résolu' && (
+                    <button onClick={() => changerStatut(inc.id,'Ouvert')}
+                      style={{ background:'rgba(99,102,241,.1)', color:'#6366f1', border:'1px solid rgba(99,102,241,.2)', padding:'6px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                      🔄 Réouvrir
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => supprimer(inc.id)}
+                      style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 12px', borderRadius:8, cursor:'pointer', fontSize:12 }}>
+                      🗑
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Filtres — listes déroulantes */}
-      <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-        <select value={filterStatut} onChange={e=>setFilter(e.target.value)}
-          style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12, outline:'none', color:'#1e293b', cursor:'pointer' }}>
-          <option value="">📋 Tous les statuts</option>
-          <option value="Ouvert">🔴 Ouvert</option>
-          <option value="En cours">🟠 En cours</option>
-          <option value="Résolu">✅ Résolu</option>
-        </select>
-        <select value={filterPrio} onChange={e=>setFilterP(e.target.value)}
-          style={{ background:'#fff', border:'2px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12, outline:'none', color:'#1e293b', cursor:'pointer' }}>
-          <option value="">⚡ Toutes priorités</option>
-          <option value="haute">🔴 Haute</option>
-          <option value="moyenne">🟠 Moyenne</option>
-          <option value="basse">🔵 Basse</option>
-        </select>
-        {(filterStatut||filterPrio) && (
-          <button onClick={()=>{setFilter('');setFilterP('')}}
-            style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
-            ✕ Reset
-          </button>
-        )}
-        <span style={{ fontSize:12, color:'#94a3b8', marginLeft:'auto' }}>{data.length} incident(s)</span>
-      </div>
-
-      {/* Liste */}
-      {loading ? (
-        <div style={{ padding:40, textAlign:'center', color:'#94a3b8' }}>🔄 Chargement...</div>
-      ) : data.length === 0 ? (
-        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:48, textAlign:'center', color:'#94a3b8', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:48, marginBottom:12 }}>🛠️</div>
-          <div style={{ fontSize:15, fontWeight:600, marginBottom:4 }}>Aucun incident</div>
-          <div style={{ fontSize:13 }}>Aucun incident{filterStatut?` "${filterStatut}"`:''} signalé</div>
-        </div>
-      ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {data.map(inc => {
-            const st = STATUT[inc.statut] || STATUT['Ouvert']
-            const pr = PRIORITE[inc.priorite] || PRIORITE.moyenne
-            return (
-              <div key={inc.id}
-                style={{ background:'#fff', border:`1px solid ${inc.statut==='Ouvert'?'rgba(220,38,38,.25)':'#e2e8f0'}`,
-                  borderRadius:12, padding:16, display:'flex', gap:14, alignItems:'flex-start',
-                  boxShadow:'0 1px 4px rgba(0,0,0,.06)', transition:'box-shadow .2s' }}
-                onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(30,58,138,.12)'}
-                onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}>
-
-                {/* Icône priorité */}
-                <div style={{ width:44, height:44, borderRadius:12, background:pr.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
-                  {pr.label.split(' ')[0]}
-                </div>
-
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
-                    <span style={{ fontWeight:700, fontSize:14, color:'#1e3a8a' }}>{inc.titre}</span>
-                    <span style={{ background:st.bg, color:st.color, padding:'2px 9px', borderRadius:20, fontSize:11, fontWeight:700 }}>
-                      {st.icon} {inc.statut}
-                    </span>
-                    <span style={{ background:pr.bg, color:pr.color, padding:'2px 9px', borderRadius:20, fontSize:10, fontWeight:600 }}>
-                      {pr.label}
-                    </span>
-                  </div>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {inc.description}
-                  </div>
-                  <div style={{ display:'flex', gap:12, fontSize:11, color:'#94a3b8', flexWrap:'wrap' }}>
-                    {inc.residence && <span>🏠 {inc.residence}</span>}
-                    {inc.categorie && <span>🔧 {inc.categorie}</span>}
-                    <span>📅 {new Date(inc.date_signalement).toLocaleDateString('fr-FR')}</span>
-                    {inc.auteur_nom && <span>👤 {inc.auteur_nom}</span>}
-                  </div>
-                </div>
-
-                {/* Actions rapides */}
-                <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }}>
-                  {isAdmin && (
-                    <button onClick={()=>openEdit(inc)}
-                      style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      ✏️ Modifier
-                    </button>
-                  )}
-                  {canClose && inc.statut !== 'Résolu' && (
-                    <button onClick={()=>resoudre(inc.id)}
-                      style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      ✅ Résoudre
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <button onClick={()=>supprimer(inc.id)}
-                      style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      🗑 Supprimer
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── MODAL DÉTAIL ── */}
+      {/* ═══ MODAL DÉTAIL ═══ */}
       {detail && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}
-          onClick={()=>setDetail(null)}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:540, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}
-            onClick={e=>e.stopPropagation()}>
-            <div style={{ padding:'16px 20px', background:'#1e3a8a', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🛠️ {detail.titre}</h3>
-              <button onClick={()=>setDetail(null)} style={{ background:'rgba(255,255,255,.15)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => e.target === e.currentTarget && setDetail(null)}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:600, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            {/* Header */}
+            <div style={{ background:'var(--blue)', color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:16 }}>{detail.titre}</div>
+                <div style={{ fontSize:11, opacity:.75 }}>{detail.categorie} · {detail.statut}</div>
+              </div>
+              <button onClick={() => setDetail(null)}
+                style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:32, height:32, borderRadius:8, cursor:'pointer', fontSize:18 }}>✕</button>
             </div>
-            <div style={{ padding:'20px' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+            {/* Body */}
+            <div style={{ padding:20 }}>
+              {/* Badges */}
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+                <span style={{ background:`${PRIO_COLOR[detail.priorite]}18`, color:PRIO_COLOR[detail.priorite], padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:700 }}>
+                  Priorité: {detail.priorite?.toUpperCase()}
+                </span>
+                <span style={{ background:`${STAT_COLOR[detail.statut]||'#94a3b8'}18`, color:STAT_COLOR[detail.statut]||'#94a3b8', padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:700 }}>
+                  {detail.statut}
+                </span>
+              </div>
+
+              {/* Infos grille */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
                 {[
-                  ['Statut', (STATUT[detail.statut]?.icon||'')+ ' '+detail.statut],
-                  ['Priorité', PRIORITE[detail.priorite]?.label||detail.priorite],
-                  ['Catégorie', detail.categorie],
-                  ['Résidence', detail.residence||'—'],
-                  ['Signalé par', detail.auteur_nom||'—'],
-                  ['Date', new Date(detail.date_signalement).toLocaleDateString('fr-FR')],
-                ].map(([k,v])=>(
-                  <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 12px' }}>
-                    <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2, textTransform:'uppercase', letterSpacing:1 }}>{k}</div>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#1e3a8a' }}>{v}</div>
+                  ['📍 Résidence', detail.residence || '—'],
+                  ['🏗️ Bloc', detail.bloc || '—'],
+                  ['👤 Signalé par', detail.auteur_nom || '—'],
+                  ['📅 Création', detail.date_creation ? new Date(detail.date_creation).toLocaleString('fr-FR') : '—'],
+                  ['✅ Résolution', detail.date_resolution ? new Date(detail.date_resolution).toLocaleString('fr-FR') : 'En attente'],
+                  ['🏷️ Catégorie', detail.categorie || '—'],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ background:'var(--bg)', borderRadius:8, padding:'10px 12px' }}>
+                    <div style={{ fontSize:10, color:'var(--text-dim)', marginBottom:2 }}>{label}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{value}</div>
                   </div>
                 ))}
               </div>
-              <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px 14px', marginBottom:14 }}>
-                <div style={{ fontSize:11, color:'#94a3b8', marginBottom:6, textTransform:'uppercase', letterSpacing:1 }}>Description</div>
-                <div style={{ fontSize:13, color:'#1e293b', lineHeight:1.6 }}>{detail.description}</div>
+
+              {/* Description */}
+              <div style={{ background:'var(--bg)', borderRadius:8, padding:'12px 14px', marginBottom:16 }}>
+                <div style={{ fontSize:10, color:'var(--text-dim)', marginBottom:4 }}>📝 Description</div>
+                <div style={{ fontSize:13, color:'var(--text)', lineHeight:1.6 }}>{detail.description || 'Aucune description'}</div>
               </div>
-              {detail.photo_b64 && (
-                <img src={`data:${detail.photo_mime||"image/jpeg"};base64,${detail.photo_b64}`} alt="Photo incident"
-                  style={{ width:'100%', borderRadius:10, maxHeight:260, objectFit:'cover', marginBottom:14 }}/>
-              )}
-              {detail.latitude && (
+
+              {/* GPS */}
+              {detail.latitude && detail.longitude && (
                 <a href={`https://www.google.com/maps?q=${detail.latitude},${detail.longitude}`}
                   target="_blank" rel="noreferrer"
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(37,99,235,.08)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'7px 14px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:600, marginBottom:14 }}>
-                  📍 Voir sur Google Maps
+                  style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(37,99,235,.08)', border:'1px solid rgba(37,99,235,.2)', borderRadius:8, padding:'10px 14px', textDecoration:'none', color:'#2563eb', fontSize:13, marginBottom:16 }}>
+                  📍 Voir sur Google Maps ({detail.latitude.toFixed(6)}, {detail.longitude.toFixed(6)})
                 </a>
               )}
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                {isAdmin && (
-                  <button onClick={()=>{ openEdit(detail); setDetail(null) }}
-                    style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'10px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                    ✏️ Modifier
+
+              {/* PHOTO */}
+              {detail.photo_b64 ? (
+                <div>
+                  <div style={{ fontSize:12, fontWeight:700, color:'var(--blue)', marginBottom:8 }}>📷 Photo de l'incident</div>
+                  <img
+                    src={`data:${detail.photo_mime || 'image/jpeg'};base64,${detail.photo_b64}`}
+                    alt="Photo incident"
+                    style={{ width:'100%', maxHeight:320, objectFit:'contain', borderRadius:12, border:'1px solid var(--border)', background:'#000' }}
+                    onError={e => e.target.style.display='none'}
+                  />
+                </div>
+              ) : (
+                <div style={{ textAlign:'center', padding:'20px', color:'var(--text-dim)', background:'var(--bg)', borderRadius:8, fontSize:13 }}>
+                  📷 Aucune photo
+                </div>
+              )}
+
+              {/* Actions dans le détail */}
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:16, paddingTop:16, borderTop:'1px solid var(--border)' }}>
+                {isTech && detail.statut === 'Ouvert' && (
+                  <button onClick={() => { changerStatut(detail.id,'En cours'); setDetail({...detail, statut:'En cours'}) }}
+                    style={{ flex:1, background:'rgba(249,115,22,.1)', color:'#f97316', border:'1px solid rgba(249,115,22,.2)', padding:'9px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    🔄 Passer en cours
                   </button>
                 )}
-                {canClose && detail.statut !== 'Résolu' && (
-                  <button onClick={()=>{ resoudre(detail.id); setDetail(null) }}
-                    style={{ flex:1, background:'#16a34a', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                    ✅ Marquer comme résolu
+                {isTech && detail.statut !== 'Résolu' && (
+                  <button onClick={() => { resoudre(detail.id); setDetail(null) }}
+                    style={{ flex:1, background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'9px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    ✅ Marquer résolu
                   </button>
                 )}
                 {isAdmin && (
-                  <button onClick={()=>supprimer(detail.id)}
-                    style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.25)', padding:'10px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                  <button onClick={() => { supprimer(detail.id); setDetail(null) }}
+                    style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                     🗑 Supprimer
                   </button>
                 )}
@@ -354,131 +329,62 @@ export default function Maintenance() {
         </div>
       )}
 
-      {/* ── MODAL SIGNALEMENT ── */}
-      {modal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-            <div style={{ padding:'16px 20px', background:'#dc2626', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🚨 Signaler un incident</h3>
-              <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+      {/* ═══ MODAL CREATE ═══ */}
+      {modal === 'create' && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'flex-end', justifyContent:'center', padding:'0' }}
+          onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div style={{ background:'#fff', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560, maxHeight:'92vh', overflow:'auto', boxShadow:'0 -8px 40px rgba(0,0,0,.25)' }}>
+            <div style={{ background:'var(--blue)', color:'#fff', padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontWeight:700, fontSize:15 }}>🔧 Déclarer un incident</span>
+              <button onClick={() => setModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:18 }}>✕</button>
             </div>
-            <div style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:12 }}>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Titre *</label>
-                <input value={form.titre} onChange={e=>setForm({...form,titre:e.target.value})} style={inp} placeholder="Ex: Fuite d'eau chambre 12"/>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                <div>
-                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Catégorie</label>
-                  <select value={form.categorie} onChange={e=>setForm({...form,categorie:e.target.value})} style={inp}>
-                    {CATS.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Priorité</label>
-                  <select value={form.priorite} onChange={e=>setForm({...form,priorite:e.target.value})} style={inp}>
-                    <option value="basse">Basse</option>
-                    <option value="moyenne">Moyenne</option>
-                    <option value="haute">Haute</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Résidence concernée</label>
-                <select value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})} style={inp}>
-                  <option value="">— Sélectionner (optionnel) —</option>
-                  {bats.map(b=><option key={b.id} value={b.residence}>{b.residence} — {b.bloc}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Description *</label>
-                <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}
-                  rows={4} style={{ ...inp, resize:'vertical' }}
-                  placeholder="Décrivez le problème en détail..."/>
-              </div>
-              {/* Photo */}
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Photo (optionnel)</label>
-                <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhoto}
-                  style={{ fontSize:12, color:'#64748b' }}/>
-                {photoB64 && <img src={`data:image/jpeg;base64,${photoB64}`} alt="preview" style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:8, marginTop:8 }}/>}
-              </div>
-              {/* GPS */}
-              <div>
-                <button onClick={getGPS} disabled={gpsLoading}
-                  style={{ background:'rgba(37,99,235,.08)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600 }}>
-                  {gpsLoading ? '📡 Localisation...' : gps ? `📍 ${gps[0].toFixed(5)}, ${gps[1].toFixed(5)}` : '📍 Ajouter ma position GPS'}
-                </button>
-              </div>
-            </div>
-            <div style={{ padding:'12px 20px', borderTop:'1px solid #e2e8f0', display:'flex', gap:8 }}>
-              <button onClick={()=>setModal(false)} style={{ background:'#f8fafc', border:'1px solid #e2e8f0', color:'#64748b', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={submit} disabled={submitting}
-                style={{ flex:1, background:'#dc2626', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                {submitting ? '⏳ Envoi...' : '🚨 Signaler l\'incident'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:14 }}>
+              {err && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'10px 14px', color:'#dc2626', fontSize:12 }}>❌ {err}</div>}
 
-      {/* ── MODAL ÉDITION ── */}
-      {editModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-            <div style={{ padding:'16px 20px', background:'#7c3aed', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>✏️ Modifier l'incident</h3>
-              <button onClick={()=>setEditModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-            </div>
-            <div style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:12 }}>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Titre *</label>
-                <input value={editForm.titre} onChange={e=>setEditForm({...editForm,titre:e.target.value})} style={inp}/>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+              {[['titre','📝 Titre *','text'],['description','📄 Description','textarea'],['residence','📍 Résidence / Bâtiment','text'],['bloc','🏗️ Bloc (optionnel)','text']].map(([field, label, type]) => (
+                <div key={field}>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-dim)', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
+                  {type === 'textarea'
+                    ? <textarea value={form[field]} onChange={e => setForm({...form,[field]:e.target.value})} rows={3}
+                        style={{ width:'100%', border:'2px solid var(--border)', borderRadius:9, padding:'10px 12px', fontSize:14, resize:'vertical', fontFamily:'inherit' }} />
+                    : <input value={form[field]} onChange={e => setForm({...form,[field]:e.target.value})}
+                        style={{ width:'100%', border:'2px solid var(--border)', borderRadius:9, padding:'10px 12px', fontSize:14 }} />
+                  }
+                </div>
+              ))}
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Statut</label>
-                  <select value={editForm.statut} onChange={e=>setEditForm({...editForm,statut:e.target.value})} style={inp}>
-                    <option value="Ouvert">🔴 Ouvert</option>
-                    <option value="En cours">🟠 En cours</option>
-                    <option value="Résolu">✅ Résolu</option>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-dim)', marginBottom:5, textTransform:'uppercase' }}>🏷️ Catégorie</label>
+                  <select value={form.categorie} onChange={e => setForm({...form,categorie:e.target.value})}
+                    style={{ width:'100%', border:'2px solid var(--border)', borderRadius:9, padding:'10px 12px', fontSize:14 }}>
+                    {CATS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Priorité</label>
-                  <select value={editForm.priorite} onChange={e=>setEditForm({...editForm,priorite:e.target.value})} style={inp}>
-                    <option value="basse">🔵 Basse</option>
-                    <option value="moyenne">🟠 Moyenne</option>
-                    <option value="haute">🔴 Haute</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Catégorie</label>
-                  <select value={editForm.categorie} onChange={e=>setEditForm({...editForm,categorie:e.target.value})} style={inp}>
-                    {CATS.map(c=><option key={c}>{c}</option>)}
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-dim)', marginBottom:5, textTransform:'uppercase' }}>⚡ Priorité</label>
+                  <select value={form.priorite} onChange={e => setForm({...form,priorite:e.target.value})}
+                    style={{ width:'100%', border:'2px solid var(--border)', borderRadius:9, padding:'10px 12px', fontSize:14 }}>
+                    {PRIOS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}
                   </select>
                 </div>
               </div>
+
               <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Description *</label>
-                <textarea value={editForm.description} onChange={e=>setEditForm({...editForm,description:e.target.value})}
-                  rows={4} style={{ ...inp, resize:'vertical' }}/>
+                <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-dim)', marginBottom:5, textTransform:'uppercase' }}>📷 Photo (optionnel)</label>
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhoto}
+                  style={{ width:'100%', border:'2px dashed var(--border)', borderRadius:9, padding:'10px 12px', fontSize:13 }} />
+                {photoB64 && <div style={{ marginTop:8, fontSize:11, color:'#16a34a', fontWeight:600 }}>✅ Photo prête</div>}
               </div>
-              <div>
-                <label style={{ display:'block', fontSize:11, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:1, fontFamily:'monospace' }}>Photo (optionnel)</label>
-                <input type="file" accept="image/*" capture="environment" ref={editFileRef} onChange={handleEditPhoto}
-                  style={{ fontSize:12, color:'#64748b' }}/>
-                {(editForm.photo_b64 || editModal.photo_b64) && (
-                  <img src={`data:image/jpeg;base64,${editForm.photo_b64 || editModal.photo_b64}`} alt="Photo"
-                    style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:8, marginTop:8 }}/>
-                )}
-              </div>
-            </div>
-            <div style={{ padding:'12px 20px', borderTop:'1px solid #e2e8f0', display:'flex', gap:8 }}>
-              <button onClick={()=>setEditModal(null)} style={{ background:'#f8fafc', border:'1px solid #e2e8f0', color:'#64748b', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={saveEdit} disabled={submitting}
-                style={{ flex:1, background:'#7c3aed', color:'#fff', border:'none', padding:'10px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                {submitting ? '⏳...' : '💾 Enregistrer'}
+
+              <button onClick={getGPS}
+                style={{ background:'rgba(37,99,235,.08)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'9px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:600 }}>
+                📍 {gps ? `GPS capturé (${gps.lat.toFixed(4)}…)` : 'Capturer ma position GPS'}
+              </button>
+
+              <button onClick={submit} disabled={submitting}
+                style={{ background:submitting?'#94a3b8':'var(--blue)', color:'#fff', border:'none', padding:'13px', borderRadius:10, cursor:submitting?'not-allowed':'pointer', fontSize:15, fontWeight:700, marginTop:4 }}>
+                {submitting ? '⏳ Envoi...' : '📤 Déclarer l\'incident'}
               </button>
             </div>
           </div>

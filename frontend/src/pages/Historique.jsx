@@ -41,7 +41,29 @@ export default function Historique() {
   const [voyLoading, setVoyLoading] = useState(false)
   const [repasData, setRepasData] = useState([])
   const [repasLoading, setRepasLoading] = useState(false)
-  const [repasFilter, setRepasFilter] = useState('all')
+  const [repasFilter, setRepasFilter]   = useState('all')
+  const [repasDateDebut, setRepasDateDebut] = useState('')
+  const [repasDateFin, setRepasDateFin]     = useState('')
+  const [repasSearch, setRepasSearch]       = useState('')
+
+  // Données filtrées côté client
+  const repasFiltered = React.useMemo(() => {
+    let filtered = repasData
+    if (repasSearch) {
+      const s = repasSearch.toLowerCase()
+      filtered = filtered.filter(r =>
+        (r.resident||'').toLowerCase().includes(s) ||
+        (r.societe||'').toLowerCase().includes(s)
+      )
+    }
+    if (repasDateDebut) {
+      filtered = filtered.filter(r => r.date_validation && r.date_validation.slice(0,10) >= repasDateDebut)
+    }
+    if (repasDateFin) {
+      filtered = filtered.filter(r => r.date_validation && r.date_validation.slice(0,10) <= repasDateFin)
+    }
+    return filtered
+  }, [repasData, repasSearch, repasDateDebut, repasDateFin])
 
   // Chambre search — résidence optionnelle, recherche sur tout si vide
   const [chambreQ, setChambreQ] = useState({
@@ -105,9 +127,9 @@ export default function Historique() {
 
 
   const exportRepasCSV = () => {
-    if (!repasData.length) return
+    if (!filteredRepas.length) return
     const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
-    const rows = repasData.map(r => {
+    const rows = filteredRepas.map(r => {
       const dt = r.date_validation ? new Date(r.date_validation) : null
       return [
         r.resident || '',
@@ -127,6 +149,15 @@ export default function Historique() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const filteredRepas = repasData.filter(r => {
+    if (repasDateFilter && !(r.date_validation||'').startsWith(repasDateFilter)) return false
+    if (repasSearch) {
+      const q = repasSearch.toLowerCase()
+      if (!(r.resident||'').toLowerCase().includes(q) && !(r.societe||'').toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   const loadRepas = async () => {
     setRepasLoading(true)
@@ -389,31 +420,57 @@ export default function Historique() {
       {tab==='repas' && (
         <div>
           <SearchCard title="🍽️ Historique des repas restaurant" color="#7c3aed">
-            <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
+              {/* Filtre type repas */}
               <select value={repasFilter} onChange={e=>{setRepasFilter(e.target.value);loadRepas()}}
-                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13}}>
-                <option value="all">Tous les repas</option>
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:140}}>
+                <option value="all">🍽️ Tous les repas</option>
                 <option value="petit_dejeuner">🌅 Petit-déjeuner</option>
                 <option value="dejeuner">☀️ Déjeuner</option>
                 <option value="diner">🌙 Dîner</option>
               </select>
+
+              {/* Filtre date début */}
+              <input type="date" value={repasDateDebut||''} onChange={e=>setRepasDateDebut(e.target.value)}
+                placeholder="Date début"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              {/* Filtre date fin */}
+              <input type="date" value={repasDateFin||''} onChange={e=>setRepasDateFin(e.target.value)}
+                placeholder="Date fin"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              {/* Recherche personne */}
+              <input type="text" value={repasSearch||''} onChange={e=>setRepasSearch(e.target.value)}
+                placeholder="🔍 Nom du résident..."
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
+
               <button onClick={loadRepas} disabled={repasLoading}
                 style={{background:'#7c3aed',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
-                {repasLoading?'Chargement...':'🔄 Actualiser'}
+                {repasLoading?'⏳':'🔄'} Actualiser
               </button>
-              {repasData.length > 0 && (
+
+              {/* Reset filtres */}
+              {(repasDateDebut||repasDateFin||repasSearch) && (
+                <button onClick={()=>{setRepasDateDebut('');setRepasDateFin('');setRepasSearch('');loadRepas()}}
+                  style={{background:'rgba(100,116,139,.1)',color:'#64748b',border:'1px solid rgba(100,116,139,.2)',padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600}}>
+                  ✕ Reset
+                </button>
+              )}
+
+              {repasFiltered.length > 0 && (
                 <button onClick={exportRepasCSV}
-                  style={{background:'rgba(124,58,237,.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,.3)',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
-                  ⬇ Export CSV ({repasData.length})
+                  style={{background:'rgba(124,58,237,.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  ⬇ Export CSV ({repasFiltered.length})
                 </button>
               )}
             </div>
           </SearchCard>
 
-          {repasData.length > 0 ? (
+          {repasFiltered.length > 0 ? (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
               <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <span>📋 {repasData.length} scan(s) de repas</span>
+                <span>📋 {repasFiltered.length}/{repasData.length} scan(s) de repas</span>
                 <button onClick={exportRepasCSV}
                   style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.4)',padding:'4px 12px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>
                   ⬇ CSV
@@ -427,7 +484,7 @@ export default function Historique() {
                     ))}
                   </tr></thead>
                   <tbody>
-                    {repasData.map((r,i)=>{
+                    {repasFiltered.map((r,i)=>{
                       const dt = r.date_validation ? new Date(r.date_validation) : null
                       return (
                         <tr key={r.id||i} style={{borderTop:'1px solid var(--border)',background:i%2?'var(--surface2)':'#fff'}}>

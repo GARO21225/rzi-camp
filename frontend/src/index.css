@@ -303,3 +303,95 @@ input:focus, select:focus, textarea:focus {
   box-shadow: var(--shadow-md);
   animation: fadeIn .2s ease;
 }
+
+/* ═══ ANTI-OVERFLOW MOBILE ══════════════════════════════════ */
+/* Empêcher tout débordement horizontal sur iOS */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Tous les containers doivent respecter la largeur */
+* {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Fix spécifique iOS Safari — éviter le zoom sur les inputs */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  select, textarea {
+    font-size: 16px !important; /* Empêche zoom auto iOS */
+  }
+
+  /* Boutons: pas de débordement */
+  button { max-width: 100%; white-space: normal; }
+
+  /* Modals full-width sur mobile */
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  /* Tables: scroll horizontal forcé */
+  .table-wrap, [style*="overflow-x: auto"] {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Cards: padding réduit */
+  .card { padding: 12px !important; }
+
+  /* Flex rows: wrap forcé */
+  [style*="display: flex"] { flex-wrap: wrap; }
+
+  /* Texte: pas de débordement */
+  p, span, div { word-break: break-word; }
+}
+
+/* Petits écrans < 375px (iPhone SE) */
+@media (max-width: 375px) {
+  .btn { padding: 7px 10px !important; font-size: 11px !important; }
+  h2 { font-size: 15px !important; }
+}
+
+/* Safe area iPhone avec notch/Dynamic Island */
+@supports (padding: max(0px)) {
+  .topbar {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  .sidebar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-backdrop {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Anti-overflow iPhone ─────────────────────────── */
+* { max-width: 100%; }
+img, video, canvas, svg { max-width: 100%; height: auto; }
+table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+pre, code { overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+
+/* Fix débordement texte long */
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Fix modals sur petits écrans */
+@media (max-width: 480px) {
+  .modal { max-height: 95dvh; border-radius: 12px 12px 0 0; }
+  input, select, textarea { font-size: 16px !important; }  /* évite zoom iOS */
+}
+
+/* Fix grilles sur très petits écrans */
+@media (max-width: 360px) {
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
