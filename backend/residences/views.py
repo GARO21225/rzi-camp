@@ -126,14 +126,14 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return False
 
     def perform_create(self, serializer):
-        personnel = serializer.save()
+        demande = serializer.save(demandeur=self.request.user)
         # Email + SMS de bienvenue (asynchrone, ne bloque pas)
         try:
             from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
             import threading
             def send():
-                envoyer_email_bienvenue(personnel)
-                envoyer_sms_bienvenue(personnel)
+                envoyer_email_bienvenue(p)
+                envoyer_sms_bienvenue(p)
             threading.Thread(target=send, daemon=True).start()
         except Exception:
             pass
@@ -498,14 +498,14 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        personnel = serializer.save()
+        demande = serializer.save(demandeur=self.request.user)
         # Email + SMS de bienvenue (asynchrone, ne bloque pas)
         try:
             from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
             import threading
             def send():
-                envoyer_email_bienvenue(personnel)
-                envoyer_sms_bienvenue(personnel)
+                envoyer_email_bienvenue(p)
+                envoyer_sms_bienvenue(p)
             threading.Thread(target=send, daemon=True).start()
         except Exception:
             pass
@@ -687,14 +687,14 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
     serializer_class = OccupationHistorySerializer
 
     def perform_create(self, serializer):
-        personnel = serializer.save()
+        demande = serializer.save(demandeur=self.request.user)
         # Email + SMS de bienvenue (asynchrone, ne bloque pas)
         try:
             from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
             import threading
             def send():
-                envoyer_email_bienvenue(personnel)
-                envoyer_sms_bienvenue(personnel)
+                envoyer_email_bienvenue(p)
+                envoyer_sms_bienvenue(p)
             threading.Thread(target=send, daemon=True).start()
         except Exception:
             pass
@@ -753,14 +753,14 @@ class DemandeViewSet(viewsets.ModelViewSet):
             pass
 
     def perform_create(self, serializer):
-        personnel = serializer.save()
+        demande = serializer.save(demandeur=self.request.user)
         # Email + SMS de bienvenue (asynchrone, ne bloque pas)
         try:
             from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
             import threading
             def send():
-                envoyer_email_bienvenue(personnel)
-                envoyer_sms_bienvenue(personnel)
+                envoyer_email_bienvenue(p)
+                envoyer_sms_bienvenue(p)
             threading.Thread(target=send, daemon=True).start()
         except Exception:
             pass

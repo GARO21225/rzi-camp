@@ -47,7 +47,19 @@ export default function Dashboard() {
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
 
   useEffect(() => {
-    batiments.stats().then(r=>setStats(r.data)).catch(()=>{})
+    batiments.stats().then(r=>{
+      const d = r.data
+      const ps = d.par_statut || {}
+      setStats({
+        libres:      ps['Libre']       || ps['libre']      || d.libres      || 0,
+        occupes:     ps['Occupé']      || ps['occupe']     || d.occupes     || 0,
+        reserves:    ps['Réservé']     || ps['reserve']    || d.reserves    || 0,
+        maintenance: ps['Maintenance'] || ps['maintenance'] || d.maintenance || 0,
+        total:       d.total           || 203,
+        taux:        d.taux_occupation || 0,
+        departs:     d.departs_s1      || 0,
+      })
+    }).catch(()=>{})
     incidents.stats().then(r=>setIncStats(r.data)).catch(()=>{})
     voyAPI.stats().then(r=>setVoyStats(r.data)).catch(()=>{})
   }, [])
@@ -72,8 +84,8 @@ export default function Dashboard() {
     { name:'M',  v:stats.maintenance||0, fill:COLORS.maintenance },
   ] : []
 
-  const totalBats = occupancyData.reduce((a,b) => a+b.value, 0) || 1
-  const occupRate = stats ? Math.round(((stats.occupes||0)/totalBats)*100) : 0
+  const totalBats = stats?.total || occupancyData.reduce((a,b) => a+b.value, 0) || 203
+  const occupRate = stats?.taux ? Math.round(stats.taux) : (stats ? Math.round(((stats.occupes||0)/totalBats)*100) : 0)
 
   const dateStr = time.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
   const timeStr = time.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })

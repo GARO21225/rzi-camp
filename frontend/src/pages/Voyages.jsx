@@ -231,7 +231,7 @@ export default function Voyages() {
                         {v.statut==='planifie' && <>
                           <button onClick={()=>partir(v.id)} style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🚀</button>
                           <button onClick={()=>annulerVoyage(v)} style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:10 }}>✕</button>
-                          {isAdmin && <button onClick={()=>supprimerVoyage(v)} style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:10 }}>🗑</button>}
+                          <button onClick={()=>supprimerVoyage(v)} style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 7px', borderRadius:6, cursor:'pointer', fontSize:10 }}>🗑</button>
                         </>}
                         {v.statut==='en_voyage' && (
                           <button onClick={()=>revenir(v)} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>🏠</button>

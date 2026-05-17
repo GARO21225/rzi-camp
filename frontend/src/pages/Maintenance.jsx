@@ -98,7 +98,7 @@ export default function Maintenance() {
   const countByStatus = s => data.filter(d => d.statut === s).length
 
   return (
-    <div style={{ padding:20, maxWidth:1100, margin:"0 auto" }}>
+    <div style={{ padding:20 }}>
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
@@ -232,7 +232,7 @@ export default function Maintenance() {
       {detail && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
           onClick={e => e.target === e.currentTarget && setDetail(null)}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:600, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:600, maxHeight:'92dvh', overflow:'auto', WebkitOverflowScrolling:'touch', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
             {/* Header */}
             <div style={{ background:'#1e3a8a', color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div>
@@ -333,7 +333,7 @@ export default function Maintenance() {
       {modal === 'create' && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'flex-end', justifyContent:'center', padding:'0' }}
           onClick={e => e.target === e.currentTarget && setModal(null)}>
-          <div style={{ background:'#fff', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560, maxHeight:'92vh', overflow:'auto', boxShadow:'0 -8px 40px rgba(0,0,0,.25)' }}>
+          <div style={{ background:'#fff', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560, maxHeight:'92vh', overflow:'auto', WebkitOverflowScrolling:'touch', boxShadow:'0 -8px 40px rgba(0,0,0,.25)' }}>
             <div style={{ background:'#1e3a8a', color:'#fff', padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontWeight:700, fontSize:15 }}>🔧 Déclarer un incident</span>
               <button onClick={() => setModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:18 }}>✕</button>
@@ -383,7 +383,7 @@ export default function Maintenance() {
               </button>
 
               <button onClick={submit} disabled={submitting}
-                style={{ background:submitting?'#94a3b8':'var(--blue)', color:'#fff', border:'none', padding:'13px', borderRadius:10, cursor:submitting?'not-allowed':'pointer', fontSize:15, fontWeight:700, marginTop:4 }}>
+                style={{ background:submitting?'#94a3b8':'#1e3a8a', color:'#fff', border:'none', padding:'13px', borderRadius:10, cursor:submitting?'not-allowed':'pointer', fontSize:15, fontWeight:700, marginTop:4 }}>
                 {submitting ? '⏳ Envoi...' : '📤 Déclarer l\'incident'}
               </button>
             </div>
