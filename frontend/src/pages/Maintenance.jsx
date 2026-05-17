@@ -108,7 +108,7 @@ export default function Maintenance() {
           </p>
         </div>
         <button onClick={() => setModal('create')}
-          style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'10px 18px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+          style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'10px 18px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
           + Déclarer un incident
         </button>
       </div>
@@ -139,7 +139,7 @@ export default function Maintenance() {
           </select>
         ))}
         <button onClick={load} disabled={loading}
-          style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+          style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
           {loading ? '⏳' : '🔄'} Actualiser
         </button>
         {(filterStat||filterPrio||filterCat) && (
@@ -234,7 +234,7 @@ export default function Maintenance() {
           onClick={e => e.target === e.currentTarget && setDetail(null)}>
           <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:600, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
             {/* Header */}
-            <div style={{ background:'var(--blue)', color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ background:'#1e3a8a', color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <div>
                 <div style={{ fontWeight:700, fontSize:16 }}>{detail.titre}</div>
                 <div style={{ fontSize:11, opacity:.75 }}>{detail.categorie} · {detail.statut}</div>
@@ -334,7 +334,7 @@ export default function Maintenance() {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'flex-end', justifyContent:'center', padding:'0' }}
           onClick={e => e.target === e.currentTarget && setModal(null)}>
           <div style={{ background:'#fff', borderRadius:'16px 16px 0 0', width:'100%', maxWidth:560, maxHeight:'92vh', overflow:'auto', boxShadow:'0 -8px 40px rgba(0,0,0,.25)' }}>
-            <div style={{ background:'var(--blue)', color:'#fff', padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ background:'#1e3a8a', color:'#fff', padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontWeight:700, fontSize:15 }}>🔧 Déclarer un incident</span>
               <button onClick={() => setModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:18 }}>✕</button>
             </div>
