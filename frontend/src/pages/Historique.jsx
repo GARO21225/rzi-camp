@@ -127,19 +127,12 @@ export default function Historique() {
 
 
 
-  const filteredRepas = repasData.filter(r => {
-    if (repasDateFilter && !(r.date_validation||'').startsWith(repasDateFilter)) return false
-    if (repasSearch) {
-      const q = repasSearch.toLowerCase()
-      if (!(r.resident||'').toLowerCase().includes(q) && !(r.societe||'').toLowerCase().includes(q)) return false
-    }
-    return true
-  })
+  // repasFiltered remplacé par repasFiltered (useMemo)
 
   const exportRepasCSV = () => {
-    if (!filteredRepas.length) return
+    if (!repasFiltered.length) return
     const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
-    const rows = filteredRepas.map(r => {
+    const rows = repasFiltered.map(r => {
       const dt = r.date_validation ? new Date(r.date_validation) : null
       return [
         r.resident || '',

@@ -132,9 +132,16 @@ export default function Personnel() {
           <p style={{ fontSize:13, color:'var(--text-dim)', marginTop:4 }}>Agents Roxgold · Sous-traitants · Visiteurs · Comptes utilisateurs</p>
         </div>
         {isAdmin && (
-          <button onClick={openCreate} style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>
-            + Déclarer un membre
-          </button>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={() => setImportModal(true)}
+              style={{ background:'rgba(30,58,138,.1)', color:'var(--blue)', border:'1px solid rgba(30,58,138,.3)', padding:'9px 14px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700, display:'flex', alignItems:'center', gap:6 }}>
+              📥 Importer CSV/Excel
+            </button>
+            <button onClick={openCreate}
+              style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600 }}>
+              + Déclarer un membre
+            </button>
+          </div>
         )}
       </div>
 
