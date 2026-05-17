@@ -1,3 +1,4 @@
+import GlobalSearch from './GlobalSearch'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
@@ -207,6 +208,9 @@ export default function Layout() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           RÉSIDENCE ROXGOLD SANGO
         </div>
+
+        {/* ── Recherche globale ── */}
+        {!isMobile && <GlobalSearch />}
 
         {alertes.length > 0 && !isMobile && (
           <div style={{ background: 'rgba(220,38,38,.25)', border: '1px solid rgba(220,38,38,.5)', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: '#fca5a5', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
