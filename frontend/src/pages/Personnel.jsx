@@ -144,18 +144,6 @@ export default function Personnel() {
           const n = data.filter(p=>p.type_personnel===t).length
           const c = TYPE_COLORS[t]
         
-  const handleImport = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImporting(true); setImportResult(null)
-    try {
-      const r = await importCSV(file)
-      setImportResult(r.data)
-      load()
-    } catch(err) {
-      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
-    } finally { setImporting(false) }
-  }
 
   return (
             <div key={t} onClick={()=>setTypeFilter(typeFilter===t?'':t)}
@@ -193,18 +181,6 @@ export default function Personnel() {
             :data.map((p,i)=>{
               const c=TYPE_COLORS[p.type_personnel]
             
-  const handleImport = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImporting(true); setImportResult(null)
-    try {
-      const r = await importCSV(file)
-      setImportResult(r.data)
-      load()
-    } catch(err) {
-      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
-    } finally { setImporting(false) }
-  }
 
   return (
                 <tr key={p.id} style={{ borderTop:'1px solid var(--border)', background:i%2?'var(--surface2)':'#fff' }}>
@@ -275,18 +251,6 @@ export default function Personnel() {
                   {[['roxgold','A — Agent Roxgold'],['sous_traitant','S — Sous-traitant'],['visiteur','V — Visiteur']].map(([v,l])=>{
                     const c=TYPE_COLORS[v]
                   
-  const handleImport = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImporting(true); setImportResult(null)
-    try {
-      const r = await importCSV(file)
-      setImportResult(r.data)
-      load()
-    } catch(err) {
-      setImportResult({ error: err.response?.data?.error || 'Erreur import' })
-    } finally { setImporting(false) }
-  }
 
   return (
                       <button key={v} onClick={()=>setForm({...form,type_personnel:v})}

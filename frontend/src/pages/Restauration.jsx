@@ -178,7 +178,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
 
       {/* Camera view */}
       <div style={{ background: '#000', position: 'relative', minHeight: 320 }}>
-        <div id="qr_viewport" style={{ width: '100%', minHeight: 320 }} />
+        <div id="qr_viewport" style={{ width: '100%', minHeight: 380 }} />
 
         {/* Crosshair guide */}
         {phase === 'scan' && (
