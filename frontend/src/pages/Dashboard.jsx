@@ -1,3 +1,4 @@
+import { cachedFetch } from '../utils/cache'
 /**
  * DASHBOARD v3 — Premium avec charts, activité, météo camp
  */
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
 
   useEffect(() => {
-    batiments.stats().then(r=>{
+    cachedFetch('bat-stats', () => batiments.stats(), 60000).then(r=>{
       const d = r.data
       const ps = d.par_statut || {}
       setStats({
@@ -60,8 +61,8 @@ export default function Dashboard() {
         departs:     d.departs_s1      || 0,
       })
     }).catch(()=>{})
-    incidents.stats().then(r=>setIncStats(r.data)).catch(()=>{})
-    voyAPI.stats().then(r=>setVoyStats(r.data)).catch(()=>{})
+    cachedFetch('inc-stats', () => incidents.stats(), 60000).then(r=>setIncStats(r.data)).catch(()=>{})
+    cachedFetch('voy-stats', () => voyAPI.stats(), 60000).then(r=>setVoyStats(r.data)).catch(()=>{})
   }, [])
 
   // Horloge live

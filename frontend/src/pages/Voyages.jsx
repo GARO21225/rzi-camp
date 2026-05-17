@@ -30,10 +30,12 @@ export default function Voyages() {
   const [form, setForm] = useState({ personnel:'', batiment:'', destination:'', motif:'', date_depart:today, heure_depart:'', date_retour_prevue:'' })
   const [isReady, setIsReady] = useState(false)
 
+  // Charger personnel/bâtiments en arrière-plan (non bloquant)
   useEffect(() => {
+    setIsReady(true) // Afficher les voyages immédiatement
     Promise.all([
-      personnelAPI.list({ page_size:500 }),
-      batsAPI.list({ page_size:300 })
+      personnelAPI.list({ page_size:200 }),
+      batsAPI.list({ page_size:200 })
     ]).then(([rp, rb]) => {
       const items = rp.data.results||rp.data||[]
       setPersonnelList(items)
@@ -50,12 +52,10 @@ export default function Voyages() {
           setForm(f => ({...f, personnel: me.id.toString()}))
         }
       }
-      setIsReady(true)
-    }).catch(() => setIsReady(true))
+    }).catch(() => {})
   }, [user?.username])
 
   const loadVoyages = useCallback(() => {
-    if (!isReady) return // Don't load until ready
     const p = {}
     if (filterStatut) p.statut = filterStatut
     if (!isAdmin && myPersonnel) {
