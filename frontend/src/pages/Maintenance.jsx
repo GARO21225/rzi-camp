@@ -13,7 +13,7 @@ const PRIOS = ['haute','moyenne','basse']
 export default function Maintenance() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const isAdmin = user?.is_staff === true || user?.is_superuser === true || user?.profile?.role === 'admin'
   const isTech  = isAdmin || ['technicien','menage'].includes(role)
 
   const [data,       setData]       = useState([])
@@ -98,7 +98,7 @@ export default function Maintenance() {
   const countByStatus = s => data.filter(d => d.statut === s).length
 
   return (
-    <div className="page page-xl">
+    <div style={{ padding:20, maxWidth:1100, margin:"0 auto" }}>
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>

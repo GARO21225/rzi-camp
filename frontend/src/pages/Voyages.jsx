@@ -17,7 +17,7 @@ export default function Voyages() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
-  const canCreate = ['admin','agent'].includes(role) || user?.is_staff || user?.is_superuser || !!user
+  const canCreate = user?.is_staff === true || user?.is_superuser === true || ['admin','agent'].includes(user?.profile?.role || user?.role || '')
 
   const [data, setData] = useState([])
   const [stats, setStats] = useState(null)
@@ -138,7 +138,7 @@ export default function Voyages() {
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          {canCreate && (
+          {user && (
             <button onClick={()=>setModal(true)}
               style={{ background:'var(--blue)', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
               + {isAdmin?'Nouveau voyage':'Déclarer mon voyage'}
