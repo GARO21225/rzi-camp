@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
-import { personnel as personnelAPI } from '../api'
+import { personnel as personnelAPI, importCSV } from '../api'
 import { useStore } from '../store'
 
 const TYPE_COLORS = {

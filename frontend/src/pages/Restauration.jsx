@@ -116,7 +116,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
       scannerRef.current = s
       await s.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 260, height: 260 } },
+        { fps: 10, qrbox: { width: 200, height: 200 } },
         async (decoded) => {
           if (cooldown.current || !alive.current) return
           cooldown.current = true
@@ -156,7 +156,7 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
 
   const PHASE_CONFIG = {
     init:    { bg: '#1e293b', icon: '📡', text: 'Démarrage...', sub: 'Veuillez autoriser la caméra' },
-    scan:    { bg: '#1e293b', icon: '📷', text: 'Prêt à scanner', sub: 'Pointez vers le code QR du personnel' },
+    scan:    { bg: '#1e293b', icon: '📷', text: 'Scanner actif', sub: 'Approchez un QR code' },
     loading: { bg: '#78350f', icon: '⏳', text: 'Validation...', sub: 'Veuillez patienter' },
     ok:      { bg: '#14532d', icon: '✅', text: message || 'Validé', sub: result?.societe || '' },
     already: { bg: '#7c2d12', icon: '⛔', text: 'Déjà pris', sub: message || 'Repas déjà validé aujourd\'hui' },
@@ -168,22 +168,22 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
   return (
     <div style={{ borderRadius: 16, overflow: 'hidden', border: `3px solid ${cfg.bg}`, background: '#0f172a' }}>
       {/* Status bar */}
-      <div style={{ background: cfg.bg, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 32 }}>{cfg.icon}</span>
+      <div style={{ background: cfg.bg, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 24 }}>{cfg.icon}</span>
         <div>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{cfg.text}</div>
-          {cfg.sub && <div style={{ color: 'rgba(255,255,255,.6)', fontSize: 12, marginTop: 3 }}>{cfg.sub}</div>}
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{cfg.text}</div>
+          {cfg.sub && <div style={{ color: 'rgba(255,255,255,.6)', fontSize: 11, marginTop: 3 }}>{cfg.sub}</div>}
         </div>
       </div>
 
       {/* Camera view */}
-      <div style={{ background: '#000', position: 'relative', minHeight: 320 }}>
-        <div id="qr_viewport" style={{ width: '100%', minHeight: 380 }} />
+      <div style={{ background: '#000', position: 'relative', minHeight: 260 }}>
+        <div id="qr_viewport" style={{ width: '100%', minHeight: 280 }} />
 
         {/* Crosshair guide */}
         {phase === 'scan' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <div style={{ width: 220, height: 220, border: '3px solid rgba(124,58,237,.7)', borderRadius: 16, position: 'relative' }}>
+            <div style={{ width: 180, height: 180, border: '2px solid rgba(124,58,237,.7)', borderRadius: 16, position: 'relative' }}>
               {/* Corner accents */}
               <div style={{ position: 'absolute', top: -3, left: -3, width: 30, height: 30, borderTop: '4px solid #7c3aed', borderLeft: '4px solid #7c3aed', borderRadius: '8px 0 0 0' }} />
               <div style={{ position: 'absolute', top: -3, right: -3, width: 30, height: 30, borderTop: '4px solid #7c3aed', borderRight: '4px solid #7c3aed', borderRadius: '0 8px 0 0' }} />
@@ -196,15 +196,15 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
         {/* Flash overlays */}
         {phase === 'ok' && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(22,163,74,.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 80 }}>✅</span>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, marginTop: 10 }}>{result?.resident}</div>
+            <span style={{ fontSize: 60 }}>✅</span>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginTop: 10 }}>{result?.resident}</div>
             <div style={{ color: 'rgba(255,255,255,.8)', fontSize: 13, marginTop: 4 }}>{result?.societe}</div>
           </div>
         )}
         {phase === 'already' && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(234,88,12,.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 80 }}>⛔</span>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, marginTop: 10 }}>Déja pris</div>
+            <span style={{ fontSize: 60 }}>⛔</span>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginTop: 10 }}>Déja pris</div>
             <div style={{ color: 'rgba(255,255,255,.8)', fontSize: 13, marginTop: 4, textAlign: 'center', padding: '0 20px' }}>{message}</div>
           </div>
         )}

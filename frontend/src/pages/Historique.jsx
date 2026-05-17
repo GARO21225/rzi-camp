@@ -134,6 +134,8 @@ export default function Historique() {
       if (!(r.resident||'').toLowerCase().includes(q) && !(r.societe||'').toLowerCase().includes(q)) return false
     }
     return true
+  })
+
   const exportRepasCSV = () => {
     if (!filteredRepas.length) return
     const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
@@ -157,8 +159,6 @@ export default function Historique() {
     a.click()
     URL.revokeObjectURL(url)
   }
-
-  })
 
   const loadRepas = async () => {
     setRepasLoading(true)
@@ -448,7 +448,7 @@ export default function Historique() {
 
               <button onClick={loadRepas} disabled={repasLoading}
                 style={{background:'#7c3aed',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
-                {repasLoading?'⏳':'🔄'} Actualiser
+                {repasLoading?'⏳ Recherche...':'🔍 Rechercher'} Actualiser
               </button>
 
               {/* Reset filtres */}
