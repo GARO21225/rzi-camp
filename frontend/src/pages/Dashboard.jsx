@@ -103,17 +103,19 @@ export default function Dashboard() {
         <div className="card" style={{ padding:16 }}>
           <div style={{ fontWeight:700, color:'var(--blue)', marginBottom:14, fontSize:13 }}>⚡ Actions rapides</div>
           {[
-            ['🏠 Gérer les résidences','/residences','#1e3a8a'],
-            ['🗺️ Carte GIS','/carte','#2563eb'],
-            ['👤 Déclarer du personnel','/personnel','#16a34a'],
-            ['📅 Créer un événement','/evenements','#7c3aed'],
-            ['🛠️ Voir les incidents','/maintenance','#ea580c'],
-            ['📝 Demandes en attente','/demandes','#f0a500'],
+            ['🏠 Gérer les résidences',   '/residences',  '#1e3a8a'],
+            ['🗺️ Carte GIS',              '/carte',        '#2563eb'],
+            ['👤 Déclarer du personnel',  '/personnel',    '#16a34a'],
+            ['📅 Créer un événement',     '/evenements',   '#7c3aed'],
+            ['✈️ Déclarer un voyage',     '/voyages',      '#0ea5e9'],
+            ['🔧 Signaler une maintenance','/maintenance', '#ea580c'],
+            ['📝 Demandes en attente',    '/demandes',     '#f0a500'],
           ].map(([l,to,c])=>(
             <button key={to} onClick={()=>navigate(to)}
-              style={{ width:'100%', background:`${c}0d`, color:c, border:`1px solid ${c}25`,
-                padding:'9px 14px', borderRadius:9, fontSize:12, fontWeight:600,
-                textAlign:'left', marginBottom:6, display:'block' }}>
+              style={{ width:'100%', background:'rgba(0,0,0,.04)', color:c, border:`1px solid ${c}`,
+                padding:'10px 14px', borderRadius:9, fontSize:13, fontWeight:600,
+                textAlign:'left', marginBottom:6, display:'block', cursor:'pointer',
+                borderLeft:`4px solid ${c}`, transition:'.15s' }}>
               {l} →
             </button>
           ))}

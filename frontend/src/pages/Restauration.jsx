@@ -273,7 +273,7 @@ function LastScanCard({ scan }) {
 }
 
 // ── Liste historique ────────────────────────────────────────────────
-function HistoriqueList({ data, onRefresh, onClear, loading }) {
+function HistoriqueList({ data, onRefresh, loading }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterJour, setFilterJour] = useState('today')
 
@@ -327,11 +327,7 @@ function HistoriqueList({ data, onRefresh, onClear, loading }) {
       <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
         <div style={{ padding: '12px 14px', background: '#7c3aed', color: '#fff', fontWeight: 600, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>👥 Personnel ({filteredData.length})</span>
-          {onClear && (
-            <button onClick={onClear} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
-              🗑 Vider
-            </button>
-          )}
+
         </div>
 
         {loading ? (
@@ -423,16 +419,6 @@ export default function Restauration() {
     }
   }, [typeRepas])
 
-  const handleClearHistorique = async () => {
-    if (!window.confirm('Vider tout l\'historique de ce repas ?')) return
-    const ok = await apiViderHistorique(typeRepas)
-    if (ok) {
-      setHistorique([])
-      setStats({ today: 0, semaine: 0, byType: { petit_dejeuner:0, dejeuner:0, diner:0 }, lastScan: null })
-    } else {
-      alert('Erreur lors du vidage')
-    }
-  }
 
   // ── Interface Restaurant (scan personnel) ──
   if (isResto) {
@@ -509,8 +495,7 @@ export default function Restauration() {
           <HistoriqueList
             data={historique}
             onRefresh={loadHistorique}
-            onClear={handleClearHistorique}
-            loading={loading}
+              loading={loading}
           />
         </div>
       </div>

@@ -118,3 +118,24 @@ async function syncAll() {
   const clients = await self.clients.matchAll()
   clients.forEach(c => c.postMessage({ type: 'SYNCED', done: done.length, fail: fail.length }))
 }
+
+// ── Push Notifications ───────────────────────────────────────────
+self.addEventListener('push', e => {
+  let data = {}
+  try { data = e.data.json() } catch { data = { title: e.data?.text() || 'RZI Camp' } }
+  e.waitUntil(
+    self.registration.showNotification(data.title || '📢 RZI Camp', {
+      body:    data.body  || 'Nouvel événement sur la résidence',
+      icon:    '/roxgold-logo.png',
+      badge:   '/roxgold-logo.png',
+      vibrate: [200, 100, 200],
+      data:    { url: data.url || '/evenements' }
+    })
+  )
+})
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close()
+  const url = e.notification.data?.url || '/evenements'
+  e.waitUntil(clients.openWindow(url))
+})

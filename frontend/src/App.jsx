@@ -37,6 +37,7 @@ import StatusPage from './pages/StatusPage'
 import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
 import OfflineBanner from './components/OfflineBanner'
+import EventNotifBanner from './components/EventNotifBanner'
 
 // Handle 404.html redirect for SPA routing
 const urlParams = new URLSearchParams(window.location.search)
@@ -106,6 +107,7 @@ export default function App() {
     <>
       <InactivityWarning />
       <OfflineBanner />
+      <EventNotifBanner />
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>
