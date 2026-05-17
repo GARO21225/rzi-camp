@@ -1,3 +1,19 @@
+
+// ── Enregistrement Service Worker (offline mode) ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        // Sync au retour du réseau
+        window.addEventListener('online', () => {
+          if (reg.sync) reg.sync.register('rzi-sync').catch(() => {})
+          reg.active?.postMessage({ type: 'SYNC_NOW' })
+        })
+      })
+      .catch(() => {})
+  })
+}
+
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
@@ -20,6 +36,7 @@ import AuditPage from './pages/AuditPage'
 import StatusPage from './pages/StatusPage'
 import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
+import OfflineBanner from './components/OfflineBanner'
 
 // Handle 404.html redirect for SPA routing
 const urlParams = new URLSearchParams(window.location.search)
@@ -88,6 +105,7 @@ export default function App() {
   return (
     <>
       <InactivityWarning />
+      <OfflineBanner />
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>

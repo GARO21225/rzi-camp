@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
@@ -107,3 +107,86 @@ def reset_user_password(request, user_id):
     target.set_password(new_pwd)
     target.save()
     return Response({"message": f"Mot de passe réinitialisé pour {target.username}"})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    """Générer un token de reset (retourne token pour email/SMS)"""
+    username = request.data.get("username", "").strip()
+    if not username:
+        return Response({"error": "Identifiant requis"}, status=400)
+
+    user = User.objects.filter(username=username).first()
+    if not user:
+        # Sécurité: ne pas révéler si le compte existe
+        return Response({"message": "Si ce compte existe, un message de réinitialisation a été envoyé."})
+
+    # Générer un token temporaire (valide 1h)
+    import secrets, datetime
+    from django.core.cache import cache
+    token = secrets.token_urlsafe(32)
+    cache.set(f"reset:{token}", user.id, timeout=3600)
+
+    # Essayer d'envoyer un email
+    email_sent = False
+    try:
+        from django.core.mail import send_mail
+        from django.conf import settings
+        from residences.models import Personnel
+        pers = Personnel.objects.filter(user=user).first()
+        if user.email or (pers and pers.email):
+            dest = user.email or pers.email
+            app_url = getattr(settings, "APP_URL", "https://rzi-camp-frontend.onrender.com")
+            send_mail(
+                subject="🔐 Réinitialisation de mot de passe — RZI Camp",
+                message=f"""Bonjour {user.first_name},
+
+Votre lien de réinitialisation (valide 1h) :
+{app_url}/reset-password?token={token}
+
+Si vous n\'avez pas demandé cette réinitialisation, ignorez ce message.
+
+L\'équipe RZI Camp""",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[dest],
+                fail_silently=True,
+            )
+            email_sent = True
+    except Exception:
+        pass
+
+    # Admin: afficher le token dans la réponse si pas d'email configuré
+    resp = {"message": "Lien de réinitialisation généré."}
+    if not email_sent:
+        resp["token"] = token
+        resp["note"] = "Email non configuré. Transmettez ce token à l\'utilisateur ou contactez l\'admin."
+
+    return Response(resp)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def reset_password_confirm(request):
+    """Confirmer le reset avec le token"""
+    from django.core.cache import cache
+    token    = request.data.get("token", "")
+    new_pwd  = request.data.get("password", "")
+
+    if not token or not new_pwd:
+        return Response({"error": "Token et mot de passe requis"}, status=400)
+    if len(new_pwd) < 6:
+        return Response({"error": "Mot de passe trop court (6 caractères minimum)"}, status=400)
+
+    user_id = cache.get(f"reset:{token}")
+    if not user_id:
+        return Response({"error": "Token invalide ou expiré (1h max)"}, status=400)
+
+    try:
+        user = User.objects.get(pk=user_id)
+        user.set_password(new_pwd)
+        user.save()
+        cache.delete(f"reset:{token}")
+        return Response({"message": "Mot de passe réinitialisé avec succès. Vous pouvez vous connecter."})
+    except User.DoesNotExist:
+        return Response({"error": "Utilisateur introuvable"}, status=404)

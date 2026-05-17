@@ -289,7 +289,38 @@ export default function Personnel() {
                     <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12, color:'#475569' }}>{p.numero || '—'}</td>
                     <td style={{ padding:'10px 14px' }}>
                       <div style={{ fontSize:11, color:'#475569', fontFamily:'monospace' }}>{p.login_genere || '—'}</div>
-                      <div style={{ fontSize:10, color:'#94a3b8' }}>••••••</div>
+                      {isAdmin ? (
+                        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                          <span style={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }} id={`pwd_${p.id}`}>••••••</span>
+                          <button
+                            onClick={e => {
+                              const el = document.getElementById(`pwd_${p.id}`)
+                              if (el.textContent === '••••••') {
+                                el.textContent = p.password_genere || '(non défini)'
+                                el.style.color = '#dc2626'
+                                e.currentTarget.textContent = '🙈'
+                              } else {
+                                el.textContent = '••••••'
+                                el.style.color = '#94a3b8'
+                                e.currentTarget.textContent = '👁️'
+                              }
+                            }}
+                            style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, padding:0, lineHeight:1, color:'#94a3b8' }}
+                            title="Voir/cacher le mot de passe">
+                            👁️
+                          </button>
+                          {p.password_genere && (
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(p.password_genere); alert('✅ Mot de passe copié !') }}
+                              style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, padding:0, lineHeight:1 }}
+                              title="Copier le mot de passe">
+                              📋
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize:10, color:'#94a3b8' }}>••••••</div>
+                      )}
                     </td>
                     <td style={{ padding:'10px 14px', textAlign:'center' }}>
                       {p.qr_code_data && (
