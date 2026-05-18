@@ -34,6 +34,9 @@ import MonCompte from './pages/MonCompte'
 import Analytics from './pages/Analytics'
 import AuditPage from './pages/AuditPage'
 import StatusPage from './pages/StatusPage'
+import Presences   from './pages/Presences'
+import RapportPage  from './pages/RapportPage'
+
 import Demandes from './pages/Demandes'
 import { PWAInstallButton } from './components/PWAInstall'
 import OfflineBanner from './components/OfflineBanner'
@@ -126,7 +129,9 @@ export default function App() {
           <Route path="demandes" element={<Demandes/>}/>
           <Route path="audit" element={<AuditPage />} />
           <Route path="mon-compte" element={<MonCompte />} />
-          <Route path="status" element={<StatusPage />} />
+          <Route path="status"     element={<StatusPage />} />
+          <Route path="presences"  element={<Presences />} />
+          <Route path="rapports"   element={<RapportPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

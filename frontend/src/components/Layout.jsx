@@ -20,6 +20,8 @@ const ROLE_NAV = {
     { to:'/demandes', label:'📝 Demandes' },
     { to:'/historique', label:'📋 Historique' },
     { to:'/analytics', label:'📈 Analytics' },
+    { to:'/presences', label:'📋 Présences' },
+    { to:'/rapports', label:'📑 Rapports' },
     { to:'/audit', label:'🔍 Audit' },
     { to:'/status', label:'🔧 Diagnostic' },
   { to:'/mon-compte', label:'👤 Mon compte' },

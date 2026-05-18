@@ -1,232 +1,222 @@
-import React, { useEffect, useState } from 'react'
-import { batiments, incidents, voyages } from '../api'
+/**
+ * ANALYTICS v2 — Tableau de bord intelligence métier
+ * Statistiques avancées pour la direction du camp
+ */
+import React, { useState, useEffect } from 'react'
+import { batiments, incidents, voyages as voyAPI, personnel as personnelAPI } from '../api'
 import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, AreaChart, Area, Legend
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from 'recharts'
 
-function KPI({ value, label, color, icon, sub, onClick }) {
+const C = { blue:'#1e3a8a', orange:'#f97316', green:'#16a34a', red:'#dc2626', purple:'#7c3aed', gold:'#f0a500', teal:'#0891b2' }
+
+function StatBlock({ label, value, sub, color, icon }) {
   return (
-    <div onClick={onClick} style={{
-      background:'#fff', border:'1px solid #e2e8f0', borderRadius:12,
-      padding:'14px 16px', borderLeft:`4px solid ${color}`,
-      boxShadow:'0 1px 4px rgba(0,0,0,.06)', cursor:onClick?'pointer':'default',
-      display:'flex', alignItems:'center', gap:14, transition:'.2s'
-    }}
-    onMouseEnter={e=>onClick&&(e.currentTarget.style.boxShadow='0 4px 16px rgba(30,58,138,.12)')}
-    onMouseLeave={e=>onClick&&(e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)')}>
-      <div style={{ fontSize:28 }}>{icon}</div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:700, color, lineHeight:1 }}>{value}</div>
-        <div style={{ fontSize:11, color:'#64748b', marginTop:3, textTransform:'uppercase', letterSpacing:.5 }}>{label}</div>
-        {sub && <div style={{ fontSize:11, color, marginTop:2, fontWeight:600 }}>{sub}</div>}
+    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px 18px', borderTop:`3px solid ${color}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div style={{ fontFamily:'monospace', fontSize:34, fontWeight:900, color }}>{value ?? '—'}</div>
+        <span style={{ fontSize:24, opacity:.5 }}>{icon}</span>
       </div>
-    </div>
-  )
-}
-
-const TOOLTIP_STYLE = {
-  background:'#1e3a8a', border:'none', borderRadius:10, color:'#fff',
-  fontSize:12, padding:'8px 14px', boxShadow:'0 4px 16px rgba(30,58,138,.3)'
-}
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={TOOLTIP_STYLE}>
-      <div style={{ fontWeight:700, marginBottom:4 }}>{label}</div>
-      {payload.map((p,i) => (
-        <div key={i} style={{ color:p.color||'#f0a500' }}>{p.name}: <b>{p.value}</b></div>
-      ))}
+      <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:1.2, marginTop:5, fontWeight:700 }}>{label}</div>
+      {sub && <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{sub}</div>}
     </div>
   )
 }
 
 export default function Analytics() {
-  const [batStats, setBatStats] = useState(null)
-  const [incStats, setIncStats] = useState(null)
-  const [voyStats, setVoyStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [bats,  setBats]  = useState(null)
+  const [inc,   setInc]   = useState(null)
+  const [voy,   setVoy]   = useState(null)
+  const [perso, setPerso] = useState([])
+  const [tab,   setTab]   = useState('residence')
 
   useEffect(() => {
-    Promise.all([batiments.stats(), incidents.stats(), voyages.stats()])
-      .then(([b,i,v]) => { setBatStats(b.data); setIncStats(i.data); setVoyStats(v.data) })
-      .finally(() => setLoading(false))
+    batiments.stats().then(r => {
+      const d = r.data, ps = d.par_statut || {}
+      setBats({
+        total:       d.total || 203,
+        libres:      ps['Libre'] || 0,
+        occupes:     ps['Occupé'] || 0,
+        reserves:    ps['Réservé'] || 0,
+        maintenance: ps['Maintenance'] || 0,
+        taux:        d.taux_occupation || 0,
+        par_bloc:    d.par_bloc || [],
+        departs_s1:  d.departs_s1 || 0,
+      })
+    }).catch(() => {})
+    incidents.stats().then(r => setInc(r.data)).catch(() => {})
+    voyAPI.stats().then(r => setVoy(r.data)).catch(() => {})
+    personnelAPI.list({ page_size:500 }).then(r => setPerso(r.data.results || r.data || [])).catch(() => {})
   }, [])
 
-  if (loading) return (
-    <div style={{ padding:60, textAlign:'center', color:'#94a3b8' }}>
-      <div style={{ fontSize:36, marginBottom:12 }}>📊</div>
-      <div style={{ fontSize:14 }}>Chargement des données...</div>
-    </div>
-  )
+  // Données calculées
+  const occupancyPie = bats ? [
+    { name:'Libres',      v:bats.libres,      fill:C.green },
+    { name:'Occupés',     v:bats.occupes,     fill:C.blue },
+    { name:'Réservés',    v:bats.reserves,    fill:C.orange },
+    { name:'Maintenance', v:bats.maintenance, fill:C.red },
+  ] : []
 
-  const s = batStats?.par_statut || {}
+  const typePersonnel = Object.entries(
+    perso.reduce((a,p) => { a[p.type_personnel||'roxgold'] = (a[p.type_personnel||'roxgold']||0)+1; return a }, {})
+  ).map(([name,v]) => ({ name:{roxgold:'Roxgold',sous_traitant:'Sous-traitant',visiteur:'Visiteur'}[name]||name, v }))
 
-  // Donut data
-  const occupPie = [
-    { name:'Libres',      value:s['Libre']||0,       color:'#16a34a' },
-    { name:'Occupés',     value:s['Occupé']||0,      color:'#dc2626' },
-    { name:'Réservés',    value:s['Réservé']||0,     color:'#2563eb' },
-    { name:'Maintenance', value:s['Maintenance']||0, color:'#ea580c' },
-  ].filter(d=>d.value>0)
-
-  // Trend data (6 mois simulés)
-  const months = ['Jan','Fév','Mar','Avr','Mai','Jun']
-  const trend = months.map((m,i) => ({
-    mois:m,
-    Occupés: Math.max(0, (s['Occupé']||60) + Math.round(Math.sin(i+1)*12)),
-    Libres:  Math.max(0, (s['Libre']||100) - Math.round(Math.sin(i+1)*8)),
+  const blocData = (bats?.par_bloc || []).slice(0,10).map(b => ({
+    name: b.bloc?.replace('Bloc_','') || '',
+    total: b.total,
+    occupes: Math.round(b.total * (bats?.taux||0) / 100)
   }))
 
-  // Incident bar data
-  const incData = [
-    { name:'Ouverts',   valeur:incStats?.ouverts||0,   color:'#dc2626' },
-    { name:'En cours',  valeur:incStats?.en_cours||0,  color:'#ea580c' },
-    { name:'Résolus',   valeur:incStats?.resolus||0,   color:'#16a34a' },
+  const TABS = [
+    ['residence','🏠 Résidences'],
+    ['personnel','👤 Personnel'],
+    ['incidents','🔧 Incidents'],
+    ['voyages',  '✈️ Voyages'],
   ]
-
-  // Voyage bar data
-  const voyData = [
-    { name:'Planifiés', valeur:voyStats?.planifies||0,  color:'#2563eb' },
-    { name:'En voyage', valeur:voyStats?.en_voyage||0,  color:'#ea580c' },
-    { name:'Retours',   valeur:voyStats?.retours||0,    color:'#16a34a' },
-  ]
-
-  const taux = batStats?.taux_occupation || 0
 
   return (
-    <div style={{ padding:16 }}>
-      {/* Titre */}
+    <div style={{ padding:20 }}>
       <div style={{ marginBottom:20 }}>
-        <h2 style={{ fontSize:19, fontWeight:700, color:'#1e3a8a', margin:0 }}>📊 Analytics</h2>
+        <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>📈 Analytics & Rapports</h2>
         <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>
-          Vue d'ensemble · Occupation · Incidents · Voyages
+          Tableau de bord intelligence métier · Camp Roxgold Sango
         </p>
       </div>
 
-      {/* KPIs — 2 lignes */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10, marginBottom:20 }}>
-        <KPI value={batStats?.total||'—'} label="Total bâtiments" color="#1e3a8a" icon="🏗️"/>
-        <KPI value={`${taux}%`} label="Taux d'occupation" color={taux>80?'#dc2626':taux>60?'#ea580c':'#16a34a'} icon="📊"
-          sub={taux>80?'⚠️ Capacité élevée':taux>60?'Charge modérée':'✅ Bonne disponibilité'}/>
-        <KPI value={s['Libre']||0} label="Résidences libres" color="#16a34a" icon="🟢"/>
-        <KPI value={s['Occupé']||0} label="Résidences occupées" color="#dc2626" icon="🔴"/>
-        <KPI value={incStats?.ouverts||0} label="Incidents ouverts" color="#dc2626" icon="🚨"/>
-        <KPI value={incStats?.resolus||0} label="Incidents résolus" color="#16a34a" icon="✅"/>
-        <KPI value={voyStats?.en_voyage||0} label="Agents en voyage" color="#ea580c" icon="✈️"/>
-        <KPI value={batStats?.departs_s1||0} label="Départs cette semaine" color="#7c3aed" icon="📅"/>
+      {/* KPIs globaux */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
+        <StatBlock label="Bâtiments" value={bats?.total} icon="🏗️" color={C.blue} sub={`${bats?.taux?.toFixed(1)||0}% occupé`} />
+        <StatBlock label="Libres" value={bats?.libres} icon="✅" color={C.green} sub={`${bats?.total?Math.round(bats.libres/bats.total*100):0}% du parc`} />
+        <StatBlock label="Incidents" value={inc?.total||0} icon="🚨" color={C.red} sub={`${inc?.ouverts||0} ouverts`} />
+        <StatBlock label="Voyages" value={voy?.total||0} icon="✈️" color={C.orange} sub={`${voy?.en_voyage||0} en voyage`} />
+        <StatBlock label="Personnel" value={perso.length} icon="👤" color={C.purple} sub="Total enregistrés" />
       </div>
 
-      {/* Grille graphiques */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-
-        {/* ── Occupation Donut ── */}
-        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-          <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:14, marginBottom:4 }}>🏠 Répartition résidences</div>
-          <div style={{ fontSize:11, color:'#94a3b8', marginBottom:14 }}>Par statut d'occupation</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={occupPie} cx="50%" cy="50%"
-                innerRadius={55} outerRadius={90}
-                dataKey="value" paddingAngle={3}>
-                {occupPie.map((e,i) => <Cell key={i} fill={e.color} stroke="none"/>)}
-              </Pie>
-              <Tooltip content={<CustomTooltip/>}/>
-              <Legend iconType="circle" iconSize={10} wrapperStyle={{fontSize:12}}/>
-            </PieChart>
-          </ResponsiveContainer>
-          {/* Légende inline avec chiffres */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
-            {occupPie.map(p => (
-              <div key={p.name} style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <div style={{ width:10, height:10, borderRadius:3, background:p.color, flexShrink:0 }}/>
-                <span style={{ fontSize:11, color:'#64748b' }}>{p.name}</span>
-                <span style={{ fontFamily:'monospace', fontWeight:700, color:p.color, marginLeft:'auto' }}>{p.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Tendance 6 mois ── */}
-        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-          <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:14, marginBottom:4 }}>📈 Tendance 6 mois</div>
-          <div style={{ fontSize:11, color:'#94a3b8', marginBottom:14 }}>Évolution occupation vs disponibilité</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={trend} margin={{top:5,right:10,left:-20,bottom:0}}>
-              <defs>
-                <linearGradient id="gOcc" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#dc2626" stopOpacity={0.25}/>
-                  <stop offset="95%" stopColor="#dc2626" stopOpacity={0.02}/>
-                </linearGradient>
-                <linearGradient id="gLib" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#16a34a" stopOpacity={0.25}/>
-                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0.02}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="mois" tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <Tooltip content={<CustomTooltip/>}/>
-              <Area type="monotone" dataKey="Occupés" stroke="#dc2626" strokeWidth={2} fill="url(#gOcc)"/>
-              <Area type="monotone" dataKey="Libres" stroke="#16a34a" strokeWidth={2} fill="url(#gLib)"/>
-              <Legend iconType="circle" iconSize={10} wrapperStyle={{fontSize:12}}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* ── Incidents ── */}
-        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-          <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:14, marginBottom:4 }}>🛠️ Incidents maintenance</div>
-          <div style={{ fontSize:11, color:'#94a3b8', marginBottom:14 }}>Statut des signalements</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={incData} margin={{top:5,right:10,left:-20,bottom:0}}>
-              <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="name" tick={{fontSize:12,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <Tooltip content={<CustomTooltip/>}/>
-              <Bar dataKey="valeur" name="Incidents" radius={[6,6,0,0]}>
-                {incData.map((d,i) => <Cell key={i} fill={d.color}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{ display:'flex', gap:10, marginTop:10, justifyContent:'center' }}>
-            {incData.map(d=>(
-              <div key={d.name} style={{ textAlign:'center' }}>
-                <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:d.color }}>{d.valeur}</div>
-                <div style={{ fontSize:10, color:'#94a3b8' }}>{d.name}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Voyages ── */}
-        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-          <div style={{ fontWeight:700, color:'#1e3a8a', fontSize:14, marginBottom:4 }}>✈️ Voyages</div>
-          <div style={{ fontSize:11, color:'#94a3b8', marginBottom:14 }}>État des déplacements</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={voyData} margin={{top:5,right:10,left:-20,bottom:0}}>
-              <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="name" tick={{fontSize:12,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-              <Tooltip content={<CustomTooltip/>}/>
-              <Bar dataKey="valeur" name="Voyages" radius={[6,6,0,0]}>
-                {voyData.map((d,i) => <Cell key={i} fill={d.color}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{ display:'flex', gap:10, marginTop:10, justifyContent:'center' }}>
-            {voyData.map(d=>(
-              <div key={d.name} style={{ textAlign:'center' }}>
-                <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:700, color:d.color }}>{d.valeur}</div>
-                <div style={{ fontSize:10, color:'#94a3b8' }}>{d.name}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:6, marginBottom:18, flexWrap:'wrap' }}>
+        {TABS.map(([k,l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            style={{ padding:'8px 16px', borderRadius:10, border:'1px solid', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit',
+              background: tab===k ? '#1e3a8a' : '#fff',
+              color:      tab===k ? '#fff'    : '#475569',
+              borderColor:tab===k ? '#1e3a8a' : '#e2e8f0' }}>
+            {l}
+          </button>
+        ))}
       </div>
+
+      {/* ── Résidences ── */}
+      {tab === 'residence' && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+          {/* Donut */}
+          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>📊 Répartition occupation</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={occupancyPie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="v" paddingAngle={3}>
+                  {occupancyPie.map((e,i) => <Cell key={i} fill={e.fill} />)}
+                </Pie>
+                <Tooltip formatter={(v,n) => [v+' chambres', n]} contentStyle={{ borderRadius:10, fontSize:12 }} />
+                <Legend iconType="circle" iconSize={10} formatter={(v,e) => `${v}: ${e.payload.v}`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Barres par bloc */}
+          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>🏗️ Chambres par bloc (top 10)</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={blocData} barSize={20}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius:10, fontSize:12 }} />
+                <Bar dataKey="total" fill={C.blue} radius={[4,4,0,0]} name="Total" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Barres de statut */}
+          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', gridColumn:'span 2' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>📈 Taux par statut</div>
+            {occupancyPie.map(s => (
+              <div key={s.name} style={{ marginBottom:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, fontSize:12 }}>
+                  <span style={{ fontWeight:600, color:'#334155' }}>{s.name}</span>
+                  <span style={{ fontWeight:700, color:s.fill }}>{s.v} chambres · {bats?.total ? Math.round(s.v/bats.total*100) : 0}%</span>
+                </div>
+                <div style={{ height:8, background:'#f1f5f9', borderRadius:20, overflow:'hidden' }}>
+                  <div style={{ width:`${bats?.total ? Math.round(s.v/bats.total*100) : 0}%`, height:'100%', background:s.fill, borderRadius:20, transition:'width .5s ease' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Personnel ── */}
+      {tab === 'personnel' && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>👥 Type de personnel</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={typePersonnel} cx="50%" cy="50%" outerRadius={85} dataKey="v" paddingAngle={4}>
+                  {typePersonnel.map((_,i) => <Cell key={i} fill={[C.blue,C.orange,C.purple][i%3]} />)}
+                </Pie>
+                <Tooltip formatter={(v,n) => [v+' agents', n]} contentStyle={{ borderRadius:10, fontSize:12 }} />
+                <Legend iconType="circle" iconSize={10} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>🏢 Par société (top 5)</div>
+            {Object.entries(
+              perso.reduce((a,p) => { const s=p.societe||'N/A'; a[s]=(a[s]||0)+1; return a }, {})
+            ).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([soc,cnt]) => (
+              <div key={soc} style={{ marginBottom:10 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
+                  <span style={{ fontWeight:600 }}>{soc}</span>
+                  <span style={{ fontWeight:700, color:C.blue }}>{cnt}</span>
+                </div>
+                <div style={{ height:6, background:'#f1f5f9', borderRadius:20, overflow:'hidden' }}>
+                  <div style={{ width:`${Math.round(cnt/perso.length*100)}%`, height:'100%', background:C.blue, borderRadius:20 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Incidents ── */}
+      {tab === 'incidents' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 }}>
+          {[
+            ['Total incidents',    inc?.total||0,    '📋', C.blue,   'Tous statuts confondus'],
+            ['Ouverts',           inc?.ouverts||0,   '🔴', C.red,    'À traiter en priorité'],
+            ['En cours',          inc?.en_cours||0,  '🟡', C.orange, 'En cours de résolution'],
+            ['Résolus',           inc?.resolus||0,   '✅', C.green,  'Traités avec succès'],
+          ].map(([label,value,icon,color,sub]) => (
+            <StatBlock key={label} label={label} value={value} icon={icon} color={color} sub={sub} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Voyages ── */}
+      {tab === 'voyages' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 }}>
+          {[
+            ['Total voyages',    voy?.total||0,    '✈️', C.blue,   'Tous statuts'],
+            ['Planifiés',        voy?.planifies||0,'📅', C.gold,   'Départs à venir'],
+            ['En voyage',        voy?.en_voyage||0,'🚀', C.orange, 'Actuellement hors camp'],
+            ['Retours',          voy?.retours||0,  '🏠', C.green,  'Rentrés au camp'],
+            ['Annulés',          voy?.annules||0,  '❌', C.red,    'Voyages annulés'],
+          ].map(([label,value,icon,color,sub]) => (
+            <StatBlock key={label} label={label} value={value} icon={icon} color={color} sub={sub} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
