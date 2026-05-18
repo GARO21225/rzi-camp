@@ -1,111 +1,275 @@
-
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils import timezone
-from .models import Incident
-from .serializers import IncidentSerializer
-import base64
+from django.contrib.auth.models import User
+from .models import Incident, CommentaireIncident, SLA_HEURES
+from .serializers import IncidentSerializer, CommentaireSerializer
+from django.db.models import Q, Count
+
+
+def _notifier(incident, message, type_notif='info'):
+    """Créer une notification simple pour les admins et le technicien"""
+    try:
+        from evenements.models import SimpleNotification
+        from accounts.models import Profile
+        dest = set()
+        # Admins
+        for p in Profile.objects.filter(role__in=['admin','technicien']).select_related('user'):
+            dest.add(p.user)
+        # Auteur
+        if incident.auteur:
+            dest.add(incident.auteur)
+        # Technicien assigné
+        if incident.assigne_a:
+            dest.add(incident.assigne_a)
+        for user in dest:
+            SimpleNotification.objects.create(
+                user=user,
+                titre=f"🔧 Incident #{incident.id} — {incident.titre[:40]}",
+                message=message,
+                type_notif=type_notif,
+            )
+    except Exception:
+        pass
+
 
 class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.all()
+    queryset = Incident.objects.select_related('auteur', 'assigne_a').prefetch_related('commentaires').all()
     serializer_class = IncidentSerializer
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["titre","residence","bloc"]
+    filter_backends  = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields    = ['titre', 'description', 'residence', 'bloc', 'categorie']
+    ordering_fields  = ['date_creation', 'priorite', 'statut']
+    ordering         = ['-date_creation']
 
     def get_queryset(self):
-        qs = Incident.objects.all()
-        user = self.request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,"profile") and user.profile.role=="admin")
-        is_tech = hasattr(user,"profile") and user.profile.role in ("technicien","menage")
-        # Admin et tech voient tout
-        if not is_admin and not is_tech:
-            qs = qs.filter(auteur=user)
-        statut = self.request.query_params.get("statut")
-        priorite = self.request.query_params.get("priorite")
-        if statut: qs = qs.filter(statut=statut)
-        if priorite: qs = qs.filter(priorite=priorite)
+        qs  = super().get_queryset()
+        req = self.request
+
+        # Filtres query params
+        statut   = req.query_params.get('statut')
+        priorite = req.query_params.get('priorite')
+        categorie= req.query_params.get('categorie')
+        sla_only = req.query_params.get('sla_depasse')
+        assigne  = req.query_params.get('assigne')
+
+        if statut:    qs = qs.filter(statut=statut)
+        if priorite:  qs = qs.filter(priorite=priorite)
+        if categorie: qs = qs.filter(categorie=categorie)
+        if sla_only:  qs = qs.filter(sla_depasse=True)
+        if assigne:   qs = qs.filter(assigne_a_id=assigne)
+
+        # Techniciens ne voient que leurs incidents + déclarés
+        role = getattr(getattr(req.user, 'profile', None), 'role', None)
+        if not req.user.is_staff and not req.user.is_superuser and role == 'technicien':
+            qs = qs.filter(Q(assigne_a=req.user) | Q(statut='declare'))
+
         return qs
 
-    def get_serializer_context(self):
-        ctx = super().get_serializer_context()
-        ctx["request"] = self.request
-        return ctx
-
-    def create(self, request, *args, **kwargs):
-        data = {}
-        # Handle both JSON and FormData
-        if hasattr(request.data, "dict"):
-            data = request.data.dict()
-        else:
-            data = dict(request.data)
-
-        # Get base64 photo from JSON body
-        photo_b64 = data.get("photo_base64","")
-        photo_mime = data.get("photo_mime","image/jpeg")
-
-        # Or from file upload
-        photo_file = request.FILES.get("photo")
-        if photo_file and not photo_b64:
-            photo_b64 = base64.b64encode(photo_file.read()).decode("utf-8")
-            photo_mime = photo_file.content_type or "image/jpeg"
-
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        obj = serializer.save(
-            auteur=request.user,
-            photo_base64=photo_b64,
-            photo_mime=photo_mime,
-            latitude=data.get("latitude") or None,
-            longitude=data.get("longitude") or None,
+    def perform_create(self, serializer):
+        incident = serializer.save(auteur=self.request.user)
+        _notifier(incident, f"Nouveau incident déclaré par {incident.auteur.get_full_name() or incident.auteur.username}: {incident.titre}", 'info')
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=self.request.user,
+            type_comment='info',
+            contenu=f"Incident déclaré — priorité {incident.get_priorite_display()}"
         )
-        return Response(self.get_serializer(obj).data, status=201)
 
-    def destroy(self, request, *args, **kwargs):
-        user = request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
-        if not is_admin:
-            return Response({"error":"Admin uniquement"}, status=403)
-        return super().destroy(request, *args, **kwargs)
+    # ── Workflow ──────────────────────────────────────────────────
 
-    @action(detail=True, methods=["post"])
-    def resoudre(self, request, pk=None):
-        user = request.user
-        is_admin = user.is_staff or user.is_superuser
-        is_maintenance = hasattr(user,"profile") and user.profile.role in ("technicien","manager")
-        if not is_admin and not is_maintenance:
-            return Response({"error":"Seule l'équipe maintenance ou l'admin peut clôturer"}, status=403)
+    @action(detail=True, methods=['post'])
+    def assigner(self, request, pk=None):
+        """Assigner au technicien"""
         incident = self.get_object()
-        incident.statut = "Résolu"
-        incident.date_resolution = timezone.now()
-        photo_file = request.FILES.get("photo_resolution")
-        if photo_file:
-            incident.photo_resolution_base64 = base64.b64encode(photo_file.read()).decode("utf-8")
-        incident.save()
-        return Response({"status":"Résolu","date":str(incident.date_resolution)})
+        if incident.statut not in ('declare', 'assigne'):
+            return Response({'error': 'Incident déjà en traitement ou clôturé'}, status=400)
 
-    @action(detail=False, methods=["get"])
+        tech_id = request.data.get('technicien_id')
+        if not tech_id:
+            return Response({'error': 'technicien_id requis'}, status=400)
+
+        try:
+            technicien = User.objects.get(pk=tech_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Technicien introuvable'}, status=404)
+
+        incident.assigne_a        = technicien
+        incident.statut           = 'assigne'
+        incident.date_assignation = timezone.now()
+        incident.save()
+
+        nom_tech = technicien.get_full_name() or technicien.username
+        nom_assig = request.user.get_full_name() or request.user.username
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='assignation',
+            contenu=f"Assigné à {nom_tech} par {nom_assig}"
+        )
+        _notifier(incident, f"Incident assigné à {nom_tech}", 'assignation')
+        return Response(IncidentSerializer(incident).data)
+
+    @action(detail=True, methods=['post'])
+    def commencer(self, request, pk=None):
+        """Technicien commence l'intervention"""
+        incident = self.get_object()
+        if incident.statut != 'assigne':
+            return Response({'error': 'Incident non assigné'}, status=400)
+
+        incident.statut     = 'en_cours'
+        incident.date_debut = timezone.now()
+        incident.save()
+
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='debut',
+            contenu=request.data.get('commentaire', 'Intervention démarrée')
+        )
+        _notifier(incident, f"Intervention démarrée par {request.user.get_full_name() or request.user.username}", 'info')
+        return Response(IncidentSerializer(incident).data)
+
+    @action(detail=True, methods=['post'])
+    def resoudre(self, request, pk=None):
+        """Marquer comme résolu"""
+        incident = self.get_object()
+        if incident.statut not in ('assigne', 'en_cours'):
+            return Response({'error': 'Statut invalide pour résolution'}, status=400)
+
+        commentaire = request.data.get('commentaire', '')
+        if not commentaire:
+            return Response({'error': 'Commentaire de résolution requis'}, status=400)
+
+        incident.statut                = 'resolu'
+        incident.date_resolution       = timezone.now()
+        incident.commentaire_resolution = commentaire
+        incident.sla_depasse           = incident.sla_echeance and timezone.now() > incident.sla_echeance
+        incident.save()
+
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='resolution',
+            contenu=commentaire,
+            photo_base64=request.data.get('photo_base64', '')
+        )
+        _notifier(incident, f"Incident résolu: {commentaire[:80]}", 'resolution')
+        return Response(IncidentSerializer(incident).data)
+
+    @action(detail=True, methods=['post'])
+    def cloturer(self, request, pk=None):
+        """Clôturer définitivement (gestionnaire)"""
+        incident = self.get_object()
+        if incident.statut != 'resolu':
+            return Response({'error': 'Seul un incident résolu peut être clôturé'}, status=400)
+
+        incident.statut              = 'cloture'
+        incident.date_cloture        = timezone.now()
+        incident.commentaire_cloture = request.data.get('commentaire', 'Résolution validée')
+        incident.save()
+
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='cloture',
+            contenu=incident.commentaire_cloture
+        )
+        _notifier(incident, "Incident clôturé avec succès", 'cloture')
+        return Response(IncidentSerializer(incident).data)
+
+    @action(detail=True, methods=['post'])
+    def escalader(self, request, pk=None):
+        """Escalader la priorité"""
+        incident = self.get_object()
+        ancien   = incident.priorite
+        mapping  = {'basse':'moyenne', 'moyenne':'haute', 'haute':'critique', 'critique':'critique'}
+        nouvelle = mapping.get(ancien, 'haute')
+
+        if nouvelle == ancien:
+            return Response({'error': 'Déjà au niveau critique'}, status=400)
+
+        incident.priorite     = nouvelle
+        heures                = SLA_HEURES[nouvelle]
+        incident.sla_echeance = timezone.now() + timezone.timedelta(hours=heures)
+        incident.save()
+
+        raison = request.data.get('raison', 'Escalade demandée')
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='escalade',
+            contenu=f"Escalade {ancien} → {nouvelle}: {raison}"
+        )
+        _notifier(incident, f"⚠️ Escalade priorité: {ancien} → {nouvelle}", 'escalade')
+        return Response(IncidentSerializer(incident).data)
+
+    @action(detail=True, methods=['post'])
+    def commenter(self, request, pk=None):
+        """Ajouter un commentaire libre"""
+        incident = self.get_object()
+        c = CommentaireIncident.objects.create(
+            incident=incident,
+            auteur=request.user,
+            type_comment='info',
+            contenu=request.data.get('contenu', ''),
+            photo_base64=request.data.get('photo_base64', '')
+        )
+        return Response(CommentaireSerializer(c).data, status=201)
+
+    @action(detail=True, methods=['post'])
+    def annuler(self, request, pk=None):
+        incident = self.get_object()
+        incident.statut = 'annule'
+        incident.save()
+        CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user,
+            type_comment='info',
+            contenu=f"Incident annulé: {request.data.get('raison','—')}"
+        )
+        return Response({'ok': True})
+
+    # ── Stats ─────────────────────────────────────────────────────
+
+    @action(detail=False, methods=['get'])
     def stats(self, request):
-        from django.db.models import Count
-        qs = Incident.objects.all()
+        qs  = self.get_queryset()
+        now = timezone.now()
         return Response({
-            "total":qs.count(),
-            "ouverts":qs.filter(statut="Ouvert").count(),
-            "en_cours":qs.filter(statut="En cours").count(),
-            "resolus":qs.filter(statut="Résolu").count(),
-            "par_priorite":dict(qs.values_list("priorite").annotate(n=Count("id")).values_list("priorite","n")),
+            'total':     qs.count(),
+            'declare':   qs.filter(statut='declare').count(),
+            'assigne':   qs.filter(statut='assigne').count(),
+            'en_cours':  qs.filter(statut='en_cours').count(),
+            'resolu':    qs.filter(statut='resolu').count(),
+            'cloture':   qs.filter(statut='cloture').count(),
+            'ouverts':   qs.exclude(statut__in=['cloture','annule']).count(),
+            'sla_depasse': qs.filter(sla_depasse=True).exclude(statut__in=['cloture','annule']).count(),
+            'critique':  qs.filter(priorite='critique').exclude(statut__in=['cloture','annule']).count(),
         })
 
-    @action(detail=True, methods=["delete"])
-    def supprimer(self, request, pk=None):
-        """Supprimer un incident (admin uniquement)"""
-        user = request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user,'profile') and user.profile.role=='admin')
-        if not is_admin:
-            return Response({"error":"Admin uniquement"}, status=403)
-        incident = self.get_object()
-        incident_info = str(incident)
-        incident.delete()
-        return Response({"ok":True,"message":f"Incident supprimé: {incident_info}"})
+    @action(detail=False, methods=['get'])
+    def techniciens(self, request):
+        """Liste des techniciens disponibles"""
+        from accounts.models import Profile
+        techs = Profile.objects.filter(
+            role__in=['technicien','admin']
+        ).select_related('user')
+        return Response([{
+            'id':       t.user.id,
+            'nom':      t.user.get_full_name() or t.user.username,
+            'username': t.user.username,
+            'role':     t.role,
+            'incidents_actifs': Incident.objects.filter(
+                assigne_a=t.user,
+                statut__in=['assigne','en_cours']
+            ).count()
+        } for t in techs])
+
+    @action(detail=False, methods=['post'])
+    def verifier_sla(self, request):
+        """Vérifie et notifie les incidents en dépassement SLA"""
+        now      = timezone.now()
+        expires  = Incident.objects.filter(
+            sla_echeance__lt=now,
+            statut__in=['declare','assigne','en_cours'],
+            sla_depasse=False
+        )
+        count = expires.count()
+        expires.update(sla_depasse=True)
+        for inc in expires:
+            _notifier(inc, f"⏰ SLA dépassé — Incident #{inc.id}: {inc.titre}", 'relance')
+        return Response({'alertes_generees': count})

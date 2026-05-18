@@ -58,12 +58,21 @@ export const personnel = {
   toggleActive: (id) => api.post(`/api/personnel/${id}/toggle_active/`),
 }
 export const incidents = {
-  list: (p) => api.get('/api/incidents/', {params:p}),
-  create: (d) => api.post('/api/incidents/', d, {headers:{'Content-Type':'multipart/form-data'}}),
-  update: (id, d) => api.patch(`/api/incidents/${id}/`, d),
-  delete: (id) => api.delete(`/api/incidents/${id}/`),
-  resoudre: (id) => api.post(`/api/incidents/${id}/resoudre/`),
-  stats: () => api.get('/api/incidents/stats/'),
+  list:         (p) => api.get('/api/incidents/',  {params:p}),
+  create:       (d) => api.post('/api/incidents/', d),
+  update:       (id,d) => api.patch(`/api/incidents/${id}/`, d),
+  delete:       (id) => api.delete(`/api/incidents/${id}/`),
+  stats:        () => api.get('/api/incidents/stats/'),
+  techniciens:  () => api.get('/api/incidents/techniciens/'),
+  verifierSLA:  () => api.post('/api/incidents/verifier_sla/'),
+  // Workflow
+  assigner:     (id,d) => api.post(`/api/incidents/${id}/assigner/`, d),
+  commencer:    (id,d) => api.post(`/api/incidents/${id}/commencer/`, d),
+  resoudre:     (id,d) => api.post(`/api/incidents/${id}/resoudre/`, d),
+  cloturer:     (id,d) => api.post(`/api/incidents/${id}/cloturer/`, d),
+  escalader:    (id,d) => api.post(`/api/incidents/${id}/escalader/`, d),
+  commenter:    (id,d) => api.post(`/api/incidents/${id}/commenter/`, d),
+  annuler:      (id,d) => api.post(`/api/incidents/${id}/annuler/`, d),
 }
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
