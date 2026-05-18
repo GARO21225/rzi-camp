@@ -190,3 +190,51 @@ def reset_password_confirm(request):
         return Response({"message": "Mot de passe réinitialisé avec succès. Vous pouvez vous connecter."})
     except User.DoesNotExist:
         return Response({"error": "Utilisateur introuvable"}, status=404)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def diagnostic_status(request):
+    """Diagnostic public — état de la base de données"""
+    from django.db import connection
+    results = {}
+    checks = {
+        'batiments':  'SELECT COUNT(*) FROM residences_batiment',
+        'personnel':  'SELECT COUNT(*) FROM residences_personnel',
+        'users':      'SELECT COUNT(*) FROM auth_user',
+        'migrations': "SELECT COUNT(*) FROM django_migrations",
+    }
+    for key, sql in checks.items():
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                results[key] = cursor.fetchone()[0]
+        except Exception as e:
+            results[key] = f"ERR: {str(e)[:50]}"
+    
+    from django.conf import settings
+    results['db_engine'] = settings.DATABASES['default']['ENGINE'].split('.')[-1]
+    results['status'] = 'ok' if results.get('batiments', 0) > 100 else 'empty_db'
+    return Response(results)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def force_seed(request):
+    """Forcer le reseed (secret requis)"""
+    from django.conf import settings
+    secret = request.data.get('secret', '')
+    if secret != getattr(settings, 'SEED_SECRET', 'roxgold2026'):
+        return Response({'error': 'Secret invalide'}, status=403)
+    
+    import subprocess, sys
+    result = subprocess.run(
+        [sys.executable, 'manage.py', 'seed_db'],
+        capture_output=True, text=True,
+        cwd=settings.BASE_DIR
+    )
+    return Response({
+        'ok': result.returncode == 0,
+        'output': result.stdout[-500:],
+        'error': result.stderr[-200:] if result.returncode != 0 else ''
+    })

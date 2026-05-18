@@ -127,4 +127,27 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Personnel créé: {p.nom} {p.prenom} | QR: {p.qr_code_string[:40]}...")
 
         self.stdout.write(f"  Personnel total: {Personnel.objects.count()}")
+
+        # ── Bar & Boutique ──────────────────────────────────────
+        self.stdout.write("Creation articles boutique...")
+        try:
+            from restauration.models import ArticleBoutique
+            articles = [
+                ('Coca-Cola 33cl',     'boisson',   300, 100, 'canette'),
+                ('Eau minérale 1.5L',  'boisson',   200, 200, 'bouteille'),
+                ('Bière Castel',       'boisson',   500,  50, 'bouteille'),
+                ('Chips 50g',          'snack',     250,  80, 'sachet'),
+                ('Café nescafé',       'boisson',   150, 100, 'tasse'),
+                ('Savon Lux',          'hygiene',   300,  50, 'barre'),
+                ('Cigarette Marlboro', 'cigarette', 200, 100, 'pièce'),
+                ('Jus de fruit 25cl',  'boisson',   400,  60, 'bouteille'),
+            ]
+            for nom, cat, prix, stock, unite in articles:
+                ArticleBoutique.objects.get_or_create(
+                    nom=nom, defaults={'categorie':cat,'prix':prix,'stock':stock,'unite':unite}
+                )
+            self.stdout.write(f"  {ArticleBoutique.objects.count()} articles boutique")
+        except Exception as e:
+            self.stdout.write(f"  Boutique skip: {e}")
+
         self.stdout.write(self.style.SUCCESS("Seed OK!"))
