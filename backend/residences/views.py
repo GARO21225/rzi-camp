@@ -163,10 +163,16 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                 cursor.execute("UPDATE residences_batiment SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
 
                 # 5. Demandes
-                cursor.execute("DELETE FROM residences_demande WHERE demandeur_id IN (SELECT user_id FROM accounts_profile WHERE personnel_id = %s)", [pers_id])
+                cursor.execute("SELECT user_id FROM residences_personnel WHERE id = %s", [pers_id])
+                row = cursor.fetchone()
+                if row and row[0]:
+                    user_id = row[0]
+                    cursor.execute("DELETE FROM residences_demande WHERE demandeur_id = %s", [user_id])
 
                 # 6. Historical records
-                cursor.execute("DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s", [pers_id])
+                try:
+                    cursor.execute("DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s", [pers_id])
+                except: pass
 
                 # 7. finally delete personnel
                 cursor.execute("DELETE FROM residences_personnel WHERE id = %s", [pers_id])
@@ -924,3 +930,16 @@ class DemandeViewSet(viewsets.ModelViewSet):
             "propositions": qs.filter(statut="proposition").count(),
             "par_type": dict(qs.values_list("type_demande").annotate(n=Count("id")).values_list("type_demande","n")),
         })
+    @action(detail=False, methods=['post'])
+    def desactiver_expires(self, request):
+        """Désactiver automatiquement le personnel temporaire expiré"""
+        from django.utils import timezone
+        expirés = Personnel.objects.filter(
+            est_temporaire=True,
+            date_expiration__lt=timezone.now(),
+            actif=True
+        )
+        count = expirés.count()
+        expirés.update(actif=False)
+        return Response({'desactives': count, 'message': f'{count} compte(s) temporaire(s) désactivé(s)'})
+

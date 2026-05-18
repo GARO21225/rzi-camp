@@ -32,6 +32,7 @@ import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import MonCompte from './pages/MonCompte'
 import Analytics from './pages/Analytics'
+import Boutique from './pages/Boutique'
 import AuditPage from './pages/AuditPage'
 import StatusPage from './pages/StatusPage'
 import Presences   from './pages/Presences'
@@ -128,6 +129,7 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="demandes" element={<Demandes/>}/>
           <Route path="audit" element={<AuditPage />} />
+          <Route path="boutique" element={<Boutique />} />
           <Route path="mon-compte" element={<MonCompte />} />
           <Route path="status"     element={<StatusPage />} />
           <Route path="presences"  element={<Presences />} />

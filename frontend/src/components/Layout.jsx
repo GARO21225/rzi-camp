@@ -16,6 +16,7 @@ const ROLE_NAV = {
     { to:'/evenements', label:'📅 Événements' },
     { to:'/voyages', label:'✈️ Voyages' },
     { to:'/restauration', label:'🍽️ Restauration' },
+    { to:'/boutique',     label:'🛒 Bar & Boutique' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
     { to:'/demandes', label:'📝 Demandes' },
     { to:'/historique', label:'📋 Historique' },

@@ -51,3 +51,36 @@ class AuditLog(models.Model):
 
     class Meta:
         ordering = ["-timestamp"]
+
+
+# ── Bar & Boutique ──────────────────────────────────────────────────
+class ArticleBoutique(models.Model):
+    CATEGORIES = [
+        ('boisson','Boisson'), ('snack','Snack'),
+        ('hygiene','Hygiène'), ('cigarette','Cigarette'), ('autre','Autre'),
+    ]
+    nom       = models.CharField(max_length=100)
+    categorie = models.CharField(max_length=20, choices=CATEGORIES, default='autre')
+    prix      = models.DecimalField(max_digits=8, decimal_places=0, default=0)
+    stock     = models.IntegerField(default=0)
+    unite     = models.CharField(max_length=20, default='pièce')
+    actif     = models.BooleanField(default=True)
+    cree_le   = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self): return f"{self.nom} ({self.prix} FCFA)"
+
+class ConsommationBoutique(models.Model):
+    from residences.models import Personnel
+    personnel  = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
+    article    = models.ForeignKey(ArticleBoutique, on_delete=models.CASCADE)
+    quantite   = models.IntegerField(default=1)
+    montant    = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    notes      = models.TextField(blank=True)
+    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_conso = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        self.montant = self.article.prix * self.quantite
+        super().save(*args, **kwargs)
+
+    def __str__(self): return f"{self.article.nom} x{self.quantite}"

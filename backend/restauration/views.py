@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -258,3 +258,67 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
+
+# ── Bar & Boutique ──────────────────────────────────────────────────
+from .models import ArticleBoutique, ConsommationBoutique
+from rest_framework import serializers as drf_serializers
+
+class ArticleSerializer(drf_serializers.ModelSerializer):
+    categorie_label = drf_serializers.CharField(source='get_categorie_display', read_only=True)
+    class Meta:
+        model = ArticleBoutique
+        fields = '__all__'
+
+class ConsommationSerializer(drf_serializers.ModelSerializer):
+    article_nom    = drf_serializers.CharField(source='article.nom', read_only=True)
+    article_prix   = drf_serializers.CharField(source='article.prix', read_only=True)
+    personnel_nom  = drf_serializers.SerializerMethodField()
+    valide_par_nom = drf_serializers.CharField(source='valide_par.username', read_only=True, default='—')
+
+    def get_personnel_nom(self, obj):
+        if obj.personnel: return f"{obj.personnel.nom} {obj.personnel.prenom}"
+        return "—"
+
+    class Meta:
+        model = ConsommationBoutique
+        fields = '__all__'
+
+class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
+    queryset = ArticleBoutique.objects.order_by('categorie','nom')
+    serializer_class = ArticleSerializer
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        from django.utils import timezone
+        from django.db.models import Sum
+        today = timezone.now().date()
+        qs = ConsommationBoutique.objects.filter(date_conso__date=today)
+        return Response({
+            'total': qs.count(),
+            'montant_total': float(qs.aggregate(t=Sum('montant'))['t'] or 0),
+        })
+
+class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
+    queryset = ConsommationBoutique.objects.select_related('personnel','article','valide_par').order_by('-date_conso')
+    serializer_class = ConsommationSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['article__nom','personnel__nom']
+
+    def perform_create(self, serializer):
+        serializer.save(valide_par=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def stats_jour(self, request):
+        from django.utils import timezone
+        from django.db.models import Sum
+        today = timezone.now().date()
+        qs = self.get_queryset().filter(date_conso__date=today)
+        par_art = qs.values('article__nom','article__categorie').annotate(
+            qte=Sum('quantite'), total=Sum('montant')
+        ).order_by('-total')
+        return Response({
+            'date': str(today),
+            'total': qs.count(),
+            'montant': float(qs.aggregate(t=Sum('montant'))['t'] or 0),
+            'par_article': list(par_art)[:10],
+        })

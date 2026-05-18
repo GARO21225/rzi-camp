@@ -9,7 +9,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     login_genere = serializers.SerializerMethodField()
     class Meta:
         model = Personnel
-        fields = ["id","nom","prenom","societe","numero","type_personnel","type_label","email","qr_code_data","qr_code_string","actif","date_creation","user_role","user_active","login_genere","password_genere"]
+        fields = ["id","nom","prenom","societe","numero","type_personnel","type_label","email","qr_code_data","qr_code_string","actif","date_creation","user_role","user_active","login_genere","password_genere","est_temporaire","date_expiration"]
         read_only_fields = ["qr_code_data","qr_code_string","date_creation"]
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
