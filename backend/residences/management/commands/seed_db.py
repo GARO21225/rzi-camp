@@ -133,14 +133,41 @@ class Command(BaseCommand):
         try:
             from restauration.models import ArticleBoutique
             articles = [
-                ('Coca-Cola 33cl',     'boisson',   300, 100, 'canette'),
-                ('Eau minérale 1.5L',  'boisson',   200, 200, 'bouteille'),
-                ('Bière Castel',       'boisson',   500,  50, 'bouteille'),
-                ('Chips 50g',          'snack',     250,  80, 'sachet'),
-                ('Café nescafé',       'boisson',   150, 100, 'tasse'),
-                ('Savon Lux',          'hygiene',   300,  50, 'barre'),
-                ('Cigarette Marlboro', 'cigarette', 200, 100, 'pièce'),
-                ('Jus de fruit 25cl',  'boisson',   400,  60, 'bouteille'),
+                # 🍺 Bières populaires CI
+                ('Castel 65cl',             'boisson',   600, 100, 'bouteille'),
+                ('Flag Special 65cl',       'boisson',   600, 100, 'bouteille'),
+                ('Beaufort 65cl',           'boisson',   700,  80, 'bouteille'),
+                ('Heineken 33cl',           'boisson',   700,  60, 'canette'),
+                ('Bock 33cl',               'boisson',   500,  80, 'canette'),
+                ('Ivoire Beer 65cl',        'boisson',   550,  60, 'bouteille'),
+                # 🥃 Spiritueux
+                ('Sodabi (verre)',           'boisson',  1000,  30, 'verre'),
+                ('Whisky JW Black (verre)', 'boisson',  2500,  15, 'verre'),
+                ('Rhum Bologne (verre)',    'boisson',  1500,  20, 'verre'),
+                ('Vin rouge 75cl',          'boisson',  3500,  20, 'bouteille'),
+                # 🥤 Boissons sans alcool
+                ('Coca-Cola 33cl',          'boisson',   300, 200, 'canette'),
+                ('Fanta Orange 33cl',       'boisson',   300, 150, 'canette'),
+                ('Malta Guinness 33cl',     'boisson',   400, 100, 'canette'),
+                ('Eau Olgane 1.5L',         'boisson',   200, 300, 'bouteille'),
+                ('Eau Olgane 50cl',         'boisson',   100, 400, 'bouteille'),
+                ('Jus d orange Pur Fruit',  'boisson',   500,  60, 'bouteille'),
+                ('Café Nescafé (tasse)',    'boisson',   150, 100, 'tasse'),
+                # 🍿 Snacks & Biscuits
+                ('Chips Lay s 50g',         'snack',     300, 100, 'sachet'),
+                ('Biscuits Prince',         'snack',     500,  80, 'paquet'),
+                ('Biscuits Delices',        'snack',     250,  80, 'paquet'),
+                ('Cacahuetes grillees 50g', 'snack',     200, 150, 'sachet'),
+                ('Noix de cajou 50g',       'snack',     500,  50, 'sachet'),
+                ('Pain fourre chocolat',    'snack',     200, 120, 'piece'),
+                # 🧼 Hygiène
+                ('Savon Lux 100g',          'hygiene',   300,  50, 'barre'),
+                ('Dentifrice Colgate',      'hygiene',   500,  40, 'tube'),
+                ('Deodorant Rexona',        'hygiene',  1500,  30, 'spray'),
+                # 🚬 Tabac
+                ('Cigarette Marlboro (u)',  'cigarette', 200, 100, 'piece'),
+                ('Cigarette Dunhill (u)',   'cigarette', 250, 100, 'piece'),
+                ('Cigarette Marlboro px',   'cigarette',3500,  20, 'paquet'),
             ]
             for nom, cat, prix, stock, unite in articles:
                 ArticleBoutique.objects.get_or_create(
