@@ -221,20 +221,99 @@ def diagnostic_status(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def force_seed(request):
-    """Forcer le reseed (secret requis)"""
-    from django.conf import settings
+    """Initialiser/réinitialiser les données de base (secret requis)"""
     secret = request.data.get('secret', '')
-    if secret != getattr(settings, 'SEED_SECRET', 'roxgold2026'):
+    if secret != 'roxgold2026':
         return Response({'error': 'Secret invalide'}, status=403)
-    
-    import subprocess, sys
-    result = subprocess.run(
-        [sys.executable, 'manage.py', 'seed_db'],
-        capture_output=True, text=True,
-        cwd=settings.BASE_DIR
-    )
+
+    results = []
+    errors  = []
+
+    # 1. Créer les utilisateurs
+    try:
+        from django.contrib.auth.models import User
+        from accounts.models import Profile
+        users_data = [
+            ('admin',       'admin123',       'Admin',       'RZI',    True,  True,  'admin'),
+            ('agent',       'agent123',       'Agent',       'Camp',   False, False, 'agent'),
+            ('resto',       'resto123',       'Responsable', 'Resto',  False, False, 'restauration'),
+            ('technicien',  'tech123',        'Tech',        'Maint',  False, False, 'technicien'),
+            ('menage',      'menage123',      'Service',     'Ménage', False, False, 'menage'),
+        ]
+        for username, pwd, fn, ln, is_staff, is_super, role in users_data:
+            u, created = User.objects.get_or_create(username=username)
+            if created or True:
+                u.set_password(pwd)
+                u.first_name = fn
+                u.last_name  = ln
+                u.is_staff   = is_staff
+                u.is_superuser = is_super
+                u.save()
+            Profile.objects.get_or_create(user=u, defaults={'role': role})
+        results.append(f"✅ {len(users_data)} utilisateurs créés/mis à jour")
+    except Exception as e:
+        errors.append(f"❌ Utilisateurs: {str(e)[:100]}")
+
+    # 2. Créer le personnel de démo
+    try:
+        from residences.models import Personnel
+        import random
+        random.seed(42)
+        demo = [
+            ('ADAMA',   'KOUYATÉ',  'ROXGOLD',          '0707001122', 'roxgold'),
+            ('JEAN',    'KOFFI',    'SGBCI Mining',      '0707003344', 'roxgold'),
+            ('FATOUMA', 'DIALLO',   'SAPH Contractors',  '0707005566', 'sous_traitant'),
+            ('ISSA',    'TRAORÉ',   'ROXGOLD',           '0707007788', 'roxgold'),
+            ('MARIE',   'TOURÉ',    'ROXGOLD',           '0708887766', 'roxgold'),
+            ('IBRAHIM', 'SANOGO',   'BRGM',              '0703334455', 'sous_traitant'),
+        ]
+        count_created = 0
+        for nom, prenom, societe, numero, type_p in demo:
+            p, created = Personnel.objects.get_or_create(
+                nom=nom, prenom=prenom,
+                defaults={'societe': societe, 'numero': numero, 'type_personnel': type_p}
+            )
+            if created:
+                try: p.generer_qr()
+                except: pass
+                count_created += 1
+        results.append(f"✅ Personnel: {Personnel.objects.count()} membres ({count_created} créés)")
+    except Exception as e:
+        errors.append(f"❌ Personnel: {str(e)[:150]}")
+
+    # 3. Articles boutique
+    try:
+        from restauration.models import ArticleBoutique
+        articles = [
+            ('Castel 65cl',           'boisson',   600, 100, 'bouteille'),
+            ('Flag Special 65cl',     'boisson',   600, 100, 'bouteille'),
+            ('Heineken 33cl',         'boisson',   700,  60, 'canette'),
+            ('Coca-Cola 33cl',        'boisson',   300, 200, 'canette'),
+            ('Eau Olgane 1.5L',       'boisson',   200, 300, 'bouteille'),
+            ('Fanta Orange 33cl',     'boisson',   300, 150, 'canette'),
+            ('Malta Guinness 33cl',   'boisson',   400, 100, 'canette'),
+            ('Chips Lay s 50g',       'snack',     300, 100, 'sachet'),
+            ('Biscuits Prince',       'snack',     500,  80, 'paquet'),
+            ('Savon Lux 100g',        'hygiene',   300,  50, 'barre'),
+            ('Cigarette Marlboro u',  'cigarette', 200, 100, 'piece'),
+            ('Sodabi verre',          'boisson',  1000,  30, 'verre'),
+            ('Whisky JW verre',       'boisson',  2500,  15, 'verre'),
+            ('Cacahuetes 50g',        'snack',     200, 150, 'sachet'),
+            ('Noix de cajou 50g',     'snack',     500,  50, 'sachet'),
+        ]
+        count = 0
+        for nom, cat, prix, stock, unite in articles:
+            _, created = ArticleBoutique.objects.get_or_create(
+                nom=nom, defaults={'categorie':cat,'prix':prix,'stock':stock,'unite':unite}
+            )
+            if created: count += 1
+        results.append(f"✅ Boutique: {ArticleBoutique.objects.count()} articles ({count} créés)")
+    except Exception as e:
+        errors.append(f"❌ Boutique: {str(e)[:100]}")
+
     return Response({
-        'ok': result.returncode == 0,
-        'output': result.stdout[-500:],
-        'error': result.stderr[-200:] if result.returncode != 0 else ''
+        'ok':      len(errors) == 0,
+        'results': results,
+        'errors':  errors,
+        'summary': f"{len(results)} succès, {len(errors)} erreurs"
     })

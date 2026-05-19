@@ -430,7 +430,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
         qs = self._build_qs(request)
         features = []
         for b in qs:
-            if b.geojson_geometry:
+            # Utiliser geojson_geometry OU créer un Point depuis lat/lng
+            geom = b.geojson_geometry
+            if not geom and b.latitude and b.longitude:
+                geom = {"type": "Point", "coordinates": [b.longitude, b.latitude]}
+            if geom:
                 p = b.personnel
                 features.append({
                     "type":"Feature",

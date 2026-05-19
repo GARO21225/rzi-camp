@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('residences', '0006_add_temporaire_fields'),
         ('restauration', '0002_historicalrepaslog_personnel_qrtoken_personnel_and_more'),
     ]
 

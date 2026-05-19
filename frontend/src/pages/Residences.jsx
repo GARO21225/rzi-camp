@@ -35,7 +35,8 @@ export default function Residences() {
     if (search) p.search = search
     if (statut) p.statut = statut
     if (bloc) p.bloc = bloc
-    if (futurDepart) p.futur_depart = 's1'
+    // Filtre S-1 désactivé temporairement (aucun départ programmé sur Render)
+    // if (futurDepart) p.futur_depart = 's1'
     setApiErr('')
     batiments.list(p).then(r => {
       const items = r.data.results||r.data||[]

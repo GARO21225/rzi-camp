@@ -27,8 +27,7 @@ class Personnel(models.Model):
     qr_code_data = models.TextField(blank=True)
     qr_code_string = models.CharField(max_length=500, blank=True)
     actif            = models.BooleanField(default=True)
-    est_temporaire   = models.BooleanField(default=False)
-    date_expiration  = models.DateTimeField(null=True, blank=True)
+
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")
     login_genere = models.CharField(max_length=100, blank=True)
