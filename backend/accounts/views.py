@@ -260,20 +260,22 @@ def force_seed(request):
         import random
         random.seed(42)
         demo = [
-            ('ADAMA',   'KOUYATÉ',  'ROXGOLD',          '0707001122', 'roxgold'),
-            ('JEAN',    'KOFFI',    'SGBCI Mining',      '0707003344', 'roxgold'),
-            ('FATOUMA', 'DIALLO',   'SAPH Contractors',  '0707005566', 'sous_traitant'),
-            ('ISSA',    'TRAORÉ',   'ROXGOLD',           '0707007788', 'roxgold'),
-            ('MARIE',   'TOURÉ',    'ROXGOLD',           '0708887766', 'roxgold'),
-            ('IBRAHIM', 'SANOGO',   'BRGM',              '0703334455', 'sous_traitant'),
+            ('ADAMA',   'KOUYATE',   'ROXGOLD',          '0707001122', 'roxgold'),
+            ('JEAN',    'KOFFI',     'SGBCI Mining',      '0707003344', 'roxgold'),
+            ('FATOUMA', 'DIALLO',    'SAPH Contractors',  '0707005566', 'sous_traitant'),
+            ('ISSA',    'TRAORE',    'ROXGOLD',           '0707007788', 'roxgold'),
+            ('MARIE',   'TOURE',     'ROXGOLD',           '0708887766', 'roxgold'),
+            ('IBRAHIM', 'SANOGO',    'BRGM',              '0703334455', 'sous_traitant'),
         ]
         count_created = 0
         for nom, prenom, societe, numero, type_p in demo:
-            p, created = Personnel.objects.get_or_create(
-                nom=nom, prenom=prenom,
-                defaults={'societe': societe, 'numero': numero, 'type_personnel': type_p}
-            )
-            if created:
+            # Vérifier si existe déjà
+            existing = Personnel.objects.filter(nom=nom, prenom=prenom).first()
+            if not existing:
+                p = Personnel.objects.create(
+                    nom=nom, prenom=prenom, societe=societe,
+                    numero=numero, type_personnel=type_p
+                )
                 try: p.generer_qr()
                 except: pass
                 count_created += 1
@@ -281,8 +283,33 @@ def force_seed(request):
     except Exception as e:
         errors.append(f"❌ Personnel: {str(e)[:150]}")
 
-    # 3. Articles boutique
+    # 3. Articles boutique — créer la table si elle n'existe pas
     try:
+        from django.db import connection
+        # Créer la table si elle n'existe pas (bypass migration)
+        with connection.cursor() as cur:
+            # Vérifier si la table existe (compatible SQLite + PostgreSQL)
+            try:
+                cur.execute("SELECT COUNT(*) FROM restauration_articleboutique")
+                table_exists = True
+            except Exception:
+                table_exists = False
+
+            if not table_exists:
+                # Créer via Django migrations executor
+                from django.db.migrations.executor import MigrationExecutor
+                executor = MigrationExecutor(connection)
+                plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+                for mig, _ in plan:
+                    if mig.app_label == 'restauration':
+                        executor.apply_migration(executor.loader.project_state(), mig)
+                # Re-check
+                try:
+                    cur.execute("SELECT COUNT(*) FROM restauration_articleboutique")
+                    table_exists = True
+                except Exception:
+                    pass
+
         from restauration.models import ArticleBoutique
         articles = [
             ('Castel 65cl', 'boisson', 600, 100, 'bouteille'),
@@ -322,6 +349,16 @@ def force_seed(request):
             )
             if created: count += 1
         results.append(f"✅ Boutique: {ArticleBoutique.objects.count()} articles ({count} créés)")
+        # Marquer les migrations boutique comme appliquées
+        try:
+            with connection.cursor() as cur:
+                for mig in ['0003_add_boutique_models', '0004_add_image_url_boutique']:
+                    cur.execute(
+                        "INSERT INTO django_migrations (app, name, applied) VALUES (%s, %s, NOW()) ON CONFLICT DO NOTHING",
+                        ['restauration', mig]
+                    )
+        except Exception:
+            pass
     except Exception as e:
         errors.append(f"❌ Boutique: {str(e)[:100]}")
 

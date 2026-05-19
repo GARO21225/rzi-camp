@@ -268,7 +268,7 @@ class ArticleSerializer(drf_serializers.ModelSerializer):
 
     class Meta:
         model  = ArticleBoutique
-        fields = ['id','nom','categorie','categorie_label','prix','stock','unite','actif','cree_le','image_url']
+        fields = ['id','nom','categorie','categorie_label','prix','stock','unite','actif','cree_le']
 
 class ConsommationSerializer(drf_serializers.ModelSerializer):
     article_nom    = drf_serializers.CharField(source='article.nom', read_only=True)
