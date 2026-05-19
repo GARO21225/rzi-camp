@@ -104,7 +104,17 @@ if (BACKEND) {
 export default function App() {
   const { token, setUser, logout } = useStore()
   useEffect(() => {
-    if (token) auth.me().then(r => setUser(r.data)).catch(() => logout())
+    if (token) {
+      auth.me().then(r => {
+        setUser(r.data)
+      }).catch(() => {
+        // Token invalide → nettoyer et rediriger
+        logout()
+        if (window.location.pathname !== '/login') {
+          window.location.replace('/login')
+        }
+      })
+    }
   }, [token])
 
   return (

@@ -170,6 +170,18 @@ export default function Login() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [showForgot, setShowForgot] = useState(false)
+  const [cleared,    setCleared]    = useState(false)
+
+  // Si on arrive sur /login avec un token en localStorage → le token est probablement invalide
+  // Nettoyer automatiquement pour forcer une vraie reconnexion
+  React.useEffect(() => {
+    const hadToken = !!localStorage.getItem('access_token')
+    if (hadToken) {
+      localStorage.clear()
+      sessionStorage.clear()
+      setCleared(true)
+    }
+  }, [])
   const { setUser, setToken } = useStore()
   const navigate = useNavigate()
 

@@ -24,7 +24,21 @@ api.interceptors.response.use(r => r, async err => {
         localStorage.setItem('access_token', data.access)
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
-      } catch { localStorage.clear(); window.location.href = '/login' }
+      } catch {
+        // Token invalide (ex: SECRET_KEY changée) → forcer re-connexion propre
+        localStorage.clear()
+        sessionStorage.clear()
+        // Notifier l'utilisateur avant redirect
+        if (!window.__auth_redirect_shown) {
+          window.__auth_redirect_shown = true
+          alert('⚠️ Session expirée. Veuillez vous reconnecter.')
+        }
+        window.location.replace('/login')
+      }
+    } else {
+      // Pas de refresh token → déconnexion directe
+      localStorage.clear()
+      window.location.replace('/login')
     }
   }
   return Promise.reject(err)

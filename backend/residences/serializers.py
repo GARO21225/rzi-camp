@@ -3,6 +3,17 @@ from rest_framework import serializers
 from .models import Batiment, Personnel, OccupationHistory
 
 class PersonnelSerializer(serializers.ModelSerializer):
+    est_temporaire  = serializers.SerializerMethodField()
+    date_expiration = serializers.SerializerMethodField()
+
+    def get_est_temporaire(self, obj):
+        try: return obj.est_temporaire
+        except: return False
+
+    def get_date_expiration(self, obj):
+        try: return obj.date_expiration
+        except: return None
+
     type_label = serializers.SerializerMethodField()
     user_role = serializers.SerializerMethodField()
     user_active = serializers.SerializerMethodField()

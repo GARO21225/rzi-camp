@@ -39,6 +39,7 @@ export default function Personnel() {
   // Data
   const [data,       setData]       = useState([])
   const [loading,    setLoading]    = useState(true)
+  const [apiErr,    setApiErr]    = useState('')
   const [search,     setSearch]     = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 

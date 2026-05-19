@@ -12,6 +12,7 @@ export default function Residences() {
   const [data, setData] = useState([])
   const [personnelList, setPersonnelList] = useState([])
   const [loading, setLoading] = useState(true)
+  const [apiErr,  setApiErr]  = useState('')
   const [search, setSearch] = useState('')
   const [statut, setStatut] = useState('')
   const [bloc, setBloc] = useState('')
@@ -35,11 +36,16 @@ export default function Residences() {
     if (statut) p.statut = statut
     if (bloc) p.bloc = bloc
     if (futurDepart) p.futur_depart = 's1'
+    setApiErr('')
     batiments.list(p).then(r => {
-      const items = r.data.results||r.data
+      const items = r.data.results||r.data||[]
+      if (!Array.isArray(items)) { setApiErr('Réponse API invalide'); setData([]); return }
       setData(items)
       const b = [...new Set(items.map(x=>x.bloc))].sort()
       setBlocs(b)
+    }).catch(e => {
+      if (e.response?.status === 401) setApiErr('Session expirée — reconnectez-vous')
+      else setApiErr(`Erreur serveur ${e.response?.status || ''}: ${e.message}`)
     }).finally(() => setLoading(false))
     personnelAPI.list({page_size:500}).then(r => setPersonnelList(r.data.results||r.data))
   }

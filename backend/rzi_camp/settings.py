@@ -4,7 +4,9 @@ import dj_database_url
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
+# SECRET_KEY DOIT être définie comme variable d'env sur Render
+# Render Dashboard → Backend service → Environment → SECRET_KEY → valeur fixe (pas "Generate")
+SECRET_KEY = os.environ.get("SECRET_KEY", "rzi-camp-roxgold-sango-2026-secret-key-stable-$5kF9p")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["*"]
 
@@ -72,7 +74,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=24),   # 24h pour éviter expiration fréquente
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
