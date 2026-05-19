@@ -7,6 +7,55 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 
+
+// ── Mapping images Unsplash par article ─────────────────────
+const PRODUCT_IMAGES = {
+  // Bières
+  'castel':    'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=240&h=240&fit=crop&auto=format',
+  'flag':      'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=240&h=240&fit=crop&auto=format',
+  'beaufort':  'https://images.unsplash.com/photo-1566633806827-5c6cc7f5aff3?w=240&h=240&fit=crop&auto=format',
+  'heineken':  'https://images.unsplash.com/photo-1501426026826-31c667bdf23d?w=240&h=240&fit=crop&auto=format',
+  'bock':      'https://images.unsplash.com/photo-1474722883778-792e7990302f?w=240&h=240&fit=crop&auto=format',
+  'ivoire':    'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=240&h=240&fit=crop&auto=format',
+  // Spiritueux
+  'sodabi':    'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=240&h=240&fit=crop&auto=format',
+  'whisky':    'https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=240&h=240&fit=crop&auto=format',
+  'rhum':      'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=240&h=240&fit=crop&auto=format',
+  'vin':       'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=240&h=240&fit=crop&auto=format',
+  // Softs
+  'coca':      'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=240&h=240&fit=crop&auto=format',
+  'fanta':     'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=240&h=240&fit=crop&auto=format',
+  'malta':     'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=240&h=240&fit=crop&auto=format',
+  'eau':       'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=240&h=240&fit=crop&auto=format',
+  'jus':       'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=240&h=240&fit=crop&auto=format',
+  'caf':       'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=240&h=240&fit=crop&auto=format',
+  // Snacks
+  'chips':     'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=240&h=240&fit=crop&auto=format',
+  'prince':    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=240&h=240&fit=crop&auto=format',
+  'delice':    'https://images.unsplash.com/photo-1597733336794-12d05021d510?w=240&h=240&fit=crop&auto=format',
+  'cacahuete': 'https://images.unsplash.com/photo-1567892737950-30e1ccc84941?w=240&h=240&fit=crop&auto=format',
+  'cajou':     'https://images.unsplash.com/photo-1563412580-4e4b91bf0fc4?w=240&h=240&fit=crop&auto=format',
+  'pain':      'https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=240&h=240&fit=crop&auto=format',
+  // Hygiène
+  'savon':     'https://images.unsplash.com/photo-1584305574647-0f89541b50f3?w=240&h=240&fit=crop&auto=format',
+  'colgate':   'https://images.unsplash.com/photo-1608613304814-b9d15c9bd1dc?w=240&h=240&fit=crop&auto=format',
+  'rexona':    'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=240&h=240&fit=crop&auto=format',
+  'dentifrice':'https://images.unsplash.com/photo-1608613304814-b9d15c9bd1dc?w=240&h=240&fit=crop&auto=format',
+  'deodorant': 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=240&h=240&fit=crop&auto=format',
+  // Tabac
+  'cigarette': 'https://images.unsplash.com/photo-1555421689-491a97ff2040?w=240&h=240&fit=crop&auto=format',
+  'marlboro':  'https://images.unsplash.com/photo-1516714435131-44d6b64dc6a2?w=240&h=240&fit=crop&auto=format',
+  'dunhill':   'https://images.unsplash.com/photo-1502920514313-52581002a659?w=240&h=240&fit=crop&auto=format',
+}
+
+function getProductImage(nom) {
+  const n = nom.toLowerCase()
+  for (const [key, url] of Object.entries(PRODUCT_IMAGES)) {
+    if (n.includes(key)) return url
+  }
+  return null
+}
+
 // ── Configuration catégories avec emojis CI ───────────────────
 const CATS = {
   boisson:   { icon:'🍺', label:'Boissons',   color:'#2563eb', bg:'#dbeafe' },
@@ -44,10 +93,11 @@ function getArticleEmoji(nom) {
 // Composant image article avec fallback emoji
 function ArticleImg({ article, size=56 }) {
   const [err, setErr] = React.useState(false)
-  if (article.image_url && !err) {
+  const url = getProductImage(article.nom)
+  if (url && !err) {
     return (
       <img
-        src={article.image_url}
+        src={url}
         alt={article.nom}
         onError={() => setErr(true)}
         style={{ width:size, height:size, objectFit:'cover', borderRadius:10, display:'block' }}

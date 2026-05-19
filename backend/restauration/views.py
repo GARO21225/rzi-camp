@@ -265,11 +265,6 @@ from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
     categorie_label = drf_serializers.CharField(source='get_categorie_display', read_only=True)
-    image_url = drf_serializers.SerializerMethodField()
-
-    def get_image_url(self, obj):
-        try: return obj.image_url or ''
-        except: return ''
 
     class Meta:
         model  = ArticleBoutique
