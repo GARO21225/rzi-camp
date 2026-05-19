@@ -285,21 +285,21 @@ def force_seed(request):
     try:
         from restauration.models import ArticleBoutique
         articles = [
-            ('Castel 65cl',           'boisson',   600, 100, 'bouteille'),
-            ('Flag Special 65cl',     'boisson',   600, 100, 'bouteille'),
-            ('Heineken 33cl',         'boisson',   700,  60, 'canette'),
-            ('Coca-Cola 33cl',        'boisson',   300, 200, 'canette'),
-            ('Eau Olgane 1.5L',       'boisson',   200, 300, 'bouteille'),
-            ('Fanta Orange 33cl',     'boisson',   300, 150, 'canette'),
-            ('Malta Guinness 33cl',   'boisson',   400, 100, 'canette'),
-            ('Chips Lay s 50g',       'snack',     300, 100, 'sachet'),
-            ('Biscuits Prince',       'snack',     500,  80, 'paquet'),
-            ('Savon Lux 100g',        'hygiene',   300,  50, 'barre'),
-            ('Cigarette Marlboro u',  'cigarette', 200, 100, 'piece'),
-            ('Sodabi verre',          'boisson',  1000,  30, 'verre'),
-            ('Whisky JW verre',       'boisson',  2500,  15, 'verre'),
-            ('Cacahuetes 50g',        'snack',     200, 150, 'sachet'),
-            ('Noix de cajou 50g',     'snack',     500,  50, 'sachet'),
+            ('Castel 65cl', 'boisson', 600, 100, 'bouteille', 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=300&h=300&fit=crop'),
+            ('Flag Special 65cl', 'boisson', 600, 100, 'bouteille', 'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=300&h=300&fit=crop'),
+            ('Heineken 33cl', 'boisson', 700, 60, 'canette', 'https://images.unsplash.com/photo-1501426026826-31c667bdf23d?w=300&h=300&fit=crop'),
+            ('Coca-Cola 33cl', 'boisson', 300, 200, 'canette', 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300&h=300&fit=crop'),
+            ('Eau Olgane 1.5L', 'boisson', 200, 300, 'bouteille', 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=300&h=300&fit=crop'),
+            ('Fanta Orange 33cl', 'boisson', 300, 150, 'canette', 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=300&h=300&fit=crop'),
+            ('Malta Guinness 33cl', 'boisson', 400, 100, 'canette', 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300&h=300&fit=crop'),
+            ('Chips Lay s 50g', 'snack', 300, 100, 'sachet', 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300&h=300&fit=crop'),
+            ('Biscuits Prince', 'snack', 500, 80, 'paquet', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop'),
+            ('Savon Lux 100g', 'hygiene', 300, 50, 'barre', 'https://images.unsplash.com/photo-1584305574647-0f89541b50f3?w=300&h=300&fit=crop'),
+            ('Cigarette Marlboro u', 'cigarette', 200, 100, 'piece', ''),
+            ('Sodabi verre', 'boisson', 1000, 30, 'verre', ''),
+            ('Whisky JW verre', 'boisson', 2500, 15, 'verre', ''),
+            ('Cacahuetes 50g', 'snack', 200, 150, 'sachet', ''),
+            ('Noix de cajou 50g', 'snack', 500, 50, 'sachet', 'https://images.unsplash.com/photo-1563412580-4e4b91bf0fc4?w=300&h=300&fit=crop'),
         ]
         count = 0
         for nom, cat, prix, stock, unite in articles:

@@ -65,6 +65,7 @@ class ArticleBoutique(models.Model):
     stock     = models.IntegerField(default=0)
     unite     = models.CharField(max_length=20, default='pièce')
     actif     = models.BooleanField(default=True)
+    image_url = models.URLField(blank=True, default='')
     cree_le   = models.DateTimeField(auto_now_add=True)
 
     def __str__(self): return f"{self.nom} ({self.prix} FCFA)"

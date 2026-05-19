@@ -31,14 +31,35 @@ function getArticleEmoji(nom) {
   if (n.includes('coca')||n.includes('fanta')||n.includes('malta')) return '🥤'
   if (n.includes('eau')) return '💧'
   if (n.includes('jus')) return '🍊'
-  if (n.includes('café')||n.includes('cafe')) return '☕'
+  if (n.includes('caf')) return '☕'
   if (n.includes('chips')) return '🍟'
-  if (n.includes('biscuit')||n.includes('delices')||n.includes('prince')) return '🍪'
+  if (n.includes('biscuit')||n.includes('delice')||n.includes('prince')) return '🍪'
   if (n.includes('cacahuete')||n.includes('noix')) return '🥜'
   if (n.includes('pain')) return '🍫'
   if (n.includes('savon')||n.includes('dentifrice')||n.includes('deodorant')) return '🧴'
   if (n.includes('cigarette')||n.includes('marlboro')||n.includes('dunhill')) return '🚬'
   return '📦'
+}
+
+// Composant image article avec fallback emoji
+function ArticleImg({ article, size=56 }) {
+  const [err, setErr] = React.useState(false)
+  if (article.image_url && !err) {
+    return (
+      <img
+        src={article.image_url}
+        alt={article.nom}
+        onError={() => setErr(true)}
+        style={{ width:size, height:size, objectFit:'cover', borderRadius:10, display:'block' }}
+      />
+    )
+  }
+  return (
+    <div style={{ width:size, height:size, display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize: size*0.55, background:'#f1f5f9', borderRadius:10 }}>
+      {getArticleEmoji(article.nom)}
+    </div>
+  )
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -286,19 +307,33 @@ export default function Boutique() {
                       return (
                         <div key={a.id} onClick={() => addToPanier(a)}
                           style={{ background:'#fff', border:`2px solid ${inPanier?catCfg.color:'#e2e8f0'}`,
-                            borderRadius:12, padding:12, cursor:'pointer', transition:'all .15s', textAlign:'center',
-                            boxShadow: inPanier?`0 0 0 3px ${catCfg.color}25`:'var(--s-xs)' }}
-                          onMouseEnter={e=>!inPanier&&(e.currentTarget.style.borderColor=catCfg.color+'80')}
-                          onMouseLeave={e=>!inPanier&&(e.currentTarget.style.borderColor='#e2e8f0')}>
-                          <div style={{ fontSize:32, marginBottom:6, lineHeight:1 }}>{getArticleEmoji(a.nom)}</div>
-                          <div style={{ fontSize:11, fontWeight:700, color:'#1e293b', lineHeight:1.3, marginBottom:4 }}>{a.nom}</div>
-                          <div style={{ fontSize:12, fontWeight:900, color:catCfg.color }}>{parseInt(a.prix).toLocaleString()}</div>
-                          <div style={{ fontSize:9, color:'#94a3b8' }}>FCFA / {a.unite}</div>
-                          {inPanier && (
-                            <div style={{ marginTop:6, background:catCfg.color, color:'#fff', borderRadius:20, fontSize:11, fontWeight:700, padding:'2px 8px' }}>
-                              × {inPanier.quantite}
+                            borderRadius:14, overflow:'hidden', cursor:'pointer', transition:'all .15s',
+                            boxShadow: inPanier?`0 0 0 3px ${catCfg.color}25`:'0 1px 4px rgba(0,0,0,.07)' }}
+                          onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; if(!inPanier) e.currentTarget.style.borderColor=catCfg.color+'80' }}
+                          onMouseLeave={e=>{ e.currentTarget.style.transform=''; if(!inPanier) e.currentTarget.style.borderColor='#e2e8f0' }}>
+                          {/* Image produit */}
+                          <div style={{ width:'100%', height:90, position:'relative', overflow:'hidden', background:catCfg.bg }}>
+                            {a.image_url ? (
+                              <img src={a.image_url} alt={a.nom}
+                                style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                                onError={e=>{ e.target.style.display='none'; e.target.nextSibling.style.display='flex' }} />
+                            ) : null}
+                            <div style={{ display: a.image_url?'none':'flex', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', fontSize:40 }}>
+                              {getArticleEmoji(a.nom)}
                             </div>
-                          )}
+                            {inPanier && (
+                              <div style={{ position:'absolute', top:6, right:6, background:catCfg.color, color:'#fff', borderRadius:20, fontSize:12, fontWeight:800, padding:'2px 10px', boxShadow:'0 2px 8px rgba(0,0,0,.2)' }}>
+                                × {inPanier.quantite}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ padding:'8px 10px' }}>
+                            <div style={{ fontSize:10.5, fontWeight:700, color:'#1e293b', lineHeight:1.3, marginBottom:3 }}>{a.nom}</div>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <div style={{ fontSize:13, fontWeight:900, color:catCfg.color }}>{parseInt(a.prix).toLocaleString()}</div>
+                              <div style={{ fontSize:9, color:'#94a3b8' }}>FCFA</div>
+                            </div>
+                          </div>
                         </div>
                       )
                     })}
@@ -370,7 +405,7 @@ export default function Boutique() {
                     <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:12, maxHeight:250, overflowY:'auto' }}>
                       {panier.map(item => (
                         <div key={item.article.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'#f8fafc', borderRadius:8 }}>
-                          <span style={{ fontSize:18 }}>{getArticleEmoji(item.article.nom)}</span>
+                          <ArticleImg article={item.article} size={32} />
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ fontSize:11, fontWeight:700, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.article.nom}</div>
                             <div style={{ fontSize:10, color:'#94a3b8' }}>{parseInt(item.article.prix).toLocaleString()} × {item.quantite}</div>
@@ -445,7 +480,7 @@ export default function Boutique() {
                       </td>
                       <td style={{ padding:'10px 14px', fontSize:12, fontWeight:600 }}>{c.personnel_nom||'Anonyme'}</td>
                       <td style={{ padding:'10px 14px', fontSize:12 }}>
-                        <span style={{ marginRight:6 }}>{getArticleEmoji(c.article_nom||'')}</span>
+                        <span style={{ marginRight:6, fontSize:16 }}>{getArticleEmoji(c.article_nom||'')}</span>
                         {c.article_nom}
                       </td>
                       <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12, textAlign:'center' }}>{c.quantite}</td>
@@ -481,14 +516,29 @@ export default function Boutique() {
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10 }}>
                   {arts.map(a => (
-                    <div key={a.id} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', textAlign:'center' }}>
-                      <div style={{ fontSize:40, marginBottom:8 }}>{getArticleEmoji(a.nom)}</div>
-                      <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', marginBottom:4, lineHeight:1.3 }}>{a.nom}</div>
-                      <div style={{ fontSize:10, color:'#94a3b8', marginBottom:8 }}>{a.unite}</div>
-                      <div style={{ fontWeight:900, color:catCfg.color, fontSize:16 }}>{parseInt(a.prix).toLocaleString()} FCFA</div>
-                      {isAdmin && (
-                        <div style={{ marginTop:6, fontSize:10, color:'#94a3b8' }}>Stock: {a.stock}</div>
-                      )}
+                    <div key={a.id} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden', boxShadow:'0 1px 6px rgba(0,0,0,.08)' }}>
+                      {/* Image */}
+                      <div style={{ width:'100%', height:120, background:catCfg.bg, position:'relative', overflow:'hidden' }}>
+                        {a.image_url ? (
+                          <img src={a.image_url} alt={a.nom} style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                            onError={e=>{ e.target.style.display='none'; e.target.nextSibling.style.display='flex' }} />
+                        ) : null}
+                        <div style={{ display:a.image_url?'none':'flex', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', fontSize:48 }}>
+                          {getArticleEmoji(a.nom)}
+                        </div>
+                        <div style={{ position:'absolute', top:8, right:8, background:catCfg.color, color:'#fff', padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:700 }}>
+                          {catCfg.icon}
+                        </div>
+                      </div>
+                      <div style={{ padding:'12px 14px' }}>
+                        <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', marginBottom:4, lineHeight:1.3 }}>{a.nom}</div>
+                        <div style={{ fontSize:10, color:'#94a3b8', marginBottom:8 }}>{a.unite}</div>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <div style={{ fontWeight:900, color:catCfg.color, fontSize:17 }}>{parseInt(a.prix).toLocaleString()}</div>
+                          <div style={{ fontSize:10, color:'#94a3b8' }}>FCFA</div>
+                        </div>
+                        {isAdmin && <div style={{ marginTop:4, fontSize:10, color:'#94a3b8' }}>Stock: {a.stock}</div>}
+                      </div>
                     </div>
                   ))}
                 </div>

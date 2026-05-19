@@ -267,7 +267,7 @@ class ArticleSerializer(drf_serializers.ModelSerializer):
     categorie_label = drf_serializers.CharField(source='get_categorie_display', read_only=True)
     class Meta:
         model = ArticleBoutique
-        fields = '__all__'
+        fields = '__all__'  # inclut image_url
 
 class ConsommationSerializer(drf_serializers.ModelSerializer):
     article_nom    = drf_serializers.CharField(source='article.nom', read_only=True)
