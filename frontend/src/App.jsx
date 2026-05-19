@@ -108,11 +108,8 @@ export default function App() {
       auth.me().then(r => {
         setUser(r.data)
       }).catch(() => {
-        // Token invalide → nettoyer et rediriger
-        logout()
-        if (window.location.pathname !== '/login') {
-          window.location.replace('/login')
-        }
+        logout() // Nettoie le store et localStorage
+        // Pas de redirect ici: le Router redirige vers /login via ProtectedRoute
       })
     }
   }, [token])
@@ -121,7 +118,7 @@ export default function App() {
     <>
       <InactivityWarning />
       <OfflineBanner />
-      <EventNotifBanner />
+      {token && <EventNotifBanner />}
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>

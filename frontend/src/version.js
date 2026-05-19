@@ -1,2 +1,2 @@
-// Build 1779171267 — SERIALIZER-FIX
-export const BUILD_ID = '1779171267'
+// Build 1779172294 — NO-LOOP-FIX
+export const BUILD_ID = '1779172294'
