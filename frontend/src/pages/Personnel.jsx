@@ -9,7 +9,9 @@ const TYPES = [
   { value:'visiteur',     label:'Visiteur',        badge:'#7c3aed', bg:'#ede9fe' },
 ]
 const ROLES = [['admin','👑 Admin'],['agent','🏗️ Agent'],['restauration','🍽️ Resto'],['technicien','🔧 Tech'],['menage','🧹 Ménage']]
-const EMPTY_FORM = { nom:'', prenom:'', societe:'ROXGOLD', numero:'', email:'', type_personnel:'roxgold' }
+const EMPTY_FORM = {
+  est_temporaire: false,
+  duree_h: 24, nom:'', prenom:'', societe:'ROXGOLD', numero:'', email:'', type_personnel:'roxgold' }
 
 // ── Badge type ───────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -471,6 +473,43 @@ function PersonnelForm({ form, setForm, err, inputStyle }) {
           ))}
         </select>
       </div>
+
+      {/* ── Accès temporaire 24H ── */}
+      <div style={{ background: form.est_temporaire ? '#fffbeb' : '#f8fafc', border: `1.5px solid ${form.est_temporaire ? '#f0a500' : '#e2e8f0'}`, borderRadius:12, padding:'14px 16px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: form.est_temporaire ? 12 : 0 }}>
+          <div>
+            <div style={{ fontWeight:700, fontSize:13, color: form.est_temporaire ? '#92400e' : '#334155' }}>
+              ⏰ Accès temporaire
+            </div>
+            <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>
+              L'accès sera automatiquement désactivé après le délai
+            </div>
+          </div>
+          <button type="button"
+            onClick={() => setForm({...form, est_temporaire: !form.est_temporaire})}
+            style={{ width:44, height:24, borderRadius:99, border:'none', cursor:'pointer', transition:'all .2s',
+              background: form.est_temporaire ? '#f0a500' : '#e2e8f0', position:'relative', flexShrink:0 }}>
+            <div style={{ width:18, height:18, borderRadius:'50%', background:'#fff',
+              position:'absolute', top:3, transition:'all .2s',
+              left: form.est_temporaire ? 23 : 3, boxShadow:'0 1px 4px rgba(0,0,0,.2)' }} />
+          </button>
+        </div>
+        {form.est_temporaire && (
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#92400e', marginBottom:6, textTransform:'uppercase' }}>
+              Durée d'accès
+            </label>
+            <select value={form.duree_h || 24} onChange={e => setForm({...form, duree_h: parseInt(e.target.value)})}
+              style={{ ...inputStyle, border:'2px solid #f0a500' }}>
+              <option value={24}>24 heures</option>
+              <option value={48}>48 heures</option>
+              <option value={72}>72 heures (3 jours)</option>
+              <option value={168}>1 semaine</option>
+            </select>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
