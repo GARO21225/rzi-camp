@@ -56,8 +56,14 @@ class AuditLog(models.Model):
 # ── Bar & Boutique ──────────────────────────────────────────────────
 class ArticleBoutique(models.Model):
     CATEGORIES = [
-        ('boisson','Boisson'), ('snack','Snack'),
-        ('hygiene','Hygiène'), ('cigarette','Cigarette'), ('autre','Autre'),
+        ('biere',    'Bières'),
+        ('soft',     'Softs & Jus'),
+        ('vin',      'Vins'),
+        ('liqueur',  'Liqueurs & Spiritueux'),
+        ('cigarette','Cigarettes'),
+        ('snack',    'Snacks'),
+        ('hygiene',  'Hygiène'),
+        ('autre',    'Autre'),
     ]
     nom       = models.CharField(max_length=100)
     categorie = models.CharField(max_length=20, choices=CATEGORIES, default='autre')

@@ -133,35 +133,28 @@ class Command(BaseCommand):
         try:
             from restauration.models import ArticleBoutique
             articles = [
-                ('Castel 65cl','boisson',600,100,'bouteille','https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&q=80'),
-                ('Flag Special 65cl','boisson',600,100,'bouteille','https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&q=80'),
-                ('Beaufort 65cl','boisson',700,80,'bouteille','https://images.unsplash.com/photo-1571613316887-6f8d5bf5f12a?w=400&q=80'),
-                ('Heineken 33cl','boisson',700,60,'canette','https://images.unsplash.com/photo-1618885472179-5e474019f2a9?w=400&q=80'),
-                ('Bock 33cl','boisson',500,80,'canette','https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&q=80'),
-                ('Ivoire Beer 65cl','boisson',550,60,'bouteille','https://images.unsplash.com/photo-1567696911980-2eed69a46042?w=400&q=80'),
-                ('Sodabi (verre)','boisson',1000,30,'verre','https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&q=80'),
-                ('Whisky JW Black (verre)','boisson',2500,15,'verre','https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&q=80'),
-                ('Rhum Bologne (verre)','boisson',1500,20,'verre','https://images.unsplash.com/photo-1514362453360-8f94243c9996?w=400&q=80'),
-                ('Vin rouge 75cl','boisson',3500,20,'bouteille','https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80'),
-                ('Coca-Cola 33cl','boisson',300,200,'canette','https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80'),
-                ('Fanta Orange 33cl','boisson',300,150,'canette','https://images.unsplash.com/photo-1624552184280-9e9a6d1c98e0?w=400&q=80'),
-                ('Malta Guinness 33cl','boisson',400,100,'canette','https://images.unsplash.com/photo-1598306442928-4d90f32c6866?w=400&q=80'),
-                ('Eau Olgane 1.5L','boisson',200,300,'bouteille','https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&q=80'),
-                ('Eau Olgane 50cl','boisson',100,400,'bouteille','https://images.unsplash.com/photo-1564419320461-6870880221ad?w=400&q=80'),
-                ('Jus d orange Pur Fruit','boisson',500,60,'bouteille','https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80'),
-                ('Cafe Nescafe (tasse)','boisson',150,100,'tasse','https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80'),
-                ('Chips Lay s 50g','snack',300,100,'sachet','https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80'),
-                ('Biscuits Prince','snack',500,80,'paquet','https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&q=80'),
-                ('Biscuits Delices','snack',250,80,'paquet','https://images.unsplash.com/photo-1612201142855-7873c1f8b9c3?w=400&q=80'),
-                ('Cacahuetes grillees 50g','snack',200,150,'sachet','https://images.unsplash.com/photo-1567892737950-30c4db41b621?w=400&q=80'),
-                ('Noix de cajou 50g','snack',500,50,'sachet','https://images.unsplash.com/photo-1607113972228-af40de0e9b54?w=400&q=80'),
-                ('Pain fourre chocolat','snack',200,120,'piece','https://images.unsplash.com/photo-1606101273945-e9eba399dda5?w=400&q=80'),
-                ('Savon Lux 100g','hygiene',300,50,'barre','https://images.unsplash.com/photo-1600857062241-98e5dba7f434?w=400&q=80'),
-                ('Dentifrice Colgate','hygiene',500,40,'tube','https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&q=80'),
-                ('Deodorant Rexona','hygiene',1500,30,'spray','https://images.unsplash.com/photo-1625772452859-1c03d884dcd7?w=400&q=80'),
-                ('Cigarette Marlboro (u)','cigarette',200,100,'piece','https://images.unsplash.com/photo-1574169411399-5ec7c7e7f66a?w=400&q=80'),
-                ('Cigarette Dunhill (u)','cigarette',250,100,'piece','https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=80'),
-                ('Cigarette Marlboro px','cigarette',3500,20,'paquet','https://images.unsplash.com/photo-1583912267550-d974b3cfe3ae?w=400&q=80'),
+                # Bières
+                ('Castel 65cl','biere',1000,100,'bouteille'),('Flag 65cl','biere',1000,100,'bouteille'),
+                ('Heineken 50cl','biere',1500,80,'bouteille'),('Guinness','biere',1200,100,'bouteille'),
+                # Softs
+                ('Coca-Cola','soft',500,200,'bouteille'),('Fanta','soft',500,150,'bouteille'),
+                ('Sprite','soft',500,150,'bouteille'),('Malta Guinness','soft',700,100,'bouteille'),
+                ('Eau minerale','soft',300,300,'bouteille'),
+                # Vins
+                ('JP Chenet Rouge','vin',5000,30,'bouteille'),('Baron d Arignac','vin',4500,30,'bouteille'),
+                ('Grand Sud','vin',6500,20,'bouteille'),('Mouton Cadet','vin',10000,15,'bouteille'),
+                # Liqueurs
+                ('Baileys','liqueur',14000,10,'bouteille'),('Get 27','liqueur',15000,10,'bouteille'),
+                ('Malibu','liqueur',13000,10,'bouteille'),('Jagermeister','liqueur',20000,8,'bouteille'),
+                # Cigarettes
+                ('Cigarette Fine','cigarette',1000,100,'paquet'),('Cigarette Mustang','cigarette',1200,100,'paquet'),
+                ('Marlboro','cigarette',2000,80,'paquet'),('Camel','cigarette',1800,80,'paquet'),('Winston','cigarette',1800,80,'paquet'),
+                # Snacks
+                ('Chips','snack',500,100,'sachet'),('Biscuits','snack',300,150,'paquet'),
+                ('Cacahuetes','snack',200,200,'sachet'),('Chocolat','snack',500,80,'piece'),
+                # Hygiène
+                ('Savon','hygiene',300,80,'barre'),('Dentifrice','hygiene',700,50,'tube'),
+                ('Deodorant','hygiene',1500,40,'spray'),('Papier toilette','hygiene',500,60,'rouleau'),
             ]
             for nom, cat, prix, stock, unite, img in articles:
                 obj, created = ArticleBoutique.objects.get_or_create(

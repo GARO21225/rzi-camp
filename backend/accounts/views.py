@@ -312,35 +312,43 @@ def force_seed(request):
 
         from restauration.models import ArticleBoutique
         articles = [
-            ('Castel 65cl', 'boisson', 600, 100, 'bouteille'),
-            ('Flag Special 65cl', 'boisson', 600, 100, 'bouteille'),
-            ('Heineken 33cl', 'boisson', 700, 60, 'canette'),
-            ('Bock 33cl', 'boisson', 500, 80, 'canette'),
-            ('Beaufort 65cl', 'boisson', 700, 80, 'bouteille'),
-            ('Ivoire Beer 65cl', 'boisson', 550, 60, 'bouteille'),
-            ('Sodabi (verre)', 'boisson', 1000, 30, 'verre'),
-            ('Whisky JW Black (verre)', 'boisson', 2500, 15, 'verre'),
-            ('Rhum Bologne (verre)', 'boisson', 1500, 20, 'verre'),
-            ('Vin rouge 75cl', 'boisson', 3500, 20, 'bouteille'),
-            ('Coca-Cola 33cl', 'boisson', 300, 200, 'canette'),
-            ('Fanta Orange 33cl', 'boisson', 300, 150, 'canette'),
-            ('Malta Guinness 33cl', 'boisson', 400, 100, 'canette'),
-            ('Eau Olgane 1.5L', 'boisson', 200, 300, 'bouteille'),
-            ('Eau Olgane 50cl', 'boisson', 100, 400, 'bouteille'),
-            ('Jus d orange Pur Fruit', 'boisson', 500, 60, 'bouteille'),
-            ('Cafe Nescafe (tasse)', 'boisson', 150, 100, 'tasse'),
-            ('Chips Lay s 50g', 'snack', 300, 100, 'sachet'),
-            ('Biscuits Prince', 'snack', 500, 80, 'paquet'),
-            ('Biscuits Delices', 'snack', 250, 80, 'paquet'),
-            ('Cacahuetes grillees 50g', 'snack', 200, 150, 'sachet'),
-            ('Noix de cajou 50g', 'snack', 500, 50, 'sachet'),
-            ('Pain fourre chocolat', 'snack', 200, 120, 'piece'),
-            ('Savon Lux 100g', 'hygiene', 300, 50, 'barre'),
-            ('Dentifrice Colgate', 'hygiene', 500, 40, 'tube'),
-            ('Deodorant Rexona', 'hygiene', 1500, 30, 'spray'),
-            ('Cigarette Marlboro (u)', 'cigarette', 200, 100, 'piece'),
-            ('Cigarette Dunhill (u)', 'cigarette', 250, 100, 'piece'),
-            ('Cigarette Marlboro px', 'cigarette', 3500, 20, 'paquet'),
+            # 🍺 Bières
+            ('Castel 65cl',       'biere',    1000, 100, 'bouteille'),
+            ('Flag 65cl',         'biere',    1000, 100, 'bouteille'),
+            ('Heineken 50cl',     'biere',    1500,  80, 'bouteille'),
+            ('Guinness',          'biere',    1200, 100, 'bouteille'),
+            # 🥤 Softs
+            ('Coca-Cola',         'soft',      500, 200, 'bouteille'),
+            ('Fanta',             'soft',      500, 150, 'bouteille'),
+            ('Sprite',            'soft',      500, 150, 'bouteille'),
+            ('Malta Guinness',    'soft',      700, 100, 'bouteille'),
+            ('Eau minerale',      'soft',      300, 300, 'bouteille'),
+            # 🍷 Vins
+            ('JP Chenet Rouge',   'vin',      5000,  30, 'bouteille'),
+            ('Baron d Arignac',   'vin',      4500,  30, 'bouteille'),
+            ('Grand Sud',         'vin',      6500,  20, 'bouteille'),
+            ('Mouton Cadet',      'vin',     10000,  15, 'bouteille'),
+            # 🥃 Liqueurs
+            ('Baileys',           'liqueur', 14000,  10, 'bouteille'),
+            ('Get 27',            'liqueur', 15000,  10, 'bouteille'),
+            ('Malibu',            'liqueur', 13000,  10, 'bouteille'),
+            ('Jagermeister',      'liqueur', 20000,   8, 'bouteille'),
+            # 🚬 Cigarettes
+            ('Cigarette Fine',    'cigarette', 1000, 100, 'paquet'),
+            ('Cigarette Mustang', 'cigarette', 1200, 100, 'paquet'),
+            ('Marlboro',          'cigarette', 2000,  80, 'paquet'),
+            ('Camel',             'cigarette', 1800,  80, 'paquet'),
+            ('Winston',           'cigarette', 1800,  80, 'paquet'),
+            # 🍿 Snacks
+            ('Chips',             'snack',     500, 100, 'sachet'),
+            ('Biscuits',          'snack',     300, 150, 'paquet'),
+            ('Cacahuetes',        'snack',     200, 200, 'sachet'),
+            ('Chocolat',          'snack',     500,  80, 'piece'),
+            # 🧼 Hygiène
+            ('Savon',             'hygiene',   300,  80, 'barre'),
+            ('Dentifrice',        'hygiene',   700,  50, 'tube'),
+            ('Deodorant',         'hygiene',  1500,  40, 'spray'),
+            ('Papier toilette',   'hygiene',   500,  60, 'rouleau'),
         ]
         count = 0
         for nom, cat, prix, stock, unite in articles:
