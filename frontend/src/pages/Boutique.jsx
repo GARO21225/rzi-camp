@@ -554,7 +554,7 @@ export default function Boutique() {
 
   useEffect(()=>{load()},[load])
   useEffect(()=>{
-    if(tab==='catalogue' && isAdmin) {
+    if((tab==='bons' || tab==='catalogue') && isAdmin) {
       boutiqueAPI.bons({annee:new Date().getFullYear()}).then(r=>{
         setBonsAll(r.data.results||r.data||[])
       }).catch(()=>{})
@@ -714,8 +714,13 @@ export default function Boutique() {
       )}
 
       {/* TABS */}
-      <div style={{display:'flex',borderBottom:'2px solid #e2e8f0',marginBottom:16}}>
-        {[['caisse','🛒 Caisse'],['historique','📋 Historique'],['catalogue','📦 Catalogue']].map(([k,l])=>(
+      <div style={{display:'flex',borderBottom:'2px solid #e2e8f0',marginBottom:16,flexWrap:'wrap'}}>
+        {[
+          ['caisse','🛒 Caisse'],
+          ['historique','📋 Historique'],
+          ['catalogue','📦 Catalogue'],
+          ...(isAdmin ? [['bons','🎫 Bons de Caisse']] : [])
+        ].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{padding:'9px 20px',border:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,
               background:'transparent',color:tab===k?'#1e3a8a':'#64748b',
@@ -1046,8 +1051,8 @@ export default function Boutique() {
         </div>
       )}
 
-      {/* ══ PANNEAU GESTION BONS (admin, onglet catalogue) ══ */}
-      {tab==='catalogue' && isAdmin && (
+      {/* ══ ONGLET BONS DE CAISSE ══ */}
+      {tab==='bons' && isAdmin && (
         <GererBonsPanel
           bons={bonsAll}
           personnel={personnel}
