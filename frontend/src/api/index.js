@@ -173,14 +173,12 @@ export const importCSV = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
 }
-
 export const boutique = {
-  articles:      (p) => api.get('/api/boutique/articles/', {params:p}),
-  createArticle: (d) => api.post('/api/boutique/articles/', d),
-  updateArticle: (id,d) => api.patch(`/api/boutique/articles/${id}/`, d),
-  deleteArticle: (id) => api.delete(`/api/boutique/articles/${id}/`),
-  statsArticles: () => api.get('/api/boutique/articles/stats/'),
-  consommations: (p) => api.get('/api/boutique/consommations/', {params:p}),
-  addConso:      (d) => api.post('/api/boutique/consommations/', d),
-  statsJour:     () => api.get('/api/boutique/consommations/stats_jour/'),
+  articles:      (p)     => api.get('/api/boutique/articles/', {params:p}),
+  createArticle: (d)     => api.post('/api/boutique/articles/', d),
+  updateArticle: (id,d)  => api.patch(`/api/boutique/articles/${id}/`, d),
+  deleteArticle: (id)    => api.delete(`/api/boutique/articles/${id}/`),
+  consommations: (p)     => api.get('/api/boutique/consommations/', {params:p}),
+  addConso:      (d)     => api.post('/api/boutique/consommations/', d),
+  statsJour:     ()      => api.get('/api/boutique/consommations/stats_jour/'),
 }

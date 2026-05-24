@@ -264,9 +264,11 @@ from .models import ArticleBoutique, ConsommationBoutique
 from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
-    categorie_label = drf_serializers.CharField(source='get_categorie_display', read_only=True)
-
     class Meta:
+        model  = ArticleBoutique
+        fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le']
+
+class Meta:
         model  = ArticleBoutique
         fields = ['id','nom','categorie','categorie_label','prix','stock','unite','actif','cree_le']
 

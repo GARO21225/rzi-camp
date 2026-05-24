@@ -1,14 +1,13 @@
 /**
- * BAR & BOUTIQUE — Catalogue Marketplace CI
- * 50 produits · 13 catégories · Images réelles
+ * BAR & BOUTIQUE — CRUD complet Admin
+ * Ajouter / Modifier / Supprimer articles + catégories + images
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 
-// ── Images réelles par nom de produit ──────────────────────
-const PHOTOS = {
-  // Boissons gazeuses
+// ── Images par défaut (fallback si pas d'image en DB) ──────
+const DEFAULT_PHOTOS = {
   'Coca-Cola Classic':        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_glass_bottle.jpg/200px-Coca-Cola_glass_bottle.jpg',
   'Coca-Cola 1.5L':           'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=400&fit=crop&q=80',
   'Fanta Orange':             'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Fanta_Orange.jpg/200px-Fanta_Orange.jpg',
@@ -16,46 +15,35 @@ const PHOTOS = {
   'Schweppes Tonic':          'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=400&h=400&fit=crop&q=80',
   'Pepsi':                    'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=400&fit=crop&q=80',
   '7 Up':                     'https://images.unsplash.com/photo-1581098365948-6a5a912b7a49?w=400&h=400&fit=crop&q=80',
-  // Jus & Softs
   'Darci Mangue':             'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=400&h=400&fit=crop&q=80',
   'Pressea Orange':           'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&h=400&fit=crop&q=80',
   'Ceres Multifruits':        'https://images.unsplash.com/photo-1546173159-315724a31696?w=400&h=400&fit=crop&q=80',
   'Minute Maid Orange':       'https://images.unsplash.com/photo-1568909344668-6f14a07b56a0?w=400&h=400&fit=crop&q=80',
   'Malta Guinness':           'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Malta_Guinness.jpg/200px-Malta_Guinness.jpg',
-  // Énergisantes
   'Red Bull Original':        'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=400&h=400&fit=crop&q=80',
   'Monster Energy Green':     'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=400&h=400&fit=crop&q=80',
-  // Eaux
   'Evian':                    'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&h=400&fit=crop&q=80',
   'Cristaline':               'https://images.unsplash.com/photo-1616118132534-381055fe2e4d?w=400&h=400&fit=crop&q=80',
-  // Bières
   'Heineken':                 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Heineken_beer_bottle.jpg/200px-Heineken_beer_bottle.jpg',
   'Desperados':               'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&h=400&fit=crop&q=80',
   'Guinness Stout':           'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Guinness.jpg/200px-Guinness.jpg',
   'Corona Extra':             'https://images.unsplash.com/photo-1566633806827-5c6cc7f5aff3?w=400&h=400&fit=crop&q=80',
   'Beaufort 65cl':            'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop&q=80',
   'Ivoire Speciale':          'https://images.unsplash.com/photo-1473396877154-85e23c3f3096?w=400&h=400&fit=crop&q=80',
-  // Vins rouges
   'JP Chenet Rouge':          'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&h=400&fit=crop&q=80',
   'Mouton Cadet Rouge':       'https://images.unsplash.com/photo-1547595628-c61a29f496f0?w=400&h=400&fit=crop&q=80',
   "Jacob s Creek Shiraz":     'https://images.unsplash.com/photo-1569919659476-f0852f6834b7?w=400&h=400&fit=crop&q=80',
-  // Vins blancs
   'JP Chenet Blanc':          'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=400&h=400&fit=crop&q=80',
   'Mateus Blanc':             'https://images.unsplash.com/photo-1474722883778-792e7990302f?w=400&h=400&fit=crop&q=80',
-  // Vins rosés
   'Mateus Rose':              'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=400&h=400&fit=crop&q=80',
-  'JP Chenet Rose':           'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=400&h=400&fit=crop&q=80',
-  // Champagnes
   'Moet et Chandon Brut':     'https://images.unsplash.com/photo-1548211091-0e8de7b28a0b?w=400&h=400&fit=crop&q=80',
   'Veuve Clicquot Brut':      'https://images.unsplash.com/photo-1531401675083-f9e0abeef2c1?w=400&h=400&fit=crop&q=80',
   'Dom Perignon Vintage':     'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
-  // Spiritueux
   "Jack Daniel s Old N7":     'https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&h=400&fit=crop&q=80',
   'Johnnie Walker Black':     'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=400&fit=crop&q=80',
   'Hennessy VS':              'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
   'Bacardi Carta Blanca':     'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&h=400&fit=crop&q=80',
   'Absolut Vodka':            'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop&q=80',
-  // Liqueurs
   'Baileys Original':         'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=400&h=400&fit=crop&q=80',
   'Malibu Coco':              'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=400&h=400&fit=crop&q=80',
   'Jagermeister':             'https://images.unsplash.com/photo-1575650772417-e6b418b0d9bf?w=400&h=400&fit=crop&q=80',
@@ -63,124 +51,262 @@ const PHOTOS = {
   'Amarula Cream':            'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=400&fit=crop&q=80',
   'Kahlua':                   'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop&q=80',
   'Get 27':                   'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
-  // Cafés
   'Nescafe Classic':          'https://images.unsplash.com/photo-1607006344380-b6775a0824a7?w=400&h=400&fit=crop&q=80',
   'Nescafe Gold':             'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop&q=80',
-  // Thés
   'Lipton Yellow Label':      'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=400&fit=crop&q=80',
   'Lipton Green Tea':         'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400&h=400&fit=crop&q=80',
   'Twinings English Breakfast':'https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=400&h=400&fit=crop&q=80',
   'Twinings Camomille':       'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400&h=400&fit=crop&q=80',
 }
 
-// ── Config catégories ───────────────────────────────────────
-const CATS = {
-  gazeuse:    {icon:'🥤', label:'Boissons gazeuses',     c:'#ef4444', bg:'#fef2f2'},
-  jus:        {icon:'🍊', label:'Jus & Softs',            c:'#f97316', bg:'#fff7ed'},
-  energie:    {icon:'⚡', label:'Énergisantes',           c:'#eab308', bg:'#fefce8'},
-  eau:        {icon:'💧', label:'Eaux minérales',         c:'#0ea5e9', bg:'#f0f9ff'},
-  biere:      {icon:'🍺', label:'Bières',                 c:'#d97706', bg:'#fffbeb'},
-  vin_rouge:  {icon:'🍷', label:'Vins rouges',            c:'#be123c', bg:'#fff1f2'},
-  vin_blanc:  {icon:'🥂', label:'Vins blancs',            c:'#ca8a04', bg:'#fefce8'},
-  vin_rose:   {icon:'🌸', label:'Vins rosés',             c:'#ec4899', bg:'#fdf2f8'},
-  champagne:  {icon:'🍾', label:'Champagnes',             c:'#a16207', bg:'#fef9c3'},
-  spiritueux: {icon:'🥃', label:'Spiritueux',             c:'#7c3aed', bg:'#f5f3ff'},
-  liqueur:    {icon:'🫗', label:'Liqueurs',               c:'#6d28d9', bg:'#ede9fe'},
-  cafe:       {icon:'☕', label:'Cafés',                  c:'#92400e', bg:'#fdf6ec'},
-  the:        {icon:'🍵', label:'Thés & Infusions',       c:'#15803d', bg:'#f0fdf4'},
-  autre:      {icon:'📦', label:'Autres',                 c:'#64748b', bg:'#f8fafc'},
+function getPhoto(a) {
+  return a.image_url || DEFAULT_PHOTOS[a.nom] || null
+}
+
+// Config catégories prédéfinies
+const CAT_DEFAULTS = {
+  gazeuse:    {icon:'🥤', c:'#ef4444', bg:'#fef2f2', label:'Boissons gazeuses'},
+  jus:        {icon:'🍊', c:'#f97316', bg:'#fff7ed', label:'Jus & Softs'},
+  energie:    {icon:'⚡', c:'#eab308', bg:'#fefce8', label:'Énergisantes'},
+  eau:        {icon:'💧', c:'#0ea5e9', bg:'#f0f9ff', label:'Eaux minérales'},
+  biere:      {icon:'🍺', c:'#d97706', bg:'#fffbeb', label:'Bières'},
+  vin_rouge:  {icon:'🍷', c:'#be123c', bg:'#fff1f2', label:'Vins rouges'},
+  vin_blanc:  {icon:'🥂', c:'#ca8a04', bg:'#fefce8', label:'Vins blancs'},
+  vin_rose:   {icon:'🌸', c:'#ec4899', bg:'#fdf2f8', label:'Vins rosés'},
+  champagne:  {icon:'🍾', c:'#a16207', bg:'#fef9c3', label:'Champagnes'},
+  spiritueux: {icon:'🥃', c:'#7c3aed', bg:'#f5f3ff', label:'Spiritueux'},
+  liqueur:    {icon:'🫗', c:'#6d28d9', bg:'#ede9fe', label:'Liqueurs'},
+  cafe:       {icon:'☕', c:'#92400e', bg:'#fdf6ec', label:'Cafés'},
+  the:        {icon:'🍵', c:'#15803d', bg:'#f0fdf4', label:'Thés & Infusions'},
+  autre:      {icon:'📦', c:'#64748b', bg:'#f8fafc', label:'Autre'},
+}
+
+function getCatCfg(cat) {
+  return CAT_DEFAULTS[cat] || { icon:'📦', c:'#64748b', bg:'#f1f5f9', label: cat }
 }
 
 function getEmoji(nom) {
   const n = (nom||'').toLowerCase()
   if (['coca','fanta','sprite','pepsi','7up','schweppes'].some(k=>n.includes(k))) return '🥤'
-  if (['darci','pressea','ceres','minute','malta'].some(k=>n.includes(k))) return '🍊'
-  if (['red bull','monster','energy'].some(k=>n.includes(k))) return '⚡'
+  if (['darci','pressea','ceres','minute maid','malta'].some(k=>n.includes(k))) return '🍊'
+  if (['red bull','monster'].some(k=>n.includes(k))) return '⚡'
   if (['evian','cristaline','eau'].some(k=>n.includes(k))) return '💧'
   if (['heineken','desperados','guinness','corona','beaufort','ivoire'].some(k=>n.includes(k))) return '🍺'
-  if (['chenet rouge','mouton cadet','jacob','shiraz'].some(k=>n.includes(k))) return '🍷'
+  if (['chenet rouge','mouton','jacob','shiraz'].some(k=>n.includes(k))) return '🍷'
   if (['chenet blanc','mateus blanc'].some(k=>n.includes(k))) return '🥂'
-  if (['rose','rosé'].some(k=>n.includes(k))) return '🌸'
+  if (['ros'].some(k=>n.includes(k))) return '🌸'
   if (['moet','veuve','dom per','champagne'].some(k=>n.includes(k))) return '🍾'
-  if (['jack','johnnie','hennessy','bacardi','absolut','whisky','vodka'].some(k=>n.includes(k))) return '🥃'
+  if (['jack','johnnie','hennessy','bacardi','absolut'].some(k=>n.includes(k))) return '🥃'
   if (['baileys','malibu','jager','cointreau','amarula','kahlua','get 27'].some(k=>n.includes(k))) return '🫗'
-  if (['nescafe','cafe','café'].some(k=>n.includes(k))) return '☕'
-  if (['lipton','twinings','thé','the','infusion','camomille'].some(k=>n.includes(k))) return '🍵'
+  if (['nescafe','cafe'].some(k=>n.includes(k))) return '☕'
+  if (['lipton','twinings','camomille'].some(k=>n.includes(k))) return '🍵'
   return '📦'
 }
 
-// ── Étoiles rating ──────────────────────────────────────────
-function Stars({ r }) {
-  return <span style={{color:'#f59e0b', fontSize:11}}> {'★'.repeat(Math.round(r))}{'☆'.repeat(5-Math.round(r))} {r}</span>
+// ── Modal Article (Créer / Modifier) ───────────────────────
+function ArticleModal({ article, categories, onSave, onClose }) {
+  const isEdit = !!article?.id
+  const [form, setForm] = useState(article || {
+    nom:'', categorie:'gazeuse', prix:0, stock:100, unite:'33cl', image_url:'', actif:true
+  })
+  const [imgPreview, setImgPreview] = useState(form.image_url || '')
+  const [saving, setSaving] = useState(false)
+  const [newCat, setNewCat] = useState('')
+  const [showNewCat, setShowNewCat] = useState(false)
+
+  const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
+
+  const handleSave = async () => {
+    if (!form.nom.trim()) return alert('Nom requis')
+    setSaving(true)
+    try {
+      await onSave({...form, prix:Number(form.prix)||0, stock:Number(form.stock)||0, image_url: imgPreview})
+      onClose()
+    } catch(e) { alert(e.response?.data?.detail||JSON.stringify(e.response?.data)||'Erreur') }
+    finally { setSaving(false) }
+  }
+
+  const allCats = [...new Set([...Object.keys(CAT_DEFAULTS), ...categories])]
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:2000,padding:0}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:'#fff',width:'100%',maxWidth:560,maxHeight:'95dvh',overflow:'auto',borderRadius:'18px 18px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,.2)'}}>
+        <div style={{position:'sticky',top:0,background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderRadius:'18px 18px 0 0',zIndex:10}}>
+          <span style={{fontWeight:700,fontSize:15}}>{isEdit?'✏️ Modifier l\'article':'➕ Nouvel article'}</span>
+          <button onClick={onClose} style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18}}>✕</button>
+        </div>
+        <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
+
+          {/* Preview image */}
+          <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
+            <div style={{width:90,height:90,borderRadius:14,overflow:'hidden',border:'2px solid #e2e8f0',background:'#f8fafc',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              {imgPreview ? (
+                <img src={imgPreview} alt="preview" style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}
+                  onError={e=>{e.target.style.display='none'}}/>
+              ) : (
+                <span style={{fontSize:40}}>{getEmoji(form.nom)}</span>
+              )}
+            </div>
+            <div style={{flex:1}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>🖼️ URL de l'image</label>
+              <input value={imgPreview} onChange={e=>{setImgPreview(e.target.value)}}
+                placeholder="https://upload.wikimedia.org/... ou https://images.unsplash.com/..."
+                style={{...inp,fontSize:11}}/>
+              <div style={{fontSize:10,color:'#94a3b8',marginTop:4}}>Collez une URL d'image (Wikipedia, Unsplash, etc.)</div>
+            </div>
+          </div>
+
+          {/* Nom */}
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Nom de l'article *</label>
+            <input value={form.nom} onChange={e=>setForm({...form,nom:e.target.value})} placeholder="Ex: Coca-Cola 33cl" style={inp}/>
+          </div>
+
+          {/* Catégorie */}
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Catégorie</label>
+            <div style={{display:'flex',gap:8}}>
+              <select value={form.categorie} onChange={e=>setForm({...form,categorie:e.target.value})}
+                style={{...inp, flex:1}}>
+                {allCats.map(k=>{
+                  const cfg=getCatCfg(k)
+                  return <option key={k} value={k}>{cfg.icon} {cfg.label}</option>
+                })}
+              </select>
+              <button onClick={()=>setShowNewCat(!showNewCat)}
+                title="Créer une nouvelle catégorie"
+                style={{background:'#f0f9ff',border:'2px solid #0ea5e9',color:'#0284c7',borderRadius:9,padding:'0 14px',cursor:'pointer',fontSize:18,fontWeight:700,flexShrink:0}}>+</button>
+            </div>
+            {showNewCat && (
+              <div style={{marginTop:8,display:'flex',gap:8}}>
+                <input value={newCat} onChange={e=>setNewCat(e.target.value)}
+                  placeholder="Ex: cocktails, snacks_CI..."
+                  style={{...inp,fontSize:12}}/>
+                <button onClick={()=>{if(newCat.trim()){setForm({...form,categorie:newCat.trim()});setShowNewCat(false);setNewCat('')}}}
+                  style={{background:'#0ea5e9',color:'#fff',border:'none',padding:'0 14px',borderRadius:9,cursor:'pointer',fontWeight:700,flexShrink:0}}>
+                  ✓ Créer
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Prix + Stock */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+            <div>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Prix FCFA *</label>
+              <input type="number" value={form.prix} onChange={e=>setForm({...form,prix:e.target.value})} style={inp}/>
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Stock</label>
+              <input type="number" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} style={inp}/>
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Unité</label>
+              <input value={form.unite} onChange={e=>setForm({...form,unite:e.target.value})} placeholder="33cl, 75cl..." style={inp}/>
+            </div>
+          </div>
+
+          {/* Actif toggle */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'#f8fafc',borderRadius:10,padding:'12px 16px'}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:13}}>Article actif</div>
+              <div style={{fontSize:11,color:'#94a3b8'}}>Visible dans la caisse et le catalogue</div>
+            </div>
+            <button type="button" onClick={()=>setForm({...form,actif:!form.actif})}
+              style={{width:48,height:26,borderRadius:99,border:'none',cursor:'pointer',transition:'all .2s',
+                background:form.actif?'#16a34a':'#e2e8f0',position:'relative',flexShrink:0}}>
+              <div style={{width:20,height:20,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'all .2s',
+                left:form.actif?25:3,boxShadow:'0 1px 4px rgba(0,0,0,.2)'}}/>
+            </button>
+          </div>
+
+          {/* Boutons action */}
+          <div style={{display:'flex',gap:10,paddingTop:4}}>
+            <button onClick={onClose} style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:13,borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:14}}>Annuler</button>
+            <button onClick={handleSave} disabled={saving}
+              style={{flex:2,background:saving?'#94a3b8':'#1e3a8a',color:'#fff',border:'none',padding:13,borderRadius:10,cursor:saving?'wait':'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
+              {saving?'⏳ Enregistrement...':(isEdit?'💾 Enregistrer':'✅ Créer l\'article')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-// ── Carte article Marketplace ───────────────────────────────
-function ArticleCard({ a, qty, onAdd }) {
+// ── Carte Article avec actions Admin ────────────────────────
+function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete }) {
   const [err, setErr] = useState(false)
-  const url = PHOTOS[a.nom]
-  const cfg = CATS[a.categorie] || CATS.autre
+  const [showActions, setShowActions] = useState(false)
+  const url = getPhoto(a)
+  const cfg = getCatCfg(a.categorie)
   const inCart = qty > 0
 
   return (
-    <div onClick={() => onAdd(a)} style={{
-      background:'#fff', borderRadius:16, overflow:'hidden', cursor:'pointer',
-      border:`2px solid ${inCart ? cfg.c : '#f1f5f9'}`,
-      boxShadow: inCart ? `0 0 0 3px ${cfg.c}25, 0 4px 20px rgba(0,0,0,.12)` : '0 2px 10px rgba(0,0,0,.08)',
-      transition:'all .18s ease', display:'flex', flexDirection:'column',
-    }}
-      onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow=`0 12px 28px rgba(0,0,0,.16)` }}
-      onMouseLeave={e => { e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=inCart?`0 0 0 3px ${cfg.c}25, 0 4px 20px rgba(0,0,0,.12)`:'0 2px 10px rgba(0,0,0,.08)' }}>
+    <div style={{background:'#fff',borderRadius:16,overflow:'hidden',border:`2px solid ${inCart?cfg.c:'#f1f5f9'}`,
+      boxShadow:inCart?`0 0 0 3px ${cfg.c}25,0 4px 20px rgba(0,0,0,.12)`:'0 2px 10px rgba(0,0,0,.08)',
+      transition:'all .18s ease',position:'relative',display:'flex',flexDirection:'column'}}
+      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow=`0 10px 28px rgba(0,0,0,.15)`}}
+      onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=inCart?`0 0 0 3px ${cfg.c}25,0 4px 20px rgba(0,0,0,.12)`:'0 2px 10px rgba(0,0,0,.08)'}}>
 
-      {/* Photo */}
-      <div style={{height:150, background:`linear-gradient(135deg,${cfg.bg},#fff)`, position:'relative', overflow:'hidden', flexShrink:0}}>
-        {url && !err ? (
-          <img src={url} alt={a.nom} onError={()=>setErr(true)}
-            style={{width:'100%', height:'100%', objectFit:'contain', padding:8, display:'block'}}/>
-        ) : (
-          <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:60}}>
-            {getEmoji(a.nom)}
+      {/* Zone cliquable pour ajouter */}
+      <div onClick={()=>onAdd(a)} style={{cursor:'pointer'}}>
+        <div style={{height:140,background:`linear-gradient(135deg,${cfg.bg},#fff)`,position:'relative',overflow:'hidden'}}>
+          {url&&!err ? (
+            <img src={url} alt={a.nom} onError={()=>setErr(true)}
+              style={{width:'100%',height:'100%',objectFit:'contain',padding:8,display:'block'}}/>
+          ) : (
+            <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>
+              {getEmoji(a.nom)}
+            </div>
+          )}
+          <div style={{position:'absolute',top:8,left:8,background:cfg.c,color:'#fff',
+            fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:99,letterSpacing:.5}}>
+            {cfg.icon}
           </div>
-        )}
-        {/* Badge catégorie */}
-        <div style={{position:'absolute', top:8, left:8, background:cfg.c, color:'#fff',
-          fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, letterSpacing:.5}}>
-          {cfg.icon}
+          {a.stock < 15 && (
+            <div style={{position:'absolute',bottom:6,left:8,background:'#dc2626',color:'#fff',fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:99}}>
+              Stock limité
+            </div>
+          )}
+          {inCart && (
+            <div style={{position:'absolute',top:8,right:8,width:28,height:28,borderRadius:'50%',
+              background:cfg.c,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
+              fontSize:14,fontWeight:900,boxShadow:'0 2px 8px rgba(0,0,0,.3)'}}>
+              {qty}
+            </div>
+          )}
         </div>
-        {/* Badge stock faible */}
-        {a.stock < 15 && (
-          <div style={{position:'absolute', bottom:6, left:8, background:'#dc2626', color:'#fff',
-            fontSize:9, fontWeight:700, padding:'2px 8px', borderRadius:99}}>
-            Stock limité
-          </div>
-        )}
-        {/* Badge panier */}
-        {inCart && (
-          <div style={{position:'absolute', top:8, right:8, width:28, height:28, borderRadius:'50%',
-            background:cfg.c, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:14, fontWeight:900, boxShadow:'0 2px 8px rgba(0,0,0,.3)'}}>
-            {qty}
-          </div>
-        )}
-      </div>
-
-      {/* Infos */}
-      <div style={{padding:'10px 12px', flex:1, display:'flex', flexDirection:'column', justifyContent:'space-between',
-        borderTop:`2px solid ${cfg.bg}`}}>
-        <div>
-          <div style={{fontSize:11.5, fontWeight:700, color:'#1e293b', lineHeight:1.4, marginBottom:3,
-            display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+        <div style={{padding:'10px 12px',flex:1,borderTop:`2px solid ${cfg.bg}`}}>
+          <div style={{fontWeight:700,fontSize:12,color:'#1e293b',lineHeight:1.4,marginBottom:4,
+            display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:30}}>
             {a.nom}
           </div>
-          <div style={{fontSize:10, color:'#94a3b8', marginBottom:4}}>{a.unite}</div>
-        </div>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-          <div style={{fontWeight:900, color:cfg.c, fontSize:15, fontFamily:'monospace'}}>
-            {parseInt(a.prix).toLocaleString()}
-            <span style={{fontSize:9, fontWeight:600, marginLeft:2}}>FCFA</span>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontWeight:900,color:cfg.c,fontSize:15,fontFamily:'monospace'}}>
+              {parseInt(a.prix).toLocaleString()}<span style={{fontSize:9,marginLeft:2}}>FCFA</span>
+            </div>
+            <div style={{fontSize:9.5,color:'#94a3b8'}}>{a.stock} · {a.unite}</div>
           </div>
-          <div style={{fontSize:9.5, color:'#94a3b8'}}>{a.stock} restants</div>
         </div>
       </div>
+
+      {/* Boutons admin */}
+      {isAdmin && (
+        <div style={{padding:'8px 12px',borderTop:'1px solid #f1f5f9',display:'flex',gap:6}}>
+          <button onClick={e=>{e.stopPropagation();onEdit(a)}}
+            style={{flex:1,background:'#eff6ff',color:'#2563eb',border:'1.5px solid #bfdbfe',
+              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
+            ✏️ Modifier
+          </button>
+          <button onClick={e=>{e.stopPropagation();onDelete(a)}}
+            style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
+              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
+            🗑️ Suppr.
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -204,8 +330,10 @@ export default function Boutique() {
   const [submitting,setSubmitting]= useState(false)
   const [msg,       setMsg]       = useState(null)
   const [scanning,  setScanning]  = useState(false)
-  const [artModal,  setArtModal]  = useState(false)
-  const [artForm,   setArtForm]   = useState({nom:'',categorie:'gazeuse',prix:0,stock:100,unite:'33cl'})
+  // CRUD modals
+  const [artModal,  setArtModal]  = useState(false)  // false | null (create) | {article}
+  const [editArt,   setEditArt]   = useState(null)
+  const [delConfirm,setDelConfirm]= useState(null)
   const scannerInst = useRef(null)
 
   const load = useCallback(() => {
@@ -241,6 +369,23 @@ export default function Boutique() {
     try{scannerInst.current?.stop().then(()=>{scannerInst.current=null;setScanning(false)}).catch(()=>setScanning(false))}catch{setScanning(false)}
   }
 
+  // CRUD
+  const handleCreate = async (data) => {
+    await boutiqueAPI.createArticle(data)
+    load()
+  }
+  const handleEdit = async (data) => {
+    await boutiqueAPI.updateArticle(editArt.id, data)
+    load()
+  }
+  const handleDelete = async (a) => {
+    setDelConfirm(null)
+    try {
+      await boutiqueAPI.deleteArticle(a.id)
+      load()
+    } catch(e) { alert(e.response?.data?.detail||'Impossible de supprimer') }
+  }
+
   const addTo   = a => {setMsg(null);setPanier(p=>{const ex=p.find(x=>x.a.id===a.id);return ex?p.map(x=>x.a.id===a.id?{...x,q:x.q+1}:x):[...p,{a,q:1}]})}
   const decFrom = id=> setPanier(p=>{const ex=p.find(x=>x.a.id===id);return ex?.q>1?p.map(x=>x.a.id===id?{...x,q:x.q-1}:x):p.filter(x=>x.a.id!==id)})
   const totalP  = panier.reduce((s,x)=>s+x.a.prix*x.q,0)
@@ -260,7 +405,9 @@ export default function Boutique() {
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
   const arts = articles.filter(a=>(!catFilter||a.categorie===catFilter)&&(!search||a.nom.toLowerCase().includes(search.toLowerCase())))
   const byCat = arts.reduce((acc,a)=>({...acc,[a.categorie]:[...(acc[a.categorie]||[]),a]}),{})
-  const catOrder = ['gazeuse','jus','energie','eau','biere','vin_rouge','vin_blanc','vin_rose','champagne','spiritueux','liqueur','cafe','the','autre']
+  // Toutes les catégories dynamiques présentes
+  const allCatsPresent = [...new Set(articles.map(a=>a.categorie))]
+  const catOrder = ['gazeuse','jus','energie','eau','biere','vin_rouge','vin_blanc','vin_rose','champagne','spiritueux','liqueur','cafe','the',...allCatsPresent.filter(c=>!Object.keys(CAT_DEFAULTS).includes(c)),'autre']
 
   return (
     <div style={{padding:20,background:'#f8fafc',minHeight:'100dvh'}}>
@@ -270,15 +417,19 @@ export default function Boutique() {
         <div>
           <h2 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>🛒 Bar & Boutique</h2>
           <p style={{fontSize:12,color:'#64748b',margin:'3px 0 0'}}>
-            {loading?'...':
-              `${articles.length} produits · ${Object.keys(byCat).length} catégories · ${statsJour?.total||0} ventes aujourd'hui`}
+            {loading?'...':`${articles.length} articles · ${allCatsPresent.length} catégories · ${statsJour?.total||0} ventes aujourd'hui`}
           </p>
         </div>
-        {isAdmin&&<button onClick={()=>setArtModal(true)} style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'9px 16px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700}}>+ Article</button>}
+        {isAdmin && (
+          <button onClick={()=>{setEditArt(null);setArtModal(true)}}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+            ➕ Nouvel article
+          </button>
+        )}
       </div>
 
-      {/* STATS DU JOUR */}
-      {statsJour && statsJour.total > 0 && (
+      {/* STATS */}
+      {statsJour&&statsJour.total>0&&(
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
           {[['🛒 Ventes',statsJour.total,'#1e3a8a'],
             ['💰 CA',`${(statsJour.montant||0).toLocaleString()} FCFA`,'#16a34a'],
@@ -304,23 +455,23 @@ export default function Boutique() {
       </div>
 
       {/* ══ CAISSE ══ */}
-      {tab==='caisse' && (
+      {tab==='caisse'&&(
         <div style={{display:'grid',gridTemplateColumns:'1fr 310px',gap:16}}>
           <div>
             {/* Filtres */}
             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un produit..."
-                style={{...inp,maxWidth:200,padding:'7px 12px',fontSize:12,width:'auto'}}/>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+                style={{...inp,maxWidth:180,padding:'7px 12px',fontSize:12,width:'auto'}}/>
               <button onClick={()=>setCatFilter('')}
-                style={{padding:'6px 14px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                style={{padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
                   background:!catFilter?'#1e3a8a':'#fff',color:!catFilter?'#fff':'#475569',borderColor:!catFilter?'#1e3a8a':'#e2e8f0'}}>
                 Tout
               </button>
               {catOrder.filter(k=>articles.some(a=>a.categorie===k)).map(k=>{
-                const cfg=CATS[k]||CATS.autre
+                const cfg=getCatCfg(k)
                 return (
                   <button key={k} onClick={()=>setCatFilter(catFilter===k?'':k)}
-                    style={{padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                    style={{padding:'6px 12px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
                       background:catFilter===k?cfg.c:'#fff',color:catFilter===k?'#fff':cfg.c,borderColor:cfg.c}}>
                     {cfg.icon} {cfg.label}
                   </button>
@@ -338,19 +489,24 @@ export default function Boutique() {
                 <div style={{fontSize:12,marginTop:4}}>Allez dans Diagnostic → Initialiser les données</div>
               </div>
             ) : (
-              catOrder.filter(cat=>byCat[cat]?.length).map(cat => {
-                const cfg=CATS[cat]||CATS.autre
+              catOrder.filter(cat=>byCat[cat]?.length).map(cat=>{
+                const cfg=getCatCfg(cat)
                 const items=byCat[cat]
                 return (
                   <div key={cat} style={{marginBottom:24}}>
-                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,
-                      padding:'8px 16px',background:cfg.bg,borderRadius:12,borderLeft:`5px solid ${cfg.c}`}}>
-                      <span style={{fontSize:22}}>{cfg.icon}</span>
-                      <span style={{fontWeight:800,fontSize:14,color:cfg.c}}>{cfg.label}</span>
-                      <span style={{fontSize:11,color:'#94a3b8',marginLeft:'auto'}}>{items.length} produits</span>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,
+                      padding:'7px 14px',background:cfg.bg,borderRadius:10,borderLeft:`4px solid ${cfg.c}`}}>
+                      <span style={{fontSize:20}}>{cfg.icon}</span>
+                      <span style={{fontWeight:800,fontSize:13,color:cfg.c}}>{cfg.label}</span>
+                      <span style={{fontSize:11,color:'#94a3b8',marginLeft:'auto'}}>{items.length}</span>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
-                      {items.map(a=><ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo}/>)}
+                      {items.map(a=>(
+                        <ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo}
+                          isAdmin={isAdmin}
+                          onEdit={a=>{setEditArt(a);setArtModal(true)}}
+                          onDelete={a=>setDelConfirm(a)}/>
+                      ))}
                     </div>
                   </div>
                 )
@@ -393,17 +549,17 @@ export default function Boutique() {
               </div>
               <div style={{padding:12}}>
                 {panier.length===0?(
-                  <div style={{textAlign:'center',color:'#94a3b8',fontSize:12,padding:'24px 0'}}>Cliquez sur un article pour l'ajouter</div>
+                  <div style={{textAlign:'center',color:'#94a3b8',fontSize:12,padding:'24px 0'}}>Cliquez sur un article</div>
                 ):(
                   <>
                     <div style={{maxHeight:260,overflowY:'auto',display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
                       {panier.map(({a,q})=>{
-                        const url=PHOTOS[a.nom]; const cfg=CATS[a.categorie]||CATS.autre
+                        const url=getPhoto(a); const cfg=getCatCfg(a.categorie)
                         return (
                           <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,background:'#f8fafc',borderRadius:10,padding:'6px 10px'}}>
-                            <div style={{width:42,height:42,borderRadius:10,overflow:'hidden',background:cfg.bg,flexShrink:0}}>
+                            <div style={{width:40,height:40,borderRadius:9,overflow:'hidden',background:cfg.bg,flexShrink:0}}>
                               {url?<img src={url} alt={a.nom} style={{width:'100%',height:'100%',objectFit:'contain',padding:3}} onError={e=>e.target.style.display='none'}/>
-                                :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{getEmoji(a.nom)}</div>}
+                                :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{getEmoji(a.nom)}</div>}
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontSize:11,fontWeight:700,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nom}</div>
@@ -442,10 +598,7 @@ export default function Boutique() {
       {tab==='historique'&&(
         <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,overflow:'hidden'}}>
           {consos.length===0?(
-            <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}>
-              <div style={{fontSize:44,marginBottom:10}}>📋</div>
-              <div style={{fontWeight:700,color:'#64748b'}}>Aucune vente aujourd'hui</div>
-            </div>
+            <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}><div style={{fontSize:44,marginBottom:10}}>📋</div><div style={{fontWeight:700,color:'#64748b'}}>Aucune vente aujourd'hui</div></div>
           ):(
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead><tr style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)'}}>
@@ -471,7 +624,7 @@ export default function Boutique() {
       {tab==='catalogue'&&(
         <div>
           {catOrder.filter(cat=>articles.some(a=>a.categorie===cat)).map(cat=>{
-            const cfg=CATS[cat]||CATS.autre
+            const cfg=getCatCfg(cat)
             const items=articles.filter(a=>a.categorie===cat)
             return (
               <div key={cat} style={{marginBottom:28}}>
@@ -480,11 +633,17 @@ export default function Boutique() {
                   <span style={{fontSize:26}}>{cfg.icon}</span>
                   <div>
                     <div style={{fontWeight:800,fontSize:16,color:cfg.c}}>{cfg.label}</div>
-                    <div style={{fontSize:11,color:'#94a3b8'}}>{items.length} produits disponibles</div>
+                    <div style={{fontSize:11,color:'#94a3b8'}}>{items.length} articles disponibles</div>
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>
-                  {items.map(a=><ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={()=>{setTab('caisse');addTo(a)}}/>)}
+                  {items.map(a=>(
+                    <ArticleCard key={a.id} a={a} qty={qty(a)}
+                      onAdd={()=>{setTab('caisse');addTo(a)}}
+                      isAdmin={isAdmin}
+                      onEdit={a=>{setEditArt(a);setArtModal(true)}}
+                      onDelete={a=>setDelConfirm(a)}/>
+                  ))}
                 </div>
               </div>
             )
@@ -492,30 +651,37 @@ export default function Boutique() {
         </div>
       )}
 
-      {/* MODAL CRÉER */}
-      {artModal&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
-          onClick={e=>e.target===e.currentTarget&&setArtModal(false)}>
-          <div style={{background:'#fff',borderRadius:18,width:'100%',maxWidth:420,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-            <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontWeight:700,fontSize:15}}>+ Nouvel article</span>
-              <button onClick={()=>setArtModal(false)} style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
+      {/* ══ MODAL CRÉER/MODIFIER ══ */}
+      {artModal && (
+        <ArticleModal
+          article={editArt}
+          categories={allCatsPresent}
+          onSave={editArt ? handleEdit : handleCreate}
+          onClose={()=>{setArtModal(false);setEditArt(null)}}
+        />
+      )}
+
+      {/* ══ CONFIRMATION SUPPRESSION ══ */}
+      {delConfirm && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}>
+          <div style={{background:'#fff',borderRadius:18,width:'100%',maxWidth:380,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#991b1b,#dc2626)',color:'#fff',padding:'14px 20px',fontWeight:700,fontSize:15}}>
+              🗑️ Supprimer l'article
             </div>
-            <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
-              {[['Nom *','nom','text'],['Prix FCFA *','prix','number'],['Stock','stock','number'],['Unité','unite','text']].map(([l,f,t])=>(
-                <div key={f}><label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>{l}</label>
-                <input type={t} value={artForm[f]||''} onChange={e=>setArtForm({...artForm,[f]:e.target.value})} style={inp}/></div>
-              ))}
-              <div>
-                <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>Catégorie</label>
-                <select value={artForm.categorie} onChange={e=>setArtForm({...artForm,categorie:e.target.value})} style={inp}>
-                  {catOrder.map(k=><option key={k} value={k}>{CATS[k]?.icon} {CATS[k]?.label||k}</option>)}
-                </select>
+            <div style={{padding:20}}>
+              <div style={{fontSize:15,color:'#1e293b',marginBottom:6,fontWeight:600}}>{delConfirm.nom}</div>
+              <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>
+                Cette action est irréversible. L'article sera définitivement supprimé du catalogue.
               </div>
               <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>setArtModal(false)} style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:12,borderRadius:10,cursor:'pointer',fontFamily:'inherit'}}>Annuler</button>
-                <button onClick={async()=>{try{await boutiqueAPI.createArticle({...artForm,prix:Number(artForm.prix),stock:Number(artForm.stock)});setArtModal(false);load()}catch(e){alert(e.response?.data?.detail||'Erreur')}}}
-                  style={{flex:2,background:'#1e3a8a',color:'#fff',border:'none',padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>✅ Créer</button>
+                <button onClick={()=>setDelConfirm(null)}
+                  style={{flex:1,background:'#f8fafc',color:'#475569',border:'1px solid #e2e8f0',padding:12,borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:14}}>
+                  Annuler
+                </button>
+                <button onClick={()=>handleDelete(delConfirm)}
+                  style={{flex:1,background:'#dc2626',color:'#fff',border:'none',padding:12,borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:700}}>
+                  🗑️ Supprimer
+                </button>
               </div>
             </div>
           </div>

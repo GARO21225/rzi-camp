@@ -311,6 +311,31 @@ def force_seed(request):
                     pass
 
         from restauration.models import ArticleBoutique
+        IMAGES_DEFAULT = {
+            'Coca-Cola Classic':'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_glass_bottle.jpg/200px-Coca-Cola_glass_bottle.jpg',
+            'Fanta Orange':'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Fanta_Orange.jpg/200px-Fanta_Orange.jpg',
+            'Sprite':'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sprite_can.jpg/200px-Sprite_can.jpg',
+            'Malta Guinness':'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Malta_Guinness.jpg/200px-Malta_Guinness.jpg',
+            'Heineken':'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Heineken_beer_bottle.jpg/200px-Heineken_beer_bottle.jpg',
+            'Guinness Stout':'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Guinness.jpg/200px-Guinness.jpg',
+            'Red Bull Original':'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=300&h=300&fit=crop',
+            'Monster Energy Green':'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=300&h=300&fit=crop',
+            'Evian':'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=300&h=300&fit=crop',
+            'Cristaline':'https://images.unsplash.com/photo-1616118132534-381055fe2e4d?w=300&h=300&fit=crop',
+            'JP Chenet Rouge':'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=300&h=300&fit=crop',
+            'Mouton Cadet Rouge':'https://images.unsplash.com/photo-1547595628-c61a29f496f0?w=300&h=300&fit=crop',
+            'Moet et Chandon Brut':'https://images.unsplash.com/photo-1548211091-0e8de7b28a0b?w=300&h=300&fit=crop',
+            'Veuve Clicquot Brut':'https://images.unsplash.com/photo-1531401675083-f9e0abeef2c1?w=300&h=300&fit=crop',
+            'Dom Perignon Vintage':'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=300&h=300&fit=crop',
+            'Hennessy VS':'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=300&h=300&fit=crop',
+            'Jack Daniel s Old N7':'https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=300&h=300&fit=crop',
+            'Johnnie Walker Black':'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=300&h=300&fit=crop',
+            'Baileys Original':'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=300&h=300&fit=crop',
+            'Malibu Coco':'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=300&h=300&fit=crop',
+            'Jagermeister':'https://images.unsplash.com/photo-1575650772417-e6b418b0d9bf?w=300&h=300&fit=crop',
+            'Nescafe Classic':'https://images.unsplash.com/photo-1607006344380-b6775a0824a7?w=300&h=300&fit=crop',
+            'Lipton Yellow Label':'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&h=300&fit=crop',
+        }
         articles = [
             # Boissons gazeuses
             ('Coca-Cola Classic','gazeuse',500,200,'33cl'), ('Coca-Cola 1.5L','gazeuse',1500,120,'1.5L'),
