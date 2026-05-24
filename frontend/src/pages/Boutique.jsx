@@ -367,7 +367,11 @@ function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete, reorganize, onQ
 // ════════════════════════════════════════════════════════════
 export default function Boutique() {
   const {user} = useStore()
-  const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role==='admin'
+  // Admin: staff, superuser, rôle admin OU rôle responsable boutique
+  const isAdmin = !!(user?.is_staff || user?.is_superuser ||
+    user?.profile?.role === 'admin' ||
+    user?.role === 'admin' ||
+    user?.username === 'admin')
 
   const [articles,  setArticles]  = useState([])
   const [consos,    setConsos]    = useState([])
@@ -643,7 +647,7 @@ export default function Boutique() {
                               cursor: reorganize ? 'grab' : 'default',
                             }}>
                             <ArticleCard a={a} qty={qty(a)} onAdd={reorganize ? ()=>{} : addTo}
-                              isAdmin={isAdmin}
+                              isAdmin={false}
                               reorganize={reorganize}
                               onQuickCat={()=>setQuickCatArt(a)}
                               onEdit={a=>{setEditArt(a);setArtModal(true)}}
@@ -772,22 +776,51 @@ export default function Boutique() {
             const items=articles.filter(a=>a.categorie===cat)
             return (
               <div key={cat} style={{marginBottom:28}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,
-                  padding:'10px 16px',background:cfg.bg,borderRadius:12,borderLeft:`5px solid ${cfg.c}`}}>
-                  <span style={{fontSize:26}}>{cfg.icon}</span>
-                  <div>
-                    <div style={{fontWeight:800,fontSize:16,color:cfg.c}}>{cfg.label}</div>
-                    <div style={{fontSize:11,color:'#94a3b8'}}>{items.length} articles disponibles</div>
+                <div
+                  onDragOver={reorganize ? e=>handleDragOver(e,cat) : undefined}
+                  onDrop={reorganize ? e=>handleDrop(e,cat) : undefined}
+                  onDragLeave={()=>setDragOverCat(null)}
+                  style={{
+                    borderRadius:12, transition:'all .2s',
+                    border: reorganize && dragOverCat===cat ? `3px dashed ${cfg.c}` : '3px solid transparent',
+                    background: reorganize && dragOverCat===cat ? `${cfg.c}10` : 'transparent',
+                    padding: reorganize ? 6 : 0,
+                  }}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,
+                    padding:'10px 16px',background:cfg.bg,borderRadius:12,borderLeft:`5px solid ${cfg.c}`}}>
+                    <span style={{fontSize:26}}>{cfg.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800,fontSize:16,color:cfg.c}}>{cfg.label}</div>
+                      <div style={{fontSize:11,color:'#94a3b8'}}>{items.length} articles disponibles</div>
+                    </div>
+                    {reorganize && (
+                      <span style={{fontSize:11,background:`${cfg.c}20`,color:cfg.c,padding:'3px 10px',borderRadius:99,fontWeight:700}}>
+                        ← déposer ici
+                      </span>
+                    )}
                   </div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>
-                  {items.map(a=>(
-                    <ArticleCard key={a.id} a={a} qty={qty(a)}
-                      onAdd={()=>{setTab('caisse');addTo(a)}}
-                      isAdmin={isAdmin}
-                      onEdit={a=>{setEditArt(a);setArtModal(true)}}
-                      onDelete={a=>setDelConfirm(a)}/>
-                  ))}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>
+                    {items.map(a=>(
+                      <div key={a.id}
+                        draggable={reorganize}
+                        onDragStart={reorganize ? e=>handleDragStart(e,a.id) : undefined}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          opacity: draggingId===a.id ? .45 : 1,
+                          transform: draggingId===a.id ? 'scale(.95)rotate(2deg)' : '',
+                          transition:'all .15s',
+                          cursor: reorganize ? 'grab' : 'default',
+                        }}>
+                        <ArticleCard a={a} qty={qty(a)}
+                          onAdd={()=>{ if(!reorganize){setTab('caisse');addTo(a)} }}
+                          isAdmin={isAdmin}
+                          reorganize={reorganize}
+                          onQuickCat={()=>setQuickCatArt(a)}
+                          onEdit={a=>{setEditArt(a);setArtModal(true)}}
+                          onDelete={a=>setDelConfirm(a)}/>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )
