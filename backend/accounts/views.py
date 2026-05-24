@@ -288,7 +288,7 @@ def force_seed(request):
         from django.db import connection
         # Créer la table si elle n'existe pas (bypass migration)
         with connection.cursor() as cur:
-            # Vérifier si la table existe (compatible SQLite + PostgreSQL)
+            # Créer la table si elle n'existe pas
             try:
                 cur.execute("SELECT COUNT(*) FROM restauration_articleboutique")
                 table_exists = True
@@ -296,19 +296,21 @@ def force_seed(request):
                 table_exists = False
 
             if not table_exists:
-                # Créer via Django migrations executor
                 from django.db.migrations.executor import MigrationExecutor
                 executor = MigrationExecutor(connection)
                 plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
                 for mig, _ in plan:
                     if mig.app_label == 'restauration':
                         executor.apply_migration(executor.loader.project_state(), mig)
-                # Re-check
+            else:
+                # S'assurer que image_url existe (peut être absent sur ancienne DB)
                 try:
-                    cur.execute("SELECT COUNT(*) FROM restauration_articleboutique")
-                    table_exists = True
+                    cur.execute("SELECT image_url FROM restauration_articleboutique LIMIT 0")
                 except Exception:
-                    pass
+                    try:
+                        cur.execute("ALTER TABLE restauration_articleboutique ADD COLUMN image_url TEXT NOT NULL DEFAULT ''")
+                    except Exception:
+                        pass
 
         from restauration.models import ArticleBoutique
         IMAGES_DEFAULT = {

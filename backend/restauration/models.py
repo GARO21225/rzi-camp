@@ -56,12 +56,12 @@ class AuditLog(models.Model):
 # ── Bar & Boutique ──────────────────────────────────────────────────
 class ArticleBoutique(models.Model):
     nom        = models.CharField(max_length=150)
-    categorie  = models.CharField(max_length=50, default='autre')  # libre, pas de choices
+    categorie  = models.CharField(max_length=50, default='autre')
     prix       = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     stock      = models.IntegerField(default=0)
     unite      = models.CharField(max_length=30, default='pièce')
     actif      = models.BooleanField(default=True)
-    image_url  = models.URLField(max_length=500, blank=True, default='')
+    image_url  = models.TextField(blank=True, default='')   # URL externe OU data:image/... base64
     cree_le    = models.DateTimeField(auto_now_add=True)
 
     def __str__(self): return f"{self.nom} ({self.prix} FCFA)"

@@ -264,13 +264,45 @@ from .models import ArticleBoutique, ConsommationBoutique
 from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
+    image_url = drf_serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        try: return obj.image_url or ''
+        except: return ''
+
+    def to_internal_value(self, data):
+        val = super().to_internal_value(data)
+        # S'assurer que image_url est toujours présent même si la colonne manque
+        if 'image_url' not in val:
+            val['image_url'] = ''
+        return val
+
+    def create(self, validated_data):
+        # Retirer image_url si la colonne n'existe pas encore
+        img = validated_data.pop('image_url', '')
+        try:
+            obj = super().create(validated_data)
+            if img:
+                try: obj.image_url = img; obj.save(update_fields=['image_url'])
+                except: pass
+        except Exception as e:
+            if 'image_url' in str(e):
+                obj = ArticleBoutique.objects.create(**{k:v for k,v in validated_data.items()})
+            else:
+                raise
+        return obj
+
+    def update(self, instance, validated_data):
+        img = validated_data.pop('image_url', None)
+        obj = super().update(instance, validated_data)
+        if img is not None:
+            try: obj.image_url = img; obj.save(update_fields=['image_url'])
+            except: pass
+        return obj
+
     class Meta:
         model  = ArticleBoutique
         fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le']
-
-class Meta:
-        model  = ArticleBoutique
-        fields = ['id','nom','categorie','categorie_label','prix','stock','unite','actif','cree_le']
 
 class ConsommationSerializer(drf_serializers.ModelSerializer):
     article_nom    = drf_serializers.CharField(source='article.nom', read_only=True)

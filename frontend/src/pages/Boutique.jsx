@@ -138,22 +138,61 @@ function ArticleModal({ article, categories, onSave, onClose }) {
         </div>
         <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
 
-          {/* Preview image */}
-          <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
-            <div style={{width:90,height:90,borderRadius:14,overflow:'hidden',border:'2px solid #e2e8f0',background:'#f8fafc',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              {imgPreview ? (
-                <img src={imgPreview} alt="preview" style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}
-                  onError={e=>{e.target.style.display='none'}}/>
-              ) : (
-                <span style={{fontSize:40}}>{getEmoji(form.nom)}</span>
-              )}
-            </div>
-            <div style={{flex:1}}>
-              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>🖼️ URL de l'image</label>
-              <input value={imgPreview} onChange={e=>{setImgPreview(e.target.value)}}
-                placeholder="https://upload.wikimedia.org/... ou https://images.unsplash.com/..."
-                style={{...inp,fontSize:11}}/>
-              <div style={{fontSize:10,color:'#94a3b8',marginTop:4}}>Collez une URL d'image (Wikipedia, Unsplash, etc.)</div>
+          {/* IMAGE: upload fichier OU URL */}
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:8,textTransform:'uppercase'}}>🖼️ Image de l'article</label>
+            
+            {/* Preview */}
+            <div style={{display:'flex',gap:14,alignItems:'flex-start',marginBottom:10}}>
+              <div style={{width:100,height:100,borderRadius:14,overflow:'hidden',
+                border:`2px solid ${imgPreview?'#1e3a8a':'#e2e8f0'}`,background:'#f8fafc',
+                flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+                {imgPreview ? (
+                  <>
+                    <img src={imgPreview} alt="preview"
+                      style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}
+                      onError={e=>{e.target.style.display='none'}}/>
+                    <button onClick={()=>setImgPreview('')}
+                      style={{position:'absolute',top:2,right:2,width:20,height:20,borderRadius:'50%',
+                        background:'rgba(220,38,38,.8)',color:'#fff',border:'none',cursor:'pointer',
+                        fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+                  </>
+                ) : (
+                  <span style={{fontSize:40}}>{getEmoji(form.nom)}</span>
+                )}
+              </div>
+              
+              <div style={{flex:1,display:'flex',flexDirection:'column',gap:8}}>
+                {/* Upload fichier */}
+                <label style={{
+                  display:'flex',alignItems:'center',gap:8,padding:'10px 14px',
+                  background:'#eff6ff',border:'2px dashed #bfdbfe',borderRadius:10,
+                  cursor:'pointer',fontSize:13,color:'#2563eb',fontWeight:600}}>
+                  <input type="file" accept="image/*" style={{display:'none'}}
+                    onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      if (file.size > 2 * 1024 * 1024) { alert('Image trop grande (max 2 Mo)'); return }
+                      const reader = new FileReader()
+                      reader.onload = ev => setImgPreview(ev.target.result)
+                      reader.readAsDataURL(file)
+                    }}/>
+                  📸 Télécharger une photo
+                  <span style={{fontSize:10,color:'#64748b',fontWeight:400}}>JPG/PNG max 2Mo</span>
+                </label>
+                
+                {/* Ou URL */}
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{flex:1,height:1,background:'#e2e8f0'}}/>
+                  <span style={{fontSize:11,color:'#94a3b8'}}>ou</span>
+                  <div style={{flex:1,height:1,background:'#e2e8f0'}}/>
+                </div>
+                
+                <input value={imgPreview.startsWith('data:') ? '' : imgPreview}
+                  onChange={e=>setImgPreview(e.target.value)}
+                  placeholder="https://... URL d'image (Wikipedia, Unsplash…)"
+                  style={{...inp,fontSize:12}}/>
+              </div>
             </div>
           </div>
 
