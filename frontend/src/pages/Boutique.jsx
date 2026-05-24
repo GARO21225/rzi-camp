@@ -104,6 +104,175 @@ function getEmoji(nom) {
   return '📦'
 }
 
+
+// ── Panneau Gestion des Bons de Caisse ─────────────────────
+function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
+  const [loading,    setLoading]   = useState(false)
+  const [msg,        setMsg]       = useState(null)
+  const [montant,    setMontant]   = useState(100000)
+  const [selPerso,   setSelPerso]  = useState('')
+  const [search,     setSearch]    = useState('')
+
+  const crediterTous = async () => {
+    if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
+    setLoading(true)
+    try {
+      const r = await boutiqueAPI.crediterTous({ montant, annee })
+      setMsg({ type:'success', text: r.data.message })
+      onRefresh()
+    } catch(e) { setMsg({ type:'error', text: e.response?.data?.error||'Erreur' }) }
+    finally { setLoading(false) }
+  }
+
+  const crediterUn = async () => {
+    if (!selPerso) return alert('Sélectionner un personnel')
+    setLoading(true)
+    try {
+      const r = await boutiqueAPI.crediterPersonnel({ personnel_id: selPerso, montant, annee })
+      setMsg({ type:'success', text: r.data.message })
+      setSelPerso('')
+      onRefresh()
+    } catch(e) { setMsg({ type:'error', text: e.response?.data?.error||'Erreur' }) }
+    finally { setLoading(false) }
+  }
+
+  const filteredBons = bons.filter(b =>
+    !search || b.personnel_nom.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const totalCredit  = bons.reduce((s,b) => s+parseInt(b.credit_initial),  0)
+  const totalRestant = bons.reduce((s,b) => s+parseInt(b.credit_restant),  0)
+  const totalUtilise = bons.reduce((s,b) => s+parseInt(b.credit_utilise||0),0)
+
+  const inp = {border:'2px solid #e2e8f0',borderRadius:9,padding:'9px 12px',fontSize:13,outline:'none',fontFamily:'inherit'}
+
+  return (
+    <div style={{marginTop:24,background:'#fff',border:'1px solid #e2e8f0',borderRadius:16,overflow:'hidden'}}>
+      {/* Header */}
+      <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',padding:'14px 20px',
+        display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div>
+          <div style={{fontWeight:800,fontSize:15}}>🎫 Bons de Caisse — {annee}</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.7)',marginTop:2}}>
+            Tickets annuels de consommation · Rechargement 100 000 FCFA/an
+          </div>
+        </div>
+        <div style={{textAlign:'right',fontSize:12}}>
+          <div style={{fontFamily:'monospace',fontSize:20,fontWeight:900,color:'#f0a500'}}>
+            {totalRestant.toLocaleString()}
+          </div>
+          <div style={{color:'rgba(255,255,255,.6)'}}>FCFA restants / {totalCredit.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div style={{padding:20}}>
+        {/* Stats globales */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+          {[
+            ['🎫 Bons actifs',bons.length,'#1e3a8a'],
+            ['💰 Crédits restants',`${totalRestant.toLocaleString()} FCFA`,'#16a34a'],
+            ['🛒 Total consommé',`${totalUtilise.toLocaleString()} FCFA`,'#dc2626'],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:'#f8fafc',borderRadius:10,padding:'12px 14px',borderTop:`3px solid ${c}`}}>
+              <div style={{fontFamily:'monospace',fontSize:16,fontWeight:900,color:c}}>{v}</div>
+              <div style={{fontSize:10,color:'#94a3b8',marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {msg && (
+          <div style={{padding:'10px 14px',borderRadius:10,marginBottom:16,fontSize:13,fontWeight:600,
+            background:msg.type==='success'?'#f0fdf4':'#fef2f2',
+            color:msg.type==='success'?'#166534':'#991b1b',
+            border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`}}>
+            {msg.text}
+          </div>
+        )}
+
+        {/* Actions admin */}
+        <div style={{background:'#f8fafc',borderRadius:12,padding:16,marginBottom:20}}>
+          <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',marginBottom:12}}>⚙️ Actions</div>
+          
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            {/* Crédit tous */}
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:'#64748b',marginBottom:8}}>Créditer tous les personnels actifs</div>
+              <div style={{display:'flex',gap:8}}>
+                <input type="number" value={montant} onChange={e=>setMontant(Number(e.target.value))}
+                  style={{...inp,width:130}} min={1000} max={500000} step={10000}/>
+                <span style={{alignSelf:'center',fontSize:11,color:'#94a3b8'}}>FCFA</span>
+              </div>
+              <button onClick={crediterTous} disabled={loading}
+                style={{marginTop:8,width:'100%',background:loading?'#94a3b8':'#1e3a8a',color:'#fff',
+                  border:'none',padding:'10px',borderRadius:9,cursor:loading?'wait':'pointer',
+                  fontSize:13,fontWeight:700,fontFamily:'inherit'}}>
+                {loading?'⏳...':`🚀 Créditer tous (${annee})`}
+              </button>
+            </div>
+            {/* Crédit un seul */}
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:'#64748b',marginBottom:8}}>Créditer un seul résident</div>
+              <select value={selPerso} onChange={e=>setSelPerso(e.target.value)}
+                style={{...inp,width:'100%',marginBottom:8}}>
+                <option value="">— Sélectionner —</option>
+                {personnel.map(p=>(
+                  <option key={p.id} value={p.id}>{p.nom} {p.prenom} ({p.societe})</option>
+                ))}
+              </select>
+              <button onClick={crediterUn} disabled={loading||!selPerso}
+                style={{width:'100%',background:loading||!selPerso?'#94a3b8':'#16a34a',color:'#fff',
+                  border:'none',padding:'10px',borderRadius:9,cursor:loading||!selPerso?'default':'pointer',
+                  fontSize:13,fontWeight:700,fontFamily:'inherit'}}>
+                💳 Créditer ce résident
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Liste des bons */}
+        <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',marginBottom:10}}>
+          📋 État des bons ({bons.length} résidents)
+        </div>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="🔍 Rechercher un résident..."
+          style={{...inp,width:'100%',marginBottom:12,boxSizing:'border-box'}}/>
+        <div style={{maxHeight:340,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
+          {filteredBons.length===0 ? (
+            <div style={{textAlign:'center',padding:24,color:'#94a3b8',fontSize:12}}>
+              Aucun bon créé — cliquez sur "Créditer tous"
+            </div>
+          ) : filteredBons.map(b => {
+            const pct = 100 - b.pourcentage
+            const barColor = pct > 50 ? '#16a34a' : pct > 20 ? '#f59e0b' : '#dc2626'
+            return (
+              <div key={b.id} style={{background:'#f8fafc',borderRadius:10,padding:'10px 14px',
+                border:`1px solid ${pct < 20 ? '#fca5a5' : '#e2e8f0'}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                  <div>
+                    <span style={{fontWeight:700,fontSize:13,color:'#1e293b'}}>{b.personnel_nom}</span>
+                    <span style={{fontSize:11,color:'#94a3b8',marginLeft:8}}>{b.personnel_info?.societe}</span>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <span style={{fontFamily:'monospace',fontWeight:900,fontSize:14,
+                      color:barColor}}>{parseInt(b.credit_restant).toLocaleString()}</span>
+                    <span style={{fontSize:9,color:'#94a3b8',marginLeft:3}}>/ {parseInt(b.credit_initial).toLocaleString()} FCFA</span>
+                  </div>
+                </div>
+                <div style={{background:'#e2e8f0',borderRadius:99,height:5,overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:99,width:`${Math.max(2,pct)}%`,background:barColor,transition:'width .3s'}}/>
+                </div>
+                <div style={{fontSize:10,color:'#94a3b8',marginTop:3,textAlign:'right'}}>
+                  {parseInt(b.credit_utilise).toLocaleString()} FCFA utilisés ({b.pourcentage}%)
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Modal Article (Créer / Modifier) ───────────────────────
 function ArticleModal({ article, categories, onSave, onClose }) {
   const isEdit = !!article?.id
@@ -364,6 +533,9 @@ export default function Boutique() {
   const [draggingId,   setDraggingId]  = useState(null)
   const [dragOverCat,  setDragOverCat] = useState(null)
   const [quickCatArt,  setQuickCatArt] = useState(null)
+  const [bonAgent,     setBonAgent]     = useState(null)   // solde bon de caisse agent
+  const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
+  const [showGererBons,setShowGererBons]= useState(false)
   const scannerInst = useRef(null)
 
   const load = useCallback(() => {
@@ -382,8 +554,21 @@ export default function Boutique() {
 
   useEffect(()=>{load()},[load])
   useEffect(()=>{
-    if(!agentId){setAgentInfo(null);return}
-    setAgentInfo(personnel.find(x=>x.qr_code_string===agentId||String(x.id)===agentId||x.login_genere===agentId)||null)
+    if(tab==='catalogue' && isAdmin) {
+      boutiqueAPI.bons({annee:new Date().getFullYear()}).then(r=>{
+        setBonsAll(r.data.results||r.data||[])
+      }).catch(()=>{})
+    }
+  },[tab,isAdmin])
+  useEffect(()=>{
+    if(!agentId){setAgentInfo(null);setBonAgent(null);return}
+    const p = personnel.find(x=>x.qr_code_string===agentId||String(x.id)===agentId||x.login_genere===agentId)||null
+    setAgentInfo(p)
+    if(p) {
+      boutiqueAPI.soldePersonnel(p.id).then(r=>setBonAgent(r.data)).catch(()=>setBonAgent(null))
+    } else {
+      setBonAgent(null)
+    }
   },[agentId,personnel])
 
   const startScan = async () => {
@@ -427,7 +612,7 @@ export default function Boutique() {
     try {
       await Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({article:a.id,personnel:agentInfo?.id||null,quantite:q})))
       setMsg({type:'success',text:`✅ Vente de ${totalP.toLocaleString()} FCFA enregistrée !`})
-      setPanier([]); setAgentId(''); setAgentInfo(null); load()
+      setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); load()
     } catch(e){setMsg({type:'error',text:e.response?.data?.detail||'Erreur'})}
     finally{setSubmitting(false)}
   }
@@ -645,9 +830,58 @@ export default function Boutique() {
                   <button onClick={()=>{setAgentId('');setAgentInfo(null)}} style={{background:'#f1f5f9',border:'1px solid #e2e8f0',borderRadius:8,padding:'7px 10px',cursor:'pointer'}}>✕</button>
                 </div>
                 {agentInfo&&(
-                  <div style={{marginTop:8,background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,padding:'8px 12px'}}>
-                    <div style={{fontWeight:700,fontSize:13,color:'#166534'}}>{agentInfo.nom} {agentInfo.prenom}</div>
-                    <div style={{fontSize:11,color:'#16a34a'}}>{agentInfo.societe}</div>
+                  <div style={{marginTop:8,borderRadius:10,overflow:'hidden',border:'1px solid #86efac'}}>
+                    <div style={{background:'#f0fdf4',padding:'8px 12px',display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:20}}>✅</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13,color:'#166534'}}>{agentInfo.nom} {agentInfo.prenom}</div>
+                        <div style={{fontSize:11,color:'#16a34a'}}>{agentInfo.societe}</div>
+                      </div>
+                    </div>
+                    {/* Solde bon de caisse */}
+                    {bonAgent && (
+                      <div style={{background: bonAgent.credit_restant > 10000 ? '#fff' : '#fef2f2',
+                        padding:'10px 12px',borderTop:'1px solid #e2e8f0'}}>
+                        <div style={{fontSize:10,color:'#94a3b8',textTransform:'uppercase',letterSpacing:.5,marginBottom:5}}>
+                          🎫 Bon de caisse {bonAgent.annee}
+                        </div>
+                        {/* Barre de progression */}
+                        <div style={{background:'#e2e8f0',borderRadius:99,height:6,marginBottom:6,overflow:'hidden'}}>
+                          <div style={{height:'100%',borderRadius:99,transition:'width .3s',
+                            width:`${Math.max(2,100-bonAgent.pourcentage)}%`,
+                            background: bonAgent.credit_restant > 30000 ? '#16a34a'
+                              : bonAgent.credit_restant > 10000 ? '#f59e0b' : '#dc2626'
+                          }}/>
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <div>
+                            <span style={{fontFamily:'monospace',fontSize:16,fontWeight:900,
+                              color: bonAgent.credit_restant > 30000 ? '#16a34a'
+                                : bonAgent.credit_restant > 10000 ? '#f59e0b' : '#dc2626'}}>
+                              {parseInt(bonAgent.credit_restant).toLocaleString()}
+                            </span>
+                            <span style={{fontSize:9,color:'#94a3b8',marginLeft:3}}>FCFA restants</span>
+                          </div>
+                          <div style={{fontSize:10,color:'#94a3b8',textAlign:'right'}}>
+                            Utilisé: {parseInt(bonAgent.credit_utilise).toLocaleString()} FCFA<br/>
+                            <span style={{fontSize:9}}>({bonAgent.pourcentage}%)</span>
+                          </div>
+                        </div>
+                        {/* Avertissement si panier dépasse le solde */}
+                        {totalPanier > bonAgent.credit_restant && bonAgent.credit_restant > 0 && (
+                          <div style={{marginTop:6,background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:7,
+                            padding:'5px 8px',fontSize:10,color:'#dc2626',fontWeight:600}}>
+                            ⚠️ Panier ({totalPanier.toLocaleString()} FCFA) dépasse le solde
+                          </div>
+                        )}
+                        {bonAgent.credit_restant === 0 && (
+                          <div style={{marginTop:6,background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:7,
+                            padding:'5px 8px',fontSize:10,color:'#dc2626',fontWeight:700}}>
+                            🚫 Bon épuisé — solde nul
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -810,6 +1044,20 @@ export default function Boutique() {
             )
           })}
         </div>
+      )}
+
+      {/* ══ PANNEAU GESTION BONS (admin, onglet catalogue) ══ */}
+      {tab==='catalogue' && isAdmin && (
+        <GererBonsPanel
+          bons={bonsAll}
+          personnel={personnel}
+          annee={new Date().getFullYear()}
+          onRefresh={()=>{
+            boutiqueAPI.bons({annee:new Date().getFullYear()}).then(r=>{
+              setBonsAll(r.data.results||r.data||[])
+            }).catch(()=>{})
+          }}
+        />
       )}
 
       {/* ══ MODAL CHANGEMENT RAPIDE CATÉGORIE ══ */}

@@ -174,11 +174,16 @@ export const importCSV = (file) => {
   })
 }
 export const boutique = {
-  articles:      (p)     => api.get('/api/boutique/articles/', {params:p}),
-  createArticle: (d)     => api.post('/api/boutique/articles/', d),
-  updateArticle: (id,d)  => api.patch(`/api/boutique/articles/${id}/`, d),
-  deleteArticle: (id)    => api.delete(`/api/boutique/articles/${id}/`),
-  consommations: (p)     => api.get('/api/boutique/consommations/', {params:p}),
-  addConso:      (d)     => api.post('/api/boutique/consommations/', d),
-  statsJour:     ()      => api.get('/api/boutique/consommations/stats_jour/'),
+  articles:        (p)        => api.get('/api/boutique/articles/', {params:p}),
+  createArticle:   (d)        => api.post('/api/boutique/articles/', d),
+  updateArticle:   (id,d)     => api.patch(`/api/boutique/articles/${id}/`, d),
+  deleteArticle:   (id)       => api.delete(`/api/boutique/articles/${id}/`),
+  consommations:   (p)        => api.get('/api/boutique/consommations/', {params:p}),
+  addConso:        (d)        => api.post('/api/boutique/consommations/', d),
+  statsJour:       ()         => api.get('/api/boutique/consommations/stats_jour/'),
+  // Bons de caisse
+  bons:            (p)        => api.get('/api/boutique/bons/', {params:p}),
+  soldePersonnel:  (pid)      => api.get('/api/boutique/bons/solde_personnel/', {params:{personnel_id:pid}}),
+  crediterPersonnel:(d)       => api.post('/api/boutique/bons/crediter/', d),
+  crediterTous:    (d)        => api.post('/api/boutique/bons/crediter_tous/', d),
 }

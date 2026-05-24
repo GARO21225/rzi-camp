@@ -81,3 +81,47 @@ class ConsommationBoutique(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self): return f"{self.article.nom} x{self.quantite}"
+
+
+class BonCaisse(models.Model):
+    """Ticket de caisse annuel — 100 000 FCFA par résident"""
+    personnel      = models.ForeignKey('residences.Personnel', on_delete=models.CASCADE, related_name='bons_caisse')
+    annee          = models.IntegerField(default=2026)
+    credit_initial = models.DecimalField(max_digits=10, decimal_places=0, default=100000)
+    credit_restant = models.DecimalField(max_digits=10, decimal_places=0, default=100000)
+    cree_le        = models.DateTimeField(auto_now_add=True)
+    mis_a_jour     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('personnel', 'annee')
+        ordering = ['-annee']
+
+    def __str__(self):
+        return f"{self.personnel} — {self.annee} — {self.credit_restant} FCFA restants"
+
+    @property
+    def credit_utilise(self):
+        return self.credit_initial - self.credit_restant
+
+    @property
+    def pourcentage_utilise(self):
+        if self.credit_initial == 0: return 0
+        return int((self.credit_utilise / self.credit_initial) * 100)
+
+    @classmethod
+    def get_or_create_for_year(cls, personnel, annee=None):
+        """Obtenir ou créer le bon de l'année courante"""
+        from django.utils import timezone
+        if annee is None:
+            annee = timezone.now().year
+        bon, created = cls.objects.get_or_create(
+            personnel=personnel, annee=annee,
+            defaults={'credit_initial': 100000, 'credit_restant': 100000}
+        )
+        return bon, created
+
+    def deduire(self, montant):
+        """Déduire un montant du crédit restant"""
+        self.credit_restant = max(0, self.credit_restant - montant)
+        self.save(update_fields=['credit_restant', 'mis_a_jour'])
+        return self.credit_restant
