@@ -275,7 +275,7 @@ function ArticleModal({ article, categories, onSave, onClose }) {
 }
 
 // ── Carte Article avec actions Admin ────────────────────────
-function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete }) {
+function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete, reorganize, onQuickCat }) {
   const [err, setErr] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const url = getPhoto(a)
@@ -332,7 +332,7 @@ function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete }) {
       </div>
 
       {/* Boutons admin */}
-      {isAdmin && (
+      {isAdmin && !reorganize && (
         <div style={{padding:'8px 12px',borderTop:'1px solid #f1f5f9',display:'flex',gap:6}}>
           <button onClick={e=>{e.stopPropagation();onEdit(a)}}
             style={{flex:1,background:'#eff6ff',color:'#2563eb',border:'1.5px solid #bfdbfe',
@@ -344,6 +344,20 @@ function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete }) {
               padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
             🗑️ Suppr.
           </button>
+        </div>
+      )}
+      {/* Mode réorganisation: bouton changer catégorie */}
+      {isAdmin && reorganize && (
+        <div style={{padding:'8px 12px',borderTop:'1px solid #f1f5f9'}}>
+          <button onClick={e=>{e.stopPropagation();onQuickCat(a)}}
+            style={{width:'100%',background:'#f5f3ff',color:'#7c3aed',border:'1.5px solid #c4b5fd',
+              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit',
+              display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+            ↔️ Changer catégorie
+          </button>
+          <div style={{textAlign:'center',fontSize:9,color:'#a78bfa',marginTop:4}}>
+            ou glisser-déposer
+          </div>
         </div>
       )}
     </div>
@@ -374,6 +388,11 @@ export default function Boutique() {
   const [editArt,   setEditArt]   = useState(null)
   const [delConfirm,setDelConfirm]= useState(null)
   const scannerInst = useRef(null)
+  // Réorganisation catégories
+  const [reorganize,    setReorganize]   = useState(false)
+  const [draggingId,    setDraggingId]   = useState(null)
+  const [dragOverCat,   setDragOverCat]  = useState(null)
+  const [quickCatArt,   setQuickCatArt]  = useState(null)  // article pour popup cat rapide
 
   const load = useCallback(() => {
     Promise.all([
@@ -441,6 +460,36 @@ export default function Boutique() {
     finally{setSubmitting(false)}
   }
 
+  // ── Drag & Drop réorganisation ──────────────────────────
+  const handleDragStart = (e, artId) => {
+    setDraggingId(artId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', artId)
+  }
+  const handleDragEnd = () => { setDraggingId(null); setDragOverCat(null) }
+  const handleDragOver = (e, cat) => { e.preventDefault(); e.dataTransfer.dropEffect='move'; setDragOverCat(cat) }
+  const handleDrop = async (e, targetCat) => {
+    e.preventDefault()
+    const artId = parseInt(e.dataTransfer.getData('text/plain'))
+    setDraggingId(null); setDragOverCat(null)
+    if (!artId || !targetCat) return
+    const art = articles.find(a => a.id === artId)
+    if (!art || art.categorie === targetCat) return
+    try {
+      await boutiqueAPI.updateArticle(artId, { categorie: targetCat })
+      setArticles(prev => prev.map(a => a.id===artId ? {...a, categorie:targetCat} : a))
+    } catch(e) { alert('Erreur lors du déplacement') }
+  }
+  const handleQuickCat = async (artId, newCat) => {
+    setQuickCatArt(null)
+    const art = articles.find(a=>a.id===artId)
+    if (!art || art.categorie===newCat) return
+    try {
+      await boutiqueAPI.updateArticle(artId, { categorie: newCat })
+      setArticles(prev => prev.map(a => a.id===artId ? {...a, categorie:newCat} : a))
+    } catch(e) { alert('Erreur') }
+  }
+
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
   const arts = articles.filter(a=>(!catFilter||a.categorie===catFilter)&&(!search||a.nom.toLowerCase().includes(search.toLowerCase())))
   const byCat = arts.reduce((acc,a)=>({...acc,[a.categorie]:[...(acc[a.categorie]||[]),a]}),{})
@@ -460,10 +509,18 @@ export default function Boutique() {
           </p>
         </div>
         {isAdmin && (
-          <button onClick={()=>{setEditArt(null);setArtModal(true)}}
-            style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
-            ➕ Nouvel article
-          </button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setReorganize(!reorganize)}
+              style={{background:reorganize?'#7c3aed':'#f5f3ff',color:reorganize?'#fff':'#7c3aed',
+                border:`2px solid ${reorganize?'#7c3aed':'#c4b5fd'}`,padding:'9px 16px',borderRadius:10,
+                cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+              {reorganize ? '✅ Terminer' : '↔️ Réorganiser'}
+            </button>
+            <button onClick={()=>{setEditArt(null);setArtModal(true)}}
+              style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+              ➕ Nouvel article
+            </button>
+          </div>
         )}
       </div>
 
@@ -478,6 +535,24 @@ export default function Boutique() {
               <div style={{fontSize:10,color:'#94a3b8',textTransform:'uppercase',letterSpacing:1,marginTop:3}}>{l}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* BANDEAU MODE RÉORGANISATION */}
+      {reorganize && (
+        <div style={{background:'linear-gradient(135deg,#5b21b6,#7c3aed)',color:'#fff',borderRadius:12,
+          padding:'12px 18px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+          <span style={{fontSize:22}}>↔️</span>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:13}}>Mode Réorganisation actif</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,.8)'}}>
+              Glissez un article vers une autre catégorie · Ou cliquez sur l'icône ↔️ de l'article
+            </div>
+          </div>
+          <button onClick={()=>setReorganize(false)}
+            style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',padding:'6px 14px',borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700}}>
+            ✅ Terminer
+          </button>
         </div>
       )}
 
@@ -533,19 +608,49 @@ export default function Boutique() {
                 const items=byCat[cat]
                 return (
                   <div key={cat} style={{marginBottom:24}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,
-                      padding:'7px 14px',background:cfg.bg,borderRadius:10,borderLeft:`4px solid ${cfg.c}`}}>
-                      <span style={{fontSize:20}}>{cfg.icon}</span>
-                      <span style={{fontWeight:800,fontSize:13,color:cfg.c}}>{cfg.label}</span>
-                      <span style={{fontSize:11,color:'#94a3b8',marginLeft:'auto'}}>{items.length}</span>
-                    </div>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
-                      {items.map(a=>(
-                        <ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo}
-                          isAdmin={isAdmin}
-                          onEdit={a=>{setEditArt(a);setArtModal(true)}}
-                          onDelete={a=>setDelConfirm(a)}/>
-                      ))}
+                    {/* Zone drop pour drag & drop */}
+                    <div
+                      onDragOver={reorganize ? e=>handleDragOver(e,cat) : undefined}
+                      onDrop={reorganize ? e=>handleDrop(e,cat) : undefined}
+                      onDragLeave={()=>setDragOverCat(null)}
+                      style={{
+                        borderRadius:12, transition:'all .2s',
+                        border: reorganize && dragOverCat===cat ? `3px dashed ${cfg.c}` : '3px solid transparent',
+                        background: reorganize && dragOverCat===cat ? `${cfg.c}12` : 'transparent',
+                        padding: reorganize ? 8 : 0,
+                      }}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,
+                        padding:'7px 14px',background:cfg.bg,borderRadius:10,borderLeft:`4px solid ${cfg.c}`}}>
+                        <span style={{fontSize:20}}>{cfg.icon}</span>
+                        <span style={{fontWeight:800,fontSize:13,color:cfg.c}}>{cfg.label}</span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:'auto'}}>{items.length} articles</span>
+                        {reorganize && (
+                          <span style={{fontSize:10,background:`${cfg.c}20`,color:cfg.c,padding:'2px 8px',borderRadius:99,fontWeight:600}}>
+                            ← déposer ici
+                          </span>
+                        )}
+                      </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
+                        {items.map(a=>(
+                          <div key={a.id}
+                            draggable={reorganize}
+                            onDragStart={reorganize ? e=>handleDragStart(e,a.id) : undefined}
+                            onDragEnd={handleDragEnd}
+                            style={{
+                              opacity: draggingId===a.id ? .45 : 1,
+                              transform: draggingId===a.id ? 'scale(.95)' : '',
+                              transition:'all .15s',
+                              cursor: reorganize ? 'grab' : 'default',
+                            }}>
+                            <ArticleCard a={a} qty={qty(a)} onAdd={reorganize ? ()=>{} : addTo}
+                              isAdmin={isAdmin}
+                              reorganize={reorganize}
+                              onQuickCat={()=>setQuickCatArt(a)}
+                              onEdit={a=>{setEditArt(a);setArtModal(true)}}
+                              onDelete={a=>setDelConfirm(a)}/>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )
@@ -687,6 +792,67 @@ export default function Boutique() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ══ MODAL CHANGEMENT RAPIDE CATÉGORIE ══ */}
+      {quickCatArt && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setQuickCatArt(null)}>
+          <div style={{background:'#fff',borderRadius:18,width:'100%',maxWidth:440,overflow:'hidden',
+            boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#5b21b6,#7c3aed)',color:'#fff',
+              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15}}>↔️ Changer la catégorie</div>
+                <div style={{fontSize:12,color:'rgba(255,255,255,.7)',marginTop:2}}>
+                  {quickCatArt.nom}
+                </div>
+              </div>
+              <button onClick={()=>setQuickCatArt(null)}
+                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18}}>✕</button>
+            </div>
+            <div style={{padding:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:10,textTransform:'uppercase',letterSpacing:.8}}>
+                Catégorie actuelle: <span style={{color:getCatCfg(quickCatArt.categorie).c}}>
+                  {getCatCfg(quickCatArt.categorie).icon} {getCatCfg(quickCatArt.categorie).label}
+                </span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                {catOrder.map(k => {
+                  const cfg = getCatCfg(k)
+                  const isCurrent = k === quickCatArt.categorie
+                  return (
+                    <button key={k} onClick={()=>handleQuickCat(quickCatArt.id, k)}
+                      disabled={isCurrent}
+                      style={{
+                        padding:'10px 12px', borderRadius:10, cursor:isCurrent?'default':'pointer',
+                        border:`2px solid ${isCurrent?cfg.c:'#e2e8f0'}`,
+                        background:isCurrent?`${cfg.c}15`:'#fff',
+                        display:'flex',alignItems:'center',gap:8,
+                        opacity:isCurrent?1:.85, fontFamily:'inherit',
+                        transition:'all .15s',
+                      }}
+                      onMouseEnter={e=>{if(!isCurrent){e.currentTarget.style.borderColor=cfg.c;e.currentTarget.style.background=`${cfg.c}10`}}}
+                      onMouseLeave={e=>{if(!isCurrent){e.currentTarget.style.borderColor='#e2e8f0';e.currentTarget.style.background='#fff'}}}>
+                      <span style={{fontSize:18}}>{cfg.icon}</span>
+                      <div style={{textAlign:'left'}}>
+                        <div style={{fontSize:12,fontWeight:700,color:cfg.c}}>{cfg.label}</div>
+                        {isCurrent && <div style={{fontSize:9,color:'#94a3b8'}}>catégorie actuelle</div>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{marginTop:12,textAlign:'center'}}>
+                <button onClick={()=>setQuickCatArt(null)}
+                  style={{background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'8px 24px',borderRadius:10,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
