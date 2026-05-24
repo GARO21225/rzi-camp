@@ -312,43 +312,49 @@ def force_seed(request):
 
         from restauration.models import ArticleBoutique
         articles = [
-            # 🍺 Bières
-            ('Castel 65cl',       'biere',    1000, 100, 'bouteille'),
-            ('Flag 65cl',         'biere',    1000, 100, 'bouteille'),
-            ('Heineken 50cl',     'biere',    1500,  80, 'bouteille'),
-            ('Guinness',          'biere',    1200, 100, 'bouteille'),
-            # 🥤 Softs
-            ('Coca-Cola',         'soft',      500, 200, 'bouteille'),
-            ('Fanta',             'soft',      500, 150, 'bouteille'),
-            ('Sprite',            'soft',      500, 150, 'bouteille'),
-            ('Malta Guinness',    'soft',      700, 100, 'bouteille'),
-            ('Eau minerale',      'soft',      300, 300, 'bouteille'),
-            # 🍷 Vins
-            ('JP Chenet Rouge',   'vin',      5000,  30, 'bouteille'),
-            ('Baron d Arignac',   'vin',      4500,  30, 'bouteille'),
-            ('Grand Sud',         'vin',      6500,  20, 'bouteille'),
-            ('Mouton Cadet',      'vin',     10000,  15, 'bouteille'),
-            # 🥃 Liqueurs
-            ('Baileys',           'liqueur', 14000,  10, 'bouteille'),
-            ('Get 27',            'liqueur', 15000,  10, 'bouteille'),
-            ('Malibu',            'liqueur', 13000,  10, 'bouteille'),
-            ('Jagermeister',      'liqueur', 20000,   8, 'bouteille'),
-            # 🚬 Cigarettes
-            ('Cigarette Fine',    'cigarette', 1000, 100, 'paquet'),
-            ('Cigarette Mustang', 'cigarette', 1200, 100, 'paquet'),
-            ('Marlboro',          'cigarette', 2000,  80, 'paquet'),
-            ('Camel',             'cigarette', 1800,  80, 'paquet'),
-            ('Winston',           'cigarette', 1800,  80, 'paquet'),
-            # 🍿 Snacks
-            ('Chips',             'snack',     500, 100, 'sachet'),
-            ('Biscuits',          'snack',     300, 150, 'paquet'),
-            ('Cacahuetes',        'snack',     200, 200, 'sachet'),
-            ('Chocolat',          'snack',     500,  80, 'piece'),
-            # 🧼 Hygiène
-            ('Savon',             'hygiene',   300,  80, 'barre'),
-            ('Dentifrice',        'hygiene',   700,  50, 'tube'),
-            ('Deodorant',         'hygiene',  1500,  40, 'spray'),
-            ('Papier toilette',   'hygiene',   500,  60, 'rouleau'),
+            # Boissons gazeuses
+            ('Coca-Cola Classic','gazeuse',500,200,'33cl'), ('Coca-Cola 1.5L','gazeuse',1500,120,'1.5L'),
+            ('Fanta Orange','gazeuse',500,180,'33cl'), ('Sprite','gazeuse',500,160,'33cl'),
+            ('Schweppes Tonic','gazeuse',500,100,'33cl'), ('Pepsi','gazeuse',500,150,'33cl'), ('7 Up','gazeuse',500,130,'33cl'),
+            # Jus & Softs
+            ('Darci Mangue','jus',400,200,'25cl'), ('Pressea Orange','jus',1200,80,'1L'),
+            ('Ceres Multifruits','jus',1800,60,'1L'), ('Minute Maid Orange','jus',500,150,'25cl'),
+            ('Malta Guinness','jus',700,120,'33cl'),
+            # Energisantes
+            ('Red Bull Original','energie',2000,80,'25cl'), ('Monster Energy Green','energie',2500,60,'50cl'),
+            # Eaux
+            ('Evian','eau',1500,200,'1.5L'), ('Cristaline','eau',500,300,'1.5L'),
+            # Bières
+            ('Heineken','biere',1500,120,'50cl'), ('Desperados','biere',1800,80,'33cl'),
+            ('Guinness Stout','biere',1800,90,'50cl'), ('Corona Extra','biere',2000,70,'33cl'),
+            ('Beaufort 65cl','biere',1000,200,'65cl'), ('Ivoire Speciale','biere',1000,180,'65cl'),
+            # Vins rouges
+            ('JP Chenet Rouge','vin_rouge',5500,40,'75cl'), ('Mouton Cadet Rouge','vin_rouge',9500,25,'75cl'),
+            ("Jacob s Creek Shiraz",'vin_rouge',8000,30,'75cl'),
+            # Vins blancs
+            ('JP Chenet Blanc','vin_blanc',5500,35,'75cl'), ('Mateus Blanc','vin_blanc',6500,25,'75cl'),
+            # Vins rosés
+            ('Mateus Rose','vin_rose',6500,30,'75cl'), ('JP Chenet Rose','vin_rose',5800,28,'75cl'),
+            # Champagnes
+            ('Moet et Chandon Brut','champagne',45000,10,'75cl'),
+            ('Veuve Clicquot Brut','champagne',55000,8,'75cl'),
+            ('Dom Perignon Vintage','champagne',120000,5,'75cl'),
+            # Spiritueux
+            ('Jack Daniel s Old N7','spiritueux',22000,20,'70cl'),
+            ('Johnnie Walker Black','spiritueux',28000,15,'70cl'),
+            ('Hennessy VS','spiritueux',35000,12,'70cl'),
+            ('Bacardi Carta Blanca','spiritueux',18000,25,'70cl'),
+            ('Absolut Vodka','spiritueux',20000,18,'70cl'),
+            # Liqueurs
+            ('Baileys Original','liqueur',18000,15,'70cl'), ('Malibu Coco','liqueur',15000,12,'70cl'),
+            ('Jagermeister','liqueur',22000,10,'70cl'), ('Cointreau','liqueur',25000,8,'70cl'),
+            ('Amarula Cream','liqueur',20000,10,'70cl'), ('Kahlua','liqueur',18000,10,'70cl'),
+            ('Get 27','liqueur',15000,12,'70cl'),
+            # Cafés
+            ('Nescafe Classic','cafe',4500,50,'200g'), ('Nescafe Gold','cafe',3800,40,'100g'),
+            # Thés
+            ('Lipton Yellow Label','the',2500,60,'100 sachets'), ('Lipton Green Tea','the',1800,45,'20 sachets'),
+            ('Twinings English Breakfast','the',3200,35,'50 sachets'), ('Twinings Camomille','the',2800,30,'20 sachets'),
         ]
         count = 0
         for nom, cat, prix, stock, unite in articles:
