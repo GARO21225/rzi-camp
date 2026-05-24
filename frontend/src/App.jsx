@@ -39,8 +39,7 @@ import Presences   from './pages/Presences'
 import RapportPage  from './pages/RapportPage'
 
 import Demandes from './pages/Demandes'
-import { PWAInstallButton } from './components/PWAInstall'
-import OfflineBanner from './components/OfflineBanner'
+import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
 import EventNotifBanner from './components/EventNotifBanner'
 
 // Handle 404.html redirect for SPA routing

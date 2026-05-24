@@ -264,45 +264,52 @@ from .models import ArticleBoutique, ConsommationBoutique
 from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
-    image_url = drf_serializers.SerializerMethodField()
+    """Sérialiseur robuste — image_url accepte URL ou base64 data URI"""
 
-    def get_image_url(self, obj):
-        try: return obj.image_url or ''
-        except: return ''
+    class Meta:
+        model  = ArticleBoutique
+        fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le']
+        extra_kwargs = {'image_url': {'required': False, 'default': '', 'allow_blank': True}}
 
-    def to_internal_value(self, data):
-        val = super().to_internal_value(data)
-        # S'assurer que image_url est toujours présent même si la colonne manque
-        if 'image_url' not in val:
-            val['image_url'] = ''
-        return val
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        # Protection si la colonne n'existe pas encore en DB
+        try:
+            data['image_url'] = obj.image_url or ''
+        except Exception:
+            data['image_url'] = ''
+        return data
 
     def create(self, validated_data):
-        # Retirer image_url si la colonne n'existe pas encore
-        img = validated_data.pop('image_url', '')
+        img = validated_data.pop('image_url', '') or ''
         try:
-            obj = super().create(validated_data)
+            obj = ArticleBoutique.objects.create(**validated_data)
             if img:
-                try: obj.image_url = img; obj.save(update_fields=['image_url'])
-                except: pass
+                try:
+                    obj.image_url = img
+                    obj.save(update_fields=['image_url'])
+                except Exception:
+                    pass
         except Exception as e:
             if 'image_url' in str(e):
-                obj = ArticleBoutique.objects.create(**{k:v for k,v in validated_data.items()})
+                # Colonne absente → créer sans image
+                obj = ArticleBoutique.objects.create(**validated_data)
             else:
                 raise
         return obj
 
     def update(self, instance, validated_data):
         img = validated_data.pop('image_url', None)
-        obj = super().update(instance, validated_data)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
         if img is not None:
-            try: obj.image_url = img; obj.save(update_fields=['image_url'])
-            except: pass
-        return obj
-
-    class Meta:
-        model  = ArticleBoutique
-        fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le']
+            try:
+                instance.image_url = img
+                instance.save(update_fields=['image_url'])
+            except Exception:
+                pass
+        return instance
 
 class ConsommationSerializer(drf_serializers.ModelSerializer):
     article_nom    = drf_serializers.CharField(source='article.nom', read_only=True)

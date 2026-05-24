@@ -1,92 +1,109 @@
-import React, { useState, useEffect } from 'react'
+/**
+ * OfflineBanner + PWA Install + Offline cache manager
+ */
+import React, { useState, useEffect, useCallback } from 'react'
 
-export default function OfflineBanner() {
+// ── Bannière hors réseau ────────────────────────────────────
+export function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
-  const [queued, setQueued] = useState(0)
-  const [syncing, setSyncing] = useState(false)
-  const [syncMsg, setSyncMsg] = useState('')
+  const [showDetail, setShowDetail] = useState(false)
 
   useEffect(() => {
-    const onOnline  = () => setOffline(false)
-    const onOffline = () => setOffline(true)
-    window.addEventListener('online',  onOnline)
-    window.addEventListener('offline', onOffline)
-
-    // Écouter les messages du SW
-    const onMsg = (e) => {
-      if (e.data?.type === 'QUEUED') {
-        setQueued(e.data.count || 1)
-      }
-      if (e.data?.type === 'SYNCED') {
-        setSyncing(false)
-        setQueued(e.data.fail || 0)
-        if (e.data.done > 0) {
-          setSyncMsg(`✅ ${e.data.done} action(s) synchronisée(s)`)
-          setTimeout(() => setSyncMsg(''), 4000)
-        }
-      }
-    }
-    navigator.serviceWorker?.addEventListener('message', onMsg)
-
-    return () => {
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('offline', onOffline)
-      navigator.serviceWorker?.removeEventListener('message', onMsg)
-    }
+    const goOn  = () => setOffline(false)
+    const goOff = () => { setOffline(true); setShowDetail(true) }
+    window.addEventListener('online',  goOn)
+    window.addEventListener('offline', goOff)
+    return () => { window.removeEventListener('online',goOn); window.removeEventListener('offline',goOff) }
   }, [])
 
-  const sync = () => {
-    setSyncing(true)
-    navigator.serviceWorker?.controller?.postMessage({ type: 'SYNC_NOW' })
-  }
-
-  if (!offline && queued === 0 && !syncMsg) return null
+  if (!offline) return null
 
   return (
     <div style={{
-      position: 'fixed',
-      bottom: 20,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 9999,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '10px 18px',
-      borderRadius: 50,
-      boxShadow: '0 8px 32px rgba(0,0,0,.25)',
-      fontSize: 13,
-      fontWeight: 600,
-      whiteSpace: 'nowrap',
-      maxWidth: 'calc(100vw - 32px)',
-      background: offline ? '#1e293b' : '#f0fdf4',
-      color: offline ? '#fff' : '#166534',
-      border: offline ? 'none' : '1px solid #86efac',
-      transition: 'all .3s ease',
-      animation: 'slideUp .3s ease',
-    }}>
-      {offline ? (
-        <>
-          <span>📡</span>
-          <span>Mode hors-ligne</span>
-          {queued > 0 && (
-            <span style={{ background: '#f97316', color: '#fff', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>
-              {queued} en attente
-            </span>
-          )}
-        </>
-      ) : queued > 0 ? (
-        <>
-          <span>🔄</span>
-          <span>{queued} action(s) à synchroniser</span>
-          <button onClick={sync} disabled={syncing}
-            style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-            {syncing ? '⏳' : 'Sync'}
-          </button>
-        </>
-      ) : (
-        <span>{syncMsg}</span>
-      )}
+      position:'fixed', top:0, left:0, right:0, zIndex:9999,
+      background:'linear-gradient(135deg,#92400e,#b45309)',
+      color:'#fff', padding:'10px 20px',
+      display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+      boxShadow:'0 2px 12px rgba(0,0,0,.3)', cursor:'pointer',
+    }} onClick={()=>setShowDetail(!showDetail)}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:18}}>📡</span>
+        <div>
+          <div style={{fontWeight:700,fontSize:13}}>Mode hors réseau</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.8)'}}>
+            Données mises en cache disponibles · Modifications enregistrées dès reconnexion
+          </div>
+        </div>
+      </div>
+      <span style={{fontSize:12,color:'rgba(255,255,255,.7)'}}>
+        {showDetail ? '▲' : '▼'}
+      </span>
     </div>
   )
+}
+
+// ── Bouton installation PWA ─────────────────────────────────
+export function PWAInstallButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [installed, setInstalled] = useState(false)
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa_dismissed') === '1')
+
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setDeferredPrompt(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', () => setInstalled(true))
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const install = async () => {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    if (outcome === 'accepted') setInstalled(true)
+    setDeferredPrompt(null)
+  }
+
+  const dismiss = e => { e.stopPropagation(); setDismissed(true); localStorage.setItem('pwa_dismissed','1') }
+
+  if (!deferredPrompt || installed || dismissed) return null
+
+  return (
+    <div style={{
+      position:'fixed', bottom:80, right:16, zIndex:999,
+      background:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+      color:'#fff', borderRadius:16, padding:'12px 16px',
+      boxShadow:'0 4px 20px rgba(30,58,138,.4)',
+      display:'flex', alignItems:'center', gap:12, maxWidth:280,
+    }}>
+      <div style={{fontSize:28}}>📲</div>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:700,fontSize:13,marginBottom:3}}>Installer l'application</div>
+        <div style={{fontSize:11,color:'rgba(255,255,255,.8)',marginBottom:8}}>
+          Accès rapide, fonctionne hors réseau
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={install}
+            style={{background:'#f0a500',color:'#000',border:'none',padding:'5px 14px',
+              borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700}}>
+            Installer
+          </button>
+          <button onClick={dismiss}
+            style={{background:'rgba(255,255,255,.15)',color:'#fff',border:'none',padding:'5px 10px',
+              borderRadius:99,cursor:'pointer',fontSize:12}}>
+            Plus tard
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Hook: état réseau ───────────────────────────────────────
+export function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine)
+  useEffect(() => {
+    window.addEventListener('online',  () => setOnline(true))
+    window.addEventListener('offline', () => setOnline(false))
+  }, [])
+  return online
 }
