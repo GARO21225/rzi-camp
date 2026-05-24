@@ -403,6 +403,27 @@ def force_seed(request):
     except Exception as e:
         errors.append(f"❌ Boutique: {str(e)[:100]}")
 
+    # 4. BonCaisse — créer la table si elle n'existe pas
+    try:
+        from restauration.models import BonCaisse
+        try:
+            with connection.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM restauration_boncaisse")
+        except Exception:
+            # Table absente → appliquer la migration
+            from django.db.migrations.executor import MigrationExecutor
+            executor = MigrationExecutor(connection)
+            plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+            for mig, _ in plan:
+                if mig.app_label == 'restauration' and 'bon' in mig.name:
+                    try:
+                        executor.apply_migration(executor.loader.project_state(), mig)
+                    except Exception:
+                        pass
+        results.append(f"✅ BonCaisse: table OK ({BonCaisse.objects.count()} bons)")
+    except Exception as e:
+        errors.append(f"⚠️ BonCaisse: {str(e)[:100]}")
+
     return Response({
         'ok':      len(errors) == 0,
         'results': results,

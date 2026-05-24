@@ -365,6 +365,74 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
             'par_article': list(par_art)[:10],
         })
 
+    @action(detail=False, methods=['get'], url_path='analyses')
+    def analyses(self, request):
+        """Analyses complètes des consommations boutique"""
+        from django.db.models import Sum, Count, F
+        from django.utils import timezone
+        from django.db.models.functions import TruncDate
+        import datetime
+
+        periode = request.query_params.get('periode', '30j')
+        now = timezone.now()
+        if   periode == '7j':  debut = now - datetime.timedelta(days=7)
+        elif periode == '30j': debut = now - datetime.timedelta(days=30)
+        elif periode == '90j': debut = now - datetime.timedelta(days=90)
+        else:                  debut = now.replace(month=1,day=1,hour=0,minute=0,second=0)
+
+        consos = ConsommationBoutique.objects.filter(date_conso__gte=debut)
+
+        def safe_sum(qs, annotation):
+            try: return list(qs)
+            except: return []
+
+        try:
+            top_articles = safe_sum(
+                consos.values('article__nom','article__categorie')
+                .annotate(qte=Sum('quantite'), ca=Sum(F('quantite')*F('article__prix')))
+                .order_by('-ca')[:15], None)
+        except: top_articles = []
+
+        try:
+            top_agents = safe_sum(
+                consos.filter(personnel__isnull=False)
+                .values('personnel__nom','personnel__prenom','personnel__societe')
+                .annotate(qte=Sum('quantite'), ca=Sum(F('quantite')*F('article__prix')))
+                .order_by('-ca')[:10], None)
+        except: top_agents = []
+
+        try:
+            par_cat = safe_sum(
+                consos.values('article__categorie')
+                .annotate(qte=Sum('quantite'), ca=Sum(F('quantite')*F('article__prix')))
+                .order_by('-ca'), None)
+        except: par_cat = []
+
+        try:
+            evolution = safe_sum(
+                ConsommationBoutique.objects
+                .filter(date_conso__gte=now - datetime.timedelta(days=30))
+                .annotate(jour=TruncDate('date_conso'))
+                .values('jour')
+                .annotate(ca=Sum(F('quantite')*F('article__prix')), nb=Count('id'))
+                .order_by('jour'), None)
+        except: evolution = []
+
+        try:
+            total_ca  = int(consos.aggregate(s=Sum(F('quantite')*F('article__prix')))['s'] or 0)
+        except: total_ca = 0
+        total_qte = int(consos.aggregate(s=Sum('quantite'))['s'] or 0)
+
+        return Response({
+            'periode':         periode,
+            'total_ca':        total_ca,
+            'total_qte':       total_qte,
+            'nb_transactions': consos.count(),
+            'top_articles':    top_articles,
+            'top_agents':      top_agents,
+            'par_categorie':   par_cat,
+            'evolution':       [{'jour':str(e['jour']),'ca':int(e['ca'] or 0),'nb':e['nb']} for e in evolution],
+        })
 
 
 # ═══════════════════════════════════════════════════════
