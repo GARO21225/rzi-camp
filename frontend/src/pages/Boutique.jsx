@@ -275,7 +275,7 @@ function ArticleModal({ article, categories, onSave, onClose }) {
 }
 
 // ── Carte Article avec actions Admin ────────────────────────
-function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete, reorganize, onQuickCat }) {
+function ArticleCard({ a, qty, onAdd }) {
   const [err, setErr] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const url = getPhoto(a)
@@ -331,35 +331,6 @@ function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete, reorganize, onQ
         </div>
       </div>
 
-      {/* Boutons admin */}
-      {isAdmin && !reorganize && (
-        <div style={{padding:'8px 12px',borderTop:'1px solid #f1f5f9',display:'flex',gap:6}}>
-          <button onClick={e=>{e.stopPropagation();onEdit(a)}}
-            style={{flex:1,background:'#eff6ff',color:'#2563eb',border:'1.5px solid #bfdbfe',
-              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
-            ✏️ Modifier
-          </button>
-          <button onClick={e=>{e.stopPropagation();onDelete(a)}}
-            style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
-              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
-            🗑️ Suppr.
-          </button>
-        </div>
-      )}
-      {/* Mode réorganisation: bouton changer catégorie */}
-      {isAdmin && reorganize && (
-        <div style={{padding:'8px 12px',borderTop:'1px solid #f1f5f9'}}>
-          <button onClick={e=>{e.stopPropagation();onQuickCat(a)}}
-            style={{width:'100%',background:'#f5f3ff',color:'#7c3aed',border:'1.5px solid #c4b5fd',
-              padding:'6px 0',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit',
-              display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
-            ↔️ Changer catégorie
-          </button>
-          <div style={{textAlign:'center',fontSize:9,color:'#a78bfa',marginTop:4}}>
-            ou glisser-déposer
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -367,36 +338,32 @@ function ArticleCard({ a, qty, onAdd, isAdmin, onEdit, onDelete, reorganize, onQ
 // ════════════════════════════════════════════════════════════
 export default function Boutique() {
   const {user} = useStore()
-  // Admin: staff, superuser, rôle admin OU rôle responsable boutique
   const isAdmin = !!(user?.is_staff || user?.is_superuser ||
-    user?.profile?.role === 'admin' ||
-    user?.role === 'admin' ||
+    user?.profile?.role === 'admin' || user?.role === 'admin' ||
     user?.username === 'admin')
 
-  const [articles,  setArticles]  = useState([])
-  const [consos,    setConsos]    = useState([])
-  const [personnel, setPersonnel] = useState([])
-  const [statsJour, setStatsJour] = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [tab,       setTab]       = useState('caisse')
-  const [catFilter, setCatFilter] = useState('')
-  const [search,    setSearch]    = useState('')
-  const [agentId,   setAgentId]   = useState('')
-  const [agentInfo, setAgentInfo] = useState(null)
-  const [panier,    setPanier]    = useState([])
-  const [submitting,setSubmitting]= useState(false)
-  const [msg,       setMsg]       = useState(null)
-  const [scanning,  setScanning]  = useState(false)
-  // CRUD modals
-  const [artModal,  setArtModal]  = useState(false)  // false | null (create) | {article}
-  const [editArt,   setEditArt]   = useState(null)
-  const [delConfirm,setDelConfirm]= useState(null)
+  const [articles,   setArticles]   = useState([])
+  const [consos,     setConsos]     = useState([])
+  const [personnel,  setPersonnel]  = useState([])
+  const [statsJour,  setStatsJour]  = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [tab,        setTab]        = useState('caisse')
+  const [catFilter,  setCatFilter]  = useState('')
+  const [search,     setSearch]     = useState('')
+  const [agentId,    setAgentId]    = useState('')
+  const [agentInfo,  setAgentInfo]  = useState(null)
+  const [panier,     setPanier]     = useState([])
+  const [submitting, setSubmitting] = useState(false)
+  const [msg,        setMsg]        = useState(null)
+  const [scanning,   setScanning]   = useState(false)
+  const [artModal,   setArtModal]   = useState(false)
+  const [editArt,    setEditArt]    = useState(null)
+  const [delConfirm, setDelConfirm] = useState(null)
+  const [reorganize,   setReorganize]  = useState(false)
+  const [draggingId,   setDraggingId]  = useState(null)
+  const [dragOverCat,  setDragOverCat] = useState(null)
+  const [quickCatArt,  setQuickCatArt] = useState(null)
   const scannerInst = useRef(null)
-  // Réorganisation catégories
-  const [reorganize,    setReorganize]   = useState(false)
-  const [draggingId,    setDraggingId]   = useState(null)
-  const [dragOverCat,   setDragOverCat]  = useState(null)
-  const [quickCatArt,   setQuickCatArt]  = useState(null)  // article pour popup cat rapide
 
   const load = useCallback(() => {
     Promise.all([
@@ -647,11 +614,7 @@ export default function Boutique() {
                               cursor: reorganize ? 'grab' : 'default',
                             }}>
                             <ArticleCard a={a} qty={qty(a)} onAdd={reorganize ? ()=>{} : addTo}
-                              isAdmin={false}
-                              reorganize={reorganize}
-                              onQuickCat={()=>setQuickCatArt(a)}
-                              onEdit={a=>{setEditArt(a);setArtModal(true)}}
-                              onDelete={a=>setDelConfirm(a)}/>
+/>
                           </div>
                         ))}
                       </div>
@@ -812,12 +775,32 @@ export default function Boutique() {
                           cursor: reorganize ? 'grab' : 'default',
                         }}>
                         <ArticleCard a={a} qty={qty(a)}
-                          onAdd={()=>{ if(!reorganize){setTab('caisse');addTo(a)} }}
-                          isAdmin={isAdmin}
-                          reorganize={reorganize}
-                          onQuickCat={()=>setQuickCatArt(a)}
-                          onEdit={a=>{setEditArt(a);setArtModal(true)}}
-                          onDelete={a=>setDelConfirm(a)}/>
+                          onAdd={()=>{ if(!reorganize){setTab('caisse');addTo(a)} }}/>
+                        {/* ── Boutons admin : CATALOGUE UNIQUEMENT ── */}
+                        {isAdmin && !reorganize && (
+                          <div style={{display:'flex',gap:6,padding:'8px 4px 0'}}>
+                            <button onClick={e=>{e.stopPropagation();setEditArt(a);setArtModal(true)}}
+                              style={{flex:1,background:'#eff6ff',color:'#2563eb',border:'1.5px solid #bfdbfe',
+                                padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                                display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                              ✏️ Modifier
+                            </button>
+                            <button onClick={e=>{e.stopPropagation();setDelConfirm(a)}}
+                              style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
+                                padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                                display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                              🗑️ Suppr.
+                            </button>
+                          </div>
+                        )}
+                        {isAdmin && reorganize && (
+                          <button onClick={e=>{e.stopPropagation();setQuickCatArt(a)}}
+                            style={{width:'100%',background:'#f5f3ff',color:'#7c3aed',border:'1.5px solid #c4b5fd',
+                              padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,
+                              fontFamily:'inherit',marginTop:6,display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                            ↔️ Changer catégorie
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
