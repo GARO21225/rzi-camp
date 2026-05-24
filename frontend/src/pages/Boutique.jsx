@@ -1,3 +1,4 @@
+// BOUTIQUE v1779617956 — Modifier/Suppr CATALOGUE ONLY
 /**
  * BAR & BOUTIQUE — CRUD complet Admin
  * Ajouter / Modifier / Supprimer articles + catégories + images
@@ -479,7 +480,7 @@ export default function Boutique() {
             {loading?'...':`${articles.length} articles · ${allCatsPresent.length} catégories · ${statsJour?.total||0} ventes aujourd'hui`}
           </p>
         </div>
-        {isAdmin && (
+        {isAdmin && tab === 'catalogue' && (
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setReorganize(!reorganize)}
               style={{background:reorganize?'#7c3aed':'#f5f3ff',color:reorganize?'#fff':'#7c3aed',
