@@ -1,179 +1,220 @@
 /**
- * RAPPORTS — Génération de rapports hebdo/mensuel
- * Export PDF ou impression directe
+ * RAPPORTS DE GESTION — Rapport complet du camp
+ * Données réelles : résidences, personnel, maintenance, boutique
  */
-import React, { useState, useEffect } from 'react'
-import { batiments, incidents, voyages as voyAPI, personnel as personnelAPI } from '../api'
-
-function Section({ title, icon, children }) {
-  return (
-    <div style={{ marginBottom:24, pageBreakInside:'avoid' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, paddingBottom:8, borderBottom:'2px solid #e2e8f0' }}>
-        <span style={{ fontSize:20 }}>{icon}</span>
-        <h3 style={{ fontSize:16, fontWeight:700, color:'#1e3a8a', margin:0 }}>{title}</h3>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function StatRow({ label, value, color }) {
-  return (
-    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'#f8fafc', borderRadius:8, marginBottom:6 }}>
-      <span style={{ fontSize:13, color:'#475569' }}>{label}</span>
-      <span style={{ fontSize:14, fontWeight:700, color: color||'#1e3a8a' }}>{value}</span>
-    </div>
-  )
-}
+import React, { useState } from 'react'
+import { batiments, personnel as personnelAPI, boutique as boutiqueAPI } from '../api'
+import { useStore } from '../store'
 
 export default function RapportPage() {
-  const [stats, setStats]   = useState(null)
-  const [inc,   setInc]     = useState(null)
-  const [voy,   setVoy]     = useState(null)
-  const [pers,  setPers]    = useState(null)
-  const [period, setPeriod] = useState('semaine')
-  const [loading, setLoading] = useState(false)
-  const [generated, setGenerated] = useState(false)
+  const { user } = useStore()
+  const [data,      setData]      = useState(null)
+  const [period,    setPeriod]    = useState('semaine')
+  const [loading,   setLoading]   = useState(false)
+  const [err,       setErr]       = useState(null)
 
   const generate = async () => {
-    setLoading(true)
+    setLoading(true); setErr(null); setData(null)
     try {
-      const [rb, ri, rv, rp] = await Promise.all([
+      const [rBat, rPerso, rConso, rStats] = await Promise.allSettled([
         batiments.stats(),
-        incidents.stats(),
-        voyAPI.stats(),
         personnelAPI.list({ page_size:1 }),
+        boutiqueAPI.consommations({ page_size:500 }),
+        boutiqueAPI.statsJour(),
       ])
-      const ps = rb.data.par_statut || {}
-      setStats({ libres: ps['Libre']||0, occupes: ps['Occupé']||0, reserves: ps['Réservé']||0, maintenance: ps['Maintenance']||0, total: rb.data.total||0, taux: rb.data.taux_occupation||0 })
-      setInc(ri.data)
-      setVoy(rv.data)
-      setPers(rp.data.count || 0)
-      setGenerated(true)
-    } finally { setLoading(false) }
+
+      const batStats  = rBat.status   === 'fulfilled' ? rBat.value.data   : {}
+      const personnel = rPerso.status === 'fulfilled' ? rPerso.value.data : {}
+      const consos    = rConso.status === 'fulfilled'
+        ? (rConso.value.data.results || rConso.value.data || []) : []
+      const statsJ    = rStats.status === 'fulfilled' ? rStats.value.data : {}
+
+      // Analyser les consommations
+      const totalCA = consos.reduce((s,c)=>s+parseInt(c.montant||0),0)
+      const parArt  = {}
+      consos.forEach(c => {
+        if (!parArt[c.article_nom]) parArt[c.article_nom] = {nom:c.article_nom,qte:0,ca:0}
+        parArt[c.article_nom].qte += c.quantite
+        parArt[c.article_nom].ca  += parseInt(c.montant||0)
+      })
+      const topArticles = Object.values(parArt).sort((a,b)=>b.ca-a.ca).slice(0,10)
+
+      const parAgent = {}
+      consos.forEach(c => {
+        const k = c.personnel_nom || 'Anonyme'
+        if (!parAgent[k]) parAgent[k] = {nom:k,qte:0,ca:0}
+        parAgent[k].qte += c.quantite
+        parAgent[k].ca  += parseInt(c.montant||0)
+      })
+      const topAgents = Object.values(parAgent).sort((a,b)=>b.ca-a.ca).slice(0,10)
+
+      setData({
+        generated_at: new Date().toLocaleString('fr-FR'),
+        batiments:    batStats,
+        personnel:    personnel.count || 0,
+        consos:       { total: consos.length, ca: totalCA, topArticles, topAgents },
+        statsJour:    statsJ,
+      })
+    } catch(e) {
+      setErr(e.message || 'Erreur lors de la génération')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const printReport = () => window.print()
 
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })
-  const timeStr = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+  const C = '#1e3a8a'
+  const titre = { fontSize:15, fontWeight:800, color:C, marginBottom:12, borderBottom:'2px solid #e2e8f0', paddingBottom:8 }
 
   return (
-    <div style={{ padding:20, maxWidth:900, margin:'0 auto' }}>
-
-      {/* Header non-imprimable */}
-      <div className="no-print" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24, flexWrap:'wrap', gap:12 }}>
+    <div style={{ padding:24, maxWidth:1000, margin:'0 auto' }}>
+      {/* Entête */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>📑 Rapports de gestion</h2>
-          <p style={{ fontSize:12, color:'#94a3b8', marginTop:4 }}>Générez et imprimez les rapports d'activité du camp</p>
+          <h2 style={{ fontSize:22, fontWeight:800, color:C, margin:0 }}>📋 Rapports de Gestion</h2>
+          <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>
+            Rapport instantané avec les données actuelles du camp
+          </p>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <select value={period} onChange={e=>setPeriod(e.target.value)}
-            style={{ border:'1px solid #e2e8f0', borderRadius:9, padding:'8px 12px', fontSize:13, background:'#fff' }}>
+            style={{ border:'2px solid #e2e8f0', borderRadius:9, padding:'8px 12px', fontSize:13, outline:'none', fontFamily:'inherit' }}>
+            <option value="jour">Aujourd\'hui</option>
             <option value="semaine">Cette semaine</option>
             <option value="mois">Ce mois</option>
-            <option value="annee">Cette année</option>
           </select>
           <button onClick={generate} disabled={loading}
-            style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'9px 20px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+            style={{ background:loading?'#94a3b8':C, color:'#fff', border:'none', padding:'10px 20px',
+              borderRadius:10, cursor:loading?'wait':'pointer', fontSize:13, fontWeight:700 }}>
             {loading ? '⏳ Génération...' : '🔄 Générer le rapport'}
           </button>
-          {generated && (
+          {data && (
             <button onClick={printReport}
-              style={{ background:'#16a34a', color:'#fff', border:'none', padding:'9px 20px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-              🖨️ Imprimer / PDF
+              style={{ background:'#16a34a', color:'#fff', border:'none', padding:'10px 20px',
+                borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              🖨️ Imprimer
             </button>
           )}
         </div>
       </div>
 
-      {!generated ? (
-        <div style={{ textAlign:'center', padding:80, color:'#94a3b8', background:'#fff', borderRadius:16, border:'2px dashed #e2e8f0' }}>
-          <div style={{ fontSize:52, marginBottom:12 }}>📑</div>
-          <div style={{ fontSize:15, fontWeight:600, color:'#64748b' }}>Cliquez sur "Générer le rapport"</div>
-          <div style={{ fontSize:13, marginTop:6 }}>Rapport instantané avec les données actuelles du camp</div>
+      {err && (
+        <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:12, padding:'12px 16px', color:'#dc2626', marginBottom:16 }}>
+          ❌ {err}
         </div>
-      ) : (
+      )}
 
-        /* ══ RAPPORT IMPRIMABLE ══ */
-        <div id="rapport" style={{ background:'#fff', borderRadius:16, padding:32, boxShadow:'0 2px 12px rgba(0,0,0,.07)', border:'1px solid #e2e8f0' }}>
+      {!data && !loading && !err && (
+        <div style={{ background:'#f8fafc', border:'2px dashed #e2e8f0', borderRadius:16, padding:'60px 20px', textAlign:'center' }}>
+          <div style={{ fontSize:56, marginBottom:12 }}>📋</div>
+          <div style={{ fontWeight:700, color:'#64748b', fontSize:15 }}>Cliquez sur "Générer le rapport"</div>
+          <div style={{ fontSize:12, color:'#94a3b8', marginTop:6 }}>Rapport instantané avec les données actuelles du camp</div>
+        </div>
+      )}
 
-          {/* En-tête du rapport */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:28, paddingBottom:16, borderBottom:'3px solid #1e3a8a' }}>
-            <div>
-              <div style={{ fontSize:24, fontWeight:900, color:'#1e3a8a', letterSpacing:-.5 }}>RÉSIDENCE ROXGOLD SANGO</div>
-              <div style={{ fontSize:14, color:'#64748b', marginTop:4 }}>Rapport de gestion · {period === 'semaine'?'Hebdomadaire':period==='mois'?'Mensuel':'Annuel'}</div>
-            </div>
-            <div style={{ textAlign:'right' }}>
-              <div style={{ fontFamily:'monospace', fontSize:13, color:'#94a3b8' }}>Généré le {dateStr} à {timeStr}</div>
-              <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>ERP GIS Camp · Côte d'Ivoire</div>
+      {data && (
+        <div id="rapport-content">
+          {/* En-tête rapport */}
+          <div style={{ background:`linear-gradient(135deg,#0f2447,${C})`, color:'#fff', borderRadius:16, padding:'20px 24px', marginBottom:20 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div>
+                <div style={{ fontSize:20, fontWeight:900 }}>🏗️ Résidence Roxgold Sango</div>
+                <div style={{ fontSize:13, color:'rgba(255,255,255,.7)', marginTop:4 }}>
+                  Rapport ERP GIS · Généré le {data.generated_at}
+                </div>
+              </div>
+              <div style={{ textAlign:'right', fontSize:12, color:'rgba(255,255,255,.7)' }}>
+                Admin : {user?.first_name} {user?.last_name}
+              </div>
             </div>
           </div>
 
-          {/* Résumé exécutif */}
-          <div style={{ background:'linear-gradient(135deg, #0f2447, #1e3a8a)', borderRadius:12, padding:'20px 24px', marginBottom:24, color:'#fff' }}>
-            <div style={{ fontSize:11, letterSpacing:2, textTransform:'uppercase', color:'rgba(255,255,255,.6)', marginBottom:8 }}>RÉSUMÉ EXÉCUTIF</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:16 }}>
+          {/* KPIs résidences */}
+          <div style={{ marginBottom:20 }}>
+            <div style={titre}>🏠 État des Résidences</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:12 }}>
               {[
-                ['Bâtiments',        stats?.total,                           '#f0a500'],
-                ['Taux occupation',  `${Math.round(stats?.taux||0)}%`,       '#6ee7a0'],
-                ['Incidents actifs', inc?.ouverts + inc?.en_cours,           '#fca5a5'],
-                ['En voyage',        voy?.en_voyage,                          '#93c5fd'],
-                ['Personnel total',  pers,                                    '#e9d5ff'],
-              ].map(([l,v,c]) => (
-                <div key={l}>
-                  <div style={{ fontFamily:'monospace', fontSize:28, fontWeight:900, color:c }}>{v ?? '—'}</div>
-                  <div style={{ fontSize:10, color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>{l}</div>
+                ['Total','🏗️', data.batiments.total||0, C],
+                ['Occupés','🔴', data.batiments.par_statut?.Occupé||0, '#dc2626'],
+                ['Libres','🟢', data.batiments.par_statut?.Libre||0, '#16a34a'],
+                ['Réservés','🔵', data.batiments.par_statut?.Réservé||0, '#2563eb'],
+                ['Maintenance','🟠', data.batiments.par_statut?.Maintenance||0, '#f59e0b'],
+                ['Taux occ.','📊', `${data.batiments.taux_occupation||0}%`, '#7c3aed'],
+              ].map(([l,i,v,c])=>(
+                <div key={l} style={{ background:'#fff', borderRadius:12, padding:'14px 16px', borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+                  <div style={{ fontFamily:'monospace', fontSize:22, fontWeight:900, color:c }}>{v}</div>
+                  <div style={{ fontSize:11, color:'#94a3b8', marginTop:3 }}>{i} {l}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <Section title="Résidences & Hébergement" icon="🏠">
-            <StatRow label="Total bâtiments gérés" value={stats?.total} />
-            <StatRow label="Chambres libres" value={`${stats?.libres} (${stats?.total?Math.round(stats.libres/stats.total*100):0}%)`} color="#16a34a" />
-            <StatRow label="Chambres occupées" value={`${stats?.occupes} (${stats?.total?Math.round(stats.occupes/stats.total*100):0}%)`} color="#2563eb" />
-            <StatRow label="Chambres réservées" value={stats?.reserves} color="#f97316" />
-            <StatRow label="En maintenance" value={stats?.maintenance} color="#dc2626" />
-            <StatRow label="Taux d'occupation" value={`${Math.round(stats?.taux||0)}%`} color="#7c3aed" />
-          </Section>
+          {/* Personnel */}
+          <div style={{ marginBottom:20 }}>
+            <div style={titre}>👤 Personnel</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', borderTop:`3px solid ${C}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+                <div style={{ fontFamily:'monospace', fontSize:26, fontWeight:900, color:C }}>{data.personnel}</div>
+                <div style={{ fontSize:11, color:'#94a3b8', marginTop:3 }}>👤 Membres enregistrés</div>
+              </div>
+            </div>
+          </div>
 
-          <Section title="Maintenance & Incidents" icon="🔧">
-            <StatRow label="Total incidents période" value={inc?.total} />
-            <StatRow label="Incidents ouverts" value={inc?.ouverts} color="#dc2626" />
-            <StatRow label="En cours de traitement" value={inc?.en_cours} color="#f97316" />
-            <StatRow label="Résolus" value={inc?.resolus} color="#16a34a" />
-          </Section>
+          {/* Bar & Boutique */}
+          <div style={{ marginBottom:20 }}>
+            <div style={titre}>🛒 Bar & Boutique — Consommations</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:16 }}>
+              {[
+                ['Transactions',data.consos.total,'#1e3a8a'],
+                ['CA FCFA',`${data.consos.ca.toLocaleString()} FCFA`,'#16a34a'],
+                ['Aujourd\'hui',`${(data.statsJour?.montant||0).toLocaleString()} FCFA`,'#7c3aed'],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{ background:'#fff', borderRadius:12, padding:'14px 16px', borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+                  <div style={{ fontFamily:'monospace', fontSize:20, fontWeight:900, color:c }}>{v}</div>
+                  <div style={{ fontSize:11, color:'#94a3b8', marginTop:3 }}>🛒 {l}</div>
+                </div>
+              ))}
+            </div>
 
-          <Section title="Voyages & Absences" icon="✈️">
-            <StatRow label="Total voyages période" value={voy?.total} />
-            <StatRow label="Planifiés" value={voy?.planifies} color="#2563eb" />
-            <StatRow label="Actuellement en voyage" value={voy?.en_voyage} color="#f97316" />
-            <StatRow label="Retours effectués" value={voy?.retours} color="#16a34a" />
-            <StatRow label="Voyages annulés" value={voy?.annules} color="#dc2626" />
-          </Section>
+            {/* Top articles */}
+            {data.consos.topArticles.length > 0 && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:13, color:'#475569', marginBottom:8 }}>🏆 Top Articles</div>
+                  {data.consos.topArticles.slice(0,6).map((a,i)=>(
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 12px',
+                      background:i%2?'#f8fafc':'#fff', borderRadius:7, marginBottom:4 }}>
+                      <span style={{ fontSize:12 }}>{i+1}. {a.nom}</span>
+                      <span style={{ fontWeight:700, fontSize:12, color:C }}>{a.ca.toLocaleString()} FCFA</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:13, color:'#475569', marginBottom:8 }}>👤 Top Consommateurs</div>
+                  {data.consos.topAgents.slice(0,6).map((a,i)=>(
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 12px',
+                      background:i%2?'#f8fafc':'#fff', borderRadius:7, marginBottom:4 }}>
+                      <span style={{ fontSize:12 }}>{i+1}. {a.nom}</span>
+                      <span style={{ fontWeight:700, fontSize:12, color:'#16a34a' }}>{a.ca.toLocaleString()} FCFA</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {data.consos.total === 0 && (
+              <div style={{ textAlign:'center', padding:'20px', color:'#94a3b8', fontSize:13 }}>
+                Aucune consommation enregistrée
+              </div>
+            )}
+          </div>
 
-          <Section title="Personnel" icon="👤">
-            <StatRow label="Effectif total" value={pers} />
-          </Section>
-
-          {/* Pied de rapport */}
-          <div style={{ marginTop:24, paddingTop:16, borderTop:'1px solid #e2e8f0', display:'flex', justifyContent:'space-between', fontSize:11, color:'#94a3b8' }}>
-            <span>Résidence Roxgold Sango · ERP GIS</span>
-            <span>Document généré automatiquement — {dateStr}</span>
+          {/* Footer */}
+          <div style={{ textAlign:'center', color:'#94a3b8', fontSize:11, borderTop:'1px solid #e2e8f0', paddingTop:12, marginTop:20 }}>
+            RZI Camp ERP GIS v7 · Résidence Roxgold Sango · {new Date().getFullYear()}
           </div>
         </div>
       )}
-
-      {/* CSS Print */}
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { margin: 0; background: white; }
-          #rapport { box-shadow: none !important; border: none !important; padding: 20px !important; }
-        }
-      `}</style>
     </div>
   )
 }

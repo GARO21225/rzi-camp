@@ -100,6 +100,24 @@ if (BACKEND) {
   }, 14 * 60 * 1000)
 }
 
+
+// ── Keep-alive Render: ping toutes les 13 minutes pour éviter le sleep ──
+function useKeepAlive() {
+  React.useEffect(() => {
+    const BACKEND = (() => {
+      const v = import.meta.env.VITE_API_URL
+      if (v) return v.replace(/\/+$/, '')
+      const h = window.location.hostname
+      if (h.includes('frontend')) return 'https://' + h.replace('frontend', 'backend')
+      return 'http://localhost:8000'
+    })()
+    const ping = () => fetch(`${BACKEND}/api/ping/`, { method: 'GET', mode: 'no-cors' }).catch(() => {})
+    ping() // ping immédiat au démarrage
+    const id = setInterval(ping, 13 * 60 * 1000) // toutes les 13 min
+    return () => clearInterval(id)
+  }, [])
+}
+
 export default function App() {
   const { token, setUser, logout } = useStore()
   useEffect(() => {

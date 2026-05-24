@@ -105,6 +105,192 @@ function getEmoji(nom) {
 }
 
 
+
+// ── Panneau Analyses Consommations ─────────────────────────
+function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
+  React.useEffect(() => { onLoad(periode) }, [periode])
+
+  const CAT_COLORS = {
+    gazeuse:'#ef4444',jus:'#f97316',energie:'#eab308',eau:'#0ea5e9',biere:'#d97706',
+    vin_rouge:'#be123c',vin_blanc:'#ca8a04',vin_rose:'#ec4899',champagne:'#a16207',
+    spiritueux:'#7c3aed',liqueur:'#6d28d9',cafe:'#92400e',the:'#15803d',autre:'#64748b',
+  }
+
+  const exportCSV = () => {
+    if (!data?.top_articles) return
+    const rows = [['Article','Catégorie','Quantité','CA (FCFA)'],
+      ...data.top_articles.map(a=>[a.article__nom,a.article__categorie,a.qte,a.ca])]
+    const csv = rows.map(r=>r.join(';')).join('\n')
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'})
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href=url; a.download=`analyses_boutique_${periode}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div>
+      {/* Filtres */}
+      <div style={{display:'flex',gap:10,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
+        <span style={{fontWeight:700,fontSize:13,color:'#1e3a8a'}}>📊 Analyses — Période :</span>
+        {[['7j','7 derniers jours'],['30j','30 derniers jours'],['90j','3 derniers mois'],['annee','Cette année']].map(([k,l])=>(
+          <button key={k} onClick={()=>onPeriodeChange(k)}
+            style={{padding:'7px 14px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+              background:periode===k?'#1e3a8a':'#fff',color:periode===k?'#fff':'#1e3a8a',borderColor:'#1e3a8a'}}>
+            {l}
+          </button>
+        ))}
+        {data && (
+          <button onClick={exportCSV}
+            style={{marginLeft:'auto',padding:'7px 16px',borderRadius:99,border:'2px solid #16a34a',
+              cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',background:'#f0fdf4',color:'#16a34a'}}>
+            📥 Export CSV
+          </button>
+        )}
+      </div>
+
+      {loading && <div style={{textAlign:'center',padding:60,fontSize:36}}>⏳</div>}
+
+      {!loading && !data && (
+        <div style={{textAlign:'center',padding:60,color:'#94a3b8'}}>
+          <div style={{fontSize:48}}>📊</div>
+          <div>Chargement en cours...</div>
+        </div>
+      )}
+
+      {data && !loading && (
+        <>
+          {/* KPIs */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+            {[
+              ['💰 CA FCFA',`${data.total_ca.toLocaleString()} FCFA`,'#1e3a8a'],
+              ['📦 Quantités',data.total_qte,'#16a34a'],
+              ['🧾 Transactions',data.nb_transactions,'#7c3aed'],
+              ['📈 Panier moyen',data.nb_transactions?`${Math.round(data.total_ca/data.nb_transactions).toLocaleString()} FCFA`:'—','#f59e0b'],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:'#fff',borderRadius:12,padding:'14px 16px',borderTop:`3px solid ${c}`,boxShadow:'0 1px 6px rgba(0,0,0,.07)'}}>
+                <div style={{fontFamily:'monospace',fontSize:20,fontWeight:900,color:c}}>{v}</div>
+                <div style={{fontSize:11,color:'#94a3b8',marginTop:3}}>{l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Top articles + Top agents */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+            {/* Top articles */}
+            <div style={{background:'#fff',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0'}}>
+              <div style={{padding:'12px 16px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:13,color:'#1e3a8a'}}>
+                🏆 Top 10 Articles
+              </div>
+              <div style={{padding:12}}>
+                {data.top_articles.length===0 ? (
+                  <div style={{textAlign:'center',color:'#94a3b8',padding:20,fontSize:12}}>Aucune vente</div>
+                ) : data.top_articles.map((a,i)=>{
+                  const max = data.top_articles[0]?.ca||1
+                  const pct = Math.round(a.ca/max*100)
+                  const col = CAT_COLORS[a.article__categorie]||'#64748b'
+                  return (
+                    <div key={i} style={{marginBottom:8}}>
+                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                        <span style={{fontSize:11,fontWeight:600,color:'#1e293b'}}>{i+1}. {a.article__nom}</span>
+                        <span style={{fontSize:11,fontWeight:800,color:col}}>{a.ca.toLocaleString()} FCFA</span>
+                      </div>
+                      <div style={{background:'#f1f5f9',borderRadius:99,height:4,overflow:'hidden'}}>
+                        <div style={{height:'100%',borderRadius:99,width:`${pct}%`,background:col}}/>
+                      </div>
+                      <div style={{fontSize:9,color:'#94a3b8',marginTop:1}}>{a.qte} unités vendues</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Top agents */}
+            <div style={{background:'#fff',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0'}}>
+              <div style={{padding:'12px 16px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:13,color:'#1e3a8a'}}>
+                👤 Top Consommateurs
+              </div>
+              <div style={{padding:12}}>
+                {data.top_agents.length===0 ? (
+                  <div style={{textAlign:'center',color:'#94a3b8',padding:20,fontSize:12}}>
+                    Aucun agent identifié
+                  </div>
+                ) : data.top_agents.map((a,i)=>{
+                  const max = data.top_agents[0]?.ca||1
+                  const pct = Math.round(a.ca/max*100)
+                  return (
+                    <div key={i} style={{marginBottom:8}}>
+                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                        <span style={{fontSize:11,fontWeight:600,color:'#1e293b'}}>
+                          {i+1}. {a.personnel__nom} {a.personnel__prenom}
+                        </span>
+                        <span style={{fontSize:11,fontWeight:800,color:'#16a34a'}}>{a.ca.toLocaleString()} FCFA</span>
+                      </div>
+                      <div style={{background:'#f1f5f9',borderRadius:99,height:4,overflow:'hidden'}}>
+                        <div style={{height:'100%',borderRadius:99,width:`${pct}%`,background:'#16a34a'}}/>
+                      </div>
+                      <div style={{fontSize:9,color:'#94a3b8',marginTop:1}}>{a.qte} achats · {a.personnel__societe}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Par catégorie */}
+          <div style={{background:'#fff',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0',marginBottom:16}}>
+            <div style={{padding:'12px 16px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:13,color:'#1e3a8a'}}>
+              📂 Répartition par catégorie
+            </div>
+            <div style={{padding:16,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:10}}>
+              {data.par_categorie.map((cat,i)=>{
+                const col = CAT_COLORS[cat.article__categorie]||'#64748b'
+                const total = data.par_categorie.reduce((s,c)=>s+c.ca,0)||1
+                const pct   = Math.round(cat.ca/total*100)
+                return (
+                  <div key={i} style={{padding:'10px 12px',background:`${col}10`,borderRadius:10,borderLeft:`3px solid ${col}`}}>
+                    <div style={{fontWeight:700,fontSize:12,color:col}}>{cat.article__categorie||'autre'}</div>
+                    <div style={{fontFamily:'monospace',fontSize:16,fontWeight:900,color:col,margin:'4px 0'}}>
+                      {cat.ca.toLocaleString()} FCFA
+                    </div>
+                    <div style={{fontSize:10,color:'#94a3b8'}}>{cat.qte} unités · {pct}% du CA</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Évolution journalière */}
+          {data.evolution && data.evolution.length > 0 && (
+            <div style={{background:'#fff',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0'}}>
+              <div style={{padding:'12px 16px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:13,color:'#1e3a8a'}}>
+                📈 Évolution journalière (30 jours)
+              </div>
+              <div style={{padding:16,overflowX:'auto'}}>
+                <div style={{display:'flex',gap:4,alignItems:'flex-end',minHeight:80,minWidth:Math.max(300,data.evolution.length*30)}}>
+                  {data.evolution.map((d,i)=>{
+                    const max = Math.max(...data.evolution.map(x=>x.ca))||1
+                    const h   = Math.round(d.ca/max*80)
+                    return (
+                      <div key={i} title={`${d.jour}: ${d.ca.toLocaleString()} FCFA`}
+                        style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'help'}}>
+                        <div style={{width:'100%',background:'#1e3a8a',borderRadius:'3px 3px 0 0',height:h,minHeight:2,transition:'height .2s'}}/>
+                        <div style={{fontSize:7,color:'#94a3b8',transform:'rotate(-45deg)',whiteSpace:'nowrap'}}>
+                          {new Date(d.jour).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Panneau Gestion des Bons de Caisse ─────────────────────
 function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   const [loading,    setLoading]   = useState(false)
@@ -533,7 +719,10 @@ export default function Boutique() {
   const [draggingId,   setDraggingId]  = useState(null)
   const [dragOverCat,  setDragOverCat] = useState(null)
   const [quickCatArt,  setQuickCatArt] = useState(null)
-  const [bonAgent,     setBonAgent]     = useState(null)   // solde bon de caisse agent
+  const [bonAgent,     setBonAgent]     = useState(null)
+  const [analyses,     setAnalyses]     = useState(null)
+  const [analysesPeriode, setAnalysesPeriode] = useState('30j')
+  const [analysesLoading, setAnalysesLoading] = useState(false)   // solde bon de caisse agent
   const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
   const [showGererBons,setShowGererBons]= useState(false)
   const scannerInst = useRef(null)
@@ -719,6 +908,7 @@ export default function Boutique() {
           ['caisse','🛒 Caisse'],
           ['historique','📋 Historique'],
           ['catalogue','📦 Catalogue'],
+          ['analyses','📊 Analyses'],
           ...(isAdmin ? [['bons','🎫 Bons de Caisse']] : [])
         ].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
@@ -1049,6 +1239,24 @@ export default function Boutique() {
             )
           })}
         </div>
+      )}
+
+      {/* ══ ONGLET ANALYSES ══ */}
+      {tab==='analyses' && (
+        <AnalysesPanel
+          periode={analysesPeriode}
+          onPeriodeChange={setAnalysesPeriode}
+          data={analyses}
+          loading={analysesLoading}
+          onLoad={async (p) => {
+            setAnalysesLoading(true)
+            try {
+              const r = await boutiqueAPI.analyses({periode:p})
+              setAnalyses(r.data)
+            } catch(e) { setAnalyses(null) }
+            finally { setAnalysesLoading(false) }
+          }}
+        />
       )}
 
       {/* ══ ONGLET BONS DE CAISSE ══ */}

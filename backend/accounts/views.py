@@ -409,3 +409,11 @@ def force_seed(request):
         'errors':  errors,
         'summary': f"{len(results)} succès, {len(errors)} erreurs"
     })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def ping(request):
+    """Health check public — empêche le sleep Render"""
+    from django.utils import timezone
+    return Response({'pong': True, 'ts': timezone.now().isoformat(), 'status': 'alive'})

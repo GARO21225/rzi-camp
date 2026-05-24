@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import me, liste_users, toggle_user_active, delete_user, assigner_role
+from .views import ping,  me, liste_users, toggle_user_active, delete_user, assigner_role
 
 urlpatterns = [
     path("forgot-password/", views.forgot_password, name="forgot_password"),
@@ -15,3 +15,5 @@ urlpatterns = [
     path("admin/users/<int:user_id>/delete/", delete_user),
     path("admin/users/<int:user_id>/role/", assigner_role),
 ]
+
+urlpatterns += [path('ping/', ping, name='ping')]

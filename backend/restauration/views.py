@@ -366,9 +366,153 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         })
 
 
+
 # ═══════════════════════════════════════════════════════
 # BONS DE CAISSE — Tickets annuels 100K FCFA
 # ═══════════════════════════════════════════════════════
+
+class BonCaisseSerializer(drf_serializers.ModelSerializer):
+    personnel_nom  = drf_serializers.SerializerMethodField()
+    personnel_info = drf_serializers.SerializerMethodField()
+    credit_utilise = drf_serializers.SerializerMethodField()
+    pourcentage    = drf_serializers.SerializerMethodField()
+
+    def get_personnel_nom(self, obj):
+        return f"{obj.personnel.nom} {obj.personnel.prenom}"
+
+    def get_personnel_info(self, obj):
+        return {'id':obj.personnel.id,'nom':obj.personnel.nom,
+                'prenom':obj.personnel.prenom,'societe':obj.personnel.societe}
+
+    def get_credit_utilise(self, obj):
+        return int(obj.credit_initial - obj.credit_restant)
+
+    def get_pourcentage(self, obj):
+        if obj.credit_initial == 0: return 0
+        return int(((obj.credit_initial - obj.credit_restant) / obj.credit_initial) * 100)
+
+    class Meta:
+        model  = BonCaisse
+        fields = ['id','personnel','personnel_nom','personnel_info',
+                  'annee','credit_initial','credit_restant','credit_utilise',
+                  'pourcentage','cree_le','mis_a_jour']
+        read_only_fields = ['credit_restant','cree_le','mis_a_jour']
+
+
+class BonCaisseViewSet(viewsets.ModelViewSet):
+    serializer_class   = BonCaisseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.utils import timezone
+        annee = self.request.query_params.get('annee', timezone.now().year)
+        qs    = BonCaisse.objects.filter(annee=annee).select_related('personnel').order_by('personnel__nom')
+        pid   = self.request.query_params.get('personnel')
+        if pid:
+            qs = qs.filter(personnel_id=pid)
+        return qs
+
+    @action(detail=False, methods=['post'])
+    def crediter(self, request):
+        """Créditer ou créer le bon d'un personnel"""
+        from django.utils import timezone
+        from residences.models import Personnel
+        pid     = request.data.get('personnel_id')
+        montant = int(request.data.get('montant', 100000))
+        annee   = int(request.data.get('annee', timezone.now().year))
+
+        if not pid:
+            return Response({'error':'personnel_id requis'}, status=400)
+        if not (1000 <= montant <= 500000):
+            return Response({'error':'Montant invalide (1 000 – 500 000 FCFA)'}, status=400)
+
+        try:
+            p = Personnel.objects.get(id=pid)
+        except Personnel.DoesNotExist:
+            return Response({'error':'Personnel introuvable'}, status=404)
+
+        bon, created = BonCaisse.objects.get_or_create(
+            personnel=p, annee=annee,
+            defaults={'credit_initial':montant, 'credit_restant':montant}
+        )
+        if not created:
+            # Reset complet du crédit
+            bon.credit_initial = montant
+            bon.credit_restant = montant
+            bon.save(update_fields=['credit_initial','credit_restant','mis_a_jour'])
+
+        return Response({
+            'ok':      True,
+            'message': f"Bon {'créé' if created else 'rechargé'} — {montant:,} FCFA pour {p.nom} {p.prenom}",
+            'bon':     BonCaisseSerializer(bon).data,
+            'created': created,
+        })
+
+    @action(detail=False, methods=['post'], url_path='crediter_tous')
+    def crediter_tous(self, request):
+        """Créditer TOUS les personnels actifs"""
+        from django.utils import timezone
+        from residences.models import Personnel
+        montant = int(request.data.get('montant', 100000))
+        annee   = int(request.data.get('annee', timezone.now().year))
+
+        actifs = Personnel.objects.filter(actif=True)
+        created_n = updated_n = 0
+        for p in actifs:
+            bon, created = BonCaisse.objects.get_or_create(
+                personnel=p, annee=annee,
+                defaults={'credit_initial':montant,'credit_restant':montant}
+            )
+            if not created:
+                bon.credit_initial = montant
+                bon.credit_restant = montant
+                bon.save(update_fields=['credit_initial','credit_restant','mis_a_jour'])
+                updated_n += 1
+            else:
+                created_n += 1
+
+        return Response({'ok':True,
+            'message':f"{created_n} bons créés, {updated_n} rechargés — {montant:,} FCFA/an",
+            'annee':annee, 'total':actifs.count()})
+
+    @action(detail=False, methods=['get'], url_path='solde_personnel')
+    def solde_personnel(self, request):
+        """Solde du bon d'un personnel pour l'année"""
+        from django.utils import timezone
+        from residences.models import Personnel
+        pid   = request.query_params.get('personnel_id')
+        annee = int(request.query_params.get('annee', timezone.now().year))
+        if not pid:
+            return Response({'error':'personnel_id requis'}, status=400)
+        try:
+            p   = Personnel.objects.get(id=pid)
+            bon, _ = BonCaisse.objects.get_or_create(
+                personnel=p, annee=annee,
+                defaults={'credit_initial':100000,'credit_restant':100000}
+            )
+            return Response(BonCaisseSerializer(bon).data)
+        except Personnel.DoesNotExist:
+            return Response({'error':'Personnel introuvable'}, status=404)
+
+    @action(detail=False, methods=['get'], url_path='stats_consommation')
+    def stats_consommation(self, request):
+        """Stats globales consommation boutique"""
+        from django.utils import timezone
+        from django.db.models import Sum, Count, Avg
+        annee = int(request.query_params.get('annee', timezone.now().year))
+        bons  = BonCaisse.objects.filter(annee=annee)
+        total_credits  = bons.aggregate(s=Sum('credit_initial'))['s'] or 0
+        total_restants = bons.aggregate(s=Sum('credit_restant'))['s'] or 0
+        total_utilise  = total_credits - total_restants
+        return Response({
+            'annee':         annee,
+            'nb_bons':       bons.count(),
+            'total_credits': int(total_credits),
+            'total_utilise': int(total_utilise),
+            'total_restant': int(total_restants),
+            'taux_utilisation': round(total_utilise/total_credits*100,1) if total_credits else 0,
+        })
+
 
 class BonCaisseSerializer(drf_serializers.ModelSerializer):
     personnel_nom  = drf_serializers.SerializerMethodField()
