@@ -83,8 +83,15 @@ const CAT_DEFAULTS = {
   autre:      {icon:'📦', c:'#64748b', bg:'#f8fafc', label:'Autre'},
 }
 
+// Charger les overrides localStorage au démarrage
+const _catLabelOverrides = (() => {
+  try { return JSON.parse(localStorage.getItem('cat_labels')||'{}') } catch { return {} }
+})()
+
 function getCatCfg(cat) {
-  return CAT_DEFAULTS[cat] || { icon:'📦', c:'#64748b', bg:'#f1f5f9', label: cat }
+  const base = CAT_DEFAULTS[cat] || { icon:'📦', c:'#64748b', bg:'#f1f5f9', label: cat }
+  if (_catLabelOverrides[cat]) return {...base, label: _catLabelOverrides[cat]}
+  return base
 }
 
 function getEmoji(nom) {
@@ -804,6 +811,8 @@ export default function Boutique() {
   const [draggingId,   setDraggingId]  = useState(null)
   const [dragOverCat,  setDragOverCat] = useState(null)
   const [quickCatArt,  setQuickCatArt] = useState(null)
+  const [renommerCat,  setRenommerCat]  = useState(null) // {oldKey, newLabel}
+  const [newCatLabel,  setNewCatLabel]  = useState('')
   const [bonAgent,     setBonAgent]     = useState(null)
   const [analyses,     setAnalyses]     = useState(null)
   const [analysesPeriode, setAnalysesPeriode] = useState('30j')
@@ -1271,6 +1280,13 @@ export default function Boutique() {
                       <div style={{fontWeight:800,fontSize:16,color:cfg.c}}>{cfg.label}</div>
                       <div style={{fontSize:11,color:'#94a3b8'}}>{items.length} articles disponibles</div>
                     </div>
+                    {isAdmin && !reorganize && (
+                      <button onClick={()=>{setRenommerCat({oldKey:cat, oldLabel:cfg.label});setNewCatLabel(cfg.label)}}
+                        style={{background:'transparent',border:`1px solid ${cfg.c}`,color:cfg.c,
+                          padding:'3px 8px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600}}>
+                        ✏️ Renommer
+                      </button>
+                    )}
                     {reorganize && (
                       <span style={{fontSize:11,background:`${cfg.c}20`,color:cfg.c,padding:'3px 10px',borderRadius:99,fontWeight:700}}>
                         ← déposer ici
@@ -1368,6 +1384,59 @@ export default function Boutique() {
 
 
 
+      {/* ══ MODAL RENOMMER CATÉGORIE ══ */}
+      {renommerCat && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:2100,padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setRenommerCat(null)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:400,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15}}>✏️ Renommer la catégorie</div>
+                <div style={{fontSize:11,opacity:.8}}>Actuel: {renommerCat.oldLabel}</div>
+              </div>
+              <button onClick={()=>setRenommerCat(null)}
+                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                  width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
+            </div>
+            <div style={{padding:20}}>
+              <div style={{fontSize:12,color:'#64748b',marginBottom:8}}>
+                Nouveau nom affiché (le code interne reste "{renommerCat.oldKey}")
+              </div>
+              <input value={newCatLabel} onChange={e=>setNewCatLabel(e.target.value)}
+                placeholder="Nouveau nom de la catégorie..."
+                style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',
+                  fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}/>
+              <div style={{fontSize:11,color:'#94a3b8',marginTop:6}}>
+                ⚠️ Le renommage est local à cette session. Pour persister, modifiez le code du site.
+              </div>
+              <div style={{display:'flex',gap:8,marginTop:14}}>
+                <button onClick={()=>{
+                  // Mettre à jour CAT_DEFAULTS localement via localStorage
+                  const overrides = JSON.parse(localStorage.getItem('cat_labels')||'{}')
+                  overrides[renommerCat.oldKey] = newCatLabel
+                  localStorage.setItem('cat_labels', JSON.stringify(overrides))
+                  setRenommerCat(null)
+                  // Forcer re-render
+                  window.location.reload()
+                }}
+                  style={{flex:1,background:'#1e3a8a',color:'#fff',border:'none',padding:'10px',
+                    borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit'}}>
+                  💾 Enregistrer (session)
+                </button>
+                <button onClick={()=>setRenommerCat(null)}
+                  style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                    padding:'10px',borderRadius:9,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══ MODAL CHANGEMENT RAPIDE CATÉGORIE ══ */}
       {quickCatArt && (
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
@@ -1433,7 +1502,7 @@ export default function Boutique() {
       {artModal && (
         <ArticleModal
           article={editArt}
-          categories={allCatsPresent}
+          categories={catOrder}
           onSave={editArt ? handleEdit : handleCreate}
           onClose={()=>{setArtModal(false);setEditArt(null)}}
         />

@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "restauration",
     "evenements",
     "channels",
+    "induction",
+    "django_filters",
 ]
 
 MIDDLEWARE = [
