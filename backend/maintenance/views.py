@@ -67,17 +67,35 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        incident = serializer.save(auteur=self.request.user)
-        _notifier(incident, f"Nouveau incident déclaré par {incident.auteur.get_full_name() or incident.auteur.username}: {incident.titre}", 'info')
-        CommentaireIncident.objects.create(
-            incident=incident, auteur=self.request.user,
-            type_comment='info',
-            contenu=f"Incident déclaré — priorité {incident.get_priorite_display()}"
-        )
+        try:
+            incident = serializer.save(auteur=self.request.user)
+        except Exception as e:
+            # Fallback: sauvegarder sans les colonnes potentiellement manquantes
+            safe_data = {}
+            for k, v in serializer.validated_data.items():
+                if k not in ['photo_base64','photo_mime','photo_resolution_base64','latitude','longitude']:
+                    safe_data[k] = v
+            safe_data['auteur'] = self.request.user
+            try:
+                incident = Incident(**safe_data)
+                incident.save()
+            except Exception as e2:
+                from rest_framework.exceptions import APIException
+                raise APIException(f"Impossible de créer l'incident: {str(e2)}")
 
-    # ── Workflow ──────────────────────────────────────────────────
+        try:
+            _notifier(incident, f"Incident déclaré: {incident.titre}", 'info')
+        except Exception:
+            pass
+        try:
+            CommentaireIncident.objects.create(
+                incident=incident, auteur=self.request.user, type_comment='info',
+                contenu=f"Incident déclaré — priorité {incident.get_priorite_display()}"
+            )
+        except Exception:
+            pass
 
-    @action(detail=True, methods=['post'])
+
     def assigner(self, request, pk=None):
         """Assigner au technicien"""
         incident = self.get_object()

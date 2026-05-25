@@ -16,7 +16,22 @@
   <meta name="apple-mobile-web-app-title" content="RZI Camp">
   <link rel="apple-touch-icon" href="https://via.placeholder.com/180x180/1e3a8a/ffffff?text=RZI">
   <meta name="mobile-web-app-capable" content="yes">
-</head>
+
+    <script>
+      // Désinstaller l'ancien service worker pour forcer rechargement
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          for(var reg of regs) { reg.unregister(); }
+        });
+        // Vider tous les caches
+        if (window.caches) {
+          caches.keys().then(function(names) {
+            for (var name of names) { caches.delete(name); }
+          });
+        }
+      }
+    </script>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

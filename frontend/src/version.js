@@ -1,2 +1,2 @@
-// Build 1779697484 — ALL-7-FIXES
-export const BUILD_ID = '1779697484'
+// Build 1779700770 — SW-KILLED-ALL-FIXES
+export const BUILD_ID = '1779700770'

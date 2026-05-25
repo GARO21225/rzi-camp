@@ -34,6 +34,32 @@ function exportCSV(rows) {
 }
 
 // ════════════════════════════════════════════════════════════════
+class PersonnelErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = {hasError:false, error:null} }
+  static getDerivedStateFromError(e) { return {hasError:true, error:e} }
+  componentDidCatch(e) { console.error('Personnel crash:', e) }
+  render() {
+    if (this.state.hasError) return (
+      <div style={{padding:40,textAlign:'center'}}>
+        <div style={{fontSize:48,marginBottom:12}}>⚠️</div>
+        <div style={{fontWeight:700,fontSize:16,color:'#dc2626',marginBottom:8}}>
+          Erreur d'affichage
+        </div>
+        <div style={{color:'#64748b',fontSize:13,marginBottom:16}}>
+          {this.state.error?.message || 'Erreur inconnue'}
+        </div>
+        <button onClick={()=>this.setState({hasError:false,error:null})}
+          style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 24px',
+            borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700}}>
+          🔄 Réessayer
+        </button>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
+
 export default function Personnel() {
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
