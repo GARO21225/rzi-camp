@@ -438,3 +438,16 @@ def ping(request):
     """Health check public — empêche le sleep Render"""
     from django.utils import timezone
     return Response({'pong': True, 'ts': timezone.now().isoformat(), 'status': 'alive'})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def version(request):
+    """Version endpoint — confirme que le bon backend est déployé"""
+    return Response({
+        'version': '1779680747',
+        'built':   '2026-05-25',
+        'fixes':   ['analyses-expressionwrapper','dashboard-direct-api',
+                    'bons-roxgold','sous-traitants-masse'],
+        'status':  'ok'
+    })

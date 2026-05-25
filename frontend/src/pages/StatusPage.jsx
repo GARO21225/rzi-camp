@@ -1,3 +1,40 @@
+
+function VersionCheck() {
+  const [ver, setVer] = React.useState(null)
+  const BACKEND = (() => {
+    const h = window.location.hostname
+    if (h.includes('onrender')) return 'https://' + h.replace('frontend', 'backend')
+    return import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  })()
+  
+  React.useEffect(() => {
+    fetch(`${BACKEND}/api/version/`)
+      .then(r => r.json())
+      .then(d => setVer(d))
+      .catch(() => setVer({error: 'Impossible de contacter le backend'}))
+  }, [])
+
+  if (!ver) return null
+  
+  const isLatest = ver.version === '1779680747'
+  
+  return (
+    <div style={{background: isLatest ? '#f0fdf4' : '#fef2f2',
+      border: `1px solid ${isLatest ? '#86efac' : '#fca5a5'}`,
+      borderRadius: 12, padding: '12px 16px', marginBottom: 16}}>
+      <div style={{fontWeight: 700, color: isLatest ? '#166534' : '#991b1b', marginBottom: 4}}>
+        {isLatest ? '✅ Backend à jour (v1779680747)' : `⚠️ Backend version ${ver.version || 'inconnue'} — redéployez sur Render`}
+      </div>
+      {ver.fixes && (
+        <div style={{fontSize: 11, color: '#64748b'}}>
+          Fixes: {ver.fixes?.join(' · ')}
+        </div>
+      )}
+      {ver.error && <div style={{fontSize: 11, color: '#dc2626'}}>{ver.error}</div>}
+    </div>
+  )
+}
+
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
 
