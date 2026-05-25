@@ -35,6 +35,7 @@ import Analytics from './pages/Analytics'
 import Boutique from './pages/Boutique'
 import AuditPage from './pages/AuditPage'
 import StatusPage from './pages/StatusPage'
+import InductionPage from './pages/InductionPage'
 import Presences   from './pages/Presences'
 import RapportPage  from './pages/RapportPage'
 

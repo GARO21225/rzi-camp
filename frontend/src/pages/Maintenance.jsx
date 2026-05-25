@@ -214,6 +214,59 @@ export default function Maintenance() {
             style={{ ...S_BTN('#1e3a8a','#fff'), fontSize:14, padding:'10px 20px' }}>
             + Déclarer un incident
           </button>
+                  {/* Boutons photo avant/après — visible pour techniciens */}
+                  {selected.statut === 'en_cours' && (
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      <label style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                        gap:6,padding:'8px',background:'#f5f3ff',border:'2px dashed #c4b5fd',
+                        borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,color:'#7c3aed'}}>
+                        <input type="file" accept="image/*" style={{display:'none'}}
+                          onChange={async e=>{
+                            const file=e.target.files?.[0]; if(!file) return
+                            if(file.size>3*1024*1024){alert('Max 3Mo'); return}
+                            const reader=new FileReader()
+                            reader.onload=async ev=>{
+                              const parts=ev.target.result.split(',')
+                              const base64=parts[1]||''
+                              try {
+                                await incAPI.addComment(selected.id,{
+                                  type_comment:'photo_avant',
+                                  contenu:'Photo avant intervention',
+                                  photo_base64:base64
+                                })
+                                setSelected(null); load()
+                              } catch(err){alert('Erreur upload')}
+                            }
+                            reader.readAsDataURL(file)
+                          }}/>
+                        📷 Avant
+                      </label>
+                      <label style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                        gap:6,padding:'8px',background:'#f0fdf4',border:'2px dashed #86efac',
+                        borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,color:'#16a34a'}}>
+                        <input type="file" accept="image/*" style={{display:'none'}}
+                          onChange={async e=>{
+                            const file=e.target.files?.[0]; if(!file) return
+                            if(file.size>3*1024*1024){alert('Max 3Mo'); return}
+                            const reader=new FileReader()
+                            reader.onload=async ev=>{
+                              const parts=ev.target.result.split(',')
+                              const base64=parts[1]||''
+                              try {
+                                await incAPI.addComment(selected.id,{
+                                  type_comment:'photo_apres',
+                                  contenu:'Photo après intervention',
+                                  photo_base64:base64
+                                })
+                                setSelected(null); load()
+                              } catch(err){alert('Erreur upload')}
+                            }
+                            reader.readAsDataURL(file)
+                          }}/>
+                        📷 Après
+                      </label>
+                    </div>
+                  )}
         </div>
 
         {/* KPIs */}
@@ -454,6 +507,7 @@ export default function Maintenance() {
                 {(selected.commentaires||[]).map(c => {
                   const typeColors = {
                     info:'#64748b', assignation:'#2563eb', debut:'#f97316',
+                    photo_avant:'#7c3aed', photo_apres:'#059669',
                     resolution:'#16a34a', cloture:'#0f2447', escalade:'#dc2626', relance:'#f59e0b'
                   }
                   const tc = typeColors[c.type_comment]||'#64748b'
@@ -470,6 +524,20 @@ export default function Maintenance() {
                           </span>
                         </div>
                         <div style={{ fontSize:12, color:'#334155' }}>{c.contenu}</div>
+                        {c.photo_base64 && (
+                          <div style={{marginTop:8}}>
+                            <img
+                              src={c.photo_base64.startsWith('data:') ? c.photo_base64 : ("data:image/jpeg;base64,"+c.photo_base64)}
+                              alt={c.type_comment==='photo_avant'?'Photo avant':'Photo'}
+                              style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:8,
+                                border:'2px solid #e2e8f0',cursor:'pointer'}}
+                              onClick={()=>window.open(c.photo_base64.startsWith('data:')?c.photo_base64:("data:image/jpeg;base64,"+c.photo_base64),'_blank')}
+                            />
+                            <div style={{fontSize:9,color:'#94a3b8',marginTop:2}}>
+                              {c.type_comment==='photo_avant'?'📷 Avant intervention':'📷 Après intervention'} · Cliquer pour agrandir
+                            </div>
+                          </div>
+                        )}
                         <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>— {c.auteur_nom}</div>
                       </div>
                     </div>

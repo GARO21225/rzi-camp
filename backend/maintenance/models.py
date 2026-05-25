@@ -124,6 +124,8 @@ class CommentaireIncident(models.Model):
         ('info',        'Information'),
         ('assignation', 'Assignation'),
         ('debut',       'Début intervention'),
+        ('photo_avant', '📷 Photo avant intervention'),
+        ('photo_apres', '📷 Photo après intervention'),
         ('resolution',  'Résolution'),
         ('cloture',     'Clôture'),
         ('escalade',    'Escalade'),

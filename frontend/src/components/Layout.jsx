@@ -18,6 +18,7 @@ const ROLE_NAV = {
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/boutique',     label:'🛒 Bar & Boutique' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
+    { to:'/induction', label:'🎓 Induction QHSE' },
     { to:'/demandes', label:'📝 Demandes' },
     { to:'/historique', label:'📋 Historique' },
     { to:'/analytics', label:'📈 Analytics' },
@@ -44,6 +45,7 @@ const ROLE_NAV = {
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
+    { to:'/induction', label:'🎓 Induction QHSE' },
   ],
   menage: [
     { to:'/carte', label:'🗺️ Carte GIS' },
