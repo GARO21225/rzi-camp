@@ -80,6 +80,7 @@ export const incidents = {
   cloturer:     (id,d) => api.post(`/api/incidents/${id}/cloturer/`, d),
   escalader:    (id,d) => api.post(`/api/incidents/${id}/escalader/`, d),
   commenter:    (id,d) => api.post(`/api/incidents/${id}/commenter/`, d),
+  addComment:   (id,d) => api.post(`/api/incidents/${id}/commenter/`, d),
   annuler:      (id,d) => api.post(`/api/incidents/${id}/annuler/`, d),
 }
 export const qr = {

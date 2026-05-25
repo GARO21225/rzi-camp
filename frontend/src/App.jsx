@@ -36,6 +36,8 @@ import Boutique from './pages/Boutique'
 import AuditPage from './pages/AuditPage'
 import StatusPage from './pages/StatusPage'
 import InductionPage from './pages/InductionPage'
+import WorkflowHub from './pages/WorkflowHub'
+import BoutiquePOS from './pages/BoutiquePOS'
 import Presences   from './pages/Presences'
 import RapportPage  from './pages/RapportPage'
 

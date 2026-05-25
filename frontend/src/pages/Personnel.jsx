@@ -45,8 +45,11 @@ export default function Personnel() {
     nom:'', prenom:'', email:'', telephone:'',
     societe:'', type_personnel:'employe', numero:'', actif:true
   })
-  const [saving, setSaving] = useState(false)
-  const [err,    setErr]    = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [err,          setErr]          = useState('')
+  const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
+  const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
+  const [newRole,      setNewRole]      = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -83,6 +86,29 @@ export default function Personnel() {
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
     } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (p) => {
+    try {
+      await personnelAPI.delete(p.id)
+      setConfirmDel(null)
+      load()
+    } catch(e) { alert(e.response?.data?.detail || 'Erreur suppression') }
+  }
+
+  const handleToggleActif = async (p) => {
+    try {
+      await personnelAPI.update(p.id, { actif: !p.actif })
+      load()
+    } catch(e) { alert('Erreur') }
+  }
+
+  const handleChangeRole = async () => {
+    if (!roleModal || !newRole) return
+    try {
+      await personnelAPI.update(roleModal.id, { type_personnel: newRole })
+      setRoleModal(null); load()
+    } catch(e) { alert('Erreur changement de rôle') }
   }
 
   // Styles
@@ -205,18 +231,40 @@ export default function Personnel() {
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       <div style={{display:'flex',gap:6}}>
-                        <button onClick={() => {
-                          setForm({
-                            nom:p.nom, prenom:p.prenom, email:p.email||'',
-                            telephone:p.telephone||'', societe:p.societe||'',
-                            type_personnel:p.type_personnel||'employe',
-                            numero:p.numero||'', actif:p.actif
-                          })
-                          setErr(''); setModal(p)
-                        }} style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
-                          padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
-                          ✏️
-                        </button>
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          <button onClick={() => {
+                            setForm({
+                              nom:p.nom, prenom:p.prenom, email:p.email||'',
+                              telephone:p.telephone||'', societe:p.societe||'',
+                              type_personnel:p.type_personnel||'employe',
+                              numero:p.numero||'', actif:p.actif
+                            })
+                            setErr(''); setModal(p)
+                          }} style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
+                            padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
+                            ✏️
+                          </button>
+                          <button onClick={() => {setNewRole(p.type_personnel);setRoleModal(p)}}
+                            style={{background:'#f5f3ff',color:'#7c3aed',border:'1px solid #c4b5fd',
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title="Changer le rôle">
+                            🎭
+                          </button>
+                          <button onClick={() => handleToggleActif(p)}
+                            style={{background:p.actif?'#fef3c7':'#f0fdf4',
+                              color:p.actif?'#b45309':'#16a34a',
+                              border:'1px solid '+(p.actif?'#fde68a':'#86efac'),
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title={p.actif?'Désactiver':'Activer'}>
+                            {p.actif ? '🔒' : '🔓'}
+                          </button>
+                          <button onClick={() => setConfirmDel(p)}
+                            style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title="Supprimer">
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -476,6 +524,81 @@ export default function Personnel() {
             </div>
           </div>
         )}
+
+      {/* ══ MODAL CONFIRMER SUPPRESSION ══ */}
+      {confirmDel && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16}}
+          onClick={e=>e.target===e.currentTarget&&setConfirmDel(null)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',
+              padding:'14px 20px'}}>
+              <div style={{fontWeight:700}}>🗑️ Supprimer le membre</div>
+            </div>
+            <div style={{padding:20}}>
+              <p style={{color:'#1e293b',fontSize:14,margin:'0 0 16px'}}>
+                Confirmer la suppression de <strong>{confirmDel.nom} {confirmDel.prenom}</strong> ?
+                <br/><span style={{color:'#dc2626',fontSize:12}}>⚠️ Action irréversible</span>
+              </p>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setConfirmDel(null)}
+                  style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                    padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
+                  Annuler
+                </button>
+                <button onClick={()=>handleDelete(confirmDel)}
+                  style={{flex:1,background:'#dc2626',color:'#fff',border:'none',
+                    padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700}}>
+                  🗑️ Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL CHANGER RÔLE ══ */}
+      {roleModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16}}
+          onClick={e=>e.target===e.currentTarget&&setRoleModal(null)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'#fff',
+              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:700}}>🎭 Changer le rôle</div>
+              <button onClick={()=>setRoleModal(null)}
+                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                  width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
+            </div>
+            <div style={{padding:20}}>
+              <p style={{fontSize:13,color:'#64748b',margin:'0 0 12px'}}>
+                Rôle actuel de <strong>{roleModal.nom} {roleModal.prenom}</strong> :
+                <span style={{fontWeight:700,color:'#7c3aed',marginLeft:6}}>
+                  {TYPES.find(t=>t.v===roleModal.type_personnel)?.l || roleModal.type_personnel}
+                </span>
+              </p>
+              <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={inp}>
+                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+              <div style={{display:'flex',gap:10,marginTop:12}}>
+                <button onClick={()=>setRoleModal(null)}
+                  style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                    padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
+                  Annuler
+                </button>
+                <button onClick={handleChangeRole}
+                  style={{flex:2,background:'#7c3aed',color:'#fff',border:'none',
+                    padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',
+                    fontSize:13,fontWeight:700}}>
+                  💾 Changer le rôle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </PersonnelBoundary>
