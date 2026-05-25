@@ -294,14 +294,15 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
 
 // ── Panneau Gestion des Bons de Caisse ─────────────────────
 function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
+  // États locaux pour la modification de bon
+  const [editBon,      setEditBon]     = useState(null)
+  const [editMontant,  setEditMontant] = useState(100000)
   const [loading,    setLoading]   = useState(false)
   const [msg,        setMsg]       = useState(null)
   const [montant,    setMontant]   = useState(100000)
   const [selPerso,   setSelPerso]  = useState('')
   const [search,     setSearch]    = useState('')
   const [searchSociete, setSearchSociete] = useState('')
-  const [editBon,      setEditBon]      = useState(null)
-  const [editMontant,  setEditMontant]  = useState(100000)
 
   const crediterTous = async () => {
     if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
@@ -481,11 +482,69 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
           })}
         </div>
       </div>
+
+      {/* ─ Modal modifier montant bon ─ */}
+      {editBon && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',zIndex:2100,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setEditBon(null)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14}}>Modifier le bon</div>
+                <div style={{fontSize:11,opacity:.8}}>{editBon.personnel_nom}</div>
+              </div>
+              <button onClick={()=>setEditBon(null)}
+                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                  width:28,height:28,borderRadius:8,cursor:'pointer'}}>X</button>
+            </div>
+            <div style={{padding:20}}>
+              <div style={{fontSize:12,color:'#64748b',marginBottom:8}}>Montant crédit (FCFA)</div>
+              <div style={{display:'flex',gap:6,marginBottom:8}}>
+                {[50000,100000,150000,200000].map(v=>(
+                  <button key={v} onClick={()=>setEditMontant(v)}
+                    style={{flex:1,padding:'6px 2px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
+                      fontSize:10,fontWeight:700,border:'1.5px solid '+(editMontant===v?'#1e3a8a':'#e2e8f0'),
+                      background:editMontant===v?'#1e3a8a':'#f8fafc',color:editMontant===v?'#fff':'#1e3a8a'}}>
+                    {v/1000}K
+                  </button>
+                ))}
+              </div>
+              <input type="number" value={editMontant}
+                onChange={e=>setEditMontant(parseInt(e.target.value)||0)}
+                style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',
+                  fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}/>
+              <div style={{fontSize:11,color:'#94a3b8',marginTop:6}}>
+                Actuel: {parseInt(editBon.credit_initial).toLocaleString()} FCFA
+              </div>
+              <button onClick={async()=>{
+                try {
+                  const base = (import.meta?.env?.VITE_API_URL||window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+                  const tok  = localStorage.getItem('access_token')
+                  const r = await fetch(base+'/api/boutique/bons/crediter/',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+                    body:JSON.stringify({personnel_id:editBon.personnel,montant:editMontant,annee:new Date().getFullYear()})
+                  })
+                  if(r.ok){setEditBon(null);onRefresh()}
+                  else {const d=await r.json();alert(d.error||'Erreur')}
+                }catch(e){alert('Erreur: '+e.message)}
+              }}
+                style={{width:'100%',marginTop:14,background:'#1e3a8a',color:'#fff',border:'none',
+                  padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Modal Article (Créer / Modifier) ───────────────────────
+// ── Modal Article (Créer / Modifier) ─────────────────────── (Créer / Modifier) ───────────────────────
 function ArticleModal({ article, categories, onSave, onClose }) {
   const isEdit = !!article?.id
   const [form, setForm] = useState(article || {
@@ -1307,64 +1366,7 @@ export default function Boutique() {
         />
       )}
 
-      {/* ══ MODAL MODIFIER MONTANT BON ══ */}
-      {editBon && (
-        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
-          display:'flex',alignItems:'center',justifyContent:'center',zIndex:2100,padding:20}}
-          onClick={e=>e.target===e.currentTarget&&setEditBon(null)}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
-            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-            <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
-              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:14}}>✏️ Modifier le bon</div>
-                <div style={{fontSize:11,opacity:.8}}>{editBon.personnel_nom}</div>
-              </div>
-              <button onClick={()=>setEditBon(null)}
-                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
-                  width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
-            </div>
-            <div style={{padding:20}}>
-              <div style={{fontSize:12,color:'#64748b',marginBottom:6}}>Nouveau montant du crédit</div>
-              <div style={{display:'flex',gap:8,marginBottom:6}}>
-                {[50000,100000,150000,200000].map(v=>(
-                  <button key={v} onClick={()=>setEditMontant(v)}
-                    style={{flex:1,padding:'6px 4px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',
-                      fontSize:10,fontWeight:700,
-                      background:editMontant===v?'#1e3a8a':'#f8fafc',
-                      color:editMontant===v?'#fff':'#1e3a8a',
-                      border:`1.5px solid ${editMontant===v?'#1e3a8a':'#e2e8f0'}`}}>
-                    {(v/1000)}K
-                  </button>
-                ))}
-              </div>
-              <input type="number" value={editMontant} onChange={e=>setEditMontant(parseInt(e.target.value)||0)}
-                min={1000} max={500000} step={10000}
-                style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',
-                  fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}/>
-              <div style={{fontSize:11,color:'#94a3b8',marginTop:6}}>
-                Crédit actuel: {parseInt(editBon.credit_initial).toLocaleString()} FCFA
-                · Restant: {parseInt(editBon.credit_restant).toLocaleString()} FCFA
-              </div>
-              <button onClick={async()=>{
-                try {
-                  await boutiqueAPI.crediterPersonnel({
-                    personnel_id:editBon.personnel,
-                    montant:editMontant,
-                    annee:new Date().getFullYear()
-                  })
-                  setEditBon(null)
-                  onRefresh()
-                } catch(e) { alert(e.response?.data?.error||'Erreur') }
-              }}
-                style={{width:'100%',marginTop:14,background:'#1e3a8a',color:'#fff',border:'none',
-                  padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
-                💾 Enregistrer le nouveau montant
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ══ MODAL CHANGEMENT RAPIDE CATÉGORIE ══ */}
       {quickCatArt && (
