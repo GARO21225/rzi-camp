@@ -258,7 +258,7 @@ export default function Maintenance() {
                               const parts=ev.target.result.split(',')
                               const base64=parts[1]||''
                               try {
-                                await incAPI.addComment(selected.id,{
+                                await (incAPI.addComment||incAPI.commenter)(selected.id,{
                                   type_comment:'photo_avant',
                                   contenu:'Photo avant intervention',
                                   photo_base64:base64
@@ -282,7 +282,7 @@ export default function Maintenance() {
                               const parts=ev.target.result.split(',')
                               const base64=parts[1]||''
                               try {
-                                await incAPI.addComment(selected.id,{
+                                await (incAPI.addComment||incAPI.commenter)(selected.id,{
                                   type_comment:'photo_apres',
                                   contenu:'Photo après intervention',
                                   photo_base64:base64
@@ -553,16 +553,15 @@ export default function Maintenance() {
                           </span>
                         </div>
                         <div style={{ fontSize:12, color:'#334155' }}>{c.contenu}</div>
-                        {c.photo_base64 ? (
-                          <div style={{marginTop:8}}>
-                            <img
-                              src={c.photo_base64.startsWith('data:') ? c.photo_base64 : ("data:image/jpeg;base64,"+c.photo_base64)}
-                              alt="Photo"
-                              style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0',cursor:'pointer'}}
-                              onClick={()=>window.open(c.photo_base64.startsWith('data:')?c.photo_base64:("data:image/jpeg;base64,"+c.photo_base64),'_blank')}
-                            />
-                          </div>
-                        ) : null}
+                        {c.photo_base64 && c.photo_base64.length > 10 && (
+                          <img
+                            src={"data:image/jpeg;base64,"+c.photo_base64.replace(/^data:[^;]+;base64,/,'')}
+                            alt="Photo"
+                            style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:8,marginTop:8,cursor:'pointer'}}
+                            onClick={()=>{try{window.open("data:image/jpeg;base64,"+c.photo_base64.replace(/^data:[^;]+;base64,/,''),'_blank')}catch(e){}}}
+                            onError={e=>{e.target.style.display='none'}}
+                          />
+                        )}
                         <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>— {c.auteur_nom}</div>
                       </div>
                     </div>

@@ -50,6 +50,7 @@ export default function Personnel() {
   const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
   const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
   const [newRole,      setNewRole]      = useState('')
+  const [newProfil,    setNewProfil]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -106,9 +107,11 @@ export default function Personnel() {
   const handleChangeRole = async () => {
     if (!roleModal || !newRole) return
     try {
-      await personnelAPI.update(roleModal.id, { type_personnel: newRole })
-      setRoleModal(null); load()
-    } catch(e) { alert('Erreur changement de rôle') }
+      const payload = { type_personnel: newRole }
+      if (newProfil) payload.profil = newProfil
+      await personnelAPI.update(roleModal.id, payload)
+      setRoleModal(null); setNewProfil(''); load()
+    } catch(e) { alert('Erreur changement de profil') }
   }
 
   // Styles
@@ -123,10 +126,22 @@ export default function Personnel() {
   })
 
   const TYPES = [
-    {v:'employe', l:'Employé'},
+    {v:'roxgold',      l:'Roxgold'},
     {v:'soustraitant', l:'Sous-traitant'},
-    {v:'visiteur', l:'Visiteur'},
-    {v:'roxgold', l:'Roxgold'},
+    {v:'visiteur',     l:'Visiteur'},
+    {v:'consultant',   l:'Consultant'},
+    {v:'chef_projet',  l:'Chef de Projet'},
+    {v:'stagiaire',    l:'Stagiaire'},
+  ]
+
+  const PROFILS = [
+    {v:'admin',        l:'Administrateur'},
+    {v:'agent',        l:'Agent'},
+    {v:'technicien',   l:'Technicien'},
+    {v:'responsable',  l:'Responsable'},
+    {v:'manager',      l:'Manager'},
+    {v:'securite',     l:'Sécurité'},
+    {v:'medical',      l:'Médical'},
   ]
 
   return (
@@ -165,7 +180,8 @@ export default function Personnel() {
           <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}
             style={{...inp,maxWidth:160}}>
             <option value="">Tous les types</option>
-            {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+            {/* Type de personnel */}
+                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
         </div>
 
@@ -247,8 +263,8 @@ export default function Personnel() {
                           <button onClick={() => {setNewRole(p.type_personnel);setRoleModal(p)}}
                             style={{background:'#f5f3ff',color:'#7c3aed',border:'1px solid #c4b5fd',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
-                            title="Changer le rôle">
-                            🎭
+                            title="Changer le profil">
+                            👤
                           </button>
                           <button onClick={() => handleToggleActif(p)}
                             style={{background:p.actif?'#fef3c7':'#f0fdf4',
@@ -319,7 +335,8 @@ export default function Personnel() {
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>TYPE</label>
                     <select value={form.type_personnel} onChange={e=>setForm({...form,type_personnel:e.target.value})} style={inp}>
-                      {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                      {/* Type de personnel */}
+                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                     </select>
                   </div>
                 </div>
@@ -567,19 +584,20 @@ export default function Personnel() {
             overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
             <div style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'#fff',
               padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontWeight:700}}>🎭 Changer le rôle</div>
+              <div style={{fontWeight:700}}>👤 Changer le profil</div>
               <button onClick={()=>setRoleModal(null)}
                 style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
                   width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
             </div>
             <div style={{padding:20}}>
               <p style={{fontSize:13,color:'#64748b',margin:'0 0 12px'}}>
-                Rôle actuel de <strong>{roleModal.nom} {roleModal.prenom}</strong> :
+                Profil actuel de <strong>{roleModal.nom} {roleModal.prenom}</strong> :
                 <span style={{fontWeight:700,color:'#7c3aed',marginLeft:6}}>
                   {TYPES.find(t=>t.v===roleModal.type_personnel)?.l || roleModal.type_personnel}
                 </span>
               </p>
               <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={inp}>
+                {/* Type de personnel */}
                 {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
               </select>
               <div style={{display:'flex',gap:10,marginTop:12}}>

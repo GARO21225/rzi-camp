@@ -65,6 +65,15 @@ export const personnel = {
   assigRole: (id, role) => api.patch(`/api/personnel/${id}/assigner_role/`, {role}),
   toggleActive: (id) => api.post(`/api/personnel/${id}/toggle_active/`),
 }
+// ── Menu Restaurant ─────────────────────────────────────
+export const menu = {
+  list:   (p) => api.get('/api/menu/', {params:p}),
+  create: (d) => api.post('/api/menu/', d),
+  update: (id,d) => api.patch(`/api/menu/${id}/`, d),
+  delete: (id) => api.delete(`/api/menu/${id}/`),
+  today:  () => api.get('/api/menu/today/'),
+}
+
 export const incidents = {
   list:         (p) => api.get('/api/incidents/',  {params:p}),
   create:       (d) => api.post('/api/incidents/', d),

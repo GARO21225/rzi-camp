@@ -125,3 +125,32 @@ class BonCaisse(models.Model):
         self.credit_restant = max(0, self.credit_restant - montant)
         self.save(update_fields=['credit_restant', 'mis_a_jour'])
         return self.credit_restant
+
+
+class MenuJour(models.Model):
+    """Menu du jour/semaine pour la restauration."""
+    TYPES = [
+        ('entree',   'Entrée'),
+        ('plat',     'Plat principal'),
+        ('dessert',  'Dessert'),
+        ('boisson',  'Boisson'),
+        ('special',  'Plat spécial'),
+    ]
+    nom         = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    type_plat   = models.CharField(max_length=20, choices=TYPES, default='plat')
+    date_service = models.DateField()
+    repas        = models.CharField(max_length=20, choices=[
+        ('matin','Petit déjeuner'), ('midi','Déjeuner'), ('soir','Dîner')
+    ], default='midi')
+    disponible  = models.BooleanField(default=True)
+    image_url   = models.URLField(blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date_service', 'repas', 'type_plat']
+        verbose_name = 'Menu du jour'
+
+    def __str__(self):
+        return f"{self.date_service} — {self.get_repas_display()} — {self.nom}"

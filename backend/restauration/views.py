@@ -1,10 +1,12 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, viewsets
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils import timezone
 from django.db import connection
-from .models import QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
+from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
 
 class QRTokenViewSet(viewsets.ViewSet):
@@ -73,7 +75,7 @@ class QRTokenViewSet(viewsets.ViewSet):
                 }, status=400)
 
             # 5. Créer le token et le log via Django ORM (compatible SQLite + PostgreSQL)
-            from .models import QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
+            from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
             from residences.models import Personnel as P
 
             now = timezone.now()
@@ -166,7 +168,7 @@ class QRTokenViewSet(viewsets.ViewSet):
 
             # Créer QRToken + RepasLog via ORM (compatible SQLite ET PostgreSQL)
             import uuid
-            from .models import QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
+            from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
             from residences.models import Personnel as P
 
             now       = timezone.now()
@@ -260,7 +262,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
 
 # ── Bar & Boutique ──────────────────────────────────────────────────
-from .models import QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
+from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
 from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
@@ -691,3 +693,27 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
             return Response(BonCaisseSerializer(bon).data)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+
+class MenuJourSerializer(drf_serializers.ModelSerializer):
+    type_label  = drf_serializers.CharField(source='get_type_plat_display', read_only=True)
+    repas_label = drf_serializers.CharField(source='get_repas_display', read_only=True)
+    class Meta:
+        model  = MenuJour
+        fields = '__all__'
+
+class MenuJourViewSet(viewsets.ModelViewSet):
+    queryset           = MenuJour.objects.all()
+    serializer_class   = MenuJourSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields   = ['date_service', 'repas', 'disponible']
+    ordering           = ['date_service', 'repas']
+
+    @action(detail=False, methods=['get'])
+    def today(self, request):
+        from django.utils import timezone
+        menus = self.get_queryset().filter(
+            date_service=timezone.now().date(), disponible=True
+        )
+        return Response(self.get_serializer(menus, many=True).data)

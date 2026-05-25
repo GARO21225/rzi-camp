@@ -786,6 +786,12 @@ function ArticleCard({ a, qty, onAdd }) {
 // ════════════════════════════════════════════════════════════
 export default function Boutique() {
   const {user} = useStore()
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  useEffect(()=>{
+    const h = ()=>setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize',h)
+    return ()=>window.removeEventListener('resize',h)
+  },[])
   const isAdmin = !!(user?.is_staff || user?.is_superuser ||
     user?.profile?.role === 'admin' || user?.role === 'admin' ||
     user?.username === 'admin')
