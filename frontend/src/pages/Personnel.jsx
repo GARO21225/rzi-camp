@@ -495,7 +495,7 @@ export default function Personnel() {
                 try {
                   const r = await personnelAPI.declarerMasse(masseForm)
                   setMasseResult(r.data)
-                  loadData()
+                  load()
                 } catch(e) { alert(e.response?.data?.error||"Erreur") }
                 finally { setMasseLoading(false) }
               }} style={{background:masseLoading?"#94a3b8":"#f59e0b",color:"#fff",border:"none",padding:13,borderRadius:10,cursor:masseLoading?"wait":"pointer",fontSize:14,fontWeight:700,fontFamily:"inherit"}}>

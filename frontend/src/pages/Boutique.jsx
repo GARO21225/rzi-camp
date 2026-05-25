@@ -4,6 +4,7 @@
  * Ajouter / Modifier / Supprimer articles + catégories + images
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import api from '../api'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 
@@ -298,6 +299,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   const [montant,    setMontant]   = useState(100000)
   const [selPerso,   setSelPerso]  = useState('')
   const [search,     setSearch]    = useState('')
+  const [searchSociete, setSearchSociete] = useState('')
 
   const crediterTous = async () => {
     if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
@@ -322,9 +324,11 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
     finally { setLoading(false) }
   }
 
-  const filteredBons = bons.filter(b =>
-    !search || b.personnel_nom.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredBons = bons.filter(b => {
+    const matchSearch = !search || b.personnel_nom.toLowerCase().includes(search.toLowerCase())
+    const matchSociete = !searchSociete || b.personnel_info?.societe === searchSociete
+    return matchSearch && matchSociete
+  })
 
   const totalCredit  = bons.reduce((s,b) => s+parseInt(b.credit_initial),  0)
   const totalRestant = bons.reduce((s,b) => s+parseInt(b.credit_restant),  0)
@@ -447,8 +451,21 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
                 <div style={{background:'#e2e8f0',borderRadius:99,height:5,overflow:'hidden'}}>
                   <div style={{height:'100%',borderRadius:99,width:`${Math.max(2,pct)}%`,background:barColor,transition:'width .3s'}}/>
                 </div>
-                <div style={{fontSize:10,color:'#94a3b8',marginTop:3,textAlign:'right'}}>
-                  {parseInt(b.credit_utilise).toLocaleString()} FCFA utilisés ({b.pourcentage}%)
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:3}}>
+                  <span style={{fontSize:10,color:'#94a3b8'}}>
+                    {parseInt(b.credit_utilise).toLocaleString()} FCFA utilisés ({b.pourcentage}%)
+                  </span>
+                  <button onClick={async()=>{
+                    if(!window.confirm(`Supprimer le bon de ${b.personnel_nom} ?`)) return
+                    try {
+                      await api.delete(`/api/boutique/bons/${b.id}/`)
+                      onRefresh()
+                    } catch(e) { alert(e.response?.data?.error||'Erreur suppression') }
+                  }}
+                    style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
+                      padding:'2px 8px',borderRadius:6,cursor:'pointer',fontSize:10,fontWeight:700}}>
+                    🗑️ Suppr.
+                  </button>
                 </div>
               </div>
             )

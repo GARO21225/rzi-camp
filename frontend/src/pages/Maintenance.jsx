@@ -180,9 +180,16 @@ export default function Maintenance() {
     if (!form.titre || !form.description || !form.residence) return setErr('Titre, description et résidence requis')
     setSubmitting(true); setErr('')
     try {
-      const r = await incAPI.create(form)
+      const payload = {...form}
+      // Extraire juste le base64 sans le préfixe data:...
+      if (payload.photo_base64 && payload.photo_base64.startsWith('data:')) {
+        const parts = payload.photo_base64.split(',')
+        payload.photo_base64 = parts[1] || ''
+        payload.photo_mime = payload.photo_base64 ? (payload.photo_base64.split(';')[0]?.replace('data:','') || 'image/jpeg') : 'image/jpeg'
+      }
+      const r = await incAPI.create(payload)
       setModal(null)
-      setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'', bloc:'' })
+      setForm({ titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'', bloc:'', photo_base64:'' })
       load()
       setSelected(r.data)
     } catch(e) { setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur') }
@@ -373,6 +380,22 @@ export default function Maintenance() {
               </div>
             </div>
 
+              {/* Photo de l'incident */}
+              {selected.photo_base64 && (
+                <div style={{ marginTop:12 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>
+                    📷 Photo
+                  </div>
+                  <img
+                    src={selected.photo_base64.startsWith('data:') ? selected.photo_base64 : `data:${selected.photo_mime||'image/jpeg'};base64,${selected.photo_base64}`}
+                    alt="Photo incident"
+                    style={{ width:'100%', maxHeight:280, objectFit:'cover', borderRadius:12,
+                      border:'2px solid #e2e8f0', cursor:'pointer' }}
+                    onClick={() => window.open(selected.photo_base64.startsWith('data:') ? selected.photo_base64 : `data:${selected.photo_mime||'image/jpeg'};base64,${selected.photo_base64}`, '_blank')}
+                  />
+                  <div style={{ fontSize:10, color:'#94a3b8', marginTop:4 }}>Cliquer pour agrandir</div>
+                </div>
+              )}
             {/* Actions workflow */}
             {selected.statut !== 'cloture' && selected.statut !== 'annule' && (
               <div>

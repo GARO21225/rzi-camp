@@ -424,6 +424,24 @@ def force_seed(request):
     except Exception as e:
         errors.append(f"⚠️ BonCaisse: {str(e)[:100]}")
 
+    # 5. Maintenance — s'assurer que les colonnes photo existent
+    try:
+        with connection.cursor() as cur:
+            for col, dtype in [
+                ('photo_base64','TEXT'), ('photo_mime','VARCHAR(50)'),
+                ('photo_resolution_base64','TEXT'),('latitude','DECIMAL(10,7)'),('longitude','DECIMAL(10,7)')
+            ]:
+                try:
+                    cur.execute(f"ALTER TABLE maintenance_incident ADD COLUMN IF NOT EXISTS {col} {dtype} DEFAULT ''")
+                except Exception:
+                    try:
+                        cur.execute(f"SELECT {col} FROM maintenance_incident LIMIT 0")
+                    except Exception:
+                        cur.execute(f"ALTER TABLE maintenance_incident ADD COLUMN {col} {dtype}")
+        results.append("✅ Maintenance: colonnes photo OK")
+    except Exception as e:
+        errors.append(f"⚠️ Maintenance: {str(e)[:80]}")
+
     return Response({
         'ok':      len(errors) == 0,
         'results': results,
