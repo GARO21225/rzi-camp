@@ -52,6 +52,7 @@ export const batiments = {
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
 }
 export const personnel = {
+  declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),
   list: (p) => api.get('/api/personnel/', {params:p}),
   monProfil: () => api.get('/api/personnel/mon_profil/'),
   create: (d) => api.post('/api/personnel/', d),

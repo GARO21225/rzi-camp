@@ -48,21 +48,26 @@ export default function Dashboard() {
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
 
   useEffect(() => {
-    cachedFetch('bat-stats', () => batiments.stats(), 60000).then(r=>{
-      const d = r.data
-      const ps = d.par_statut || {}
-      setStats({
-        libres:      ps['Libre']       || ps['libre']      || d.libres      || 0,
-        occupes:     ps['Occupé']      || ps['occupe']     || d.occupes     || 0,
-        reserves:    ps['Réservé']     || ps['reserve']    || d.reserves    || 0,
-        maintenance: ps['Maintenance'] || ps['maintenance'] || d.maintenance || 0,
-        total:       d.total           || 203,
-        taux:        d.taux_occupation || 0,
-        departs:     d.departs_s1      || 0,
-      })
-    }).catch(()=>{})
-    cachedFetch('inc-stats', () => incidents.stats(), 60000).then(r=>setIncStats(r.data)).catch(()=>{})
-    cachedFetch('voy-stats', () => voyAPI.stats(), 60000).then(r=>setVoyStats(r.data)).catch(()=>{})
+    const load = () => {
+      batiments.stats().then(r => {
+        const d = r.data || {}
+        const ps = d.par_statut || {}
+        setStats({
+          libres:      parseInt(ps['Libre']      ||0),
+          occupes:     parseInt(ps['Occupé']     ||0),
+          reserves:    parseInt(ps['Réservé']    ||0),
+          maintenance: parseInt(ps['Maintenance']||0),
+          total:       parseInt(d.total          ||0),
+          taux:        parseFloat(d.taux_occupation||0),
+          departs:     parseInt(d.departs_s1     ||0),
+        })
+      }).catch(() => {})
+      incidents.stats().then(r => setIncStats(r.data||{})).catch(() => setIncStats({}))
+      voyAPI.stats().then(r => setVoyStats(r.data||{})).catch(() => setVoyStats({}))
+    }
+    load()
+    const iv = setInterval(load, 5*60*1000)
+    return () => clearInterval(iv)
   }, [])
 
   // Horloge live

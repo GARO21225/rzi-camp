@@ -187,6 +187,7 @@ export default function Personnel() {
         </div>
         {isAdmin && (
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={()=>{setMasseResult(null);setMasseModal(true)}} style={{background:"#f59e0b",color:"#fff",border:"none",padding:"9px 14px",borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:700}}>Sous-traitants masse</button>
             <button onClick={() => setImportModal(true)}
               style={btn('rgba(30,58,138,.1)','#1e3a8a','1px solid rgba(30,58,138,.3)')}>
               📥 Importer CSV
@@ -444,101 +445,104 @@ export default function Personnel() {
       )}
     </div>
   )
-}
 
-// ── Composants utilitaires ───────────────────────────────────────
-function PersonnelForm({ form, setForm, err, inputStyle }) {
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      {err && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#dc2626', fontWeight:600 }}>❌ {err}</div>}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        {[['Nom *','nom'],['Prénom *','prenom']].map(([label,field]) => (
-          <div key={field}>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-            <input value={form[field]||''} onChange={e => setForm({...form,[field]:e.target.value.toUpperCase()})} style={inputStyle} />
-          </div>
-        ))}
-      </div>
-      {[['Société','societe'],['Téléphone','numero'],['Email','email']].map(([label,field]) => (
-        <div key={field}>
-          <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-          <input value={form[field]||''} onChange={e => setForm({...form,[field]:e.target.value})} style={inputStyle} />
-        </div>
-      ))}
-      <div>
-        <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:5, textTransform:'uppercase', letterSpacing:.5 }}>Type</label>
-        <select value={form.type_personnel||'roxgold'} onChange={e => setForm({...form,type_personnel:e.target.value})} style={{ ...inputStyle }}>
-          {[{value:'roxgold',label:'Agent Roxgold'},{value:'sous_traitant',label:'Sous-traitant'},{value:'visiteur',label:'Visiteur'}].map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* ── Accès temporaire 24H ── */}
-      <div style={{ background: form.est_temporaire ? '#fffbeb' : '#f8fafc', border: `1.5px solid ${form.est_temporaire ? '#f0a500' : '#e2e8f0'}`, borderRadius:12, padding:'14px 16px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: form.est_temporaire ? 12 : 0 }}>
+  {/* MODAL SOUS-TRAITANTS EN MASSE */}
+  {masseModal && (
+    <div style={{position:"fixed",inset:0,background:"rgba(15,36,71,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16}}
+      onClick={e=>e.target===e.currentTarget&&setMasseModal(false)}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+        <div style={{background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{ fontWeight:700, fontSize:13, color: form.est_temporaire ? '#92400e' : '#334155' }}>
-              ⏰ Accès temporaire
-            </div>
-            <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>
-              L'accès sera automatiquement désactivé après le délai
-            </div>
+            <div style={{fontWeight:700,fontSize:15}}>Sous-Traitants en masse</div>
+            <div style={{fontSize:11,opacity:.8,marginTop:2}}>Creer N acces temporaires pour une societe</div>
           </div>
-          <button type="button"
-            onClick={() => setForm({...form, est_temporaire: !form.est_temporaire})}
-            style={{ width:44, height:24, borderRadius:99, border:'none', cursor:'pointer', transition:'all .2s',
-              background: form.est_temporaire ? '#f0a500' : '#e2e8f0', position:'relative', flexShrink:0 }}>
-            <div style={{ width:18, height:18, borderRadius:'50%', background:'#fff',
-              position:'absolute', top:3, transition:'all .2s',
-              left: form.est_temporaire ? 23 : 3, boxShadow:'0 1px 4px rgba(0,0,0,.2)' }} />
-          </button>
+          <button onClick={()=>setMasseModal(false)} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",width:28,height:28,borderRadius:8,cursor:"pointer",fontSize:16}}>X</button>
         </div>
-        {form.est_temporaire && (
-          <div>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#92400e', marginBottom:6, textTransform:'uppercase' }}>
-              Durée d'accès
-            </label>
-            <select value={form.duree_h || 24} onChange={e => setForm({...form, duree_h: parseInt(e.target.value)})}
-              style={{ ...inputStyle, border:'2px solid #f0a500' }}>
-              <option value={24}>24 heures</option>
-              <option value={48}>48 heures</option>
-              <option value={72}>72 heures (3 jours)</option>
-              <option value={168}>1 semaine</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-    </div>
-  )
-}
-
-function ModalWrapper({ title, onClose, children }) {
-  return (
-    <div style={{ position:'fixed',inset:0,background:'rgba(15,23,42,.65)',zIndex:1000,display:'flex',alignItems:'flex-end',justifyContent:'center',padding:0 }}
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:'#fff',borderRadius:'16px 16px 0 0',width:'100%',maxWidth:520,maxHeight:'92vh',overflow:'auto',boxShadow:'0 -8px 40px rgba(0,0,0,.2)' }}>
-        <div style={{ position:'sticky',top:0,background:'#1e3a8a',color:'#fff',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:10 }}>
-          <span style={{ fontWeight:700,fontSize:15 }}>{title}</span>
-          <button onClick={onClose} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'#fff',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
+        <div style={{padding:20}}>
+          {!masseResult ? (
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{background:"#fef3c7",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#92400e"}}>
+                Logins et mots de passe generes automatiquement
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:5}}>SOCIETE *</div>
+                <input value={masseForm.societe} onChange={e=>setMasseForm({...masseForm,societe:e.target.value})}
+                  placeholder="Ex: SGBCI Mining, SAPH..."
+                  style={{width:"100%",border:"2px solid #e2e8f0",borderRadius:9,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:5}}>NOMBRE</div>
+                  <input type="number" value={masseForm.nombre} onChange={e=>setMasseForm({...masseForm,nombre:parseInt(e.target.value)||1})}
+                    min={1} max={100}
+                    style={{width:"100%",border:"2px solid #e2e8f0",borderRadius:9,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:5}}>DUREE</div>
+                  <select value={masseForm.duree_h} onChange={e=>setMasseForm({...masseForm,duree_h:parseInt(e.target.value)})}
+                    style={{width:"100%",border:"2px solid #e2e8f0",borderRadius:9,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}>
+                    <option value={24}>24h</option>
+                    <option value={48}>48h</option>
+                    <option value={72}>3 jours</option>
+                    <option value={168}>1 semaine</option>
+                    <option value={720}>1 mois</option>
+                  </select>
+                </div>
+              </div>
+              <button disabled={masseLoading} onClick={async()=>{
+                if(!masseForm.societe.trim()) return alert("Societe requise")
+                setMasseLoading(true)
+                try {
+                  const r = await personnelAPI.declarerMasse(masseForm)
+                  setMasseResult(r.data)
+                  loadData()
+                } catch(e) { alert(e.response?.data?.error||"Erreur") }
+                finally { setMasseLoading(false) }
+              }} style={{background:masseLoading?"#94a3b8":"#f59e0b",color:"#fff",border:"none",padding:13,borderRadius:10,cursor:masseLoading?"wait":"pointer",fontSize:14,fontWeight:700,fontFamily:"inherit"}}>
+                {masseLoading?"Creation...":"Creer "+masseForm.nombre+" agents "+masseForm.societe}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+                <div style={{fontWeight:700,color:"#166534"}}>{masseResult.message}</div>
+                <div style={{fontSize:11,color:"#16a34a"}}>Expire {masseResult.expire}</div>
+              </div>
+              <div style={{maxHeight:220,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#f8fafc"}}>
+                    <th style={{padding:"8px 12px",textAlign:"left",color:"#64748b"}}>#</th>
+                    <th style={{padding:"8px 12px",textAlign:"left",color:"#64748b"}}>Login</th>
+                    <th style={{padding:"8px 12px",textAlign:"left",color:"#64748b"}}>Mot de passe</th>
+                  </tr></thead>
+                  <tbody>
+                    {masseResult.agents?.map((a,i)=>(
+                      <tr key={i} style={{borderTop:"1px solid #f1f5f9",background:i%2?"#fafafa":"#fff"}}>
+                        <td style={{padding:"7px 12px",color:"#94a3b8"}}>{i+1}</td>
+                        <td style={{padding:"7px 12px",fontFamily:"monospace",fontWeight:700,color:"#1e3a8a"}}>{a.login}</td>
+                        <td style={{padding:"7px 12px",fontFamily:"monospace",color:"#dc2626"}}>{a.pwd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{display:"flex",gap:10,marginTop:14}}>
+                <button onClick={()=>{
+                  const txt = (masseResult.agents||[]).map(a=>a.login+" / "+a.pwd).join(", ")
+                  navigator.clipboard.writeText(txt).then(()=>alert("Copie!"))
+                }} style={{flex:1,background:"#1e3a8a",color:"#fff",border:"none",padding:11,borderRadius:9,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                  Copier identifiants
+                </button>
+                <button onClick={()=>{setMasseResult(null);setMasseForm({societe:"",nombre:5,duree_h:72})}}
+                  style={{flex:1,background:"#f59e0b",color:"#fff",border:"none",padding:11,borderRadius:9,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                  Nouvelle declaration
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        <div style={{ padding:20 }}>{children}</div>
       </div>
     </div>
-  )
-}
+  )}
 
-function ModalFooter({ onCancel, onSave, saving, saveLabel }) {
-  return (
-    <div style={{ display:'flex',gap:10,marginTop:20 }}>
-      <button onClick={onCancel} style={{ flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'12px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>
-        Annuler
-      </button>
-      <button onClick={onSave} disabled={saving}
-        style={{ flex:2,background:saving?'#94a3b8':'#1e3a8a',color:'#fff',border:'none',padding:'12px',borderRadius:10,cursor:saving?'wait':'pointer',fontSize:14,fontWeight:700 }}>
-        {saving ? '⏳ En cours…' : saveLabel}
-      </button>
-    </div>
-  )
 }

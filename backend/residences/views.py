@@ -1,8 +1,8 @@
 
 from rest_framework import viewsets, filters, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Batiment, Personnel, OccupationHistory, Demande
 from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer
 import csv, datetime
@@ -727,7 +727,7 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
 
 
 from rest_framework import viewsets, filters
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
@@ -947,3 +947,46 @@ class DemandeViewSet(viewsets.ModelViewSet):
         expirés.update(actif=False)
         return Response({'desactives': count, 'message': f'{count} compte(s) temporaire(s) désactivé(s)'})
 
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def declarer_soustraitants_masse(request):
+    """Créer N sous-traitants temporaires pour une société"""
+    societe = request.data.get('societe','').strip()
+    nombre  = int(request.data.get('nombre', 0))
+    duree_h = int(request.data.get('duree_h', 72))
+    if not societe: return Response({'error':'Société requise'}, status=400)
+    if not (1 <= nombre <= 100): return Response({'error':'Nombre invalide (1-100)'}, status=400)
+
+    import random, string, datetime
+    from django.utils import timezone
+    from django.contrib.auth.models import User
+
+    prefix  = ''.join(c for c in societe.upper() if c.isalpha())[:3] or 'ST'
+    expire  = timezone.now() + datetime.timedelta(hours=duree_h)
+    created = []
+
+    for i in range(1, nombre+1):
+        login = f"{prefix}{i:02d}"
+        cnt   = 1
+        while User.objects.filter(username=login).exists():
+            login = f"{prefix}{i:02d}_{cnt}"; cnt += 1
+        pwd  = ''.join(random.choices(string.ascii_letters+string.digits, k=8))
+        user = User.objects.create_user(username=login, password=pwd,
+            first_name=societe, last_name=f'ST-{i:02d}', is_active=True)
+        try:
+            from accounts.models import Profile
+            Profile.objects.get_or_create(user=user, defaults={'role':'agent'})
+        except: pass
+        p = Personnel.objects.create(
+            nom=societe, prenom=f'ST-{i:02d}', societe=societe,
+            numero='', type_personnel='sous_traitant', user=user, actif=True)
+        try: p.generer_qr()
+        except: pass
+        created.append({'id':p.id,'login':login,'pwd':pwd,
+            'nom':f"{societe} ST-{i:02d}",'expire':expire.strftime('%d/%m/%Y %H:%M')})
+
+    return Response({'ok':True,'created':len(created),'societe':societe,
+        'expire':expire.strftime('%d/%m/%Y %H:%M'),'duree_h':duree_h,
+        'agents':created,'message':f"{len(created)} sous-traitants {societe} créés — accès {duree_h}h"})

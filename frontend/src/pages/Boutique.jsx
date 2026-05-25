@@ -154,7 +154,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
       {!loading && !data && (
         <div style={{textAlign:'center',padding:60,color:'#94a3b8'}}>
           <div style={{fontSize:48}}>📊</div>
-          <div>Chargement en cours...</div>
+          <div style={{fontWeight:600}}>Aucune donnée · vérifiez l'endpoint /api/boutique/consommations/analyses/</div>
         </div>
       )}
 
@@ -1252,9 +1252,17 @@ export default function Boutique() {
             setAnalysesLoading(true)
             try {
               const r = await boutiqueAPI.analyses({periode:p})
-              setAnalyses(r.data)
-            } catch(e) { setAnalyses(null) }
-            finally { setAnalysesLoading(false) }
+              const d = r.data
+              setAnalyses({
+                periode: d.periode||p, total_ca: d.total_ca||0, total_qte: d.total_qte||0,
+                nb_transactions: d.nb_transactions||0, top_articles: d.top_articles||[],
+                top_agents: d.top_agents||[], par_categorie: d.par_categorie||[], evolution: d.evolution||[]
+              })
+            } catch(e) {
+              console.error('Analyses error:', e)
+              setAnalyses({periode:p,total_ca:0,total_qte:0,nb_transactions:0,
+                top_articles:[],top_agents:[],par_categorie:[],evolution:[]})
+            } finally { setAnalysesLoading(false) }
           }}
         />
       )}
