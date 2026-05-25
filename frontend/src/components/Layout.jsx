@@ -10,6 +10,7 @@ import { useNotifications } from '../hooks/useNotifications'
 const ROLE_NAV = {
   admin: [
     { to:'/', label:'📊 Dashboard', exact:true },
+    { to:'/workflows', label:'🎯 Workflows' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/residences', label:'🏠 Résidences' },
     { to:'/personnel', label:'👤 Personnel' },
@@ -29,6 +30,7 @@ const ROLE_NAV = {
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },
+    { to:'/workflows', label:'🎯 Workflows' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/demandes', label:'📝 Mes demandes' },
     { to:'/evenements', label:'📅 Événements' },
@@ -37,17 +39,20 @@ const ROLE_NAV = {
     { to:'/maintenance', label:'🛠️ Signaler Incident' },
   ],
   restauration: [
+    { to:'/workflows', label:'🎯 Workflows' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
     { to:'/restauration', label:'🍽️ Restauration' },
   ],
   technicien: [
+    { to:'/workflows', label:'🎯 Workflows' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
     { to:'/induction', label:'🎓 Induction QHSE' },
   ],
   menage: [
+    { to:'/workflows', label:'🎯 Workflows' },
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
     { to:'/maintenance', label:'🛠️ Signaler' },

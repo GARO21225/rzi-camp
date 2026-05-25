@@ -1016,7 +1016,7 @@ export default function Boutique() {
 
       {/* ══ CAISSE ══ */}
       {tab==='caisse'&&(
-        <div style={{display:'grid',gridTemplateColumns:'1fr 310px',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 310px',gap:16}}>
           <div>
             {/* Filtres */}
             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
@@ -1076,7 +1076,7 @@ export default function Boutique() {
                           </span>
                         )}
                       </div>
-                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
+                      <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
                         {items.map(a=>(
                           <div key={a.id}
                             draggable={reorganize}

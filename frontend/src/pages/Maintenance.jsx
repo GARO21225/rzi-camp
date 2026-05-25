@@ -109,6 +109,34 @@ function Modal({ title, onClose, children, maxW=520 }) {
 }
 
 // ════════════════════════════════════════════════════════════════
+class MaintenanceBoundary extends React.Component {
+  constructor(p) { super(p); this.state = {err:null} }
+  static getDerivedStateFromError(e) { return {err:e.message || 'Erreur'} }
+  componentDidCatch(e, info) { console.error('[Maintenance crash]', e, info) }
+  render() {
+    if (this.state.err) return (
+      <div style={{padding:40,textAlign:'center'}}>
+        <div style={{fontSize:48,marginBottom:12}}>🔧</div>
+        <div style={{fontWeight:700,color:'#dc2626',fontSize:16,marginBottom:8}}>
+          Erreur dans le module Maintenance
+        </div>
+        <div style={{background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:10,
+          padding:'10px 16px',fontSize:12,color:'#991b1b',maxWidth:400,margin:'0 auto 16px',
+          textAlign:'left',fontFamily:'monospace'}}>
+          {this.state.err}
+        </div>
+        <button onClick={()=>this.setState({err:null})}
+          style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 24px',
+            borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700}}>
+          🔄 Réessayer
+        </button>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
+
 export default function Maintenance() {
   const { user } = useStore()
   const role    = user?.profile?.role || (user?.is_staff ? 'admin' : 'agent')
@@ -199,6 +227,7 @@ export default function Maintenance() {
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9, padding:'10px 12px', fontSize:14, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
 
   return (
+    <MaintenanceBoundary>
     <div style={{ padding:20, display:'grid', gridTemplateColumns:selected?'1fr 400px':'1fr', gap:16, height:'calc(100dvh - 58px)', overflow:'hidden' }}>
 
       {/* ═══ PANNEAU GAUCHE : liste ═══ */}
@@ -524,20 +553,16 @@ export default function Maintenance() {
                           </span>
                         </div>
                         <div style={{ fontSize:12, color:'#334155' }}>{c.contenu}</div>
-                        {c.photo_base64 && (
+                        {c.photo_base64 ? (
                           <div style={{marginTop:8}}>
                             <img
                               src={c.photo_base64.startsWith('data:') ? c.photo_base64 : ("data:image/jpeg;base64,"+c.photo_base64)}
-                              alt={c.type_comment==='photo_avant'?'Photo avant':'Photo'}
-                              style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:8,
-                                border:'2px solid #e2e8f0',cursor:'pointer'}}
+                              alt="Photo"
+                              style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0',cursor:'pointer'}}
                               onClick={()=>window.open(c.photo_base64.startsWith('data:')?c.photo_base64:("data:image/jpeg;base64,"+c.photo_base64),'_blank')}
                             />
-                            <div style={{fontSize:9,color:'#94a3b8',marginTop:2}}>
-                              {c.type_comment==='photo_avant'?'📷 Avant intervention':'📷 Après intervention'} · Cliquer pour agrandir
-                            </div>
                           </div>
-                        )}
+                        ) : null}
                         <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>— {c.auteur_nom}</div>
                       </div>
                     </div>
@@ -681,5 +706,6 @@ export default function Maintenance() {
         </Modal>
       )}
     </div>
+    </MaintenanceBoundary>
   )
 }
