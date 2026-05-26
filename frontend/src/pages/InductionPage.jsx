@@ -298,6 +298,7 @@ export default function InductionPage() {
   const [docUploads,  setDocUploads]  = useState({})
   const [medData,     setMedData]     = useState({})
   const [savedMsg,    setSavedMsg]    = useState('')
+  const [slideTab,    setSlideTab]    = useState('etapes')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -319,8 +320,8 @@ export default function InductionPage() {
   const getEtapeDone = (pid, key) => !!(wf({id:pid}).etapes?.[key]?.done)
 
   const etapeDebloquee = (pid, etapeKey) => {
+    const idx = ETAPES.findIndex(e=>e.key===etapeKey)
     try {
-      const idx = ETAPES.findIndex(e=>e.key===etapeKey)
       if (idx<=0) return true
       const prev = ETAPES[idx-1]
       return getEtapeDone(pid, prev.key)

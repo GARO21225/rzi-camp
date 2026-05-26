@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
-import { qr as qrAPI } from '../api'
+import { qr as qrAPI, menu as menuAPI } from '../api'
 
 // ── Configuration repas ───────────────────────────────────────────
 const REPAS = [
@@ -505,6 +505,17 @@ export default function Restauration() {
               loading={loading}
           />
         </div>
+
+        {/* Menu du jour */}
+        <MenuDuJour
+          menuItems={menuItems} setMenuItems={setMenuItems}
+          menuDate={menuDate} setMenuDate={setMenuDate}
+          menuForm={menuForm} setMenuForm={setMenuForm}
+        />
+        <MenuFormModal
+          menuForm={menuForm} setMenuForm={setMenuForm}
+          menuDate={menuDate} setMenuItems={setMenuItems}
+        />
       </div>
     )
   }
@@ -549,101 +560,115 @@ export default function Restauration() {
             </div>
           ))}
         </div>
-      {/* ── Menu du Jour ── */}
-      {isResto && (
-        <div style={{marginTop:16,borderTop:'1px solid var(--border)',paddingTop:14}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-            <div style={{fontWeight:700,fontSize:13,color:'var(--primary)'}}>🍽️ Menu du jour</div>
-            <button onClick={()=>setMenuForm({nom:'',type_plat:'plat',repas:'midi',
-              date_service:menuDate,description:'',disponible:true})}
-              style={{background:'var(--primary)',color:'#fff',border:'none',
-                padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
-              ➕ Plat
-            </button>
-          </div>
-          <input type="date" value={menuDate}
-            onChange={async e=>{setMenuDate(e.target.value);const r=await menuAPI.list({date_service:e.target.value});setMenuItems(r.data.results||r.data||[])}}
-            style={{border:'1px solid var(--border)',borderRadius:7,padding:'5px 8px',
-              fontSize:11,outline:'none',marginBottom:8,width:'100%',boxSizing:'border-box'}}/>
-          {menuItems.length===0 ? (
-            <div style={{color:'var(--text-dim)',fontSize:11,textAlign:'center',padding:8}}>
-              Aucun plat pour cette date
-            </div>
-          ) : menuItems.map(m=>(
-            <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',
-              borderBottom:'1px solid var(--border)'}}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:600,fontSize:12}}>{m.nom}</div>
-                <div style={{fontSize:10,color:'var(--text-dim)'}}>{m.repas_label} · {m.type_label}</div>
-              </div>
-              <button onClick={()=>setMenuForm(m)}
-                style={{background:'#eff6ff',color:'#2563eb',border:'none',
-                  padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>✏️</button>
-              <button onClick={async()=>{if(!window.confirm('Supprimer ?'))return;await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}}
-                style={{background:'#fef2f2',color:'#dc2626',border:'none',
-                  padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>🗑️</button>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
+    </div>
+  )
+}
 
-      {menuForm && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',
-          display:'flex',alignItems:'center',justifyContent:'center',zIndex:9000,padding:16}}
-          onClick={e=>e.target===e.currentTarget&&setMenuForm(null)}>
-          <div style={{background:'var(--surface)',borderRadius:14,width:'100%',maxWidth:380,
-            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-            <div style={{background:'var(--primary)',color:'#fff',padding:'12px 16px',
-              display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <b style={{fontSize:14}}>{menuForm.id?'Modifier':'Nouveau plat'}</b>
-              <button onClick={()=>setMenuForm(null)}
-                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
-                  width:26,height:26,borderRadius:6,cursor:'pointer',fontSize:16}}>✕</button>
-            </div>
-            <div style={{padding:14,display:'flex',flexDirection:'column',gap:9}}>
-              <input value={menuForm.nom||''} onChange={e=>setMenuForm(f=>({...f,nom:e.target.value}))}
-                placeholder="Nom du plat *"
-                style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
-                  fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
-              <textarea value={menuForm.description||''} onChange={e=>setMenuForm(f=>({...f,description:e.target.value}))}
-                placeholder="Description"
-                style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
-                  fontSize:12,outline:'none',minHeight:50,resize:'vertical'}}/>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                <select value={menuForm.repas||'midi'} onChange={e=>setMenuForm(f=>({...f,repas:e.target.value}))}
-                  style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
-                  <option value="matin">Petit-déj</option>
-                  <option value="midi">Déjeuner</option>
-                  <option value="soir">Dîner</option>
-                </select>
-                <select value={menuForm.type_plat||'plat'} onChange={e=>setMenuForm(f=>({...f,type_plat:e.target.value}))}
-                  style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
-                  <option value="entree">Entrée</option>
-                  <option value="plat">Plat</option>
-                  <option value="dessert">Dessert</option>
-                  <option value="boisson">Boisson</option>
-                </select>
-              </div>
-              <input type="date" value={menuForm.date_service||menuDate}
-                onChange={e=>setMenuForm(f=>({...f,date_service:e.target.value}))}
-                style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
-                  fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
-              <button onClick={async()=>{
-                if(!menuForm.nom||!menuForm.date_service){alert('Nom et date requis');return}
-                const res=await(menuForm.id?menuAPI.update(menuForm.id,menuForm):menuAPI.create(menuForm))
-                const u=res.data
-                setMenuItems(prev=>menuForm.id?prev.map(x=>x.id===u.id?u:x):(u.date_service===menuDate?[...prev,u]:prev))
-                setMenuForm(null)
-              }} style={{background:'var(--primary)',color:'#fff',border:'none',padding:11,
-                borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit',
-                width:'100%'}}>
-                💾 Enregistrer
-              </button>
-            </div>
-          </div>
+// ── Bloc Menu du jour (réutilisable) ──
+function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, setMenuForm }) {
+  return (
+    <div style={{marginTop:16,borderTop:'1px solid var(--border)',paddingTop:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div style={{fontWeight:700,fontSize:13,color:'var(--primary)'}}>🍽️ Menu du jour</div>
+        <button onClick={()=>setMenuForm({nom:'',type_plat:'plat',repas:'midi',
+          date_service:menuDate,description:'',disponible:true})}
+          style={{background:'var(--primary)',color:'#fff',border:'none',
+            padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+          ➕ Plat
+        </button>
+      </div>
+      <input type="date" value={menuDate}
+        onChange={async e=>{
+          setMenuDate(e.target.value)
+          try{const r=await menuAPI.list({date_service:e.target.value});setMenuItems(r.data.results||r.data||[])}
+          catch{ setMenuItems([]) }
+        }}
+        style={{border:'1px solid var(--border)',borderRadius:7,padding:'5px 8px',
+          fontSize:11,outline:'none',marginBottom:8,width:'100%',boxSizing:'border-box'}}/>
+      {menuItems.length===0 ? (
+        <div style={{color:'var(--text-dim)',fontSize:11,textAlign:'center',padding:8}}>
+          Aucun plat pour cette date
         </div>
-      )}
+      ) : menuItems.map(m=>(
+        <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',
+          borderBottom:'1px solid var(--border)'}}>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600,fontSize:12}}>{m.nom}</div>
+            <div style={{fontSize:10,color:'var(--text-dim)'}}>{m.repas_label||m.repas} · {m.type_label||m.type_plat}</div>
+          </div>
+          <button onClick={()=>setMenuForm(m)}
+            style={{background:'#eff6ff',color:'#2563eb',border:'none',
+              padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>✏️</button>
+          <button onClick={async()=>{
+            if(!window.confirm('Supprimer ?'))return
+            try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}catch{alert('Erreur suppression')}
+          }}
+            style={{background:'#fef2f2',color:'#dc2626',border:'none',
+              padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>🗑️</button>
+        </div>
+      ))}
+    </div>
+  )
+}
 
+function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
+  if (!menuForm) return null
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',
+      display:'flex',alignItems:'center',justifyContent:'center',zIndex:9000,padding:16}}
+      onClick={e=>e.target===e.currentTarget&&setMenuForm(null)}>
+      <div style={{background:'var(--surface)',borderRadius:14,width:'100%',maxWidth:380,
+        overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+        <div style={{background:'var(--primary)',color:'#fff',padding:'12px 16px',
+          display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <b style={{fontSize:14}}>{menuForm.id?'Modifier':'Nouveau plat'}</b>
+          <button onClick={()=>setMenuForm(null)}
+            style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+              width:26,height:26,borderRadius:6,cursor:'pointer',fontSize:16}}>✕</button>
+        </div>
+        <div style={{padding:14,display:'flex',flexDirection:'column',gap:9}}>
+          <input value={menuForm.nom||''} onChange={e=>setMenuForm(f=>({...f,nom:e.target.value}))}
+            placeholder="Nom du plat *"
+            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+              fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+          <textarea value={menuForm.description||''} onChange={e=>setMenuForm(f=>({...f,description:e.target.value}))}
+            placeholder="Description"
+            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+              fontSize:12,outline:'none',minHeight:50,resize:'vertical'}}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <select value={menuForm.repas||'midi'} onChange={e=>setMenuForm(f=>({...f,repas:e.target.value}))}
+              style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
+              <option value="matin">Petit-déj</option>
+              <option value="midi">Déjeuner</option>
+              <option value="soir">Dîner</option>
+            </select>
+            <select value={menuForm.type_plat||'plat'} onChange={e=>setMenuForm(f=>({...f,type_plat:e.target.value}))}
+              style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
+              <option value="entree">Entrée</option>
+              <option value="plat">Plat</option>
+              <option value="dessert">Dessert</option>
+              <option value="boisson">Boisson</option>
+            </select>
+          </div>
+          <input type="date" value={menuForm.date_service||menuDate}
+            onChange={e=>setMenuForm(f=>({...f,date_service:e.target.value}))}
+            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+              fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+          <button onClick={async()=>{
+            if(!menuForm.nom||!menuForm.date_service){alert('Nom et date requis');return}
+            try{
+              const res=await(menuForm.id?menuAPI.update(menuForm.id,menuForm):menuAPI.create(menuForm))
+              const u=res.data
+              setMenuItems(prev=>menuForm.id?prev.map(x=>x.id===u.id?u:x):(u.date_service===menuDate?[...prev,u]:prev))
+              setMenuForm(null)
+            }catch{alert('Erreur sauvegarde')}
+          }} style={{background:'var(--primary)',color:'#fff',border:'none',padding:11,
+            borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit',
+            width:'100%'}}>
+            💾 Enregistrer
+          </button>
+        </div>
       </div>
     </div>
   )
