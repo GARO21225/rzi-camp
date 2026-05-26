@@ -129,19 +129,17 @@ export default function Personnel() {
     {v:'roxgold',      l:'Roxgold'},
     {v:'soustraitant', l:'Sous-traitant'},
     {v:'visiteur',     l:'Visiteur'},
-    {v:'consultant',   l:'Consultant'},
-    {v:'chef_projet',  l:'Chef de Projet'},
-    {v:'stagiaire',    l:'Stagiaire'},
   ]
 
   const PROFILS = [
-    {v:'admin',        l:'Administrateur'},
-    {v:'agent',        l:'Agent'},
-    {v:'technicien',   l:'Technicien'},
-    {v:'responsable',  l:'Responsable'},
-    {v:'manager',      l:'Manager'},
-    {v:'securite',     l:'Sécurité'},
-    {v:'medical',      l:'Médical'},
+    {v:'admin',       l:'Administrateur'},
+    {v:'agent',       l:'Agent'},
+    {v:'technicien',  l:'Technicien'},
+    {v:'restaurant',  l:'Restauration'},
+    {v:'boutique',    l:'Bar & Boutique'},
+    {v:'securite',    l:'Sécurité'},
+    {v:'medical',     l:'Médical'},
+    {v:'manager',     l:'Manager / Responsable'},
   ]
 
   return (
