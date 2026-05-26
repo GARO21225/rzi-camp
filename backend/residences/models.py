@@ -12,9 +12,20 @@ def slugify_fr(text):
 
 class Personnel(models.Model):
     TYPE_CHOICES = [
-        ("roxgold", "Agent Roxgold"),
+        ("roxgold",       "Agent Roxgold"),
         ("sous_traitant", "Sous-traitant"),
-        ("visiteur", "Visiteur temporaire"),
+        ("visiteur",      "Visiteur temporaire"),
+    ]
+
+    PROFIL_CHOICES = [
+        ("admin",       "Administrateur"),
+        ("agent",       "Agent"),
+        ("technicien",  "Technicien"),
+        ("restaurant",  "Restauration"),
+        ("boutique",    "Bar & Boutique"),
+        ("securite",    "Sécurité"),
+        ("medical",     "Médical"),
+        ("manager",     "Manager / Responsable"),
     ]
     TYPE_PREFIX = {"roxgold": "a", "sous_traitant": "s", "visiteur": "v"}
 
@@ -27,6 +38,8 @@ class Personnel(models.Model):
     qr_code_data = models.TextField(blank=True)
     qr_code_string = models.CharField(max_length=500, blank=True)
     actif            = models.BooleanField(default=True)
+    profil           = models.CharField(max_length=20, choices=PROFIL_CHOICES,
+                       default='agent', blank=True)
 
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")

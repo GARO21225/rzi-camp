@@ -136,13 +136,18 @@ export default function Personnel() {
   }
 
   const handleChangeRole = async () => {
-    if (!roleModal || !newRole) return
+    if (!roleModal) return
     try {
-      const payload = { type_personnel: newRole }
-      if (newProfil) payload.profil = newProfil
+      const payload = {}
+      if (newRole)   payload.type_personnel = newRole
+      if (newProfil) payload.profil         = newProfil
+      if (Object.keys(payload).length === 0) { setRoleModal(null); return }
       await personnelAPI.update(roleModal.id, payload)
       setRoleModal(null); setNewProfil(''); load()
-    } catch(e) { alert('Erreur changement de profil') }
+    } catch(e) {
+      const msg = e.response?.data ? JSON.stringify(e.response.data) : 'Erreur réseau'
+      alert('Erreur: ' + msg)
+    }
   }
 
   // Styles
@@ -261,7 +266,7 @@ export default function Personnel() {
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Nom','Type','Société','Contact','QR','Actions'].map(h => (
+                  {['Nom','Type','Profil','Société','Contact','QR','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -294,6 +299,16 @@ export default function Personnel() {
                       }}>
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
                       </span>
+                    </td>
+                    <td style={{padding:'10px 14px'}}>
+                      {p.profil && (
+                        <span style={{
+                          background:'#f5f3ff',color:'#7c3aed',
+                          padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700
+                        }}>
+                          {PROFILS.find(r=>r.v===p.profil)?.l || p.profil}
+                        </span>
+                      )}
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
                       {p.societe || '—'}
@@ -328,7 +343,7 @@ export default function Personnel() {
                             padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
                             ✏️
                           </button>
-                          <button onClick={() => {setNewRole(p.type_personnel);setRoleModal(p)}}
+                          <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setRoleModal(p)}}
                             style={{background:'#f5f3ff',color:'#7c3aed',border:'1px solid #c4b5fd',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Changer le profil">
@@ -664,11 +679,32 @@ export default function Personnel() {
                   {TYPES.find(t=>t.v===roleModal.type_personnel)?.l || roleModal.type_personnel}
                 </span>
               </p>
-              <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={inp}>
-                {/* Type de personnel */}
-                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
-              </select>
-              <div style={{display:'flex',gap:10,marginTop:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>
+                    Type personnel
+                  </div>
+                  <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={inp}>
+                    {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>
+                    Profil système
+                  </div>
+                  <select value={newProfil||''} onChange={e=>setNewProfil(e.target.value)} style={inp}>
+                    <option value="">Inchangé</option>
+                    {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
+                  </select>
+                </div>
+              </div>
+              {newProfil && (
+                <div style={{background:'#f5f3ff',border:'1px solid #ddd6fe',borderRadius:8,
+                  padding:'6px 10px',fontSize:11,color:'#7c3aed',marginBottom:10}}>
+                  🎭 <strong>{PROFILS.find(pr=>pr.v===newProfil)?.l}</strong> · Type: <strong>{TYPES.find(t=>t.v===newRole)?.l}</strong>
+                </div>
+              )}
+              <div style={{display:'flex',gap:10,marginTop:0}}>
                 <button onClick={()=>setRoleModal(null)}
                   style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
@@ -678,7 +714,7 @@ export default function Personnel() {
                   style={{flex:2,background:'#7c3aed',color:'#fff',border:'none',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',
                     fontSize:13,fontWeight:700}}>
-                  💾 Changer le rôle
+                  💾 Enregistrer Type & Profil
                 </button>
               </div>
             </div>

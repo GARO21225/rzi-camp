@@ -11,6 +11,12 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
 
+    profil_label = serializers.SerializerMethodField()
+
+    def get_profil_label(self, obj):
+        from residences.models import Personnel
+        return dict(Personnel.PROFIL_CHOICES).get(obj.profil, obj.profil or 'agent')
+
     def get_user_role(self, obj):
         try:
             if obj.user and hasattr(obj.user, 'profile'):

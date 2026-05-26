@@ -337,18 +337,23 @@ export default function InductionPage() {
     }
     saveWF(selected.id, newWf)
     setWfState(prev => ({...prev, [selected.id]: newWf}))
-    setSavedMsg('✅ Étape validée !')
-    setTimeout(()=>setSavedMsg(''), 2000)
-    // Sauvegarder sur le backend
+    // Sauvegarder sur le backend (avec indicateur visuel)
+    setSavedMsg('⏳ Synchronisation...')
     try {
+      const fieldMap = {accueil:'form_data', documents:'docs_data', medical:'medical_data', quiz:'quiz_score'}
       await inductionAPI.updateEtape({
         personnel_id: selected.id,
         etape: key,
         done: true,
         data: extraData,
-        field: key==='accueil'?'form_data':key==='documents'?'docs_data':key==='medical'?'medical_data':null,
+        field: fieldMap[key] || null,
       })
-    } catch(e) { console.warn('Backend induction save:', e) }
+      setSavedMsg('✅ Étape validée et enregistrée !')
+    } catch(e) {
+      setSavedMsg('✅ Validé (hors-ligne — sera synchronisé)')
+      console.warn('Backend sync:', e?.response?.data || e.message)
+    }
+    setTimeout(()=>setSavedMsg(''), 3000)
 
     // Vérifier si tout est terminé
     const allDone = ETAPES.every(e => e.key==='badge' || newWf.etapes?.[e.key]?.done)
@@ -408,7 +413,7 @@ export default function InductionPage() {
             const prog = progression(p)
             const w = wf(p)
             return (
-              <div key={p.id} onClick={()=>{setSelected(p);setEtapeActive(null)}}
+              <div key={p.id} onClick={()=>{setSelected(p);setEtapeActive(null);setSlideTab('etapes')}}
                 style={{background:'#fff',borderRadius:12,padding:'14px 16px',
                   boxShadow:'0 1px 4px rgba(0,0,0,.07)',cursor:'pointer',
                   borderLeft:`4px solid ${prog===100?'#16a34a':prog>0?'#f59e0b':'#e2e8f0'}`,
@@ -528,8 +533,23 @@ export default function InductionPage() {
                   </div>
                 </div>
 
-                {/* Étapes navigation */}
+                {/* Navigation tabs du slide-over */}
                 {!etapeActive && (
+                  <div style={{borderBottom:'1px solid #e2e8f0',display:'flex'}}>
+                    {['etapes','parcours'].map(t=>(
+                      <button key={t} onClick={()=>setSlideTab(t)}
+                        style={{flex:1,padding:'12px 8px',border:'none',cursor:'pointer',
+                          fontFamily:'inherit',fontSize:12,fontWeight:700,
+                          background:slideTab===t?'#fff':'#f8fafc',
+                          color:slideTab===t?'#1e3a8a':'#94a3b8',
+                          borderBottom:slideTab===t?'2px solid #1e3a8a':'none'}}>
+                        {t==='etapes'?'📋 Étapes':'📖 Parcours'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!etapeActive && slideTab==='etapes' && (
                   <div style={{padding:20}}>
                     <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:16}}>
                       Sélectionner une étape
@@ -568,6 +588,115 @@ export default function InductionPage() {
                         </div>
                       )
                     })}
+                  </div>
+                )}
+
+                {/* ─ Onglet Parcours ─ */}
+                {!etapeActive && slideTab==='parcours' && (
+                  <div style={{padding:16}}>
+                    <h3 style={{fontSize:13,fontWeight:700,color:'#1e3a8a',marginBottom:14}}>
+                      📖 Parcours d'induction — {selected.nom} {selected.prenom}
+                    </h3>
+                    {(() => {
+                      const w = wf(selected)
+                      const completedEtapes = ETAPES.filter(e=>w.etapes?.[e.key]?.done)
+                      if (completedEtapes.length===0) return (
+                        <div style={{textAlign:'center',padding:30,color:'#94a3b8'}}>
+                          <div style={{fontSize:32,marginBottom:8}}>📋</div>
+                          <div>Aucune étape validée pour le moment</div>
+                          <div style={{fontSize:11,marginTop:4}}>Commencer par l'étape 1</div>
+                        </div>
+                      )
+                      return (
+                        <div>
+                          {ETAPES.map((e,i) => {
+                            const info = w.etapes?.[e.key]
+                            if (!info?.done) return null
+                            return (
+                              <div key={e.key} style={{marginBottom:12,
+                                background:'#f0fdf4',border:'1.5px solid #86efac',
+                                borderRadius:12,overflow:'hidden'}}>
+                                {/* Header de l'étape */}
+                                <div style={{background:e.couleur,color:'#fff',
+                                  padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+                                  <span style={{fontSize:20}}>{e.icon}</span>
+                                  <div style={{flex:1}}>
+                                    <div style={{fontWeight:700,fontSize:13}}>{i+1}. {e.titre}</div>
+                                    <div style={{fontSize:10,opacity:.8}}>
+                                      ✅ Validé le {new Date(info.date).toLocaleDateString('fr-FR')} à {new Date(info.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* Données saisies */}
+                                <div style={{padding:'10px 14px'}}>
+                                  {/* Accueil */}
+                                  {e.key==='accueil' && info.form && (
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                                      {Object.entries(info.form||{}).filter(([k])=>k!=='photo').map(([k,v])=>(
+                                        <div key={k} style={{fontSize:11}}>
+                                          <span style={{color:'#94a3b8',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
+                                          <span style={{color:'#1e293b'}}>{v}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {/* Documents */}
+                                  {e.key==='documents' && info.docs && (
+                                    <div style={{fontSize:12,color:'#16a34a'}}>
+                                      ✅ Documents soumis: {Array.isArray(info.docs)?info.docs.join(', '):JSON.stringify(info.docs)}
+                                    </div>
+                                  )}
+                                  {/* Quiz */}
+                                  {e.key==='quiz' && (
+                                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                      <div style={{fontFamily:'monospace',fontSize:24,fontWeight:900,
+                                        color:'#16a34a'}}>{info.score||'—'}%</div>
+                                      <div style={{fontSize:12,color:'#64748b'}}>Score quiz QHSE</div>
+                                    </div>
+                                  )}
+                                  {/* Médical */}
+                                  {e.key==='medical' && info.medical && (
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+                                      {Object.entries(info.medical||{}).map(([k,v])=>(
+                                        <div key={k} style={{fontSize:11}}>
+                                          <span style={{color:'#94a3b8',fontWeight:600}}>{k}: </span>
+                                          <span style={{color:v==='Positif'?'#dc2626':'#1e293b',fontWeight:v==='Positif'?700:400}}>{v}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {/* Badge */}
+                                  {e.key==='badge' && (
+                                    <div style={{fontSize:12,color:'#16a34a',fontWeight:600}}>
+                                      🎫 Badge émis — Accès site autorisé
+                                    </div>
+                                  )}
+                                  {/* Formation */}
+                                  {e.key==='formation' && (
+                                    <div style={{fontSize:12,color:'#0891b2'}}>✅ 3 modules de formation QHSE complétés</div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                          {/* Rapport export */}
+                          <button onClick={()=>{
+                            const w2 = wf(selected)
+                            const lignes = ETAPES.map((e,i)=>{
+                              const info = w2.etapes?.[e.key]
+                              return `${i+1}. ${e.titre}: ${info?.done?'✅ Validé le '+new Date(info.date).toLocaleDateString('fr-FR'):'⏳ En attente'}`
+                            })
+                            const txt = `PARCOURS INDUCTION QHSE\n${selected.nom} ${selected.prenom}\n${'='.repeat(40)}\n${lignes.join('\n')}`
+                            navigator.clipboard.writeText(txt).then(()=>alert('Parcours copié dans le presse-papier !'))
+                          }}
+                            style={{width:'100%',padding:10,borderRadius:9,border:'1px solid #e2e8f0',
+                              background:'#f8fafc',color:'#1e3a8a',cursor:'pointer',fontFamily:'inherit',
+                              fontSize:12,fontWeight:700,marginTop:8}}>
+                            📋 Copier le rapport
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
 
