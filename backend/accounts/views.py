@@ -479,10 +479,31 @@ def force_seed(request):
                     results.append(f"✅ Colonnes maintenance ajoutées: {', '.join(added)}")
                 else:
                     results.append("✅ Colonnes maintenance: toutes présentes")
+                # Colonne profil dans residences_personnel
+                cursor.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='residences_personnel' AND column_name='profil'"
+                )
+                if not cursor.fetchone():
+                    cursor.execute(
+                        "ALTER TABLE residences_personnel ADD COLUMN profil "
+                        "VARCHAR(20) NOT NULL DEFAULT 'agent'"
+                    )
+                    results.append("✅ Colonne profil ajoutée à residences_personnel")
+                    try:
+                        cursor.execute(
+                            "ALTER TABLE residences_historicalpersonnel ADD COLUMN profil "
+                            "VARCHAR(20) NOT NULL DEFAULT 'agent'"
+                        )
+                    except Exception:
+                        pass
+                else:
+                    results.append("✅ Colonne profil: présente en DB")
             else:
                 results.append(f"ℹ️ DB {db_vendor}: skip colonnes PostgreSQL")
     except Exception as e:
         errors.append(f"⚠️ Migrations: {str(e)[:100]}")
+
 
     # Vérifier colonnes ArticleBoutique sur PostgreSQL
     try:

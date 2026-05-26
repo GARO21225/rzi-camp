@@ -833,17 +833,18 @@ export default function Boutique() {
   const scannerInst = useRef(null)
 
   const load = useCallback(() => {
-    Promise.all([
+    Promise.allSettled([
       boutiqueAPI.articles(),
       boutiqueAPI.consommations({page_size:50}),
       boutiqueAPI.statsJour(),
       personnelAPI.list({page_size:200}),
     ]).then(([ra,rc,rs,rp]) => {
-      setArticles(ra.data.results||ra.data||[])
-      setConsos(rc.data.results||rc.data||[])
-      setStatsJour(rs.data)
-      setPersonnel(rp.data.results||rp.data||[])
-    }).catch(()=>{}).finally(()=>setLoading(false))
+      if (ra.status==='fulfilled') setArticles(ra.value.data.results||ra.value.data||[])
+      if (rc.status==='fulfilled') setConsos(rc.value.data.results||rc.value.data||[])
+      if (rs.status==='fulfilled') setStatsJour(rs.value.data||{})
+      if (rp.status==='fulfilled') setPersonnel(rp.value.data.results||rp.value.data||[])
+      else console.warn('Personnel API unavailable in Boutique:', rp.reason?.message)
+    }).catch(e=>console.error('Boutique load error:', e)).catch(()=>{}).finally(()=>setLoading(false))
   }, [])
 
   useEffect(()=>{load()},[load])

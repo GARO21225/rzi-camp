@@ -14,8 +14,24 @@ class PersonnelSerializer(serializers.ModelSerializer):
     profil_label = serializers.SerializerMethodField()
 
     def get_profil_label(self, obj):
-        from residences.models import Personnel
-        return dict(Personnel.PROFIL_CHOICES).get(obj.profil, obj.profil or 'agent')
+        try:
+            from residences.models import Personnel
+            return dict(Personnel.PROFIL_CHOICES).get(obj.profil or 'agent', obj.profil or 'agent')
+        except Exception:
+            return 'agent'
+
+    def to_representation(self, instance):
+        """Gère le cas où la colonne profil n'existe pas encore en DB."""
+        try:
+            return super().to_representation(instance)
+        except Exception as e:
+            if 'profil' in str(e).lower():
+                # Retourner les données sans profil si la colonne manque
+                data = super(PersonnelSerializer, self).to_representation(instance)
+                data['profil'] = 'agent'
+                data['profil_label'] = 'Agent'
+                return data
+            raise
 
     def get_user_role(self, obj):
         try:
@@ -43,7 +59,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "id", "nom", "prenom", "societe", "numero", "type_personnel",
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
-            "password_genere", 
+            "password_genere", "profil", "profil_label",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 

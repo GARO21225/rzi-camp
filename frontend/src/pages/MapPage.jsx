@@ -13,9 +13,9 @@ L.Icon.Default.mergeOptions({
 })
 
 const TILES = [
-  { id:'light', label:'☀️ Clair', url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' },
-  { id:'dark', label:'🌑 Sombre', url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' },
-  { id:'osm', label:'🗺️ OSM', url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' },
+  { id:'osm',   label:'🗺️ OSM',      url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' },
+  { id:'light', label:'☀️ Clair',     url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' },
+  { id:'dark',  label:'🌑 Sombre',    url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' },
   { id:'sat', label:'🛰️ Satellite', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
 ]
 
@@ -86,7 +86,7 @@ export default function MapPage() {
   const [filterStatut,setFilterStatut]=useState('')
   const [filterBloc,setFilterBloc]=useState('')
   const [filterRes,setFilterRes]=useState('')
-  const [tileId,setTileId]=useState('light')
+  const [tileId,setTileId]=useState('osm')
   const [navMode,setNavMode]=useState(false)
   const [userPos,setUserPos]=useState(null)
   const [target,setTarget]=useState(null)

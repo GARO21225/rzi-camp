@@ -181,6 +181,22 @@ export default function Residences() {
           {data.length} résidences
         </span>
       </div>
+      {/* Warning: filtres sans résultats */}
+      {data.length === 0 && (bloc || statut || search) && (
+        <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,
+          padding:'12px 16px',marginBottom:12,display:'flex',alignItems:'center',
+          justifyContent:'space-between',gap:10}}>
+          <span style={{fontSize:13,color:'#92400e'}}>
+            ⚠️ Aucun bâtiment pour ces filtres.
+          </span>
+          <button onClick={()=>{setBloc('');setStatut('');setSearch('')}}
+            style={{background:'#f59e0b',color:'#fff',border:'none',padding:'5px 12px',
+              borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+            ✕ Effacer
+          </button>
+        </div>
+      )}
+
 
       {/* Table */}
       <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'var(--shadow)' }}>
