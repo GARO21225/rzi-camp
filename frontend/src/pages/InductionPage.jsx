@@ -319,10 +319,12 @@ export default function InductionPage() {
   const getEtapeDone = (pid, key) => !!(wf({id:pid}).etapes?.[key]?.done)
 
   const etapeDebloquee = (pid, etapeKey) => {
-    const idx = ETAPES.findIndex(e=>e.key===etapeKey)
-    if (idx===0) return true  // première étape toujours débloquée
-    const prev = ETAPES[idx-1]
-    return getEtapeDone(pid, prev.key)
+    try {
+      const idx = ETAPES.findIndex(e=>e.key===etapeKey)
+      if (idx<=0) return true
+      const prev = ETAPES[idx-1]
+      return getEtapeDone(pid, prev.key)
+    } catch(e) { return idx===0 }
   }
 
   const validerEtape = async (key, extraData={}) => {
@@ -505,9 +507,9 @@ export default function InductionPage() {
                   {/* ─ Barre workflow progression ─ */}
                   <div style={{marginTop:10,display:'flex',alignItems:'center',gap:0}}>
                     {ETAPES.map((etapeItem,i) => {
-                      const w2 = wf(selected)
+                      const w2 = (selected && wf(selected)) || {}
                       const isDone    = !!(w2.etapes?.[etapeItem.key]?.done)
-                      const isCurrent = !isDone && etapeDebloquee(selected.id, etapeItem.key)
+                      const isCurrent = !isDone && selected && etapeDebloquee(selected.id, etapeItem.key)
                       return (
                         <React.Fragment key={etapeItem.key}>
                           <div style={{display:'flex',flexDirection:'column',alignItems:'center',minWidth:50}}>

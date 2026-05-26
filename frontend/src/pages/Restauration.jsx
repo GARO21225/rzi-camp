@@ -413,6 +413,10 @@ export default function Restauration() {
   useEffect(() => {
     if (isResto) {
       loadHistorique()
+      // Charger le menu du jour
+      menuAPI.list({date_service: new Date().toISOString().slice(0,10)})
+        .then(r => setMenuItems(r.data.results || r.data || []))
+        .catch(() => {})
     } else {
       import('../api').then(({ personnel: personnelAPI }) => {
         personnelAPI.monProfil()

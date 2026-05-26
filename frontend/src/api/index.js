@@ -207,4 +207,6 @@ export const boutique = {
   // Stock management
   updateStock:     (id,d)     => api.post(`/api/boutique/articles/${id}/stock_update/`, d),
   alertesStock:    (p)        => api.get('/api/boutique/articles/alertes_stock/', {params:p}),
+  // Analyses
+  analyses:        (p)        => api.get('/api/boutique/consommations/analyses/', {params:p}),
 }

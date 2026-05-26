@@ -310,11 +310,6 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   const [selPerso,   setSelPerso]  = useState('')
   const [search,     setSearch]    = useState('')
   const [searchSociete, setSearchSociete] = useState('')
-  const [stockModal,   setStockModal]   = useState(null)  // article pour modifier stock
-  const [stockQte,     setStockQte]     = useState(0)
-  const [stockOp,      setStockOp]      = useState('add')
-  const [stockRaison,  setStockRaison]  = useState('')
-  const [alertesStock, setAlertesStock] = useState([])
 
   const crediterTous = async () => {
     if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
@@ -792,6 +787,11 @@ function ArticleCard({ a, qty, onAdd }) {
 export default function Boutique() {
   const {user} = useStore()
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  // Gestion stock
+  const [stockModal,   setStockModal]   = useState(null)
+  const [stockQte,     setStockQte]     = useState(0)
+  const [stockOp,      setStockOp]      = useState('add')
+  const [stockRaison,  setStockRaison]  = useState('')
   useEffect(()=>{
     const h = ()=>setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize',h)
