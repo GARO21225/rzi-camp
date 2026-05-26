@@ -46,6 +46,8 @@ export default function Personnel() {
     societe:'', type_personnel:'employe', numero:'', actif:true
   })
   const [saving,       setSaving]       = useState(false)
+  const [selected_ids, setSelectedIds]  = useState(new Set())  // IDs sélectionnés pour masse
+  const [massAction,   setMassAction]   = useState('')  // action en cours
   const [err,          setErr]          = useState('')
   const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
   const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
@@ -89,6 +91,35 @@ export default function Personnel() {
     } finally { setSaving(false) }
   }
 
+  // Sélection en masse
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleAll = () => {
+    if (selected_ids.size === filtered.length) setSelectedIds(new Set())
+    else setSelectedIds(new Set(filtered.map(p=>p.id)))
+  }
+
+  const massSupprimerSelected = async () => {
+    if (!window.confirm(`Supprimer ${selected_ids.size} membre(s) ?`)) return
+    for (const id of selected_ids) {
+      try { await personnelAPI.delete(id) } catch(e) {}
+    }
+    setSelectedIds(new Set()); load()
+  }
+
+  const massChangerRole = async (newType) => {
+    for (const id of selected_ids) {
+      try { await personnelAPI.update(id, { type_personnel: newType }) } catch(e) {}
+    }
+    setSelectedIds(new Set()); load(); setMassAction('')
+  }
+
   const handleDelete = async (p) => {
     try {
       await personnelAPI.delete(p.id)
@@ -127,7 +158,7 @@ export default function Personnel() {
 
   const TYPES = [
     {v:'roxgold',      l:'Roxgold'},
-    {v:'soustraitant', l:'Sous-traitant'},
+    {v:'sous_traitant', l:'Sous-traitant'},
     {v:'visiteur',     l:'Visiteur'},
   ]
 
@@ -184,6 +215,40 @@ export default function Personnel() {
         </div>
 
         {/* ── TABLE ── */}
+        {/* Barre actions masse */}
+        {selected_ids.size > 0 && (
+          <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+            borderRadius:12,padding:'10px 16px',marginBottom:12,
+            display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <span style={{fontWeight:700,fontSize:13}}>
+              {selected_ids.size} sélectionné(s)
+            </span>
+            <select value={massAction} onChange={e=>setMassAction(e.target.value)}
+              style={{border:'none',borderRadius:8,padding:'5px 10px',fontSize:12,fontWeight:600,
+                background:'rgba(255,255,255,.15)',color:'#fff',outline:'none',cursor:'pointer'}}>
+              <option value="">Changer type vers...</option>
+              {TYPES.map(t=><option key={t.v} value={t.v} style={{color:'#000'}}>{t.l}</option>)}
+            </select>
+            {massAction && (
+              <button onClick={()=>massChangerRole(massAction)}
+                style={{background:'#f0a500',color:'#000',border:'none',padding:'5px 12px',
+                  borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                ✓ Appliquer
+              </button>
+            )}
+            <button onClick={massSupprimerSelected}
+              style={{background:'#dc2626',color:'#fff',border:'none',padding:'5px 12px',
+                borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,marginLeft:'auto'}}>
+              🗑️ Supprimer ({selected_ids.size})
+            </button>
+            <button onClick={()=>setSelectedIds(new Set())}
+              style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'none',
+                padding:'5px 8px',borderRadius:8,cursor:'pointer',fontSize:11}}>
+              ✕ Désélectionner
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div style={{textAlign:'center',padding:60,fontSize:36}}>⏳</div>
         ) : filtered.length === 0 ? (
@@ -208,6 +273,11 @@ export default function Personnel() {
                 {filtered.map((p, i) => (
                   <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9',
                     background:i%2===0?'#fff':'#fafbfc'}}>
+                    <td style={{padding:'10px 14px',width:40}}>
+                      <input type="checkbox" checked={selected_ids.has(p.id)}
+                        onChange={()=>toggleSelect(p.id)} onClick={e=>e.stopPropagation()}
+                        style={{cursor:'pointer',width:16,height:16}}/>
+                    </td>
                     <td style={{padding:'10px 14px'}}>
                       <div style={{fontWeight:600,color:'#1e293b'}}>{p.nom} {p.prenom}</div>
                       <div style={{fontSize:11,color:'#94a3b8'}}>{p.email}</div>
@@ -215,10 +285,10 @@ export default function Personnel() {
                     <td style={{padding:'10px 14px'}}>
                       <span style={{
                         background: p.type_personnel==='roxgold'?'#1e3a8a20':
-                          p.type_personnel==='soustraitant'?'#f59e0b20':
+                          p.type_personnel==='sous_traitant'?'#f59e0b20':
                           p.type_personnel==='visiteur'?'#16a34a20':'#e2e8f0',
                         color: p.type_personnel==='roxgold'?'#1e3a8a':
-                          p.type_personnel==='soustraitant'?'#b45309':
+                          p.type_personnel==='sous_traitant'?'#b45309':
                           p.type_personnel==='visiteur'?'#16a34a':'#475569',
                         padding:'3px 8px',borderRadius:99,fontSize:11,fontWeight:700
                       }}>

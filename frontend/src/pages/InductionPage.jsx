@@ -1,60 +1,114 @@
 /**
- * InductionPage — Workflow QHSE automatique par personnel
- * Se déclenche automatiquement à la création d'un membre du personnel
+ * InductionPage — Workflow QHSE Séquentiel
+ * Chaque étape doit être validée pour débloquer la suivante
+ * Inspiré des formations en ligne avec QCM
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI } from '../api'
 
-const LS_KEY = 'rzi_inductions_v2'
+const LS_KEY = 'rzi_induction_v3'
 
-// Étapes du workflow induction
+// ─── Définition des étapes ────────────────────────────────────────
 const ETAPES = [
-  { key:'accueil',     icon:'👋', label:'Accueil & Enregistrement', desc:'Création du dossier, informations personnelles, affectation' },
-  { key:'documents',   icon:'📄', label:'Documents obligatoires',   desc:'CNI/Passeport, contrat, certificats, photos' },
-  { key:'formation',   icon:'🎓', label:'Formation QHSE',           desc:'Modules sécurité, vidéos, présentation site' },
-  { key:'quiz',        icon:'📋', label:'Quiz QHSE',                desc:'QCM — score minimum 80%, tentatives multiples' },
-  { key:'medical',     icon:'🏥', label:'Visite médicale',          desc:'Température, alcool, drogues → FIT / UNFIT' },
-  { key:'badge',       icon:'🎫', label:'Badge & QR Code',          desc:'Génération automatique si toutes étapes validées' },
+  {
+    key: 'accueil',
+    icon: '👋',
+    titre: 'Accueil & Enregistrement',
+    desc: 'Informations personnelles complètes',
+    couleur: '#1e3a8a',
+    type: 'form',
+    champs: [
+      { key:'photo', label:'Photo d\'identité', type:'photo', required:true },
+      { key:'nationalite', label:'Nationalité', type:'text', placeholder:'Ex: Ivoirienne', required:true },
+      { key:'urgence_nom', label:'Contact urgence (Nom)', type:'text', placeholder:'Nom complet', required:true },
+      { key:'urgence_tel', label:'Contact urgence (Tél)', type:'tel', placeholder:'+225 XX XX XX XX', required:true },
+      { key:'date_arrivee', label:'Date d\'arrivée prévue', type:'date', required:true },
+    ]
+  },
+  {
+    key: 'documents',
+    icon: '📄',
+    titre: 'Documents obligatoires',
+    desc: 'Tous les documents doivent être soumis',
+    couleur: '#7c3aed',
+    type: 'documents',
+    docs: [
+      { key:'cni', label:'Pièce d\'identité (CNI / Passeport)', required:true },
+      { key:'contrat', label:'Contrat ou lettre de mission', required:true },
+      { key:'assurance', label:'Attestation d\'assurance', required:false },
+      { key:'cv', label:'CV / Curriculum Vitae', required:false },
+    ]
+  },
+  {
+    key: 'formation',
+    icon: '🎓',
+    titre: 'Formation QHSE Obligatoire',
+    desc: 'Lire et confirmer avoir suivi la formation',
+    couleur: '#0891b2',
+    type: 'formation',
+    modules: [
+      { id:1, titre:'Règles d\'or de la sécurité', duree:'15 min', contenu:'1. Travailler avec une autorisation de travail valide\n2. Tester avant de toucher les équipements électriques\n3. Valider les isolations avant travaux\n4. Travailler selon les hauteurs autorisées\n5. Ne jamais désactiver les systèmes de sécurité' },
+      { id:2, titre:'Procédures d\'urgence', duree:'10 min', contenu:'En cas d\'urgence:\n• STOP WORK: Arrêter immédiatement tout travail dangereux\n• EVACUATION: Point de rassemblement Zone A (entrée principale)\n• INCENDIE: Alarme → Extinguisher → Évacuation\n• PREMIERS SECOURS: Infirmerie 24h/7j — Ext. 100' },
+      { id:3, titre:'Équipements de Protection Individuelle', duree:'10 min', contenu:'EPI Obligatoires sur site:\n✓ Casque de chantier (jaune = visiteur, blanc = encadrement)\n✓ Chaussures de sécurité (coque acier)\n✓ Gilet de visibilité haute (en toutes circonstances)\n✓ Lunettes de protection (zones de poussière)\n✓ Masque FFP2 (zones poussiéreuses)' },
+    ]
+  },
+  {
+    key: 'quiz',
+    icon: '📋',
+    titre: 'Quiz QHSE',
+    desc: 'Score minimum: 80% — 3 tentatives maximum',
+    couleur: '#f59e0b',
+    type: 'quiz',
+    score_min: 80,
+    questions: [
+      { id:1, q:'Que faire en cas d\'accident sur le site?', options:['Continuer à travailler','Alerter l\'infirmerie et ne pas déplacer la victime','Rentrer chez soi','Appeler la famille'], correct:1 },
+      { id:2, q:'Le port du casque est obligatoire:', options:['Uniquement dans les zones dangereuses','En toutes circonstances sur le site','Seulement dans les mines souterraines','Jamais pour les visiteurs'], correct:1 },
+      { id:3, q:'Que signifie "Stop Work Authority"?', options:['Arrêter la production','Le droit de tout agent d\'arrêter un travail dangereux','Interdire les heures supplémentaires','Fermer le chantier'], correct:1 },
+      { id:4, q:'Les EPI (Équipements de Protection Individuelle) sont:', options:['Optionnels selon l\'humeur','Obligatoires uniquement pour les techniciens','Obligatoires pour tous sur site','Réservés aux responsables'], correct:2 },
+      { id:5, q:'Le point de rassemblement en cas d\'évacuation est:', options:['La cafétéria','Le parking principal','Zone A — Entrée principale','La direction'], correct:2 },
+    ]
+  },
+  {
+    key: 'medical',
+    icon: '🏥',
+    titre: 'Visite Médicale',
+    desc: 'Résultat médical requis: FIT',
+    couleur: '#ef4444',
+    type: 'medical',
+    champs: [
+      { key:'temperature', label:'Température (°C)', type:'number', placeholder:'37.0', required:true },
+      { key:'tension', label:'Tension artérielle', type:'text', placeholder:'120/80', required:true },
+      { key:'alcool', label:'Test alcool', type:'select', options:['Négatif','Positif'], required:true },
+      { key:'drogues', label:'Test drogues', type:'select', options:['Négatif','Positif'], required:true },
+      { key:'resultat', label:'Résultat médecin', type:'select', options:['FIT — Apte','UNFIT — Inapte','PENDING — En attente'], required:true },
+      { key:'medecin', label:'Nom du médecin', type:'text', placeholder:'Dr. ...', required:true },
+      { key:'observations', label:'Observations', type:'textarea', placeholder:'Observations médicales...', required:false },
+    ]
+  },
+  {
+    key: 'badge',
+    icon: '🎫',
+    titre: 'Badge & Accès',
+    desc: 'Génération du badge QR code d\'accès',
+    couleur: '#16a34a',
+    type: 'badge',
+  },
 ]
 
-const STATUT_COLOR = {
-  non_commence: { c:'#94a3b8', bg:'#f8fafc', l:'Non commencé' },
-  en_cours:     { c:'#f59e0b', bg:'#fef3c7', l:'En cours' },
-  valide:       { c:'#16a34a', bg:'#f0fdf4', l:'Validé ✅' },
-  refuse:       { c:'#dc2626', bg:'#fef2f2', l:'Refusé ❌' },
-  expire:       { c:'#7c3aed', bg:'#f5f3ff', l:'Expiré ⏰' },
-}
-
-function getAll() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}') } catch { return {} }
-}
-
+function getAll() { try { return JSON.parse(localStorage.getItem(LS_KEY)||'{}') } catch { return {} } }
 function getWF(id) {
   const all = getAll()
-  // Auto-init si pas encore de workflow
   if (!all[id]) {
-    all[id] = {
-      statut: 'en_cours',
-      etapes: { accueil: { done: true, date: new Date().toISOString(), note: '' } },
-      created: new Date().toISOString(),
-    }
+    all[id] = { etapes:{}, data:{}, tentatives_quiz:0, created: new Date().toISOString() }
     localStorage.setItem(LS_KEY, JSON.stringify(all))
   }
   return all[id]
 }
-
-function setWF(id, data) {
+function saveWF(id, wf) {
   const all = getAll()
-  all[id] = { ...all[id], ...data }
+  all[id] = { ...all[id], ...wf }
   localStorage.setItem(LS_KEY, JSON.stringify(all))
-}
-
-function setEtape(id, key, done, note='') {
-  const wf = getWF(id)
-  const etapes = { ...wf.etapes, [key]: { done, date: new Date().toISOString(), note } }
-  const allDone = ETAPES.every(e => etapes[e.key]?.done)
-  const statut = allDone ? 'valide' : Object.values(etapes).some(e=>e?.done) ? 'en_cours' : 'non_commence'
-  setWF(id, { etapes, statut })
+  return all[id]
 }
 
 class InductionBoundary extends React.Component {
@@ -75,17 +129,175 @@ class InductionBoundary extends React.Component {
   }
 }
 
+// ─── Composant étape formation ─────────────────────────────────────
+function EtapeFormation({ etape, wf, onValider }) {
+  const [moduleActif, setModuleActif] = useState(0)
+  const [lus, setLus] = useState(wf.data?.modules_lus || [])
+
+  const marquerLu = (id) => {
+    if (!lus.includes(id)) {
+      const newLus = [...lus, id]
+      setLus(newLus)
+      saveWF(wf.id, { data: { ...(wf.data||{}), modules_lus: newLus } })
+    }
+    if (moduleActif < etape.modules.length-1) setModuleActif(moduleActif+1)
+  }
+
+  const tousLus = etape.modules.every(m => lus.includes(m.id))
+  const mod = etape.modules[moduleActif]
+
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:16,overflowX:'auto'}}>
+        {etape.modules.map((m,i)=>(
+          <button key={m.id} onClick={()=>setModuleActif(i)}
+            style={{padding:'6px 14px',borderRadius:99,fontSize:11,fontWeight:700,border:'none',cursor:'pointer',
+              background: lus.includes(m.id) ? '#16a34a' : i===moduleActif ? etape.couleur : '#f1f5f9',
+              color: lus.includes(m.id)||i===moduleActif ? '#fff' : '#64748b',
+              flexShrink:0}}>
+            {lus.includes(m.id) ? '✓' : i+1}. {m.titre}
+          </button>
+        ))}
+      </div>
+
+      <div style={{background:'#f8fafc',borderRadius:12,padding:'16px 20px',marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <h3 style={{fontWeight:700,fontSize:15,color:etape.couleur,margin:0}}>{mod.titre}</h3>
+          <span style={{fontSize:11,color:'#94a3b8'}}>⏱️ {mod.duree}</span>
+        </div>
+        <pre style={{fontFamily:'inherit',fontSize:13,color:'#1e293b',whiteSpace:'pre-wrap',
+          lineHeight:1.7,margin:0}}>{mod.contenu}</pre>
+      </div>
+
+      <button onClick={()=>marquerLu(mod.id)} disabled={lus.includes(mod.id)}
+        style={{width:'100%',padding:12,borderRadius:10,border:'none',cursor:'pointer',fontFamily:'inherit',
+          background: lus.includes(mod.id) ? '#f0fdf4' : etape.couleur,
+          color: lus.includes(mod.id) ? '#16a34a' : '#fff',
+          fontWeight:700,fontSize:13,marginBottom:12}}>
+        {lus.includes(mod.id) ? '✅ Module lu et confirmé' : '✓ Marquer comme lu et continuer'}
+      </button>
+
+      {tousLus && (
+        <button onClick={onValider}
+          style={{width:'100%',padding:12,borderRadius:10,border:'none',cursor:'pointer',fontFamily:'inherit',
+            background:'#16a34a',color:'#fff',fontWeight:700,fontSize:14}}>
+          🎓 Formation complétée — Continuer vers le Quiz
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Composant Quiz ────────────────────────────────────────────────
+function EtapeQuiz({ etape, wf, onValider, onEchec }) {
+  const [answers, setAnswers] = useState({})
+  const [submitted, setSubmitted] = useState(false)
+  const [score, setScore] = useState(null)
+  const tentatives = wf.tentatives_quiz || 0
+
+  const submitQuiz = () => {
+    let correct = 0
+    etape.questions.forEach(q => {
+      if (answers[q.id] === q.correct) correct++
+    })
+    const s = Math.round(correct / etape.questions.length * 100)
+    setScore(s)
+    setSubmitted(true)
+    saveWF(wf.id, { tentatives_quiz: tentatives + 1 })
+    if (s >= etape.score_min) {
+      setTimeout(() => onValider(), 2000)
+    }
+  }
+
+  if (tentatives >= 3 && !submitted) {
+    return (
+      <div style={{textAlign:'center',padding:20}}>
+        <div style={{fontSize:48,marginBottom:12}}>🚫</div>
+        <div style={{fontWeight:700,color:'#dc2626',fontSize:16}}>3 tentatives épuisées</div>
+        <div style={{color:'#64748b',marginTop:8}}>Contacter le responsable QHSE pour débloquer</div>
+      </div>
+    )
+  }
+
+  if (submitted && score !== null) {
+    return (
+      <div style={{textAlign:'center',padding:20}}>
+        <div style={{fontSize:64,marginBottom:12}}>{score>=etape.score_min?'🎉':'😔'}</div>
+        <div style={{fontFamily:'monospace',fontSize:48,fontWeight:900,
+          color:score>=etape.score_min?'#16a34a':'#dc2626'}}>
+          {score}%
+        </div>
+        <div style={{fontWeight:700,fontSize:16,marginTop:8,
+          color:score>=etape.score_min?'#16a34a':'#dc2626'}}>
+          {score>=etape.score_min ? 'Quiz réussi ! 🎊' : `Score insuffisant (minimum ${etape.score_min}%)`}
+        </div>
+        {score < etape.score_min && tentatives < 3 && (
+          <button onClick={()=>{setSubmitted(false);setAnswers({});setScore(null)}}
+            style={{marginTop:16,background:'#f59e0b',color:'#fff',border:'none',
+              padding:'10px 24px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700}}>
+            🔄 Réessayer ({3-tentatives-1} tentative(s) restante(s))
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+        <span style={{fontSize:12,color:'#64748b'}}>
+          {Object.keys(answers).length}/{etape.questions.length} réponses
+        </span>
+        <span style={{fontSize:12,color:'#f59e0b',fontWeight:700}}>
+          Tentative {tentatives+1}/3 · Min: {etape.score_min}%
+        </span>
+      </div>
+      {etape.questions.map((q,qi)=>(
+        <div key={q.id} style={{marginBottom:16,background:'#f8fafc',borderRadius:12,padding:'14px 16px'}}>
+          <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:'#1e293b'}}>
+            {qi+1}. {q.q}
+          </div>
+          {q.options.map((opt,oi)=>(
+            <label key={oi} style={{display:'flex',alignItems:'center',gap:10,
+              padding:'8px 12px',borderRadius:8,marginBottom:6,cursor:'pointer',
+              background: answers[q.id]===oi ? '#1e3a8a10' : '#fff',
+              border: `1.5px solid ${answers[q.id]===oi ? '#1e3a8a' : '#e2e8f0'}`}}>
+              <input type="radio" name={`q_${q.id}`} value={oi}
+                checked={answers[q.id]===oi}
+                onChange={()=>setAnswers(a=>({...a,[q.id]:oi}))}
+                style={{accentColor:'#1e3a8a'}}/>
+              <span style={{fontSize:13,color:'#1e293b'}}>{opt}</span>
+            </label>
+          ))}
+        </div>
+      ))}
+      <button onClick={submitQuiz}
+        disabled={Object.keys(answers).length < etape.questions.length}
+        style={{width:'100%',padding:13,borderRadius:10,border:'none',cursor:'pointer',
+          fontFamily:'inherit',fontWeight:700,fontSize:14,
+          background: Object.keys(answers).length < etape.questions.length ? '#94a3b8' : '#f59e0b',
+          color:'#fff'}}>
+        {Object.keys(answers).length < etape.questions.length
+          ? `Répondre à toutes les questions (${etape.questions.length-Object.keys(answers).length} restantes)`
+          : '📋 Soumettre le Quiz'}
+      </button>
+    </div>
+  )
+}
+
+// ─── Composant principal ───────────────────────────────────────────
 export default function InductionPage() {
-  const [personnel,  setPersonnel]  = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [search,     setSearch]     = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [selected,   setSelected]   = useState(null)
-  const [wfData,     setWfData]     = useState({})
-  const [noteModal,  setNoteModal]  = useState(null)  // {etape_key, note}
-  const [etapeNote,  setEtapeNote]  = useState('')
-  const [tab,        setTab]        = useState('liste')
-  const [refresh,    setRefresh]    = useState(0)
+  const [personnel,   setPersonnel]   = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [search,      setSearch]      = useState('')
+  const [typeFilter,  setTypeFilter]  = useState('')
+  const [selected,    setSelected]    = useState(null)
+  const [etapeActive, setEtapeActive] = useState(null)
+  const [wfState,     setWfState]     = useState({})
+  const [formData,    setFormData]    = useState({})
+  const [docUploads,  setDocUploads]  = useState({})
+  const [medData,     setMedData]     = useState({})
+  const [savedMsg,    setSavedMsg]    = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -93,23 +305,56 @@ export default function InductionPage() {
       .then(r => {
         const list = r.data.results || r.data || []
         setPersonnel(list)
-        // Charger/initialiser workflow pour chaque personnel
         const wf = {}
         list.forEach(p => { wf[p.id] = getWF(p.id) })
-        setWfData(wf)
+        setWfState(wf)
       })
       .catch(()=>setPersonnel([]))
       .finally(()=>setLoading(false))
   },[])
 
   useEffect(()=>{ load() },[load])
-  useEffect(()=>{ if(refresh>0) load() },[refresh])
 
-  const wf = (p) => wfData[p.id] || getWF(p.id)
-  const progress = (p) => {
+  const wf = (p) => wfState[p?.id] || {}
+  const getEtapeDone = (pid, key) => !!(wf({id:pid}).etapes?.[key]?.done)
+
+  const etapeDebloquee = (pid, etapeKey) => {
+    const idx = ETAPES.findIndex(e=>e.key===etapeKey)
+    if (idx===0) return true  // première étape toujours débloquée
+    const prev = ETAPES[idx-1]
+    return getEtapeDone(pid, prev.key)
+  }
+
+  const validerEtape = (key, extraData={}) => {
+    if (!selected) return
+    const curr = getWF(selected.id)
+    const newWf = {
+      ...curr,
+      etapes: {
+        ...(curr.etapes||{}),
+        [key]: { done:true, date:new Date().toISOString(), ...extraData }
+      }
+    }
+    saveWF(selected.id, newWf)
+    setWfState(prev => ({...prev, [selected.id]: newWf}))
+    setSavedMsg('✅ Étape validée !')
+    setTimeout(()=>setSavedMsg(''), 2000)
+
+    // Vérifier si tout est terminé
+    const allDone = ETAPES.every(e => e.key==='badge' || newWf.etapes?.[e.key]?.done)
+    if (allDone) setEtapeActive('celebration')
+    else {
+      const nextIdx = ETAPES.findIndex(e=>e.key===key)+1
+      if (nextIdx < ETAPES.length) {
+        setTimeout(()=>setEtapeActive(ETAPES[nextIdx].key), 500)
+      }
+    }
+  }
+
+  const progression = (p) => {
     const w = wf(p)
-    const done = ETAPES.filter(e => w.etapes?.[e.key]?.done).length
-    return Math.round(done / ETAPES.length * 100)
+    const done = ETAPES.filter(e=>w.etapes?.[e.key]?.done).length
+    return Math.round(done/ETAPES.length*100)
   }
 
   const filtered = personnel.filter(p => {
@@ -119,18 +364,8 @@ export default function InductionPage() {
     return true
   })
 
-  const stats = {
-    total:   personnel.length,
-    valide:  personnel.filter(p=>wf(p).statut==='valide').length,
-    cours:   personnel.filter(p=>wf(p).statut==='en_cours').length,
-    non:     personnel.filter(p=>!wf(p).statut||wf(p).statut==='non_commence').length,
-  }
-
-  const TYPES = [
-    {v:'roxgold',l:'Roxgold'},{v:'soustraitant',l:'Sous-traitant'},{v:'visiteur',l:'Visiteur'}
-  ]
-
-  const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',
+  const TYPES = [{v:'roxgold',l:'Roxgold'},{v:'sous_traitant',l:'Sous-traitant'},{v:'visiteur',l:'Visiteur'}]
+  const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'9px 12px',
     fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
 
   return (
@@ -140,157 +375,63 @@ export default function InductionPage() {
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
         borderRadius:16,padding:'18px 24px',marginBottom:20}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-          flexWrap:'wrap',gap:12}}>
-          <div>
-            <h1 style={{fontSize:22,fontWeight:900,margin:0}}>🎓 Induction QHSE</h1>
-            <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
-              Workflow automatique — déclenché à la création de chaque membre du personnel
-            </p>
-          </div>
-          <div style={{display:'flex',gap:20,textAlign:'center'}}>
-            {[['✅',stats.valide,'Validés','#4ade80'],['⏳',stats.cours,'En cours','#fbbf24'],
-              ['❌',stats.non,'En attente','#f87171']].map(([ic,v,l,c])=>(
-              <div key={l}>
-                <div style={{fontFamily:'monospace',fontSize:22,fontWeight:900,color:c}}>{v}</div>
-                <div style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>{ic} {l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <h1 style={{fontSize:22,fontWeight:900,margin:0}}>🎓 Induction QHSE — Roxgold Sango</h1>
+        <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
+          Workflow séquentiel en 6 étapes — Chaque étape débloque la suivante
+        </p>
       </div>
 
-      {/* Onglets */}
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        {[['liste','📋 Workflows'],['dashboard','📊 Tableau de bord']].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)}
-            style={{padding:'8px 16px',borderRadius:10,cursor:'pointer',fontFamily:'inherit',
-              fontSize:13,fontWeight:700,border:'none',
-              background:tab===k?'#1e3a8a':'#f8fafc',
-              color:tab===k?'#fff':'#64748b'}}>
-            {l}
-          </button>
-        ))}
+      {/* Filtres */}
+      <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="🔍 Rechercher personnel..."
+          style={{...inp,maxWidth:260}}/>
+        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} style={{...inp,maxWidth:160}}>
+          <option value="">Tous les types</option>
+          {TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
+        </select>
       </div>
 
-      {/* === LISTE WORKFLOWS === */}
-      {tab==='liste' && (
-        <>
-          <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
-            <input value={search} onChange={e=>setSearch(e.target.value)}
-              placeholder="🔍 Rechercher personnel..."
-              style={{...inp,maxWidth:260}}/>
-            <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}
-              style={{...inp,maxWidth:160}}>
-              <option value="">Tous les types</option>
-              {TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
-            </select>
-          </div>
-
-          {loading ? (
-            <div style={{textAlign:'center',padding:60,fontSize:32}}>⏳</div>
-          ) : (
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {filtered.map(p=>{
-                const w = wf(p)
-                const prog = progress(p)
-                const s = STATUT_COLOR[w.statut] || STATUT_COLOR.en_cours
-                return (
-                  <div key={p.id} onClick={()=>setSelected(p)}
-                    style={{background:'#fff',borderRadius:12,padding:'14px 16px',
-                      boxShadow:'0 1px 4px rgba(0,0,0,.07)',cursor:'pointer',
-                      borderLeft:`4px solid ${s.c}`,
-                      outline: selected?.id===p.id ? `2px solid ${s.c}` : 'none'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:12}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:700,fontSize:14}}>{p.nom} {p.prenom}</div>
-                        <div style={{fontSize:11,color:'#64748b'}}>
-                          {TYPES.find(t=>t.v===p.type_personnel)?.l} · {p.societe||'—'}
-                        </div>
-                      </div>
-                      <span style={{background:s.bg,color:s.c,padding:'3px 10px',
-                        borderRadius:99,fontSize:11,fontWeight:700}}>
-                        {s.l}
-                      </span>
-                    </div>
-                    {/* Barre de progression */}
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10}}>
-                      <div style={{flex:1,height:8,background:'#e2e8f0',borderRadius:99}}>
-                        <div style={{width:prog+'%',height:'100%',
-                          background:prog===100?'#16a34a':'#1e3a8a',
-                          borderRadius:99,transition:'width .3s'}}/>
-                      </div>
-                      <span style={{fontSize:11,fontWeight:700,color:'#64748b',minWidth:32}}>
-                        {prog}%
-                      </span>
-                    </div>
-                    {/* Étapes mini */}
-                    <div style={{display:'flex',gap:4,marginTop:8}}>
-                      {ETAPES.map(e=>{
-                        const done = !!(w.etapes?.[e.key]?.done)
-                        return (
-                          <div key={e.key}
-                            title={e.label+(done?' — ✅':'')+(!done?' — En attente':'')}
-                            style={{width:24,height:24,borderRadius:'50%',
-                              display:'flex',alignItems:'center',justifyContent:'center',
-                              fontSize:12,
-                              background:done?'#1e3a8a20':'#f1f5f9',
-                              border:done?'1px solid #1e3a8a':'1px solid #e2e8f0'}}>
-                            {done ? '✓' : e.icon}
-                          </div>
-                        )
-                      })}
+      {loading ? <div style={{textAlign:'center',padding:60,fontSize:32}}>⏳</div> : (
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {filtered.map(p => {
+            const prog = progression(p)
+            const w = wf(p)
+            return (
+              <div key={p.id} onClick={()=>{setSelected(p);setEtapeActive(null)}}
+                style={{background:'#fff',borderRadius:12,padding:'14px 16px',
+                  boxShadow:'0 1px 4px rgba(0,0,0,.07)',cursor:'pointer',
+                  borderLeft:`4px solid ${prog===100?'#16a34a':prog>0?'#f59e0b':'#e2e8f0'}`,
+                  outline: selected?.id===p.id ? '2px solid #1e3a8a' : 'none'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:14}}>{p.nom} {p.prenom}</div>
+                    <div style={{fontSize:11,color:'#64748b'}}>
+                      {TYPES.find(t=>t.v===p.type_personnel)?.l} · {p.societe||'—'}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* === DASHBOARD === */}
-      {tab==='dashboard' && (
-        <div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',
-            gap:12,marginBottom:24}}>
-            {[
-              ['👥 Total',stats.total,'#1e3a8a'],
-              ['✅ Validés',stats.valide,'#16a34a'],
-              ['⏳ En cours',stats.cours,'#f59e0b'],
-              ['❌ En attente',stats.non,'#dc2626'],
-              ['📊 Conformité',stats.total?(stats.valide/stats.total*100).toFixed(0)+'%':'-','#7c3aed'],
-            ].map(([l,v,c])=>(
-              <div key={l} style={{background:'#fff',borderRadius:12,padding:'14px 16px',
-                borderTop:'3px solid '+c,boxShadow:'0 1px 4px rgba(0,0,0,.07)'}}>
-                <div style={{fontFamily:'monospace',fontSize:24,fontWeight:900,color:c}}>{v}</div>
-                <div style={{fontSize:11,color:'#94a3b8',marginTop:3}}>{l}</div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,
+                      color:prog===100?'#16a34a':prog>0?'#f59e0b':'#94a3b8'}}>
+                      {prog}%
+                    </div>
+                    <div style={{fontSize:10,color:'#94a3b8'}}>
+                      {prog===100?'Induit ✅':prog>0?'En cours':'À démarrer'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4,marginTop:8}}>
+                  {ETAPES.map(e => (
+                    <div key={e.key}
+                      title={e.titre}
+                      style={{flex:1,height:6,borderRadius:99,
+                        background: w.etapes?.[e.key]?.done ? e.couleur : '#e2e8f0',
+                        transition:'background .3s'}}/>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-          {/* Workflow référence */}
-          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
-            <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:16}}>
-              🔄 Processus d'induction — 6 étapes obligatoires
-            </h3>
-            <div style={{display:'flex',alignItems:'flex-start',overflowX:'auto',paddingBottom:8,gap:0}}>
-              {ETAPES.map((e,i,arr)=>(
-                <React.Fragment key={e.key}>
-                  <div style={{minWidth:100,textAlign:'center',flexShrink:0}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'#1e3a8a',
-                      color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:22,margin:'0 auto 8px',boxShadow:'0 2px 8px rgba(30,58,138,.3)'}}>
-                      {e.icon}
-                    </div>
-                    <div style={{fontSize:11,fontWeight:700,color:'#1e3a8a'}}>{i+1}. {e.label}</div>
-                    <div style={{fontSize:9,color:'#94a3b8',marginTop:3,maxWidth:90,margin:'3px auto 0'}}>{e.desc}</div>
-                  </div>
-                  {i<arr.length-1&&<div style={{flex:1,height:2,background:'#e2e8f0',
-                    minWidth:20,marginTop:24,flexShrink:0}}/>}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
+            )
+          })}
         </div>
       )}
 
@@ -299,157 +440,296 @@ export default function InductionPage() {
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
           display:'flex',alignItems:'center',justifyContent:'flex-end',zIndex:1000}}
           onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-          <div style={{background:'#fff',width:'100%',maxWidth:480,height:'100%',
+          <div style={{background:'#fff',width:'100%',maxWidth:560,height:'100%',
             overflow:'auto',boxShadow:'-4px 0 30px rgba(0,0,0,.2)'}}>
 
-            {/* Header */}
-            {(() => {
-              const w = wf(selected)
-              const s = STATUT_COLOR[w.statut] || STATUT_COLOR.en_cours
-              const prog = progress(selected)
-              return (
-                <>
-                  <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
-                    padding:'16px 20px',position:'sticky',top:0,zIndex:10}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:700,fontSize:16}}>{selected.nom} {selected.prenom}</div>
-                        <div style={{fontSize:11,opacity:.8,marginTop:2}}>
-                          {TYPES.find(t=>t.v===selected.type_personnel)?.l} · {selected.societe||'—'}
-                        </div>
-                      </div>
-                      <button onClick={()=>setSelected(null)}
-                        style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
-                          width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18}}>✕</button>
+            {/* Célébration finale */}
+            {etapeActive==='celebration' ? (
+              <div style={{padding:40,textAlign:'center',background:'linear-gradient(135deg,#16a34a,#15803d)',
+                minHeight:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                <div style={{fontSize:80,marginBottom:20}}>🎉</div>
+                <div style={{color:'#fff',fontSize:28,fontWeight:900,marginBottom:12}}>
+                  Bienvenue au Camp Minier<br/>de ROXGOLD Sango !
+                </div>
+                <div style={{color:'rgba(255,255,255,.9)',fontSize:16,marginBottom:30}}>
+                  {selected.prenom} {selected.nom}<br/>
+                  Induction QHSE complétée avec succès
+                </div>
+                <div style={{background:'rgba(255,255,255,.2)',borderRadius:16,padding:'20px 30px',
+                  color:'#fff',fontSize:13,textAlign:'left',maxWidth:360}}>
+                  <div style={{fontWeight:700,marginBottom:8}}>🎫 Badge d\'accès activé</div>
+                  <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
+                  <div>Valide 12 mois — Présentez votre QR à chaque accès</div>
+                </div>
+                <button onClick={()=>{setSelected(null);setEtapeActive(null)}}
+                  style={{marginTop:24,background:'#fff',color:'#16a34a',border:'none',
+                    padding:'12px 30px',borderRadius:12,cursor:'pointer',fontSize:15,fontWeight:700}}>
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',
+                  color:'#fff',padding:'16px 20px',position:'sticky',top:0,zIndex:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:16}}>{selected.nom} {selected.prenom}</div>
+                      <div style={{fontSize:11,opacity:.8}}>{selected.societe}</div>
                     </div>
-                    <div style={{marginTop:10,display:'flex',alignItems:'center',gap:10}}>
-                      <div style={{flex:1,height:8,background:'rgba(255,255,255,.2)',borderRadius:99}}>
-                        <div style={{width:prog+'%',height:'100%',background:'#4ade80',
-                          borderRadius:99,transition:'width .3s'}}/>
-                      </div>
-                      <span style={{fontSize:12,fontWeight:700,color:'#4ade80'}}>{prog}%</span>
-                    </div>
-                    <span style={{background:s.bg,color:s.c,padding:'3px 10px',borderRadius:99,
-                      fontSize:11,fontWeight:700,display:'inline-block',marginTop:8}}>
-                      {s.l}
-                    </span>
+                    <button onClick={()=>setSelected(null)}
+                      style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                        width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18}}>✕</button>
                   </div>
+                  {savedMsg && (
+                    <div style={{marginTop:8,background:'#16a34a',borderRadius:8,
+                      padding:'4px 12px',fontSize:12,fontWeight:700}}>
+                      {savedMsg}
+                    </div>
+                  )}
+                </div>
 
-                  {/* Étapes */}
-                  <div style={{padding:20,display:'flex',flexDirection:'column',gap:10}}>
-                    {ETAPES.map(e=>{
-                      const done = !!(w.etapes?.[e.key]?.done)
-                      const info = w.etapes?.[e.key]
+                {/* Étapes navigation */}
+                {!etapeActive && (
+                  <div style={{padding:20}}>
+                    <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:16}}>
+                      Sélectionner une étape
+                    </h3>
+                    {ETAPES.map((e,i) => {
+                      const done = getEtapeDone(selected.id, e.key)
+                      const debloque = etapeDebloquee(selected.id, e.key)
                       return (
-                        <div key={e.key} style={{
-                          background:done?'#f0fdf4':'#f8fafc',
-                          border:'1.5px solid '+(done?'#86efac':'#e2e8f0'),
-                          borderRadius:12,padding:'12px 14px',
-                          display:'flex',alignItems:'center',gap:12}}>
-                          <div style={{fontSize:26,flexShrink:0}}>{e.icon}</div>
-                          <div style={{flex:1,minWidth:0}}>
+                        <div key={e.key}
+                          onClick={()=>debloque&&setEtapeActive(e.key)}
+                          style={{
+                            background: done?'#f0fdf4':debloque?'#f8fafc':'#fafafa',
+                            border: `1.5px solid ${done?'#86efac':debloque?e.couleur+'40':'#e2e8f0'}`,
+                            borderRadius:12,padding:'14px 16px',marginBottom:8,
+                            cursor:debloque?'pointer':'not-allowed',
+                            opacity:debloque?1:0.5,
+                            display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{width:40,height:40,borderRadius:'50%',
+                            background:done?'#16a34a':debloque?e.couleur:'#94a3b8',
+                            color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
+                            fontSize:18,flexShrink:0}}>
+                            {done?'✓':e.icon}
+                          </div>
+                          <div style={{flex:1}}>
                             <div style={{fontWeight:700,fontSize:13,
-                              color:done?'#16a34a':'#1e293b'}}>
-                              {e.label}
+                              color:done?'#16a34a':debloque?'#1e293b':'#94a3b8'}}>
+                              {i+1}. {e.titre}
                             </div>
-                            <div style={{fontSize:11,color:'#64748b',marginTop:1}}>{e.desc}</div>
-                            {info?.note && (
-                              <div style={{fontSize:10,color:'#7c3aed',marginTop:3,
-                                background:'#f5f3ff',padding:'3px 8px',borderRadius:6,
-                                display:'inline-block'}}>
-                                📝 {info.note}
-                              </div>
-                            )}
-                            {info?.date && done && (
-                              <div style={{fontSize:9,color:'#94a3b8',marginTop:2}}>
-                                {new Date(info.date).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
+                            <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>
+                              {done?'✅ Complété':debloque?e.desc:'🔒 Compléter l\'étape précédente'}
+                            </div>
                           </div>
-                          <div style={{display:'flex',gap:6,flexShrink:0}}>
-                            <button onClick={()=>{setNoteModal({key:e.key,done});setEtapeNote(info?.note||'')}}
-                              style={{background:'#f8fafc',border:'1px solid #e2e8f0',
-                                padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11}}>
-                              📝
-                            </button>
-                            <button onClick={()=>{
-                              const newNote = w.etapes?.[e.key]?.note||''
-                              setEtape(selected.id,e.key,!done,newNote)
-                              setWfData(prev=>({...prev,[selected.id]:getWF(selected.id)}))
-                            }} style={{
-                              background:done?'#fef2f2':'#f0fdf4',
-                              color:done?'#dc2626':'#16a34a',
-                              border:'1.5px solid '+(done?'#fca5a5':'#86efac'),
-                              padding:'4px 12px',borderRadius:8,cursor:'pointer',
-                              fontSize:11,fontWeight:700}}>
-                              {done?'✗ Annuler':'✓ Valider'}
-                            </button>
-                          </div>
+                          {debloque && !done && (
+                            <div style={{color:e.couleur,fontSize:18}}>→</div>
+                          )}
                         </div>
                       )
                     })}
-
-                    {/* Actions globales */}
-                    <div style={{display:'flex',gap:8,marginTop:8}}>
-                      <button onClick={()=>{
-                        ETAPES.forEach(e=>setEtape(selected.id,e.key,true,'Validé en lot'))
-                        setWfData(prev=>({...prev,[selected.id]:getWF(selected.id)}))
-                      }} style={{flex:1,background:'#1e3a8a',color:'#fff',border:'none',
-                        padding:11,borderRadius:10,cursor:'pointer',fontFamily:'inherit',
-                        fontSize:12,fontWeight:700}}>
-                        ✅ Valider tout
-                      </button>
-                      <button onClick={()=>{
-                        ETAPES.forEach(e=>{if(e.key!=='accueil')setEtape(selected.id,e.key,false,'')})
-                        setWfData(prev=>({...prev,[selected.id]:getWF(selected.id)}))
-                      }} style={{flex:1,background:'#fef2f2',color:'#dc2626',
-                        border:'1px solid #fca5a5',padding:11,borderRadius:10,cursor:'pointer',
-                        fontFamily:'inherit',fontSize:12}}>
-                        🔄 Réinitialiser
-                      </button>
-                    </div>
                   </div>
-                </>
-              )
-            })()}
-          </div>
-        </div>
-      )}
+                )}
 
-      {/* Modal note */}
-      {noteModal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
-          display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16}}
-          onClick={e=>e.target===e.currentTarget&&setNoteModal(null)}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
-            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-            <div style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'#fff',
-              padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontWeight:700}}>📝 Note / Observation</span>
-              <button onClick={()=>setNoteModal(null)}
-                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
-                  width:26,height:26,borderRadius:6,cursor:'pointer',fontSize:16}}>✕</button>
-            </div>
-            <div style={{padding:16}}>
-              <textarea value={etapeNote} onChange={e=>setEtapeNote(e.target.value)}
-                placeholder="Observations, commentaire..."
-                rows={4} style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,
-                  padding:'9px 12px',fontSize:13,outline:'none',resize:'vertical',
-                  boxSizing:'border-box'}}/>
-              <button onClick={()=>{
-                if(selected && noteModal) {
-                  const w = getWF(selected.id)
-                  const done = !!(w.etapes?.[noteModal.key]?.done)
-                  setEtape(selected.id, noteModal.key, done, etapeNote)
-                  setWfData(prev=>({...prev,[selected.id]:getWF(selected.id)}))
-                  setNoteModal(null)
-                }
-              }} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',
-                padding:11,borderRadius:9,cursor:'pointer',marginTop:10,
-                fontSize:13,fontWeight:700,fontFamily:'inherit'}}>
-                💾 Enregistrer
-              </button>
-            </div>
+                {/* Contenu de l'étape active */}
+                {etapeActive && etapeActive!=='celebration' && (() => {
+                  const etape = ETAPES.find(e=>e.key===etapeActive)
+                  if (!etape) return null
+                  return (
+                    <div style={{padding:20}}>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+                        <button onClick={()=>setEtapeActive(null)}
+                          style={{background:'#f8fafc',border:'1px solid #e2e8f0',
+                            padding:'5px 10px',borderRadius:8,cursor:'pointer',fontSize:12}}>
+                          ← Retour
+                        </button>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:15,color:etape.couleur}}>
+                            {etape.icon} {etape.titre}
+                          </div>
+                          <div style={{fontSize:11,color:'#94a3b8'}}>{etape.desc}</div>
+                        </div>
+                      </div>
+
+                      {/* FORM */}
+                      {etape.type==='form' && (
+                        <div>
+                          {etape.champs.map(c=>(
+                            <div key={c.key} style={{marginBottom:12}}>
+                              <label style={{display:'block',fontSize:11,fontWeight:700,
+                                color:'#64748b',marginBottom:4}}>
+                                {c.label}{c.required&&' *'}
+                              </label>
+                              {c.type==='photo' ? (
+                                <label style={{display:'flex',alignItems:'center',gap:8,
+                                  padding:'10px 14px',background:formData[c.key]?'#f0fdf4':'#f8fafc',
+                                  border:`2px dashed ${formData[c.key]?'#16a34a':'#e2e8f0'}`,
+                                  borderRadius:10,cursor:'pointer',fontSize:12,
+                                  color:formData[c.key]?'#16a34a':'#64748b'}}>
+                                  <input type="file" accept="image/*" style={{display:'none'}}
+                                    onChange={e=>{
+                                      const file=e.target.files?.[0]
+                                      if(!file) return
+                                      const r=new FileReader()
+                                      r.onload=ev=>setFormData(f=>({...f,[c.key]:ev.target.result}))
+                                      r.readAsDataURL(file)
+                                    }}/>
+                                  {formData[c.key]?'✅ Photo chargée':'📷 Charger une photo'}
+                                </label>
+                              ) : (
+                                <input type={c.type} value={formData[c.key]||''}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
+                                  placeholder={c.placeholder} style={inp}/>
+                              )}
+                            </div>
+                          ))}
+                          <button onClick={()=>{
+                            const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
+                            if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
+                            validerEtape(etape.key, {form:formData})
+                          }}
+                            style={{width:'100%',padding:12,borderRadius:10,border:'none',
+                              background:etape.couleur,color:'#fff',fontWeight:700,
+                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                            ✅ Valider et continuer
+                          </button>
+                        </div>
+                      )}
+
+                      {/* DOCUMENTS */}
+                      {etape.type==='documents' && (
+                        <div>
+                          {etape.docs.map(d=>(
+                            <div key={d.key} style={{marginBottom:12,background:'#f8fafc',
+                              borderRadius:12,padding:'12px 14px',
+                              border:`1.5px solid ${docUploads[d.key]?'#86efac':'#e2e8f0'}`}}>
+                              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                <div style={{flex:1}}>
+                                  <div style={{fontWeight:600,fontSize:13}}>
+                                    {d.label}
+                                    {d.required&&<span style={{color:'#dc2626'}}> *</span>}
+                                  </div>
+                                  {docUploads[d.key] && (
+                                    <div style={{fontSize:11,color:'#16a34a',marginTop:2}}>
+                                      ✅ {docUploads[d.key]}
+                                    </div>
+                                  )}
+                                </div>
+                                <label style={{background:docUploads[d.key]?'#f0fdf4':'#1e3a8a',
+                                  color:docUploads[d.key]?'#16a34a':'#fff',border:'none',
+                                  padding:'6px 14px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                                  <input type="file" style={{display:'none'}}
+                                    onChange={e=>{
+                                      const file=e.target.files?.[0]
+                                      if(file) setDocUploads(prev=>({...prev,[d.key]:file.name}))
+                                    }}/>
+                                  {docUploads[d.key]?'✓ Chargé':'📎 Charger'}
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                          <button onClick={()=>{
+                            const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
+                            if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
+                            validerEtape(etape.key, {docs:Object.keys(docUploads)})
+                          }}
+                            style={{width:'100%',padding:12,borderRadius:10,border:'none',marginTop:8,
+                              background:etape.couleur,color:'#fff',fontWeight:700,
+                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                            📄 Documents soumis — Continuer
+                          </button>
+                        </div>
+                      )}
+
+                      {/* FORMATION */}
+                      {etape.type==='formation' && (
+                        <EtapeFormation etape={etape}
+                          wf={{id:selected.id,...(wfState[selected.id]||{})}}
+                          onValider={()=>validerEtape(etape.key)}/>
+                      )}
+
+                      {/* QUIZ */}
+                      {etape.type==='quiz' && (
+                        <EtapeQuiz etape={etape}
+                          wf={{id:selected.id,...(wfState[selected.id]||{})}}
+                          onValider={()=>validerEtape(etape.key,{score:80})}
+                          onEchec={()=>{}}/>
+                      )}
+
+                      {/* MÉDICAL */}
+                      {etape.type==='medical' && (
+                        <div>
+                          {etape.champs.map(c=>(
+                            <div key={c.key} style={{marginBottom:12}}>
+                              <label style={{display:'block',fontSize:11,fontWeight:700,
+                                color:'#64748b',marginBottom:4}}>
+                                {c.label}{c.required&&' *'}
+                              </label>
+                              {c.type==='select' ? (
+                                <select value={medData[c.key]||''} onChange={e=>setMedData(m=>({...m,[c.key]:e.target.value}))} style={inp}>
+                                  <option value="">Sélectionner...</option>
+                                  {c.options.map(o=><option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : c.type==='textarea' ? (
+                                <textarea value={medData[c.key]||''} onChange={e=>setMedData(m=>({...m,[c.key]:e.target.value}))}
+                                  placeholder={c.placeholder} rows={3} style={{...inp,resize:'vertical'}}/>
+                              ) : (
+                                <input type={c.type} value={medData[c.key]||''} onChange={e=>setMedData(m=>({...m,[c.key]:e.target.value}))}
+                                  placeholder={c.placeholder} style={inp}/>
+                              )}
+                            </div>
+                          ))}
+                          <button onClick={()=>{
+                            const missing=etape.champs.filter(c=>c.required&&!medData[c.key])
+                            if(missing.length){alert('Champs requis: '+missing.map(c=>c.label).join(', '));return}
+                            if(medData.alcool==='Positif'||medData.drogues==='Positif'){alert('⛔ Tests positifs — Accès refusé. Contacter le médecin.');return}
+                            if(!medData.resultat?.startsWith('FIT')){alert('⛔ Résultat médecin non FIT — Accès refusé.');return}
+                            validerEtape(etape.key,{medical:medData})
+                          }}
+                            style={{width:'100%',padding:12,borderRadius:10,border:'none',
+                              background:etape.couleur,color:'#fff',fontWeight:700,
+                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                            🏥 Valider la visite médicale
+                          </button>
+                        </div>
+                      )}
+
+                      {/* BADGE */}
+                      {etape.type==='badge' && (
+                        <div style={{textAlign:'center',padding:20}}>
+                          <div style={{fontSize:60,marginBottom:16}}>🎫</div>
+                          <div style={{fontWeight:700,fontSize:18,color:'#16a34a',marginBottom:8}}>
+                            Badge QR Prêt !
+                          </div>
+                          <div style={{background:'#f0fdf4',border:'2px solid #86efac',
+                            borderRadius:14,padding:'16px 20px',marginBottom:20,textAlign:'left'}}>
+                            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>
+                              🏷️ Badge d\'accès — Roxgold Sango
+                            </div>
+                            <div style={{fontSize:12,color:'#64748b',lineHeight:1.8}}>
+                              <div>👤 {selected.nom} {selected.prenom}</div>
+                              <div>🏢 {selected.societe||'Roxgold'}</div>
+                              <div>📅 Émis le {new Date().toLocaleDateString('fr-FR')}</div>
+                              <div>⏱️ Valide 12 mois</div>
+                            </div>
+                          </div>
+                          <button onClick={()=>{
+                            validerEtape(etape.key,{badge_emis:new Date().toISOString()})
+                            setEtapeActive('celebration')
+                          }}
+                            style={{width:'100%',padding:13,borderRadius:10,border:'none',
+                              background:'#16a34a',color:'#fff',fontWeight:700,
+                              fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
+                            🎉 Émettre le badge et terminer l'induction
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </>
+            )}
           </div>
         </div>
       )}
