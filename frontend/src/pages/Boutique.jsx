@@ -310,6 +310,11 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   const [selPerso,   setSelPerso]  = useState('')
   const [search,     setSearch]    = useState('')
   const [searchSociete, setSearchSociete] = useState('')
+  const [stockModal,   setStockModal]   = useState(null)  // article pour modifier stock
+  const [stockQte,     setStockQte]     = useState(0)
+  const [stockOp,      setStockOp]      = useState('add')
+  const [stockRaison,  setStockRaison]  = useState('')
+  const [alertesStock, setAlertesStock] = useState([])
 
   const crediterTous = async () => {
     if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
@@ -1438,6 +1443,80 @@ export default function Boutique() {
                   Annuler
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL GESTION STOCK ══ */}
+      {stockModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:2100,padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setStockModal(null)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:400,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'linear-gradient(135deg,#16a34a,#15803d)',color:'#fff',
+              padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15}}>📦 Gestion du Stock</div>
+                <div style={{fontSize:11,opacity:.8}}>{stockModal.nom} — Stock actuel: <b>{stockModal.stock}</b></div>
+              </div>
+              <button onClick={()=>setStockModal(null)}
+                style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                  width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
+            </div>
+            <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{display:'flex',gap:8}}>
+                {[['add','➕ Entrée','#16a34a'],['subtract','➖ Sortie','#f97316'],['set','🔢 Ajuster','#1e3a8a']].map(([op,l,c])=>(
+                  <button key={op} onClick={()=>setStockOp(op)}
+                    style={{flex:1,padding:'8px 4px',borderRadius:9,cursor:'pointer',fontFamily:'inherit',
+                      fontSize:11,fontWeight:700,border:'none',
+                      background:stockOp===op?c:'#f8fafc',
+                      color:stockOp===op?'#fff':'#64748b'}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>
+                  QUANTITÉ
+                </label>
+                <input type="number" value={stockQte}
+                  onChange={e=>setStockQte(parseInt(e.target.value)||0)}
+                  min={0} style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,
+                    padding:'10px 12px',fontSize:16,fontWeight:700,outline:'none',boxSizing:'border-box'}}/>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>
+                  RAISON (optionnel)
+                </label>
+                <input value={stockRaison} onChange={e=>setStockRaison(e.target.value)}
+                  placeholder="Livraison, inventaire, casse..."
+                  style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,
+                    padding:'10px 12px',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+              </div>
+              {stockQte>0 && (
+                <div style={{background:'#f8fafc',borderRadius:8,padding:'8px 12px',fontSize:12,color:'#64748b'}}>
+                  Stock après opération:{' '}
+                  <b style={{color:'#1e3a8a'}}>
+                    {stockOp==='set' ? stockQte :
+                     stockOp==='add' ? (stockModal.stock+stockQte) :
+                     Math.max(0, stockModal.stock-stockQte)} unités
+                  </b>
+                </div>
+              )}
+              <button onClick={async()=>{
+                try {
+                  await boutiqueAPI.updateStock(stockModal.id,{operation:stockOp,quantite:stockQte,raison:stockRaison})
+                  setStockModal(null)
+                  // Rafraîchir les articles
+                  boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
+                } catch(e) { alert(e.response?.data?.error||'Erreur stock') }
+              }}
+                style={{background:'#16a34a',color:'#fff',border:'none',padding:12,
+                  borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
+                ✅ Confirmer la mise à jour du stock
+              </button>
             </div>
           </div>
         </div>

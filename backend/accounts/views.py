@@ -442,6 +442,63 @@ def force_seed(request):
     except Exception as e:
         errors.append(f"⚠️ Maintenance: {str(e)[:80]}")
 
+    # N. CRITIQUE: Appliquer migrations manquantes sur Render
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            db_vendor = connection.vendor
+            if db_vendor == 'postgresql':
+                # Créer toutes les colonnes optionnelles de maintenance_incident
+                cols_sql = [
+                    ("date_assignation",         "TIMESTAMP WITH TIME ZONE"),
+                    ("date_debut",               "TIMESTAMP WITH TIME ZONE"),
+                    ("date_cloture",             "TIMESTAMP WITH TIME ZONE"),
+                    ("date_resolution",          "TIMESTAMP WITH TIME ZONE"),
+                    ("photo_base64",             "TEXT DEFAULT ''"),
+                    ("photo_mime",               "VARCHAR(50) DEFAULT 'image/jpeg'"),
+                    ("photo_resolution_base64",  "TEXT DEFAULT ''"),
+                    ("latitude",                 "DECIMAL(10,7)"),
+                    ("longitude",                "DECIMAL(10,7)"),
+                    ("sla_depasse",              "BOOLEAN DEFAULT FALSE"),
+                    ("sla_echeance",             "TIMESTAMP WITH TIME ZONE"),
+                    ("sla_notification_envoyee", "BOOLEAN DEFAULT FALSE"),
+                    ("commentaire_resolution",   "TEXT DEFAULT ''"),
+                    ("commentaire_cloture",      "TEXT DEFAULT ''"),
+                ]
+                added = []
+                for col, dtype in cols_sql:
+                    cursor.execute(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name='maintenance_incident' AND column_name=%s",
+                        [col]
+                    )
+                    if not cursor.fetchone():
+                        cursor.execute(f"ALTER TABLE maintenance_incident ADD COLUMN {col} {dtype}")
+                        added.append(col)
+                if added:
+                    results.append(f"✅ Colonnes maintenance ajoutées: {', '.join(added)}")
+                else:
+                    results.append("✅ Colonnes maintenance: toutes présentes")
+            else:
+                results.append(f"ℹ️ DB {db_vendor}: skip colonnes PostgreSQL")
+    except Exception as e:
+        errors.append(f"⚠️ Migrations: {str(e)[:100]}")
+
+    # Vérifier colonnes ArticleBoutique sur PostgreSQL
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            if connection.vendor == 'postgresql':
+                cursor.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name='restauration_articleboutique' AND column_name='image_url'"
+                )
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE restauration_articleboutique ADD COLUMN image_url VARCHAR(500) DEFAULT ''")
+                    results.append("✅ Colonne image_url ajoutée à ArticleBoutique")
+    except Exception as e:
+        errors.append(f"⚠️ ArticleBoutique cols: {str(e)[:80]}")
+
     return Response({
         'ok':      len(errors) == 0,
         'results': results,

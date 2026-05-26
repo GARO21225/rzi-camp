@@ -3,7 +3,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import Batiment, Personnel, OccupationHistory, Demande
+from .models import InductionRecord, Batiment, Personnel, OccupationHistory, Demande
 from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer
 import csv, datetime
 from django.http import HttpResponse
@@ -732,7 +732,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.contrib.auth.models import User
-from .models import Demande, Batiment, Personnel
+from .models import InductionRecord, Demande, Batiment, Personnel
 from .serializers import DemandeSerializer
 
 class DemandeViewSet(viewsets.ModelViewSet):
@@ -990,3 +990,79 @@ def declarer_soustraitants_masse(request):
     return Response({'ok':True,'created':len(created),'societe':societe,
         'expire':expire.strftime('%d/%m/%Y %H:%M'),'duree_h':duree_h,
         'agents':created,'message':f"{len(created)} sous-traitants {societe} créés — accès {duree_h}h"})
+
+
+# ── Induction QHSE ───────────────────────────────────────
+from rest_framework import serializers as drf_ser
+class InductionRecordSerializer(drf_ser.ModelSerializer):
+    personnel_nom = drf_ser.SerializerMethodField()
+    progression   = drf_ser.SerializerMethodField()
+
+    def get_personnel_nom(self, obj):
+        return f"{obj.personnel.nom} {obj.personnel.prenom}"
+
+    def get_progression(self, obj):
+        return obj.progression_pct()
+
+    class Meta:
+        model  = InductionRecord
+        fields = '__all__'
+
+
+class InductionRecordViewSet(viewsets.ModelViewSet):
+    queryset           = InductionRecord.objects.select_related('personnel').all()
+    serializer_class   = InductionRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        pid = self.request.query_params.get('personnel')
+        if pid: qs = qs.filter(personnel_id=pid)
+        return qs
+
+    @action(detail=False, methods=['post'])
+    def update_etape(self, request):
+        """Mettre à jour une étape pour un personnel."""
+        personnel_id  = request.data.get('personnel_id')
+        etape_key     = request.data.get('etape')
+        done          = request.data.get('done', True)
+        extra_data    = request.data.get('data', {})
+        field_to_save = request.data.get('field')  # form_data|docs_data|medical_data|quiz_score
+
+        try:
+            from residences.models import Personnel, InductionRecord
+            personnel = Personnel.objects.get(id=personnel_id)
+            record, _ = InductionRecord.objects.get_or_create(personnel=personnel)
+            # Mettre à jour les étapes
+            etapes = record.etapes_data.copy()
+            etapes[etape_key] = {'done': done, 'date': str(__import__('django.utils.timezone',fromlist=['timezone']).timezone.now()), **extra_data}
+            record.etapes_data = etapes
+            # Sauvegarder données spécifiques
+            if field_to_save == 'form_data':
+                record.form_data = extra_data
+            elif field_to_save == 'docs_data':
+                record.docs_data = extra_data
+            elif field_to_save == 'medical_data':
+                record.medical_data = extra_data
+            elif field_to_save == 'quiz_score':
+                record.quiz_score = extra_data.get('score')
+                record.quiz_tentatives = (record.quiz_tentatives or 0) + 1
+            # Vérifier si induction complète
+            ETAPES_REQUISES = ['accueil','documents','formation','quiz','medical','badge']
+            if all(etapes.get(e, {}).get('done') for e in ETAPES_REQUISES):
+                record.statut = 'valide'
+                from django.utils import timezone
+                record.date_fin = timezone.now()
+                import datetime
+                record.badge_emis = True
+                record.badge_date = timezone.now()
+                record.badge_expire = (timezone.now() + datetime.timedelta(days=365)).date()
+            record.save()
+            return Response({
+                'ok': True,
+                'statut': record.statut,
+                'progression': record.progression_pct(),
+                'etapes': record.etapes_data,
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)

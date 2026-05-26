@@ -4,7 +4,7 @@
  * Inspiré des formations en ligne avec QCM
  */
 import React, { useState, useEffect, useCallback } from 'react'
-import { personnel as personnelAPI } from '../api'
+import { personnel as personnelAPI, inductionAPI } from '../api'
 
 const LS_KEY = 'rzi_induction_v3'
 
@@ -325,7 +325,7 @@ export default function InductionPage() {
     return getEtapeDone(pid, prev.key)
   }
 
-  const validerEtape = (key, extraData={}) => {
+  const validerEtape = async (key, extraData={}) => {
     if (!selected) return
     const curr = getWF(selected.id)
     const newWf = {
@@ -339,6 +339,16 @@ export default function InductionPage() {
     setWfState(prev => ({...prev, [selected.id]: newWf}))
     setSavedMsg('✅ Étape validée !')
     setTimeout(()=>setSavedMsg(''), 2000)
+    // Sauvegarder sur le backend
+    try {
+      await inductionAPI.updateEtape({
+        personnel_id: selected.id,
+        etape: key,
+        done: true,
+        data: extraData,
+        field: key==='accueil'?'form_data':key==='documents'?'docs_data':key==='medical'?'medical_data':null,
+      })
+    } catch(e) { console.warn('Backend induction save:', e) }
 
     // Vérifier si tout est terminé
     const allDone = ETAPES.every(e => e.key==='badge' || newWf.etapes?.[e.key]?.done)
@@ -487,6 +497,35 @@ export default function InductionPage() {
                       {savedMsg}
                     </div>
                   )}
+                  {/* ─ Barre workflow progression ─ */}
+                  <div style={{marginTop:10,display:'flex',alignItems:'center',gap:0}}>
+                    {ETAPES.map((etapeItem,i) => {
+                      const w2 = wf(selected)
+                      const isDone    = !!(w2.etapes?.[etapeItem.key]?.done)
+                      const isCurrent = !isDone && etapeDebloquee(selected.id, etapeItem.key)
+                      return (
+                        <React.Fragment key={etapeItem.key}>
+                          <div style={{display:'flex',flexDirection:'column',alignItems:'center',minWidth:50}}>
+                            <div style={{width:26,height:26,borderRadius:'50%',
+                              background: isDone?'rgba(255,255,255,.95)':isCurrent?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)',
+                              color: isDone?'#16a34a':isCurrent?'#fff':'rgba(255,255,255,.3)',
+                              display:'flex',alignItems:'center',justifyContent:'center',
+                              fontSize:12,fontWeight:700,
+                              border: isCurrent?'2px solid rgba(255,255,255,.6)':'none'}}>
+                              {isDone?'✓':isCurrent?etapeItem.icon:i+1}
+                            </div>
+                            <div style={{fontSize:7,color:'rgba(255,255,255,.5)',marginTop:2}}>
+                              {etapeItem.titre.split(' ')[0]}
+                            </div>
+                          </div>
+                          {i<ETAPES.length-1&&(
+                            <div style={{flex:1,height:2,minWidth:6,marginBottom:16,
+                              background:isDone?'rgba(255,255,255,.6)':'rgba(255,255,255,.2)'}}/>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Étapes navigation */}

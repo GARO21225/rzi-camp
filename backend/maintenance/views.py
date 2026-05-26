@@ -69,28 +69,45 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         try:
             incident = serializer.save(auteur=self.request.user)
-        except Exception as e:
-            # Fallback: sauvegarder sans les colonnes potentiellement manquantes
-            safe_data = {}
-            for k, v in serializer.validated_data.items():
-                if k not in ['photo_base64','photo_mime','photo_resolution_base64','latitude','longitude']:
-                    safe_data[k] = v
-            safe_data['auteur'] = self.request.user
-            try:
-                incident = Incident(**safe_data)
-                incident.save()
-            except Exception as e2:
-                from rest_framework.exceptions import APIException
-                raise APIException(f"Impossible de créer l'incident: {str(e2)}")
-
+        except Exception as orm_error:
+            err_msg = str(orm_error).lower()
+            if 'does not exist' in err_msg or 'column' in err_msg:
+                # Fallback SQL direct avec colonnes de base seulement
+                from django.db import connection
+                from django.utils import timezone
+                data = serializer.validated_data
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO maintenance_incident
+                            (titre, description, categorie, priorite, residence, bloc,
+                             statut, date_creation, auteur_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'declare', %s, %s)
+                        RETURNING id
+                    """, [
+                        data.get('titre',''), data.get('description',''),
+                        data.get('categorie','Autre'), data.get('priorite','moyenne'),
+                        data.get('residence',''), data.get('bloc',''),
+                        timezone.now(), self.request.user.id
+                    ])
+                    incident_id = cursor.fetchone()[0]
+                from maintenance.models import Incident
+                try:
+                    incident = Incident.objects.get(id=incident_id)
+                except Exception:
+                    return
+            else:
+                raise orm_error
+        # Notifier
         try:
             _notifier(incident, f"Incident déclaré: {incident.titre}", 'info')
         except Exception:
             pass
         try:
+            from maintenance.models import CommentaireIncident
             CommentaireIncident.objects.create(
-                incident=incident, auteur=self.request.user, type_comment='info',
-                contenu=f"Incident déclaré — priorité {incident.get_priorite_display()}"
+                incident=incident, auteur=self.request.user,
+                type_comment='info',
+                contenu=f"Incident déclaré — priorité {incident.priorite}"
             )
         except Exception:
             pass

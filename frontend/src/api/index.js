@@ -65,7 +65,14 @@ export const personnel = {
   assigRole: (id, role) => api.patch(`/api/personnel/${id}/assigner_role/`, {role}),
   toggleActive: (id) => api.post(`/api/personnel/${id}/toggle_active/`),
 }
-// ── Menu Restaurant ─────────────────────────────────────
+// ── Induction Records ───────────────────────────────────
+export const inductionAPI = {
+  list:         (p)    => api.get('/api/induction-records/', {params:p}),
+  getByPersonnel:(id)  => api.get('/api/induction-records/', {params:{personnel:id}}),
+  updateEtape:  (d)    => api.post('/api/induction-records/update_etape/', d),
+}
+
+// ── Menu Restaurant  ─────────────────────────────────────
 export const menu = {
   list:   (p) => api.get('/api/menu/', {params:p}),
   create: (d) => api.post('/api/menu/', d),
@@ -197,4 +204,7 @@ export const boutique = {
   soldePersonnel:  (pid)      => api.get('/api/boutique/bons/solde_personnel/', {params:{personnel_id:pid}}),
   crediterPersonnel:(d)       => api.post('/api/boutique/bons/crediter/', d),
   crediterTous:    (d)        => api.post('/api/boutique/bons/crediter_tous/', d),
+  // Stock management
+  updateStock:     (id,d)     => api.post(`/api/boutique/articles/${id}/stock_update/`, d),
+  alertesStock:    (p)        => api.get('/api/boutique/articles/alertes_stock/', {params:p}),
 }

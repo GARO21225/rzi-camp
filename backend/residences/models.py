@@ -235,3 +235,44 @@ class Demande(models.Model):
             )
         except Exception:
             pass
+
+
+class InductionRecord(models.Model):
+    """Suivi de l'induction QHSE pour chaque membre du personnel."""
+    STATUTS = [
+        ('en_cours', 'En cours'),
+        ('valide',   'Validé — Induit'),
+        ('refuse',   'Refusé'),
+        ('expire',   'Expiré'),
+    ]
+    personnel    = models.OneToOneField(Personnel, on_delete=models.CASCADE,
+                    related_name='induction')
+    statut       = models.CharField(max_length=20, choices=STATUTS, default='en_cours')
+    # Étapes complétées (JSON)
+    etapes_data  = models.JSONField(default=dict, blank=True)
+    # Données saisies
+    form_data    = models.JSONField(default=dict, blank=True)
+    docs_data    = models.JSONField(default=dict, blank=True)
+    medical_data = models.JSONField(default=dict, blank=True)
+    # Quiz
+    quiz_score   = models.PositiveIntegerField(null=True, blank=True)
+    quiz_tentatives = models.PositiveIntegerField(default=0)
+    # Dates
+    date_debut   = models.DateTimeField(auto_now_add=True)
+    date_fin     = models.DateTimeField(null=True, blank=True)
+    # Badge
+    badge_emis   = models.BooleanField(default=False)
+    badge_date   = models.DateTimeField(null=True, blank=True)
+    badge_expire = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Induction QHSE'
+        ordering = ['-date_debut']
+
+    def __str__(self):
+        return f"{self.personnel.nom} {self.personnel.prenom} — {self.statut}"
+
+    def progression_pct(self):
+        etapes = ['accueil','documents','formation','quiz','medical','badge']
+        done = sum(1 for e in etapes if self.etapes_data.get(e,{}).get('done'))
+        return int(done / len(etapes) * 100)
