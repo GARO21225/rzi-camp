@@ -4,7 +4,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import InductionRecord, Batiment, Personnel, OccupationHistory, Demande
-from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer
+from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer, InductionRecordSerializer
 import csv, datetime
 from django.http import HttpResponse
 from natsort import natsorted

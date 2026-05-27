@@ -7,6 +7,44 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
 
 const LS_KEY = 'rzi_induction_v3'
+const OFFLINE_QUEUE_KEY = 'rzi_induction_offline_queue'
+
+// ─── Gestion de la file d'attente hors-ligne ──────────────────────
+function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]') }
+  catch { return [] }
+}
+function addToOfflineQueue(item) {
+  const queue = getOfflineQueue()
+  queue.push({ ...item, timestamp: new Date().toISOString() })
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
+}
+function clearOfflineQueue() {
+  localStorage.setItem(OFFLINE_QUEUE_KEY, '[]')
+}
+
+// ─── Synchronisation avec le backend ──────────────────────────────
+async function syncOfflineQueue() {
+  const queue = getOfflineQueue()
+  if (queue.length === 0) return { synced: 0, failed: 0 }
+  
+  let synced = 0, failed = 0
+  const failedItems = []
+  
+  for (const item of queue) {
+    try {
+      await inductionAPI.updateEtape(item.data)
+      synced++
+    } catch (e) {
+      failed++
+      failedItems.push(item)
+    }
+  }
+  
+  // Garder seulement les items qui ont echoue
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(failedItems))
+  return { synced, failed }
+}
 
 // ─── Définition des étapes ────────────────────────────────────────
 const ETAPES = [
@@ -299,20 +337,103 @@ export default function InductionPage() {
   const [medData,     setMedData]     = useState({})
   const [savedMsg,    setSavedMsg]    = useState('')
   const [slideTab,    setSlideTab]    = useState('etapes')
+  const [isOnline,    setIsOnline]    = useState(navigator.onLine)
+  const [syncStatus,  setSyncStatus]  = useState('')
 
-  const load = useCallback(() => {
+  // Detecter le statut en ligne/hors-ligne
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true)
+      setSyncStatus('Synchronisation...')
+      const result = await syncOfflineQueue()
+      if (result.synced > 0) {
+        setSyncStatus(`${result.synced} element(s) synchronise(s)`)
+        load() // Recharger les donnees
+      } else {
+        setSyncStatus('')
+      }
+      setTimeout(() => setSyncStatus(''), 3000)
+    }
+    const handleOffline = () => setIsOnline(false)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const load = useCallback(async () => {
     setLoading(true)
-    personnelAPI.list({page_size:500})
-      .then(r => {
-        const list = r.data.results || r.data || []
-        setPersonnel(list)
-        const wf = {}
-        list.forEach(p => { wf[p.id] = getWF(p.id) })
-        setWfState(wf)
+    try {
+      // 1. Charger le personnel
+      const r = await personnelAPI.list({page_size:500})
+      const list = r.data.results || r.data || []
+      setPersonnel(list)
+      
+      // 2. Charger les donnees d'induction depuis le backend
+      let backendRecords = {}
+      try {
+        const inductionResp = await inductionAPI.list({page_size:500})
+        const records = inductionResp.data.results || inductionResp.data || []
+        records.forEach(rec => {
+          backendRecords[rec.personnel] = {
+            id: rec.personnel,
+            etapes: rec.etapes_data || {},
+            data: {
+              form: rec.form_data || {},
+              docs: rec.docs_data || {},
+              medical: rec.medical_data || {},
+            },
+            tentatives_quiz: rec.quiz_tentatives || 0,
+            quiz_score: rec.quiz_score,
+            statut: rec.statut,
+            badge_emis: rec.badge_emis,
+            fromBackend: true,
+          }
+        })
+      } catch (e) {
+        console.warn('Impossible de charger les donnees d\'induction depuis le backend:', e)
+      }
+      
+      // 3. Fusionner avec localStorage (backend prioritaire si plus recent)
+      const wf = {}
+      list.forEach(p => {
+        const localWf = getWF(p.id)
+        const backendWf = backendRecords[p.id]
+        
+        if (backendWf && backendWf.fromBackend) {
+          // Utiliser les donnees du backend, mais garder les brouillons locaux
+          wf[p.id] = {
+            ...backendWf,
+            drafts: localWf.drafts || {},
+            id: p.id,
+          }
+          // Mettre a jour localStorage avec les donnees du backend
+          saveWF(p.id, wf[p.id])
+        } else {
+          // Pas de donnees backend, utiliser localStorage
+          wf[p.id] = localWf
+        }
       })
-      .catch(()=>setPersonnel([]))
-      .finally(()=>setLoading(false))
-  },[])
+      setWfState(wf)
+      
+      // 4. Tenter de synchroniser la file hors-ligne
+      if (navigator.onLine) {
+        const result = await syncOfflineQueue()
+        if (result.synced > 0) {
+          setSyncStatus(`${result.synced} element(s) synchronise(s)`)
+          setTimeout(() => setSyncStatus(''), 3000)
+        }
+      }
+    } catch (e) {
+      console.error('Erreur de chargement:', e)
+      setPersonnel([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(()=>{ load() },[load])
 
@@ -456,23 +577,36 @@ export default function InductionPage() {
     }
     saveWF(selected.id, newWf)
     setWfState(prev => ({...prev, [selected.id]: newWf}))
-    // Sauvegarder sur le backend (avec indicateur visuel)
-    setSavedMsg('⏳ Synchronisation...')
-    try {
-      const fieldMap = {accueil:'form_data', documents:'docs_data', medical:'medical_data', quiz:'quiz_score'}
-      await inductionAPI.updateEtape({
-        personnel_id: selected.id,
-        etape: key,
-        done: true,
-        data: extraData,
-        field: fieldMap[key] || null,
-      })
-      setSavedMsg('✅ Étape validée et enregistrée !')
-    } catch(e) {
-      setSavedMsg('✅ Validé (hors-ligne — sera synchronisé)')
-      console.warn('Backend sync:', e?.response?.data || e.message)
+    
+    // Preparer les donnees pour le backend
+    const fieldMap = {accueil:'form_data', documents:'docs_data', medical:'medical_data', quiz:'quiz_score'}
+    const backendData = {
+      personnel_id: selected.id,
+      etape: key,
+      done: true,
+      data: extraData,
+      field: fieldMap[key] || null,
     }
-    setTimeout(()=>setSavedMsg(''), 3000)
+    
+    // Sauvegarder sur le backend (ou mettre en file d'attente si hors-ligne)
+    setSavedMsg('Synchronisation...')
+    
+    if (navigator.onLine) {
+      try {
+        await inductionAPI.updateEtape(backendData)
+        setSavedMsg('Etape validee et enregistree dans la base de donnees !')
+      } catch(e) {
+        // Echec de la sync backend -> ajouter a la file hors-ligne
+        addToOfflineQueue({ type: 'update_etape', data: backendData })
+        setSavedMsg('Sauvegarde locale (sera synchronise quand la connexion sera retablie)')
+        console.warn('Backend sync error:', e?.response?.data || e.message)
+      }
+    } else {
+      // Mode hors-ligne -> ajouter a la file d'attente
+      addToOfflineQueue({ type: 'update_etape', data: backendData })
+      setSavedMsg('Mode hors-ligne: sauvegarde locale (synchronisation automatique au retour en ligne)')
+    }
+    setTimeout(()=>setSavedMsg(''), 4000)
 
     // Vérifier si tout est terminé
     const allDone = ETAPES.every(e => e.key==='badge' || newWf.etapes?.[e.key]?.done)
@@ -509,10 +643,37 @@ export default function InductionPage() {
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
         borderRadius:16,padding:'18px 24px',marginBottom:20}}>
-        <h1 style={{fontSize:22,fontWeight:900,margin:0}}>🎓 Induction QHSE — Roxgold Sango</h1>
-        <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
-          Workflow séquentiel en 6 étapes — Chaque étape débloque la suivante
-        </p>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+          <div>
+            <h1 style={{fontSize:22,fontWeight:900,margin:0}}>Induction QHSE - Roxgold Sango</h1>
+            <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
+              Workflow sequentiel en 6 etapes - Chaque etape debloque la suivante
+            </p>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+            <div style={{
+              display:'flex',alignItems:'center',gap:6,
+              background: isOnline ? 'rgba(22,163,74,0.2)' : 'rgba(239,68,68,0.2)',
+              padding:'4px 10px',borderRadius:20,fontSize:11,fontWeight:600
+            }}>
+              <span style={{
+                width:8,height:8,borderRadius:'50%',
+                background: isOnline ? '#16a34a' : '#ef4444'
+              }}/>
+              {isOnline ? 'En ligne' : 'Hors-ligne'}
+            </div>
+            {syncStatus && (
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.8)',textAlign:'right'}}>
+                {syncStatus}
+              </div>
+            )}
+            {getOfflineQueue().length > 0 && (
+              <div style={{fontSize:10,color:'#f59e0b',textAlign:'right'}}>
+                {getOfflineQueue().length} element(s) en attente de sync
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Filtres */}

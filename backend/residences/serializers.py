@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Batiment, Personnel, OccupationHistory
+from .models import Batiment, Personnel, OccupationHistory, InductionRecord
 
 class PersonnelSerializer(serializers.ModelSerializer):
     type_label      = serializers.SerializerMethodField()
@@ -114,3 +114,24 @@ class DemandeSerializer(serializers.ModelSerializer):
             "demandeur", "traite_par", "statut", "commentaire_admin",
             "proposition_admin", "date_traitement", "date_reponse"
         ]
+
+
+class InductionRecordSerializer(serializers.ModelSerializer):
+    """Serializer pour le suivi d'induction QHSE."""
+    personnel_detail = PersonnelSerializer(source="personnel", read_only=True)
+    progression      = serializers.SerializerMethodField()
+
+    def get_progression(self, obj):
+        return obj.progression_pct()
+
+    class Meta:
+        model  = InductionRecord
+        fields = [
+            "id", "personnel", "personnel_detail", "statut",
+            "etapes_data", "form_data", "docs_data", "medical_data",
+            "quiz_score", "quiz_tentatives",
+            "date_debut", "date_fin",
+            "badge_emis", "badge_date", "badge_expire",
+            "progression",
+        ]
+        read_only_fields = ["date_debut", "date_fin", "badge_date"]
