@@ -316,6 +316,122 @@ export default function InductionPage() {
 
   useEffect(()=>{ load() },[load])
 
+  // Charger les brouillons quand on sélectionne un personnel
+  useEffect(()=>{
+    if (!selected) { setFormData({}); setDocUploads({}); setMedData({}); return }
+    const w = getWF(selected.id)
+    const drafts = w.drafts || {}
+    setFormData(drafts.form || w.etapes?.accueil?.form || {})
+    setDocUploads(drafts.docs || {})
+    setMedData(drafts.medical || w.etapes?.medical?.medical || {})
+  },[selected])
+
+  // Sauvegarde brouillon (sans valider l'étape)
+  const saveDraft = (kind, data) => {
+    if (!selected) return
+    const curr = getWF(selected.id)
+    const newWf = { ...curr, drafts: { ...(curr.drafts||{}), [kind]: data } }
+    saveWF(selected.id, newWf)
+    setWfState(prev => ({...prev, [selected.id]: newWf}))
+    setSavedMsg('💾 Brouillon enregistré')
+    setTimeout(()=>setSavedMsg(''), 2000)
+  }
+
+  // Téléchargement du dossier complet (HTML imprimable → PDF via navigateur)
+  const telechargerDossier = (p) => {
+    const w = wf(p)
+    const dateFr = (d) => d ? new Date(d).toLocaleString('fr-FR') : '—'
+    const photo = w.etapes?.accueil?.form?.photo || w.drafts?.form?.photo || ''
+    const rows = ETAPES.map((e,i) => {
+      const info = w.etapes?.[e.key]
+      const statut = info?.done
+        ? `<span style="color:#16a34a;font-weight:700">✓ Validé le ${dateFr(info.date)}</span>`
+        : `<span style="color:#94a3b8">En attente</span>`
+      let details = ''
+      if (e.key==='accueil' && info?.form) {
+        details = '<table style="width:100%;font-size:12px;margin-top:6px">'
+          + Object.entries(info.form).filter(([k])=>k!=='photo')
+              .map(([k,v])=>`<tr><td style="color:#64748b;padding:2px 8px 2px 0">${k.replace(/_/g,' ')}</td><td>${String(v||'')}</td></tr>`).join('')
+          + '</table>'
+      }
+      if (e.key==='medical' && info?.medical) {
+        details = '<table style="width:100%;font-size:12px;margin-top:6px">'
+          + Object.entries(info.medical)
+              .map(([k,v])=>`<tr><td style="color:#64748b;padding:2px 8px 2px 0">${k}</td><td>${String(v||'')}</td></tr>`).join('')
+          + '</table>'
+      }
+      if (e.key==='quiz' && info?.score!=null) {
+        details = `<div style="font-size:13px;margin-top:4px">Score quiz QHSE : <b>${info.score}%</b></div>`
+      }
+      if (e.key==='documents' && info?.docs) {
+        const docs = Array.isArray(info.docs)?info.docs:Object.keys(info.docs)
+        details = `<div style="font-size:12px;margin-top:4px">Documents soumis : ${docs.join(', ')||'—'}</div>`
+      }
+      if (e.key==='badge' && info?.badge_emis) {
+        details = `<div style="font-size:12px;margin-top:4px">Badge émis le ${dateFr(info.badge_emis)}</div>`
+      }
+      return `<tr>
+        <td style="padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top;width:30px">${i+1}</td>
+        <td style="padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top">
+          <div style="font-weight:700">${e.icon} ${e.titre}</div>
+          <div style="font-size:11px;color:#94a3b8">${e.desc}</div>
+          ${details}
+        </td>
+        <td style="padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top;text-align:right">${statut}</td>
+      </tr>`
+    }).join('')
+    const prog = progression(p)
+    const html = `<!doctype html><html><head><meta charset="utf-8">
+      <title>Dossier Induction — ${p.nom} ${p.prenom}</title>
+      <style>
+        body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1e293b;max-width:800px;margin:30px auto;padding:0 20px}
+        h1{margin:0;font-size:22px}
+        .header{background:linear-gradient(135deg,#0f2447,#1e3a8a);color:#fff;padding:20px;border-radius:12px;display:flex;gap:20px;align-items:center}
+        .header img{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #fff;background:#fff}
+        .meta{font-size:13px;margin-top:18px;background:#f8fafc;padding:12px 16px;border-radius:10px}
+        table{width:100%;border-collapse:collapse;margin-top:18px}
+        .prog{font-family:monospace;font-size:24px;font-weight:900;color:${prog===100?'#16a34a':'#f59e0b'}}
+        @media print { .noprint{display:none} }
+      </style></head><body>
+      <div class="header">
+        ${photo?`<img src="${photo}" alt="photo"/>`:'<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:32px">👤</div>'}
+        <div style="flex:1">
+          <h1>${p.nom||''} ${p.prenom||''}</h1>
+          <div style="opacity:.85;font-size:13px;margin-top:4px">${p.societe||'—'} · ${p.type_personnel||''}</div>
+          <div style="opacity:.85;font-size:12px;margin-top:2px">Matricule : ${p.matricule||'—'} · Email : ${p.email||'—'}</div>
+        </div>
+        <div class="prog" style="color:#fff">${prog}%</div>
+      </div>
+      <div class="meta">
+        <b>Dossier d'induction QHSE — Roxgold Sango</b><br/>
+        Édité le ${new Date().toLocaleString('fr-FR')}
+      </div>
+      <table>
+        <thead><tr style="background:#f1f5f9">
+          <th style="padding:10px;text-align:left">#</th>
+          <th style="padding:10px;text-align:left">Étape</th>
+          <th style="padding:10px;text-align:right">Statut</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="noprint" style="margin-top:24px;text-align:center">
+        <button onclick="window.print()" style="background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px">🖨️ Imprimer / Enregistrer en PDF</button>
+      </div>
+      <script>setTimeout(()=>window.print(),400)</script>
+      </body></html>`
+    const blob = new Blob([html], {type:'text/html'})
+    const url = URL.createObjectURL(blob)
+    const w2 = window.open(url, '_blank')
+    if (!w2) {
+      // fallback: téléchargement direct
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dossier_induction_${p.nom}_${p.prenom}.html`
+      a.click()
+    }
+    setTimeout(()=>URL.revokeObjectURL(url), 60000)
+  }
+
   const wf = (p) => wfState[p?.id] || {}
   const getEtapeDone = (pid, key) => !!(wf({id:pid}).etapes?.[key]?.done)
 
@@ -437,6 +553,13 @@ export default function InductionPage() {
                       {prog===100?'Induit ✅':prog>0?'En cours':'À démarrer'}
                     </div>
                   </div>
+                  <button onClick={(ev)=>{ev.stopPropagation();telechargerDossier(p)}}
+                    title="Télécharger le dossier complet"
+                    style={{background:'#f8fafc',border:'1px solid #e2e8f0',
+                      borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,
+                      color:'#1e3a8a',fontWeight:700}}>
+                    📥
+                  </button>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginTop:8}}>
                   {ETAPES.map(e => (
@@ -697,6 +820,12 @@ export default function InductionPage() {
                               fontSize:12,fontWeight:700,marginTop:8}}>
                             📋 Copier le rapport
                           </button>
+                          <button onClick={()=>telechargerDossier(selected)}
+                            style={{width:'100%',padding:12,borderRadius:9,border:'none',
+                              background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
+                              cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,marginTop:8}}>
+                            📥 Télécharger le dossier complet (PDF)
+                          </button>
                         </div>
                       )
                     })()}
@@ -755,16 +884,24 @@ export default function InductionPage() {
                               )}
                             </div>
                           ))}
-                          <button onClick={()=>{
-                            const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
-                            if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
-                            validerEtape(etape.key, {form:formData})
-                          }}
-                            style={{width:'100%',padding:12,borderRadius:10,border:'none',
-                              background:etape.couleur,color:'#fff',fontWeight:700,
-                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
-                            ✅ Valider et continuer
-                          </button>
+                          <div style={{display:'flex',gap:8}}>
+                            <button onClick={()=>saveDraft('form', formData)}
+                              style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
+                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+                              💾 Enregistrer
+                            </button>
+                            <button onClick={()=>{
+                              const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
+                              if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
+                              validerEtape(etape.key, {form:formData})
+                            }}
+                              style={{flex:2,padding:12,borderRadius:10,border:'none',
+                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                              ✅ Valider et continuer
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -800,16 +937,24 @@ export default function InductionPage() {
                               </div>
                             </div>
                           ))}
-                          <button onClick={()=>{
-                            const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
-                            if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
-                            validerEtape(etape.key, {docs:Object.keys(docUploads)})
-                          }}
-                            style={{width:'100%',padding:12,borderRadius:10,border:'none',marginTop:8,
-                              background:etape.couleur,color:'#fff',fontWeight:700,
-                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
-                            📄 Documents soumis — Continuer
-                          </button>
+                          <div style={{display:'flex',gap:8,marginTop:8}}>
+                            <button onClick={()=>saveDraft('docs', docUploads)}
+                              style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
+                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+                              💾 Enregistrer
+                            </button>
+                            <button onClick={()=>{
+                              const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
+                              if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
+                              validerEtape(etape.key, {docs:Object.keys(docUploads)})
+                            }}
+                              style={{flex:2,padding:12,borderRadius:10,border:'none',
+                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                              📄 Documents soumis — Continuer
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -851,18 +996,26 @@ export default function InductionPage() {
                               )}
                             </div>
                           ))}
-                          <button onClick={()=>{
-                            const missing=etape.champs.filter(c=>c.required&&!medData[c.key])
-                            if(missing.length){alert('Champs requis: '+missing.map(c=>c.label).join(', '));return}
-                            if(medData.alcool==='Positif'||medData.drogues==='Positif'){alert('⛔ Tests positifs — Accès refusé. Contacter le médecin.');return}
-                            if(!medData.resultat?.startsWith('FIT')){alert('⛔ Résultat médecin non FIT — Accès refusé.');return}
-                            validerEtape(etape.key,{medical:medData})
-                          }}
-                            style={{width:'100%',padding:12,borderRadius:10,border:'none',
-                              background:etape.couleur,color:'#fff',fontWeight:700,
-                              fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
-                            🏥 Valider la visite médicale
-                          </button>
+                          <div style={{display:'flex',gap:8}}>
+                            <button onClick={()=>saveDraft('medical', medData)}
+                              style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
+                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+                              💾 Enregistrer
+                            </button>
+                            <button onClick={()=>{
+                              const missing=etape.champs.filter(c=>c.required&&!medData[c.key])
+                              if(missing.length){alert('Champs requis: '+missing.map(c=>c.label).join(', '));return}
+                              if(medData.alcool==='Positif'||medData.drogues==='Positif'){alert('⛔ Tests positifs — Accès refusé. Contacter le médecin.');return}
+                              if(!medData.resultat?.startsWith('FIT')){alert('⛔ Résultat médecin non FIT — Accès refusé.');return}
+                              validerEtape(etape.key,{medical:medData})
+                            }}
+                              style={{flex:2,padding:12,borderRadius:10,border:'none',
+                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
+                              🏥 Valider la visite médicale
+                            </button>
+                          </div>
                         </div>
                       )}
 
