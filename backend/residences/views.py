@@ -1022,47 +1022,71 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def update_etape(self, request):
-        """Mettre à jour une étape pour un personnel."""
+        """Mettre a jour une etape pour un personnel."""
         personnel_id  = request.data.get('personnel_id')
         etape_key     = request.data.get('etape')
         done          = request.data.get('done', True)
         extra_data    = request.data.get('data', {})
         field_to_save = request.data.get('field')  # form_data|docs_data|medical_data|quiz_score
 
+        if not personnel_id:
+            return Response({'error': 'personnel_id requis'}, status=400)
+        if not etape_key:
+            return Response({'error': 'etape requise'}, status=400)
+
         try:
             from residences.models import Personnel, InductionRecord
+            from django.utils import timezone
+            import datetime
+            
             personnel = Personnel.objects.get(id=personnel_id)
-            record, _ = InductionRecord.objects.get_or_create(personnel=personnel)
-            # Mettre à jour les étapes
-            etapes = record.etapes_data.copy()
-            etapes[etape_key] = {'done': done, 'date': str(__import__('django.utils.timezone',fromlist=['timezone']).timezone.now()), **extra_data}
+            record, created = InductionRecord.objects.get_or_create(personnel=personnel)
+            
+            # Mettre a jour les etapes (gerer None)
+            etapes = dict(record.etapes_data or {})
+            etapes[etape_key] = {
+                'done': done, 
+                'date': timezone.now().isoformat(),
+                **(extra_data if isinstance(extra_data, dict) else {})
+            }
             record.etapes_data = etapes
-            # Sauvegarder données spécifiques
-            if field_to_save == 'form_data':
-                record.form_data = extra_data
-            elif field_to_save == 'docs_data':
-                record.docs_data = extra_data
-            elif field_to_save == 'medical_data':
-                record.medical_data = extra_data
+            
+            # Sauvegarder donnees specifiques
+            if field_to_save == 'form_data' and isinstance(extra_data, dict):
+                record.form_data = {**(record.form_data or {}), **extra_data}
+            elif field_to_save == 'docs_data' and isinstance(extra_data, dict):
+                record.docs_data = {**(record.docs_data or {}), **extra_data}
+            elif field_to_save == 'medical_data' and isinstance(extra_data, dict):
+                record.medical_data = {**(record.medical_data or {}), **extra_data}
             elif field_to_save == 'quiz_score':
-                record.quiz_score = extra_data.get('score')
+                score = extra_data.get('score') if isinstance(extra_data, dict) else None
+                if score is not None:
+                    record.quiz_score = score
                 record.quiz_tentatives = (record.quiz_tentatives or 0) + 1
-            # Vérifier si induction complète
+                
+            # Verifier si induction complete
             ETAPES_REQUISES = ['accueil','documents','formation','quiz','medical','badge']
             if all(etapes.get(e, {}).get('done') for e in ETAPES_REQUISES):
                 record.statut = 'valide'
-                from django.utils import timezone
                 record.date_fin = timezone.now()
-                import datetime
                 record.badge_emis = True
                 record.badge_date = timezone.now()
                 record.badge_expire = (timezone.now() + datetime.timedelta(days=365)).date()
+                
             record.save()
+            
             return Response({
                 'ok': True,
                 'statut': record.statut,
                 'progression': record.progression_pct(),
                 'etapes': record.etapes_data,
+                'created': created,
             })
+        except Personnel.DoesNotExist:
+            return Response({'error': f'Personnel {personnel_id} introuvable'}, status=404)
         except Exception as e:
-            return Response({'error': str(e)}, status=400)
+            import traceback
+            return Response({
+                'error': str(e), 
+                'traceback': traceback.format_exc()
+            }, status=500)

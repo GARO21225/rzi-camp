@@ -591,15 +591,18 @@ export default function InductionPage() {
     // Sauvegarder sur le backend (ou mettre en file d'attente si hors-ligne)
     setSavedMsg('Synchronisation...')
     
+    console.log('[v0] Tentative sync backend:', { isOnline: navigator.onLine, backendData })
+    
     if (navigator.onLine) {
       try {
-        await inductionAPI.updateEtape(backendData)
+        const response = await inductionAPI.updateEtape(backendData)
+        console.log('[v0] Backend response:', response.data)
         setSavedMsg('Etape validee et enregistree dans la base de donnees !')
       } catch(e) {
         // Echec de la sync backend -> ajouter a la file hors-ligne
+        console.error('[v0] Backend sync error:', e?.response?.status, e?.response?.data || e.message)
         addToOfflineQueue({ type: 'update_etape', data: backendData })
-        setSavedMsg('Sauvegarde locale (sera synchronise quand la connexion sera retablie)')
-        console.warn('Backend sync error:', e?.response?.data || e.message)
+        setSavedMsg(`Erreur backend: ${e?.response?.data?.error || e.message} - Sauvegarde locale`)
       }
     } else {
       // Mode hors-ligne -> ajouter a la file d'attente
