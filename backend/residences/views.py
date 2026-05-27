@@ -1014,6 +1014,13 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
     serializer_class   = InductionRecordSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        """Permet l'acces a update_etape et list sans authentification stricte."""
+        if self.action in ['update_etape', 'list', 'retrieve']:
+            from rest_framework.permissions import AllowAny
+            return [AllowAny()]
+        return super().get_permissions()
+
     def get_queryset(self):
         qs = super().get_queryset()
         pid = self.request.query_params.get('personnel')
