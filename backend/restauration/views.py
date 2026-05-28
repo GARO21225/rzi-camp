@@ -4,6 +4,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import serializers as drf_serializers
 from django.utils import timezone
 from django.db import connection
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
@@ -263,7 +264,6 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 # ── Bar & Boutique ──────────────────────────────────────────────────
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
-from rest_framework import serializers as drf_serializers
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
     """Sérialiseur robuste — image_url accepte URL ou base64 data URI"""
