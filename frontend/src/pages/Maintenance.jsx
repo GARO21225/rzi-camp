@@ -111,7 +111,7 @@ export default function Maintenance() {
         payload.photo_mime = form.photo_b64.split(';')[0].replace('data:','') || 'image/jpeg'
         payload.photo_base64 = parts[1] || ''
       }
-      await incAPI.create(payload)
+      await incAPI.declarer(payload)
       setShowNew(false); setForm(EMPTY); await load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur serveur')

@@ -93,6 +93,7 @@ export const menu = {
 export const incidents = {
   list:         (p) => api.get('/api/incidents/',  {params:p}),
   create:       (d) => api.post('/api/incidents/', d),
+  declarer:     (d) => api.post('/api/incidents/declarer/', d),
   update:       (id,d) => api.patch(`/api/incidents/${id}/`, d),
   delete:       (id) => api.delete(`/api/incidents/${id}/`),
   stats:        () => api.get('/api/incidents/stats/'),

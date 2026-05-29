@@ -34,6 +34,79 @@ def _notifier(incident, message, type_notif='info'):
         pass
 
 
+from rest_framework.decorators import api_view, permission_classes as pc
+from rest_framework.permissions import AllowAny
+
+@api_view(['POST'])
+@pc([AllowAny])
+def declarer_incident(request):
+    """Endpoint simplifié pour déclarer un incident - bypass ORM complet"""
+    from django.db import connection
+    from django.utils import timezone as tz
+    from rest_framework.response import Response
+    from rest_framework import status as drf_status
+
+    data = request.data
+    titre = data.get('titre', '').strip()
+    description = data.get('description', '').strip()
+
+    if not titre or not description:
+        return Response({'detail': 'Titre et description requis'}, status=400)
+
+    residence = data.get('residence', '').strip()
+    if not residence:
+        return Response({'detail': 'Résidence requise'}, status=400)
+
+    now = tz.now()
+    sla_map = {'critique': 2, 'haute': 8, 'moyenne': 24, 'basse': 72}
+    priorite = data.get('priorite', 'moyenne')
+    categorie = data.get('categorie', 'Autre')
+    bloc = data.get('bloc', '')
+    sla_echeance = now + tz.timedelta(hours=sla_map.get(priorite, 24))
+    auteur_id = request.user.id if request.user and request.user.is_authenticated else None
+
+    try:
+        with connection.cursor() as c:
+            c.execute("""
+                INSERT INTO maintenance_incident
+                    (titre, description, categorie, priorite, statut,
+                     residence, bloc, auteur_id,
+                     photo_base64, photo_mime, photo_resolution_base64,
+                     date_creation, sla_echeance, sla_depasse,
+                     sla_notification_envoyee,
+                     commentaire_resolution, commentaire_cloture)
+                VALUES (%s,%s,%s,%s,'declare',%s,%s,%s,
+                        '','image/jpeg','',
+                        %s,%s,FALSE,FALSE,'','')
+                RETURNING id
+            """, [titre, description, categorie, priorite,
+                    residence, bloc, auteur_id,
+                    now, sla_echeance])
+            incident_id = c.fetchone()[0]
+
+            # Commentaire initial
+            try:
+                c.execute("""
+                    INSERT INTO maintenance_commentaireincident
+                        (incident_id, auteur_id, type_comment, contenu, date_creation, photo_base64)
+                    VALUES (%s, %s, 'info', %s, %s, '')
+                """, [incident_id, auteur_id,
+                        f'Incident déclaré — priorité {priorite}', now])
+            except Exception:
+                pass
+
+        return Response({
+            'id': incident_id,
+            'titre': titre,
+            'statut': 'declare',
+            'priorite': priorite,
+            'message': 'Incident déclaré avec succès'
+        }, status=drf_status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({'detail': f'Erreur: {str(e)}'}, status=500)
+
+
 class IncidentViewSet(viewsets.ModelViewSet):
     queryset = Incident.objects.select_related('auteur', 'assigne_a').prefetch_related('commentaires').all()
     serializer_class = IncidentSerializer
