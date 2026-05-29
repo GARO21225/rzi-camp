@@ -99,11 +99,26 @@ const ETAPES = [
     type: 'quiz',
     score_min: 80,
     questions: [
-      { id:1, q:'Que faire en cas d\'accident sur le site?', options:['Continuer à travailler','Alerter l\'infirmerie et ne pas déplacer la victime','Rentrer chez soi','Appeler la famille'], correct:1 },
-      { id:2, q:'Le port du casque est obligatoire:', options:['Uniquement dans les zones dangereuses','En toutes circonstances sur le site','Seulement dans les mines souterraines','Jamais pour les visiteurs'], correct:1 },
-      { id:3, q:'Que signifie "Stop Work Authority"?', options:['Arrêter la production','Le droit de tout agent d\'arrêter un travail dangereux','Interdire les heures supplémentaires','Fermer le chantier'], correct:1 },
-      { id:4, q:'Les EPI (Équipements de Protection Individuelle) sont:', options:['Optionnels selon l\'humeur','Obligatoires uniquement pour les techniciens','Obligatoires pour tous sur site','Réservés aux responsables'], correct:2 },
-      { id:5, q:'Le point de rassemblement en cas d\'évacuation est:', options:['La cafétéria','Le parking principal','Zone A — Entrée principale','La direction'], correct:2 },
+      { id:1,  q:'Que faire en cas d\'accident sur le site?', options:['Continuer à travailler','Alerter l\'infirmerie et ne pas déplacer la victime','Rentrer chez soi','Appeler la famille'], correct:1 },
+      { id:2,  q:'Le port du casque est obligatoire:', options:['Uniquement dans les zones dangereuses','En toutes circonstances sur le site','Seulement dans les mines souterraines','Jamais pour les visiteurs'], correct:1 },
+      { id:3,  q:'Que signifie "Stop Work Authority"?', options:['Arrêter la production','Le droit de tout agent d\'arrêter un travail dangereux','Interdire les heures supplémentaires','Fermer le chantier'], correct:1 },
+      { id:4,  q:'Les EPI (Équipements de Protection Individuelle) sont:', options:['Optionnels selon l\'humeur','Obligatoires uniquement pour les techniciens','Obligatoires pour tous sur site','Réservés aux responsables'], correct:2 },
+      { id:5,  q:'Le point de rassemblement en cas d\'évacuation est:', options:['La cafétéria','Le parking principal','Zone A — Entrée principale','La direction'], correct:2 },
+      { id:6,  q:'Que doit-on faire avant de commencer un travail en hauteur?', options:['Commencer directement','Vérifier le harnais et obtenir un permis de travail','Informer sa famille','Rien de spécial'], correct:1 },
+      { id:7,  q:'En cas d\'incendie, que faut-il faire EN PREMIER?', options:['Éteindre soi-même','Récupérer ses affaires','Déclencher l\'alarme et évacuer','Appeler ses collègues'], correct:2 },
+      { id:8,  q:'Le port des chaussures de sécurité est obligatoire:', options:['Seulement pour les techniciens','Seulement en zone de production','Pour toute personne sur le site','Uniquement en cas de pluie'], correct:2 },
+      { id:9,  q:'Un permis de travail à chaud est requis pour:', options:['Travaux de peinture','Soudure et découpe','Nettoyage à sec','Travail administratif'], correct:1 },
+      { id:10, q:'La signalisation rouge sur site signifie:', options:['Attention — ralentir','Danger — zone interdite sans autorisation','Information générale','Chemin autorisé'], correct:1 },
+      { id:11, q:'Que faire si vous observez une situation dangereuse?', options:['L\'ignorer','La signaler immédiatement au superviseur','Attendre la fin du poste','En parler à un ami'], correct:1 },
+      { id:12, q:'Le gilet de visibilité haute doit être porté:', options:['Uniquement la nuit','En toutes circonstances sur le site','Seulement près des véhicules','Jamais en intérieur'], correct:1 },
+      { id:13, q:'Le Lock-Out / Tag-Out (LOTO) sert à:', options:['Fermer les portes','Consigner une énergie dangereuse avant intervention','Bloquer les accès visiteurs','Protéger les données informatiques'], correct:1 },
+      { id:14, q:'En cas de déversement accidentel d\'un produit chimique, il faut:', options:['Laisser évaporer','Alerter et utiliser le kit anti-déversement','Nettoyer avec de l\'eau directement','Couvrir avec du sable et partir'], correct:1 },
+      { id:15, q:'Les lunettes de protection sont obligatoires:', options:['Jamais','Seulement en laboratoire','Dans les zones de poussières et de projections','Uniquement pour les soudeurs'], correct:2 },
+      { id:16, q:'La vitesse maximale des véhicules sur le site est:', options:['50 km/h','Libre','20 km/h','40 km/h'], correct:2 },
+      { id:17, q:'Un espace confiné nécessite:', options:['Aucune précaution','Un permis d\'entrée et surveillance gaz','Juste une lampe de poche','Un simple masque'], correct:1 },
+      { id:18, q:'Les incidents de sécurité doivent être déclarés:', options:['Uniquement si grave','Jamais — mauvaise image','Systématiquement, même les presqu\'accidents','Seulement si témoin'], correct:2 },
+      { id:19, q:'Le masque FFP2 protège contre:', options:['Les chocs','La chaleur','Les poussières fines et aérosols','L\'eau'], correct:2 },
+      { id:20, q:'La règle des 5S sur site signifie:', options:['5 superviseurs','Sécurité, Surveillance, Santé, Soin, Suivi','Trier, Ranger, Nettoyer, Standardiser, Sustainer','5 équipes de sécurité'], correct:2 },
     ]
   },
   {
@@ -227,7 +242,26 @@ function EtapeFormation({ etape, wf, onValider }) {
 }
 
 // ─── Composant Quiz ────────────────────────────────────────────────
+// Shuffle déterministe basé sur l'ID du personnel → chaque agent a son propre ordre
+function seededShuffle(arr, seed) {
+  const a = [...arr]
+  let s = seed
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 function EtapeQuiz({ etape, wf, onValider, onEchec }) {
+  // Sélection et ordre des questions unique par personnel (seed = id du personnel)
+  const personnelSeed = wf.id || 1
+  const questionsForPersonnel = React.useMemo(() => {
+    const shuffled = seededShuffle(etape.questions, personnelSeed)
+    return shuffled.slice(0, 5) // 5 questions tirées parmi les 20
+  }, [wf.id])
+
   const [answers, setAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [score, setScore] = useState(null)
@@ -235,10 +269,10 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
 
   const submitQuiz = () => {
     let correct = 0
-    etape.questions.forEach(q => {
+    questionsForPersonnel.forEach(q => {
       if (answers[q.id] === q.correct) correct++
     })
-    const s = Math.round(correct / etape.questions.length * 100)
+    const s = Math.round(correct / questionsForPersonnel.length * 100)
     setScore(s)
     setSubmitted(true)
     saveWF(wf.id, { tentatives_quiz: tentatives + 1 })
@@ -284,13 +318,13 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
     <div>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
         <span style={{fontSize:12,color:'#64748b'}}>
-          {Object.keys(answers).length}/{etape.questions.length} réponses
+          {Object.keys(answers).length}/{questionsForPersonnel.length} réponses
         </span>
         <span style={{fontSize:12,color:'#f59e0b',fontWeight:700}}>
           Tentative {tentatives+1}/3 · Min: {etape.score_min}%
         </span>
       </div>
-      {etape.questions.map((q,qi)=>(
+      {questionsForPersonnel.map((q,qi)=>(
         <div key={q.id} style={{marginBottom:16,background:'#f8fafc',borderRadius:12,padding:'14px 16px'}}>
           <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:'#1e293b'}}>
             {qi+1}. {q.q}
@@ -310,13 +344,13 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
         </div>
       ))}
       <button onClick={submitQuiz}
-        disabled={Object.keys(answers).length < etape.questions.length}
+        disabled={Object.keys(answers).length < questionsForPersonnel.length}
         style={{width:'100%',padding:13,borderRadius:10,border:'none',cursor:'pointer',
           fontFamily:'inherit',fontWeight:700,fontSize:14,
           background: Object.keys(answers).length < etape.questions.length ? '#94a3b8' : '#f59e0b',
           color:'#fff'}}>
-        {Object.keys(answers).length < etape.questions.length
-          ? `Répondre à toutes les questions (${etape.questions.length-Object.keys(answers).length} restantes)`
+        {Object.keys(answers).length < questionsForPersonnel.length
+          ? `Répondre à toutes les questions (${questionsForPersonnel.length-Object.keys(answers).length} restantes)`
           : '📋 Soumettre le Quiz'}
       </button>
     </div>
@@ -563,6 +597,26 @@ export default function InductionPage() {
       const prev = ETAPES[idx-1]
       return getEtapeDone(pid, prev.key)
     } catch(e) { return idx===0 }
+  }
+
+  // Réinitialiser une étape (modifier ou supprimer)
+  const resetEtape = async (key) => {
+    if (!selected) return
+    if (!window.confirm(`Réinitialiser l'étape "${ETAPES.find(e=>e.key===key)?.titre}" ? Les données seront effacées.`)) return
+    const curr = getWF(selected.id)
+    const newEtapes = { ...(curr.etapes||{}) }
+    delete newEtapes[key]
+    // Si on reset quiz, reset aussi le compteur de tentatives
+    const newWf = { ...curr, etapes: newEtapes }
+    if (key === 'quiz') newWf.tentatives_quiz = 0
+    saveWF(selected.id, newWf)
+    setWfState(prev => ({...prev, [selected.id]: newWf}))
+    // Sync backend
+    try {
+      await inductionAPI.updateEtape({ personnel_id: selected.id, etape: key, done: false, data: {} })
+    } catch(e) { console.warn('Backend sync failed:', e) }
+    setSavedMsg('🔄 Étape réinitialisée')
+    setTimeout(()=>setSavedMsg(''), 2000)
   }
 
   const validerEtape = async (key, extraData={}) => {
@@ -915,6 +969,20 @@ export default function InductionPage() {
                                     <div style={{fontSize:10,opacity:.8}}>
                                       ✅ Validé le {new Date(info.date).toLocaleDateString('fr-FR')} à {new Date(info.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
                                     </div>
+                                  </div>
+                                  <div style={{display:'flex',gap:4}}>
+                                    <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
+                                      title="Modifier cette étape"
+                                      style={{background:'rgba(255,255,255,0.25)',color:'#fff',border:'none',
+                                        padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                                      ✏️ Modifier
+                                    </button>
+                                    <button onClick={ev=>{ev.stopPropagation();resetEtape(e.key)}}
+                                      title="Supprimer / réinitialiser cette étape"
+                                      style={{background:'rgba(220,38,38,0.7)',color:'#fff',border:'none',
+                                        padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                                      🗑️
+                                    </button>
                                   </div>
                                 </div>
                                 {/* Données saisies */}

@@ -565,7 +565,15 @@ export default function Restauration() {
   )
 }
 
-// ── Bloc Menu du jour (réutilisable) ──
+// ── Bloc Menu du jour — groupé par repas puis par type ──
+const REPAS_CONFIG = [
+  { key:'matin',  label:'🌅 Petit-déjeuner', color:'#f59e0b', bg:'#fffbeb' },
+  { key:'midi',   label:'☀️ Déjeuner',        color:'#0891b2', bg:'#ecfeff' },
+  { key:'soir',   label:'🌙 Dîner',           color:'#6d28d9', bg:'#f5f3ff' },
+]
+const TYPE_ORDER = ['entree','plat','dessert','boisson','special']
+const TYPE_LABELS = { entree:'Entrée', plat:'Plat principal', dessert:'Dessert', boisson:'Boisson', special:'Spécial' }
+
 function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, setMenuForm }) {
   return (
     <div style={{marginTop:16,borderTop:'1px solid var(--border)',paddingTop:14}}>
@@ -585,29 +593,74 @@ function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, 
           catch{ setMenuItems([]) }
         }}
         style={{border:'1px solid var(--border)',borderRadius:7,padding:'5px 8px',
-          fontSize:11,outline:'none',marginBottom:8,width:'100%',boxSizing:'border-box'}}/>
+          fontSize:11,outline:'none',marginBottom:10,width:'100%',boxSizing:'border-box'}}/>
+
       {menuItems.length===0 ? (
-        <div style={{color:'var(--text-dim)',fontSize:11,textAlign:'center',padding:8}}>
+        <div style={{color:'var(--text-dim)',fontSize:11,textAlign:'center',padding:12,
+          background:'var(--surface)',borderRadius:8,border:'1px dashed var(--border)'}}>
           Aucun plat pour cette date
         </div>
-      ) : menuItems.map(m=>(
-        <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',
-          borderBottom:'1px solid var(--border)'}}>
-          <div style={{flex:1}}>
-            <div style={{fontWeight:600,fontSize:12}}>{m.nom}</div>
-            <div style={{fontSize:10,color:'var(--text-dim)'}}>{m.repas_label||m.repas} · {m.type_label||m.type_plat}</div>
-          </div>
-          <button onClick={()=>setMenuForm(m)}
-            style={{background:'#eff6ff',color:'#2563eb',border:'none',
-              padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>✏️</button>
-          <button onClick={async()=>{
-            if(!window.confirm('Supprimer ?'))return
-            try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}catch{alert('Erreur suppression')}
-          }}
-            style={{background:'#fef2f2',color:'#dc2626',border:'none',
-              padding:'2px 6px',borderRadius:5,cursor:'pointer',fontSize:11}}>🗑️</button>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {REPAS_CONFIG.map(repas => {
+            const plats = menuItems.filter(m => m.repas === repas.key)
+            if (plats.length === 0) return null
+            // Grouper par type_plat dans l'ordre défini
+            const byType = TYPE_ORDER.reduce((acc, t) => {
+              const items = plats.filter(m => m.type_plat === t)
+              if (items.length > 0) acc[t] = items
+              return acc
+            }, {})
+            return (
+              <div key={repas.key} style={{borderRadius:10,overflow:'hidden',
+                border:`1.5px solid ${repas.color}40`}}>
+                {/* Header repas */}
+                <div style={{background:repas.bg,padding:'8px 12px',
+                  borderBottom:`1.5px solid ${repas.color}40`,
+                  display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontWeight:700,fontSize:12,color:repas.color}}>{repas.label}</span>
+                  <span style={{fontSize:10,color:repas.color,opacity:.7}}>{plats.length} plat{plats.length>1?'s':''}</span>
+                </div>
+                {/* Plats par type */}
+                {Object.entries(byType).map(([type, items]) => (
+                  <div key={type}>
+                    <div style={{padding:'4px 12px',background:'var(--surface-alt,#f8fafc)',
+                      fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',
+                      letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>
+                      {TYPE_LABELS[type]||type}
+                    </div>
+                    {items.map(m => (
+                      <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,
+                        padding:'8px 12px',borderBottom:'1px solid var(--border)',
+                        background:m.disponible?'transparent':'#fef9c3'}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600,fontSize:12,color:'var(--text)'}}>{m.nom}</div>
+                          {m.description && (
+                            <div style={{fontSize:10,color:'var(--text-dim)',marginTop:1}}>{m.description}</div>
+                          )}
+                          {!m.disponible && (
+                            <span style={{fontSize:9,color:'#d97706',fontWeight:700}}>⚠️ Indisponible</span>
+                          )}
+                        </div>
+                        <button onClick={()=>setMenuForm(m)} title="Modifier"
+                          style={{background:'#eff6ff',color:'#2563eb',border:'none',
+                            padding:'3px 7px',borderRadius:5,cursor:'pointer',fontSize:11}}>✏️</button>
+                        <button onClick={async()=>{
+                          if(!window.confirm('Supprimer ce plat ?'))return
+                          try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}
+                          catch{alert('Erreur suppression')}
+                        }} title="Supprimer"
+                          style={{background:'#fef2f2',color:'#dc2626',border:'none',
+                            padding:'3px 7px',borderRadius:5,cursor:'pointer',fontSize:11}}>🗑️</button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )
+          })}
         </div>
-      ))}
+      )}
     </div>
   )
 }
