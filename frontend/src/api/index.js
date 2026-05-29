@@ -25,13 +25,22 @@ api.interceptors.response.use(r => r, async err => {
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
       } catch {
-        // Token invalide → nettoyer silencieusement
-        localStorage.clear()
-        sessionStorage.clear()
-        // Laisser le Router gérer la redirection
+        // Refresh expiré → rediriger vers login
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        window.location.href = '/login'
       }
     } else {
-      localStorage.clear()
+      // Pas de refresh token → retenter avec token actuel si présent
+      const token = localStorage.getItem('access_token')
+      if (token && !err.config._retry) {
+        err.config._retry = true
+        err.config.headers.Authorization = `Bearer ${token}`
+        return api(err.config)
+      }
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      window.location.href = '/login'
     }
   }
   return Promise.reject(err)
