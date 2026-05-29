@@ -56,12 +56,10 @@ ALL_MIGRATIONS = {
 
 try:
     with connection.cursor() as c:
-        # Migrations déjà enregistrées
         c.execute('SELECT app, name FROM django_migrations')
         applied = {(row[0], row[1]) for row in c.fetchall()}
         print(f'Migrations in django_migrations: {len(applied)}')
 
-        # Tables qui existent réellement en DB
         c.execute(\"\"\"
             SELECT table_name FROM information_schema.tables
             WHERE table_schema='public'
@@ -70,7 +68,6 @@ try:
         existing_tables = {row[0] for row in c.fetchall()}
         print(f'Target tables in DB: {existing_tables}')
 
-        # Migrations à NE PAS fake-apply (tables absentes => migrate doit les créer)
         must_run = set()
         if 'residences_inductionrecord' not in existing_tables:
             must_run.add(('residences', '0006_add_induction_record'))
@@ -86,7 +83,6 @@ try:
             for name in migrations_list:
                 key = (app, name)
                 if key in must_run:
-                    print(f'  -> Skipping fake: {app}.{name} (migrate will run it)')
                     continue
                 if key not in applied:
                     c.execute(
@@ -107,4 +103,3 @@ except Exception as e:
 
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
-python manage.py seed_db
