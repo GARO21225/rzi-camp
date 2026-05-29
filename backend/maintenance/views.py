@@ -74,51 +74,66 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from maintenance.models import Incident, CommentaireIncident
+
+        auteur = self.request.user if self.request.user and self.request.user.is_authenticated else None
+        auteur_id = auteur.id if auteur else None
+        data = serializer.validated_data
+
+        # Toujours utiliser INSERT SQL direct pour éviter les erreurs ORM/historique
+        now = tz.now()
+        sla_map = {'critique': 2, 'haute': 8, 'moyenne': 24, 'basse': 72}
+        priorite = data.get('priorite', 'moyenne')
+        sla_h = sla_map.get(priorite, 24)
+        sla_echeance = now + tz.timedelta(hours=sla_h)
+
+        incident = None
         try:
-            auteur = self.request.user if self.request.user and self.request.user.is_authenticated else None
-            incident = serializer.save(auteur=auteur)
-        except Exception as orm_error:
-            err_msg = str(orm_error).lower()
-            if 'does not exist' in err_msg or 'column' in err_msg:
-                # Fallback SQL direct avec colonnes de base seulement
-                from django.db import connection
-                from django.utils import timezone
-                data = serializer.validated_data
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO maintenance_incident
-                            (titre, description, categorie, priorite, residence, bloc,
-                             statut, date_creation, auteur_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, 'declare', %s, %s)
-                        RETURNING id
-                    """, [
-                        data.get('titre',''), data.get('description',''),
-                        data.get('categorie','Autre'), data.get('priorite','moyenne'),
-                        data.get('residence',''), data.get('bloc',''),
-                        timezone.now(),
-                        self.request.user.id if self.request.user and self.request.user.is_authenticated else None
-                    ])
-                    incident_id = cursor.fetchone()[0]
-                from maintenance.models import Incident
-                try:
-                    incident = Incident.objects.get(id=incident_id)
-                except Exception:
-                    return
-            else:
-                raise orm_error
-        # Notifier
+            with connection.cursor() as c:
+                c.execute("""
+                    INSERT INTO maintenance_incident
+                        (titre, description, categorie, priorite, statut,
+                         residence, bloc, auteur_id,
+                         photo_base64, photo_mime, photo_resolution_base64,
+                         latitude, longitude,
+                         date_creation, sla_echeance, sla_depasse,
+                         sla_notification_envoyee,
+                         commentaire_resolution, commentaire_cloture)
+                    VALUES (%s,%s,%s,%s,'declare',%s,%s,%s,'','image/jpeg','',
+                            NULL,NULL,%s,%s,FALSE,FALSE,'','')
+                    RETURNING id
+                """, [
+                    data.get('titre', ''),
+                    data.get('description', ''),
+                    data.get('categorie', 'Autre'),
+                    priorite,
+                    data.get('residence', ''),
+                    data.get('bloc', ''),
+                    auteur_id,
+                    now,
+                    sla_echeance,
+                ])
+                incident_id = c.fetchone()[0]
+            incident = Incident.objects.get(id=incident_id)
+        except Exception as e:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'detail': f'Erreur création incident: {str(e)}'})
+
+        # Commentaire initial (optionnel)
         try:
-            _notifier(incident, f"Incident déclaré: {incident.titre}", 'info')
-        except Exception:
-            pass
-        try:
-            from maintenance.models import CommentaireIncident
-            auteur_comment = self.request.user if self.request.user and self.request.user.is_authenticated else None
             CommentaireIncident.objects.create(
-                incident=incident, auteur=auteur_comment,
+                incident=incident, auteur=auteur,
                 type_comment='info',
                 contenu=f"Incident déclaré — priorité {incident.priorite}"
             )
+        except Exception:
+            pass
+
+        # Notification (optionnel)
+        try:
+            _notifier(incident, f"Incident déclaré: {incident.titre}", 'info')
         except Exception:
             pass
 
