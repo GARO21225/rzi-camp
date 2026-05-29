@@ -3,7 +3,7 @@ services:
     name: rzi-camp-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
+    buildCommand: chmod +x build.sh && ./build.sh
     startCommand: daphne -b 0.0.0.0 -p $PORT rzi_camp.asgi:application
     envVars:
       - key: SECRET_KEY
