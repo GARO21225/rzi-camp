@@ -901,13 +901,19 @@ export default function Boutique() {
   const totalP  = panier.reduce((s,x)=>s+x.a.prix*x.q,0)
   const qty     = a => panier.find(x=>x.a.id===a.id)?.q||0
 
-  const valider = async () => {
+  const valider = async (mode) => {
     if(!panier.length) return setMsg({type:'error',text:'Panier vide'})
-    setSubmitting(true); setMsg(null)
+    if(!mode) { setShowPayModal(true); return }
+    if(mode==='bon' && !agentInfo) return setMsg({type:'error',text:'Scanner un agent pour payer par bon'})
+    if(mode==='bon' && bonAgent && totalP > bonAgent.credit_restant)
+      return setMsg({type:'error',text:`Solde insuffisant (${bonAgent.credit_restant.toLocaleString()} FCFA)`})
+    setSubmitting(true); setMsg(null); setShowPayModal(false)
     try {
-      await Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({article:a.id,personnel:agentInfo?.id||null,quantite:q})))
-      setMsg({type:'success',text:`✅ Vente de ${totalP.toLocaleString()} FCFA enregistrée !`})
-      setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); load()
+      await Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({
+        article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode
+      })))
+      setMsg({type:'success',text:`✅ ${mode==='bon'?'Payé par bon':'Payé en espèces'} — ${totalP.toLocaleString()} FCFA`})
+      setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePaiement(null); load()
     } catch(e){setMsg({type:'error',text:e.response?.data?.detail||'Erreur'})}
     finally{setSubmitting(false)}
   }
@@ -1229,9 +1235,41 @@ export default function Boutique() {
                       background:msg.type==='success'?'#f0fdf4':'#fef2f2',
                       color:msg.type==='success'?'#166534':'#991b1b',
                       border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`}}>{msg.text}</div>}
-                    <button onClick={valider} disabled={submitting}
-                      style={{width:'100%',background:submitting?'#94a3b8':'#16a34a',color:'#fff',border:'none',padding:'13px',borderRadius:10,cursor:submitting?'wait':'pointer',fontSize:14,fontWeight:700}}>
-                      {submitting?'⏳...':'✅ Valider la vente'}
+
+                    {/* Sélection mode paiement */}
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:10,color:'#94a3b8',fontWeight:700,textTransform:'uppercase',
+                        letterSpacing:.8,marginBottom:6}}>Mode de paiement</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                        <button onClick={()=>setModePaiement('especes')}
+                          style={{padding:'10px 6px',borderRadius:9,border:`2px solid ${modePaiement==='especes'?'#16a34a':'#e2e8f0'}`,
+                            background:modePaiement==='especes'?'#f0fdf4':'#fff',
+                            cursor:'pointer',fontSize:12,fontWeight:700,
+                            color:modePaiement==='especes'?'#16a34a':'#64748b'}}>
+                          💵 Espèces
+                        </button>
+                        <button onClick={()=>setModePaiement('bon')}
+                          disabled={!agentInfo}
+                          title={!agentInfo?'Scanner un agent d\'abord':'Payer par bon de caisse'}
+                          style={{padding:'10px 6px',borderRadius:9,border:`2px solid ${modePaiement==='bon'?'#2563eb':'#e2e8f0'}`,
+                            background:modePaiement==='bon'?'#eff6ff':!agentInfo?'#f8fafc':'#fff',
+                            cursor:agentInfo?'pointer':'not-allowed',fontSize:12,fontWeight:700,
+                            color:modePaiement==='bon'?'#2563eb':!agentInfo?'#cbd5e1':'#64748b',
+                            opacity:!agentInfo?.7:1}}>
+                          🎫 Bon{bonAgent?` (${parseInt(bonAgent.credit_restant).toLocaleString()})` :''}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button onClick={()=>valider(modePaiement)} disabled={submitting||!modePaiement}
+                      style={{width:'100%',
+                        background:submitting||!modePaiement?'#94a3b8':modePaiement==='bon'?'#1d4ed8':'#16a34a',
+                        color:'#fff',border:'none',padding:'13px',borderRadius:10,
+                        cursor:submitting||!modePaiement?'not-allowed':'pointer',fontSize:14,fontWeight:700}}>
+                      {submitting?'⏳...'
+                        :!modePaiement?'Choisir un mode de paiement'
+                        :modePaiement==='especes'?`💵 Encaisser ${totalP.toLocaleString()} FCFA`
+                        :`🎫 Débiter bon — ${totalP.toLocaleString()} FCFA`}
                     </button>
                   </>
                 )}

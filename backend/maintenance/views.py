@@ -95,7 +95,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
                         data.get('titre',''), data.get('description',''),
                         data.get('categorie','Autre'), data.get('priorite','moyenne'),
                         data.get('residence',''), data.get('bloc',''),
-                        timezone.now(), self.request.user.id
+                        timezone.now(),
+                        self.request.user.id if self.request.user and self.request.user.is_authenticated else None
                     ])
                     incident_id = cursor.fetchone()[0]
                 from maintenance.models import Incident
@@ -112,8 +113,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
             pass
         try:
             from maintenance.models import CommentaireIncident
+            auteur_comment = self.request.user if self.request.user and self.request.user.is_authenticated else None
             CommentaireIncident.objects.create(
-                incident=incident, auteur=self.request.user,
+                incident=incident, auteur=auteur_comment,
                 type_comment='info',
                 contenu=f"Incident déclaré — priorité {incident.priorite}"
             )

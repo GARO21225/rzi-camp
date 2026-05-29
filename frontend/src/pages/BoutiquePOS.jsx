@@ -1,147 +1,107 @@
 /**
- * Boutique POS Mobile — Système caisse inspiré supermarché
- * Design: scan QR + sélection tactile + panier bas
+ * Boutique POS — Caisse simplifiée avec historique
+ * Fonctionne desktop ET mobile
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
-import { useNavigate } from 'react-router-dom'
-
-// ── Détection mobile ──────────────────────────────────────
-const isMobile = () => window.innerWidth < 768
-
-// ── Helpers ────────────────────────────────────────────────
-const CAT_COLORS = {
-  gazeuse:'#ef4444',jus:'#f97316',energie:'#eab308',eau:'#0ea5e9',
-  biere:'#d97706',vin_rouge:'#be123c',vin_blanc:'#ca8a04',vin_rose:'#ec4899',
-  champagne:'#a16207',spiritueux:'#7c3aed',liqueur:'#6d28d9',
-  cafe:'#92400e',the:'#15803d',autre:'#64748b'
-}
 
 export default function BoutiquePOS() {
-  const navigate = useNavigate()
   const { user } = useStore()
-  const isAdmin = !!(user?.is_staff || user?.is_superuser || user?.username === 'admin')
-  const mobile = isMobile()
+  const isAdmin = !!(user?.is_staff || user?.is_superuser)
 
-  // Data
-  const [articles,  setArticles]  = useState([])
-  const [consos,    setConsos]    = useState([])
-  const [personnel, setPersonnel] = useState([])
-  const [loading,   setLoading]   = useState(true)
-
-  // POS State
-  const [panier,    setPanier]    = useState([])
-  const [agentId,   setAgentId]   = useState('')
-  const [agentInfo, setAgentInfo] = useState(null)
-  const [bonAgent,  setBonAgent]  = useState(null)
-  const [catFilter, setCatFilter] = useState('')
-  const [search,    setSearch]    = useState('')
-  const [scanning,  setScanning]  = useState(false)
-  const [msg,       setMsg]       = useState(null)
-  const [submitting,setSubmitting]= useState(false)
-  
-  // Mobile: afficher panier ou produits
-  const [showCart,  setShowCart]  = useState(false)
-  
-  // Onglets desktop
-  const [tab,       setTab]       = useState('caisse')
-  
+  const [articles,   setArticles]   = useState([])
+  const [consos,     setConsos]     = useState([])
+  const [personnel,  setPersonnel]  = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [tab,        setTab]        = useState('caisse')
+  const [panier,     setPanier]     = useState([])
+  const [agentId,    setAgentId]    = useState('')
+  const [agentInfo,  setAgentInfo]  = useState(null)
+  const [bonAgent,   setBonAgent]   = useState(null)
+  const [modePay,    setModePay]    = useState(null) // 'especes' | 'bon'
+  const [catFilter,  setCatFilter]  = useState('')
+  const [search,     setSearch]     = useState('')
+  const [scanning,   setScanning]   = useState(false)
+  const [msg,        setMsg]        = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [statsJour,  setStatsJour]  = useState({total:0, montant:0})
   const scannerRef = useRef(null)
 
-  const load = useCallback(() => {
-    Promise.all([
-      boutiqueAPI.articles(),
-      boutiqueAPI.consommations({page_size:50}),
-      personnelAPI.list({page_size:200}),
-    ]).then(([ra,rc,rp]) => {
-      setArticles(ra.data.results||ra.data||[])
-      setConsos(rc.data.results||rc.data||[])
-      setPersonnel(rp.data.results||rp.data||[])
-    }).catch(()=>{}).finally(()=>setLoading(false))
+  const load = useCallback(async () => {
+    try {
+      const [ra, rc, rp] = await Promise.all([
+        boutiqueAPI.articles(),
+        boutiqueAPI.consommations({ page_size: 100 }),
+        personnelAPI.list({ page_size: 200 }),
+      ])
+      const arts = ra.data.results || ra.data || []
+      const cons = rc.data.results || rc.data || []
+      setArticles(arts)
+      setConsos(cons)
+      setPersonnel(rp.data.results || rp.data || [])
+      // Stats du jour
+      const today = new Date().toISOString().slice(0, 10)
+      const todayCons = cons.filter(c => c.date_conso?.slice(0, 10) === today)
+      setStatsJour({
+        total: todayCons.length,
+        montant: todayCons.reduce((s, c) => s + parseInt(c.montant || 0), 0)
+      })
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }, [])
 
-  useEffect(()=>{ load() },[load])
+  useEffect(() => { load() }, [load])
 
   useEffect(() => {
     if (!agentId) { setAgentInfo(null); setBonAgent(null); return }
-    const p = personnel.find(x => 
-      x.qr_code_string===agentId || String(x.id)===agentId || x.login_genere===agentId
+    const p = personnel.find(x =>
+      x.qr_code_string === agentId || String(x.id) === agentId || x.login_genere === agentId
     ) || null
     setAgentInfo(p)
-    if (p) {
-      boutiqueAPI.soldePersonnel(p.id).then(r=>setBonAgent(r.data)).catch(()=>setBonAgent(null))
-    }
-  },[agentId,personnel])
+    if (p) boutiqueAPI.soldePersonnel(p.id).then(r => setBonAgent(r.data)).catch(() => setBonAgent(null))
+  }, [agentId, personnel])
 
-  // QR Scanner
   const startScan = async () => {
     setScanning(true)
     try {
-      const {Html5Qrcode} = await import('html5-qrcode')
+      const { Html5Qrcode } = await import('html5-qrcode')
       const sc = new Html5Qrcode('qr_pos')
       scannerRef.current = sc
-      await sc.start({facingMode:'environment'},{fps:10,qrbox:200},
-        (text) => {
-          setAgentId(text); setScanning(false)
-          sc.stop().catch(()=>{})
-        }, ()=>{})
-    } catch(e) { setScanning(false); alert('Caméra non disponible') }
+      await sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: 200 },
+        text => { setAgentId(text); stopScan() }, () => {})
+    } catch { setScanning(false) }
   }
-
   const stopScan = () => {
     setScanning(false)
-    if (scannerRef.current) {
-      scannerRef.current.stop().catch(()=>{})
-      scannerRef.current = null
-    }
+    scannerRef.current?.stop().catch(() => {})
+    scannerRef.current = null
   }
 
-  // Panier
-  const addTo = (art) => {
-    setPanier(prev => {
-      const ex = prev.find(x=>x.id===art.id)
-      if (ex) return prev.map(x=>x.id===art.id?{...x,qte:x.qte+1}:x)
-      return [...prev, {...art, qte:1}]
-    })
-    if (mobile) setShowCart(false) // rester sur les produits
-  }
-
-  const removeFrom = (artId) => {
-    setPanier(prev => {
-      const ex = prev.find(x=>x.id===artId)
-      if (!ex) return prev
-      if (ex.qte <= 1) return prev.filter(x=>x.id!==artId)
-      return prev.map(x=>x.id===artId?{...x,qte:x.qte-1}:x)
-    })
-  }
-
-  const total = panier.reduce((s,x)=>s+parseInt(x.prix)*x.qte,0)
-  const nbItems = panier.reduce((s,x)=>s+x.qte,0)
+  const addTo   = a => setPanier(p => { const ex = p.find(x => x.a.id === a.id); return ex ? p.map(x => x.a.id === a.id ? {...x, q: x.q+1} : x) : [...p, {a, q:1}] })
+  const decFrom = id => setPanier(p => { const ex = p.find(x => x.a.id === id); return ex?.q > 1 ? p.map(x => x.a.id === id ? {...x, q: x.q-1} : x) : p.filter(x => x.a.id !== id) })
+  const total   = panier.reduce((s, x) => s + x.a.prix * x.q, 0)
 
   const valider = async () => {
-    if (panier.length===0) return
-    setSubmitting(true)
+    if (!panier.length) return setMsg({ type: 'error', text: 'Panier vide' })
+    if (!modePay) return setMsg({ type: 'error', text: 'Choisir un mode de paiement' })
+    if (modePay === 'bon' && !agentInfo) return setMsg({ type: 'error', text: 'Scanner un agent pour payer par bon' })
+    if (modePay === 'bon' && bonAgent && total > bonAgent.credit_restant)
+      return setMsg({ type: 'error', text: `Solde insuffisant — ${bonAgent.credit_restant.toLocaleString()} FCFA` })
+    setSubmitting(true); setMsg(null)
     try {
-      for (const item of panier) {
-        await boutiqueAPI.addConso({
-          article: item.id,
-          quantite: item.qte,
-          personnel: agentInfo?.id || null,
-          montant: parseInt(item.prix)*item.qte,
-        })
-      }
-      setMsg({type:'success', text:`✅ ${total.toLocaleString()} FCFA encaissés !`})
-      setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null)
-      setShowCart(false)
+      await Promise.all(panier.map(({ a, q }) =>
+        boutiqueAPI.addConso({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
+      ))
+      setMsg({ type: 'success', text: `✅ ${modePay === 'bon' ? 'Payé par bon' : 'Espèces'} — ${total.toLocaleString()} FCFA` })
+      setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePay(null)
       load()
-      setTimeout(()=>setMsg(null), 3000)
-    } catch(e) {
-      setMsg({type:'error', text:'Erreur lors de la vente'})
-    } finally { setSubmitting(false) }
+      setTimeout(() => setMsg(null), 3000)
+    } catch(e) { setMsg({ type: 'error', text: e.response?.data?.detail || 'Erreur' }) }
+    finally { setSubmitting(false) }
   }
 
-  // Filtrage articles
+  const cats = [...new Set(articles.filter(a => a.actif).map(a => a.categorie))]
   const filtered = articles.filter(a => {
     if (!a.actif) return false
     if (catFilter && a.categorie !== catFilter) return false
@@ -149,242 +109,274 @@ export default function BoutiquePOS() {
     return true
   })
 
-  const cats = [...new Set(articles.filter(a=>a.actif).map(a=>a.categorie))]
-  
-  // ─────────────────────────────────────────────────────────
-  // RENDER MOBILE POS
-  // ─────────────────────────────────────────────────────────
-  if (mobile) return (
-    <div style={{height:'100dvh',display:'flex',flexDirection:'column',background:'#f1f5f9',
-      overflow:'hidden',position:'fixed',inset:0}}>
+  const inp = { border: '1px solid #e2e8f0', borderRadius: 9, padding: '8px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' }
 
-      {/* Header mobile */}
-      <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
-        padding:'10px 14px',display:'flex',alignItems:'center',
-        justifyContent:'space-between',flexShrink:0}}>
-        <div style={{fontWeight:800,fontSize:16}}>🛒 Caisse</div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          {agentInfo && (
-            <div style={{background:'rgba(255,255,255,.15)',borderRadius:99,
-              padding:'3px 10px',fontSize:11,fontWeight:700}}>
-              {agentInfo.prenom} · {bonAgent ? `${parseInt(bonAgent.credit_restant).toLocaleString()} FCFA` : ''}
+  return (
+    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit' }}>
+
+      {/* Header stats */}
+      <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 16, padding: '16px 20px', marginBottom: 16, color: '#fff' }}>
+        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>🛒 Bar & Boutique — Caisse</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          {[
+            ['🧾 Ventes aujourd\'hui', statsJour.total, '#f0a500'],
+            ['💰 CA du jour', `${statsJour.montant.toLocaleString()} FCFA`, '#4ade80'],
+            ['📦 Articles dispo', articles.filter(a=>a.actif).length, '#93c5fd'],
+          ].map(([l, v, c]) => (
+            <div key={l} style={{ background: 'rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 900, color: c }}>{v}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>{l}</div>
             </div>
-          )}
-          <button onClick={()=>navigate('/boutique-admin')}
-            style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',
-              padding:'5px 10px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
-            ⚙️
-          </button>
+          ))}
         </div>
       </div>
 
-      {/* Agent bar */}
-      <div style={{background:'#fff',padding:'8px 12px',borderBottom:'1px solid #e2e8f0',
-        display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-        {scanning ? (
-          <div style={{flex:1}}>
-            <div id="qr_pos" style={{height:120}}/>
-            <button onClick={stopScan} style={{width:'100%',marginTop:6,background:'#fef2f2',
-              color:'#dc2626',border:'1px solid #fca5a5',padding:7,borderRadius:9,
-              cursor:'pointer',fontWeight:700,fontSize:12}}>
-              ✕ Arrêter
-            </button>
-          </div>
-        ) : (
-          <>
-            <input value={agentId} onChange={e=>setAgentId(e.target.value)}
-              placeholder="Login ou ID agent..."
-              style={{flex:1,border:'1px solid #e2e8f0',borderRadius:9,padding:'8px 10px',
-                fontSize:13,outline:'none'}}/>
-            <button onClick={startScan}
-              style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'8px 12px',
-                borderRadius:9,cursor:'pointer',fontSize:16}}>
-              📷
-            </button>
-            {agentId && (
-              <button onClick={()=>{setAgentId('');setAgentInfo(null)}}
-                style={{background:'#f8fafc',border:'1px solid #e2e8f0',padding:'8px 10px',
-                  borderRadius:9,cursor:'pointer',fontSize:13}}>
-                ✕
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Catégories scrollable */}
-      <div style={{display:'flex',gap:8,padding:'8px 12px',overflowX:'auto',
-        background:'#fff',borderBottom:'1px solid #e2e8f0',flexShrink:0,
-        scrollbarWidth:'none'}}>
-        <button onClick={()=>setCatFilter('')}
-          style={{background:!catFilter?'#1e3a8a':'#f8fafc',color:!catFilter?'#fff':'#64748b',
-            border:'none',padding:'6px 14px',borderRadius:99,cursor:'pointer',
-            fontSize:12,fontWeight:700,whiteSpace:'nowrap',flexShrink:0}}>
-          Tout
-        </button>
-        {cats.map(c=>(
-          <button key={c} onClick={()=>setCatFilter(c===catFilter?''  :c)}
-            style={{background:catFilter===c?(CAT_COLORS[c]||'#1e3a8a'):'#f8fafc',
-              color:catFilter===c?'#fff':'#64748b',border:'none',padding:'6px 14px',
-              borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700,
-              whiteSpace:'nowrap',flexShrink:0}}>
-            {c}
+      {/* Onglets */}
+      <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: 16 }}>
+        {[['caisse', '🛒 Caisse'], ['historique', '📋 Historique']].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            style={{ padding: '9px 20px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+              background: 'transparent', color: tab === k ? '#1e3a8a' : '#64748b',
+              borderBottom: `3px solid ${tab === k ? '#1e3a8a' : 'transparent'}`, marginBottom: -2 }}>
+            {l}
           </button>
         ))}
       </div>
 
-      {/* Recherche */}
-      <div style={{padding:'8px 12px',background:'#f8fafc',flexShrink:0}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="🔍 Rechercher un article..."
-          style={{width:'100%',border:'1px solid #e2e8f0',borderRadius:99,
-            padding:'8px 14px',fontSize:13,outline:'none',background:'#fff',
-            boxSizing:'border-box'}}/>
-      </div>
+      {/* ══ CAISSE ══ */}
+      {tab === 'caisse' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16, alignItems: 'start' }}>
 
-      {/* Grille articles — scrollable */}
-      <div style={{flex:1,overflowY:'auto',padding:'8px 12px',
-        paddingBottom: nbItems>0 ? 90 : 12}}>
-        {loading ? (
-          <div style={{textAlign:'center',padding:40,fontSize:32}}>⏳</div>
-        ) : filtered.length===0 ? (
-          <div style={{textAlign:'center',padding:30,color:'#94a3b8'}}>
-            Aucun article
-          </div>
-        ) : (
-          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
-            {filtered.map(a => {
-              const inCart = panier.find(x=>x.id===a.id)
-              const col = CAT_COLORS[a.categorie]||'#64748b'
-              return (
-                <button key={a.id} onClick={()=>addTo(a)}
-                  style={{background:'#fff',border:`2px solid ${inCart?col:'#e2e8f0'}`,
-                    borderRadius:14,padding:12,cursor:'pointer',textAlign:'left',
-                    boxShadow:inCart?`0 0 0 2px ${col}30`:`0 1px 4px rgba(0,0,0,.06)`,
-                    transition:'all .15s',position:'relative',fontFamily:'inherit'}}>
-                  {inCart && (
-                    <div style={{position:'absolute',top:-6,right:-6,background:col,
-                      color:'#fff',borderRadius:'50%',width:22,height:22,
-                      display:'flex',alignItems:'center',justifyContent:'center',
-                      fontSize:11,fontWeight:900}}>
-                      {inCart.qte}
-                    </div>
-                  )}
-                  {a.image_url ? (
-                    <img src={a.image_url.startsWith('data:') ? a.image_url : a.image_url}
-                      alt={a.nom}
-                      style={{width:'100%',height:80,objectFit:'contain',borderRadius:8,
-                        marginBottom:8}}
-                      onError={e=>{e.target.style.display='none'}}/>
-                  ) : (
-                    <div style={{width:'100%',height:60,display:'flex',alignItems:'center',
-                      justifyContent:'center',fontSize:32,marginBottom:6}}>
-                      🛒
-                    </div>
-                  )}
-                  <div style={{fontWeight:700,fontSize:12,color:'#1e293b',marginBottom:2,
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                    {a.nom}
-                  </div>
-                  <div style={{fontWeight:900,color:col,fontSize:14,fontFamily:'monospace'}}>
-                    {parseInt(a.prix).toLocaleString()}
-                    <span style={{fontSize:9,fontFamily:'inherit',color:'#94a3b8'}}> FCFA</span>
-                  </div>
-                  <div style={{fontSize:10,color:'#94a3b8'}}>
-                    Stock: {a.stock} · {a.unite}
-                  </div>
+          {/* Grille articles */}
+          <div>
+            {/* Filtres */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+                style={{ ...inp, maxWidth: 180, width: 'auto', padding: '7px 12px', fontSize: 12 }} />
+              <button onClick={() => setCatFilter('')}
+                style={{ padding: '6px 12px', borderRadius: 99, border: '2px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                  background: !catFilter ? '#1e3a8a' : '#fff', color: !catFilter ? '#fff' : '#475569',
+                  borderColor: !catFilter ? '#1e3a8a' : '#e2e8f0' }}>Tout</button>
+              {cats.map(c => (
+                <button key={c} onClick={() => setCatFilter(catFilter === c ? '' : c)}
+                  style={{ padding: '6px 12px', borderRadius: 99, border: '2px solid #e2e8f0', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700, background: catFilter === c ? '#1e3a8a' : '#fff',
+                    color: catFilter === c ? '#fff' : '#475569', borderColor: catFilter === c ? '#1e3a8a' : '#e2e8f0' }}>
+                  {c}
                 </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Panier flottant bas */}
-      {nbItems > 0 && (
-        <div style={{position:'fixed',bottom:0,left:0,right:0,
-          background:'linear-gradient(135deg,#0f2447,#1e3a8a)',
-          padding:'12px 16px',zIndex:200,boxShadow:'0 -4px 20px rgba(0,0,0,.2)'}}>
-          
-          {/* Liste articles si expanded */}
-          {showCart && (
-            <div style={{maxHeight:200,overflowY:'auto',marginBottom:10}}>
-              {panier.map(item=>(
-                <div key={item.id} style={{display:'flex',justifyContent:'space-between',
-                  alignItems:'center',padding:'6px 0',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
-                  <div style={{color:'#fff',fontSize:13,flex:1}}>
-                    {item.nom}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <button onClick={()=>removeFrom(item.id)}
-                      style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',
-                        width:28,height:28,borderRadius:'50%',cursor:'pointer',fontSize:16}}>
-                      −
-                    </button>
-                    <span style={{color:'#f0a500',fontWeight:700,minWidth:20,textAlign:'center'}}>
-                      {item.qte}
-                    </span>
-                    <button onClick={()=>addTo(item)}
-                      style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',
-                        width:28,height:28,borderRadius:'50%',cursor:'pointer',fontSize:16}}>
-                      +
-                    </button>
-                    <span style={{color:'rgba(255,255,255,.7)',fontSize:12,minWidth:70,
-                      textAlign:'right',fontFamily:'monospace'}}>
-                      {(parseInt(item.prix)*item.qte).toLocaleString()} F
-                    </span>
-                  </div>
-                </div>
               ))}
             </div>
-          )}
 
-          <div style={{display:'flex',gap:10,alignItems:'center'}}>
-            <button onClick={()=>setShowCart(!showCart)}
-              style={{background:'rgba(255,255,255,.15)',border:'none',color:'#fff',
-                padding:'10px 14px',borderRadius:10,cursor:'pointer',fontSize:13,
-                display:'flex',alignItems:'center',gap:6}}>
-              🛒 <span style={{fontWeight:700,background:'#f0a500',color:'#000',
-                borderRadius:'50%',width:20,height:20,display:'inline-flex',
-                alignItems:'center',justifyContent:'center',fontSize:11}}>
-                {nbItems}
-              </span>
-            </button>
-            <div style={{flex:1,textAlign:'center'}}>
-              <div style={{fontFamily:'monospace',fontSize:22,fontWeight:900,color:'#f0a500'}}>
-                {total.toLocaleString()} FCFA
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 60, fontSize: 36 }}>⏳</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 10 }}>
+                {filtered.map(a => {
+                  const inCart = panier.find(x => x.a.id === a.id)
+                  return (
+                    <button key={a.id} onClick={() => addTo(a)}
+                      style={{ background: '#fff', border: `2px solid ${inCart ? '#1e3a8a' : '#e2e8f0'}`,
+                        borderRadius: 12, padding: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                        position: 'relative', boxShadow: inCart ? '0 0 0 3px #1e3a8a30' : '0 1px 4px rgba(0,0,0,.06)' }}>
+                      {inCart && (
+                        <div style={{ position: 'absolute', top: -7, right: -7, background: '#1e3a8a', color: '#fff',
+                          borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>{inCart.q}</div>
+                      )}
+                      <div style={{ fontSize: 28, marginBottom: 6, textAlign: 'center' }}>🛒</div>
+                      <div style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', overflow: 'hidden',
+                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nom}</div>
+                      <div style={{ fontWeight: 900, color: '#1e3a8a', fontSize: 13, fontFamily: 'monospace' }}>
+                        {parseInt(a.prix).toLocaleString()} <span style={{ fontSize: 9, color: '#94a3b8' }}>FCFA</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#94a3b8' }}>Stock: {a.stock}</div>
+                    </button>
+                  )
+                })}
               </div>
-              {agentInfo && bonAgent && (
-                <div style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>
-                  Solde: {parseInt(bonAgent.credit_restant).toLocaleString()} FCFA
+            )}
+          </div>
+
+          {/* Panneau droite: agent + panier */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Agent */}
+            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: '#fff', fontWeight: 700, fontSize: 12 }}>
+                👤 Agent (optionnel)
+              </div>
+              <div style={{ padding: 12 }}>
+                <button onClick={scanning ? stopScan : startScan}
+                  style={{ width: '100%', background: scanning ? '#dc2626' : '#1e3a8a', color: '#fff', border: 'none',
+                    padding: 9, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                  {scanning ? '⏹ Arrêter' : '📷 Scanner QR'}
+                </button>
+                {scanning && <div id="qr_pos" style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 8 }} />}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input value={agentId} onChange={e => setAgentId(e.target.value)} placeholder="Login ou ID..."
+                    style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
+                  {agentId && <button onClick={() => { setAgentId(''); setAgentInfo(null); setBonAgent(null) }}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>✕</button>}
                 </div>
-              )}
+                {agentInfo && (
+                  <div style={{ marginTop: 8, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '8px 12px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>{agentInfo.prenom} {agentInfo.nom}</div>
+                    {bonAgent && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 3 }}>🎫 Bon de caisse</div>
+                        <div style={{ background: '#e2e8f0', borderRadius: 99, height: 5, overflow: 'hidden', marginBottom: 4 }}>
+                          <div style={{ height: '100%', width: `${Math.max(2, 100 - bonAgent.pourcentage)}%`, borderRadius: 99,
+                            background: bonAgent.credit_restant > 30000 ? '#16a34a' : bonAgent.credit_restant > 10000 ? '#f59e0b' : '#dc2626' }} />
+                        </div>
+                        <div style={{ fontWeight: 900, fontSize: 14, color: '#1e3a8a', fontFamily: 'monospace' }}>
+                          {parseInt(bonAgent.credit_restant).toLocaleString()} FCFA
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <button onClick={valider} disabled={submitting}
-              style={{background:submitting?'#94a3b8':'#16a34a',color:'#fff',
-                border:'none',padding:'12px 20px',borderRadius:12,cursor:'pointer',
-                fontSize:14,fontWeight:700}}>
-              {submitting ? '⏳' : '✅ Encaisser'}
-            </button>
+
+            {/* Panier */}
+            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: '#fff',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: 12 }}>🛒 Panier ({panier.length})</span>
+                {panier.length > 0 && <button onClick={() => setPanier([])}
+                  style={{ background: 'rgba(220,38,38,.4)', border: 'none', color: '#fff', padding: '2px 8px', borderRadius: 99, cursor: 'pointer', fontSize: 11 }}>Vider</button>}
+              </div>
+              <div style={{ padding: 12 }}>
+                {panier.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, padding: '16px 0' }}>Cliquez sur un article</div>
+                ) : (
+                  <>
+                    <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {panier.map(({ a, q }) => (
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', borderRadius: 8, padding: '5px 8px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nom}</div>
+                            <div style={{ fontSize: 10, color: '#94a3b8' }}>{parseInt(a.prix).toLocaleString()} × {q}</div>
+                          </div>
+                          <div style={{ fontWeight: 800, fontSize: 12, color: '#1e3a8a', flexShrink: 0 }}>{(a.prix * q).toLocaleString()}</div>
+                          <div style={{ display: 'flex', gap: 2 }}>
+                            <button onClick={() => decFrom(a.id)} style={{ width: 20, height: 20, borderRadius: 5, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>-</button>
+                            <button onClick={() => addTo(a)} style={{ width: 20, height: 20, borderRadius: 5, border: 'none', background: '#1e3a8a', color: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>+</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total */}
+                    <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 10, padding: '10px 14px',
+                      marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'rgba(255,255,255,.7)', fontSize: 12 }}>TOTAL</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 900, color: '#f0a500' }}>{total.toLocaleString()} <span style={{ fontSize: 10 }}>FCFA</span></span>
+                    </div>
+
+                    {/* Mode paiement */}
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 5 }}>Mode de paiement</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <button onClick={() => setModePay('especes')}
+                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'especes' ? '#16a34a' : '#e2e8f0'}`,
+                            background: modePay === 'especes' ? '#f0fdf4' : '#fff', cursor: 'pointer',
+                            fontSize: 12, fontWeight: 700, color: modePay === 'especes' ? '#16a34a' : '#64748b' }}>
+                          💵 Espèces
+                        </button>
+                        <button onClick={() => agentInfo && setModePay('bon')}
+                          disabled={!agentInfo}
+                          title={!agentInfo ? 'Scanner un agent d\'abord' : 'Payer par bon de caisse'}
+                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'bon' ? '#2563eb' : '#e2e8f0'}`,
+                            background: modePay === 'bon' ? '#eff6ff' : !agentInfo ? '#f8fafc' : '#fff',
+                            cursor: agentInfo ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700,
+                            color: modePay === 'bon' ? '#2563eb' : !agentInfo ? '#cbd5e1' : '#64748b', opacity: !agentInfo ? .6 : 1 }}>
+                          🎫 Bon{bonAgent ? ` (${parseInt(bonAgent.credit_restant).toLocaleString()})` : ''}
+                        </button>
+                      </div>
+                    </div>
+
+                    {msg && <div style={{ padding: '7px 10px', borderRadius: 7, marginBottom: 8, fontSize: 11, fontWeight: 600,
+                      background: msg.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                      color: msg.type === 'success' ? '#166534' : '#991b1b',
+                      border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : '#fecaca'}` }}>{msg.text}</div>}
+
+                    <button onClick={valider} disabled={submitting || !modePay}
+                      style={{ width: '100%', background: submitting || !modePay ? '#94a3b8' : modePay === 'bon' ? '#1d4ed8' : '#16a34a',
+                        color: '#fff', border: 'none', padding: 12, borderRadius: 9,
+                        cursor: submitting || !modePay ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+                      {submitting ? '⏳...'
+                        : !modePay ? 'Choisir un mode de paiement'
+                        : modePay === 'especes' ? `💵 Encaisser ${total.toLocaleString()} FCFA`
+                        : `🎫 Débiter bon — ${total.toLocaleString()} FCFA`}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Toast message */}
-      {msg && (
-        <div style={{position:'fixed',top:80,left:16,right:16,zIndex:300,
-          background:msg.type==='success'?'#16a34a':'#dc2626',
-          color:'#fff',borderRadius:12,padding:'12px 16px',
-          fontSize:14,fontWeight:700,textAlign:'center',
-          boxShadow:'0 4px 20px rgba(0,0,0,.3)'}}>
-          {msg.text}
+      {/* ══ HISTORIQUE ══ */}
+      {tab === 'historique' && (
+        <div>
+          {/* Stats résumé */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              ['🧾 Ventes aujourd\'hui', statsJour.total, '#1e3a8a'],
+              ['💰 CA du jour', `${statsJour.montant.toLocaleString()} FCFA`, '#16a34a'],
+              ['🎫 Par bon', consos.filter(c => c.mode_paiement === 'bon').length, '#7c3aed'],
+            ].map(([l, v, c]) => (
+              <div key={l} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', borderTop: `3px solid ${c}`, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 900, color: c }}>{v}</div>
+                <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginTop: 3 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+
+          {consos.length === 0 ? (
+            <div style={{ padding: 56, textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>📋</div>
+              <div style={{ fontWeight: 700, color: '#64748b' }}>Aucune vente enregistrée</div>
+            </div>
+          ) : (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)' }}>
+                    {['Heure', 'Agent', 'Article', 'Qté', 'Montant', 'Mode'].map(h => (
+                      <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 700,
+                        textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', letterSpacing: .8 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {consos.map((c, i) => (
+                    <tr key={c.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 ? '#fafafa' : '#fff' }}>
+                      <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11, color: '#64748b' }}>
+                        {new Date(c.date_conso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{c.personnel_nom || 'Anonyme'}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12 }}>🛒 {c.article_nom}</td>
+                      <td style={{ padding: '10px 14px', fontFamily: 'monospace', textAlign: 'center' }}>{c.quantite}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 800, color: '#1e3a8a' }}>{parseInt(c.montant || 0).toLocaleString()} FCFA</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ background: c.mode_paiement === 'bon' ? '#eff6ff' : '#f0fdf4',
+                          color: c.mode_paiement === 'bon' ? '#2563eb' : '#16a34a',
+                          border: `1px solid ${c.mode_paiement === 'bon' ? '#bfdbfe' : '#bbf7d0'}`,
+                          borderRadius: 99, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
+                          {c.mode_paiement === 'bon' ? '🎫 Bon' : '💵 Espèces'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
-
-  // ─────────────────────────────────────────────────────────
-  // RENDER DESKTOP — délégue à l'ancienne page Boutique
-  // ─────────────────────────────────────────────────────────
-  return null // sera remplacé par la navigation vers /boutique
 }
