@@ -466,19 +466,83 @@ export default function Restauration() {
               <div style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,.9)' }}>{stats.semaine}</div>
             </div>
           </div>
-          {/* Breakdown par type */}
+          {/* Sélecteur date + menu intégré dans les compteurs */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:11, color:'rgba(255,255,255,.7)', fontWeight:600 }}>🗓️ Menu du</span>
+            <input type="date" value={menuDate}
+              onChange={async e=>{
+                setMenuDate(e.target.value)
+                try{const r=await menuAPI.list({date_service:e.target.value});setMenuItems(r.data.results||r.data||[])}
+                catch{ setMenuItems([]) }
+              }}
+              style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 7px',
+                fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
+                colorScheme:'dark' }}/>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {[
-              { key:'petit_dejeuner', icon:'🌅', label:'Petit-déj.', color:'#f97316', bg:'rgba(249,115,22,.1)', border:'rgba(249,115,22,.25)' },
-              { key:'dejeuner',       icon:'☀️',  label:'Déjeuner',  color:'#2563eb', bg:'rgba(37,99,235,.1)',  border:'rgba(37,99,235,.25)' },
-              { key:'diner',          icon:'🌙', label:'Dîner',     color:'#7c3aed', bg:'rgba(124,58,237,.1)', border:'rgba(124,58,237,.25)' },
-            ].map(t => (
-              <div key={t.key} style={{ background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 12, padding: '10px 14px', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{t.icon}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, color: t.color }}>{stats.byType?.[t.key] || 0}</div>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: .8, marginTop: 2 }}>{t.label}</div>
-              </div>
-            ))}
+              { key:'petit_dejeuner', menuKey:'matin',  icon:'🌅', label:'Petit-déj.', color:'#f97316', bg:'rgba(249,115,22,.1)', border:'rgba(249,115,22,.25)' },
+              { key:'dejeuner',       menuKey:'midi',   icon:'☀️',  label:'Déjeuner',  color:'#2563eb', bg:'rgba(37,99,235,.1)',  border:'rgba(37,99,235,.25)' },
+              { key:'diner',          menuKey:'soir',   icon:'🌙', label:'Dîner',     color:'#7c3aed', bg:'rgba(124,58,237,.1)', border:'rgba(124,58,237,.25)' },
+            ].map(t => {
+              const platsRepas = menuItems.filter(m => m.repas === t.menuKey)
+              const TYPE_ORDER_LOCAL = ['entree','plat','dessert','boisson','special']
+              const TYPE_LABELS_LOCAL = { entree:'Entrée', plat:'Plat', dessert:'Dessert', boisson:'Boisson', special:'Spécial' }
+              return (
+                <div key={t.key} style={{ background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 12, overflow:'hidden' }}>
+                  {/* Compteur */}
+                  <div style={{ padding: '10px 14px', textAlign: 'center', borderBottom: platsRepas.length>0 ? `1px solid ${t.border}` : 'none' }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{t.icon}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, color: t.color }}>{stats.byType?.[t.key] || 0}</div>
+                    <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: .8, marginTop: 2 }}>{t.label}</div>
+                  </div>
+                  {/* Plats du menu sous le compteur */}
+                  {platsRepas.length > 0 && (
+                    <div style={{ padding:'6px 8px', display:'flex', flexDirection:'column', gap:3 }}>
+                      {TYPE_ORDER_LOCAL.map(type => {
+                        const items = platsRepas.filter(m => m.type_plat === type)
+                        if (items.length === 0) return null
+                        return (
+                          <div key={type}>
+                            <div style={{ fontSize:9, fontWeight:700, color:t.color, textTransform:'uppercase',
+                              letterSpacing:'.5px', marginBottom:2, opacity:.8 }}>
+                              {TYPE_LABELS_LOCAL[type]}
+                            </div>
+                            {items.map(m => (
+                              <div key={m.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                                background:'rgba(255,255,255,0.6)', borderRadius:5, padding:'3px 6px', marginBottom:2 }}>
+                                <span style={{ fontSize:10, fontWeight:600, color:'#1e293b', flex:1,
+                                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.nom}</span>
+                                <div style={{ display:'flex', gap:2, marginLeft:4, flexShrink:0 }}>
+                                  <button onClick={()=>setMenuForm(m)} title="Modifier"
+                                    style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, padding:'1px 2px' }}>✏️</button>
+                                  <button onClick={async()=>{
+                                    if(!window.confirm('Supprimer ?'))return
+                                    try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}
+                                    catch{alert('Erreur suppression')}
+                                  }} title="Supprimer"
+                                    style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, padding:'1px 2px' }}>🗑️</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {/* Bouton Ajouter plat */}
+                  <div style={{ padding:'4px 8px 8px' }}>
+                    <button onClick={()=>setMenuForm({nom:'',type_plat:'plat',repas:t.menuKey,
+                      date_service:menuDate,description:'',disponible:true})}
+                      style={{ width:'100%', background:'rgba(255,255,255,0.5)', border:`1px dashed ${t.color}`,
+                        color:t.color, borderRadius:6, padding:'4px 0', cursor:'pointer',
+                        fontSize:10, fontWeight:700 }}>
+                      ➕ Plat
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -506,12 +570,6 @@ export default function Restauration() {
           />
         </div>
 
-        {/* Menu du jour */}
-        <MenuDuJour
-          menuItems={menuItems} setMenuItems={setMenuItems}
-          menuDate={menuDate} setMenuDate={setMenuDate}
-          menuForm={menuForm} setMenuForm={setMenuForm}
-        />
         <MenuFormModal
           menuForm={menuForm} setMenuForm={setMenuForm}
           menuDate={menuDate} setMenuItems={setMenuItems}

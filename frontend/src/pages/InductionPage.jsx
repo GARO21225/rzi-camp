@@ -926,6 +926,22 @@ export default function InductionPage() {
                               {done?'✅ Complété':debloque?e.desc:'🔒 Compléter l\'étape précédente'}
                             </div>
                           </div>
+                          {done && (
+                            <div style={{display:'flex',gap:4}} onClick={ev=>ev.stopPropagation()}>
+                              <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
+                                title="Modifier cette étape"
+                                style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
+                                  padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                                ✏️
+                              </button>
+                              <button onClick={ev=>{ev.stopPropagation();resetEtape(e.key)}}
+                                title="Réinitialiser cette étape"
+                                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                                  padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                                🗑️
+                              </button>
+                            </div>
+                          )}
                           {debloque && !done && (
                             <div style={{color:e.couleur,fontSize:18}}>→</div>
                           )}
