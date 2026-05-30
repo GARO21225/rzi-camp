@@ -433,6 +433,7 @@ function InductionPageInner() {
   const [syncStatus,  setSyncStatus]  = useState('')
   const [dateFrom,    setDateFrom]    = useState('')
   const [dateTo,      setDateTo]      = useState('')
+  const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
   useEffect(() => {
@@ -743,6 +744,11 @@ function InductionPageInner() {
   }
 
   const filtered = personnel.filter(p => {
+    if (statutFilter) {
+      const rec = p.inductionrecord
+      if (statutFilter === 'non_commencé' && rec) return false
+      if (statutFilter !== 'non_commencé' && (!rec || rec.statut !== statutFilter)) return false
+    }
     const q = search.toLowerCase()
     if (q && ![p.nom,p.prenom,p.societe].some(v=>(v||'').toLowerCase().includes(q))) return false
     if (typeFilter && p.type_personnel !== typeFilter) return false
@@ -801,6 +807,14 @@ function InductionPageInner() {
         <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} style={{...inp,maxWidth:160}}>
           <option value="">Tous les types</option>
           {TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
+        </select>
+        <select value={statutFilter} onChange={e=>setStatutFilter(e.target.value)} style={{...inp,maxWidth:180}}>
+          <option value="">Tous les statuts</option>
+          <option value="non_commencé">Non commencé</option>
+          <option value="en_cours">En cours</option>
+          <option value="complete">Complété</option>
+          <option value="valide">Validé</option>
+          <option value="expire">Expiré</option>
         </select>
         <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
           style={{...inp,maxWidth:140}} title="Date début (de)"/>
