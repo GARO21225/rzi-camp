@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "prebuild": "node prebuild.js",
-    "build": "vite build",
+    "build": "node prebuild.js && vite build",
     "dev": "vite",
     "preview": "vite preview"
   },
