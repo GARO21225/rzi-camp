@@ -37,6 +37,98 @@ def _notifier(incident, message, type_notif='info'):
 from rest_framework.decorators import api_view, permission_classes as pc
 from rest_framework.permissions import AllowAny
 
+@api_view(['GET'])
+@pc([AllowAny])
+def stats_incidents(request):
+    """Stats incidents via SQL direct"""
+    from django.db import connection
+    from rest_framework.response import Response
+    try:
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE statut='declare') as declare,
+                    COUNT(*) FILTER (WHERE statut='assigne') as assigne,
+                    COUNT(*) FILTER (WHERE statut='en_cours') as en_cours,
+                    COUNT(*) FILTER (WHERE statut='resolu') as resolu,
+                    COUNT(*) FILTER (WHERE statut='cloture') as cloture,
+                    COUNT(*) FILTER (WHERE sla_depasse=TRUE AND statut NOT IN ('cloture','annule')) as sla_depasse,
+                    COUNT(*) FILTER (WHERE priorite='critique' AND statut NOT IN ('cloture','annule')) as critique
+                FROM maintenance_incident
+            """)
+            row = c.fetchone()
+            cols = [d[0] for d in c.description]
+            stats = dict(zip(cols, row))
+            stats['ouverts'] = stats['total'] - stats['cloture']
+        return Response(stats)
+    except Exception as e:
+        return Response({'total':0,'declare':0,'assigne':0,'en_cours':0,
+                         'resolu':0,'cloture':0,'sla_depasse':0,'critique':0,'ouverts':0})
+
+
+@api_view(['GET'])
+@pc([AllowAny])
+def list_incidents(request):
+    """Liste des incidents via SQL direct - bypass ORM/historique"""
+    from django.db import connection
+    from rest_framework.response import Response
+
+    params = request.query_params
+    statut    = params.get('statut', '')
+    priorite  = params.get('priorite', '')
+    categorie = params.get('categorie', '')
+
+    where = ['1=1']
+    args  = []
+    if statut:    where.append('i.statut = %s');    args.append(statut)
+    if priorite:  where.append('i.priorite = %s');  args.append(priorite)
+    if categorie: where.append('i.categorie = %s'); args.append(categorie)
+
+    where_sql = ' AND '.join(where)
+
+    try:
+        with connection.cursor() as c:
+            c.execute(f"""
+                SELECT i.id, i.titre, i.description, i.categorie, i.priorite,
+                       i.statut, i.residence, i.bloc,
+                       i.date_creation, i.sla_echeance, i.sla_depasse,
+                       i.commentaire_resolution, i.commentaire_cloture,
+                       COALESCE(u.first_name || ' ' || u.last_name, u.username, '—') as auteur_nom,
+                       COALESCE(a.first_name || ' ' || a.last_name, a.username, NULL) as assigne_nom,
+                       i.auteur_id, i.assigne_a_id
+                FROM maintenance_incident i
+                LEFT JOIN auth_user u ON u.id = i.auteur_id
+                LEFT JOIN auth_user a ON a.id = i.assigne_a_id
+                WHERE {where_sql}
+                ORDER BY i.date_creation DESC
+                LIMIT 200
+            """, args)
+            cols = [d[0] for d in c.description]
+            rows = c.fetchall()
+
+        incidents = []
+        for row in rows:
+            d = dict(zip(cols, row))
+            # Convertir datetimes en strings
+            for k in ['date_creation', 'sla_echeance']:
+                if d.get(k):
+                    d[k] = d[k].isoformat() if hasattr(d[k], 'isoformat') else str(d[k])
+            d['commentaires']   = []
+            d['statut_label']   = d['statut']
+            d['priorite_label'] = d['priorite']
+            d['sla_restant_h']  = 0
+            d['temps_ecoule_h'] = 0
+            d['photo_base64']   = ''
+            d['photo_mime']     = 'image/jpeg'
+            d['photo_resolution_base64'] = ''
+            incidents.append(d)
+
+        return Response({'results': incidents, 'count': len(incidents)})
+    except Exception as e:
+        return Response({'results': [], 'count': 0, 'error': str(e)})
+
+
 @api_view(['POST'])
 @pc([AllowAny])
 def declarer_incident(request):

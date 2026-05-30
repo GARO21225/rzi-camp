@@ -1251,12 +1251,12 @@ export default function Boutique() {
                         </button>
                         <button onClick={()=>setModePaiement('bon')}
                           disabled={!agentInfo}
-                          title={!agentInfo?'Scanner un agent d\'abord':'Payer par bon de caisse'}
+                          title={!agentInfo?"Scanner un agent d'abord":"Payer par bon de caisse"}
                           style={{padding:'10px 6px',borderRadius:9,border:`2px solid ${modePaiement==='bon'?'#2563eb':'#e2e8f0'}`,
                             background:modePaiement==='bon'?'#eff6ff':!agentInfo?'#f8fafc':'#fff',
                             cursor:agentInfo?'pointer':'not-allowed',fontSize:12,fontWeight:700,
                             color:modePaiement==='bon'?'#2563eb':!agentInfo?'#cbd5e1':'#64748b',
-                            opacity:!agentInfo?.7:1}}>
+                            opacity:!agentInfo?0.7:1}}>
                           🎫 Bon{bonAgent?` (${parseInt(bonAgent.credit_restant).toLocaleString()})` :''}
                         </button>
                       </div>
