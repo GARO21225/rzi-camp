@@ -69,6 +69,8 @@ export default function Maintenance() {
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
+  const [dateDebut,  setDateDebut]  = useState('')
+  const [dateFin,    setDateFin]    = useState('')
   const [showNew,    setShowNew]    = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [err,        setErr]        = useState('')
@@ -367,6 +369,12 @@ export default function Maintenance() {
             <input type="checkbox" checked={slaOnly} onChange={e=>setSlaOnly(e.target.checked)} />
             ⚠️ SLA dépassé
           </label>
+          <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)}
+            title="Date début"
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
+          <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)}
+            title="Date fin"
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
           <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
             <button onClick={()=>downloadTemplate()}
               style={{ background:'#7c3aed', color:'#fff', border:'none',
@@ -662,6 +670,13 @@ export default function Maintenance() {
                     ['Assigné à',selected.assigne_nom||'Non assigné'],
                     ['📅 Déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
                     ['⏰ Échéance SLA', selected.sla_echeance ? new Date(selected.sla_echeance).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'],
+                    ['⏱️ Durée tâche', (() => {
+                      const start = selected.date_debut || selected.date_creation
+                      const end = selected.date_resolution || selected.date_cloture || (selected.statut==='en_cours'?new Date().toISOString():null)
+                      if (!start || !end) return 'En attente'
+                      const h = Math.round((new Date(end)-new Date(start))/3600000)
+                      return h < 24 ? `${h}h` : `${Math.floor(h/24)}j ${h%24}h`
+                    })()],
                   ].map(([k,v])=>(
                     <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 10px' }}>
                       <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>{k}</div>
