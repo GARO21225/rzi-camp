@@ -6,6 +6,28 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
 
+class InductionErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error, info) { console.error('InductionPage crash:', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:40,textAlign:'center'}}>
+          <div style={{fontSize:32,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:18,fontWeight:700,color:'#dc2626',marginBottom:8}}>Erreur dans la page Induction</div>
+          <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>{this.state.error.message}</div>
+          <button onClick={()=>this.setState({error:null})}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,cursor:'pointer'}}>
+            🔄 Réessayer
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 const LS_KEY = 'rzi_induction_v3'
 const OFFLINE_QUEUE_KEY = 'rzi_induction_offline_queue'
 
@@ -394,7 +416,7 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
 }
 
 // ─── Composant principal ───────────────────────────────────────────
-export default function InductionPage() {
+function InductionPageInner() {
   const [personnel,   setPersonnel]   = useState([])
   const [loading,     setLoading]     = useState(true)
   const [search,      setSearch]      = useState('')
@@ -1355,5 +1377,13 @@ export default function InductionPage() {
 
     </div>
     </InductionBoundary>
+  )
+}
+
+export default function InductionPage() {
+  return (
+    <InductionErrorBoundary>
+      <InductionPageInner />
+    </InductionErrorBoundary>
   )
 }
