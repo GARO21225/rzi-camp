@@ -310,9 +310,9 @@ export default function BoutiquePOS() {
                     </div>
 
                     {msg && <div style={{ padding: '7px 10px', borderRadius: 7, marginBottom: 8, fontSize: 11, fontWeight: 600,
-                      background: msg.type === 'success' ? '#f0fdf4' : '#fef2f2',
-                      color: msg.type === 'success' ? '#166534' : '#991b1b',
-                      border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : '#fecaca'}` }}>{msg.text}</div>}
+                      background: msg.type === 'success' ? '#f0fdf4' : msg.type === 'info' ? '#eff6ff' : '#fef2f2',
+                      color: msg.type === 'success' ? '#166534' : msg.type === 'info' ? '#1d4ed8' : '#991b1b',
+                      border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : msg.type === 'info' ? '#bfdbfe' : '#fecaca'}` }}>{msg.text}</div>}
 
                     <button onClick={valider} disabled={submitting || !modePay}
                       style={{ width: '100%', background: submitting || !modePay ? '#94a3b8' : modePay === 'bon' ? '#1d4ed8' : '#16a34a',

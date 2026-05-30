@@ -39,6 +39,62 @@ from rest_framework.permissions import AllowAny
 
 @api_view(['GET'])
 @pc([AllowAny])
+def detail_incident(request, pk):
+    """Detail complet avec commentaires et photos"""
+    from django.db import connection
+    from rest_framework.response import Response
+    try:
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT i.id,i.titre,i.description,i.categorie,i.priorite,i.statut,i.residence,i.bloc,"
+                "i.date_creation,i.sla_echeance,i.sla_depasse,i.commentaire_resolution,i.commentaire_cloture,"
+                "COALESCE(i.photo_base64,'') as photo_base64, COALESCE(i.photo_mime,'image/jpeg') as photo_mime,"
+                "COALESCE(u.first_name||' '||u.last_name,u.username,'—') as auteur_nom,"
+                "COALESCE(a.first_name||' '||a.last_name,a.username,NULL) as assigne_nom,"
+                "i.auteur_id,i.assigne_a_id "
+                "FROM maintenance_incident i "
+                "LEFT JOIN auth_user u ON u.id=i.auteur_id "
+                "LEFT JOIN auth_user a ON a.id=i.assigne_a_id "
+                "WHERE i.id=%s", [pk]
+            )
+            cols = [d[0] for d in c.description]
+            row = c.fetchone()
+        if not row:
+            return Response({'detail': 'Non trouvé'}, status=404)
+        inc = dict(zip(cols, row))
+        for k in ['date_creation', 'sla_echeance']:
+            if inc.get(k) and hasattr(inc[k], 'isoformat'):
+                inc[k] = inc[k].isoformat()
+        inc['statut_label'] = inc['statut']
+        inc['priorite_label'] = inc['priorite']
+        inc['sla_restant_h'] = 0
+        inc['temps_ecoule_h'] = 0
+
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT ci.id,ci.type_comment,ci.contenu,ci.date_creation,"
+                "COALESCE(ci.photo_base64,'') as photo_base64,"
+                "COALESCE(u.first_name||' '||u.last_name,u.username,'—') as auteur_nom "
+                "FROM maintenance_commentaireincident ci "
+                "LEFT JOIN auth_user u ON u.id=ci.auteur_id "
+                "WHERE ci.incident_id=%s ORDER BY ci.date_creation ASC", [pk]
+            )
+            cc = [d[0] for d in c.description]
+            comments = []
+            for r in c.fetchall():
+                d = dict(zip(cc, r))
+                if d.get('date_creation') and hasattr(d['date_creation'], 'isoformat'):
+                    d['date_creation'] = d['date_creation'].isoformat()
+                d['type_label'] = d['type_comment']
+                comments.append(d)
+        inc['commentaires'] = comments
+        return Response(inc)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@pc([AllowAny])
 def stats_incidents(request):
     """Stats incidents via SQL direct"""
     from django.db import connection

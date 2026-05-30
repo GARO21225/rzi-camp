@@ -156,7 +156,12 @@ export default function Maintenance() {
           await load()
           const updated = await incAPI.list({ page_size:100 })
           const items = updated.data.results || updated.data || []
-          setSelected(items.find(i => i.id === selected.id) || null)
+          try {
+            const rd = await incAPI.detail(selected.id)
+            setSelected(rd.data)
+          } catch {
+            setSelected(items.find(i => i.id === selected.id) || null)
+          }
         } catch(err2) { alert('Erreur upload') }
       }
       reader.readAsDataURL(file)
@@ -236,7 +241,13 @@ export default function Maintenance() {
               const pr = PRIOS[inc.priorite] || PRIOS.moyenne
               const wfIdx = WF.findIndex(x => x.s === inc.statut)
               return (
-                <div key={inc.id} onClick={() => setSelected(inc)}
+                <div key={inc.id} onClick={async() => {
+                  setSelected(inc)
+                  try {
+                    const r = await incAPI.detail(inc.id)
+                    setSelected(r.data)
+                  } catch(e) { console.warn('detail load failed', e) }
+                }}
                   style={{ background:'#fff', borderRadius:12, padding:'14px 16px',
                     boxShadow:'0 1px 4px rgba(0,0,0,.07)', cursor:'pointer',
                     borderLeft:`4px solid ${st.c}`,

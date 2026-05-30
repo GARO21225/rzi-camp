@@ -11,3 +11,9 @@ urlpatterns = [
     path('incidents/stats-sql/',stats_incidents,   name='stats_incidents'),
     path('', include(router.urls)),
 ]
+
+# Ajout detail
+from .views import detail_incident as detail_incident_view
+urlpatterns += [
+    path('incidents/<int:pk>/detail/', detail_incident_view, name='detail_incident'),
+]

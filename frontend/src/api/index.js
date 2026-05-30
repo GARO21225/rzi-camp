@@ -9,7 +9,7 @@ const BASE = (() => {
     return 'https://rzi-camp-backend.onrender.com'
   return 'http://localhost:8000'
 })()
-const api = axios.create({ baseURL: BASE })
+const api = axios.create({ baseURL: BASE, timeout: 30000 })
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('access_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
@@ -86,6 +86,7 @@ export const incidents = {
   list:         (p) => api.get('/api/incidents/liste/', {params:p}),
   create:       (d) => api.post('/api/incidents/', d),
   declarer:     (d) => api.post('/api/incidents/declarer/', d),
+  detail:       (id) => api.get(`/api/incidents/${id}/detail/`),
   modifier:     (id,d) => api.patch(`/api/incidents/${id}/`, d),
   supprimer:    (id) => api.delete(`/api/incidents/${id}/`),
   update:       (id,d) => api.patch(`/api/incidents/${id}/`, d),
