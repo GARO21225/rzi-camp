@@ -830,7 +830,8 @@ export default function Boutique() {
   const [analysesLoading, setAnalysesLoading] = useState(false)   // solde bon de caisse agent
   const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
   const [showGererBons,setShowGererBons]= useState(false)
-  const [modePaiement, setModePaiement] = useState(null)   // 'especes' | 'bon'
+  const [modePaiement, setModePaiement]
+  const [showPayModal, setShowPayModal] = React.useState(false) = useState(null)   // 'especes' | 'bon'
   const scannerInst = useRef(null)
 
   const load = useCallback(() => {
