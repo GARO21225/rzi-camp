@@ -376,150 +376,56 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
         return Response(ArticleSerializer(articles, many=True).data)
 
 class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
-    queryset = ConsommationBoutique.objects.select_related('personnel','article','valide_par').order_by('-date_conso')
     serializer_class = ConsommationSerializer
     filter_backends = [filters.SearchFilter]
-    search_fields = ['article__nom','personnel__nom']
+    search_fields = ['article__nom', 'personnel__nom']
     permission_classes = [AllowAny]
 
-    def perform_create(self, serializer):
-        valide_par = self.request.user if self.request.user and self.request.user.is_authenticated else None
-        serializer.save(valide_par=valide_par)
+    def get_queryset(self):
+        return ConsommationBoutique.objects.select_related('personnel','article','valide_par').order_by('-date_conso')
 
     def create(self, request, *args, **kwargs):
         from django.db import connection
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from rest_framework import status as st
-        import traceback
 
-        data = request.data
-        article_id   = data.get('article')
-        personnel_id = data.get('personnel') or None
-        quantite     = int(data.get('quantite', 1))
-        mode         = data.get('mode_paiement', 'especes')
-        valide_id    = request.user.id if request.user and request.user.is_authenticated else None
+        data   = request.data
+        art_id = data.get('article')
+        pers_id= data.get('personnel') or None
+        qte    = int(data.get('quantite', 1))
+        mode   = data.get('mode_paiement', 'especes') or 'especes'
+        uid    = request.user.id if request.user and request.user.is_authenticated else None
 
-        debug = {'article_id': article_id, 'personnel_id': personnel_id, 'mode': mode, 'step': 'start'}
         try:
-            # Étape 1: prix article
-            debug['step'] = 'get_prix'
-            with connection.cursor() as c:
-                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
-                row = c.fetchone()
-            if not row:
-                return Response({'detail': f'Article {article_id} introuvable', 'debug': debug}, status=404)
-            montant = int(float(row[0]) * quantite)
-            debug['montant'] = montant
+            with connection.cursor() as cur:
+                cur.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [art_id])
+                row = cur.fetchone()
+                if not row:
+                    return Response({'detail': f'Article {art_id} introuvable'}, status=404)
+                montant = int(float(row[0]) * qte)
 
-            # Étape 2: colonne mode_paiement
-            debug['step'] = 'check_mode_col'
-            with connection.cursor() as c:
-                c.execute("SELECT 1 FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
-                has_mode = c.fetchone() is not None
-            debug['has_mode'] = has_mode
+                cur.execute(
+                    "INSERT INTO restauration_consommationboutique "
+                    "(article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) "
+                    "VALUES (%s,%s,%s,%s,%s,'', %s, NOW()) RETURNING id",
+                    [art_id, pers_id, qte, montant, mode, uid]
+                )
+                conso_id = cur.fetchone()[0]
 
-            # Étape 3: INSERT
-            debug['step'] = 'insert'
-            with connection.cursor() as c:
-                if has_mode:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, mode, valide_id]
+                if mode == 'bon' and pers_id:
+                    cur.execute(
+                        "UPDATE restauration_boncaisse "
+                        "SET credit_restant = credit_restant - %s "
+                        "WHERE personnel_id=%s AND annee=%s",
+                        [montant, pers_id, tz.now().year]
                     )
-                else:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, valide_id]
-                    )
-                conso_id = c.fetchone()[0]
-            debug['conso_id'] = conso_id
 
-            # Étape 4: débit bon
-            debug['step'] = 'debit_bon'
-            if mode == 'bon' and personnel_id:
-                with connection.cursor() as c:
-                    c.execute(
-                        "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
-                        [montant, personnel_id, tz.now().year]
-                    )
-                    debug['rows_updated'] = c.rowcount
+            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
 
-            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode, 'debug': debug}, status=st.HTTP_201_CREATED)
         except Exception as e:
-            debug['error'] = str(e)
-            debug['traceback'] = traceback.format_exc()[-500:]
-            return Response({'detail': str(e), 'debug': debug}, status=500)
+            return Response({'detail': str(e)}, status=500)
 
-
-    @action(detail=False, methods=['get'])
-    def stats_jour(self, request):
-        from django.utils import timezone
-        from django.db.models import Sum
-        today = timezone.now().date()
-        qs = self.get_queryset().filter(date_conso__date=today)
-        par_art = qs.values('article__nom','article__categorie').annotate(
-            qte=Sum('quantite'), total=Sum('montant')
-        ).order_by('-total')
-        return Response({
-            'date': str(today),
-            'total': qs.count(),
-            'montant': float(qs.aggregate(t=Sum('montant'))['t'] or 0),
-            'par_article': list(par_art)[:10],
-        })
-
-    @action(detail=False, methods=['get'], url_path='analyses')
-    def analyses(self, request):
-        from django.db.models import Sum, Count, DecimalField, ExpressionWrapper, F
-        from django.db.models.functions import TruncDate
-        from django.utils import timezone
-        import datetime
-
-        periode = request.query_params.get('periode', '30j')
-        now = timezone.now()
-        delta = {'7j':7,'30j':30,'90j':90}.get(periode, 30)
-        debut = now - datetime.timedelta(days=delta) if periode != 'annee' else now.replace(month=1,day=1,hour=0,minute=0,second=0)
-
-        montant = ExpressionWrapper(F('quantite')*F('article__prix'), output_field=DecimalField())
-        consos  = ConsommationBoutique.objects.filter(date_conso__gte=debut)
-
-        def qs(q):
-            try: return list(q)
-            except: return []
-
-        top_art = qs(consos.values('article__nom','article__categorie')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca')[:15])
-        top_art = [{'article__nom':a['article__nom'],'article__categorie':a['article__categorie'],
-                    'qte':int(a['qte'] or 0),'ca':int(a['ca'] or 0)} for a in top_art]
-
-        top_ag = qs(consos.filter(personnel__isnull=False)
-            .values('personnel__nom','personnel__prenom','personnel__societe')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca')[:10])
-        top_ag = [{'personnel__nom':a['personnel__nom'],'personnel__prenom':a['personnel__prenom'],
-                   'personnel__societe':a['personnel__societe'],'qte':int(a['qte'] or 0),'ca':int(a['ca'] or 0)} for a in top_ag]
-
-        par_cat = qs(consos.values('article__categorie')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca'))
-        par_cat = [{'article__categorie':c['article__categorie'],'qte':int(c['qte'] or 0),'ca':int(c['ca'] or 0)} for c in par_cat]
-
-        evo = qs(ConsommationBoutique.objects.filter(date_conso__gte=now-datetime.timedelta(days=30))
-            .annotate(jour=TruncDate('date_conso')).values('jour')
-            .annotate(ca=Sum(montant),nb=Count('id')).order_by('jour'))
-        evo = [{'jour':str(e['jour']),'ca':int(e['ca'] or 0),'nb':e['nb']} for e in evo]
-
-        try: total_ca = int(consos.aggregate(s=Sum(montant))['s'] or 0)
-        except: total_ca = 0
-        total_qte = int(consos.aggregate(s=Sum('quantite'))['s'] or 0)
-
-        return Response({'periode':periode,'total_ca':total_ca,'total_qte':total_qte,
-            'nb_transactions':consos.count(),'top_articles':top_art,'top_agents':top_ag,
-            'par_categorie':par_cat,'evolution':evo})
-
-
-
-# ═══════════════════════════════════════════════════════
-# BONS DE CAISSE — Tickets annuels 100K FCFA
-# ═══════════════════════════════════════════════════════
 
 class BonCaisseSerializer(drf_serializers.ModelSerializer):
     personnel_nom  = drf_serializers.SerializerMethodField()
