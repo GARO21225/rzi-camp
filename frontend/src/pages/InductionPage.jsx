@@ -409,6 +409,8 @@ export default function InductionPage() {
   const [slideTab,    setSlideTab]    = useState('etapes')
   const [isOnline,    setIsOnline]    = useState(navigator.onLine)
   const [syncStatus,  setSyncStatus]  = useState('')
+  const [dateFrom,    setDateFrom]    = useState('')
+  const [dateTo,      setDateTo]      = useState('')
 
   // Detecter le statut en ligne/hors-ligne
   useEffect(() => {
