@@ -50,6 +50,55 @@ try:
             )""")
             print('Created restauration_menujour')
 
+        # 3. Tables maintenance si absentes
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='maintenance_incident')")
+        if not c.fetchone()[0]:
+            c.execute('''CREATE TABLE maintenance_incident (
+                id BIGSERIAL PRIMARY KEY,
+                titre VARCHAR(200) NOT NULL,
+                description TEXT NOT NULL,
+                categorie VARCHAR(50) NOT NULL DEFAULT 'Autre',
+                priorite VARCHAR(20) NOT NULL DEFAULT 'moyenne',
+                statut VARCHAR(20) NOT NULL DEFAULT 'declare',
+                residence VARCHAR(20) NOT NULL DEFAULT '',
+                bloc VARCHAR(30) NOT NULL DEFAULT '',
+                auteur_id INTEGER REFERENCES auth_user(id) ON DELETE SET NULL,
+                assigne_a_id INTEGER REFERENCES auth_user(id) ON DELETE SET NULL,
+                photo_base64 TEXT NOT NULL DEFAULT '',
+                photo_mime VARCHAR(50) NOT NULL DEFAULT 'image/jpeg',
+                photo_resolution_base64 TEXT NOT NULL DEFAULT '',
+                date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                date_assignation TIMESTAMP WITH TIME ZONE,
+                date_debut TIMESTAMP WITH TIME ZONE,
+                date_resolution TIMESTAMP WITH TIME ZONE,
+                date_cloture TIMESTAMP WITH TIME ZONE,
+                sla_echeance TIMESTAMP WITH TIME ZONE,
+                sla_depasse BOOLEAN NOT NULL DEFAULT FALSE,
+                sla_notification_envoyee BOOLEAN NOT NULL DEFAULT FALSE,
+                commentaire_resolution TEXT NOT NULL DEFAULT '',
+                commentaire_cloture TEXT NOT NULL DEFAULT ''
+            )''')
+            print('Created maintenance_incident')
+
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='maintenance_commentaireincident')")
+        if not c.fetchone()[0]:
+            c.execute('''CREATE TABLE maintenance_commentaireincident (
+                id BIGSERIAL PRIMARY KEY,
+                incident_id INTEGER NOT NULL REFERENCES maintenance_incident(id) ON DELETE CASCADE,
+                auteur_id INTEGER REFERENCES auth_user(id) ON DELETE SET NULL,
+                type_comment VARCHAR(20) NOT NULL DEFAULT 'info',
+                contenu TEXT NOT NULL DEFAULT '',
+                date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                photo_base64 TEXT NOT NULL DEFAULT ''
+            )''')
+            print('Created maintenance_commentaireincident')
+
+        # Ajouter colonne photo_base64 si absente (anciens déploiements)
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='maintenance_commentaireincident' AND column_name='photo_base64')")
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE maintenance_commentaireincident ADD COLUMN photo_base64 TEXT NOT NULL DEFAULT ''")
+            print('Added photo_base64 to commentaireincident')
+
         # 3. mode_paiement sur consommationboutique
         c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')")
         if not c.fetchone()[0]:
