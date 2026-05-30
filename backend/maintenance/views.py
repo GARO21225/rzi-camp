@@ -213,6 +213,9 @@ def declarer_incident(request):
     sla_echeance = now + tz.timedelta(hours=sla_map.get(priorite, 24))
     auteur_id = request.user.id if request.user and request.user.is_authenticated else None
 
+    photo_b64  = data.get('photo_base64', '')
+    photo_mime = data.get('photo_mime', 'image/jpeg') or 'image/jpeg'
+
     try:
         with connection.cursor() as c:
             c.execute("""
@@ -224,11 +227,12 @@ def declarer_incident(request):
                      sla_notification_envoyee,
                      commentaire_resolution, commentaire_cloture)
                 VALUES (%s,%s,%s,%s,'declare',%s,%s,%s,
-                        '','image/jpeg','',
+                        %s,%s,'',
                         %s,%s,FALSE,FALSE,'','')
                 RETURNING id
             """, [titre, description, categorie, priorite,
                     residence, bloc, auteur_id,
+                    photo_b64, photo_mime,
                     now, sla_echeance])
             incident_id = c.fetchone()[0]
 

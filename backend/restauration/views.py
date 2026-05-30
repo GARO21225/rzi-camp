@@ -430,7 +430,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                 try:
                     with connection.cursor() as c:
                         c.execute(
-                            "UPDATE restauration_boncaisse SET credit_utilise=credit_utilise+%s WHERE personnel_id=%s AND annee=%s",
+                            "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
                             [montant, personnel_id, tz.now().year]
                         )
                 except Exception:
