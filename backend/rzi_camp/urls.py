@@ -7,6 +7,54 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+@api_view(['POST', 'GET'])
+@permission_classes([AllowAny])
+def test_boutique(request):
+    from django.db import connection
+    result = {'tables': {}, 'test_insert': None, 'error': None}
+    try:
+        with connection.cursor() as c:
+            # Vérifier tables existantes
+            for t in ['restauration_articleboutique','restauration_consommationboutique','restauration_boncaisse']:
+                c.execute(f"SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='{t}')")
+                result['tables'][t] = c.fetchone()[0]
+            
+            # Vérifier colonnes de consommationboutique
+            c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='restauration_consommationboutique' ORDER BY column_name")
+            result['columns'] = [r[0] for r in c.fetchall()]
+            
+            # Vérifier articles disponibles
+            c.execute("SELECT id, nom, prix FROM restauration_articleboutique LIMIT 3")
+            result['articles'] = [{'id':r[0],'nom':r[1],'prix':str(r[2])} for r in c.fetchall()]
+            
+            # Vérifier bons de caisse
+            c.execute("SELECT COUNT(*) FROM restauration_boncaisse")
+            result['bons_count'] = c.fetchone()[0]
+            
+        if request.method == 'POST':
+            from django.utils import timezone as tz
+            data = request.data
+            article_id = data.get('article', result['articles'][0]['id'] if result['articles'] else 1)
+            with connection.cursor() as c:
+                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
+                row = c.fetchone()
+                if not row:
+                    result['test_insert'] = f'Article {article_id} not found'
+                else:
+                    montant = int(float(row[0]))
+                    has_mode = 'mode_paiement' in result.get('columns', [])
+                    if has_mode:
+                        c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,NULL,1,%s,'especes','',NULL,NOW()) RETURNING id",
+                                  [article_id, montant])
+                    else:
+                        c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,NULL,1,%s,'',NULL,NOW()) RETURNING id",
+                                  [article_id, montant])
+                    result['test_insert'] = f'OK - id={c.fetchone()[0]}, montant={montant}'
+    except Exception as e:
+        result['error'] = str(e)
+    return Response(result)
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def setup_db(request):
@@ -101,6 +149,7 @@ urlpatterns = [
     path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/setup-db/', setup_db, name='setup_db'),
+    path('api/test-boutique/', test_boutique, name='test_boutique'),
     path('api/', include('residences.urls')),
     path('api/', include('maintenance.urls')),
     path('api/', include('restauration.urls')),
