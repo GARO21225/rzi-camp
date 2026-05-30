@@ -16,31 +16,23 @@ api.interceptors.request.use(cfg => {
   return cfg
 })
 api.interceptors.response.use(r => r, async err => {
-  if (err.response?.status === 401) {
+  const url = err.config?.url || ''
+  // Ne pas intercepter les appels d'auth eux-mêmes
+  const isAuthCall = url.includes('/auth/login/') || url.includes('/auth/refresh/')
+  if (err.response?.status === 401 && !isAuthCall) {
     const refresh = localStorage.getItem('refresh_token')
-    if (refresh) {
+    if (refresh && !err.config._retry) {
+      err.config._retry = true
       try {
         const { data } = await axios.post(`${BASE}/api/auth/refresh/`, { refresh })
         localStorage.setItem('access_token', data.access)
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
       } catch {
-        // Refresh expiré → rediriger vers login
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         window.location.href = '/login'
       }
-    } else {
-      // Pas de refresh token → retenter avec token actuel si présent
-      const token = localStorage.getItem('access_token')
-      if (token && !err.config._retry) {
-        err.config._retry = true
-        err.config.headers.Authorization = `Bearer ${token}`
-        return api(err.config)
-      }
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      window.location.href = '/login'
     }
   }
   return Promise.reject(err)
