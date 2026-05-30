@@ -911,28 +911,29 @@ export default function Boutique() {
     setSubmitting(true)
     setMsg({type:'info',text:'⏳ Traitement...'})
     setShowPayModal(false)
-    const BASE = (import.meta?.env?.VITE_API_URL||window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+    const BASE = (import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com')
     const token = localStorage.getItem('access_token')||''
     let allOk = true, lastError = ''
+    const doPost = (body) => new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${BASE}/api/boutique/consommations/`)
+      xhr.setRequestHeader('Content-Type','application/json')
+      xhr.setRequestHeader('Authorization',`Bearer ${token}`)
+      xhr.timeout = 30000
+      xhr.onload = () => resolve({ok: xhr.status>=200&&xhr.status<300, status:xhr.status, body:xhr.responseText})
+      xhr.onerror = () => reject(new Error('Réseau indisponible'))
+      xhr.ontimeout = () => reject(new Error('Délai dépassé (30s)'))
+      xhr.send(JSON.stringify(body))
+    })
     for (const {a,q} of panier) {
       try {
-        const ctrl = new AbortController()
-        const timer = setTimeout(()=>ctrl.abort(), 25000)
-        const resp = await fetch(`${BASE}/api/boutique/consommations/`, {
-          method:'POST', signal:ctrl.signal,
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-          body:JSON.stringify({article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode})
-        })
-        clearTimeout(timer)
+        const resp = await doPost({article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode})
         if(!resp.ok){
-          const d = await resp.json().catch(()=>({}))
-          lastError = d.detail || JSON.stringify(d) || `HTTP ${resp.status}`
-          allOk = false; break
+          try{const d=JSON.parse(resp.body);lastError=d.detail||`HTTP ${resp.status}`}
+          catch{lastError=`HTTP ${resp.status}`}
+          allOk=false; break
         }
-      } catch(e) {
-        lastError = e.name==='AbortError'?'Délai 25s dépassé':e.message
-        allOk = false; break
-      }
+      } catch(e) { lastError=e.message; allOk=false; break }
     }
     if(allOk){
       setMsg({type:'success',text:`✅ ${mode==='bon'?'Payé par bon':'Payé en espèces'} — ${totalP.toLocaleString()} FCFA`})
