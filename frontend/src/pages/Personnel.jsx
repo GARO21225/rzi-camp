@@ -195,9 +195,10 @@ export default function Personnel() {
   }
 
   const downloadPersonnelTemplate = () => {
-    const csv = 'matricule;nom;prenom;societe;poste;telephone;email;residence;chambre\n' +
-      'EMP001;KOUAME;Jean;CIC;Technicien;+225 01 23 45 67;jean.kouame@cic.com;B1;101\n' +
-      'EMP002;TRAORE;Marie;SODECI;Ingénieur;+225 07 89 01 23;marie.traore@sodeci.com;B2;205'
+    const csv = 'nom;prenom;societe;email;numero;type_personnel\n' +
+      'KOUAME;Jean;CIC;jean.kouame@cic.com;MAT001;roxgold\n' +
+      'TRAORE;Marie;SODECI;marie.traore@sodeci.com;MAT002;sous_traitant\n' +
+      'DIALLO;Ibrahim;ROXGOLD;ibrahim.diallo@roxgold.com;MAT003;visiteur'
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -230,13 +231,12 @@ export default function Personnel() {
         const prenom = get(row,['prenom','prénom'])
         if (!nom) { errs.push(`L${i+1}: nom requis`); continue }
         const payload = {
-          matricule: get(row,['matricule']),
-          nom, prenom,
-          societe: get(row,['societe','société','entreprise','company']),
-          poste: get(row,['poste','fonction','role']),
-          telephone: get(row,['telephone','téléphone','tel','phone']),
-          email: get(row,['email','mail']),
-          chambre: get(row,['chambre','room']),
+          nom,
+          prenom,
+          societe: get(row,['societe','société','entreprise','company']) || 'N/A',
+          email: get(row,['email','mail']) || '',
+          numero: get(row,['matricule','numero','numéro']) || '',
+          type_personnel: get(row,['type','type_personnel']) || 'roxgold',
         }
         try {
           const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
