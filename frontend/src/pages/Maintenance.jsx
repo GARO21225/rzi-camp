@@ -231,6 +231,47 @@ export default function Maintenance() {
     URL.revokeObjectURL(url)
   }
 
+  const importCSV = () => {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.csv,.txt'
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const lines = text.split('\n').filter(l=>l.trim())
+      if (lines.length < 2) { alert('CSV vide ou invalide'); return }
+      // Détecter séparateur
+      const sep = lines[0].includes(';') ? ';' : ','
+      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
+      const getCol = (row, names) => {
+        for (const n of names) {
+          const idx = headers.findIndex(h=>h.includes(n))
+          if (idx>=0) return row[idx]?.replace(/^"|"$/g,'').trim() || ''
+        }
+        return ''
+      }
+      let imported=0, errors=[]
+      for (let i=1; i<lines.length; i++) {
+        const row = lines[i].split(sep)
+        const titre = getCol(row,['titre','title'])
+        const description = getCol(row,['description','desc'])
+        const residence = getCol(row,['residence','résidence'])
+        const categorie = getCol(row,['catégorie','categorie','category']) || 'Autre'
+        const priorite = getCol(row,['priorité','priorite','priority']) || 'moyenne'
+        if (!titre || !description || !residence) { errors.push(`Ligne ${i+1}: titre/description/résidence requis`); continue }
+        try {
+          await incAPI.declarer({ titre, description, residence, categorie, priorite, bloc: getCol(row,['bloc','chambre']) })
+          imported++
+        } catch(err) {
+          errors.push(`Ligne ${i+1}: ${err.response?.data?.detail||err.message}`)
+        }
+      }
+      alert(`✅ ${imported} incident(s) importé(s)${errors.length ? '\n\n⚠️ Erreurs:\n'+errors.slice(0,5).join('\n') : ''}`)
+      load()
+    }
+    input.click()
+  }
+
   const exportIncident = (inc) => {
     const cmts = (inc.commentaires || []).map(c => {
       const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
@@ -314,11 +355,18 @@ export default function Maintenance() {
             <input type="checkbox" checked={slaOnly} onChange={e=>setSlaOnly(e.target.checked)} />
             ⚠️ SLA dépassé
           </label>
-          <button onClick={()=>exportCSV(filtered)}
-            style={{ background:'#16a34a', color:'#fff', border:'none',
-              padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-            📥 Export CSV ({filtered.length})
-          </button>
+          <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
+            <button onClick={()=>importCSV()}
+              style={{ background:'#2563eb', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📤 Import CSV
+            </button>
+            <button onClick={()=>exportCSV(filtered)}
+              style={{ background:'#16a34a', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📥 Export CSV ({filtered.length})
+            </button>
+          </div>
         </div>
 
         {loading ? (
