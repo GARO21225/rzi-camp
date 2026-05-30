@@ -63,6 +63,8 @@ export default function Maintenance() {
   const [techns,    setTechns]    = useState([])
   const [loading,   setLoading]   = useState(true)
   const [selected,  setSelected]  = useState(null)
+  const [editInc,   setEditInc]   = useState(null)
+  const [showEdit,  setShowEdit]  = useState(false)
   const [search,    setSearch]    = useState('')
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
@@ -250,9 +252,28 @@ export default function Maintenance() {
                         📍 {inc.residence}{inc.bloc ? ` · ${inc.bloc}` : ''} · {inc.categorie} · {inc.auteur_nom}
                       </div>
                     </div>
-                    <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                    <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
                       <span style={{ background:pr.c+'20', color:pr.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{pr.l}</span>
                       <span style={{ background:st.bg, color:st.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{st.l}</span>
+                      {isAdmin && (
+                        <>
+                          <button onClick={e=>{e.stopPropagation();setEditInc({...inc});setShowEdit(true)}}
+                            title="Modifier l'incident"
+                            style={{ background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
+                              padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700 }}>
+                            ✏️
+                          </button>
+                          <button onClick={e=>{e.stopPropagation();
+                            if(window.confirm(`Supprimer l'incident "${inc.titre}" ?`))
+                              incAPI.supprimer(inc.id).then(()=>load()).catch(()=>alert('Erreur suppression'))
+                          }}
+                            title="Supprimer l'incident"
+                            style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                              padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700 }}>
+                            🗑️
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:0, marginTop:10 }}>
@@ -465,11 +486,31 @@ export default function Maintenance() {
                         📷 Photo Après
                       </button>
                     </div>
-                    <button onClick={()=>setActionModal('resoudre')}
-                      style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none',
-                        padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
-                      ✅ Marquer résolu
-                    </button>
+                    {(() => {
+                      const hasAvant = (selected.commentaires||[]).some(c=>c.type_comment==='photo_avant')
+                      const hasApres = (selected.commentaires||[]).some(c=>c.type_comment==='photo_apres')
+                      const canResolve = hasAvant && hasApres
+                      return (
+                        <div>
+                          {!hasAvant && <div style={{fontSize:11,color:'#dc2626',background:'#fef2f2',
+                            border:'1px solid #fecaca',borderRadius:7,padding:'5px 10px',marginBottom:5}}>
+                            ⚠️ Photo AVANT requise
+                          </div>}
+                          {!hasApres && <div style={{fontSize:11,color:'#dc2626',background:'#fef2f2',
+                            border:'1px solid #fecaca',borderRadius:7,padding:'5px 10px',marginBottom:5}}>
+                            ⚠️ Photo APRÈS requise
+                          </div>}
+                          <button onClick={()=>canResolve&&setActionModal('resoudre')}
+                            disabled={!canResolve}
+                            title={!canResolve?'Photos avant et après obligatoires':'Marquer résolu'}
+                            style={{ width:'100%', background:canResolve?'#16a34a':'#94a3b8', color:'#fff', border:'none',
+                              padding:11, borderRadius:10, cursor:canResolve?'pointer':'not-allowed',
+                              fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+                            ✅ Marquer résolu {!canResolve?'(photos requises)':''}
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
                 {isAdmin && selected.statut==='resolu' && (
@@ -514,6 +555,80 @@ export default function Maintenance() {
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ MODAL MODIFIER INCIDENT ══ */}
+        {showEdit && editInc && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.7)',
+            display:'flex', alignItems:'center', justifyContent:'center', zIndex:1200, padding:16 }}
+            onClick={e=>e.target===e.currentTarget&&setShowEdit(false)}>
+            <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520,
+              maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
+                padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ fontWeight:700, fontSize:15 }}>✏️ Modifier l'incident</div>
+                <button onClick={()=>setShowEdit(false)}
+                  style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
+                    width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+              </div>
+              <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>TITRE *</label>
+                  <input value={editInc.titre} onChange={e=>setEditInc({...editInc,titre:e.target.value})} style={inp}/>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION *</label>
+                  <textarea value={editInc.description} onChange={e=>setEditInc({...editInc,description:e.target.value})}
+                    rows={3} style={{ ...inp, resize:'vertical' }}/>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>CATÉGORIE</label>
+                    <select value={editInc.categorie} onChange={e=>setEditInc({...editInc,categorie:e.target.value})} style={inp}>
+                      {CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>PRIORITÉ</label>
+                    <select value={editInc.priorite} onChange={e=>setEditInc({...editInc,priorite:e.target.value})} style={inp}>
+                      {Object.entries(PRIOS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
+                    <input value={editInc.residence} onChange={e=>setEditInc({...editInc,residence:e.target.value})} style={inp}/>
+                  </div>
+                  <div>
+                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
+                    <input value={editInc.bloc||''} onChange={e=>setEditInc({...editInc,bloc:e.target.value})} style={inp}/>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={async()=>{
+                    try {
+                      await incAPI.modifier(editInc.id, {
+                        titre: editInc.titre, description: editInc.description,
+                        categorie: editInc.categorie, priorite: editInc.priorite,
+                        residence: editInc.residence, bloc: editInc.bloc||''
+                      })
+                      setShowEdit(false); load()
+                    } catch(e) { alert(e.response?.data?.detail||'Erreur modification') }
+                  }}
+                    style={{ flex:1, background:'#1e3a8a', color:'#fff', border:'none',
+                      padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
+                    💾 Enregistrer
+                  </button>
+                  <button onClick={()=>setShowEdit(false)}
+                    style={{ background:'#f1f5f9', color:'#64748b', border:'1px solid #e2e8f0',
+                      padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontFamily:'inherit' }}>
+                    Annuler
+                  </button>
                 </div>
               </div>
             </div>
