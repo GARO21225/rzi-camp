@@ -1176,10 +1176,10 @@ export default function Boutique() {
                           </div>
                         </div>
                         {/* Avertissement si panier dépasse le solde */}
-                        {totalPanier > bonAgent.credit_restant && bonAgent.credit_restant > 0 && (
+                        {totalP > bonAgent.credit_restant && bonAgent.credit_restant > 0 && (
                           <div style={{marginTop:6,background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:7,
                             padding:'5px 8px',fontSize:10,color:'#dc2626',fontWeight:600}}>
-                            ⚠️ Panier ({totalPanier.toLocaleString()} FCFA) dépasse le solde
+                            ⚠️ Panier ({totalP.toLocaleString()} FCFA) dépasse le solde
                           </div>
                         )}
                         {bonAgent.credit_restant === 0 && (

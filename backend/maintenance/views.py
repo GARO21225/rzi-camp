@@ -238,6 +238,45 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    def destroy(self, request, *args, **kwargs):
+        """Suppression SQL directe pour éviter le crash simple-history"""
+        from django.db import connection
+        from rest_framework.response import Response
+        from rest_framework import status as drf_status
+        pk = kwargs.get('pk')
+        try:
+            with connection.cursor() as c:
+                c.execute('DELETE FROM maintenance_commentaireincident WHERE incident_id=%s', [pk])
+                c.execute('DELETE FROM maintenance_incident WHERE id=%s', [pk])
+                if c.rowcount == 0:
+                    return Response({'detail': 'Incident non trouvé'}, status=404)
+            return Response(status=drf_status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Mise à jour SQL directe"""
+        from django.db import connection
+        from rest_framework.response import Response
+        pk = kwargs.get('pk')
+        data = request.data
+        fields = []
+        values = []
+        allowed = ['titre','description','categorie','priorite','residence','bloc','statut']
+        for f in allowed:
+            if f in data:
+                fields.append(f'{f}=%s')
+                values.append(data[f])
+        if not fields:
+            return Response({'detail': 'Aucun champ à modifier'}, status=400)
+        values.append(pk)
+        try:
+            with connection.cursor() as c:
+                c.execute(f'UPDATE maintenance_incident SET {", ".join(fields)} WHERE id=%s', values)
+            return Response({'id': pk, 'message': 'Mis à jour'})
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+
     def perform_create(self, serializer):
         from django.db import connection
         from django.utils import timezone as tz
