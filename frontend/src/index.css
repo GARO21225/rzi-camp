@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap');
+
 /* ══════════════════════════════════════════════════════════════════
    RZI CAMP — Design System v7  •  Premium Mining Camp ERP
    ══════════════════════════════════════════════════════════════════ */
@@ -621,7 +623,7 @@ textarea.form-control { resize:vertical; min-height:80px; }
    ══════════════════════════════════════════════════ */
 
 /* Import DM Sans pour un look plus moderne */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap');
+
 
 :root {
   --font: 'DM Sans', 'Inter', -apple-system, system-ui, sans-serif;
