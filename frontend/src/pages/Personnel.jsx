@@ -178,6 +178,83 @@ export default function Personnel() {
     {v:'manager',     l:'Manager / Responsable'},
   ]
 
+  const exportPersonnelCSV = (list) => {
+    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut']
+    const rows = list.map(p => [
+      p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
+      p.poste||p.fonction||'', p.telephone||'', p.email||'',
+      p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif'
+    ])
+    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'personnel_'+new Date().toISOString().slice(0,10)+'.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadPersonnelTemplate = () => {
+    const csv = 'matricule;nom;prenom;societe;poste;telephone;email;residence;chambre\n' +
+      'EMP001;KOUAME;Jean;CIC;Technicien;+225 01 23 45 67;jean.kouame@cic.com;B1;101\n' +
+      'EMP002;TRAORE;Marie;SODECI;Ingénieur;+225 07 89 01 23;marie.traore@sodeci.com;B2;205'
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='template_personnel.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importPersonnelCSV = () => {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.csv,.txt'
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const lines = text.split('\n').filter(l=>l.trim())
+      if (lines.length < 2) { alert('CSV vide'); return }
+      const sep = lines[0].includes(';') ? ';' : ','
+      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
+      const get = (row, names) => {
+        for (const n of names) {
+          const i = headers.findIndex(h=>h.includes(n))
+          if (i>=0) return (row[i]||'').replace(/^"|"$/g,'').trim()
+        }
+        return ''
+      }
+      let ok=0, errs=[]
+      for (let i=1; i<lines.length; i++) {
+        const row = lines[i].split(sep)
+        const nom = get(row,['nom'])
+        const prenom = get(row,['prenom','prénom'])
+        if (!nom) { errs.push(`L${i+1}: nom requis`); continue }
+        const payload = {
+          matricule: get(row,['matricule']),
+          nom, prenom,
+          societe: get(row,['societe','société','entreprise','company']),
+          poste: get(row,['poste','fonction','role']),
+          telephone: get(row,['telephone','téléphone','tel','phone']),
+          email: get(row,['email','mail']),
+          chambre: get(row,['chambre','room']),
+        }
+        try {
+          const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+          const token = localStorage.getItem('access_token') || ''
+          const r = await fetch(`${BASE}/api/personnel/`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+            body: JSON.stringify(payload)
+          })
+          if (r.ok) ok++
+          else { const d=await r.json(); errs.push(`L${i+1}: ${d.detail||JSON.stringify(d).slice(0,60)}`) }
+        } catch(e) { errs.push(`L${i+1}: ${e.message}`) }
+      }
+      alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
+      load()
+    }
+    input.click()
+  }
+
   return (
     <PersonnelBoundary>
       <div className="page" style={{maxWidth:1100, margin:'0 auto'}}>
@@ -203,6 +280,9 @@ export default function Personnel() {
             }} style={btn('#1e3a8a')}>
               ➕ Nouveau membre
             </button>
+            <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('#7c3aed'),fontSize:12}}>📋 Template</button>
+            <button onClick={()=>importPersonnelCSV()} style={{...btn('#2563eb'),fontSize:12}}>📤 Import CSV</button>
+            <button onClick={()=>exportPersonnelCSV(filtered)} style={{...btn('#16a34a'),fontSize:12}}>📥 Export CSV ({filtered.length})</button>
           </div>
         </div>
 
