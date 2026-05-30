@@ -380,9 +380,48 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
     serializer_class = ConsommationSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['article__nom','personnel__nom']
+    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        serializer.save(valide_par=self.request.user)
+        valide_par = self.request.user if self.request.user and self.request.user.is_authenticated else None
+        serializer.save(valide_par=valide_par)
+
+    def create(self, request, *args, **kwargs):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        from rest_framework import status as st
+        data = request.data
+        article_id   = data.get('article')
+        personnel_id = data.get('personnel')
+        quantite     = int(data.get('quantite', 1))
+        mode         = data.get('mode_paiement', 'especes')
+        valide_id    = request.user.id if request.user and request.user.is_authenticated else None
+        try:
+            with connection.cursor() as c:
+                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
+                row = c.fetchone()
+                if not row:
+                    return Response({'detail': 'Article introuvable'}, status=404)
+                montant = row[0] * quantite
+                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')")
+                has_mode = c.fetchone()[0]
+                if has_mode:
+                    c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                              [article_id, personnel_id, quantite, montant, mode, valide_id])
+                else:
+                    c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                              [article_id, personnel_id, quantite, montant, valide_id])
+                conso_id = c.fetchone()[0]
+                if mode == 'bon' and personnel_id:
+                    try:
+                        c.execute("UPDATE restauration_boncaisse SET credit_utilise=credit_utilise+%s WHERE personnel_id=%s AND annee=%s",
+                                  [montant, personnel_id, tz.now().year])
+                    except Exception:
+                        pass
+            return Response({'id': conso_id, 'montant': float(montant), 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
 
     @action(detail=False, methods=['get'])
     def stats_jour(self, request):
