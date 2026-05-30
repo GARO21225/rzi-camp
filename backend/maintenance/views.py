@@ -236,17 +236,25 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return qs
 
     def destroy(self, request, *args, **kwargs):
-        """Suppression SQL directe pour éviter le crash simple-history"""
+        """Suppression SQL directe avec nettoyage complet"""
         from django.db import connection
         from rest_framework.response import Response
         from rest_framework import status as drf_status
         pk = kwargs.get('pk')
         try:
             with connection.cursor() as c:
+                # Supprimer commentaires
                 c.execute('DELETE FROM maintenance_commentaireincident WHERE incident_id=%s', [pk])
+                # Supprimer enregistrements historiques simple_history
+                try:
+                    c.execute('DELETE FROM maintenance_historicalincident WHERE id=%s', [pk])
+                except Exception:
+                    pass
+                # Supprimer l'incident
                 c.execute('DELETE FROM maintenance_incident WHERE id=%s', [pk])
-                if c.rowcount == 0:
-                    return Response({'detail': 'Incident non trouvé'}, status=404)
+                deleted = c.rowcount
+            if deleted == 0:
+                return Response({'detail': 'Incident non trouvé'}, status=404)
             return Response(status=drf_status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({'detail': str(e)}, status=500)

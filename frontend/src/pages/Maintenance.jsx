@@ -265,7 +265,7 @@ export default function Maintenance() {
                           </button>
                           <button onClick={e=>{e.stopPropagation();
                             if(window.confirm(`Supprimer l'incident "${inc.titre}" ?`))
-                              incAPI.supprimer(inc.id).then(()=>load()).catch(()=>alert('Erreur suppression'))
+                              incAPI.supprimer(inc.id).then(()=>load()).catch(e=>alert('Erreur suppression: '+(e.response?.data?.detail||e.message||'inconnue')))
                           }}
                             title="Supprimer l'incident"
                             style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',

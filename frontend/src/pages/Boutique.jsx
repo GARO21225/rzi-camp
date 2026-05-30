@@ -909,23 +909,16 @@ export default function Boutique() {
     if(mode==='bon' && bonAgent && totalP > bonAgent.credit_restant)
       return setMsg({type:'error',text:`Solde insuffisant (${bonAgent.credit_restant.toLocaleString()} FCFA)`})
     setSubmitting(true)
-    setMsg({type:'info',text:'⏳ Envoi en cours (peut prendre ~30s si le serveur dormait)...'})
+    setMsg({type:'info',text:'⏳ Traitement...'})
     setShowPayModal(false)
-    const timeoutProm = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),60000))
     try {
-      await Promise.race([
-        Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({
-          article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode
-        }))),
-        timeoutProm
-      ])
+      await Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({
+        article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode
+      })))
       setMsg({type:'success',text:`✅ ${mode==='bon'?'Payé par bon':'Payé en espèces'} — ${totalP.toLocaleString()} FCFA`})
       setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePaiement(null); load()
     } catch(e){
-      const txt = e.message==='timeout'
-        ? '⏱️ Serveur en réveil. Patientez 30s et réessayez.'
-        : (e.response?.data?.detail||'Erreur')
-      setMsg({type:'error',text:txt})
+      setMsg({type:'error',text:e.response?.data?.detail||e.message||'Erreur'})
     }
     finally{setSubmitting(false)}
   }
