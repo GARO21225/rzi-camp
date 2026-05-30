@@ -778,6 +778,15 @@ export default function InductionPage() {
           <option value="">Tous les types</option>
           {TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
         </select>
+        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+          style={{...inp,maxWidth:140}} title="Date début (de)"/>
+        <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+          style={{...inp,maxWidth:140}} title="Date début (à)"/>
+        <button onClick={()=>exportInductionCSV(personnel,dateFrom,dateTo)}
+          style={{background:'#16a34a',color:'#fff',border:'none',padding:'8px 14px',
+            borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
+          📥 Export CSV
+        </button>
       </div>
 
       {loading ? <div style={{textAlign:'center',padding:60,fontSize:32}}>⏳</div> : (
