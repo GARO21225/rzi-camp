@@ -387,7 +387,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         serializer.save(valide_par=valide_par)
 
     def create(self, request, *args, **kwargs):
-        from django.db import connection
+        from django.db import connection, transaction
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from rest_framework import status as st
@@ -397,48 +397,42 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         quantite     = int(data.get('quantite', 1))
         mode         = data.get('mode_paiement', 'especes')
         valide_id    = request.user.id if request.user and request.user.is_authenticated else None
+
         try:
-            # Étape 1: récupérer le prix
-            with connection.cursor() as c:
-                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
-                row = c.fetchone()
-            if not row:
-                return Response({'detail': 'Article introuvable'}, status=404)
-            montant = float(row[0]) * quantite
+            with transaction.atomic():
+                with connection.cursor() as c:
+                    # Prix article
+                    c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
+                    row = c.fetchone()
+                    if not row:
+                        return Response({'detail': f'Article {article_id} introuvable'}, status=404)
+                    montant = int(float(row[0]) * quantite)
 
-            # Étape 2: vérifier si mode_paiement existe
-            with connection.cursor() as c:
-                c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
-                has_mode = c.fetchone() is not None
+                    # INSERT consommation (sans mode_paiement d'abord pour compatibilité)
+                    try:
+                        c.execute(
+                            "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                            [article_id, personnel_id, quantite, montant, mode, valide_id]
+                        )
+                    except Exception:
+                        # Fallback sans mode_paiement si colonne absente
+                        c.execute(
+                            "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                            [article_id, personnel_id, quantite, montant, valide_id]
+                        )
+                    conso_id = c.fetchone()[0]
 
-            # Étape 3: insérer la consommation
-            with connection.cursor() as c:
-                if has_mode:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, mode, valide_id]
-                    )
-                else:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, valide_id]
-                    )
-                conso_id = c.fetchone()[0]
-
-            # Étape 4: débiter le bon si mode=bon
-            if mode == 'bon' and personnel_id:
-                try:
-                    with connection.cursor() as c:
+                    # Débiter le bon si mode=bon
+                    if mode == 'bon' and personnel_id:
                         c.execute(
                             "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
                             [montant, personnel_id, tz.now().year]
                         )
-                except Exception:
-                    pass
 
             return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'detail': str(e)}, status=500)
+            return Response({'detail': str(e), 'debug': {'article': article_id, 'personnel': personnel_id, 'mode': mode, 'quantite': quantite}}, status=500)
+
 
     @action(detail=False, methods=['get'])
     def stats_jour(self, request):
@@ -676,6 +670,40 @@ class BonCaisseSerializer(drf_serializers.ModelSerializer):
                   'annee','credit_initial','credit_restant','credit_utilise',
                   'pourcentage','cree_le','mis_a_jour']
         read_only_fields = ['credit_restant','cree_le','mis_a_jour']
+
+
+from rest_framework.decorators import api_view as drf_api_view, permission_classes as drf_pc
+from rest_framework.permissions import AllowAny as AllowAnyPerm
+
+@drf_api_view(['POST'])
+@drf_pc([AllowAnyPerm])  
+def test_conso(request):
+    """Endpoint de test pour diagnostiquer le paiement"""
+    from django.db import connection
+    from rest_framework.response import Response
+    data = request.data
+    result = {
+        'received': dict(data),
+        'steps': []
+    }
+    try:
+        with connection.cursor() as c:
+            c.execute('SELECT id, prix FROM restauration_articleboutique WHERE id=%s', [data.get('article')])
+            row = c.fetchone()
+            result['steps'].append(f'Article found: {row}')
+            
+            c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
+            count = c.fetchone()[0]
+            result['steps'].append(f'Current conso count: {count}')
+            
+            c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
+            has_mode = c.fetchone() is not None
+            result['steps'].append(f'has mode_paiement: {has_mode}')
+            
+        return Response(result)
+    except Exception as e:
+        result['error'] = str(e)
+        return Response(result, status=500)
 
 
 class BonCaisseViewSet(viewsets.ModelViewSet):
