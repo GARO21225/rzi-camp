@@ -393,33 +393,50 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from rest_framework import status as st
         data = request.data
         article_id   = data.get('article')
-        personnel_id = data.get('personnel')
+        personnel_id = data.get('personnel') or None
         quantite     = int(data.get('quantite', 1))
         mode         = data.get('mode_paiement', 'especes')
         valide_id    = request.user.id if request.user and request.user.is_authenticated else None
         try:
+            # Étape 1: récupérer le prix
             with connection.cursor() as c:
                 c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
                 row = c.fetchone()
-                if not row:
-                    return Response({'detail': 'Article introuvable'}, status=404)
-                montant = row[0] * quantite
-                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')")
-                has_mode = c.fetchone()[0]
+            if not row:
+                return Response({'detail': 'Article introuvable'}, status=404)
+            montant = float(row[0]) * quantite
+
+            # Étape 2: vérifier si mode_paiement existe
+            with connection.cursor() as c:
+                c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
+                has_mode = c.fetchone() is not None
+
+            # Étape 3: insérer la consommation
+            with connection.cursor() as c:
                 if has_mode:
-                    c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                              [article_id, personnel_id, quantite, montant, mode, valide_id])
+                    c.execute(
+                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                        [article_id, personnel_id, quantite, montant, mode, valide_id]
+                    )
                 else:
-                    c.execute("INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                              [article_id, personnel_id, quantite, montant, valide_id])
+                    c.execute(
+                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                        [article_id, personnel_id, quantite, montant, valide_id]
+                    )
                 conso_id = c.fetchone()[0]
-                if mode == 'bon' and personnel_id:
-                    try:
-                        c.execute("UPDATE restauration_boncaisse SET credit_utilise=credit_utilise+%s WHERE personnel_id=%s AND annee=%s",
-                                  [montant, personnel_id, tz.now().year])
-                    except Exception:
-                        pass
-            return Response({'id': conso_id, 'montant': float(montant), 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
+
+            # Étape 4: débiter le bon si mode=bon
+            if mode == 'bon' and personnel_id:
+                try:
+                    with connection.cursor() as c:
+                        c.execute(
+                            "UPDATE restauration_boncaisse SET credit_utilise=credit_utilise+%s WHERE personnel_id=%s AND annee=%s",
+                            [montant, personnel_id, tz.now().year]
+                        )
+                except Exception:
+                    pass
+
+            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
         except Exception as e:
             return Response({'detail': str(e)}, status=500)
 

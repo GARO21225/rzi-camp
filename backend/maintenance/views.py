@@ -236,28 +236,36 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return qs
 
     def destroy(self, request, *args, **kwargs):
-        """Suppression SQL directe avec nettoyage complet"""
+        """Suppression complète via SQL - tous les DELETE en séquence"""
         from django.db import connection
         from rest_framework.response import Response
         from rest_framework import status as drf_status
         pk = kwargs.get('pk')
+        errors = []
         try:
             with connection.cursor() as c:
-                # Supprimer commentaires
-                c.execute('DELETE FROM maintenance_commentaireincident WHERE incident_id=%s', [pk])
-                # Supprimer enregistrements historiques simple_history
+                # 1. Table historique simple_history (peut ne pas exister)
+                for hist_table in ['maintenance_historicalincident']:
+                    try:
+                        c.execute(f'DELETE FROM {hist_table} WHERE id=%s', [pk])
+                    except Exception as e:
+                        errors.append(f'hist: {e}')
+
+                # 2. Commentaires (FK CASCADE mais on force)
                 try:
-                    c.execute('DELETE FROM maintenance_historicalincident WHERE id=%s', [pk])
-                except Exception:
-                    pass
-                # Supprimer l'incident
+                    c.execute('DELETE FROM maintenance_commentaireincident WHERE incident_id=%s', [pk])
+                except Exception as e:
+                    errors.append(f'comments: {e}')
+
+                # 3. L'incident lui-même
                 c.execute('DELETE FROM maintenance_incident WHERE id=%s', [pk])
                 deleted = c.rowcount
+
             if deleted == 0:
-                return Response({'detail': 'Incident non trouvé'}, status=404)
+                return Response({'detail': f'Non trouvé (errors: {errors})'}, status=404)
             return Response(status=drf_status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            return Response({'detail': str(e)}, status=500)
+            return Response({'detail': f'{str(e)} | sub-errors: {errors}'}, status=500)
 
     def partial_update(self, request, *args, **kwargs):
         """Mise à jour SQL directe"""
