@@ -441,7 +441,12 @@ export default function Maintenance() {
                     <div style={{ fontWeight:700, fontSize:15 }}>{selected.titre}</div>
                     <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{selected.residence} · {selected.categorie}</div>
                   </div>
-                  <button onClick={()=>setSelected(null)}
+                  <button <button onClick={()=>{
+                    const inc=selected; const cmts=(inc.commentaires||[]).map(c=>`<div style='margin:8px 0;padding:8px;border-left:3px solid #1e3a8a'><b>${c.type_comment}</b> — ${c.auteur_nom||''} — ${c.date_creation?new Date(c.date_creation).toLocaleString('fr-FR'):''}<p>${c.contenu}</p>${c.photo_base64&&c.photo_base64.length>10?`<img style='max-width:100%;max-height:180px' src='data:image/jpeg;base64,${c.photo_base64}'/>`:''}</div>`).join('')
+                    const html='<html><head><title>Incident #'+inc.id+'</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}th{background:#eef2f7}</style></head><body><h2 style="color:#1e3a8a">Rapport Incident #'+inc.id+' — '+inc.titre+'</h2><table><tr><th>Catégorie</th><td>'+inc.categorie+'</td><th>Priorité</th><td>'+inc.priorite+'</td></tr><tr><th>Statut</th><td>'+inc.statut+'</td><th>Résidence</th><td>'+inc.residence+' '+(inc.bloc||'')+'</td></tr><tr><th>Déclaré par</th><td>'+(inc.auteur_nom||'?')+'</td><th>Assigné à</th><td>'+(inc.assigne_nom||'Non assigné')+'</td></tr><tr><th>Déclaration</th><td>'+(inc.date_creation?new Date(inc.date_creation).toLocaleString("fr-FR"):'?')+'</td><th>SLA</th><td>'+(inc.sla_echeance?new Date(inc.sla_echeance).toLocaleString("fr-FR"):'N/A')+'</td></tr></table><p>'+inc.description+'</p>'+(inc.photo_base64&&inc.photo_base64.length>10?'<img style="max-width:100%;max-height:200px" src="data:'+inc.photo_mime+';base64,'+inc.photo_base64+'"/>':'')+'<h3>Historique</h3>'+cmts+'<script>window.print()<\/script><\/body><\/html>'
+                    const w=window.open('','_blank'); w.document.write(html); w.document.close()
+                  }} style={{background:'rgba(240,165,0,.3)',border:'none',color:'#fff',padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>🖨️</button>
+                  onClick={()=>setSelected(null)}
                     style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
                       width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
                 </div>
@@ -484,11 +489,48 @@ export default function Maintenance() {
                 </div>
 
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
+                  {/* Timeline parcours */}
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Parcours</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:0, overflowX:'auto', paddingBottom:4 }}>
+                      {[
+                        {s:'declare', label:'Déclaré', icon:'📢', date: selected.date_creation},
+                        {s:'assigne', label:'Assigné', icon:'👷', date: selected.date_assignation},
+                        {s:'en_cours', label:'En cours', icon:'⚙️', date: selected.date_debut},
+                        {s:'resolu', label:'Résolu', icon:'✅', date: selected.date_resolution},
+                        {s:'cloture', label:'Clôturé', icon:'🔒', date: selected.date_cloture},
+                      ].map((step, i, arr) => {
+                        const statuts = ['declare','assigne','en_cours','resolu','cloture']
+                        const curIdx = statuts.indexOf(selected.statut)
+                        const stepIdx = statuts.indexOf(step.s)
+                        const done = stepIdx <= curIdx
+                        const active = step.s === selected.statut
+                        return (
+                          <div key={step.s} style={{ display:'flex', alignItems:'center', flex: i < arr.length-1 ? 1 : 'none', minWidth: i < arr.length-1 ? 60 : 'auto' }}>
+                            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, minWidth:52 }}>
+                              <div style={{ width:32, height:32, borderRadius:'50%',
+                                background: active ? '#1e3a8a' : done ? '#16a34a' : '#f1f5f9',
+                                border: active ? '2px solid #f0a500' : done ? '2px solid #16a34a' : '2px solid #e2e8f0',
+                                display:'flex', alignItems:'center', justifyContent:'center',
+                                fontSize:14, boxShadow: active ? '0 0 0 3px rgba(240,165,0,.2)' : 'none',
+                                transition:'all .2s' }}>
+                                {done ? (active ? step.icon : '✓') : <span style={{color:'#cbd5e1',fontSize:11}}>{i+1}</span>}
+                              </div>
+                              <div style={{ fontSize:9, fontWeight: active?700:500, color: active?'#1e3a8a':done?'#16a34a':'#94a3b8', textAlign:'center', lineHeight:1.2 }}>{step.label}</div>
+                              {step.date && <div style={{ fontSize:8, color:'#94a3b8', textAlign:'center' }}>{new Date(step.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>}
+                            </div>
+                            {i < arr.length-1 && <div style={{ flex:1, height:2, background: stepIdx < curIdx ? '#16a34a' : '#e2e8f0', margin:'0 2px', marginBottom:18, transition:'background .3s' }}/>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {[['Priorité',PRIOS[selected.priorite]?.l||selected.priorite],
                     ['Statut',STATUTS[selected.statut]?.l||selected.statut],
                     ['Déclaré par',selected.auteur_nom||'?'],
                     ['Assigné à',selected.assigne_nom||'Non assigné'],
-                    ['📅 Date déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
+                    ['📅 Déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
                     ['⏰ Échéance SLA', selected.sla_echeance ? new Date(selected.sla_echeance).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'],
                   ].map(([k,v])=>(
                     <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 10px' }}>

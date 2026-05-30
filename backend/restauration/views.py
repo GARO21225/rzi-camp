@@ -391,6 +391,8 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from rest_framework import status as st
+        import traceback
+
         data = request.data
         article_id   = data.get('article')
         personnel_id = data.get('personnel') or None
@@ -398,22 +400,28 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         mode         = data.get('mode_paiement', 'especes')
         valide_id    = request.user.id if request.user and request.user.is_authenticated else None
 
+        debug = {'article_id': article_id, 'personnel_id': personnel_id, 'mode': mode, 'step': 'start'}
         try:
+            # Étape 1: prix article
+            debug['step'] = 'get_prix'
             with connection.cursor() as c:
-                # 1. Récupérer prix
                 c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
                 row = c.fetchone()
-                if not row:
-                    return Response({'detail': f'Article {article_id} introuvable'}, status=404)
-                montant = int(float(row[0]) * quantite)
+            if not row:
+                return Response({'detail': f'Article {article_id} introuvable', 'debug': debug}, status=404)
+            montant = int(float(row[0]) * quantite)
+            debug['montant'] = montant
 
+            # Étape 2: colonne mode_paiement
+            debug['step'] = 'check_mode_col'
             with connection.cursor() as c:
-                # 2. Vérifier si mode_paiement existe
                 c.execute("SELECT 1 FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
                 has_mode = c.fetchone() is not None
+            debug['has_mode'] = has_mode
 
+            # Étape 3: INSERT
+            debug['step'] = 'insert'
             with connection.cursor() as c:
-                # 3. INSERT
                 if has_mode:
                     c.execute(
                         "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
@@ -425,18 +433,23 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                         [article_id, personnel_id, quantite, montant, valide_id]
                     )
                 conso_id = c.fetchone()[0]
+            debug['conso_id'] = conso_id
 
-            # 4. Débiter bon si applicable
+            # Étape 4: débit bon
+            debug['step'] = 'debit_bon'
             if mode == 'bon' and personnel_id:
                 with connection.cursor() as c:
                     c.execute(
                         "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
                         [montant, personnel_id, tz.now().year]
                     )
+                    debug['rows_updated'] = c.rowcount
 
-            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
+            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode, 'debug': debug}, status=st.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'detail': str(e)}, status=500)
+            debug['error'] = str(e)
+            debug['traceback'] = traceback.format_exc()[-500:]
+            return Response({'detail': str(e), 'debug': debug}, status=500)
 
 
     @action(detail=False, methods=['get'])
