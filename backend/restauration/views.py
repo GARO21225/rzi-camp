@@ -377,12 +377,14 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
 
 class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
     serializer_class = ConsommationSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['article__nom', 'personnel__nom']
     permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['article__nom']
 
     def get_queryset(self):
-        return ConsommationBoutique.objects.select_related('personnel','article','valide_par').order_by('-date_conso')
+        return ConsommationBoutique.objects.select_related(
+            'personnel', 'article', 'valide_par'
+        ).order_by('-date_conso')
 
     def create(self, request, *args, **kwargs):
         from django.db import connection
@@ -390,41 +392,44 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from rest_framework.response import Response
         from rest_framework import status as st
 
-        data   = request.data
-        art_id = data.get('article')
-        pers_id= data.get('personnel') or None
-        qte    = int(data.get('quantite', 1))
-        mode   = data.get('mode_paiement', 'especes') or 'especes'
-        uid    = request.user.id if request.user and request.user.is_authenticated else None
+        art_id  = request.data.get('article')
+        pers_id = request.data.get('personnel') or None
+        qte     = int(request.data.get('quantite') or 1)
+        mode    = str(request.data.get('mode_paiement') or 'especes')
+        uid     = request.user.id if request.user and request.user.is_authenticated else None
 
         try:
             with connection.cursor() as cur:
-                cur.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [art_id])
+                # Prix
+                cur.execute("SELECT prix FROM restauration_articleboutique WHERE id=%s", [art_id])
                 row = cur.fetchone()
                 if not row:
-                    return Response({'detail': f'Article {art_id} introuvable'}, status=404)
+                    return Response({"detail": f"Article {art_id} introuvable"}, status=404)
                 montant = int(float(row[0]) * qte)
 
+                # INSERT
                 cur.execute(
-                    "INSERT INTO restauration_consommationboutique "
-                    "(article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) "
-                    "VALUES (%s,%s,%s,%s,%s,'', %s, NOW()) RETURNING id",
+                    "INSERT INTO restauration_consommationboutique"
+                    " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso)"
+                    " VALUES (%s, %s, %s, %s, %s, '', %s, NOW())"
+                    " RETURNING id",
                     [art_id, pers_id, qte, montant, mode, uid]
                 )
-                conso_id = cur.fetchone()[0]
+                cid = cur.fetchone()[0]
 
+                # Débit bon
                 if mode == 'bon' and pers_id:
                     cur.execute(
-                        "UPDATE restauration_boncaisse "
-                        "SET credit_restant = credit_restant - %s "
-                        "WHERE personnel_id=%s AND annee=%s",
+                        "UPDATE restauration_boncaisse"
+                        " SET credit_restant = credit_restant - %s"
+                        " WHERE personnel_id = %s AND annee = %s",
                         [montant, pers_id, tz.now().year]
                     )
 
-            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
+            return Response({"id": cid, "montant": montant, "mode": mode}, status=201)
 
-        except Exception as e:
-            return Response({'detail': str(e)}, status=500)
+        except Exception as exc:
+            return Response({"detail": str(exc)}, status=500)
 
 
 class BonCaisseSerializer(drf_serializers.ModelSerializer):
