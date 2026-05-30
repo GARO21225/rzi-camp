@@ -431,6 +431,23 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         except Exception as exc:
             return Response({"detail": str(exc)}, status=500)
 
+    @action(detail=False, methods=['get'])
+    def stats_jour(self, request):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        today = tz.now().date()
+        try:
+            with connection.cursor() as c:
+                c.execute("SELECT COUNT(*), COALESCE(SUM(montant),0) FROM restauration_consommationboutique WHERE DATE(date_conso)=%s", [today])
+                count, total = c.fetchone()
+                c.execute("SELECT a.categorie, COUNT(*), COALESCE(SUM(cb.montant),0) FROM restauration_consommationboutique cb JOIN restauration_articleboutique a ON a.id=cb.article_id WHERE DATE(cb.date_conso)=%s GROUP BY a.categorie", [today])
+                par_cat = [{'categorie':r[0],'count':r[1],'total':float(r[2])} for r in c.fetchall()]
+            return Response({'count':count,'total':float(total),'par_categorie':par_cat,'date':str(today)})
+        except Exception as e:
+            return Response({'count':0,'total':0,'par_categorie':[],'date':str(today),'error':str(e)})
+
+
 
 class BonCaisseSerializer(drf_serializers.ModelSerializer):
     personnel_nom  = drf_serializers.SerializerMethodField()
