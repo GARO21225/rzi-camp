@@ -68,13 +68,15 @@ class ArticleBoutique(models.Model):
 
 class ConsommationBoutique(models.Model):
     from residences.models import Personnel
-    personnel  = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
-    article    = models.ForeignKey(ArticleBoutique, on_delete=models.CASCADE)
-    quantite   = models.IntegerField(default=1)
-    montant    = models.DecimalField(max_digits=10, decimal_places=0, default=0)
-    notes      = models.TextField(blank=True)
-    valide_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    date_conso = models.DateTimeField(auto_now_add=True)
+    MODE_PAIEMENT = [('especes','Espèces'),('bon','Bon de caisse'),('credit','Crédit')]
+    personnel    = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
+    article      = models.ForeignKey(ArticleBoutique, on_delete=models.CASCADE)
+    quantite     = models.IntegerField(default=1)
+    montant      = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    mode_paiement= models.CharField(max_length=20, choices=MODE_PAIEMENT, default='especes')
+    notes        = models.TextField(blank=True)
+    valide_par   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_conso   = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         self.montant = self.article.prix * self.quantite

@@ -93,6 +93,15 @@ try:
             if (app, name) not in applied:
                 c.execute('INSERT INTO django_migrations (app, name, applied) VALUES (%s,%s,%s)', [app, name, now])
                 fixed.append(f'{app}.{name}')
+        # Ajouter colonne mode_paiement si absente
+        c.execute("""
+            SELECT EXISTS(SELECT FROM information_schema.columns
+            WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')
+        """)
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN mode_paiement VARCHAR(20) NOT NULL DEFAULT 'especes'")
+            print('Added mode_paiement column')
+
         if fixed:
             print(f'Fake-applied: {fixed}')
         else:

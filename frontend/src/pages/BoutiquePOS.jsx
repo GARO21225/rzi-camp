@@ -88,16 +88,26 @@ export default function BoutiquePOS() {
     if (modePay === 'bon' && !agentInfo) return setMsg({ type: 'error', text: 'Scanner un agent pour payer par bon' })
     if (modePay === 'bon' && bonAgent && total > bonAgent.credit_restant)
       return setMsg({ type: 'error', text: `Solde insuffisant — ${bonAgent.credit_restant.toLocaleString()} FCFA` })
-    setSubmitting(true); setMsg(null)
+    setSubmitting(true); setMsg({ type: 'info', text: '⏳ Envoi en cours...' })
+    // Timeout de 20s pour éviter le chargement infini (backend Render Free qui dort)
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))
     try {
-      await Promise.all(panier.map(({ a, q }) =>
-        boutiqueAPI.addConso({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
-      ))
+      await Promise.race([
+        Promise.all(panier.map(({ a, q }) =>
+          boutiqueAPI.addConso({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
+        )),
+        timeout
+      ])
       setMsg({ type: 'success', text: `✅ ${modePay === 'bon' ? 'Payé par bon' : 'Espèces'} — ${total.toLocaleString()} FCFA` })
       setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePay(null)
       load()
       setTimeout(() => setMsg(null), 3000)
-    } catch(e) { setMsg({ type: 'error', text: e.response?.data?.detail || 'Erreur' }) }
+    } catch(e) {
+      const txt = e.message === 'timeout'
+        ? '⏱️ Le serveur met du temps à répondre. Réessayez dans quelques secondes.'
+        : (e.response?.data?.detail || e.message || 'Erreur')
+      setMsg({ type: 'error', text: txt })
+    }
     finally { setSubmitting(false) }
   }
 
