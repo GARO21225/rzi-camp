@@ -204,6 +204,37 @@ export default function Maintenance() {
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
     padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
 
+  const exportIncident = (inc) => {
+    const cmts = (inc.commentaires || []).map(c => {
+      const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
+      const ph = c.photo_base64 && c.photo_base64.length > 10
+        ? '<img style="max-width:100%;max-height:180px;border-radius:6px" src="data:image/jpeg;base64,' + c.photo_base64 + '"/>'
+        : ''
+      return '<div style="border-left:3px solid #1e3a8a;padding:8px;margin:8px 0">' +
+        '<strong>' + c.type_comment + '</strong> — ' + (c.auteur_nom || '') + ' — ' + d +
+        '<p>' + c.contenu + '</p>' + ph + '</div>'
+    }).join('')
+    const ph_decl = inc.photo_base64 && inc.photo_base64.length > 10
+      ? '<h2>Photo déclaration</h2><img style="max-width:100%;max-height:200px" src="data:' + inc.photo_mime + ';base64,' + inc.photo_base64 + '"/>'
+      : ''
+    const html = '<!DOCTYPE html><html><head><title>Incident #' + inc.id + '</title>' +
+      '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}' +
+      'table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}' +
+      'th{background:#eef2f7}h2{color:#1e3a8a}</style></head><body>' +
+      '<h2>Rapport Incident #' + inc.id + ' — ' + inc.titre + '</h2><table>' +
+      '<tr><th>Catégorie</th><td>' + inc.categorie + '</td><th>Priorité</th><td>' + inc.priorite + '</td></tr>' +
+      '<tr><th>Statut</th><td>' + inc.statut + '</td><th>Résidence</th><td>' + inc.residence + ' ' + (inc.bloc || '') + '</td></tr>' +
+      '<tr><th>Déclaré par</th><td>' + (inc.auteur_nom || '?') + '</td><th>Assigné à</th><td>' + (inc.assigne_nom || 'Non assigné') + '</td></tr>' +
+      '<tr><th>Déclaration</th><td>' + (inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '?') + '</td>' +
+      '<th>SLA</th><td>' + (inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : 'N/A') + '</td></tr>' +
+      '</table><p>' + inc.description + '</p>' + ph_decl +
+      '<h2>Historique (' + (inc.commentaires || []).length + ' entrées)</h2>' + cmts + '</body></html>'
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
+  }
+
   return (
     <MaintenanceBoundary>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:20 }}>
@@ -441,12 +472,14 @@ export default function Maintenance() {
                     <div style={{ fontWeight:700, fontSize:15 }}>{selected.titre}</div>
                     <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{selected.residence} · {selected.categorie}</div>
                   </div>
-                  <button onClick={()=>{
-                    const inc=selected; const cmts=(inc.commentaires||[]).map(c=>`<div style='margin:8px 0;padding:8px;border-left:3px solid #1e3a8a'><b>${c.type_comment}</b> — ${c.auteur_nom||''} — ${c.date_creation?new Date(c.date_creation).toLocaleString('fr-FR'):''}<p>${c.contenu}</p>${c.photo_base64&&c.photo_base64.length>10?`<img style='max-width:100%;max-height:180px' src='data:image/jpeg;base64,${c.photo_base64}'/>`:''}</div>`).join('')
-                    const html='<html><head><title>Incident #'+inc.id+'</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}th{background:#eef2f7}</style></head><body><h2 style="color:#1e3a8a">Rapport Incident #'+inc.id+' — '+inc.titre+'</h2><table><tr><th>Catégorie</th><td>'+inc.categorie+'</td><th>Priorité</th><td>'+inc.priorite+'</td></tr><tr><th>Statut</th><td>'+inc.statut+'</td><th>Résidence</th><td>'+inc.residence+' '+(inc.bloc||'')+'</td></tr><tr><th>Déclaré par</th><td>'+(inc.auteur_nom||'?')+'</td><th>Assigné à</th><td>'+(inc.assigne_nom||'Non assigné')+'</td></tr><tr><th>Déclaration</th><td>'+(inc.date_creation?new Date(inc.date_creation).toLocaleString("fr-FR"):'?')+'</td><th>SLA</th><td>'+(inc.sla_echeance?new Date(inc.sla_echeance).toLocaleString("fr-FR"):'N/A')+'</td></tr></table><p>'+inc.description+'</p>'+(inc.photo_base64&&inc.photo_base64.length>10?'<img style="max-width:100%;max-height:200px" src="data:'+inc.photo_mime+';base64,'+inc.photo_base64+'"/>':'')+'<h3>Historique</h3>'+cmts+'<script>window.print()<\/script><\/body><\/html>'
-                    const w=window.open('','_blank'); w.document.write(html); w.document.close()
-                  }} style={{background:'rgba(240,165,0,.3)',border:'none',color:'#fff',padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>🖨️</button>
-                  onClick={()=>setSelected(null)}
+                  
+                  <button onClick={()=>exportIncident(selected)}
+                    title="Imprimer / Exporter"
+                    style={{ background:'rgba(240,165,0,.3)', border:'none', color:'#fff',
+                      padding:'3px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, marginRight:4 }}>
+                    🖨️
+                  </button>
+                  <button onClick={()=>setSelected(null)}
                     style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
                       width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
                 </div>
