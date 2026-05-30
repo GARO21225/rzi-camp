@@ -3,11 +3,7 @@ set -o errexit
 
 pip install -r requirements.txt
 
-# ============================================================
-# Fix migrations + créer tables manquantes
-# On ignore les erreurs de connexion (DB surchargée au build)
-# ============================================================
-python manage.py shell -c "
+python manage.py shell << 'PYEOF'
 from django.db import connection
 from django.utils import timezone
 
@@ -16,10 +12,10 @@ now = timezone.now()
 try:
     with connection.cursor() as c:
 
-        # residences_inductionrecord
-        c.execute(\"SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='residences_inductionrecord')\")
+        # 1. residences_inductionrecord
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='residences_inductionrecord')")
         if not c.fetchone()[0]:
-            c.execute('''CREATE TABLE residences_inductionrecord (
+            c.execute("""CREATE TABLE residences_inductionrecord (
                 id BIGSERIAL PRIMARY KEY,
                 statut VARCHAR(20) NOT NULL DEFAULT 'en_cours',
                 etapes_data JSONB NOT NULL DEFAULT '{}',
@@ -34,15 +30,13 @@ try:
                 badge_date TIMESTAMP WITH TIME ZONE,
                 badge_expire DATE,
                 personnel_id INTEGER NOT NULL UNIQUE REFERENCES residences_personnel(id) ON DELETE CASCADE
-            )''')
+            )""")
             print('Created residences_inductionrecord')
-        else:
-            print('residences_inductionrecord OK')
 
-        # restauration_menujour
-        c.execute(\"SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='restauration_menujour')\")
+        # 2. restauration_menujour
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='restauration_menujour')")
         if not c.fetchone()[0]:
-            c.execute('''CREATE TABLE restauration_menujour (
+            c.execute("""CREATE TABLE restauration_menujour (
                 id BIGSERIAL PRIMARY KEY,
                 nom VARCHAR(200) NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
@@ -53,23 +47,31 @@ try:
                 image_url VARCHAR(200) NOT NULL DEFAULT '',
                 created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-            )''')
+            )""")
             print('Created restauration_menujour')
-        else:
-            print('restauration_menujour OK')
 
-        # Fake-apply migrations manquantes
+        # 3. mode_paiement sur consommationboutique
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')")
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN mode_paiement VARCHAR(20) NOT NULL DEFAULT 'especes'")
+            print('Added mode_paiement column')
+
+        # 4. Fake-apply migrations
         FULL_LIST = [
-            ('accounts','0001_initial'),('accounts','0002_alter_profile_role'),
+            ('accounts','0001_initial'),
+            ('accounts','0002_alter_profile_role'),
             ('accounts','0003_remove_profile_device_id_profile_telephone_and_more'),
-            ('evenements','0001_initial'),('evenements','0002_simplenotification'),
+            ('evenements','0001_initial'),
+            ('evenements','0002_simplenotification'),
             ('induction','0001_initial'),
             ('induction','0002_accessbadge_accesslog_documenttype_emergencycontact_and_more'),
             ('maintenance','0001_initial'),
             ('maintenance','0002_historicalincident_photo_resolution_and_more'),
             ('maintenance','0003_remove_historicalincident_photo_and_more'),
-            ('maintenance','0004_workflow_v2'),('maintenance','0005_convert_statuts'),
-            ('maintenance','0006_add_missing_columns'),('maintenance','0007_ensure_columns'),
+            ('maintenance','0004_workflow_v2'),
+            ('maintenance','0005_convert_statuts'),
+            ('maintenance','0006_add_missing_columns'),
+            ('maintenance','0007_ensure_columns'),
             ('residences','0001_initial'),
             ('residences','0002_personnel_historicalpersonnel_batiment_personnel_and_more'),
             ('residences','0003_alter_batiment_options_and_more'),
@@ -82,7 +84,9 @@ try:
             ('restauration','0003_add_boutique_models'),
             ('restauration','0004_boutique_free_category_image'),
             ('restauration','0005_boutique_image_textfield'),
-            ('restauration','0006_add_bon_caisse'),('restauration','0007_add_menu_jour'),
+            ('restauration','0006_add_bon_caisse'),
+            ('restauration','0007_add_menu_jour'),
+            ('restauration','0008_consommationboutique_mode_paiement'),
             ('voyages','0001_initial'),
             ('voyages','0002_historicalvoyage_heure_depart_voyage_heure_depart'),
         ]
@@ -93,23 +97,14 @@ try:
             if (app, name) not in applied:
                 c.execute('INSERT INTO django_migrations (app, name, applied) VALUES (%s,%s,%s)', [app, name, now])
                 fixed.append(f'{app}.{name}')
-        # Ajouter colonne mode_paiement si absente
-        c.execute("""
-            SELECT EXISTS(SELECT FROM information_schema.columns
-            WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement')
-        """)
-        if not c.fetchone()[0]:
-            c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN mode_paiement VARCHAR(20) NOT NULL DEFAULT 'especes'")
-            print('Added mode_paiement column')
-
         if fixed:
             print(f'Fake-applied: {fixed}')
         else:
-            print('Migrations OK')
+            print('All migrations OK')
 
 except Exception as e:
     print(f'DB setup warning (non-fatal): {e}')
-" || echo "Shell step skipped (DB unavailable) — continuing"
+PYEOF
 
-python manage.py migrate --noinput || echo "Migrate skipped (DB unavailable)"
+python manage.py migrate --noinput || echo "Migrate skipped"
 python manage.py collectstatic --noinput
