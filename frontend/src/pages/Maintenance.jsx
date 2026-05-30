@@ -204,6 +204,33 @@ export default function Maintenance() {
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
     padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
 
+  const exportCSV = (filteredList) => {
+    const headers = ['ID','Titre','Description','Catégorie','Priorité','Statut','Résidence','Bloc','Déclaré par','Assigné à','Date déclaration','Échéance SLA','SLA dépassé']
+    const rows = filteredList.map(inc => [
+      inc.id,
+      '"' + (inc.titre||'').replace(/"/g,'""') + '"',
+      '"' + (inc.description||'').replace(/"/g,'""') + '"',
+      inc.categorie||'',
+      inc.priorite||'',
+      inc.statut||'',
+      inc.residence||'',
+      inc.bloc||'',
+      inc.auteur_nom||'',
+      inc.assigne_nom||'Non assigné',
+      inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '',
+      inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : '',
+      inc.sla_depasse ? 'OUI' : 'NON'
+    ])
+    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'incidents_' + new Date().toISOString().slice(0,10) + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const exportIncident = (inc) => {
     const cmts = (inc.commentaires || []).map(c => {
       const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
@@ -287,6 +314,11 @@ export default function Maintenance() {
             <input type="checkbox" checked={slaOnly} onChange={e=>setSlaOnly(e.target.checked)} />
             ⚠️ SLA dépassé
           </label>
+          <button onClick={()=>exportCSV(filtered)}
+            style={{ background:'#16a34a', color:'#fff', border:'none',
+              padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            📥 Export CSV ({filtered.length})
+          </button>
         </div>
 
         {loading ? (
