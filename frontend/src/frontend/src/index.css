@@ -615,3 +615,101 @@ textarea.form-control { resize:vertical; min-height:80px; }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+/* ══════════════════════════════════════════════════
+   REFONTE PREMIUM v8 — RZI Camp
+   ══════════════════════════════════════════════════ */
+
+/* Import DM Sans pour un look plus moderne */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --font: 'DM Sans', 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
+}
+
+/* Sidebar premium */
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  border-right: 1px solid rgba(226,232,240,.8) !important;
+}
+
+/* Nav items premium */
+.nav-item {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  margin: 2px 6px !important;
+  padding: 9px 12px !important;
+}
+.nav-item:hover {
+  background: rgba(30,58,138,.06) !important;
+  color: #1e3a8a !important;
+  transform: translateX(2px);
+}
+.nav-item.active {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+  box-shadow: 0 4px 14px rgba(30,58,138,.35) !important;
+}
+
+/* Topbar gold accent plus visible */
+.topbar::after {
+  background: linear-gradient(90deg, #f0a500 0%, #fbbf24 50%, transparent 100%) !important;
+  height: 3px !important;
+}
+
+/* KPI cards premium */
+.kpi-card {
+  transition: all .2s cubic-bezier(.34,1.56,.64,1) !important;
+}
+.kpi-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 32px rgba(15,36,71,.14) !important;
+}
+.kpi-num { letter-spacing: -1.5px !important; }
+
+/* Cards premium */
+.card {
+  transition: all .2s ease !important;
+}
+.card:hover {
+  box-shadow: 0 8px 28px rgba(15,36,71,.1) !important;
+  border-color: rgba(30,58,138,.2) !important;
+}
+
+/* Boutons premium */
+.btn-primary {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+  box-shadow: 0 4px 14px rgba(30,58,138,.3) !important;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(30,58,138,.4) !important;
+}
+
+/* Tables */
+.table thead tr {
+  background: linear-gradient(135deg, #0f2447, #1e3a8a) !important;
+}
+
+/* Scrollbar plus fine et élégante */
+* { scrollbar-width: thin; scrollbar-color: rgba(203,213,225,.6) transparent; }
+
+/* Page animations */
+.page { animation: pageIn .3s cubic-bezier(.4,0,.2,1) both !important; }
+@keyframes pageIn {
+  from { opacity:0; transform: translateY(12px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+/* Focus rings accessibles */
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid #f0a500;
+  outline-offset: 2px;
+}
+
+/* Skeleton loading shimmer */
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}

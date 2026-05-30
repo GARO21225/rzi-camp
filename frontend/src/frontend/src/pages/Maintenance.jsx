@@ -141,30 +141,62 @@ export default function Maintenance() {
     finally { setSubmitting(false) }
   }
 
+  const compressImage = (file, maxSizeKB=800) => new Promise((resolve) => {
+    const canvas = document.createElement('canvas')
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      let w = img.width, h = img.height
+      const maxDim = 1200
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round(h * maxDim/w); w = maxDim }
+        else { w = Math.round(w * maxDim/h); h = maxDim }
+      }
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      let quality = 0.85
+      let b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
+      while (b64.length > maxSizeKB*1024 && quality > 0.3) {
+        quality -= 0.1
+        b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
+      }
+      URL.revokeObjectURL(url)
+      resolve(b64)
+    }
+    img.src = url
+  })
+
   const uploadPhoto = (type_comment) => {
     const input = document.createElement('input')
     input.type = 'file'; input.accept = 'image/*'
     input.onchange = async (e) => {
       const file = e.target.files?.[0]
-      if (!file || file.size > 3*1024*1024) { alert('Max 3Mo'); return }
-      const reader = new FileReader()
-      reader.onload = async (ev) => {
-        const b64 = (ev.target.result || '').split(',')[1] || ''
+      if (!file) return
+      if (file.size > 10*1024*1024) { alert('Max 10Mo'); return }
+      try {
+        const b64 = await compressImage(file, 800)
+        const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+        const token = localStorage.getItem('access_token') || ''
+        const resp = await fetch(`${BASE}/api/incidents/${selected.id}/commenter/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ type_comment, contenu: 'Photo ' + type_comment.replace('_',' '), photo_base64: b64 })
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}))
+          alert('Erreur upload: ' + (err.detail || err.error || `HTTP ${resp.status}`))
+          return
+        }
+        await load()
         try {
-          const fn = incAPI.addComment || incAPI.commenter
-          await fn(selected.id, { type_comment, contenu: 'Photo '+type_comment.replace('_',' '), photo_base64: b64 })
-          await load()
+          const rd = await incAPI.detail(selected.id)
+          setSelected(rd.data)
+        } catch {
           const updated = await incAPI.list({ page_size:100 })
           const items = updated.data.results || updated.data || []
-          try {
-            const rd = await incAPI.detail(selected.id)
-            setSelected(rd.data)
-          } catch {
-            setSelected(items.find(i => i.id === selected.id) || null)
-          }
-        } catch(err2) { alert('Erreur upload') }
-      }
-      reader.readAsDataURL(file)
+          setSelected(items.find(i => i.id === selected.id) || null)
+        }
+      } catch(err2) { alert('Erreur upload: ' + (err2.message || String(err2))) }
     }
     input.click()
   }
@@ -444,7 +476,7 @@ export default function Maintenance() {
                   <div style={{ fontSize:13 }}>{selected.description}</div>
                   {selected.photo_base64 && String(selected.photo_base64).length>10 && (
                     <img
-                      src={'data:image/jpeg;base64,'+String(selected.photo_base64).replace(/^data:[^;]+;base64,/,'')}
+                      src={`data:${selected.photo_mime||'image/jpeg'};base64,${String(selected.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
                       alt="Photo" style={{ width:'100%', maxHeight:200, objectFit:'cover', borderRadius:8, marginTop:8, cursor:'pointer' }}
                       onClick={()=>window.open('data:image/jpeg;base64,'+String(selected.photo_base64).replace(/^data:[^;]+;base64,/,''),'_blank')}
                       onError={e=>{e.target.style.display='none'}}/>
