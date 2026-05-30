@@ -387,7 +387,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         serializer.save(valide_par=valide_par)
 
     def create(self, request, *args, **kwargs):
-        from django.db import connection, transaction
+        from django.db import connection
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from rest_framework import status as st
@@ -399,39 +399,44 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         valide_id    = request.user.id if request.user and request.user.is_authenticated else None
 
         try:
-            with transaction.atomic():
+            with connection.cursor() as c:
+                # 1. Récupérer prix
+                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
+                row = c.fetchone()
+                if not row:
+                    return Response({'detail': f'Article {article_id} introuvable'}, status=404)
+                montant = int(float(row[0]) * quantite)
+
+            with connection.cursor() as c:
+                # 2. Vérifier si mode_paiement existe
+                c.execute("SELECT 1 FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
+                has_mode = c.fetchone() is not None
+
+            with connection.cursor() as c:
+                # 3. INSERT
+                if has_mode:
+                    c.execute(
+                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                        [article_id, personnel_id, quantite, montant, mode, valide_id]
+                    )
+                else:
+                    c.execute(
+                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
+                        [article_id, personnel_id, quantite, montant, valide_id]
+                    )
+                conso_id = c.fetchone()[0]
+
+            # 4. Débiter bon si applicable
+            if mode == 'bon' and personnel_id:
                 with connection.cursor() as c:
-                    # Prix article
-                    c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
-                    row = c.fetchone()
-                    if not row:
-                        return Response({'detail': f'Article {article_id} introuvable'}, status=404)
-                    montant = int(float(row[0]) * quantite)
-
-                    # INSERT consommation (sans mode_paiement d'abord pour compatibilité)
-                    try:
-                        c.execute(
-                            "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                            [article_id, personnel_id, quantite, montant, mode, valide_id]
-                        )
-                    except Exception:
-                        # Fallback sans mode_paiement si colonne absente
-                        c.execute(
-                            "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                            [article_id, personnel_id, quantite, montant, valide_id]
-                        )
-                    conso_id = c.fetchone()[0]
-
-                    # Débiter le bon si mode=bon
-                    if mode == 'bon' and personnel_id:
-                        c.execute(
-                            "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
-                            [montant, personnel_id, tz.now().year]
-                        )
+                    c.execute(
+                        "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
+                        [montant, personnel_id, tz.now().year]
+                    )
 
             return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode}, status=st.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'detail': str(e), 'debug': {'article': article_id, 'personnel': personnel_id, 'mode': mode, 'quantite': quantite}}, status=500)
+            return Response({'detail': str(e)}, status=500)
 
 
     @action(detail=False, methods=['get'])

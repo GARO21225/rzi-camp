@@ -3,30 +3,23 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
     "build": "vite build",
+    "dev": "vite",
     "preview": "vite preview"
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "html5-qrcode": "^2.3.8",
-    "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.0",
-    "recharts": "^2.15.4",
-    "zustand": "^4.5.0"
+    "axios": "^1.6.7",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.12.0",
+    "zustand": "^4.5.0",
+    "html5-qrcode": "^2.3.8"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.7.0",
-    "vite": "^5.4.21",
-    "vite-plugin-pwa": "^1.3.0",
-    "workbox-window": "^7.4.1"
-  },
-  "main": "vite.config.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.1.4"
+  }
 }

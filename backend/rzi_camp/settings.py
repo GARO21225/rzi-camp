@@ -83,6 +83,10 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# Augmenter la limite pour les photos base64 (3Mo image → ~4Mo JSON)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20MB
+FILE_UPLOAD_MAX_MEMORY_SIZE  = 20 * 1024 * 1024   # 20MB
+
 # ── CHANNELS (WebSocket) ──
 ASGI_APPLICATION = "rzi_camp.asgi.application"
 CHANNEL_LAYERS = {
