@@ -106,9 +106,14 @@ export default function BoutiquePOS() {
       xhr.setRequestHeader('Content-Type', 'application/json')
       xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.timeout = 30000
-      xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText })
-      xhr.onerror = () => reject(new Error('Réseau indisponible'))
-      xhr.ontimeout = () => reject(new Error('Délai dépassé (30s)'))
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          console.log('[Boutique] XHR done - status:', xhr.status, 'body:', xhr.responseText?.slice(0,200))
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText })
+        }
+      }
+      xhr.onerror = () => { console.log('[Boutique] XHR error'); reject(new Error('Réseau indisponible')) }
+      xhr.ontimeout = () => { console.log('[Boutique] XHR timeout'); reject(new Error('Délai dépassé (30s)')) }
       xhr.send(JSON.stringify(body))
     })
     
@@ -121,7 +126,7 @@ export default function BoutiquePOS() {
           allOk = false; break
         }
       } catch(e) {
-        lastError = e.message
+        lastError = `${e.message} (XHR)`
         allOk = false; break
       }
     }
