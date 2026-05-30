@@ -911,16 +911,37 @@ export default function Boutique() {
     setSubmitting(true)
     setMsg({type:'info',text:'⏳ Traitement...'})
     setShowPayModal(false)
-    try {
-      await Promise.all(panier.map(({a,q})=>boutiqueAPI.addConso({
-        article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode
-      })))
+    const BASE = (import.meta?.env?.VITE_API_URL||window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+    const token = localStorage.getItem('access_token')||''
+    let allOk = true, lastError = ''
+    for (const {a,q} of panier) {
+      try {
+        const ctrl = new AbortController()
+        const timer = setTimeout(()=>ctrl.abort(), 25000)
+        const resp = await fetch(`${BASE}/api/boutique/consommations/`, {
+          method:'POST', signal:ctrl.signal,
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+          body:JSON.stringify({article:a.id, personnel:agentInfo?.id||null, quantite:q, mode_paiement:mode})
+        })
+        clearTimeout(timer)
+        if(!resp.ok){
+          const d = await resp.json().catch(()=>({}))
+          lastError = d.detail || JSON.stringify(d) || `HTTP ${resp.status}`
+          allOk = false; break
+        }
+      } catch(e) {
+        lastError = e.name==='AbortError'?'Délai 25s dépassé':e.message
+        allOk = false; break
+      }
+    }
+    if(allOk){
       setMsg({type:'success',text:`✅ ${mode==='bon'?'Payé par bon':'Payé en espèces'} — ${totalP.toLocaleString()} FCFA`})
       setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePaiement(null); load()
-    } catch(e){
-      setMsg({type:'error',text:e.response?.data?.detail||e.message||'Erreur'})
+      setTimeout(()=>setMsg(null),4000)
+    } else {
+      setMsg({type:'error',text:`❌ ${lastError}`})
     }
-    finally{setSubmitting(false)}
+    setSubmitting(false)
   }
 
   // ── Drag & Drop réorganisation ──────────────────────────

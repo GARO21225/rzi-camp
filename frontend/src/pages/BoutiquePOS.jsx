@@ -90,19 +90,49 @@ export default function BoutiquePOS() {
     if (modePay === 'bon' && !agentInfo) return setMsg({ type: 'error', text: 'Scanner un agent pour payer par bon' })
     if (modePay === 'bon' && bonAgent && total > bonAgent.credit_restant)
       return setMsg({ type: 'error', text: `Solde insuffisant — ${bonAgent.credit_restant.toLocaleString()} FCFA` })
-    setSubmitting(true); setMsg({ type: 'info', text: '⏳ Traitement...' })
-    try {
-      await Promise.all(panier.map(({ a, q }) =>
-        boutiqueAPI.addConso({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
-      ))
+    
+    setSubmitting(true)
+    setMsg({ type: 'info', text: '⏳ Traitement...' })
+    
+    const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+    const token = localStorage.getItem('access_token') || ''
+    
+    let allOk = true
+    let lastError = ''
+    
+    for (const { a, q } of panier) {
+      try {
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 25000)
+        const resp = await fetch(`${BASE}/api/boutique/consommations/`, {
+          method: 'POST',
+          signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
+        })
+        clearTimeout(timer)
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}))
+          lastError = errData.detail || errData.debug || `Erreur ${resp.status}`
+          allOk = false
+          break
+        }
+      } catch(e) {
+        lastError = e.name === 'AbortError' ? 'Délai dépassé (25s)' : e.message
+        allOk = false
+        break
+      }
+    }
+    
+    if (allOk) {
       setMsg({ type: 'success', text: `✅ ${modePay === 'bon' ? 'Payé par bon' : 'Espèces'} — ${total.toLocaleString()} FCFA` })
       setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePay(null)
       load()
-      setTimeout(() => setMsg(null), 3000)
-    } catch(e) {
-      setMsg({ type: 'error', text: e.response?.data?.detail || e.message || 'Erreur paiement' })
+      setTimeout(() => setMsg(null), 4000)
+    } else {
+      setMsg({ type: 'error', text: `❌ Erreur: ${lastError}` })
     }
-    finally { setSubmitting(false) }
+    setSubmitting(false)
   }
 
   const cats = [...new Set(articles.filter(a => a.actif).map(a => a.categorie))]
