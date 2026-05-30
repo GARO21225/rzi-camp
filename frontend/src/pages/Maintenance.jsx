@@ -231,6 +231,18 @@ export default function Maintenance() {
     URL.revokeObjectURL(url)
   }
 
+  const downloadTemplate = () => {
+    const csv = 'titre;description;residence;categorie;priorite;bloc\n' +
+      'Fuite d\'eau salle de bain;Fuite sous le lavabo;B1;Plomberie;haute;Chambre 101\n' +
+      'Climatisation en panne;L\'unité ne démarre plus;B2;Climatisation;moyenne;Chambre 205\n' +
+      'Porte bloquée;Serrure coincée;B3;Serrurerie;basse;Chambre 310'
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='template_incidents.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const importCSV = () => {
     const input = document.createElement('input')
     input.type = 'file'; input.accept = '.csv,.txt'
@@ -356,6 +368,11 @@ export default function Maintenance() {
             ⚠️ SLA dépassé
           </label>
           <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
+            <button onClick={()=>downloadTemplate()}
+              style={{ background:'#7c3aed', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📋 Template
+            </button>
             <button onClick={()=>importCSV()}
               style={{ background:'#2563eb', color:'#fff', border:'none',
                 padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
