@@ -455,7 +455,9 @@ export default function Maintenance() {
                   {[['Priorité',PRIOS[selected.priorite]?.l||selected.priorite],
                     ['Statut',STATUTS[selected.statut]?.l||selected.statut],
                     ['Déclaré par',selected.auteur_nom||'?'],
-                    ['Assigné à',selected.assigne_nom||'Non assigné']
+                    ['Assigné à',selected.assigne_nom||'Non assigné'],
+                    ['📅 Date déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
+                    ['⏰ Échéance SLA', selected.sla_echeance ? new Date(selected.sla_echeance).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'],
                   ].map(([k,v])=>(
                     <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 10px' }}>
                       <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>{k}</div>
