@@ -247,7 +247,11 @@ export default function Personnel() {
             body: JSON.stringify(payload)
           })
           if (r.ok) ok++
-          else { const d=await r.json(); errs.push(`L${i+1}: ${d.detail||JSON.stringify(d).slice(0,60)}`) }
+          else {
+            let msg = `HTTP ${r.status}`
+            try { const d=await r.json(); msg = d.detail||d.nom?.[0]||JSON.stringify(d).slice(0,80) } catch{}
+            errs.push(`L${i+1}: ${msg}`)
+          }
         } catch(e) { errs.push(`L${i+1}: ${e.message}`) }
       }
       alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
@@ -347,7 +351,7 @@ export default function Personnel() {
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Nom','Type','Profil','Société','Contact','Date création','QR','Actions'].map(h => (
+                  {['☐','Nom','Type','Société','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -381,16 +385,7 @@ export default function Personnel() {
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
                       </span>
                     </td>
-                    <td style={{padding:'10px 14px'}}>
-                      {p.profil && (
-                        <span style={{
-                          background:'#f5f3ff',color:'#7c3aed',
-                          padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700
-                        }}>
-                          {PROFILS.find(r=>r.v===p.profil)?.l || p.profil}
-                        </span>
-                      )}
-                    </td>
+
                     <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
                       {p.societe || '—'}
                     </td>
