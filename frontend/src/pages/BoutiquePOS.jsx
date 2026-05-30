@@ -10,6 +10,7 @@ export default function BoutiquePOS() {
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
 
+  const [waking,     setWaking]     = useState(false)
   const [articles,   setArticles]   = useState([])
   const [consos,     setConsos]     = useState([])
   const [personnel,  setPersonnel]  = useState([])
@@ -29,6 +30,7 @@ export default function BoutiquePOS() {
   const scannerRef = useRef(null)
 
   const load = useCallback(async () => {
+    setWaking(true)
     try {
       const [ra, rc, rp] = await Promise.all([
         boutiqueAPI.articles(),
@@ -48,7 +50,7 @@ export default function BoutiquePOS() {
         montant: todayCons.reduce((s, c) => s + parseInt(c.montant || 0), 0)
       })
     } catch(e) { console.error(e) }
-    finally { setLoading(false) }
+    finally { setLoading(false); setWaking(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -90,7 +92,7 @@ export default function BoutiquePOS() {
       return setMsg({ type: 'error', text: `Solde insuffisant — ${bonAgent.credit_restant.toLocaleString()} FCFA` })
     setSubmitting(true); setMsg({ type: 'info', text: '⏳ Envoi en cours...' })
     // Timeout de 20s pour éviter le chargement infini (backend Render Free qui dort)
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 60000))
     try {
       await Promise.race([
         Promise.all(panier.map(({ a, q }) =>
@@ -104,7 +106,7 @@ export default function BoutiquePOS() {
       setTimeout(() => setMsg(null), 3000)
     } catch(e) {
       const txt = e.message === 'timeout'
-        ? '⏱️ Le serveur met du temps à répondre. Réessayez dans quelques secondes.'
+        ? '⏱️ Serveur en réveil (plan gratuit). Patientez 30s et réessayez.'
         : (e.response?.data?.detail || e.message || 'Erreur')
       setMsg({ type: 'error', text: txt })
     }
@@ -123,6 +125,15 @@ export default function BoutiquePOS() {
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit' }}>
+
+      {/* Banner réveil serveur */}
+      {waking && (
+        <div style={{ background:'#f59e0b', color:'#fff', padding:'8px 16px',
+          borderRadius:10, marginBottom:12, fontSize:12, fontWeight:700,
+          display:'flex', alignItems:'center', gap:8 }}>
+          ⏳ Connexion au serveur en cours (peut prendre ~30s la 1ère fois)...
+        </div>
+      )}
 
       {/* Header stats */}
       <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 16, padding: '16px 20px', marginBottom: 16, color: '#fff' }}>

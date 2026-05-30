@@ -208,11 +208,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering         = ['-date_creation']
 
     def get_permissions(self):
-        from rest_framework.permissions import IsAuthenticated, AllowAny
-        # Permettre la création même si le token a un problème temporaire
-        if self.action in ['create', 'list', 'retrieve']:
-            return [AllowAny()]
-        return [IsAuthenticated()]
+        from rest_framework.permissions import AllowAny
+        return [AllowAny()]
 
     def get_queryset(self):
         qs  = super().get_queryset()
