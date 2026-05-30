@@ -179,11 +179,12 @@ export default function Personnel() {
   ]
 
   const exportPersonnelCSV = (list) => {
-    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut']
+    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut','Date création']
     const rows = list.map(p => [
       p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
       p.poste||p.fonction||'', p.telephone||'', p.email||'',
-      p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif'
+      p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif',
+      p.date_creation?new Date(p.date_creation).toLocaleDateString('fr-FR'):''
     ])
     const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
@@ -346,7 +347,7 @@ export default function Personnel() {
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Nom','Type','Profil','Société','Contact','QR','Actions'].map(h => (
+                  {['Nom','Type','Profil','Société','Contact','Date création','QR','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -395,6 +396,9 @@ export default function Personnel() {
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
                       {p.telephone || '—'}
+                    </td>
+                    <td style={{padding:'10px 14px',fontSize:11,color:'#94a3b8'}}>
+                      {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       {p.qr_code_data ? (
