@@ -451,6 +451,24 @@ export default function Personnel() {
                             title={p.actif?'Désactiver':'Activer'}>
                             {p.actif ? '🔒' : '🔓'}
                           </button>
+                          <button onClick={async()=>{
+                              const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                              const token = localStorage.getItem('access_token') || ''
+                              const newVal = !p.induction_requise
+                              await fetch(`${BASE}/api/personnel/${p.id}/`, {
+                                method:'PATCH',
+                                headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                                body: JSON.stringify({induction_requise: newVal})
+                              })
+                              load()
+                            }}
+                            style={{background: p.induction_requise===false?'#fef3c7':'#f0fdf4',
+                              color: p.induction_requise===false?'#92400e':'#166534',
+                              border: `1px solid ${p.induction_requise===false?'#fcd34d':'#bbf7d0'}`,
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title={p.induction_requise===false?"Activer l'induction":"Marquer sans induction"}>
+                            {p.induction_requise===false?'🚫':'✅'}
+                          </button>
                           <button onClick={() => setConfirmDel(p)}
                             style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
