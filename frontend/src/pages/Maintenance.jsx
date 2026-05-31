@@ -345,7 +345,7 @@ export default function Maintenance() {
           gap:10, marginBottom:20 }}>
           {[['📢 Déclarés',stats.declare||0,'#3b82f6'],['👷 Assignés',stats.assigne||0,'#f97316'],
             ['⚙️ En cours',stats.en_cours||0,'#eab308'],['✅ Résolus',stats.resolu||0,'#16a34a'],
-            ['⚠️ SLA',stats.sla_depasses||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
+            ['🔒 Clôturés',stats.cloture||0,'#64748b'],['⚠️ SLA',stats.sla_depasse||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
           ].map(([l,v,c]) => (
             <div key={l} style={{ background:'#fff', borderRadius:12, padding:'12px 14px',
               borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
