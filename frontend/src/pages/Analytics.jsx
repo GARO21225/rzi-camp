@@ -76,7 +76,7 @@ export default function Analytics() {
   ]
 
   return (
-    <div style={{ padding:20 }}>
+    <div style={{ padding:16, flex:1 }}>
       <div style={{ marginBottom:20 }}>
         <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>📈 Analytics & Rapports</h2>
         <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>
