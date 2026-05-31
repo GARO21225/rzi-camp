@@ -153,6 +153,7 @@ export default function Layout() {
   }, [showWelcome])
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
+  const { isOffline, syncMsg } = useOffline()
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
@@ -183,6 +184,20 @@ export default function Layout() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
+      {/* Bannière offline */}
+      {isOffline && (
+        <div style={{background:'#f59e0b',color:'#1c1917',padding:'8px 16px',
+          textAlign:'center',fontSize:13,fontWeight:700,zIndex:9999,
+          display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          📵 Vous êtes hors ligne — Les modifications seront synchronisées au retour de la connexion
+        </div>
+      )}
+      {syncMsg && !isOffline && (
+        <div style={{background: syncMsg.startsWith('✅') ? '#16a34a' : '#f59e0b',
+          color:'#fff',padding:'8px 16px',textAlign:'center',fontSize:13,fontWeight:700,zIndex:9999}}>
+          {syncMsg}
+        </div>
+      )}
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
