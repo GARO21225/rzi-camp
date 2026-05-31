@@ -69,6 +69,25 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error": "Admin requis"}, status=403)
         return super().partial_update(request, *args, **kwargs)
 
+    def perform_create(self, serializer):
+        voyage = serializer.save()
+        try:
+            from evenements.models import SimpleNotification
+            from residences.models import Personnel
+            # Notifier les admins/managers
+            from django.contrib.auth.models import User
+            admins = User.objects.filter(is_staff=True)
+            for admin in admins[:5]:
+                SimpleNotification.objects.create(
+                    user=admin,
+                    titre='✈️ Nouveau voyage déclaré',
+                    message=f"Départ vers {voyage.destination} le {voyage.date_depart}",
+                    type_notif='voyage', lu=False
+                )
+        except Exception:
+            pass
+
+
     def get_queryset(self):
         qs = Voyage.objects.select_related("personnel","batiment").all()
         statut = self.request.query_params.get("statut")
