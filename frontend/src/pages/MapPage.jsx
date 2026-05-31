@@ -85,6 +85,7 @@ export default function MapPage() {
   const [stats,setStats]=useState(null)
   const [filterStatut,setFilterStatut]=useState('')
   const [showImport,  setShowImport]  = useState(false)
+  const [editBat,     setEditBat]     = useState(null)
   const [importLayer, setImportLayer] = useState('residence')
   const [importMsg,   setImportMsg]   = useState(null)
   const [filterBloc,setFilterBloc]=useState('')
@@ -110,6 +111,21 @@ export default function MapPage() {
     batiments.geojson(p).then(r=>{setGeojson(r.data);setGeoKey(k=>k+1)})
     batiments.stats().then(r=>setStats(r.data))
   },[filterStatut,filterBloc,filterRes])
+
+  // Handlers globaux pour les popups Leaflet (Leaflet crée des innerHTML)
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    window._mapEdit = (id, residence, statut) => setEditBat({id, residence, statut})
+    window._mapDelete = async (id, residence) => {
+      if (!window.confirm('Supprimer ' + residence + ' ?')) return
+      await fetch(`${BASE}/api/batiments/${id}/`, {
+        method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+      }).catch(()=>{})
+      window.location.reload()
+    }
+    return () => { delete window._mapEdit; delete window._mapDelete }
+  }, [])
 
   useEffect(()=>{load()},[load])
 
@@ -368,6 +384,38 @@ export default function MapPage() {
                 style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
                 📋 Template CSV
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal édition bâtiment */}
+      {editBat && (
+        <div onClick={e=>e.target===e.currentTarget&&setEditBat(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(4px)',
+            display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:400}}>
+            <div style={{fontWeight:800,fontSize:17,marginBottom:16,color:'#1e3a8a'}}>✏️ {editBat.residence}</div>
+            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>STATUT</label>
+            <select id="edit-bat-statut" defaultValue={editBat.statut}
+              style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,marginBottom:16}}>
+              {['Libre','Occupé','Réservé','Maintenance'].map(s=><option key={s}>{s}</option>)}
+            </select>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>setEditBat(null)}
+                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer'}}>Annuler</button>
+              <button onClick={async()=>{
+                const BASE=import.meta?.env?.VITE_API_URL||'https://rzi-camp-backend.onrender.com'
+                const token=localStorage.getItem('access_token')||''
+                const statut=document.getElementById('edit-bat-statut')?.value
+                await fetch(`${BASE}/api/batiments/${editBat.id}/`,{
+                  method:'PATCH',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                  body:JSON.stringify({statut})
+                }).catch(()=>{})
+                setEditBat(null)
+                window.location.reload()
+              }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+                padding:'10px 20px',cursor:'pointer',fontWeight:700}}>💾 Sauvegarder</button>
             </div>
           </div>
         </div>
