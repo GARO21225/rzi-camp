@@ -436,6 +436,7 @@ function InductionPageInner() {
   const [syncStatus,  setSyncStatus]  = useState('')
   const [dateFrom,    setDateFrom]    = useState('')
   const [dateTo,      setDateTo]      = useState('')
+  const [hideNoInduction, setHideNoInduction] = useState(false)
   const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
@@ -747,6 +748,7 @@ function InductionPageInner() {
   }
 
   const filtered = personnel.filter(p => {
+    if (hideNoInduction && p.induction_requise === false) return false
     if (statutFilter) {
       const rec = p.inductionrecord
       if (statutFilter === 'non_commence') { if (rec) return false }
@@ -837,7 +839,7 @@ function InductionPageInner() {
       })()}
 
       {/* Filtres */}
-      <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="🔍 Rechercher personnel..."
           style={{...inp,maxWidth:260}}/>
@@ -857,6 +859,10 @@ function InductionPageInner() {
           style={{...inp,maxWidth:140}} title="Date début (de)"/>
         <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
           style={{...inp,maxWidth:140}} title="Date début (à)"/>
+        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',cursor:'pointer',userSelect:'none'}}>
+          <input type="checkbox" checked={hideNoInduction} onChange={e=>setHideNoInduction(e.target.checked)}/>
+          Masquer "pas d'induction"
+        </label>
         <button onClick={()=>exportInductionCSV(personnel,dateFrom,dateTo)}
           style={{background:'#16a34a',color:'#fff',border:'none',padding:'8px 14px',
             borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
