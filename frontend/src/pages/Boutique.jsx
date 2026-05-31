@@ -230,7 +230,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
                     <div key={i} style={{marginBottom:8}}>
                       <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
                         <span style={{fontSize:11,fontWeight:600,color:'#1e293b'}}>
-                          {i+1}. {a.personnel__nom} {a.personnel__prenom}
+                          {i+1}. {a.nom||"Anonyme"}
                         </span>
                         <span style={{fontSize:11,fontWeight:800,color:'#16a34a'}}>{a.ca.toLocaleString()} FCFA</span>
                       </div>
