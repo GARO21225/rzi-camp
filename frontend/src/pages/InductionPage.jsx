@@ -902,13 +902,17 @@ function InductionPageInner() {
                     ev.stopPropagation()
                     if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
-                      if(p.inductionrecord?.id) {
+                      const recId = p.inductionrecord?.id || p.induction_record_id
+                    if(recId) {
                         const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
                         const token = localStorage.getItem('access_token') || ''
-                        await fetch(`${BASE}/api/induction-records/${p.inductionrecord.id}/`, {
+                        await fetch(`${BASE}/api/induction-records/${recId}/`, {
                           method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
                         })
                       }
+                      // Nettoyer localStorage
+                      const lsKey = `rzi_induction_v3_${p.id}`
+                      localStorage.removeItem(lsKey)
                       load()
                     } catch(e) { alert('Erreur: '+e.message) }
                   }} title="Supprimer le parcours d'induction"
