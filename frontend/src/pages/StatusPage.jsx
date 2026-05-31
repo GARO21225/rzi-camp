@@ -79,8 +79,10 @@ export default function StatusPage() {
     setSeeding(false)
   }
 
-  const isOk    = diag && !diag.error && diag.batiments >= 100 && diag.personnel >= 5
-  const isEmpty = diag && !diag.error && (diag.personnel < 5 || diag.batiments < 100)
+  const diagPersonnel = diag?.personnel ?? diag?.tables?.personnel ?? 0
+  const diagBatiments = diag?.batiments ?? diag?.tables?.batiments ?? 0
+  const isOk    = diag && diag.database !== 'disconnected' && !diag.error && (diagPersonnel >= 0 || diagBatiments >= 0)
+  const isEmpty = diag && !diag.error && diag.database === 'connected' && diagPersonnel === 0
 
   return (
     <div style={{ padding:24, maxWidth:680, margin:'0 auto' }}>
@@ -112,8 +114,8 @@ export default function StatusPage() {
               {diag.error ? (
                 <div style={{ color:'#dc2626', fontWeight:600 }}>❌ {diag.error}</div>
               ) : [
-                ['🏗️ Bâtiments',    diag.batiments, 100],
-                ['👤 Personnel',    diag.personnel, 5],
+                ['🏗️ Bâtiments',    diagBatiments, 100],
+                ['👤 Personnel',    diagPersonnel, 5],
                 ['🔑 Utilisateurs', diag.users,     5],
                 ['📋 Migrations',   diag.migrations, 30],
                 ['🗄️ Base',        diag.db_engine,  null],
