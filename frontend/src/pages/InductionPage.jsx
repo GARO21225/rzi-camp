@@ -770,7 +770,7 @@ function InductionPageInner() {
 
   return (
     <InductionBoundary>
-    <div style={{maxWidth:1100,margin:'0 auto',padding:20}}>
+    <div style={{padding:20}}>
 
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
@@ -811,8 +811,8 @@ function InductionPageInner() {
       {/* KPIs Induction */}
       {!loading && (() => {
         const total = personnel.length
-        const induits = personnel.filter(p => { const r=p.inductionrecord; return r && (r.statut==='complete'||r.statut==='valide') }).length
-        const enCours = personnel.filter(p => { const r=p.inductionrecord; return r && r.statut!=='complete' && r.statut!=='valide' }).length
+        const induits = personnel.filter(p => progression(p) === 100 || (p.inductionrecord && (p.inductionrecord.statut==='complete'||p.inductionrecord.statut==='valide'))).length
+        const enCours = personnel.filter(p => { const pr=progression(p); return pr>0 && pr<100 && !(p.inductionrecord?.statut==='complete'||p.inductionrecord?.statut==='valide') }).length
         const aDemarrer = total - induits - enCours
         return (
           <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
