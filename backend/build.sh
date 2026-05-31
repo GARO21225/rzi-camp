@@ -106,6 +106,13 @@ try:
             c.execute("ALTER TABLE restauration_consommationrepas ADD COLUMN agent_nom_cache VARCHAR(200) DEFAULT ''")
             print('Added agent_nom_cache to repas')
 
+
+        # Colonne induction_requise sur Personnel
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='residences_personnel' AND column_name='induction_requise')")
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE residences_personnel ADD COLUMN induction_requise BOOLEAN DEFAULT TRUE")
+            print('Added induction_requise column')
+
         # Ajouter colonne photo_base64 si absente (anciens déploiements)
         c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='maintenance_commentaireincident' AND column_name='photo_base64')")
         if not c.fetchone()[0]:
