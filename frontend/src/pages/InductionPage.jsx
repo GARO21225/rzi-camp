@@ -1068,6 +1068,48 @@ function InductionPageInner() {
 
                 {!etapeActive && slideTab==='etapes' && (
                   <div style={{padding:20}}>
+                    {/* ── Section Assignations ── */}
+                    <div style={{background:'#f8fafc',borderRadius:12,padding:16,marginBottom:20,border:'1px solid #e2e8f0'}}>
+                      <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',marginBottom:12}}>
+                        👥 Assignations du parcours
+                      </div>
+                      {[
+                        {key:'agent_accueil', label:"👋 Agent d'accueil", icon:'👋', profil:'accueil'},
+                        {key:'formateur_qhse', label:'🛡️ Formateur QHSE', icon:'🛡️', profil:'qhse'},
+                        {key:'medecin_camp', label:'🩺 Médecin du camp', icon:'🩺', profil:'medical'},
+                      ].map(field => {
+                        const currentVal = getWF(selected.id)?.formData?.[field.key] || ''
+                        return (
+                          <div key={field.key} style={{marginBottom:10}}>
+                            <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>
+                              {field.label}
+                            </label>
+                            <select
+                              value={currentVal}
+                              onChange={e => {
+                                const val = e.target.value
+                                const wfData = getWF(selected.id) || {etapes:{},formData:{}}
+                                const updated = {...wfData, formData:{...wfData.formData, [field.key]: val}}
+                                saveWF(selected.id, updated)
+                              }}
+                              style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,
+                                padding:'8px 10px',fontSize:12,outline:'none',background:'#fff'}}>
+                              <option value="">-- Sélectionner --</option>
+                              {(staffMap[field.profil]||[]).map(p => (
+                                <option key={p.id} value={`${p.nom} ${p.prenom}`}>
+                                  {p.nom} {p.prenom} {p.numero?`· ${p.numero}`:''}
+                                </option>
+                              ))}
+                            </select>
+                            {currentVal && (
+                              <div style={{fontSize:11,color:'#16a34a',marginTop:3,fontWeight:600}}>
+                                ✓ {currentVal}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                     <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:16}}>
                       Sélectionner une étape
                     </h3>
