@@ -1,4 +1,43 @@
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def envoyer_notification(request):
+    """Envoyer une notification à un ou plusieurs utilisateurs"""
+    from rest_framework.response import Response
+    from django.contrib.auth.models import User
+    try:
+        destinataires = request.data.get('destinataires', [])  # liste de user_id
+        titre = request.data.get('titre', '')
+        message = request.data.get('message', '')
+        type_notif = request.data.get('type', 'info')
+        target_profil = request.data.get('profil', None)  # envoyer à tous les agents d'un profil
+
+        users_to_notify = []
+        if destinataires:
+            users_to_notify = User.objects.filter(id__in=destinataires)
+        elif target_profil:
+            from residences.models import Personnel
+            persos = Personnel.objects.filter(profil=target_profil).select_related('user')
+            users_to_notify = [p.user for p in persos if p.user]
+
+        count = 0
+        for user in users_to_notify:
+            try:
+                SimpleNotification.objects.create(
+                    user=user, titre=titre, message=message, type_notif=type_notif, lu=False
+                )
+                count += 1
+            except Exception:
+                pass
+
+        return Response({'sent': count, 'titre': titre})
+    except Exception as e:
+        return Response({'detail': str(e)}, status=500)
+
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
