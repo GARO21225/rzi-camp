@@ -81,11 +81,21 @@ async function apiGetStats(type_repas) {
         }
       }
     }
-    // Fallback: charger depuis l'API repas
-    const all = await qrAPI.repas({ page_size: 1000, ordering: '-date_validation' })
+    // Fallback: filtrer les repas du jour côté JS
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const all = await qrAPI.repas({ page_size: 1000 })
     const data = all.data.results || all.data || []
-    const today = new Date().toISOString().slice(0, 10)
-    const todayItems = data.filter(r => (r.date_validation || '').slice(0, 10) === today)
+    // Compter la semaine (7 derniers jours)
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-6)
+    const weekStr = weekAgo.toISOString().slice(0,10)
+    const todayItems = data.filter(r => {
+      const d = (r.date_validation || r.cree_le || '').slice(0,10)
+      return d === todayStr
+    })
+    const weekItems = data.filter(r => {
+      const d = (r.date_validation || r.cree_le || '').slice(0,10)
+      return d >= weekStr
+    })
     const byType = {
       petit_dejeuner: todayItems.filter(r => r.type_repas === 'petit_dejeuner').length,
       dejeuner:       todayItems.filter(r => r.type_repas === 'dejeuner').length,
