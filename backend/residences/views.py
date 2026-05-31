@@ -78,20 +78,26 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return Response({"error":"Seul l'admin peut créer du personnel."}, status=403)
         response = super().create(request, *args, **kwargs)
         p = Personnel.objects.get(id=response.data["id"])
-        username, password = p.creer_utilisateur()
+        username, password = '', ''
+        try:
+            username, password = p.creer_utilisateur()
+        except Exception as e:
+            pass  # Ne pas bloquer si création user échoue
         data = dict(response.data)
         data["login_genere"] = username
         data["password_genere"] = password
-        # Notifier les agents d'accueil (profil=admin ou agent)
+        # Notifier uniquement sécurité, médical, agent d'accueil
         try:
             from evenements.models import SimpleNotification
-            from django.contrib.auth.models import User
-            agents = User.objects.filter(is_active=True).exclude(id=request.user.id)[:10]
-            for u in agents:
+            PROFILS_NOTIF = ['securite', 'medical', 'admin']
+            destinataires = Personnel.objects.filter(
+                profil__in=PROFILS_NOTIF, user__isnull=False
+            ).select_related('user').exclude(user=request.user)[:20]
+            for pers in destinataires:
                 SimpleNotification.objects.create(
-                    user=u,
-                    titre='👋 Nouveau personnel arrivé',
-                    message=f"{p.prenom} {p.nom} ({p.societe}) vient d'être enregistré. Préparez l'accueil et l'induction QHSE.",
+                    user=pers.user,
+                    titre='👋 Nouveau personnel enregistré',
+                    message=f"{p.prenom} {p.nom} ({p.societe or 'N/A'}) vient d'arriver. Préparez l'accueil et l'induction QHSE.",
                     type_notif='induction', lu=False
                 )
         except Exception:
