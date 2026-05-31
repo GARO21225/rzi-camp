@@ -751,8 +751,13 @@ function InductionPageInner() {
     if (hideNoInduction && p.induction_requise === false) return false
     if (statutFilter) {
       const rec = p.inductionrecord
-      if (statutFilter === 'non_commence') { if (rec) return false }
-      else if (!rec || rec.statut !== statutFilter) return false
+      if (statutFilter === 'non_commence') {
+        if (rec) return false
+      } else if (statutFilter === 'valide') {
+        if (rec?.statut !== 'valide' && progression(p) !== 100) return false
+      } else {
+        if (!rec || rec.statut !== statutFilter) return false
+      }
     }
     const q = search.toLowerCase()
     if (q && ![p.nom,p.prenom,p.societe].some(v=>(v||'').toLowerCase().includes(q))) return false
@@ -813,8 +818,14 @@ function InductionPageInner() {
       {/* KPIs Induction */}
       {!loading && (() => {
         const total = personnel.length
-        const induits = personnel.filter(p => p.inductionrecord && p.inductionrecord.statut==='valide').length
-        const enCours = personnel.filter(p => p.inductionrecord && p.inductionrecord.statut==='en_cours').length
+        const induits = personnel.filter(p => {
+          if (p.inductionrecord?.statut==='valide') return true
+          return progression(p) === 100
+        }).length
+        const enCours = personnel.filter(p => {
+          const pr = progression(p)
+          return pr > 0 && pr < 100 && p.inductionrecord?.statut !== 'valide'
+        }).length
         const aDemarrer = total - induits - enCours
         return (
           <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
@@ -1318,6 +1329,32 @@ function InductionPageInner() {
                       {/* FORM */}
                       {etape.type==='form' && (
                         <div>
+                          {/* Sélecteur d'assignation pour cette étape */}
+                          {etape.assignRole && (
+                            <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
+                              borderRadius:10,padding:'10px 14px',marginBottom:16}}>
+                              <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
+                                {etape.assignLabel}
+                              </div>
+                              <select
+                                value={formData[`assign_${etape.key}`]||''}
+                                onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
+                                style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
+                                  padding:'8px 12px',fontSize:13,outline:'none',background:'#fff'}}>
+                                <option value="">-- Sélectionner --</option>
+                                {(staffMap[etape.assignRole]||[]).map(p=>(
+                                  <option key={p.id} value={`${p.nom} ${p.prenom}`}>
+                                    {p.nom} {p.prenom} {p.numero?`· ${p.numero}`:''}
+                                  </option>
+                                ))}
+                              </select>
+                              {formData[`assign_${etape.key}`] && (
+                                <div style={{fontSize:11,color:'#0369a1',marginTop:4}}>
+                                  ✅ Assigné: <b>{formData[`assign_${etape.key}`]}</b>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {etape.champs.map(c=>(
                             <div key={c.key} style={{marginBottom:12}}>
                               <label style={{display:'block',fontSize:11,fontWeight:700,
