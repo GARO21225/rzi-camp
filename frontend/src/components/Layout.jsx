@@ -321,18 +321,12 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {nav.map((item, i) => item.group ? (
-                <div key={`group-${i}`} style={{
-                  fontSize:10, fontWeight:800, color:'rgba(255,255,255,.45)',
-                  letterSpacing:1, padding:'16px 12px 4px', textTransform:'uppercase',
-                  marginTop: i===0?0:4
-                }}>{item.group}</div>
-              ) : (
+              {nav.map((item, i) => (
                 <NavLink key={item.to} to={item.to} end={item.exact}
                   style={({ isActive }) => ({
                     display: 'block',
-                    padding: '8px 12px 8px 20px',
-                    margin: '1px 0',
+                    padding: '10px 12px',
+                    margin: '2px 0',
                     borderRadius: 'var(--radius)',
                     textDecoration: 'none',
                     fontSize: 13,
