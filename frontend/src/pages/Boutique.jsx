@@ -1310,17 +1310,59 @@ export default function Boutique() {
       {/* ══ HISTORIQUE ══ */}
       {tab==='historique'&&(
         <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,overflow:'hidden'}}>
-          {consos.length===0?(
-            <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}><div style={{fontSize:44,marginBottom:10}}>📋</div><div style={{fontWeight:700,color:'#64748b'}}>Aucune vente aujourd'hui</div></div>
-          ):(
+          {/* Filtres historique */}
+          <div style={{display:'flex',gap:8,padding:'12px 16px',borderBottom:'1px solid #f1f5f9',flexWrap:'wrap',alignItems:'center'}}>
+            <input value={histSearch} onChange={e=>setHistSearch(e.target.value)}
+              placeholder="🔍 Rechercher agent, article..."
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12,flex:1,minWidth:160}}/>
+            <input type="date" value={histDate} onChange={e=>setHistDate(e.target.value)}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12}}/>
+            <select value={histMode} onChange={e=>setHistMode(e.target.value)}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12}}>
+              <option value="">Tous modes</option>
+              <option value="especes">💵 Espèces</option>
+              <option value="bon">🎫 Bon</option>
+            </select>
+            <button onClick={()=>{setHistSearch('');setHistDate('');setHistMode('')}}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,cursor:'pointer'}}>
+              ✕ Reset
+            </button>
+            <button onClick={()=>{
+              const rows = consosFiltered.map(c=>[
+                c.date_conso ? new Date(c.date_conso).toLocaleDateString('fr-FR') : '',
+                new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+                c.personnel_nom||'—',c.article_nom||'',c.quantite,c.montant,c.mode_paiement||'especes'
+              ])
+              const csv = [['Date','Heure','Agent','Article','Qté','Montant','Mode'],...rows].map(r=>r.join(';')).join('\n')
+              const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href=url; a.download='historique_boutique.csv'; a.click()
+            }} style={{background:'#16a34a',color:'#fff',border:'none',borderRadius:8,padding:'6px 12px',fontSize:12,cursor:'pointer',fontWeight:700}}>
+              📥 CSV
+            </button>
+          </div>
+          {(() => {
+            const consosFiltered = consos.filter(c => {
+              if (histSearch) {
+                const q = histSearch.toLowerCase()
+                if (![(c.personnel_nom||''),(c.article_nom||'')].some(v=>v.toLowerCase().includes(q))) return false
+              }
+              if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
+              if (histMode && c.mode_paiement !== histMode) return false
+              return true
+            })
+            return consosFiltered.length===0?(
+              <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}><div style={{fontSize:44,marginBottom:10}}>📋</div><div style={{fontWeight:700,color:'#64748b'}}>Aucune vente</div></div>
+            ):(
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead><tr style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)'}}>
-                {['Heure','Agent','Article','Qté','Montant'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
+                {['Date','Heure','Agent','Article','Qté','Montant','Mode'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {consos.map((c,i)=>(
+                {consosFiltered.map((c,i)=>(
                   <tr key={c.id} style={{borderTop:'1px solid #f1f5f9',background:i%2?'#fafafa':'#fff'}}>
-                    <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'#64748b'}}>{new Date(c.date_conso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+                    <td style={{padding:'10px 14px',fontSize:11,color:'#64748b'}}>{c.date_conso?new Date(c.date_conso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''}</td>
+                    <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'#64748b'}}>{new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
                     <td style={{padding:'10px 14px',fontSize:12,fontWeight:600}}>{c.personnel_nom||'Anonyme'}</td>
                     <td style={{padding:'10px 14px',fontSize:12}}>{getEmoji(c.article_nom||'')} {c.article_nom}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',textAlign:'center'}}>{c.quantite}</td>
@@ -1329,7 +1371,7 @@ export default function Boutique() {
                 ))}
               </tbody>
             </table>
-          )}
+          )})()}
         </div>
       )}
 
