@@ -20,6 +20,7 @@ const ROLE_NAV = {
     { group:'🏠 Mobilité & Hébergement' },
     { to:'/residences', label:'Résidences' },
     { to:'/voyages', label:'Voyages' },
+    { to:'/rotations', label:'Rotations' },
     // Services aux Résidents
     { group:'🍽️ Services' },
     { to:'/restauration', label:'Restauration' },
