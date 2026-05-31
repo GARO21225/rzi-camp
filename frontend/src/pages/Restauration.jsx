@@ -63,10 +63,29 @@ async function apiGetHistorique(type_repas, jours = 7) {
 
 async function apiGetStats(type_repas) {
   try {
-    const all = await qrAPI.repas({ page_size: 1000 })
+    // Utiliser l'endpoint dédié qui calcule côté serveur (évite les problèmes de timezone)
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    const r = await fetch(`${BASE}/api/repas/stats_jour/`, {
+      headers: {'Authorization': `Bearer ${token}`}
+    })
+    if (r.ok) {
+      const d = await r.json()
+      return {
+        today: d.total_jour || 0,
+        semaine: d.semaine || 0,
+        byType: {
+          petit_dejeuner: d.petit_dejeuner || 0,
+          dejeuner: d.dejeuner || 0,
+          diner: d.diner || 0,
+        }
+      }
+    }
+    // Fallback: charger depuis l'API repas
+    const all = await qrAPI.repas({ page_size: 1000, ordering: '-date_validation' })
     const data = all.data.results || all.data || []
     const today = new Date().toISOString().slice(0, 10)
-    const todayItems = data.filter(r => (r.date_validation || r.cree_le || '').slice(0, 10) === today)
+    const todayItems = data.filter(r => (r.date_validation || '').slice(0, 10) === today)
     const byType = {
       petit_dejeuner: todayItems.filter(r => r.type_repas === 'petit_dejeuner').length,
       dejeuner:       todayItems.filter(r => r.type_repas === 'dejeuner').length,
