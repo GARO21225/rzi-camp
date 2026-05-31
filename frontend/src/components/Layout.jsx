@@ -328,7 +328,7 @@ export default function Layout() {
           </nav>
         )}
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)' }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)', overflowY:'auto', display:'flex', flexDirection:'column' }}>
             <Outlet />
           </main>
       </div>
