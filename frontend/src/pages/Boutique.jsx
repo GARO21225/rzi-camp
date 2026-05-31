@@ -1441,12 +1441,7 @@ export default function Boutique() {
                                 display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
                               ✏️ Modifier
                             </button>
-                            <button onClick={e=>{e.stopPropagation();setStockModal(a);setStockQte(0);setStockOp('add');setStockRaison('')}}
-                              style={{flex:1,background:'#f0fdf4',color:'#16a34a',border:'1.5px solid #bbf7d0',
-                                padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
-                                display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-                              📦 Stock ({a.stock||0})
-                            </button>
+
                             <button onClick={e=>{e.stopPropagation();setDelConfirm(a)}}
                               style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
                                 padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
@@ -1481,11 +1476,43 @@ export default function Boutique() {
               <div style={{fontWeight:800,fontSize:18,color:'#1e3a8a'}}>📊 Gestion du Stock</div>
               <div style={{fontSize:12,color:'#64748b'}}>{articles.length} articles · Seuils et mouvements</div>
             </div>
-            <button onClick={()=>boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))}
-              style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
-                fontSize:12,fontWeight:700,cursor:'pointer',color:'#1e3a8a'}}>
-              🔄 Actualiser
-            </button>
+            <div style={{display:'flex',gap:8}}>
+              <label style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#16a34a',borderRadius:9,
+                padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                📥 Import CSV
+                <input type="file" accept=".csv" style={{display:'none'}} onChange={async e=>{
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const text = await file.text()
+                  const lines = text.split('\n').filter(l=>l.trim())
+                  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase())
+                  const rows = lines.slice(1).map(l=>l.split(','))
+                  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                  const token = localStorage.getItem('access_token')||''
+                  let ok=0
+                  for (const row of rows) {
+                    const obj={}; headers.forEach((h,i)=>obj[h]=row[i]?.trim())
+                    if (obj.nom && obj.stock !== undefined) {
+                      const art = articles.find(a=>a.nom.toLowerCase()===obj.nom.toLowerCase())
+                      if (art) {
+                        await fetch(`${BASE}/api/boutique/articles/${art.id}/ajuster_stock/`,{
+                          method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                          body:JSON.stringify({operation:'set',quantite:parseInt(obj.stock)||0,raison:'Import CSV inventaire'})
+                        })
+                        ok++
+                      }
+                    }
+                  }
+                  alert(`✅ ${ok} article(s) mis à jour`)
+                  boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
+                }}/>
+              </label>
+              <button onClick={()=>boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))}
+                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
+                  fontSize:12,fontWeight:700,cursor:'pointer',color:'#1e3a8a'}}>
+                🔄 Actualiser
+              </button>
+            </div>
           </div>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
