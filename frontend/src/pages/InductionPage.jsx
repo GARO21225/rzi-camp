@@ -1324,6 +1324,12 @@ function InductionPageInner() {
                             {etape.icon} {etape.titre}
                           </div>
                           <div style={{fontSize:11,color:'#94a3b8'}}>{etape.desc}</div>
+                          {etape.assignRole && formData[`assign_${etape.key}`] && (
+                            <div style={{fontSize:11,background:'#eff6ff',color:'#1e3a8a',
+                              padding:'3px 10px',borderRadius:99,marginTop:4,display:'inline-flex',alignItems:'center',gap:4}}>
+                              👤 <b>{formData[`assign_${etape.key}`]}</b>
+                            </div>
+                          )}
                         </div>
                       </div>
 
