@@ -437,6 +437,7 @@ function InductionPageInner() {
   const [dateFrom,    setDateFrom]    = useState('')
   const [dateTo,      setDateTo]      = useState('')
   const [hideNoInduction, setHideNoInduction] = useState(false)
+  const [staffMap,      setStaffMap]      = useState({accueil:[],qhse:[],medical:[]})
   const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
