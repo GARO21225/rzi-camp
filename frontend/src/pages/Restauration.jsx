@@ -74,7 +74,11 @@ async function apiGetStats(type_repas) {
     }
     return {
       today:    todayItems.length,
-      semaine:  data.length,
+      semaine:  data.filter(r => {
+        const d = new Date(r.date_validation || r.cree_le || '')
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6)
+        return d >= weekAgo
+      }).length,
       byType,
       lastScan: data[0] || null
     }
