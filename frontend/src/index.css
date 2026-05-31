@@ -6,7 +6,7 @@
 @import '../design-system/colors_and_type.css';
 
 :root {
-  color-scheme: light only;
+  /* color-scheme: light only; */
 
   /* ── Brand ── */
   --c-navy:    #0f2447;
@@ -68,13 +68,7 @@
   --slow:  .35s;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-    --bg: #f0f4f8 !important;
-    --surface: #ffffff !important;
-    --text: #0f172a !important;
-  }
+/* dark media override removed */
 }
 
 /* ── Reset ── */
