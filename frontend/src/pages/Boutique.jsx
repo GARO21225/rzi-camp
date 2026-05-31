@@ -1474,7 +1474,102 @@ export default function Boutique() {
         </div>
       )}
 
-      {/* ══ ONGLET ANALYSES ══ */}
+      {/* ══ ONGLET GESTION STOCK ══ */}
+      {tab==='stock' && (
+        <div style={{padding:'0 4px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:18,color:'#1e3a8a'}}>📊 Gestion du Stock</div>
+              <div style={{fontSize:12,color:'#64748b'}}>{articles.length} articles · Seuils et mouvements</div>
+            </div>
+            <button onClick={()=>boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))}
+              style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
+                fontSize:12,fontWeight:700,cursor:'pointer',color:'#1e3a8a'}}>
+              🔄 Actualiser
+            </button>
+          </div>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <thead>
+                <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                  {['Article','Catégorie','Stock actuel','Seuil alerte','Statut','Actions'].map(h=>(
+                    <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...articles].sort((a,b)=>(a.stock||0)-(b.stock||0)).map((a,i)=>{
+                  const stock = a.stock || 0
+                  const seuil = a.stock_min || a.seuil_alerte || 5
+                  const critique = stock === 0
+                  const faible = stock > 0 && stock <= seuil
+                  const ok = stock > seuil
+                  return (
+                    <tr key={a.id} style={{borderBottom:'1px solid #f1f5f9',
+                      background: critique ? '#fef2f2' : faible ? '#fffbeb' : i%2===0?'#fff':'#fafafa'}}>
+                      <td style={{padding:'10px 12px',fontWeight:600}}>{a.nom}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{background:'#f1f5f9',padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600}}>
+                          {a.categorie||'—'}
+                        </span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{fontWeight:800,fontSize:16,
+                          color: critique?'#dc2626':faible?'#d97706':'#16a34a'}}>
+                          {stock}
+                        </span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>unités</span>
+                      </td>
+                      <td style={{padding:'10px 12px',color:'#64748b'}}>{seuil}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,
+                          background: critique?'#fee2e2':faible?'#fef3c7':'#dcfce7',
+                          color: critique?'#dc2626':faible?'#92400e':'#166534'}}>
+                          {critique?'🔴 Rupture':faible?'⚠️ Faible':'✅ OK'}
+                        </span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('add');setStockRaison('')}}
+                            style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            ➕ Entrée
+                          </button>
+                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('subtract');setStockRaison('')}}
+                            style={{background:'#fff7ed',color:'#ea580c',border:'1px solid #fed7aa',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            ➖ Sortie
+                          </button>
+                          <button onClick={()=>{setStockModal(a);setStockQte(stock);setStockOp('set');setStockRaison('Inventaire')}}
+                            style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            🔢 Inventaire
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Résumé */}
+          <div style={{display:'flex',gap:12,marginTop:20,flexWrap:'wrap'}}>
+            {[
+              {l:'Total articles',v:articles.length,c:'#1e3a8a',bg:'#eff6ff'},
+              {l:'En rupture',v:articles.filter(a=>(a.stock||0)===0).length,c:'#dc2626',bg:'#fef2f2'},
+              {l:'Stock faible',v:articles.filter(a=>{const s=a.stock||0;const seuil=a.stock_min||5;return s>0&&s<=seuil}).length,c:'#d97706',bg:'#fffbeb'},
+              {l:'Stock OK',v:articles.filter(a=>(a.stock||0)>(a.stock_min||5)).length,c:'#16a34a',bg:'#f0fdf4'},
+            ].map(({l,v,c,bg})=>(
+              <div key={l} style={{background:bg,borderRadius:12,padding:'14px 20px',flex:1,minWidth:140}}>
+                <div style={{fontSize:24,fontWeight:900,color:c}}>{v}</div>
+                <div style={{fontSize:12,color:'#64748b',fontWeight:600}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tab==='analyses' && (
         <AnalysesPanel
           periode={analysesPeriode}
