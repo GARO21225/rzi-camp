@@ -224,38 +224,38 @@ export default function Personnel() {
         }
         return ''
       }
-      let ok=0, errs=[]
+      // Préparer toutes les lignes
+      const rows = []
       for (let i=1; i<lines.length; i++) {
         const row = lines[i].split(sep)
         const nom = get(row,['nom'])
         const prenom = get(row,['prenom','prénom'])
-        if (!nom) { errs.push(`L${i+1}: nom requis`); continue }
-        const payload = {
-          nom,
-          prenom,
+        if (!nom) continue
+        rows.push({
+          nom, prenom,
           societe: get(row,['societe','société','entreprise','company']) || 'N/A',
           email: get(row,['email','mail']) || '',
           numero: get(row,['matricule','numero','numéro']) || '',
           type_personnel: get(row,['type','type_personnel']) || 'roxgold',
-        }
-        try {
-          const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-          const token = localStorage.getItem('access_token') || ''
-          const r = await fetch(`${BASE}/api/personnel/`, {
-            method:'POST',
-            headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-            body: JSON.stringify(payload)
-          })
-          if (r.ok) ok++
-          else {
-            let msg = `HTTP ${r.status}`
-            try { const d=await r.json(); msg = d.detail||d.nom?.[0]||JSON.stringify(d).slice(0,80) } catch{}
-            errs.push(`L${i+1}: ${msg}`)
-          }
-        } catch(e) { errs.push(`L${i+1}: ${e.message}`) }
+        })
       }
-      alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
-      load()
+      // Envoyer tout en une seule requête
+      try {
+        const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+        const token = localStorage.getItem('access_token') || ''
+        const r = await fetch(`${BASE}/api/personnel/import_csv_data/`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+          body: JSON.stringify({rows})
+        })
+        const d = await r.json()
+        const ok = d.imported || 0
+        const errs = d.errors || []
+        alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
+        load()
+      } catch(e) {
+        alert('Erreur import: ' + e.message)
+      }
     }
     input.click()
   }
