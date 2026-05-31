@@ -67,10 +67,12 @@ export default function Personnel() {
   // Filtrage
   const filtered = data.filter(p => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero]
+    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.profil,p.matricule]
       .some(v => (v||'').toLowerCase().includes(q))
-    const matchType = !typeFilter || p.type_personnel === typeFilter
-    return matchSearch && matchType
+    const matchType    = !typeFilter    || p.type_personnel === typeFilter
+    const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
+    const matchProfil  = !profilFilter  || p.profil === profilFilter
+    return matchSearch && matchType && matchSociete && matchProfil
   })
 
   // Sauvegarde
@@ -299,9 +301,20 @@ export default function Personnel() {
           <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}
             style={{...inp,maxWidth:160}}>
             <option value="">Tous les types</option>
-            {/* Type de personnel */}
-                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+            {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
+          <select value={profilFilter} onChange={e=>setProfilFilter(e.target.value)}
+            style={{...inp,maxWidth:160}}>
+            <option value="">Tous les profils</option>
+            {PROFILS.map(p => <option key={p.v} value={p.v}>{p.l}</option>)}
+          </select>
+          <input value={societeFilter} onChange={e=>setSocieteFilter(e.target.value)}
+            placeholder="🏢 Filtrer par société..." style={{...inp,maxWidth:200}}/>
+          {(typeFilter||profilFilter||societeFilter) && (
+            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('')}}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'7px 12px',
+                fontSize:12,cursor:'pointer',color:'#64748b'}}>✕ Reset</button>
+          )}
         </div>
 
         {/* ── TABLE ── */}
