@@ -429,12 +429,18 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                 montant = int(float(row[0]) * qte)
 
                 # INSERT
+                # Récupérer nom de l'agent pour archivage
+                agent_nom = ''
+                if pers_id:
+                    cur.execute("SELECT nom||' '||prenom FROM residences_personnel WHERE id=%s", [pers_id])
+                    row2 = cur.fetchone()
+                    if row2: agent_nom = row2[0]
                 cur.execute(
                     "INSERT INTO restauration_consommationboutique"
-                    " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso)"
-                    " VALUES (%s, %s, %s, %s, %s, '', %s, NOW())"
+                    " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso, agent_nom_cache)"
+                    " VALUES (%s, %s, %s, %s, %s, '', %s, NOW(), %s)"
                     " RETURNING id",
-                    [art_id, pers_id, qte, montant, mode, uid]
+                    [art_id, pers_id, qte, montant, mode, uid, agent_nom]
                 )
                 cid = cur.fetchone()[0]
 
@@ -499,12 +505,12 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
 
                 # Top agents
                 c.execute("""
-                    SELECT COALESCE(p.nom||' '||p.prenom,'Anonyme') as nom,
+                    SELECT COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme') as nom,
                            COUNT(*), SUM(cb.montant)
                     FROM restauration_consommationboutique cb
                     LEFT JOIN residences_personnel p ON p.id=cb.personnel_id
                     WHERE DATE(cb.date_conso) >= %s
-                    GROUP BY p.nom, p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
+                    GROUP BY COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme'), p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
                 """, [date_from])
                 top_agents = [{'nom':r[0],'nb':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
