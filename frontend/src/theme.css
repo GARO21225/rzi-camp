@@ -134,11 +134,11 @@ html[data-theme="dark"] .form-control:focus { box-shadow: 0 0 0 3px rgba(91,141,
 /* Spots où l'or est écrit en dur → repris sur l'accent */
 .topbar::after {
   background: linear-gradient(90deg, var(--c-accent) 0%,
-              color-mix(in srgb, var(--c-accent) 60%, #fff) 50%, transparent 100%) !important;
+              var(--c-accent) 50%, transparent 100%) !important;
 }
 button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(--c-accent); }
 .btn-gold { background: var(--c-accent); }
-.btn-gold:hover { background: color-mix(in srgb, var(--c-accent) 85%, #000); }
+.btn-gold:hover { background: #d48b00; }
 
 /* ═══════════════════════════════════════════════════════
    RESPONSIVE — Mobile first
