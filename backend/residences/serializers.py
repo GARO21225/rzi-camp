@@ -57,7 +57,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
         model  = Personnel
         fields = [
             "id", "nom", "prenom", "societe", "numero", "type_personnel",
-            "type_label", "email", "qr_code_data", "qr_code_string", "actif",
+            "type_label", "email", "qr_code_data", "qr_code_string", "actif", "induction_requise",
             "date_creation", "user_role", "user_active", "login_genere",
             "password_genere", "profil", "profil_label",
         ]
