@@ -322,7 +322,7 @@ export default function Maintenance() {
 
   return (
     <MaintenanceBoundary>
-      <div style={{ maxWidth:1200, margin:'0 auto', padding:20 }}>
+      <div style={{ padding:20 }}>
 
         <div style={{ display:'flex', justifyContent:'space-between',
           alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
@@ -526,13 +526,13 @@ export default function Maintenance() {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <select value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})} style={inp}>
-                      <option value="">-- Sélectionner --</option>
-                      {residences.length > 0
-                        ? residences.map(r => <option key={r} value={r}>{r}</option>)
-                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].map(r => <option key={r} value={r}>{r}</option>)
-                      }
-                    </select>
+                    <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
+                      placeholder="Sélectionner ou saisir..." style={inp} list="res-list"/>
+                    <datalist id="res-list">
+                      {(residences.length>0 ? residences
+                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))]
+                      ).map(r=><option key={r} value={r}/>)}
+                    </datalist>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
