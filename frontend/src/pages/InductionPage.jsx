@@ -72,6 +72,8 @@ async function syncOfflineQueue() {
 const ETAPES = [
   {
     key: 'accueil',
+    assignRole: 'accueil',
+    assignLabel: "👋 Agent d'accueil",
     icon: '👋',
     titre: 'Accueil & Enregistrement',
     desc: 'Informations personnelles complètes',
@@ -90,6 +92,8 @@ const ETAPES = [
   },
   {
     key: 'documents',
+    assignRole: 'accueil',
+    assignLabel: "👋 Agent d'accueil",
     icon: '📄',
     titre: 'Documents obligatoires',
     desc: 'Tous les documents doivent être soumis',
@@ -104,6 +108,8 @@ const ETAPES = [
   },
   {
     key: 'formation',
+    assignRole: 'qhse',
+    assignLabel: '🛡️ Formateur QHSE',
     icon: '🎓',
     titre: 'Formation QHSE Obligatoire',
     desc: 'Lire et confirmer avoir suivi la formation',
@@ -117,6 +123,8 @@ const ETAPES = [
   },
   {
     key: 'quiz',
+    assignRole: 'qhse',
+    assignLabel: '🛡️ Formateur QHSE',
     icon: '📋',
     titre: 'Quiz QHSE',
     desc: 'Score minimum: 80% — 3 tentatives maximum',
@@ -148,6 +156,8 @@ const ETAPES = [
   },
   {
     key: 'medical',
+    assignRole: 'medical',
+    assignLabel: '🩺 Médecin du camp',
     icon: '🏥',
     titre: 'Visite Médicale',
     desc: 'Résultat médical requis: FIT',
@@ -965,7 +975,27 @@ function InductionPageInner() {
                   </button>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginTop:8}}>
-                  {ETAPES.map(e => (
+                  {/* Résumé assignations */}
+              {(() => {
+                const assigns = [
+                  {icon:'👋',label:"Agent d'accueil", val:formData['assign_accueil']||formData['assign_documents']||''},
+                  {icon:'🛡️',label:'Formateur QHSE',   val:formData['assign_formation']||formData['assign_quiz']||''},
+                  {icon:'🩺',label:'Médecin',            val:formData['assign_medical']||''},
+                ].filter(a=>a.val)
+                if (!assigns.length) return null
+                return (
+                  <div style={{padding:'8px 12px',marginBottom:8,background:'#f0f9ff',borderRadius:10,
+                    display:'flex',flexWrap:'wrap',gap:6}}>
+                    {assigns.map(a=>(
+                      <span key={a.icon} style={{fontSize:11,background:'#fff',border:'1px solid #bae6fd',
+                        color:'#0369a1',padding:'3px 10px',borderRadius:99,fontWeight:600}}>
+                        {a.icon} {a.label}: <b>{a.val.split('·')[0].trim()}</b>
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
+              {ETAPES.map(e => (
                     <div key={e.key}
                       title={e.titre}
                       style={{flex:1,height:6,borderRadius:99,
