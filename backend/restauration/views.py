@@ -485,7 +485,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                     WHERE DATE(cb.date_conso) >= %s
                     GROUP BY a.nom ORDER BY ca DESC LIMIT 10
                 """, [date_from])
-                top_articles = [{'nom':r[0],'qte':r[1],'ca':float(r[2])} for r in c.fetchall()]
+                top_articles = [{'article__nom':r[0],'article__categorie':'','qte':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
                 # Par catégorie
                 c.execute("""
@@ -495,7 +495,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                     WHERE DATE(cb.date_conso) >= %s
                     GROUP BY a.categorie ORDER BY SUM(cb.montant) DESC
                 """, [date_from])
-                par_cat = [{'article__categorie':r[0],'total_qte':r[1],'ca':float(r[2])} for r in c.fetchall()]
+                par_cat = [{'article__categorie':r[0],'total_qte':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
                 # Top agents
                 c.execute("""
@@ -506,7 +506,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                     WHERE DATE(cb.date_conso) >= %s
                     GROUP BY p.nom, p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
                 """, [date_from])
-                top_agents = [{'nom':r[0],'nb':r[1],'ca':float(r[2])} for r in c.fetchall()]
+                top_agents = [{'nom':r[0],'nb':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
                 # Évolution par mode
                 c.execute("""
@@ -517,7 +517,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                     WHERE DATE(date_conso) >= %s
                     GROUP BY DATE(date_conso) ORDER BY DATE(date_conso)
                 """, [date_from])
-                evolution = [{'jour':str(r[0]),'bon':float(r[1]),'especes':float(r[2])} for r in c.fetchall()]
+                evolution = [{'jour':str(r[0]),'bon':float(r[1] or 0),'especes':float(r[2] or 0),'ca':float((r[1] or 0)+(r[2] or 0))} for r in c.fetchall()]
 
             return Response({
                 'periode': periode, 'total_ca': float(total_ca), 'nb_transactions': nb_tx,
