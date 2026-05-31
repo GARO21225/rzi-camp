@@ -749,8 +749,8 @@ function InductionPageInner() {
   const filtered = personnel.filter(p => {
     if (statutFilter) {
       const rec = p.inductionrecord
-      if (statutFilter === 'non_commencé' && rec) return false
-      if (statutFilter !== 'non_commencé' && (!rec || rec.statut !== statutFilter)) return false
+      if (statutFilter === 'non_commence') { if (rec) return false }
+      else if (!rec || rec.statut !== statutFilter) return false
     }
     const q = search.toLowerCase()
     if (q && ![p.nom,p.prenom,p.societe].some(v=>(v||'').toLowerCase().includes(q))) return false
@@ -847,7 +847,7 @@ function InductionPageInner() {
         </select>
         <select value={statutFilter} onChange={e=>setStatutFilter(e.target.value)} style={{...inp,maxWidth:180}}>
           <option value="">Tous les statuts</option>
-          <option value="non_commencé">Non commencé</option>
+          <option value="non_commence">Sans induction</option>
           <option value="en_cours">En cours</option>
           <option value="complete">Complété</option>
           <option value="valide">Validé</option>
@@ -903,16 +903,21 @@ function InductionPageInner() {
                     if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
                       const recId = p.inductionrecord?.id || p.induction_record_id
-                    if(recId) {
                         const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
                         const token = localStorage.getItem('access_token') || ''
-                        await fetch(`${BASE}/api/induction-records/${recId}/`, {
+                    if(recId) {
+                        const resp = await fetch(`${BASE}/api/induction-records/${recId}/`, {
                           method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
                         })
+                        if(!resp.ok && resp.status !== 404) {
+                          const err = await resp.text()
+                          throw new Error(`HTTP ${resp.status}: ${err.slice(0,100)}`)
+                        }
                       }
-                      // Nettoyer localStorage
-                      const lsKey = `rzi_induction_v3_${p.id}`
-                      localStorage.removeItem(lsKey)
+                      // Nettoyer toutes les clés localStorage de cet agent
+                      Object.keys(localStorage).filter(k=>k.includes(`_${p.id}`)||k.includes(`${p.id}_`)).forEach(k=>localStorage.removeItem(k))
+                      localStorage.removeItem(`rzi_induction_v3_${p.id}`)
+                      alert(`✅ Parcours de ${p.nom} ${p.prenom} supprimé`)
                       load()
                     } catch(e) { alert('Erreur: '+e.message) }
                   }} title="Supprimer le parcours d'induction"
@@ -1267,6 +1272,19 @@ function InductionPageInner() {
                                     }}/>
                                   {formData[c.key]?'✅ Photo chargée':'📷 Charger une photo'}
                                 </label>
+                              ) : c.type==='select_staff' ? (
+                                <select value={formData[c.key]||''} style={inp}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}>
+                                  <option value="">-- Sélectionner --</option>
+                                  {(staffMap[c.profil]||[]).map(p=>(
+                                    <option key={p.id} value={`${p.nom} ${p.prenom} · ${p.numero||p.email||''}`}>
+                                      {p.nom} {p.prenom} {p.numero?`· ${p.numero}`:''}
+                                    </option>
+                                  ))}
+                                  {(staffMap[c.profil]||[]).length===0 && (
+                                    <option disabled>Aucun personnel disponible</option>
+                                  )}
+                                </select>
                               ) : (
                                 <input type={c.type} value={formData[c.key]||''}
                                   onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
