@@ -1468,7 +1468,6 @@ export default function Boutique() {
         </div>
       )}
 
-      {/* ══ ONGLET GESTION STOCK ══ */}
       {tab==='stock' && (
         <div style={{padding:'0 4px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
@@ -1592,119 +1591,6 @@ export default function Boutique() {
                 <div style={{fontSize:12,color:'#64748b',fontWeight:600}}>{l}</div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ══ GESTION STOCK ══ */}
-      {tab==='stock' && (
-        <div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-            <div>
-              <div style={{fontWeight:800,fontSize:18,color:'#1e3a8a'}}>📊 Gestion des Stocks</div>
-              <div style={{fontSize:12,color:'#64748b'}}>{articles.length} articles</div>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>boutiqueAPI.articles({page_size:500}).then(r=>setArticles(r.data.results||r.data||[]))}
-                style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:9,padding:'8px 14px',
-                  fontSize:12,fontWeight:700,cursor:'pointer',color:'#1d4ed8'}}>
-                🔄 Actualiser
-              </button>
-              <label style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:9,padding:'8px 14px',
-                fontSize:12,fontWeight:700,cursor:'pointer',color:'#166534',display:'flex',alignItems:'center',gap:6}}>
-                📤 Import CSV
-                <input type="file" accept=".csv" style={{display:'none'}} onChange={async e=>{
-                  const file = e.target.files?.[0]; if(!file) return
-                  const text = await file.text()
-                  const lines = text.split('\n').filter(l=>l.trim())
-                  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase())
-                  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-                  const token = localStorage.getItem('access_token') || ''
-                  let ok=0, fail=0
-                  for(const line of lines.slice(1)){
-                    const vals = line.split(',')
-                    const obj={}; headers.forEach((h,i)=>{ obj[h]=vals[i]?.trim() })
-                    if(!obj.nom) continue
-                    try {
-                      await fetch(`${BASE}/api/boutique/articles/`, {
-                        method:'POST',
-                        headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                        body:JSON.stringify({nom:obj.nom,categorie:obj.categorie||'autre',
-                          prix:parseFloat(obj.prix||0),stock:parseInt(obj.stock||0)})
-                      }); ok++
-                    } catch{ fail++ }
-                  }
-                  alert(`Import terminé: ${ok} articles créés, ${fail} erreurs`)
-                  boutiqueAPI.articles({page_size:500}).then(r=>setArticles(r.data.results||r.data||[]))
-                }}/>
-              </label>
-            </div>
-          </div>
-          {/* Résumé */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
-            {[
-              {l:'Total articles',v:articles.length,c:'#1e3a8a',bg:'#eff6ff'},
-              {l:'🔴 Rupture',v:articles.filter(a=>(a.stock||0)===0).length,c:'#dc2626',bg:'#fef2f2'},
-              {l:'⚠️ Stock faible',v:articles.filter(a=>{const s=a.stock||0;return s>0&&s<=(a.stock_min||5)}).length,c:'#d97706',bg:'#fffbeb'},
-              {l:'✅ Stock OK',v:articles.filter(a=>(a.stock||0)>(a.stock_min||5)).length,c:'#16a34a',bg:'#f0fdf4'},
-            ].map(({l,v,c,bg})=>(
-              <div key={l} style={{background:bg,borderRadius:12,padding:'14px 16px'}}>
-                <div style={{fontSize:26,fontWeight:900,color:c}}>{v}</div>
-                <div style={{fontSize:12,color:'#64748b',fontWeight:600,marginTop:2}}>{l}</div>
-              </div>
-            ))}
-          </div>
-          {/* Tableau */}
-          <div style={{overflowX:'auto',borderRadius:12,border:'1px solid #e2e8f0'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-              <thead>
-                <tr style={{background:'#f8fafc'}}>
-                  {['Article','Catégorie','Prix','Stock actuel','Statut','Actions'].map(h=>(
-                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap',borderBottom:'2px solid #e2e8f0'}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...articles].sort((a,b)=>(a.stock||0)-(b.stock||0)).map((a,i)=>{
-                  const stock = a.stock||0
-                  const seuil = a.stock_min||a.seuil_alerte||5
-                  const critique = stock===0, faible = stock>0&&stock<=seuil
-                  return (
-                    <tr key={a.id} style={{borderBottom:'1px solid #f1f5f9',
-                      background:critique?'#fff5f5':faible?'#fffbeb':i%2===0?'#fff':'#fafafa'}}>
-                      <td style={{padding:'10px 14px',fontWeight:600}}>{a.nom}</td>
-                      <td style={{padding:'10px 14px'}}>
-                        <span style={{background:'#f1f5f9',padding:'2px 8px',borderRadius:99,fontSize:11}}>{a.categorie||'—'}</span>
-                      </td>
-                      <td style={{padding:'10px 14px',fontWeight:600}}>{(a.prix||0).toLocaleString()} F</td>
-                      <td style={{padding:'10px 14px'}}>
-                        <span style={{fontWeight:800,fontSize:16,
-                          color:critique?'#dc2626':faible?'#d97706':'#16a34a'}}>{stock}</span>
-                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
-                      </td>
-                      <td style={{padding:'10px 14px'}}>
-                        <span style={{padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,
-                          background:critique?'#fee2e2':faible?'#fef3c7':'#dcfce7',
-                          color:critique?'#dc2626':faible?'#92400e':'#166534'}}>
-                          {critique?'🔴 Rupture':faible?'⚠️ Faible':'✅ OK'}
-                        </span>
-                      </td>
-                      <td style={{padding:'10px 14px'}}>
-                        <div style={{display:'flex',gap:6}}>
-                          {[['add','➕','#16a34a','#f0fdf4'],['subtract','➖','#ea580c','#fff7ed'],['set','🔢','#1d4ed8','#eff6ff']].map(([op,icon,c,bg])=>(
-                            <button key={op} onClick={()=>{setStockModal(a);setStockOp(op);setStockQte(op==='set'?stock:0);setStockRaison(op==='set'?'Inventaire':'')}}
-                              style={{background:bg,color:c,border:`1px solid ${bg}`,borderRadius:7,
-                                padding:'5px 9px',cursor:'pointer',fontSize:13,fontWeight:700}}>
-                              {icon}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
