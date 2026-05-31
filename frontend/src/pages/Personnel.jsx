@@ -366,7 +366,17 @@ export default function Personnel() {
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['☐','Nom','Type','Société','Contact','Date création','Actions'].map(h => (
+                  <th style={{padding:'12px 14px',width:40}}>
+                    <input type="checkbox"
+                      checked={filtered.length>0 && filtered.every(p=>selected_ids.has(p.id))}
+                      onChange={e=>{
+                        if(e.target.checked) setSelectedIds(new Set(filtered.map(p=>p.id)))
+                        else setSelectedIds(new Set())
+                      }}
+                      title="Tout sélectionner/désélectionner"
+                      style={{width:16,height:16,cursor:'pointer'}}/>
+                  </th>
+                  {['Nom','Type','Société','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
