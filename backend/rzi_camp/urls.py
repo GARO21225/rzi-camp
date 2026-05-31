@@ -143,12 +143,47 @@ def setup_db(request):
     })
 
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def diagnostic(request):
+    from django.db import connection
+    from rest_framework.response import Response
+    import sys
+    result = {
+        'status': 'ok',
+        'database': 'disconnected',
+        'tables': {},
+        'python': sys.version,
+        'django': __import__('django').get_version(),
+    }
+    try:
+        with connection.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM residences_personnel")
+            result['tables']['personnel'] = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM maintenance_incident")
+            result['tables']['incidents'] = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
+            result['tables']['consommations'] = c.fetchone()[0]
+        result['database'] = 'connected'
+    except Exception as e:
+        result['database_error'] = str(e)
+    return Response(result)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def version(request):
+    from rest_framework.response import Response
+    return Response({'version': 'v6.1', 'app': 'RZI Camp ERP', 'env': 'production'})
+
 urlpatterns = [
     path('api/induction/', include('induction.api.urls')),
     path('admin/', admin.site.urls),
     path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/setup-db/', setup_db, name='setup_db'),
+    path('api/diagnostic/', diagnostic, name='diagnostic'),
+    path('api/version/', version, name='version'),
     path('api/test-boutique/', test_boutique, name='test_boutique'),
     path('api/', include('residences.urls')),
     path('api/', include('maintenance.urls')),
