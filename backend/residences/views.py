@@ -82,6 +82,20 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         data = dict(response.data)
         data["login_genere"] = username
         data["password_genere"] = password
+        # Notifier les agents d'accueil (profil=admin ou agent)
+        try:
+            from evenements.models import SimpleNotification
+            from django.contrib.auth.models import User
+            agents = User.objects.filter(is_active=True).exclude(id=request.user.id)[:10]
+            for u in agents:
+                SimpleNotification.objects.create(
+                    user=u,
+                    titre='👋 Nouveau personnel arrivé',
+                    message=f"{p.prenom} {p.nom} ({p.societe}) vient d'être enregistré. Préparez l'accueil et l'induction QHSE.",
+                    type_notif='induction', lu=False
+                )
+        except Exception:
+            pass
         return Response(data, status=201)
 
 
