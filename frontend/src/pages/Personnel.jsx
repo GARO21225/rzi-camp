@@ -35,6 +35,8 @@ export default function Personnel() {
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
   const [typeFilter,   setTypeFilter]   = useState('')
+  const [profilFilter, setProfilFilter] = useState('')
+  const [societeFilter,setSocieteFilter]= useState('')
   const [modal,        setModal]        = useState(null)   // null | 'new' | personnel object
   const [qrModal,      setQrModal]      = useState(null)
   const [masseModal,   setMasseModal]   = useState(false)
