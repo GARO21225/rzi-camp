@@ -826,6 +826,9 @@ export default function Boutique() {
   const [newCatLabel,  setNewCatLabel]  = useState('')
   const [bonAgent,     setBonAgent]     = useState(null)
   const [analyses,     setAnalyses]     = useState(null)
+  const [histSearch,  setHistSearch]  = useState('')
+  const [histDate,    setHistDate]    = useState('')
+  const [histMode,    setHistMode]    = useState('')
   const [analysesPeriode, setAnalysesPeriode] = useState('30j')
   const [analysesLoading, setAnalysesLoading] = useState(false)   // solde bon de caisse agent
   const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
@@ -1328,7 +1331,13 @@ export default function Boutique() {
               ✕ Reset
             </button>
             <button onClick={()=>{
-              const rows = consosFiltered.map(c=>[
+              const cf = consos.filter(c => {
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
+              if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
+              if (histMode && (c.mode_paiement||'especes') !== histMode) return false
+              return true
+            })
+            const rows = cf.map(c=>[
                 c.date_conso ? new Date(c.date_conso).toLocaleDateString('fr-FR') : '',
                 new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
                 c.personnel_nom||'—',c.article_nom||'',c.quantite,c.montant,c.mode_paiement||'especes'
@@ -1343,12 +1352,9 @@ export default function Boutique() {
           </div>
           {(() => {
             const consosFiltered = consos.filter(c => {
-              if (histSearch) {
-                const q = histSearch.toLowerCase()
-                if (![(c.personnel_nom||''),(c.article_nom||'')].some(v=>v.toLowerCase().includes(q))) return false
-              }
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
               if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
-              if (histMode && c.mode_paiement !== histMode) return false
+              if (histMode && (c.mode_paiement||'especes') !== histMode) return false
               return true
             })
             return consosFiltered.length===0?(
