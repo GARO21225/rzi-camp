@@ -474,6 +474,25 @@ function InductionPageInner() {
     }
   }, [])
 
+  // Charger le personnel par profil pour les assignations
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json()).then(d=>{
+        const list = d.results || d || []
+        const byProfil = (profils) => {
+          const found = list.filter(p => profils.includes(p.profil))
+          return found.length > 0 ? found : list
+        }
+        setStaffMap({
+          accueil: byProfil(['accueil', 'admin', 'agent', 'securite']),
+          qhse:    byProfil(['hse', 'admin', 'technicien', 'manager']),
+          medical: byProfil(['medical', 'admin']),
+        })
+      }).catch(()=>{})
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
