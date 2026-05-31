@@ -139,3 +139,46 @@ html[data-theme="dark"] .form-control:focus { box-shadow: 0 0 0 3px rgba(91,141,
 button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(--c-accent); }
 .btn-gold { background: var(--c-accent); }
 .btn-gold:hover { background: color-mix(in srgb, var(--c-accent) 85%, #000); }
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — Mobile first
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Sidebar cachée sur mobile */
+  .sidebar { transform: translateX(-100%); transition: transform .25s ease; z-index: 200; }
+  .sidebar.open { transform: translateX(0); }
+  .main-scroll { margin-left: 0 !important; }
+
+  /* Tables scrollables */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+
+  /* Grilles → colonnes */
+  .grid-auto { grid-template-columns: 1fr !important; }
+  .kpi-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Formulaires pleine largeur */
+  .form-row { flex-direction: column !important; }
+  .form-control { width: 100% !important; max-width: 100% !important; }
+
+  /* Boutons toolbar → wrap */
+  .toolbar { flex-wrap: wrap !important; }
+  .toolbar button { flex: 1; min-width: 120px; }
+
+  /* Modals plein écran */
+  .modal-box { width: 100% !important; max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important; position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important; }
+
+  /* Texte adapté */
+  h1 { font-size: 20px !important; }
+  h2 { font-size: 16px !important; }
+  .kpi-value { font-size: 28px !important; }
+  .topbar { padding: 0 12px !important; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  .hide-mobile { display: none !important; }
+  .font-sm-mobile { font-size: 11px !important; }
+}
