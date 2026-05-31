@@ -709,6 +709,3 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   100% { background-position: -200% center; }
 }
 
-/* ── Pages — remplissage plein écran ── */
-.main-scroll > * { flex: 1; min-height: 100%; }
-.main-scroll { height: 0; flex: 1; overflow-y: auto; }
