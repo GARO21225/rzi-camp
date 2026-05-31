@@ -182,7 +182,7 @@ export default function Layout() {
   const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: 'light'  }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -222,7 +222,16 @@ export default function Layout() {
           </div>
         )}
 
-        <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
+        {/* Bascule thème */}
+          <button
+            onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); localStorage.setItem('theme', t) }}
+            title="Basculer thème"
+            style={{ background:'rgba(255,255,255,.12)', border:'none', color:'#fff',
+              width:38, height:38, borderRadius:8, cursor:'pointer', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
             style={{ background: notifOpen ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 38, height: 38, borderRadius: 8, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             🔔
