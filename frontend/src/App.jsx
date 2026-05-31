@@ -167,6 +167,9 @@ export default function App() {
           <Route path="workflows" element={<WorkflowHub />} />
           <Route path="induction" element={<InductionPage />} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
+          <Route path="rotations" element={<RotationsPage />} />
+          <Route path="annuaire" element={<AnnuairePage />} />
+          <Route path="reservations" element={<ReservationsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
