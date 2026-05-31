@@ -813,8 +813,8 @@ function InductionPageInner() {
       {/* KPIs Induction */}
       {!loading && (() => {
         const total = personnel.length
-        const induits = personnel.filter(p => progression(p) === 100 || (p.inductionrecord && (p.inductionrecord.statut==='complete'||p.inductionrecord.statut==='valide'))).length
-        const enCours = personnel.filter(p => { const pr=progression(p); return pr>0 && pr<100 && !(p.inductionrecord?.statut==='complete'||p.inductionrecord?.statut==='valide') }).length
+        const induits = personnel.filter(p => p.inductionrecord && p.inductionrecord.statut==='valide').length
+        const enCours = personnel.filter(p => p.inductionrecord && p.inductionrecord.statut==='en_cours').length
         const aDemarrer = total - induits - enCours
         return (
           <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
@@ -851,8 +851,8 @@ function InductionPageInner() {
           <option value="">Tous les statuts</option>
           <option value="non_commence">Sans induction</option>
           <option value="en_cours">En cours</option>
-          <option value="complete">Complété</option>
-          <option value="valide">Validé</option>
+          <option value="valide">Validé ✅</option>
+          <option value="refuse">Refusé</option>
           <option value="expire">Expiré</option>
         </select>
         <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
@@ -887,6 +887,26 @@ function InductionPageInner() {
                     <div style={{fontSize:11,color:'#64748b'}}>
                       {TYPES.find(t=>t.v===p.type_personnel)?.l} · {p.societe||'—'}
                     </div>
+                    {(() => {
+                      const wfData = wf(p)
+                      const fd = wfData?.formData || {}
+                      const assigns = [
+                        fd.agent_accueil && {icon:'👋',label:'Accueil',val:fd.agent_accueil},
+                        fd.formateur_qhse && {icon:'🛡️',label:'QHSE',val:fd.formateur_qhse},
+                        fd.medecin_camp && {icon:'🩺',label:'Médecin',val:fd.medecin_camp},
+                      ].filter(Boolean)
+                      if (!assigns.length) return null
+                      return (
+                        <div style={{marginTop:4,display:'flex',flexWrap:'wrap',gap:4}}>
+                          {assigns.map(a=>(
+                            <span key={a.icon} style={{fontSize:10,background:'#eff6ff',color:'#1e3a8a',
+                              padding:'2px 6px',borderRadius:99,fontWeight:600}}>
+                              {a.icon} {a.val.split('·')[0].trim()}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,
