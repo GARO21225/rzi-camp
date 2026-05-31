@@ -209,7 +209,7 @@ export default function Login() {
           </div>
 
           <div style={{ marginTop:40, paddingTop:24, borderTop:'1px solid rgba(255,255,255,.08)', display:'flex', justifyContent:'center', gap:16 }}>
-            {['🏭 Roxgold Mining','🌍 Côte d'Ivoire','🔒 Sécurisé'].map(t=>(
+            {['🏭 Roxgold Mining','🌍 Côte d\'Ivoire','🔒 Sécurisé'].map(t=>(
               <span key={t} style={{ fontSize:11, color:'rgba(255,255,255,.2)', fontWeight:500 }}>{t}</span>
             ))}
           </div>
