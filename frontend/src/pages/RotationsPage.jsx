@@ -1,57 +1,77 @@
 import React, { useState, useEffect, useCallback } from 'react'
 
 const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-const token = () => localStorage.getItem('access_token') || ''
-const headers = () => ({ 'Content-Type':'application/json', 'Authorization':`Bearer ${token()}` })
+const hdrs = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem('access_token')||''}`
+})
+
+const STATUTS = {
+  planifie:  { l:'Planifié',        c:'#3b82f6' },
+  en_voyage: { l:'En voyage',       c:'#f97316' },
+  retour:    { l:'Retour au camp',  c:'#16a34a' },
+  annule:    { l:'Annulé',          c:'#94a3b8' },
+}
+
+const inp = {
+  width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
+  padding:'10px 12px', fontSize:13, outline:'none',
+  boxSizing:'border-box', fontFamily:'inherit'
+}
 
 export default function RotationsPage() {
-  const [rotations, setRotations] = useState([])
+  const [voyages,   setVoyages]   = useState([])
+  const [personnel, setPersonnel] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [modal,     setModal]     = useState(false)
-  const [form,      setForm]      = useState({
-    personnel_id:'', date_depart:'', date_retour:'',
-    site_depart:'Camp Roxgold Sango', site_arrivee:'',
-    type_rotation:'depart', notes:''
-  })
-  const [personnel, setPersonnel] = useState([])
   const [search,    setSearch]    = useState('')
+  const [statFilter,setStatFilter]= useState('')
+  const [form,      setForm]      = useState({
+    personnel:'', destination:'', motif:'',
+    date_depart:'', date_retour_prevue:''
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      // Rotations = voyages avec type rotation
-      const r = await fetch(`${BASE}/api/voyages/?page_size=200`, { headers: headers() })
+      const r = await fetch(`${BASE}/api/voyages/?page_size=200`, { headers: hdrs() })
       const d = await r.json()
-      setRotations(d.results || d || [])
-    } catch(e) {}
+      setVoyages(d.results || d || [])
+    } catch(e) { console.error(e) }
     setLoading(false)
   }, [])
 
   useEffect(() => {
     load()
-    fetch(`${BASE}/api/personnel/?page_size=200`, { headers: headers() })
+    fetch(`${BASE}/api/personnel/?page_size=200`, { headers: hdrs() })
       .then(r=>r.json()).then(d=>setPersonnel(d.results||d||[])).catch(()=>{})
   }, [load])
 
-  const filtered = rotations.filter(r => {
+  const filtered = voyages.filter(v => {
     const q = search.toLowerCase()
-    return !q || [r.destination, r.agent_nom, r.personnel_nom].some(v=>(v||'').toLowerCase().includes(q))
+    const matchS = !statFilter || v.statut === statFilter
+    const matchQ = !q || [v.destination,v.personnel_nom,v.motif].some(x=>(x||'').toLowerCase().includes(q))
+    return matchS && matchQ
   })
 
-  const statColor = s => ({
-    'prevu':'#3b82f6','en_route':'#f97316','arrive':'#16a34a','annule':'#94a3b8'
-  }[s]||'#64748b')
+  const setStatut = async (id, statut) => {
+    await fetch(`${BASE}/api/voyages/${id}/`, {
+      method:'PATCH', headers:hdrs(), body:JSON.stringify({statut})
+    })
+    load()
+  }
 
-  const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
-    padding:'10px 12px', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }
+  const counts = st => voyages.filter(v=>v.statut===st).length
 
   return (
-    <div style={{padding:'16px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:10}}>
+    <div style={{padding:16}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',
+        marginBottom:20,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>🔄 Gestion des Rotations</h1>
+          <h1 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>🔄 Rotations du Personnel</h1>
           <div style={{fontSize:13,color:'#64748b',marginTop:4}}>
-            Entrées et sorties du camp · {rotations.length} mouvement(s)
+            Sorties et retours au camp · {voyages.length} mouvement(s)
           </div>
         </div>
         <button onClick={()=>setModal(true)}
@@ -62,34 +82,42 @@ export default function RotationsPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:12,marginBottom:20}}>
-        {[
-          ['🚀 Départs',   rotations.filter(r=>r.statut==='prevu').length,   '#3b82f6'],
-          ['🚌 En route',  rotations.filter(r=>r.statut==='en_route').length, '#f97316'],
-          ['✅ Arrivés',   rotations.filter(r=>r.statut==='arrive').length,   '#16a34a'],
-          ['❌ Annulés',   rotations.filter(r=>r.statut==='annule').length,   '#94a3b8'],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{background:'#fff',borderRadius:12,padding:'14px 16px',
-            boxShadow:'0 1px 4px rgba(0,0,0,.06)',borderLeft:`4px solid ${c}`}}>
-            <div style={{fontSize:22,fontWeight:900,color:c}}>{v}</div>
-            <div style={{fontSize:11,color:'#64748b',fontWeight:600}}>{l}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+        {Object.entries(STATUTS).map(([k,{l,c}])=>(
+          <div key={k} onClick={()=>setStatFilter(statFilter===k?'':k)} style={{
+            background:'#fff',borderRadius:12,padding:'14px 16px',
+            boxShadow:'0 1px 4px rgba(0,0,0,.06)',borderLeft:`4px solid ${c}`,
+            cursor:'pointer',opacity:statFilter&&statFilter!==k?.5:1,
+            transition:'opacity .2s'}}>
+            <div style={{fontSize:24,fontWeight:900,color:c}}>{counts(k)}</div>
+            <div style={{fontSize:12,color:'#64748b',fontWeight:600}}>{l}</div>
           </div>
         ))}
       </div>
 
-      {/* Recherche */}
-      <div style={{marginBottom:16}}>
+      {/* Filtres */}
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="🔍 Rechercher par nom, destination..."
-          style={{...inp,maxWidth:360}}/>
+          placeholder="🔍 Rechercher..." style={{...inp,maxWidth:300}}/>
+        <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{...inp,maxWidth:180}}>
+          <option value="">Tous les statuts</option>
+          {Object.entries(STATUTS).map(([k,{l}])=><option key={k} value={k}>{l}</option>)}
+        </select>
+        {statFilter && (
+          <button onClick={()=>setStatFilter('')}
+            style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
+              cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:700}}>
+            ✕ Reset
+          </button>
+        )}
       </div>
 
-      {/* Liste */}
+      {/* Table */}
       <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,0,0,.06)',overflow:'hidden'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
           <thead>
             <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-              {['Personnel','Départ','Retour','Destination','Statut','Actions'].map(h=>(
+              {['Personnel','Destination','Départ','Retour prévu','Statut','Actions'].map(h=>(
                 <th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:11,
                   fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>{h}</th>
               ))}
@@ -99,49 +127,52 @@ export default function RotationsPage() {
             {loading ? (
               <tr><td colSpan={6} style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Aucune rotation</td></tr>
-            ) : filtered.map((r,i)=>(
-              <tr key={r.id} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'#fff':'#fafafa'}}>
-                <td style={{padding:'12px 16px',fontWeight:600}}>{r.agent_nom||r.personnel_nom||'—'}</td>
-                <td style={{padding:'12px 16px'}}>{r.date_depart?.slice(0,10)||'—'}</td>
-                <td style={{padding:'12px 16px'}}>{r.date_retour?.slice(0,10)||'—'}</td>
-                <td style={{padding:'12px 16px'}}>{r.destination||'—'}</td>
-                <td style={{padding:'12px 16px'}}>
-                  <span style={{background:statColor(r.statut)+'22',color:statColor(r.statut),
-                    padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                    {r.statut||'prévu'}
-                  </span>
-                </td>
-                <td style={{padding:'12px 16px'}}>
-                  <div style={{display:'flex',gap:6}}>
-                    {['en_route','arrive'].includes(r.statut) ? null : (
-                      <button onClick={async()=>{
-                        await fetch(`${BASE}/api/voyages/${r.id}/`,{
-                          method:'PATCH',headers:headers(),
-                          body:JSON.stringify({statut:'en_route'})
-                        })
-                        load()
-                      }} style={{background:'#fff7ed',color:'#ea580c',border:'1px solid #fed7aa',
-                        borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
-                        🚌 En route
-                      </button>
-                    )}
-                    {r.statut==='en_route' && (
-                      <button onClick={async()=>{
-                        await fetch(`${BASE}/api/voyages/${r.id}/`,{
-                          method:'PATCH',headers:headers(),
-                          body:JSON.stringify({statut:'arrive'})
-                        })
-                        load()
-                      }} style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',
-                        borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
-                        ✅ Arrivé
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan={6} style={{padding:40,textAlign:'center',color:'#94a3b8'}}>
+                Aucune rotation{statFilter?` avec statut "${STATUTS[statFilter]?.l}"`:''}</td></tr>
+            ) : filtered.map((v,i)=>{
+              const st = STATUTS[v.statut] || {l:v.statut,c:'#64748b'}
+              return (
+                <tr key={v.id} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'#fff':'#fafafa'}}>
+                  <td style={{padding:'12px 16px',fontWeight:600}}>
+                    {v.personnel_nom || v.personnel_prenom || v.agent_nom || '—'}
+                  </td>
+                  <td style={{padding:'12px 16px'}}>{v.destination||'—'}</td>
+                  <td style={{padding:'12px 16px'}}>{v.date_depart||'—'}</td>
+                  <td style={{padding:'12px 16px'}}>{v.date_retour_prevue||'—'}</td>
+                  <td style={{padding:'12px 16px'}}>
+                    <span style={{background:st.c+'22',color:st.c,
+                      padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                      {st.l}
+                    </span>
+                  </td>
+                  <td style={{padding:'12px 16px'}}>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      {v.statut==='planifie' && (
+                        <button onClick={()=>setStatut(v.id,'en_voyage')}
+                          style={{background:'#fff7ed',color:'#ea580c',border:'1px solid #fed7aa',
+                            borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          🚌 Partir
+                        </button>
+                      )}
+                      {v.statut==='en_voyage' && (
+                        <button onClick={()=>setStatut(v.id,'retour')}
+                          style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',
+                            borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          ✅ Retour camp
+                        </button>
+                      )}
+                      {v.statut==='planifie' && (
+                        <button onClick={()=>setStatut(v.id,'annule')}
+                          style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                            borderRadius:7,padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          ✕ Annuler
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -151,22 +182,30 @@ export default function RotationsPage() {
         <div onClick={e=>e.target===e.currentTarget&&setModal(false)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:500,
+          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:520,
             boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
             <div style={{fontWeight:800,fontSize:17,marginBottom:20,color:'#1e3a8a'}}>
               🔄 Nouvelle rotation
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>
-                  PERSONNEL *
-                </label>
-                <select value={form.personnel_id} onChange={e=>setForm({...form,personnel_id:e.target.value})} style={inp}>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>PERSONNEL *</label>
+                <select value={form.personnel} onChange={e=>setForm({...form,personnel:e.target.value})} style={inp}>
                   <option value="">-- Sélectionner --</option>
                   {personnel.map(p=>(
                     <option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe||'—'}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESTINATION *</label>
+                <input value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})}
+                  placeholder="Ex: Abidjan, Yamoussoukro..." style={inp}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>MOTIF</label>
+                <input value={form.motif} onChange={e=>setForm({...form,motif:e.target.value})}
+                  placeholder="Raison du déplacement..." style={inp}/>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div>
@@ -174,44 +213,38 @@ export default function RotationsPage() {
                   <input type="date" value={form.date_depart} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DATE RETOUR</label>
-                  <input type="date" value={form.date_retour} onChange={e=>setForm({...form,date_retour:e.target.value})} style={inp}/>
+                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>RETOUR PRÉVU *</label>
+                  <input type="date" value={form.date_retour_prevue} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
                 </div>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESTINATION *</label>
-                <input value={form.site_arrivee} onChange={e=>setForm({...form,site_arrivee:e.target.value})}
-                  placeholder="Ex: Abidjan, Dakar, Site principal..." style={inp}/>
-              </div>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>NOTES</label>
-                <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}
-                  rows={2} style={{...inp,resize:'vertical'}} placeholder="Motif, détails..."/>
               </div>
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
                 <button onClick={()=>setModal(false)}
-                  style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
-                  Annuler
-                </button>
+                  style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',
+                    cursor:'pointer',fontSize:13}}>Annuler</button>
                 <button onClick={async()=>{
-                  if (!form.personnel_id||!form.date_depart||!form.site_arrivee) {
-                    alert('Remplissez les champs obligatoires')
+                  if (!form.personnel||!form.destination||!form.date_depart||!form.date_retour_prevue) {
+                    alert('Remplissez tous les champs obligatoires (*)')
                     return
                   }
-                  await fetch(`${BASE}/api/voyages/`,{
-                    method:'POST', headers:headers(),
+                  const r = await fetch(`${BASE}/api/voyages/`, {
+                    method:'POST', headers:hdrs(),
                     body:JSON.stringify({
-                      personnel: form.personnel_id,
+                      personnel: parseInt(form.personnel),
+                      destination: form.destination,
+                      motif: form.motif,
                       date_depart: form.date_depart,
-                      date_retour: form.date_retour||null,
-                      destination: form.site_arrivee,
-                      notes: form.notes,
-                      statut:'prevu'
+                      date_retour_prevue: form.date_retour_prevue,
+                      statut:'planifie'
                     })
                   })
-                  setModal(false)
-                  setForm({personnel_id:'',date_depart:'',date_retour:'',site_depart:'Camp Roxgold Sango',site_arrivee:'',type_rotation:'depart',notes:''})
-                  load()
+                  if (r.ok) {
+                    setModal(false)
+                    setForm({personnel:'',destination:'',motif:'',date_depart:'',date_retour_prevue:''})
+                    load()
+                  } else {
+                    const err = await r.json()
+                    alert('Erreur: ' + JSON.stringify(err))
+                  }
                 }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
                   padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
                   ✅ Enregistrer
