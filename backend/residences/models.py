@@ -25,6 +25,8 @@ class Personnel(models.Model):
         ("boutique",    "Bar & Boutique"),
         ("securite",    "Sécurité"),
         ("medical",     "Médical"),
+        ("hse",         "HSE / QHSE"),
+        ("accueil",     "Agent d'accueil"),
         ("manager",     "Manager / Responsable"),
     ]
     TYPE_PREFIX = {"roxgold": "a", "sous_traitant": "s", "visiteur": "v"}
