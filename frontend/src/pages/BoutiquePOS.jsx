@@ -11,6 +11,7 @@ export default function BoutiquePOS() {
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
 
   const [waking,     setWaking]     = useState(false)
+  const [debugLog,   setDebugLog]   = useState([])
   const [articles,   setArticles]   = useState([])
   const [consos,     setConsos]     = useState([])
   const [personnel,  setPersonnel]  = useState([])
@@ -115,7 +116,9 @@ export default function BoutiquePOS() {
       xhr.timeout = 30000
       xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
-          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText })
+          const ok2 = xhr.status >= 200 && xhr.status < 300
+          setDebugLog(l => [...l.slice(-4), `${ok2?'✅':'❌'} HTTP ${xhr.status}: ${xhr.responseText?.slice(0,120)}`])
+          resolve({ ok: ok2, status: xhr.status, body: xhr.responseText })
         }
       }
       xhr.onerror = () => { console.log('[Boutique] XHR error'); reject(new Error('Réseau indisponible')) }
@@ -161,6 +164,14 @@ export default function BoutiquePOS() {
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit' }}>
 
+      {/* Debug log (visible sur mobile sans console) */}
+      {debugLog.length > 0 && (
+        <details style={{ background:'#0f172a', borderRadius:8, padding:'6px 10px', marginBottom:8, fontSize:10 }}>
+          <summary style={{ color:'#94a3b8', cursor:'pointer' }}>🔍 Debug ({debugLog.length})</summary>
+          {debugLog.map((l,i)=><div key={i} style={{color:'#e2e8f0',fontFamily:'monospace',marginTop:2}}>{l}</div>)}
+          <button onClick={()=>setDebugLog([])} style={{background:'#334155',color:'#fff',border:'none',borderRadius:4,padding:'2px 8px',cursor:'pointer',marginTop:4,fontSize:10}}>Effacer</button>
+        </details>
+      )}
       {/* Banner réveil serveur */}
       {waking && (
         <div style={{ background:'#f59e0b', color:'#fff', padding:'8px 16px',
