@@ -400,6 +400,25 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             "message": f"{created} personnel(s) importé(s), {skipped} ignoré(s)"
         })
 
+    @action(detail=True, methods=['patch'])
+    def toggle_induction(self, request, pk=None):
+        """Toggle induction_requise via SQL direct (champ ajouté via setup_db)"""
+        from django.db import connection
+        from rest_framework.response import Response
+        valeur = request.data.get('induction_requise', True)
+        try:
+            with connection.cursor() as c:
+                # Vérifier si colonne existe
+                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='residences_personnel' AND column_name='induction_requise')")
+                col_exists = c.fetchone()[0]
+                if not col_exists:
+                    c.execute("ALTER TABLE residences_personnel ADD COLUMN induction_requise BOOLEAN NOT NULL DEFAULT TRUE")
+                c.execute("UPDATE residences_personnel SET induction_requise=%s WHERE id=%s", [valeur, pk])
+            return Response({'id': pk, 'induction_requise': valeur})
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+
+
 
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
