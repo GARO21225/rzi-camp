@@ -93,6 +93,19 @@ try:
             )''')
             print('Created maintenance_commentaireincident')
 
+
+        # Colonnes pour archiver les données même si personnel supprimé
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='agent_nom_cache')")
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN agent_nom_cache VARCHAR(200) DEFAULT ''")
+            c.execute("UPDATE restauration_consommationboutique cb SET agent_nom_cache = COALESCE((SELECT nom||' '||prenom FROM residences_personnel WHERE id=cb.personnel_id), agent_nom_cache) WHERE agent_nom_cache='' AND personnel_id IS NOT NULL")
+            print('Added agent_nom_cache to boutique')
+
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='restauration_consommationrepas' AND column_name='agent_nom_cache')")
+        if not c.fetchone()[0]:
+            c.execute("ALTER TABLE restauration_consommationrepas ADD COLUMN agent_nom_cache VARCHAR(200) DEFAULT ''")
+            print('Added agent_nom_cache to repas')
+
         # Ajouter colonne photo_base64 si absente (anciens déploiements)
         c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='maintenance_commentaireincident' AND column_name='photo_base64')")
         if not c.fetchone()[0]:
