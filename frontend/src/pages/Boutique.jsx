@@ -1442,6 +1442,12 @@ export default function Boutique() {
                                 display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
                               ✏️ Modifier
                             </button>
+                            <button onClick={e=>{e.stopPropagation();setStockModal(a);setStockQte(0);setStockOp('add');setStockRaison('')}}
+                              style={{flex:1,background:'#f0fdf4',color:'#16a34a',border:'1.5px solid #bbf7d0',
+                                padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                                display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                              📦 Stock ({a.stock||0})
+                            </button>
                             <button onClick={e=>{e.stopPropagation();setDelConfirm(a)}}
                               style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
                                 padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
