@@ -490,12 +490,16 @@ export default function Personnel() {
                           <button onClick={async()=>{
                               const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
                               const token = localStorage.getItem('access_token') || ''
-                              const newVal = !p.induction_requise
-                              await fetch(`${BASE}/api/personnel/${p.id}/`, {
+                              const newVal = p.induction_requise === false ? true : false
+                              const resp = await fetch(`${BASE}/api/personnel/${p.id}/`, {
                                 method:'PATCH',
                                 headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
                                 body: JSON.stringify({induction_requise: newVal})
                               })
+                              if (!resp.ok) {
+                                const err = await resp.json().catch(()=>({}))
+                                alert('Erreur: ' + JSON.stringify(err))
+                              }
                               load()
                             }}
                             style={{background: p.induction_requise===false?'#fef3c7':'#f0fdf4',
