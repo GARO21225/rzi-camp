@@ -368,7 +368,14 @@ export default function Maintenance() {
         </div>
 
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-          <input value={search} onChange={e=>setSearch(e.target.value)}
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
+          <input type="checkbox"
+            checked={selIds.size===filtered.length && filtered.length>0}
+            onChange={e=>setSelIds(e.target.checked ? new Set(filtered.map(i=>i.id)) : new Set())}
+            style={{width:16,height:16,accentColor:'#1e3a8a',cursor:'pointer'}}/>
+          Tout sélectionner
+        </label>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
           <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
@@ -424,7 +431,7 @@ export default function Maintenance() {
               const pr = PRIOS[inc.priorite] || PRIOS.moyenne
               const wfIdx = WF.findIndex(x => x.s === inc.statut)
               return (
-                <div key={inc.id} onClick={async() => {
+                <div key={inc.id} style={{position:'relative'}} onClick={async() => {
                   setSelected(inc)
                   try {
                     const r = await incAPI.detail(inc.id)
@@ -451,6 +458,14 @@ export default function Maintenance() {
                       <span style={{ background:st.bg, color:st.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{st.l}</span>
                       {isAdmin && (
                         <>
+                          <input type="checkbox"
+                            checked={selIds.has(inc.id)}
+                            onChange={e=>{
+                              e.stopPropagation()
+                              setSelIds(prev=>{const next=new Set(prev);e.target.checked?next.add(inc.id):next.delete(inc.id);return next})
+                            }}
+                            onClick={e=>e.stopPropagation()}
+                            style={{width:16,height:16,cursor:'pointer',accentColor:'#1e3a8a'}}/>
                           <button onClick={e=>{e.stopPropagation();setEditInc({...inc});setShowEdit(true)}}
                             title="Modifier l'incident"
                             style={{ background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
