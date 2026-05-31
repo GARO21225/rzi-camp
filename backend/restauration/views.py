@@ -459,19 +459,31 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                 montant = int(float(row[0]) * qte)
 
                 # INSERT
-                # Récupérer nom de l'agent pour archivage
+                # Archiver le nom de l'agent (tolérant si colonne absente)
                 agent_nom = ''
                 if pers_id:
-                    cur.execute("SELECT nom||' '||prenom FROM residences_personnel WHERE id=%s", [pers_id])
-                    row2 = cur.fetchone()
-                    if row2: agent_nom = row2[0]
-                cur.execute(
-                    "INSERT INTO restauration_consommationboutique"
-                    " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso, agent_nom_cache)"
-                    " VALUES (%s, %s, %s, %s, %s, '', %s, NOW(), %s)"
-                    " RETURNING id",
-                    [art_id, pers_id, qte, montant, mode, uid, agent_nom]
-                )
+                    try:
+                        cur.execute("SELECT nom||' '||prenom FROM residences_personnel WHERE id=%s", [pers_id])
+                        row2 = cur.fetchone()
+                        if row2: agent_nom = row2[0]
+                    except Exception: pass
+                try:
+                    cur.execute(
+                        "INSERT INTO restauration_consommationboutique"
+                        " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso, agent_nom_cache)"
+                        " VALUES (%s, %s, %s, %s, %s, '', %s, NOW(), %s)"
+                        " RETURNING id",
+                        [art_id, pers_id, qte, montant, mode, uid, agent_nom]
+                    )
+                except Exception:
+                    # Fallback sans agent_nom_cache si colonne absente
+                    cur.execute(
+                        "INSERT INTO restauration_consommationboutique"
+                        " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso)"
+                        " VALUES (%s, %s, %s, %s, %s, '', %s, NOW())"
+                        " RETURNING id",
+                        [art_id, pers_id, qte, montant, mode, uid]
+                    )
                 cid = cur.fetchone()[0]
 
                 # Débit bon
