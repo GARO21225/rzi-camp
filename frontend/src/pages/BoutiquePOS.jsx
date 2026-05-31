@@ -162,7 +162,7 @@ export default function BoutiquePOS() {
   const inp = { border: '1px solid #e2e8f0', borderRadius: 9, padding: '8px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' }
 
   return (
-    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit' }}>
+    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit', flex:1, display:'flex', flexDirection:'column' }}>
 
       {/* Debug log (visible sur mobile sans console) */}
       {debugLog.length > 0 && (
