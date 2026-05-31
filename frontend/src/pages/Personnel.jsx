@@ -117,9 +117,35 @@ export default function Personnel() {
     setSelectedIds(new Set()); load()
   }
 
-  const massChangerRole = async (newType) => {
+  const massChangerRole = async (action) => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${token}`}
+    
+    if (action === 'export') {
+      const sel = filtered.filter(p=>selected_ids.has(p.id))
+      const rows = [['NOM','PRENOM','TYPE','SOCIETE','EMAIL','TEL','PROFIL'],
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.email,p.numero,p.profil])]
+      const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n')
+      const a = document.createElement('a')
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+      a.download = 'personnel_selection.csv'
+      a.click()
+      return
+    }
+    
     for (const id of selected_ids) {
-      try { await personnelAPI.update(id, { type_personnel: newType }) } catch(e) {}
+      try {
+        let body = {}
+        if (action.startsWith('type:'))    body = { type_personnel: action.slice(5) }
+        else if (action.startsWith('profil:')) body = { profil: action.slice(7) }
+        else if (action === 'activer')    body = { actif: true }
+        else if (action === 'desactiver') body = { actif: false }
+        else if (action === 'no_induction')   body = { induction_requise: false }
+        else if (action === 'with_induction') body = { induction_requise: true }
+        else body = { type_personnel: action }
+        await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
+      } catch(e) {}
     }
     setSelectedIds(new Set()); load(); setMassAction('')
   }
