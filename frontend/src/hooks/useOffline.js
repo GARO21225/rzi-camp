@@ -4,8 +4,21 @@ const QUEUE_KEY = 'rzi_offline_queue'
 
 export function useOffline() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
-  const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
+  const [syncing, setSyncing] = useState(false)
+
+  const checkBackend = useCallback(async () => {
+    if (!navigator.onLine) { setIsOffline(true); return }
+    try {
+      const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+      const r = await fetch(`${BASE}/api/auth/login/`, {
+        method: 'HEAD', signal: AbortSignal.timeout(5000)
+      }).catch(() => null)
+      setIsOffline(!r)
+    } catch {
+      setIsOffline(true)
+    }
+  }, [])
 
   const flushQueue = useCallback(async () => {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]')
@@ -17,15 +30,14 @@ export function useOffline() {
     let success = 0, failed = []
     for (const op of queue) {
       try {
-        await fetch(`${BASE}${op.url}`, {
+        const r = await fetch(`${BASE}${op.url}`, {
           method: op.method || 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify(op.data)
         })
-        success++
-      } catch (e) {
-        failed.push(op)
-      }
+        if (r.ok) success++
+        else failed.push(op)
+      } catch (e) { failed.push(op) }
     }
     localStorage.setItem(QUEUE_KEY, JSON.stringify(failed))
     setSyncing(false)
@@ -43,11 +55,16 @@ export function useOffline() {
     }
     window.addEventListener('offline', goOffline)
     window.addEventListener('online', goOnline)
+
+    // Vérifier toutes les 30 secondes
+    const interval = setInterval(checkBackend, 30000)
+
     return () => {
       window.removeEventListener('offline', goOffline)
       window.removeEventListener('online', goOnline)
+      clearInterval(interval)
     }
-  }, [flushQueue])
+  }, [flushQueue, checkBackend])
 
   const queueOffline = useCallback((url, data, method = 'POST') => {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]')
