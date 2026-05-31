@@ -158,7 +158,7 @@ export default function Voyages() {
   ]
 
   return (
-    <div style={{ padding:20 }}>
+    <div style={{ padding:16 }}>
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
