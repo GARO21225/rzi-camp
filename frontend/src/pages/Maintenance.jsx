@@ -97,10 +97,12 @@ export default function Maintenance() {
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter(i => {
-    if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||''). toLowerCase().includes(search.toLowerCase()))) return false
+    if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
     if (slaOnly && !i.sla_depasse) return false
+    if (dateDebut && i.date_creation && new Date(i.date_creation) < new Date(dateDebut)) return false
+    if (dateFin && i.date_creation && new Date(i.date_creation) > new Date(dateFin + 'T23:59:59')) return false
     return true
   })
 
@@ -524,7 +526,13 @@ export default function Maintenance() {
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
                     <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
-                      placeholder="Ex: B-12, VIP..." style={inp}/>
+                      placeholder="Ex: B12, B26, VIP..." style={inp}
+                      list="residence-list"/>
+                    <datalist id="residence-list">
+                      {[...new Set(incidents.map(i=>i.residence).filter(Boolean))].map(r=>(
+                        <option key={r} value={r}/>
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
