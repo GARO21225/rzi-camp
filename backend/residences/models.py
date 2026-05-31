@@ -38,6 +38,7 @@ class Personnel(models.Model):
     qr_code_data = models.TextField(blank=True)
     qr_code_string = models.CharField(max_length=500, blank=True)
     actif            = models.BooleanField(default=True)
+    induction_requise = models.BooleanField(default=True)
     profil           = models.CharField(max_length=20, choices=PROFIL_CHOICES,
                        default='agent', blank=True)
 
