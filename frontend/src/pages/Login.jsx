@@ -125,19 +125,19 @@ export default function Login() {
             ⛏️
           </div>
           <div style={{ fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700, textTransform:'uppercase', marginBottom:12 }}>
-            ROXGOLD · RÉSIDENCE SANGO
+            ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
           </div>
           <h1 style={{ fontSize:36, fontWeight:900, color:'#fff', lineHeight:1.1, margin:'0 0 16px', letterSpacing:'-1px' }}>
             RZI Camp<br/>
             <span style={{ color:'#f0a500' }}>Management</span>
           </h1>
           <p style={{ color:'rgba(255,255,255,.45)', fontSize:14, lineHeight:1.7, maxWidth:300, margin:'0 auto' }}>
-            Plateforme de gestion intégrée pour la résidence minière de Sango
+            Plateforme de gestion intégrée du camp minier Roxgold Sango
           </p>
 
           {/* Stats décoratives */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginTop:48 }}>
-            {[['🏠','Résidences','Gestion complète'],['🍽️','Restauration','QR & Caisse'],['🛡️','QHSE','Induction & Sécurité']].map(([icon,lbl,sub])=>(
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginTop:48 }}>
+            {[['🏠','Résidences','Gestion complète'],['🍽️','Restauration','QR & Caisse'],['✈️','Voyages','Gestion déplacements'],['🛡️','QHSE','Induction & Sécurité']].map(([icon,lbl,sub])=>(
               <div key={lbl} style={{ background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:14, padding:'14px 10px' }}>
                 <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
                 <div style={{ fontSize:12, fontWeight:700, color:'#fff' }}>{lbl}</div>
@@ -208,7 +208,7 @@ export default function Login() {
           </div>
 
           <div style={{ marginTop:40, paddingTop:24, borderTop:'1px solid rgba(255,255,255,.08)', display:'flex', justifyContent:'center', gap:16 }}>
-            {['🏭 Roxgold Mining','🌍 Burkina Faso','🔒 Sécurisé'].map(t=>(
+            {['🏭 Roxgold Mining','🌍 Côte d'Ivoire','🔒 Sécurisé'].map(t=>(
               <span key={t} style={{ fontSize:11, color:'rgba(255,255,255,.2)', fontWeight:500 }}>{t}</span>
             ))}
           </div>
