@@ -234,6 +234,36 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token", "qr_token__personnel", "valide_par", "personnel").all()
     serializer_class = RepasLogSerializer
 
+
+    @action(detail=False, methods=['get'])
+    def stats_jour(self, request):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        from datetime import timedelta
+        today = tz.now().date()
+        week_start = today - timedelta(days=6)
+        try:
+            with connection.cursor() as c:
+                c.execute(
+                    "SELECT type_repas, COUNT(*) FROM restauration_repaslog"
+                    " WHERE DATE(date_validation)=%s GROUP BY type_repas", [today])
+                rows = dict(c.fetchall())
+                c.execute(
+                    "SELECT COUNT(*) FROM restauration_repaslog"
+                    " WHERE DATE(date_validation)>=%s", [week_start])
+                semaine = c.fetchone()[0]
+            return Response({
+                'today': today.isoformat(),
+                'total_jour': sum(rows.values()),
+                'petit_dejeuner': rows.get('petit_dejeuner', 0),
+                'dejeuner': rows.get('dejeuner', 0),
+                'diner': rows.get('diner', 0),
+                'semaine': semaine,
+            })
+        except Exception as e:
+            return Response({'error': str(e), 'total_jour': 0, 'semaine': 0})
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
