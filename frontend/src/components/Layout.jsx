@@ -221,7 +221,7 @@ export default function Layout() {
         </button>
 
         <div style={{ background: '#fff', borderRadius: 8, padding: '3px 9px', flexShrink: 0 }}>
-          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 32, objectFit: 'contain', display: 'block' }} />
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgMTIwIiB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCI+CiAgPHJlY3Qgd2lkdGg9IjEyMCIgaGVpZ2h0PSIxMjAiIHJ4PSIyMiIgZmlsbD0iI2YwYTUwMCIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYwLDU2KSI+CiAgICA8cmVjdCB4PSItNCIgeT0iLTgiIHdpZHRoPSI4IiBoZWlnaHQ9IjQyIiByeD0iNCIgZmlsbD0iIzFhMWExYSIgdHJhbnNmb3JtPSJyb3RhdGUoLTQyKSIvPgogICAgPHBhdGggZD0iTS0yOCwtMjggTC0xMiwtMTIgUTAsLTQgMTIsLTEyIEwyOCwtMjggUTE2LC00MiAwLC0zOCBRLTE2LC00MiAtMjgsLTI4IFoiIGZpbGw9IiMxYTFhMWEiLz4KICAgIDxlbGxpcHNlIGN4PSItMTYiIGN5PSItMjIiIHJ4PSI1IiByeT0iMi41IiBmaWxsPSIjZmZmIiBvcGFjaXR5PSIwLjMiIHRyYW5zZm9ybT0icm90YXRlKC00MiwtMTYsLTIyKSIvPgogIDwvZz4KICA8dGV4dCB4PSI2MCIgeT0iOTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCBCbGFjayxzYW5zLXNlcmlmIiAKICAgIGZvbnQtc2l6ZT0iMTIiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiMxYTFhMWEiIGxldHRlci1zcGFjaW5nPSIxLjUiPlJPWEdPTEQ8L3RleHQ+CiAgPHRleHQgeD0iNjAiIHk9IjExMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLHNhbnMtc2VyaWYiIAogICAgZm9udC1zaXplPSI3IiBmaWxsPSIjMWExYTFhIiBsZXR0ZXItc3BhY2luZz0iMiIgb3BhY2l0eT0iMC43NSI+Q8OUVEUgRCdJVk9JUkU8L3RleHQ+Cjwvc3ZnPg==" alt="Roxgold Sango" style={{ height: 32, objectFit: 'contain', display: 'block' }} />
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
