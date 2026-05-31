@@ -156,4 +156,5 @@ urlpatterns = [
     path('api/', include('accounts.urls')),
     path('api/', include('voyages.urls')),
     path('api/', include('evenements.urls')),
+    path('api/notifications/envoyer/', __import__('evenements.views', fromlist=['envoyer_notification']).envoyer_notification, name='envoyer_notification'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
