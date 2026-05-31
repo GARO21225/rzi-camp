@@ -266,7 +266,7 @@ export default function Personnel() {
 
   return (
     <PersonnelBoundary>
-      <div className="page" style={{maxWidth:1100, margin:'0 auto'}}>
+      <div className="page" style={{padding:'0 16px'}}>
 
         {/* ── HEADER ── */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
