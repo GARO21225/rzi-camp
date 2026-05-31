@@ -53,6 +53,13 @@ export default function BoutiquePOS() {
     finally { setLoading(false); setWaking(false) }
   }, [])
 
+  // Recharger quand la fenêtre reprend le focus (après retour depuis Catalogue)
+  useEffect(() => {
+    const handleFocus = () => load()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [load])
+
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
@@ -108,7 +115,6 @@ export default function BoutiquePOS() {
       xhr.timeout = 30000
       xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
-          console.log('[Boutique] XHR done - status:', xhr.status, 'body:', xhr.responseText?.slice(0,200))
           resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText })
         }
       }
@@ -121,8 +127,8 @@ export default function BoutiquePOS() {
       try {
         const resp = await doPost({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
         if (!resp.ok) {
-          try { const d = JSON.parse(resp.body); lastError = d.detail || `HTTP ${resp.status}` }
-          catch { lastError = `HTTP ${resp.status}` }
+          try { const d = JSON.parse(resp.body); lastError = d.detail || d.error || `HTTP ${resp.status}: ${resp.body?.slice(0,100)}` }
+          catch { lastError = `HTTP ${resp.status}: ${resp.body?.slice(0,100)}` }
           allOk = false; break
         }
       } catch(e) {
