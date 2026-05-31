@@ -1,0 +1,141 @@
+/* ════════════════════════════════════════════════════════════════════
+   RZI CAMP — Couche de thème SOMBRE + ACCENT
+   --------------------------------------------------------------------
+   À APPENDRE À LA FIN de frontend/src/index.css (après tout le reste,
+   pour gagner dans la cascade).
+
+   Pourquoi ça marche sans toucher les pages : toute l'app lit déjà des
+   var(--bg / --surface / --text / --border …). On ne fait que redéfinir
+   ces variables quand <html data-theme="dark"> est posé (ce que Layout.jsx
+   fait DÉJÀ). On remappe les deux familles de tokens utilisées :
+     • celles d'index.css      (--bg, --surface, --surface-2/3, --text-2/3/4…)
+     • celles du design-system (--surface2, --text-dim, --text-mute, --bg-alt…)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Transition douce lors de la bascule de thème */
+html, body, .shell, .sidebar, .card, .kpi-card, .topbar, .main-scroll,
+.btn, .form-control, .table, .modal, .chip, .badge, nav, main, header {
+  transition: background-color .25s var(--ease, ease),
+              border-color .25s var(--ease, ease),
+              color .25s var(--ease, ease);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   PALETTE SOMBRE
+   ───────────────────────────────────────────────────────────────────── */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── Surfaces (index.css) ── */
+  --bg:        #0a0f1c;
+  --bg-2:      #0e1525;
+  --surface:   #141c2e;
+  --surface-2: #1a2336;
+  --surface-3: #202b42;
+
+  /* ── Surfaces (alias design-system) ── */
+  --bg-alt:    #0e1525;
+  --surface2:  #1a2336;
+
+  /* ── Texte (index.css) ── */
+  --text:   #e8eef9;
+  --text-2: #c2cde0;
+  --text-3: #93a1bb;
+  --text-4: #5f6e8c;
+
+  /* ── Texte (alias design-system) ── */
+  --text-dim:  #93a1bb;
+  --text-mute: #5f6e8c;
+
+  /* ── Bordures ── */
+  --border:        #283450;
+  --border-2:      #3a486a;
+  --border-strong: #3a486a;
+
+  /* ── Marque / sémantique (éclaircies pour rester lisibles sur sombre) ── */
+  --c-blue:   #1e3a8a;        /* conservé pour les dégradés navy */
+  --c-blue-2: #3b6fe0;
+  --c-blue-3: #5b8def;
+  --c-blue-l: rgba(91,141,239,.14);  /* ex-#dbeafe : fond de survol clair → tint sombre */
+  --c-gold-l: rgba(240,165,0,.16);
+  --c-green:  #2bbd6e;
+  --c-red:    #f0556a;
+  --c-orange: #fb9a3c;
+  --c-purple: #a78bfa;
+  --c-teal:   #2bb6d6;
+
+  /* ── Ombres (plus profondes sur fond sombre) ── */
+  --s-xs: 0 1px 2px rgba(0,0,0,.4);
+  --s-sm: 0 1px 4px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.3);
+  --s-md: 0 4px 16px rgba(0,0,0,.5);
+  --s-lg: 0 8px 32px rgba(0,0,0,.6);
+  --s-xl: 0 20px 60px rgba(0,0,0,.7);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   CORRECTIFS PAR COMPOSANT (classes index.css aux couleurs « en dur »)
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Sidebar premium : le bloc v8 force un dégradé blanc !important → on le rejoue en sombre */
+html[data-theme="dark"] .sidebar {
+  background: linear-gradient(180deg, #111a2e 0%, #0c1424 100%) !important;
+  border-right-color: var(--border) !important;
+}
+html[data-theme="dark"] .nav-item:hover {
+  background: var(--c-blue-l) !important;
+  color: var(--c-blue-3) !important;
+  transform: none;
+}
+
+/* Tables : survol et lignes paires */
+html[data-theme="dark"] .table tbody tr:hover,
+html[data-theme="dark"] .table tbody tr:nth-child(even):hover { background: var(--c-blue-l); }
+html[data-theme="dark"] .table tbody tr:nth-child(even) { background: var(--surface-2); }
+
+/* Badges : tints + texte lisibles sur sombre */
+html[data-theme="dark"] .badge-blue   { background:rgba(91,141,239,.16); color:#9bb8ff; }
+html[data-theme="dark"] .badge-green  { background:rgba(43,189,110,.16);  color:#6ee7a8; }
+html[data-theme="dark"] .badge-red    { background:rgba(240,85,106,.16);  color:#ff9aa8; }
+html[data-theme="dark"] .badge-orange { background:rgba(251,154,60,.16);  color:#ffc183; }
+html[data-theme="dark"] .badge-purple { background:rgba(167,139,250,.18); color:#c9b6ff; }
+html[data-theme="dark"] .badge-gold   { background:rgba(240,165,0,.18);   color:#ffd470; }
+html[data-theme="dark"] .badge-gray   { background:rgba(148,163,184,.14); color:#aeb9cc; }
+
+/* Alertes */
+html[data-theme="dark"] .alert-success { background:rgba(43,189,110,.10);  border-color:rgba(43,189,110,.3);  color:#6ee7a8; }
+html[data-theme="dark"] .alert-error   { background:rgba(240,85,106,.10);  border-color:rgba(240,85,106,.3);  color:#ff9aa8; }
+html[data-theme="dark"] .alert-info    { background:rgba(91,141,239,.10);  border-color:rgba(91,141,239,.3);  color:#9bb8ff; }
+html[data-theme="dark"] .alert-warning { background:rgba(240,165,0,.10);   border-color:rgba(240,165,0,.3);   color:#ffd470; }
+
+/* Liens, chips, spinner, skeleton */
+html[data-theme="dark"] a { color: var(--c-blue-3); }
+html[data-theme="dark"] .chip:hover { background: var(--c-blue-l); border-color: var(--c-blue-2); color: var(--c-blue-3); }
+html[data-theme="dark"] .spinner { border-color: var(--border); border-top-color: var(--c-blue-3); }
+html[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 400% 100%;
+}
+
+/* Champs de formulaire : focus ring adapté */
+html[data-theme="dark"] .form-control:focus { box-shadow: 0 0 0 3px rgba(91,141,239,.18); }
+
+/* ════════════════════════════════════════════════════════════════════
+   ACCENT PARAMÉTRABLE (optionnel)
+   --------------------------------------------------------------------
+   Pose une couleur d'accent unique réutilisée à la place du gold.
+   Pilotée en JS :  document.documentElement.style.setProperty('--c-accent', '#38bdf8')
+   ════════════════════════════════════════════════════════════════════ */
+/* Accent : valeur littérale par défaut (le JS la surcharge sur <html>) */
+:root { --c-accent: #f0a500; }
+/* Le gold suit désormais l'accent partout où il passe par la variable */
+:root { --c-gold: var(--c-accent); }
+:root { --rzi-gold: var(--c-accent); }   /* bordure dorée du header Layout.jsx */
+
+/* Spots où l'or est écrit en dur → repris sur l'accent */
+.topbar::after {
+  background: linear-gradient(90deg, var(--c-accent) 0%,
+              color-mix(in srgb, var(--c-accent) 60%, #fff) 50%, transparent 100%) !important;
+}
+button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(--c-accent); }
+.btn-gold { background: var(--c-accent); }
+.btn-gold:hover { background: color-mix(in srgb, var(--c-accent) 85%, #000); }
