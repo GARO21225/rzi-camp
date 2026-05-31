@@ -83,6 +83,9 @@ const ETAPES = [
       { key:'urgence_nom', label:'Contact urgence (Nom)', type:'text', placeholder:'Nom complet', required:true },
       { key:'urgence_tel', label:'Contact urgence (Tél)', type:'tel', placeholder:'+225 XX XX XX XX', required:true },
       { key:'date_arrivee', label:'Date d\'arrivée prévue', type:'date', required:true },
+      { key:'agent_accueil', label:'👋 Agent d\'accueil (Nom + Contact)', type:'text', placeholder:'Ex: Jean KOUAME · +225 07 XX XX XX', required:false },
+      { key:'formateur_qhse', label:'🛡️ Formateur QHSE (Nom + Contact)', type:'text', placeholder:'Ex: Marie TRAORE · +225 05 XX XX XX', required:false },
+      { key:'medecin_camp', label:'🩺 Médecin du camp (Nom + Contact)', type:'text', placeholder:'Ex: Dr Ibrahim DIALLO · +225 01 XX XX XX', required:false },
     ]
   },
   {
@@ -752,6 +755,12 @@ function InductionPageInner() {
     const q = search.toLowerCase()
     if (q && ![p.nom,p.prenom,p.societe].some(v=>(v||'').toLowerCase().includes(q))) return false
     if (typeFilter && p.type_personnel !== typeFilter) return false
+    if (dateFrom || dateTo) {
+      const rec = p.inductionrecord
+      const d = rec?.date_debut ? new Date(rec.date_debut) : null
+      if (dateFrom && (!d || d < new Date(dateFrom))) return false
+      if (dateTo && (!d || d > new Date(dateTo + 'T23:59:59'))) return false
+    }
     return true
   })
 
