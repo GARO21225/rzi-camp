@@ -21,6 +21,38 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if t: qs = qs.filter(type_personnel=t)
         return qs
 
+    @action(detail=False, methods=['post'])
+    def import_csv_data(self, request):
+        """Import masse de personnel depuis données JSON"""
+        from rest_framework.response import Response
+        rows = request.data.get('rows', [])
+        ok = 0
+        errors = []
+        for i, row in enumerate(rows):
+            try:
+                nom = (row.get('nom') or '').strip()
+                prenom = (row.get('prenom') or '').strip()
+                societe = (row.get('societe') or 'N/A').strip()
+                if not nom or not prenom:
+                    errors.append(f"Ligne {i+2}: nom et prénom requis")
+                    continue
+                p = Personnel(
+                    nom=nom, prenom=prenom, societe=societe,
+                    email=(row.get('email') or '').strip(),
+                    numero=(row.get('numero') or '').strip(),
+                    type_personnel=(row.get('type_personnel') or 'roxgold').strip(),
+                )
+                p.save()
+                try:
+                    p.creer_utilisateur()
+                except Exception as e:
+                    errors.append(f"Ligne {i+2}: créé mais user échoué: {str(e)[:50]}")
+                    continue
+                ok += 1
+            except Exception as e:
+                errors.append(f"Ligne {i+2}: {str(e)[:80]}")
+        return Response({'imported': ok, 'errors': errors})
+
     def create(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Seul l'admin peut créer du personnel."}, status=403)
