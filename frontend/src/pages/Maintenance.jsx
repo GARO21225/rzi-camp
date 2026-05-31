@@ -69,6 +69,8 @@ export default function Maintenance() {
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
+  const [selIds,     setSelIds]     = useState(new Set())
+  const [massAct,    setMassAct]    = useState('')
   const [residences, setResidences] = useState([])
   const [dateDebut,  setDateDebut]  = useState('')
   const [dateFin,    setDateFin]    = useState('')
