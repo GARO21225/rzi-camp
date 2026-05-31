@@ -112,7 +112,7 @@ export default function Dashboard() {
 
         <div style={{ position:'relative' }}>
           <div style={{ fontSize:12, color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:2, marginBottom:4 }}>
-            🏕️ Résidence Roxgold Sango
+            🏕️ Camp Roxgold Sango · Côte d'Ivoire
           </div>
           <div style={{ fontSize:26, fontWeight:800, letterSpacing:-.3 }}>
             Bonjour, {user?.first_name || user?.username} 👋
