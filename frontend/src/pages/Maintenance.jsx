@@ -69,6 +69,7 @@ export default function Maintenance() {
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
+  const [residences, setResidences] = useState([])
   const [dateDebut,  setDateDebut]  = useState('')
   const [dateFin,    setDateFin]    = useState('')
   const [showNew,    setShowNew]    = useState(false)
@@ -525,14 +526,13 @@ export default function Maintenance() {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
-                      placeholder="Ex: B12, B26, VIP..." style={inp}
-                      list="residence-list"/>
-                    <datalist id="residence-list">
-                      {[...new Set(incidents.map(i=>i.residence).filter(Boolean))].map(r=>(
-                        <option key={r} value={r}/>
-                      ))}
-                    </datalist>
+                    <select value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})} style={inp}>
+                      <option value="">-- Sélectionner --</option>
+                      {residences.length > 0
+                        ? residences.map(r => <option key={r} value={r}>{r}</option>)
+                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].map(r => <option key={r} value={r}>{r}</option>)
+                      }
+                    </select>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
