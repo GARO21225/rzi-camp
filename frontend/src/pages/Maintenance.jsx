@@ -81,6 +81,18 @@ export default function Maintenance() {
   const [actionComment, setActionComment] = useState('')
   const [actionTechId,  setActionTechId]  = useState('')
 
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    fetch(`${BASE}/api/batiments/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json())
+      .then(d=>{
+        const list = d.results || d || []
+        const resids = [...new Set(list.map(b=>b.residence).filter(Boolean))].sort()
+        if(resids.length) setResidences(resids)
+      }).catch(()=>{})
+  },[])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
