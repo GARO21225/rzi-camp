@@ -12,21 +12,33 @@ const ROLE_NAV = {
   admin: [
     { to:'/', label:'📊 Dashboard', exact:true },
     { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/residences', label:'🏠 Résidences' },
-    { to:'/personnel', label:'👤 Personnel' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/voyages', label:'✈️ Voyages' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/boutique',     label:'🛒 Bar & Boutique' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/demandes', label:'📝 Demandes & Workflows' },
-    { to:'/historique', label:'📋 Historique' },
-    { to:'/analytics', label:'📈 Analytics' },
-    { to:'/rapports', label:'📑 Rapports' },
-    { to:'/audit', label:'🔍 Audit' },
-    { to:'/status', label:'🔧 Diagnostic' },
-  { to:'/mon-compte', label:'👤 Mon compte' },
+    // Personnel & Conformité
+    { group:'👤 Personnel & Conformité' },
+    { to:'/personnel', label:'Employés' },
+    { to:'/induction', label:'Inductions QHSE' },
+    // Mobilité & Hébergement
+    { group:'🏠 Mobilité & Hébergement' },
+    { to:'/residences', label:'Résidences' },
+    { to:'/voyages', label:'Voyages' },
+    // Services aux Résidents
+    { group:'🍽️ Services' },
+    { to:'/restauration', label:'Restauration' },
+    { to:'/boutique', label:'Bar & Boutique' },
+    // Exploitation & Maintenance
+    { group:'🛠️ Maintenance' },
+    { to:'/maintenance', label:'Incidents' },
+    { to:'/historique', label:'Historique' },
+    // Sécurité & Événements
+    { group:'📅 Sécurité & Events' },
+    { to:'/evenements', label:'Événements' },
+    { to:'/demandes', label:'Demandes' },
+    // Pilotage
+    { group:'📈 Pilotage' },
+    { to:'/analytics', label:'Analytics' },
+    { to:'/rapports', label:'Rapports' },
+    { to:'/audit', label:'Audit' },
+    { to:'/status', label:'Diagnostic' },
+    { to:'/mon-compte', label:'Mon compte' },
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },
