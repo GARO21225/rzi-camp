@@ -198,15 +198,17 @@ export default function Personnel() {
   ]
 
   const PROFILS = [
-    {v:'admin',       l:'Administrateur'},
-    {v:'agent',       l:'Agent'},
-    {v:'technicien',  l:'Technicien'},
-    {v:'restaurant',  l:'Restauration'},
-    {v:'boutique',    l:'Bar & Boutique'},
-    {v:'securite',    l:'Sécurité'},
-    {v:'medical',     l:'Médical'},
-    {v:'manager',     l:'Manager / Responsable'},
-  ]
+  { v:'admin',      l:'Administrateur' },
+  { v:'agent',      l:'Agent' },
+  { v:'accueil',    l:"Agent d'accueil" },
+  { v:'technicien', l:'Technicien' },
+  { v:'hse',        l:'HSE / QHSE' },
+  { v:'restaurant', l:'Restauration' },
+  { v:'boutique',   l:'Bar & Boutique' },
+  { v:'securite',   l:'Sécurité' },
+  { v:'medical',    l:'Médical' },
+  { v:'manager',    l:'Manager / Responsable' },
+]
 
   const exportPersonnelCSV = (list) => {
     const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut','Date création']
