@@ -808,6 +808,34 @@ function InductionPageInner() {
         </div>
       </div>
 
+      {/* KPIs Induction */}
+      {!loading && (() => {
+        const total = personnel.length
+        const induits = personnel.filter(p => { const r=p.inductionrecord; return r && (r.statut==='complete'||r.statut==='valide') }).length
+        const enCours = personnel.filter(p => { const r=p.inductionrecord; return r && r.statut!=='complete' && r.statut!=='valide' }).length
+        const aDemarrer = total - induits - enCours
+        return (
+          <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+            {[
+              {l:'Total',v:total,c:'#1e3a8a',bg:'#eff6ff',i:'👥'},
+              {l:'Induits',v:induits,c:'#16a34a',bg:'#f0fdf4',i:'✅'},
+              {l:'En cours',v:enCours,c:'#d97706',bg:'#fffbeb',i:'⚙️'},
+              {l:'À démarrer',v:aDemarrer,c:'#dc2626',bg:'#fef2f2',i:'⏳'},
+            ].map(k=>(
+              <div key={k.l} style={{background:k.bg,borderRadius:12,padding:'10px 16px',
+                display:'flex',alignItems:'center',gap:8,flex:1,minWidth:110,
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+                <span style={{fontSize:20}}>{k.i}</span>
+                <div>
+                  <div style={{fontSize:22,fontWeight:900,color:k.c,lineHeight:1}}>{k.v}</div>
+                  <div style={{fontSize:10,color:'#64748b',fontWeight:600}}>{k.l}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Filtres */}
       <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
@@ -869,6 +897,24 @@ function InductionPageInner() {
                       borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,
                       color:'#1e3a8a',fontWeight:700}}>
                     📥
+                  </button>
+                  <button onClick={async(ev)=>{
+                    ev.stopPropagation()
+                    if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
+                    try {
+                      if(p.inductionrecord?.id) {
+                        const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                        const token = localStorage.getItem('access_token') || ''
+                        await fetch(`${BASE}/api/induction-records/${p.inductionrecord.id}/`, {
+                          method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+                        })
+                      }
+                      load()
+                    } catch(e) { alert('Erreur: '+e.message) }
+                  }} title="Supprimer le parcours d'induction"
+                  style={{background:'#fef2f2',border:'1px solid #fecaca',
+                    borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,color:'#dc2626'}}>
+                    🗑️
                   </button>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginTop:8}}>
