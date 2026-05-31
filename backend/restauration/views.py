@@ -331,6 +331,27 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
     queryset = ArticleBoutique.objects.order_by('categorie','nom')
     serializer_class = ArticleSerializer
 
+    @action(detail=True, methods=['post'])
+    def ajuster_stock(self, request, pk=None):
+        from django.db import connection
+        from rest_framework.response import Response
+        op = request.data.get('operation', 'add')  # add | remove | set
+        qte = int(request.data.get('quantite', 0))
+        raison = request.data.get('raison', '')
+        try:
+            with connection.cursor() as c:
+                c.execute('SELECT stock FROM restauration_articleboutique WHERE id=%s', [pk])
+                row = c.fetchone()
+                if not row: return Response({'detail': 'Article introuvable'}, status=404)
+                stock_actuel = row[0]
+                if op == 'set': nouveau = qte
+                elif op == 'remove': nouveau = max(0, stock_actuel - qte)
+                else: nouveau = stock_actuel + qte
+                c.execute('UPDATE restauration_articleboutique SET stock=%s WHERE id=%s', [nouveau, pk])
+            return Response({'stock': nouveau, 'precedent': stock_actuel, 'operation': op})
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         from django.utils import timezone
@@ -430,6 +451,82 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
 
         except Exception as exc:
             return Response({"detail": str(exc)}, status=500)
+
+
+    @action(detail=False, methods=['get'])
+    def analyses(self, request):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        from datetime import date, timedelta
+
+        periode = request.query_params.get('periode', 'semaine')
+        today = tz.now().date()
+        if periode == 'jour':    date_from = today
+        elif periode == 'mois':  date_from = today.replace(day=1)
+        elif periode == 'annee': date_from = today.replace(month=1, day=1)
+        else:                    date_from = today - timedelta(days=6)
+
+        try:
+            with connection.cursor() as c:
+                # Total CA + transactions
+                c.execute("""
+                    SELECT COALESCE(SUM(cb.montant),0), COUNT(*), COALESCE(SUM(cb.quantite),0)
+                    FROM restauration_consommationboutique cb
+                    WHERE DATE(cb.date_conso) >= %s
+                """, [date_from])
+                total_ca, nb_tx, total_qte = c.fetchone()
+
+                # Top articles
+                c.execute("""
+                    SELECT a.nom, SUM(cb.quantite) as qte, SUM(cb.montant) as ca
+                    FROM restauration_consommationboutique cb
+                    JOIN restauration_articleboutique a ON a.id=cb.article_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY a.nom ORDER BY ca DESC LIMIT 10
+                """, [date_from])
+                top_articles = [{'nom':r[0],'qte':r[1],'ca':float(r[2])} for r in c.fetchall()]
+
+                # Par catégorie
+                c.execute("""
+                    SELECT a.categorie, SUM(cb.quantite), SUM(cb.montant)
+                    FROM restauration_consommationboutique cb
+                    JOIN restauration_articleboutique a ON a.id=cb.article_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY a.categorie ORDER BY SUM(cb.montant) DESC
+                """, [date_from])
+                par_cat = [{'article__categorie':r[0],'total_qte':r[1],'ca':float(r[2])} for r in c.fetchall()]
+
+                # Top agents
+                c.execute("""
+                    SELECT COALESCE(p.nom||' '||p.prenom,'Anonyme') as nom,
+                           COUNT(*), SUM(cb.montant)
+                    FROM restauration_consommationboutique cb
+                    LEFT JOIN residences_personnel p ON p.id=cb.personnel_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY p.nom, p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
+                """, [date_from])
+                top_agents = [{'nom':r[0],'nb':r[1],'ca':float(r[2])} for r in c.fetchall()]
+
+                # Évolution par mode
+                c.execute("""
+                    SELECT DATE(date_conso) as jour,
+                           SUM(CASE WHEN mode_paiement='bon' THEN montant ELSE 0 END) as bon,
+                           SUM(CASE WHEN mode_paiement='especes' OR mode_paiement IS NULL THEN montant ELSE 0 END) as especes
+                    FROM restauration_consommationboutique
+                    WHERE DATE(date_conso) >= %s
+                    GROUP BY DATE(date_conso) ORDER BY DATE(date_conso)
+                """, [date_from])
+                evolution = [{'jour':str(r[0]),'bon':float(r[1]),'especes':float(r[2])} for r in c.fetchall()]
+
+            return Response({
+                'periode': periode, 'total_ca': float(total_ca), 'nb_transactions': nb_tx,
+                'total_qte': int(total_qte), 'top_articles': top_articles,
+                'par_categorie': par_cat, 'top_agents': top_agents, 'evolution': evolution,
+            })
+        except Exception as e:
+            return Response({'detail': str(e), 'total_ca':0,'nb_transactions':0,'total_qte':0,
+                'top_articles':[],'par_categorie':[],'top_agents':[],'evolution':[]}, status=500)
 
     @action(detail=False, methods=['get'])
     def stats_jour(self, request):
