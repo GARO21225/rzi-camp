@@ -325,25 +325,40 @@ export default function Layout() {
             <div style={{ padding: 8, flex: 1 }}>
               {nav.map((item, i) => item.group ? (
                 <div key={`g${i}`} style={{
-                  fontSize:9, fontWeight:800, color:'rgba(255,255,255,.35)',
-                  letterSpacing:1.5, textTransform:'uppercase',
-                  padding:'14px 12px 4px 14px', marginTop:4,
-                  borderTop:'1px solid rgba(255,255,255,.08)',
+                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
                 }}>
-                  {item.group}
+                  <div style={{
+                    fontSize:10, fontWeight:800,
+                    color:'rgba(255,255,255,.9)',
+                    letterSpacing:1.2, textTransform:'uppercase',
+                    padding:'5px 10px',
+                    background:'rgba(255,255,255,.1)',
+                    borderRadius:6,
+                    borderLeft:'3px solid rgba(255,255,255,.4)',
+                    display:'flex', alignItems:'center', gap:6,
+                  }}>
+                    {item.group}
+                  </div>
                 </div>
               ) : (
                 <NavLink key={item.to} to={item.to} end={item.exact}
                   style={({ isActive }) => ({
                     display: 'block',
-                    padding: '10px 12px',
-                    margin: '2px 0',
-                    borderRadius: 'var(--radius)',
+                    padding: '8px 10px 8px 12px',
+                    margin: '1px 6px',
+                    borderRadius: 8,
                     textDecoration: 'none',
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 500,
-                    background: isActive ? 'var(--rzi-blue)' : 'transparent',
-                    color: isActive ? '#fff' : 'var(--text)',
+                    fontSize: 12.5,
+                    fontWeight: isActive ? 700 : 400,
+                    background: isActive
+                      ? 'rgba(255,255,255,.18)'
+                      : 'transparent',
+                    color: isActive
+                      ? '#fff'
+                      : 'rgba(255,255,255,.7)',
+                    borderLeft: isActive
+                      ? '3px solid #fff'
+                      : '3px solid transparent',
                     transition: 'all .15s',
                   })}>
                   {item.label}
