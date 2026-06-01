@@ -61,24 +61,52 @@ async function apiGetHistorique(type_repas, jours = 7) {
   } catch { return [] }
 }
 
-async function apiGetStats(type_repas) {
+async function apiGetStats() {
   try {
-    const all = await qrAPI.repas({ page_size: 1000 })
-    const data = all.data.results || all.data || []
+    // Appel direct API avec filtre date côté backend
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
     const today = new Date().toISOString().slice(0, 10)
-    const todayItems = data.filter(r => (r.date_validation || r.cree_le || '').slice(0, 10) === today)
-    const byType = {
-      petit_dejeuner: todayItems.filter(r => r.type_repas === 'petit_dejeuner').length,
-      dejeuner:       todayItems.filter(r => r.type_repas === 'dejeuner').length,
-      diner:          todayItems.filter(r => r.type_repas === 'diner').length,
-    }
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-6)
+    const weekStr = weekAgo.toISOString().slice(0,10)
+
+    // Essayer l'endpoint stats_jour
+    try {
+      const r = await fetch(`${BASE}/api/repas/stats_jour/`, {headers:{'Authorization':`Bearer ${token}`}})
+      if (r.ok) {
+        const d = await r.json()
+        if (!d.error) {
+          return {
+            today: d.total_jour || 0,
+            semaine: d.semaine || 0,
+            byType: {
+              petit_dejeuner: d.petit_dejeuner || 0,
+              dejeuner: d.dejeuner || 0,
+              diner: d.diner || 0,
+            }
+          }
+        }
+      }
+    } catch(e) {}
+
+    // Fallback: charger tous les repas et filtrer JS
+    const all = await fetch(`${BASE}/api/repas/?page_size=2000`, {headers:{'Authorization':`Bearer ${token}`}})
+    const data_raw = await all.json()
+    const data = data_raw.results || data_raw || []
+    const todayItems = data.filter(r => (r.date_validation||r.cree_le||'').slice(0,10) === today)
+    const weekItems  = data.filter(r => (r.date_validation||r.cree_le||'').slice(0,10) >= weekStr)
     return {
-      today:    todayItems.length,
-      semaine:  data.length,
-      byType,
-      lastScan: data[0] || null
+      today:   todayItems.length,
+      semaine: weekItems.length,
+      byType: {
+        petit_dejeuner: todayItems.filter(r => r.type_repas==='petit_dejeuner').length,
+        dejeuner:       todayItems.filter(r => r.type_repas==='dejeuner').length,
+        diner:          todayItems.filter(r => r.type_repas==='diner').length,
+      }
     }
-  } catch { return { today: 0, semaine: 0, byType: { petit_dejeuner:0, dejeuner:0, diner:0 }, lastScan: null } }
+  } catch(e) {
+    return { today:0, semaine:0, byType:{petit_dejeuner:0,dejeuner:0,diner:0} }
+  }
 }
 
 async function apiViderHistorique(type_repas) {

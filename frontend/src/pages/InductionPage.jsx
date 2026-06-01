@@ -6,6 +6,28 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
 
+class InductionErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error, info) { console.error('InductionPage crash:', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:40,textAlign:'center'}}>
+          <div style={{fontSize:32,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:18,fontWeight:700,color:'#dc2626',marginBottom:8}}>Erreur dans la page Induction</div>
+          <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>{this.state.error.message}</div>
+          <button onClick={()=>this.setState({error:null})}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,cursor:'pointer'}}>
+            🔄 Réessayer
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 const LS_KEY = 'rzi_induction_v3'
 const OFFLINE_QUEUE_KEY = 'rzi_induction_offline_queue'
 
@@ -47,9 +69,19 @@ async function syncOfflineQueue() {
 }
 
 // ─── Définition des étapes ────────────────────────────────────────
+const NATIONALITIES = [
+  'Ivoirienne','Burkinabè','Malienne','Sénégalaise','Guinéenne','Ghanéenne','Nigériane',
+  'Togolaise','Béninoise','Camerounaise','Congolaise','Française','Américaine','Britannique',
+  'Australienne','Canadienne','Belge','Suisse','Marocaine','Algérienne','Tunisienne',
+  'Sud-Africaine','Mauritanienne','Gambienne','Sierra-Léonaise','Libérienne','Nigérienne',
+  'Tchadienne','Centrafricaine','Gabonaise','Équato-Guinéenne','Autre'
+]
+
 const ETAPES = [
   {
     key: 'accueil',
+    assignRole: 'accueil',
+    assignLabel: "👋 Agent d'accueil",
     icon: '👋',
     titre: 'Accueil & Enregistrement',
     desc: 'Informations personnelles complètes',
@@ -57,10 +89,13 @@ const ETAPES = [
     type: 'form',
     champs: [
       { key:'photo', label:'Photo d\'identité', type:'photo', required:true },
-      { key:'nationalite', label:'Nationalité', type:'text', placeholder:'Ex: Ivoirienne', required:true },
+      { key:'nationalite', label:'Nationalité', type:'datalist', datalist:'nationalities', placeholder:'Ex: Ivoirienne', required:true },
       { key:'urgence_nom', label:'Contact urgence (Nom)', type:'text', placeholder:'Nom complet', required:true },
       { key:'urgence_tel', label:'Contact urgence (Tél)', type:'tel', placeholder:'+225 XX XX XX XX', required:true },
       { key:'date_arrivee', label:'Date d\'arrivée prévue', type:'date', required:true },
+
+
+
     ]
   },
   {
@@ -79,6 +114,8 @@ const ETAPES = [
   },
   {
     key: 'formation',
+    assignRole: 'qhse',
+    assignLabel: '🛡️ Formateur QHSE',
     icon: '🎓',
     titre: 'Formation QHSE Obligatoire',
     desc: 'Lire et confirmer avoir suivi la formation',
@@ -123,6 +160,8 @@ const ETAPES = [
   },
   {
     key: 'medical',
+    assignRole: 'medical',
+    assignLabel: '🩺 Médecin du camp',
     icon: '🏥',
     titre: 'Visite Médicale',
     desc: 'Résultat médical requis: FIT',
@@ -134,7 +173,7 @@ const ETAPES = [
       { key:'alcool', label:'Test alcool', type:'select', options:['Négatif','Positif'], required:true },
       { key:'drogues', label:'Test drogues', type:'select', options:['Négatif','Positif'], required:true },
       { key:'resultat', label:'Résultat médecin', type:'select', options:['FIT — Apte','UNFIT — Inapte','PENDING — En attente'], required:true },
-      { key:'medecin', label:'Nom du médecin', type:'text', placeholder:'Dr. ...', required:true },
+      
       { key:'observations', label:'Observations', type:'textarea', placeholder:'Observations médicales...', required:false },
     ]
   },
@@ -198,6 +237,42 @@ function EtapeFormation({ etape, wf, onValider }) {
 
   const tousLus = etape.modules.every(m => lus.includes(m.id))
   const mod = etape.modules[moduleActif]
+
+  const exportInductionCSV = (list, dateFrom, dateTo) => {
+    const filtered = list.filter(p => {
+      if (!dateFrom && !dateTo) return true
+      const rec = p.inductionrecord
+      if (!rec?.date_debut) return !dateFrom
+      const d = new Date(rec.date_debut)
+      if (dateFrom && d < new Date(dateFrom)) return false
+      if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false
+      return true
+    })
+    const headers = ['Matricule','Nom','Prénom','Société','Statut Induction','Date Début','Date Fin','Score Quiz','Badge Émis','Badge Expire']
+    const rows = filtered.map(p => {
+      const rec = p.inductionrecord
+      return [
+        p.matricule || '',
+        p.nom || '',
+        p.prenom || '',
+        p.societe || p.entreprise || '',
+        rec ? rec.statut : 'non_commencé',
+        rec?.date_debut ? new Date(rec.date_debut).toLocaleDateString('fr-FR') : '',
+        rec?.date_fin ? new Date(rec.date_fin).toLocaleDateString('fr-FR') : '',
+        rec?.quiz_score != null ? rec.quiz_score + '%' : '',
+        rec?.badge_emis ? 'OUI' : 'NON',
+        rec?.badge_expire || ''
+      ]
+    })
+    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'inductions_' + new Date().toISOString().slice(0,10) + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div>
@@ -358,7 +433,7 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
 }
 
 // ─── Composant principal ───────────────────────────────────────────
-export default function InductionPage() {
+function InductionPageInner() {
   const [personnel,   setPersonnel]   = useState([])
   const [loading,     setLoading]     = useState(true)
   const [search,      setSearch]      = useState('')
@@ -367,12 +442,18 @@ export default function InductionPage() {
   const [etapeActive, setEtapeActive] = useState(null)
   const [wfState,     setWfState]     = useState({})
   const [formData,    setFormData]    = useState({})
-  const [docUploads,  setDocUploads]  = useState({})
+  const [docUploads,  setDocUploads]  = useState({})  // {key: filename}
+  const [docData,     setDocData]     = useState({})   // {key: base64}
   const [medData,     setMedData]     = useState({})
   const [savedMsg,    setSavedMsg]    = useState('')
   const [slideTab,    setSlideTab]    = useState('etapes')
   const [isOnline,    setIsOnline]    = useState(navigator.onLine)
   const [syncStatus,  setSyncStatus]  = useState('')
+  const [dateFrom,    setDateFrom]    = useState('')
+  const [dateTo,      setDateTo]      = useState('')
+  const [hideNoInduction, setHideNoInduction] = useState(false)
+  const [staffMap,      setStaffMap]      = useState({accueil:[],qhse:[],medical:[]})
+  const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
   useEffect(() => {
@@ -396,6 +477,27 @@ export default function InductionPage() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
+  }, [])
+
+  // Charger le personnel par profil pour les assignations
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json()).then(d=>{
+        const list = d.results || d || []
+        const roxgold = list.filter(p => (p.type_personnel||'').toLowerCase() === 'roxgold')
+        const fallback = roxgold.length > 0 ? roxgold : list
+        const byProfil = (profils) => {
+          const found = list.filter(p => profils.includes(p.profil))
+          return found.length > 0 ? found : fallback
+        }
+        setStaffMap({
+          accueil: byProfil(['accueil', 'admin', 'agent', 'securite']),
+          qhse:    byProfil(['hse', 'admin', 'technicien', 'manager']),
+          medical: byProfil(['medical', 'admin']),
+        })
+      }).catch(()=>{})
   }, [])
 
   const load = useCallback(async () => {
@@ -477,7 +579,10 @@ export default function InductionPage() {
     const w = getWF(selected.id)
     const drafts = w.drafts || {}
     setFormData(drafts.form || w.etapes?.accueil?.form || {})
-    setDocUploads(drafts.docs || {})
+    const docDraft = drafts.docs || {}
+    // Support ancien format (juste noms) et nouveau format {uploads, data}
+    setDocUploads(docDraft.uploads || (typeof docDraft === 'object' && !docDraft.uploads && !docDraft.data ? docDraft : {}))
+    setDocData(docDraft.data || drafts.docData || {})
     setMedData(drafts.medical || w.etapes?.medical?.medical || {})
   },[selected])
 
@@ -631,7 +736,25 @@ export default function InductionPage() {
     }
     saveWF(selected.id, newWf)
     setWfState(prev => ({...prev, [selected.id]: newWf}))
-    
+
+    // Badge automatique si toutes les étapes précédentes sont validées
+    const ETAPES_REQUISES = ['accueil','documents','formation','quiz','medical']
+    const toutValide = ETAPES_REQUISES.every(k => newWf.etapes?.[k]?.done)
+    if (toutValide && !newWf.etapes?.badge?.done) {
+      // Valider automatiquement le badge
+      const withBadge = {
+        ...newWf,
+        etapes: {
+          ...newWf.etapes,
+          badge: { done:true, date:new Date().toISOString(), badge_emis:new Date().toISOString(), auto:true }
+        }
+      }
+      saveWF(selected.id, withBadge)
+      setWfState(prev => ({...prev, [selected.id]: withBadge}))
+      setSavedMsg('🎫 Badge émis automatiquement !')
+      setTimeout(() => setSavedMsg(''), 4000)
+    }
+
     // Preparer les donnees pour le backend
     const fieldMap = {accueil:'form_data', documents:'docs_data', medical:'medical_data', quiz:'quiz_score'}
     const backendData = {
@@ -683,9 +806,26 @@ export default function InductionPage() {
   }
 
   const filtered = personnel.filter(p => {
+    if (hideNoInduction && p.induction_requise === false) return false
+    if (statutFilter) {
+      const rec = p.inductionrecord
+      if (statutFilter === 'non_commence') {
+        if (rec) return false
+      } else if (statutFilter === 'valide') {
+        if (rec?.statut !== 'valide' && progression(p) !== 100) return false
+      } else {
+        if (!rec || rec.statut !== statutFilter) return false
+      }
+    }
     const q = search.toLowerCase()
     if (q && ![p.nom,p.prenom,p.societe].some(v=>(v||'').toLowerCase().includes(q))) return false
     if (typeFilter && p.type_personnel !== typeFilter) return false
+    if (dateFrom || dateTo) {
+      const rec = p.inductionrecord
+      const d = rec?.date_debut ? new Date(rec.date_debut) : null
+      if (dateFrom && (!d || d < new Date(dateFrom))) return false
+      if (dateTo && (!d || d > new Date(dateTo + 'T23:59:59'))) return false
+    }
     return true
   })
 
@@ -695,7 +835,7 @@ export default function InductionPage() {
 
   return (
     <InductionBoundary>
-    <div style={{maxWidth:1100,margin:'0 auto',padding:20}}>
+    <div style={{padding:20}}>
 
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
@@ -733,8 +873,43 @@ export default function InductionPage() {
         </div>
       </div>
 
+      {/* KPIs Induction */}
+      {!loading && (() => {
+        const total = personnel.length
+        const induits = personnel.filter(p => {
+          if (p.inductionrecord?.statut==='valide') return true
+          return progression(p) === 100
+        }).length
+        const enCours = personnel.filter(p => {
+          const pr = progression(p)
+          return pr > 0 && pr < 100 && p.inductionrecord?.statut !== 'valide'
+        }).length
+        const aDemarrer = total - induits - enCours
+        return (
+          <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+            {[
+              {l:'Total',v:total,c:'#1e3a8a',bg:'#eff6ff',i:'👥'},
+              {l:'Induits',v:induits,c:'#16a34a',bg:'#f0fdf4',i:'✅'},
+              {l:'En cours',v:enCours,c:'#d97706',bg:'#fffbeb',i:'⚙️'},
+              {l:'À démarrer',v:aDemarrer,c:'#dc2626',bg:'#fef2f2',i:'⏳'},
+              {l:'Taux',v:`${total>0?Math.round(induits/total*100):0}%`,c:'#7c3aed',bg:'#f5f3ff',i:'📊'},
+            ].map(k=>(
+              <div key={k.l} style={{background:k.bg,borderRadius:12,padding:'10px 16px',
+                display:'flex',alignItems:'center',gap:8,flex:1,minWidth:110,
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+                <span style={{fontSize:20}}>{k.i}</span>
+                <div>
+                  <div style={{fontSize:22,fontWeight:900,color:k.c,lineHeight:1}}>{k.v}</div>
+                  <div style={{fontSize:10,color:'#64748b',fontWeight:600}}>{k.l}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Filtres */}
-      <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="🔍 Rechercher personnel..."
           style={{...inp,maxWidth:260}}/>
@@ -742,6 +917,27 @@ export default function InductionPage() {
           <option value="">Tous les types</option>
           {TYPES.map(t=><option key={t.v} value={t.v}>{t.l}</option>)}
         </select>
+        <select value={statutFilter} onChange={e=>setStatutFilter(e.target.value)} style={{...inp,maxWidth:180}}>
+          <option value="">Tous les statuts</option>
+          <option value="non_commence">Sans induction</option>
+          <option value="en_cours">En cours</option>
+          <option value="valide">Validé ✅</option>
+          <option value="refuse">Refusé</option>
+          <option value="expire">Expiré</option>
+        </select>
+        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+          style={{...inp,maxWidth:140}} title="Date début (de)"/>
+        <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+          style={{...inp,maxWidth:140}} title="Date début (à)"/>
+        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',cursor:'pointer',userSelect:'none'}}>
+          <input type="checkbox" checked={hideNoInduction} onChange={e=>setHideNoInduction(e.target.checked)}/>
+          Masquer "pas d'induction"
+        </label>
+        <button onClick={()=>exportInductionCSV(personnel,dateFrom,dateTo)}
+          style={{background:'#16a34a',color:'#fff',border:'none',padding:'8px 14px',
+            borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
+          📥 Export CSV
+        </button>
       </div>
 
       {loading ? <div style={{textAlign:'center',padding:60,fontSize:32}}>⏳</div> : (
@@ -761,6 +957,26 @@ export default function InductionPage() {
                     <div style={{fontSize:11,color:'#64748b'}}>
                       {TYPES.find(t=>t.v===p.type_personnel)?.l} · {p.societe||'—'}
                     </div>
+                    {(() => {
+                      const wfData = wf(p)
+                      const fd = wfData?.formData || {}
+                      const assigns = [
+                        fd.agent_accueil && {icon:'👋',label:'Accueil',val:fd.agent_accueil},
+                        fd.formateur_qhse && {icon:'🛡️',label:'QHSE',val:fd.formateur_qhse},
+                        fd.medecin_camp && {icon:'🩺',label:'Médecin',val:fd.medecin_camp},
+                      ].filter(Boolean)
+                      if (!assigns.length) return null
+                      return (
+                        <div style={{marginTop:4,display:'flex',flexWrap:'wrap',gap:4}}>
+                          {assigns.map(a=>(
+                            <span key={a.icon} style={{fontSize:10,background:'#eff6ff',color:'#1e3a8a',
+                              padding:'2px 6px',borderRadius:99,fontWeight:600}}>
+                              {a.icon} {a.val.split('·')[0].trim()}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,
@@ -778,9 +994,48 @@ export default function InductionPage() {
                       color:'#1e3a8a',fontWeight:700}}>
                     📥
                   </button>
+                  <button onClick={async(ev)=>{
+                    ev.stopPropagation()
+                    if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
+                    try {
+                      const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                      const token = localStorage.getItem('access_token') || ''
+                      const recId = p.inductionrecord?.id || p.induction_record_id
+
+                      // 1. Supprimer toutes les données localStorage IMMÉDIATEMENT
+                      const keysToRemove = Object.keys(localStorage).filter(k =>
+                        k.includes(`_${p.id}`) || k.includes(`${p.id}_`) ||
+                        k === `rzi_induction_v3_${p.id}` ||
+                        k === `rzi_wf_${p.id}` ||
+                        k.startsWith(`induction_${p.id}`)
+                      )
+                      keysToRemove.forEach(k => localStorage.removeItem(k))
+                      // Mettre à jour le state local immédiatement
+                      setWfState(prev => { const n={...prev}; delete n[p.id]; return n })
+
+                      // 2. Supprimer sur le backend (tolère les erreurs)
+                      if (recId) {
+                        await fetch(`${BASE}/api/induction-records/${recId}/`, {
+                          method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+                        }).catch(()=>{}) // Ignorer les erreurs réseau
+                      }
+
+                      // 3. Recharger la liste
+                      await load()
+                      setSavedMsg(`🗑️ Parcours de ${p.nom} ${p.prenom} supprimé`)
+                      setTimeout(()=>setSavedMsg(''), 3000)
+                    } catch(e) {
+                      // Même en cas d'erreur, le localStorage est nettoyé
+                      load()
+                    }
+                  }} title="Supprimer le parcours d'induction"
+                  style={{background:'#fef2f2',border:'1px solid #fecaca',
+                    borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,color:'#dc2626'}}>
+                    🗑️
+                  </button>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:4,marginTop:8}}>
-                  {ETAPES.map(e => (
+                                {ETAPES.map(e => (
                     <div key={e.key}
                       title={e.titre}
                       style={{flex:1,height:6,borderRadius:99,
@@ -986,7 +1241,13 @@ export default function InductionPage() {
                                       ✅ Validé le {new Date(info.date).toLocaleDateString('fr-FR')} à {new Date(info.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
                                     </div>
                                   </div>
-                                  <div style={{display:'flex',gap:4}}>
+                                  {/* Assigné */}
+                                {info.assign && (
+                                  <div style={{fontSize:10,marginTop:2,opacity:.8}}>
+                                    👤 {info.assign}
+                                  </div>
+                                )}
+                                <div style={{display:'flex',gap:4}}>
                                     <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
                                       title="Modifier cette étape"
                                       style={{background:'rgba(255,255,255,0.25)',color:'#fff',border:'none',
@@ -1015,9 +1276,93 @@ export default function InductionPage() {
                                     </div>
                                   )}
                                   {/* Documents */}
-                                  {e.key==='documents' && info.docs && (
-                                    <div style={{fontSize:12,color:'#16a34a'}}>
-                                      ✅ Documents soumis: {Array.isArray(info.docs)?info.docs.join(', '):JSON.stringify(info.docs)}
+                                  {e.key==='documents' && (
+                                    <div>
+                                      {/* Photo identité depuis l'étape accueil */}
+                                      {(()=>{const photoSrc=w.etapes?.accueil?.form?.photo||info.form?.photo; return photoSrc&&(
+                                        <div style={{marginBottom:10}}>
+                                          <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>📸 Photo identité</div>
+                                          <img src={photoSrc} alt="ID"
+                                            style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0'}}/>
+                                        </div>
+                                      )})()}
+                                      {/* Docs soumis */}
+                                      {(() => {
+                                        const uploads = info.docs?.uploads || (info.docs && typeof info.docs==='object' && !info.docs.data ? info.docs : {})
+                                        const data = info.docs?.data || info.docData || {}
+                                        const entries = Object.entries(uploads)
+                                        if (!entries.length) return null
+                                        return (
+                                          <div style={{marginBottom:12}}>
+                                            <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:8}}>
+                                              📎 Documents soumis ({entries.length})
+                                            </div>
+                                            <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+                                              {entries.map(([key, filename])=>{
+                                                const src = data[key]
+                                                const isImg = src?.startsWith('data:image')
+                                                const isPdf = src?.startsWith('data:application/pdf')
+                                                return (
+                                                  <div key={key} style={{textAlign:'center',maxWidth:100}}>
+                                                    {isImg ? (
+                                                      <a href={src} target="_blank" rel="noreferrer">
+                                                        <img src={src} alt={filename}
+                                                          style={{width:90,height:90,objectFit:'cover',borderRadius:10,
+                                                            border:'2px solid #86efac',display:'block',cursor:'pointer'}}/>
+                                                      </a>
+                                                    ) : isPdf ? (
+                                                      <a href={src} download={filename} style={{textDecoration:'none'}}>
+                                                        <div style={{width:90,height:90,background:'#eff6ff',
+                                                          borderRadius:10,border:'2px solid #bfdbfe',
+                                                          display:'flex',flexDirection:'column',
+                                                          alignItems:'center',justifyContent:'center',
+                                                          cursor:'pointer',gap:4}}>
+                                                          <span style={{fontSize:32}}>📄</span>
+                                                          <span style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>PDF</span>
+                                                        </div>
+                                                      </a>
+                                                    ) : src ? (
+                                                      <a href={src} download={filename} style={{textDecoration:'none'}}>
+                                                        <div style={{width:90,height:90,background:'#f5f3ff',
+                                                          borderRadius:10,border:'2px solid #c4b5fd',
+                                                          display:'flex',flexDirection:'column',
+                                                          alignItems:'center',justifyContent:'center',gap:4}}>
+                                                          <span style={{fontSize:28}}>📎</span>
+                                                          <span style={{fontSize:9,color:'#7c3aed',fontWeight:700}}>Fichier</span>
+                                                        </div>
+                                                      </a>
+                                                    ) : (
+                                                      <div style={{width:90,height:90,background:'#f8fafc',
+                                                        borderRadius:10,border:'2px dashed #e2e8f0',
+                                                        display:'flex',flexDirection:'column',
+                                                        alignItems:'center',justifyContent:'center',gap:4}}>
+                                                        <span style={{fontSize:24}}>🗂️</span>
+                                                        <span style={{fontSize:9,color:'#94a3b8'}}>Non chargé</span>
+                                                      </div>
+                                                    )}
+                                                    <div style={{fontSize:9,color:'#64748b',marginTop:4,
+                                                      overflow:'hidden',textOverflow:'ellipsis',
+                                                      whiteSpace:'nowrap',maxWidth:90}}>
+                                                      {filename}
+                                                    </div>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        )
+                                      })()}
+                                      {/* Champs saisis */}
+                                      {info.form && (
+                                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
+                                          {Object.entries(info.form||{}).filter(([k,v])=>k!=='photo'&&v&&typeof v==='string'&&!v.startsWith('data:')).map(([k,v])=>(
+                                            <div key={k} style={{fontSize:11}}>
+                                              <span style={{color:'#94a3b8',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
+                                              <span style={{color:'#1e293b'}}>{v}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {/* Quiz */}
@@ -1097,12 +1442,70 @@ export default function InductionPage() {
                             {etape.icon} {etape.titre}
                           </div>
                           <div style={{fontSize:11,color:'#94a3b8'}}>{etape.desc}</div>
+                          {etape.assignRole && formData[`assign_${etape.key}`] && (
+                            <div style={{fontSize:11,background:'#eff6ff',color:'#1e3a8a',
+                              padding:'3px 10px',borderRadius:99,marginTop:4,display:'inline-flex',alignItems:'center',gap:4}}>
+                              👤 <b>{formData[`assign_${etape.key}`]}</b>
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Assignation responsable AVANT l'étape */}
+                      {etape.assignRole && !(etape.type==='form') && (
+                        <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
+                          borderRadius:10,padding:'10px 14px',marginBottom:14}}>
+                          <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
+                            {etape.assignLabel}
+                          </div>
+                          <input
+                            value={formData[`assign_${etape.key}`]||''}
+                            onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
+                            list={`staff-list-${etape.key}`}
+                            placeholder="Saisir ou sélectionner..."
+                            style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
+                              padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                          <datalist id={`staff-list-${etape.key}`}>
+                            {(staffMap[etape.assignRole]||[]).map(p=>(
+                              <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
+                            ))}
+                          </datalist>
+                          {formData[`assign_${etape.key}`] && (
+                            <div style={{fontSize:11,color:'#0369a1',marginTop:4,fontWeight:600}}>
+                              ✅ {formData[`assign_${etape.key}`]}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* FORM */}
                       {etape.type==='form' && (
                         <div>
+                          {etape.assignRole && (
+                            <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
+                              borderRadius:10,padding:'10px 14px',marginBottom:16}}>
+                              <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
+                                {etape.assignLabel}
+                              </div>
+                              <input
+                                value={formData[`assign_${etape.key}`]||''}
+                                onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
+                                list={`staff-list-${etape.key}`}
+                                placeholder="Saisir ou sélectionner..."
+                                style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
+                                  padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                              <datalist id={`staff-list-${etape.key}`}>
+                                {(staffMap[etape.assignRole]||[]).map(p=>(
+                                  <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
+                                ))}
+                              </datalist>
+                              {formData[`assign_${etape.key}`] && (
+                                <div style={{fontSize:11,color:'#0369a1',marginTop:4}}>
+                                  ✅ Assigné: <b>{formData[`assign_${etape.key}`]}</b>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {etape.champs.map(c=>(
                             <div key={c.key} style={{marginBottom:12}}>
                               <label style={{display:'block',fontSize:11,fontWeight:700,
@@ -1125,6 +1528,33 @@ export default function InductionPage() {
                                     }}/>
                                   {formData[c.key]?'✅ Photo chargée':'📷 Charger une photo'}
                                 </label>
+                              ) : c.type==='select_staff' ? (
+                                <>
+                                <input
+                                  value={formData[c.key]||''}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
+                                  list={`sl-${c.key}`}
+                                  placeholder="Saisir ou sélectionner..."
+                                  style={{...inp,width:'100%',boxSizing:'border-box'}}/>
+                                <datalist id={`sl-${c.key}`}>
+                                  {(staffMap[c.profil]||[]).map(p=>(
+                                    <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
+                                  ))}
+                                </datalist>
+                                </>
+                              ) : c.type==='datalist' ? (
+                                <>
+                                <input value={formData[c.key]||''}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
+                                  list={`dl-${c.key}`}
+                                  placeholder={c.placeholder}
+                                  style={{...inp,width:'100%',boxSizing:'border-box'}}/>
+                                <datalist id={`dl-${c.key}`}>
+                                  {c.datalist==='nationalities' && NATIONALITIES.map(n=>(
+                                    <option key={n} value={n}/>
+                                  ))}
+                                </datalist>
+                                </>
                               ) : (
                                 <input type={c.type} value={formData[c.key]||''}
                                   onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
@@ -1142,7 +1572,11 @@ export default function InductionPage() {
                             <button onClick={()=>{
                               const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
                               if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
-                              validerEtape(etape.key, {form:formData})
+                              if(etape.assignRole && !formData[`assign_${etape.key}`]?.trim()) {
+                                alert(`Assignation requise: ${etape.assignLabel}`)
+                                return
+                              }
+                              validerEtape(etape.key, {form:formData, assign:formData[`assign_${etape.key}`]||''})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
                                 background:etape.couleur,color:'#fff',fontWeight:700,
@@ -1178,7 +1612,11 @@ export default function InductionPage() {
                                   <input type="file" style={{display:'none'}}
                                     onChange={e=>{
                                       const file=e.target.files?.[0]
-                                      if(file) setDocUploads(prev=>({...prev,[d.key]:file.name}))
+                                      if(!file) return
+                                      setDocUploads(prev=>({...prev,[d.key]:file.name}))
+                                      const reader=new FileReader()
+                                      reader.onload=ev=>setDocData(prev=>({...prev,[d.key]:ev.target.result}))
+                                      reader.readAsDataURL(file)
                                     }}/>
                                   {docUploads[d.key]?'✓ Chargé':'📎 Charger'}
                                 </label>
@@ -1186,7 +1624,7 @@ export default function InductionPage() {
                             </div>
                           ))}
                           <div style={{display:'flex',gap:8,marginTop:8}}>
-                            <button onClick={()=>saveDraft('docs', docUploads)}
+                            <button onClick={()=>saveDraft('docs', {uploads: docUploads, data: docData})}
                               style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
                                 background:'#fff',color:etape.couleur,fontWeight:700,
                                 fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
@@ -1195,7 +1633,7 @@ export default function InductionPage() {
                             <button onClick={()=>{
                               const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
                               if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
-                              validerEtape(etape.key, {docs:Object.keys(docUploads)})
+                              validerEtape(etape.key, {docs:docUploads, docData:docData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
                                 background:etape.couleur,color:'#fff',fontWeight:700,
@@ -1308,5 +1746,13 @@ export default function InductionPage() {
 
     </div>
     </InductionBoundary>
+  )
+}
+
+export default function InductionPage() {
+  return (
+    <InductionErrorBoundary>
+      <InductionPageInner />
+    </InductionErrorBoundary>
   )
 }

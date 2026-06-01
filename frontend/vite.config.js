@@ -8,11 +8,16 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom'],
-          leaflet: ['leaflet', 'react-leaflet'],
-          charts: ['recharts'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'map': ['leaflet', 'react-leaflet'],
+          'charts': ['recharts'],
+          'utils': ['axios', 'zustand'],
         },
       },
     },
+    chunkSizeWarningLimit: 1000,
+  },
+  server: {
+    port: 5173,
   },
 })

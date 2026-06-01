@@ -84,6 +84,10 @@ export default function MapPage() {
   const [geoKey,setGeoKey]=useState(0)
   const [stats,setStats]=useState(null)
   const [filterStatut,setFilterStatut]=useState('')
+  const [showImport,  setShowImport]  = useState(false)
+  const [editBat,     setEditBat]     = useState(null)
+  const [importLayer, setImportLayer] = useState('residence')
+  const [importMsg,   setImportMsg]   = useState(null)
   const [filterBloc,setFilterBloc]=useState('')
   const [filterRes,setFilterRes]=useState('')
   const [tileId,setTileId]=useState('osm')
@@ -107,6 +111,38 @@ export default function MapPage() {
     batiments.geojson(p).then(r=>{setGeojson(r.data);setGeoKey(k=>k+1)})
     batiments.stats().then(r=>setStats(r.data))
   },[filterStatut,filterBloc,filterRes])
+
+  // Handlers globaux pour les popups Leaflet (Leaflet crée des innerHTML)
+  // Restaurer les imports GIS sauvegardés
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('rzi_gis_imports') || '[]')
+      if (stored.length > 0) {
+        const allFeatures = stored.flatMap(s => s.features || [])
+        if (allFeatures.length > 0) {
+          setGeojson(prev => ({
+            type: 'FeatureCollection',
+            features: [...(prev?.features||[]), ...allFeatures]
+          }))
+          setGeoKey(k => k+1)
+        }
+      }
+    } catch(e) {}
+  }, [])
+
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    window._mapEdit = (id, residence, statut) => setEditBat({id, residence, statut})
+    window._mapDelete = async (id, residence) => {
+      if (!window.confirm('Supprimer ' + residence + ' ?')) return
+      await fetch(`${BASE}/api/batiments/${id}/`, {
+        method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+      }).catch(()=>{})
+      window.location.reload()
+    }
+    return () => { delete window._mapEdit; delete window._mapDelete }
+  }, [])
 
   useEffect(()=>{load()},[load])
 
@@ -227,7 +263,36 @@ export default function MapPage() {
 
       {/* MAP */}
       <div style={{flex:1,position:'relative',minHeight:0,overflow:'hidden'}}>
-        <MapContainer center={[8.111,-6.822]} zoom={17}
+        {/* Bouton Import GIS */}
+      <button onClick={()=>{
+        // Export des données de la carte en GeoJSON
+        const data = JSON.stringify(geojson || {type:'FeatureCollection',features:[]}, null, 2)
+        const blob = new Blob([data], {type:'application/json'})
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `rzi_camp_gis_${new Date().toISOString().slice(0,10)}.geojson`
+        a.click()
+        URL.revokeObjectURL(url)
+      }} title="Exporter les données GIS"
+        style={{
+          position:'absolute', top:10, right:160, zIndex:1000,
+          background:'#fff', border:'none', borderRadius:8,
+          padding:'8px 14px', cursor:'pointer', fontSize:12, fontWeight:700,
+          color:'#16a34a', boxShadow:'0 2px 8px rgba(0,0,0,.15)',
+          display:'flex', alignItems:'center', gap:6
+        }}>
+        📤 Extraire
+      </button>
+
+      <button onClick={()=>setShowImport(true)}
+        style={{position:'absolute',top:54,right:12,zIndex:500,background:'#1e3a8a',color:'#fff',
+          border:'none',padding:'8px 14px',borderRadius:10,cursor:'pointer',fontSize:12,
+          fontWeight:700,boxShadow:'0 2px 8px rgba(0,0,0,.2)',display:'flex',alignItems:'center',gap:6}}>
+        📥 Importer données
+      </button>
+
+      <MapContainer center={[8.111,-6.822]} zoom={17}
           style={{width:'100%',height:'100%'}}>
           <TileLayer key={tileId} url={tile.url} attribution=""/>
           {geojson&&(
@@ -276,6 +341,162 @@ export default function MapPage() {
           <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)',fontSize:10,color:'var(--text-dim)'}}>{geojson?.features?.length||0} bâtiments</div>
         </div>
       </div>
+
+      {/* Modal Import GIS */}
+      {showImport && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setShowImport(false)}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:520,padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:800,color:'#1e3a8a'}}>📥 Importer des données GIS</div>
+                <div style={{fontSize:11,color:'#64748b',marginTop:2}}>
+                  {(() => { try { return JSON.parse(localStorage.getItem('rzi_gis_imports')||'[]').reduce((s,i)=>s+(i.features?.length||0),0) } catch(e){return 0} })()} entité(s) en mémoire
+                </div>
+              </div>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <button onClick={()=>{
+                  if(confirm('Effacer tous les imports GIS sauvegardés?')) {
+                    localStorage.removeItem('rzi_gis_imports')
+                    setGeojson(null)
+                    setGeoKey(k=>k+1)
+                    setShowImport(false)
+                  }
+                }} style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                  🗑️ Vider
+                </button>
+                <button onClick={()=>setShowImport(false)} style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+              </div>
+            </div>
+            {importMsg && (
+              <div style={{background:importMsg.ok?'#f0fdf4':'#fef2f2',border:`1px solid ${importMsg.ok?'#bbf7d0':'#fecaca'}`,
+                borderRadius:8,padding:'10px 14px',marginBottom:16,fontSize:13,color:importMsg.ok?'#16a34a':'#dc2626'}}>
+                {importMsg.text}
+              </div>
+            )}
+            <div style={{marginBottom:16}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>TYPE DE COUCHE</label>
+              <select value={importLayer} onChange={e=>setImportLayer(e.target.value)}
+                style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none'}}>
+                <option value="residence">🏠 Résidences / Bâtiments</option>
+                <option value="electrique">⚡ Réseau électrique</option>
+                <option value="eau_potable">💧 Eau potable</option>
+                <option value="eau_usee">🚿 Eau usée</option>
+                <option value="fibre">🔌 Fibre optique</option>
+                <option value="genie_civil">🏗️ Génie civil</option>
+              </select>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>FICHIER (GeoJSON ou CSV)</label>
+              <input type="file" accept=".geojson,.json,.csv"
+                style={{width:'100%',border:'2px dashed #e2e8f0',borderRadius:9,padding:'16px',fontSize:13,cursor:'pointer'}}
+                onChange={async e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setImportMsg({ok:false,text:`⏳ Lecture de ${file.name}...`})
+                  try {
+                    const text = await file.text()
+                    let data
+                    if (file.name.endsWith('.csv')) {
+                      const lines = text.split('\n').filter(l=>l.trim())
+                      const headers = lines[0].split(',').map(h=>h.trim().toLowerCase())
+                      const features = lines.slice(1).map(line => {
+                        const vals = line.split(',')
+                        const props = {}
+                        headers.forEach((h,i) => { props[h] = vals[i]?.trim() })
+                        const lat = parseFloat(props.lat||props.latitude||0)
+                        const lng = parseFloat(props.lng||props.longitude||props.lon||0)
+                        return { type:'Feature', geometry:{type:'Point',coordinates:[lng,lat]}, properties:{...props,layer:importLayer} }
+                      }).filter(f=>f.geometry.coordinates[0]&&f.geometry.coordinates[1])
+                      data = { type:'FeatureCollection', features }
+                    } else {
+                      data = JSON.parse(text)
+                    }
+                    const count = data.features?.length || 0
+
+                    // Afficher immédiatement sur la carte
+                    setGeojson(prev => {
+                      const existing = prev?.features || []
+                      // Ajouter la couche aux features existantes
+                      const newFeatures = data.features.map(f => ({
+                        ...f,
+                        properties: { ...f.properties, layer: importLayer, imported: true }
+                      }))
+                      const merged = {
+                        type: 'FeatureCollection',
+                        features: [...existing, ...newFeatures]
+                      }
+                      // Persister dans localStorage
+                      try {
+                        const stored = JSON.parse(localStorage.getItem('rzi_gis_imports') || '[]')
+                        stored.push({ layer:importLayer, features:newFeatures, date:new Date().toISOString() })
+                        localStorage.setItem('rzi_gis_imports', JSON.stringify(stored.slice(-20)))
+                      } catch(e) {}
+                      return merged
+                    })
+                    setGeoKey(k => k+1)
+
+                    setImportMsg({ok:true,text:`✅ ${count} entité(s) affichées sur la carte — Couche: ${importLayer}`})
+                    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                    const token = localStorage.getItem('access_token') || ''
+                    fetch(`${BASE}/api/gis/import/`, {
+                      method:'POST',
+                      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                      body: JSON.stringify({layer:importLayer, geojson:data})
+                    }).catch(()=>{})
+                  } catch(err) {
+                    setImportMsg({ok:false,text:`❌ Erreur: ${err.message}`})
+                  }
+                }}/>
+              <div style={{fontSize:11,color:'#94a3b8',marginTop:6}}>Formats acceptés: GeoJSON (.geojson, .json) et CSV avec colonnes lat/lon</div>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>{setShowImport(false);setImportMsg(null)}}
+                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
+                Fermer
+              </button>
+              <a href="data:text/csv;charset=utf-8,nom,latitude,longitude,type%0AResidence B1,6.3702,-5.2012,residence"
+                download="template_gis.csv"
+                style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+                📋 Template CSV
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal édition bâtiment */}
+      {editBat && (
+        <div onClick={e=>e.target===e.currentTarget&&setEditBat(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(4px)',
+            display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:400}}>
+            <div style={{fontWeight:800,fontSize:17,marginBottom:16,color:'#1e3a8a'}}>✏️ {editBat.residence}</div>
+            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>STATUT</label>
+            <select id="edit-bat-statut" defaultValue={editBat.statut}
+              style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,marginBottom:16}}>
+              {['Libre','Occupé','Réservé','Maintenance'].map(s=><option key={s}>{s}</option>)}
+            </select>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>setEditBat(null)}
+                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer'}}>Annuler</button>
+              <button onClick={async()=>{
+                const BASE=import.meta?.env?.VITE_API_URL||'https://rzi-camp-backend.onrender.com'
+                const token=localStorage.getItem('access_token')||''
+                const statut=document.getElementById('edit-bat-statut')?.value
+                await fetch(`${BASE}/api/batiments/${editBat.id}/`,{
+                  method:'PATCH',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                  body:JSON.stringify({statut})
+                }).catch(()=>{})
+                setEditBat(null)
+                window.location.reload()
+              }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+                padding:'10px 20px',cursor:'pointer',fontWeight:700}}>💾 Sauvegarder</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

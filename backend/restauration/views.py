@@ -234,6 +234,36 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RepasLog.objects.select_related("qr_token", "qr_token__personnel", "valide_par", "personnel").all()
     serializer_class = RepasLogSerializer
 
+
+    @action(detail=False, methods=['get'])
+    def stats_jour(self, request):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        from datetime import timedelta
+        today = tz.now().date()
+        week_start = today - timedelta(days=6)
+        try:
+            with connection.cursor() as c:
+                c.execute(
+                    "SELECT type_repas, COUNT(*) FROM restauration_repaslog"
+                    " WHERE DATE(date_validation)=%s GROUP BY type_repas", [today])
+                rows = dict(c.fetchall())
+                c.execute(
+                    "SELECT COUNT(*) FROM restauration_repaslog"
+                    " WHERE DATE(date_validation)>=%s", [week_start])
+                semaine = c.fetchone()[0]
+            return Response({
+                'today': today.isoformat(),
+                'total_jour': sum(rows.values()),
+                'petit_dejeuner': rows.get('petit_dejeuner', 0),
+                'dejeuner': rows.get('dejeuner', 0),
+                'diner': rows.get('diner', 0),
+                'semaine': semaine,
+            })
+        except Exception as e:
+            return Response({'error': str(e), 'total_jour': 0, 'semaine': 0})
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
@@ -331,6 +361,27 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
     queryset = ArticleBoutique.objects.order_by('categorie','nom')
     serializer_class = ArticleSerializer
 
+    @action(detail=True, methods=['post'])
+    def ajuster_stock(self, request, pk=None):
+        from django.db import connection
+        from rest_framework.response import Response
+        op = request.data.get('operation', 'add')  # add | remove | set
+        qte = int(request.data.get('quantite', 0))
+        raison = request.data.get('raison', '')
+        try:
+            with connection.cursor() as c:
+                c.execute('SELECT stock FROM restauration_articleboutique WHERE id=%s', [pk])
+                row = c.fetchone()
+                if not row: return Response({'detail': 'Article introuvable'}, status=404)
+                stock_actuel = row[0]
+                if op == 'set': nouveau = qte
+                elif op == 'remove': nouveau = max(0, stock_actuel - qte)
+                else: nouveau = stock_actuel + qte
+                c.execute('UPDATE restauration_articleboutique SET stock=%s WHERE id=%s', [nouveau, pk])
+            return Response({'stock': nouveau, 'precedent': stock_actuel, 'operation': op})
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         from django.utils import timezone
@@ -376,150 +427,172 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
         return Response(ArticleSerializer(articles, many=True).data)
 
 class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
-    queryset = ConsommationBoutique.objects.select_related('personnel','article','valide_par').order_by('-date_conso')
     serializer_class = ConsommationSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['article__nom','personnel__nom']
     permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['article__nom']
 
-    def perform_create(self, serializer):
-        valide_par = self.request.user if self.request.user and self.request.user.is_authenticated else None
-        serializer.save(valide_par=valide_par)
+    def get_queryset(self):
+        return ConsommationBoutique.objects.select_related(
+            'personnel', 'article', 'valide_par'
+        ).order_by('-date_conso')
 
     def create(self, request, *args, **kwargs):
         from django.db import connection
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from rest_framework import status as st
-        import traceback
 
-        data = request.data
-        article_id   = data.get('article')
-        personnel_id = data.get('personnel') or None
-        quantite     = int(data.get('quantite', 1))
-        mode         = data.get('mode_paiement', 'especes')
-        valide_id    = request.user.id if request.user and request.user.is_authenticated else None
+        art_id  = request.data.get('article')
+        pers_id = request.data.get('personnel') or None
+        qte     = int(request.data.get('quantite') or 1)
+        mode    = str(request.data.get('mode_paiement') or 'especes')
+        uid     = request.user.id if request.user and request.user.is_authenticated else None
 
-        debug = {'article_id': article_id, 'personnel_id': personnel_id, 'mode': mode, 'step': 'start'}
         try:
-            # Étape 1: prix article
-            debug['step'] = 'get_prix'
-            with connection.cursor() as c:
-                c.execute('SELECT prix FROM restauration_articleboutique WHERE id=%s', [article_id])
-                row = c.fetchone()
-            if not row:
-                return Response({'detail': f'Article {article_id} introuvable', 'debug': debug}, status=404)
-            montant = int(float(row[0]) * quantite)
-            debug['montant'] = montant
+            with connection.cursor() as cur:
+                # Prix
+                cur.execute("SELECT prix FROM restauration_articleboutique WHERE id=%s", [art_id])
+                row = cur.fetchone()
+                if not row:
+                    return Response({"detail": f"Article {art_id} introuvable"}, status=404)
+                montant = int(float(row[0]) * qte)
 
-            # Étape 2: colonne mode_paiement
-            debug['step'] = 'check_mode_col'
-            with connection.cursor() as c:
-                c.execute("SELECT 1 FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
-                has_mode = c.fetchone() is not None
-            debug['has_mode'] = has_mode
-
-            # Étape 3: INSERT
-            debug['step'] = 'insert'
-            with connection.cursor() as c:
-                if has_mode:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,mode_paiement,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, mode, valide_id]
+                # INSERT
+                # Archiver le nom de l'agent (tolérant si colonne absente)
+                agent_nom = ''
+                if pers_id:
+                    try:
+                        cur.execute("SELECT nom||' '||prenom FROM residences_personnel WHERE id=%s", [pers_id])
+                        row2 = cur.fetchone()
+                        if row2: agent_nom = row2[0]
+                    except Exception: pass
+                try:
+                    cur.execute(
+                        "INSERT INTO restauration_consommationboutique"
+                        " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso, agent_nom_cache)"
+                        " VALUES (%s, %s, %s, %s, %s, '', %s, NOW(), %s)"
+                        " RETURNING id",
+                        [art_id, pers_id, qte, montant, mode, uid, agent_nom]
                     )
-                else:
-                    c.execute(
-                        "INSERT INTO restauration_consommationboutique (article_id,personnel_id,quantite,montant,notes,valide_par_id,date_conso) VALUES (%s,%s,%s,%s,'', %s,NOW()) RETURNING id",
-                        [article_id, personnel_id, quantite, montant, valide_id]
+                except Exception:
+                    # Fallback sans agent_nom_cache si colonne absente
+                    cur.execute(
+                        "INSERT INTO restauration_consommationboutique"
+                        " (article_id, personnel_id, quantite, montant, mode_paiement, notes, valide_par_id, date_conso)"
+                        " VALUES (%s, %s, %s, %s, %s, '', %s, NOW())"
+                        " RETURNING id",
+                        [art_id, pers_id, qte, montant, mode, uid]
                     )
-                conso_id = c.fetchone()[0]
-            debug['conso_id'] = conso_id
+                cid = cur.fetchone()[0]
 
-            # Étape 4: débit bon
-            debug['step'] = 'debit_bon'
-            if mode == 'bon' and personnel_id:
-                with connection.cursor() as c:
-                    c.execute(
-                        "UPDATE restauration_boncaisse SET credit_restant=credit_restant-%s WHERE personnel_id=%s AND annee=%s",
-                        [montant, personnel_id, tz.now().year]
+                # Débit bon
+                if mode == 'bon' and pers_id:
+                    cur.execute(
+                        "UPDATE restauration_boncaisse"
+                        " SET credit_restant = credit_restant - %s"
+                        " WHERE personnel_id = %s AND annee = %s",
+                        [montant, pers_id, tz.now().year]
                     )
-                    debug['rows_updated'] = c.rowcount
 
-            return Response({'id': conso_id, 'montant': montant, 'mode_paiement': mode, 'debug': debug}, status=st.HTTP_201_CREATED)
-        except Exception as e:
-            debug['error'] = str(e)
-            debug['traceback'] = traceback.format_exc()[-500:]
-            return Response({'detail': str(e), 'debug': debug}, status=500)
+            return Response({"id": cid, "montant": montant, "mode": mode}, status=201)
+
+        except Exception as exc:
+            return Response({"detail": str(exc)}, status=500)
 
 
     @action(detail=False, methods=['get'])
-    def stats_jour(self, request):
-        from django.utils import timezone
-        from django.db.models import Sum
-        today = timezone.now().date()
-        qs = self.get_queryset().filter(date_conso__date=today)
-        par_art = qs.values('article__nom','article__categorie').annotate(
-            qte=Sum('quantite'), total=Sum('montant')
-        ).order_by('-total')
-        return Response({
-            'date': str(today),
-            'total': qs.count(),
-            'montant': float(qs.aggregate(t=Sum('montant'))['t'] or 0),
-            'par_article': list(par_art)[:10],
-        })
-
-    @action(detail=False, methods=['get'], url_path='analyses')
     def analyses(self, request):
-        from django.db.models import Sum, Count, DecimalField, ExpressionWrapper, F
-        from django.db.models.functions import TruncDate
-        from django.utils import timezone
-        import datetime
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        from datetime import date, timedelta
 
-        periode = request.query_params.get('periode', '30j')
-        now = timezone.now()
-        delta = {'7j':7,'30j':30,'90j':90}.get(periode, 30)
-        debut = now - datetime.timedelta(days=delta) if periode != 'annee' else now.replace(month=1,day=1,hour=0,minute=0,second=0)
+        periode = request.query_params.get('periode', 'semaine')
+        today = tz.now().date()
+        if periode == 'jour':    date_from = today
+        elif periode == 'mois':  date_from = today.replace(day=1)
+        elif periode == 'annee': date_from = today.replace(month=1, day=1)
+        else:                    date_from = today - timedelta(days=6)
 
-        montant = ExpressionWrapper(F('quantite')*F('article__prix'), output_field=DecimalField())
-        consos  = ConsommationBoutique.objects.filter(date_conso__gte=debut)
+        try:
+            with connection.cursor() as c:
+                # Total CA + transactions
+                c.execute("""
+                    SELECT COALESCE(SUM(cb.montant),0), COUNT(*), COALESCE(SUM(cb.quantite),0)
+                    FROM restauration_consommationboutique cb
+                    WHERE DATE(cb.date_conso) >= %s
+                """, [date_from])
+                total_ca, nb_tx, total_qte = c.fetchone()
 
-        def qs(q):
-            try: return list(q)
-            except: return []
+                # Top articles
+                c.execute("""
+                    SELECT a.nom, SUM(cb.quantite) as qte, SUM(cb.montant) as ca
+                    FROM restauration_consommationboutique cb
+                    JOIN restauration_articleboutique a ON a.id=cb.article_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY a.nom ORDER BY ca DESC LIMIT 10
+                """, [date_from])
+                top_articles = [{'article__nom':r[0],'article__categorie':'','qte':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
-        top_art = qs(consos.values('article__nom','article__categorie')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca')[:15])
-        top_art = [{'article__nom':a['article__nom'],'article__categorie':a['article__categorie'],
-                    'qte':int(a['qte'] or 0),'ca':int(a['ca'] or 0)} for a in top_art]
+                # Par catégorie
+                c.execute("""
+                    SELECT a.categorie, SUM(cb.quantite), SUM(cb.montant)
+                    FROM restauration_consommationboutique cb
+                    JOIN restauration_articleboutique a ON a.id=cb.article_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY a.categorie ORDER BY SUM(cb.montant) DESC
+                """, [date_from])
+                par_cat = [{'article__categorie':r[0],'total_qte':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
-        top_ag = qs(consos.filter(personnel__isnull=False)
-            .values('personnel__nom','personnel__prenom','personnel__societe')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca')[:10])
-        top_ag = [{'personnel__nom':a['personnel__nom'],'personnel__prenom':a['personnel__prenom'],
-                   'personnel__societe':a['personnel__societe'],'qte':int(a['qte'] or 0),'ca':int(a['ca'] or 0)} for a in top_ag]
+                # Top agents
+                c.execute("""
+                    SELECT COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme') as nom,
+                           COUNT(*), SUM(cb.montant)
+                    FROM restauration_consommationboutique cb
+                    LEFT JOIN residences_personnel p ON p.id=cb.personnel_id
+                    WHERE DATE(cb.date_conso) >= %s
+                    GROUP BY COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme'), p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
+                """, [date_from])
+                top_agents = [{'nom':r[0],'nb':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
-        par_cat = qs(consos.values('article__categorie')
-            .annotate(qte=Sum('quantite'),ca=Sum(montant)).order_by('-ca'))
-        par_cat = [{'article__categorie':c['article__categorie'],'qte':int(c['qte'] or 0),'ca':int(c['ca'] or 0)} for c in par_cat]
+                # Évolution par mode
+                c.execute("""
+                    SELECT DATE(date_conso) as jour,
+                           SUM(CASE WHEN mode_paiement='bon' THEN montant ELSE 0 END) as bon,
+                           SUM(CASE WHEN mode_paiement='especes' OR mode_paiement IS NULL THEN montant ELSE 0 END) as especes
+                    FROM restauration_consommationboutique
+                    WHERE DATE(date_conso) >= %s
+                    GROUP BY DATE(date_conso) ORDER BY DATE(date_conso)
+                """, [date_from])
+                evolution = [{'jour':str(r[0]),'bon':float(r[1] or 0),'especes':float(r[2] or 0),'ca':float((r[1] or 0)+(r[2] or 0))} for r in c.fetchall()]
 
-        evo = qs(ConsommationBoutique.objects.filter(date_conso__gte=now-datetime.timedelta(days=30))
-            .annotate(jour=TruncDate('date_conso')).values('jour')
-            .annotate(ca=Sum(montant),nb=Count('id')).order_by('jour'))
-        evo = [{'jour':str(e['jour']),'ca':int(e['ca'] or 0),'nb':e['nb']} for e in evo]
+            return Response({
+                'periode': periode, 'total_ca': float(total_ca), 'nb_transactions': nb_tx,
+                'total_qte': int(total_qte), 'top_articles': top_articles,
+                'par_categorie': par_cat, 'top_agents': top_agents, 'evolution': evolution,
+            })
+        except Exception as e:
+            return Response({'detail': str(e), 'total_ca':0,'nb_transactions':0,'total_qte':0,
+                'top_articles':[],'par_categorie':[],'top_agents':[],'evolution':[]}, status=500)
 
-        try: total_ca = int(consos.aggregate(s=Sum(montant))['s'] or 0)
-        except: total_ca = 0
-        total_qte = int(consos.aggregate(s=Sum('quantite'))['s'] or 0)
+    @action(detail=False, methods=['get'])
+    def stats_jour(self, request):
+        from django.db import connection
+        from django.utils import timezone as tz
+        from rest_framework.response import Response
+        today = tz.now().date()
+        try:
+            with connection.cursor() as c:
+                c.execute("SELECT COUNT(*), COALESCE(SUM(montant),0) FROM restauration_consommationboutique WHERE DATE(date_conso)=%s", [today])
+                count, total = c.fetchone()
+                c.execute("SELECT a.categorie, COUNT(*), COALESCE(SUM(cb.montant),0) FROM restauration_consommationboutique cb JOIN restauration_articleboutique a ON a.id=cb.article_id WHERE DATE(cb.date_conso)=%s GROUP BY a.categorie", [today])
+                par_cat = [{'categorie':r[0],'count':r[1],'total':float(r[2])} for r in c.fetchall()]
+            return Response({'count':count,'total':float(total),'par_categorie':par_cat,'date':str(today)})
+        except Exception as e:
+            return Response({'count':0,'total':0,'par_categorie':[],'date':str(today),'error':str(e)})
 
-        return Response({'periode':periode,'total_ca':total_ca,'total_qte':total_qte,
-            'nb_transactions':consos.count(),'top_articles':top_art,'top_agents':top_ag,
-            'par_categorie':par_cat,'evolution':evo})
 
-
-
-# ═══════════════════════════════════════════════════════
-# BONS DE CAISSE — Tickets annuels 100K FCFA
-# ═══════════════════════════════════════════════════════
 
 class BonCaisseSerializer(drf_serializers.ModelSerializer):
     personnel_nom  = drf_serializers.SerializerMethodField()

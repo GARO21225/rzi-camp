@@ -21,6 +21,25 @@ const S_BTN = (bg, color, border) => ({
   transition: '.15s', fontFamily: 'inherit'
 })
 
+
+const DESTINATIONS = [
+  // Côte d'Ivoire - villes principales
+  'Abidjan', 'Yamoussoukro', 'Bouaké', 'San Pedro', 'Korhogo', 'Man',
+  'Daloa', 'Gagnoa', 'Abengourou', 'Bondoukou', 'Odienné', 'Touba',
+  'Divo', 'Agboville', 'Dimbokro', 'Séguéla', 'Mankono', 'Ferkessédougou',
+  'Bouna', 'Tabou',
+  // Aéroports / Hubs
+  'Aéroport FÉLIX HOUPHOUËT-BOIGNY (ABJ)',
+  'Aéroport BOUAKÉ',
+  // Burkina Faso (site minier proche)
+  'Ouagadougou', 'Bobo-Dioulasso', 'Dédougou', 'Koudougou',
+  // International
+  'Accra (Ghana)', 'Bamako (Mali)', 'Dakar (Sénégal)', 'Lomé (Togo)',
+  'Paris (France)', 'Bruxelles (Belgique)',
+  // Destinations mines / terrain
+  'Sango Mine Site', 'Camp de base', 'Site d\'exploration',
+]
+
 export default function Voyages() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_staff ? 'admin' : 'agent')
@@ -139,7 +158,7 @@ export default function Voyages() {
   ]
 
   return (
-    <div style={{ padding:20 }}>
+    <div style={{ padding:16 }}>
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
@@ -293,7 +312,10 @@ export default function Voyages() {
               <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6,textTransform:'uppercase' }}>Destination *</label>
-                  <input value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} placeholder="Abidjan, Yamoussoukro…" style={inp}/>
+                  <select value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} style={inp}>
+                    <option value="">Sélectionner une destination...</option>
+                    {DESTINATIONS.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6,textTransform:'uppercase' }}>Motif</label>

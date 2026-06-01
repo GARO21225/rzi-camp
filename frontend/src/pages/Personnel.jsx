@@ -35,6 +35,10 @@ export default function Personnel() {
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
   const [typeFilter,   setTypeFilter]   = useState('')
+  const [profilFilter, setProfilFilter] = useState('')
+  const [societeFilter,setSocieteFilter]= useState('')
+  const [actifFilter,  setActifFilter]  = useState('')
+  const [inductionFilter,setInductionFilter]= useState('')
   const [modal,        setModal]        = useState(null)   // null | 'new' | personnel object
   const [qrModal,      setQrModal]      = useState(null)
   const [masseModal,   setMasseModal]   = useState(false)
@@ -67,10 +71,12 @@ export default function Personnel() {
   // Filtrage
   const filtered = data.filter(p => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero]
+    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.profil,p.matricule]
       .some(v => (v||'').toLowerCase().includes(q))
-    const matchType = !typeFilter || p.type_personnel === typeFilter
-    return matchSearch && matchType
+    const matchType    = !typeFilter    || p.type_personnel === typeFilter
+    const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
+    const matchProfil  = !profilFilter  || p.profil === profilFilter
+    return matchSearch && matchType && matchSociete && matchProfil
   })
 
   // Sauvegarde
@@ -113,9 +119,35 @@ export default function Personnel() {
     setSelectedIds(new Set()); load()
   }
 
-  const massChangerRole = async (newType) => {
+  const massChangerRole = async (action) => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${token}`}
+    
+    if (action === 'export') {
+      const sel = filtered.filter(p=>selected_ids.has(p.id))
+      const rows = [['NOM','PRENOM','TYPE','SOCIETE','EMAIL','TEL','PROFIL'],
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.email,p.numero,p.profil])]
+      const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n')
+      const a = document.createElement('a')
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+      a.download = 'personnel_selection.csv'
+      a.click()
+      return
+    }
+    
     for (const id of selected_ids) {
-      try { await personnelAPI.update(id, { type_personnel: newType }) } catch(e) {}
+      try {
+        let body = {}
+        if (action.startsWith('type:'))    body = { type_personnel: action.slice(5) }
+        else if (action.startsWith('profil:')) body = { profil: action.slice(7) }
+        else if (action === 'activer')    body = { actif: true }
+        else if (action === 'desactiver') body = { actif: false }
+        else if (action === 'no_induction')   body = { induction_requise: false }
+        else if (action === 'with_induction') body = { induction_requise: true }
+        else body = { type_personnel: action }
+        await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
+      } catch(e) {}
     }
     setSelectedIds(new Set()); load(); setMassAction('')
   }
@@ -168,19 +200,103 @@ export default function Personnel() {
   ]
 
   const PROFILS = [
-    {v:'admin',       l:'Administrateur'},
-    {v:'agent',       l:'Agent'},
-    {v:'technicien',  l:'Technicien'},
-    {v:'restaurant',  l:'Restauration'},
-    {v:'boutique',    l:'Bar & Boutique'},
-    {v:'securite',    l:'Sécurité'},
-    {v:'medical',     l:'Médical'},
-    {v:'manager',     l:'Manager / Responsable'},
-  ]
+  { v:'admin',      l:'Administrateur' },
+  { v:'agent',      l:'Agent' },
+  { v:'accueil',    l:"Agent d'accueil" },
+  { v:'technicien', l:'Technicien' },
+  { v:'hse',        l:'HSE / QHSE' },
+  { v:'restaurant', l:'Restauration' },
+  { v:'boutique',   l:'Bar & Boutique' },
+  { v:'securite',   l:'Sécurité' },
+  { v:'medical',    l:'Médical' },
+  { v:'manager',    l:'Manager / Responsable' },
+]
+
+  const exportPersonnelCSV = (list) => {
+    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut','Date création']
+    const rows = list.map(p => [
+      p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
+      p.poste||p.fonction||'', p.telephone||'', p.email||'',
+      p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif',
+      p.date_creation?new Date(p.date_creation).toLocaleDateString('fr-FR'):''
+    ])
+    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'personnel_'+new Date().toISOString().slice(0,10)+'.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadPersonnelTemplate = () => {
+    const csv = 'nom;prenom;societe;email;numero;type_personnel\n' +
+      'KOUAME;Jean;CIC;jean.kouame@cic.com;MAT001;roxgold\n' +
+      'TRAORE;Marie;SODECI;marie.traore@sodeci.com;MAT002;sous_traitant\n' +
+      'DIALLO;Ibrahim;ROXGOLD;ibrahim.diallo@roxgold.com;MAT003;visiteur'
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='template_personnel.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importPersonnelCSV = () => {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.csv,.txt'
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const lines = text.split('\n').filter(l=>l.trim())
+      if (lines.length < 2) { alert('CSV vide'); return }
+      const sep = lines[0].includes(';') ? ';' : ','
+      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
+      const get = (row, names) => {
+        for (const n of names) {
+          const i = headers.findIndex(h=>h.includes(n))
+          if (i>=0) return (row[i]||'').replace(/^"|"$/g,'').trim()
+        }
+        return ''
+      }
+      // Préparer toutes les lignes
+      const rows = []
+      for (let i=1; i<lines.length; i++) {
+        const row = lines[i].split(sep)
+        const nom = get(row,['nom'])
+        const prenom = get(row,['prenom','prénom'])
+        if (!nom) continue
+        rows.push({
+          nom, prenom,
+          societe: get(row,['societe','société','entreprise','company']) || 'N/A',
+          email: get(row,['email','mail']) || '',
+          numero: get(row,['matricule','numero','numéro']) || '',
+          type_personnel: get(row,['type','type_personnel']) || 'roxgold',
+        })
+      }
+      // Envoyer tout en une seule requête
+      try {
+        const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+        const token = localStorage.getItem('access_token') || ''
+        const r = await fetch(`${BASE}/api/personnel/import_csv_data/`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+          body: JSON.stringify({rows})
+        })
+        const d = await r.json()
+        const ok = d.imported || 0
+        const errs = d.errors || []
+        alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
+        load()
+      } catch(e) {
+        alert('Erreur import: ' + e.message)
+      }
+    }
+    input.click()
+  }
 
   return (
     <PersonnelBoundary>
-      <div className="page" style={{maxWidth:1100, margin:'0 auto'}}>
+      <div className="page" style={{padding:'0 16px'}}>
 
         {/* ── HEADER ── */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
@@ -203,6 +319,9 @@ export default function Personnel() {
             }} style={btn('#1e3a8a')}>
               ➕ Nouveau membre
             </button>
+            <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('#7c3aed'),fontSize:12}}>📋 Template</button>
+            <button onClick={()=>importPersonnelCSV()} style={{...btn('#2563eb'),fontSize:12}}>📤 Import CSV</button>
+            <button onClick={()=>exportPersonnelCSV(filtered)} style={{...btn('#16a34a'),fontSize:12}}>📥 Export CSV ({filtered.length})</button>
           </div>
         </div>
 
@@ -214,9 +333,40 @@ export default function Personnel() {
           <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}
             style={{...inp,maxWidth:160}}>
             <option value="">Tous les types</option>
-            {/* Type de personnel */}
-                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+            {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
+          <select value={actifFilter||''} onChange={e=>setActifFilter(e.target.value)}
+            style={{...inp,maxWidth:140}}>
+            <option value="">Tous (actif)</option>
+            <option value="actif">✅ Actifs</option>
+            <option value="inactif">🔒 Inactifs</option>
+          </select>
+          <select value={inductionFilter||''} onChange={e=>setInductionFilter(e.target.value)}
+            style={{...inp,maxWidth:160}}>
+            <option value="">Toutes inducti.</option>
+            <option value="induit">✅ Induits</option>
+            <option value="en_cours">⏳ En cours</option>
+            <option value="non_commence">❌ Non commencé</option>
+          </select>
+          {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||search) && (
+            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setSearch('')}}
+              style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:9,
+                padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
+              ✕ Reset
+            </button>
+          )}
+          <select value={profilFilter} onChange={e=>setProfilFilter(e.target.value)}
+            style={{...inp,maxWidth:160}}>
+            <option value="">Tous les profils</option>
+            {PROFILS.map(p => <option key={p.v} value={p.v}>{p.l}</option>)}
+          </select>
+          <input value={societeFilter} onChange={e=>setSocieteFilter(e.target.value)}
+            placeholder="🏢 Filtrer par société..." style={{...inp,maxWidth:200}}/>
+          {(typeFilter||profilFilter||societeFilter) && (
+            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('')}}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'7px 12px',
+                fontSize:12,cursor:'pointer',color:'#64748b'}}>✕ Reset</button>
+          )}
         </div>
 
         {/* ── TABLE ── */}
@@ -231,8 +381,24 @@ export default function Personnel() {
             <select value={massAction} onChange={e=>setMassAction(e.target.value)}
               style={{border:'none',borderRadius:8,padding:'5px 10px',fontSize:12,fontWeight:600,
                 background:'rgba(255,255,255,.15)',color:'#fff',outline:'none',cursor:'pointer'}}>
-              <option value="">Changer type vers...</option>
-              {TYPES.map(t=><option key={t.v} value={t.v} style={{color:'#000'}}>{t.l}</option>)}
+              <option value="">— Action groupée —</option>
+              <optgroup label="── Type" style={{color:'#000'}}>
+                {TYPES.map(t=><option key={t.v} value={`type:${t.v}`} style={{color:'#000'}}>{t.l}</option>)}
+              </optgroup>
+              <optgroup label="── Profil" style={{color:'#000'}}>
+                {PROFILS.map(p=><option key={p.v} value={`profil:${p.v}`} style={{color:'#000'}}>{p.l}</option>)}
+              </optgroup>
+              <optgroup label="── Induction" style={{color:'#000'}}>
+                <option value="no_induction" style={{color:'#000'}}>🚫 Marquer sans induction</option>
+                <option value="with_induction" style={{color:'#000'}}>✅ Marquer avec induction</option>
+              </optgroup>
+              <optgroup label="── Statut" style={{color:'#000'}}>
+                <option value="activer" style={{color:'#000'}}>✅ Activer</option>
+                <option value="desactiver" style={{color:'#000'}}>🔒 Désactiver</option>
+              </optgroup>
+              <optgroup label="── Export" style={{color:'#000'}}>
+                <option value="export" style={{color:'#000'}}>📥 Exporter CSV</option>
+              </optgroup>
             </select>
             {massAction && (
               <button onClick={()=>massChangerRole(massAction)}
@@ -266,7 +432,17 @@ export default function Personnel() {
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Nom','Type','Profil','Société','Contact','QR','Actions'].map(h => (
+                  <th style={{padding:'12px 14px',width:40}}>
+                    <input type="checkbox"
+                      checked={filtered.length>0 && filtered.every(p=>selected_ids.has(p.id))}
+                      onChange={e=>{
+                        if(e.target.checked) setSelectedIds(new Set(filtered.map(p=>p.id)))
+                        else setSelectedIds(new Set())
+                      }}
+                      title="Tout sélectionner/désélectionner"
+                      style={{width:16,height:16,cursor:'pointer'}}/>
+                  </th>
+                  {['Nom','Type','Société','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -300,21 +476,15 @@ export default function Personnel() {
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
                       </span>
                     </td>
-                    <td style={{padding:'10px 14px'}}>
-                      {p.profil && (
-                        <span style={{
-                          background:'#f5f3ff',color:'#7c3aed',
-                          padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700
-                        }}>
-                          {PROFILS.find(r=>r.v===p.profil)?.l || p.profil}
-                        </span>
-                      )}
-                    </td>
+
                     <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
                       {p.societe || '—'}
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
                       {p.telephone || '—'}
+                    </td>
+                    <td style={{padding:'10px 14px',fontSize:11,color:'#94a3b8'}}>
+                      {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       {p.qr_code_data ? (
@@ -356,6 +526,34 @@ export default function Personnel() {
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title={p.actif?'Désactiver':'Activer'}>
                             {p.actif ? '🔒' : '🔓'}
+                          </button>
+                          <button onClick={async()=>{
+                              const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                              const token = localStorage.getItem('access_token') || ''
+                              // Toggle: false si actuellement true (ou undefined), true si false
+                              const curVal = p.induction_requise !== false
+                              const newVal = !curVal
+                              // Sauvegarder en localStorage immédiatement (évite 500 si colonne absente)
+                              const lsKey = `rzi_no_induction_${p.id}`
+                              if (!newVal) {
+                                localStorage.setItem(lsKey, '1')
+                              } else {
+                                localStorage.removeItem(lsKey)
+                              }
+                              // Essayer l'API backend (silencieux si erreur)
+                              fetch(`${BASE}/api/personnel/${p.id}/toggle_induction/`, {
+                                method:'PATCH',
+                                headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                                body: JSON.stringify({induction_requise: newVal})
+                              }).catch(()=>{})
+                              load()
+                            }}
+                            style={{background: p.induction_requise===false?'#fef3c7':'#f0fdf4',
+                              color: p.induction_requise===false?'#92400e':'#166534',
+                              border: `1px solid ${p.induction_requise===false?'#fcd34d':'#bbf7d0'}`,
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title={(()=>{const k=localStorage.getItem(`rzi_no_induction_${p.id}`);const noInd=p.induction_requise===false||k==='1';return noInd?"Activer l'induction":"Marquer sans induction"})()}>
+                            {(p.induction_requise===false||localStorage.getItem(`rzi_no_induction_${p.id}`))?'🚫':'✅'}
                           </button>
                           <button onClick={() => setConfirmDel(p)}
                             style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',

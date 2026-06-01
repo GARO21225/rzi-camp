@@ -10,55 +10,55 @@ import { useStore } from '../store'
 
 // ── Images par défaut (fallback si pas d'image en DB) ──────
 const DEFAULT_PHOTOS = {
-  'Coca-Cola Classic':        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_glass_bottle.jpg/200px-Coca-Cola_glass_bottle.jpg',
-  'Coca-Cola 1.5L':           'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=400&fit=crop&q=80',
-  'Fanta Orange':             'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Fanta_Orange.jpg/200px-Fanta_Orange.jpg',
-  'Sprite':                   'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sprite_can.jpg/200px-Sprite_can.jpg',
-  'Schweppes Tonic':          'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=400&h=400&fit=crop&q=80',
-  'Pepsi':                    'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=400&fit=crop&q=80',
-  '7 Up':                     'https://images.unsplash.com/photo-1581098365948-6a5a912b7a49?w=400&h=400&fit=crop&q=80',
-  'Darci Mangue':             'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=400&h=400&fit=crop&q=80',
-  'Pressea Orange':           'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&h=400&fit=crop&q=80',
-  'Ceres Multifruits':        'https://images.unsplash.com/photo-1546173159-315724a31696?w=400&h=400&fit=crop&q=80',
-  'Minute Maid Orange':       'https://images.unsplash.com/photo-1568909344668-6f14a07b56a0?w=400&h=400&fit=crop&q=80',
-  'Malta Guinness':           'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Malta_Guinness.jpg/200px-Malta_Guinness.jpg',
-  'Red Bull Original':        'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=400&h=400&fit=crop&q=80',
-  'Monster Energy Green':     'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=400&h=400&fit=crop&q=80',
-  'Evian':                    'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&h=400&fit=crop&q=80',
-  'Cristaline':               'https://images.unsplash.com/photo-1616118132534-381055fe2e4d?w=400&h=400&fit=crop&q=80',
-  'Heineken':                 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Heineken_beer_bottle.jpg/200px-Heineken_beer_bottle.jpg',
-  'Desperados':               'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=400&h=400&fit=crop&q=80',
-  'Guinness Stout':           'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Guinness.jpg/200px-Guinness.jpg',
-  'Corona Extra':             'https://images.unsplash.com/photo-1566633806827-5c6cc7f5aff3?w=400&h=400&fit=crop&q=80',
-  'Beaufort 65cl':            'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop&q=80',
-  'Ivoire Speciale':          'https://images.unsplash.com/photo-1473396877154-85e23c3f3096?w=400&h=400&fit=crop&q=80',
-  'JP Chenet Rouge':          'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&h=400&fit=crop&q=80',
-  'Mouton Cadet Rouge':       'https://images.unsplash.com/photo-1547595628-c61a29f496f0?w=400&h=400&fit=crop&q=80',
-  "Jacob s Creek Shiraz":     'https://images.unsplash.com/photo-1569919659476-f0852f6834b7?w=400&h=400&fit=crop&q=80',
-  'JP Chenet Blanc':          'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=400&h=400&fit=crop&q=80',
-  'Mateus Blanc':             'https://images.unsplash.com/photo-1474722883778-792e7990302f?w=400&h=400&fit=crop&q=80',
-  'Mateus Rose':              'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=400&h=400&fit=crop&q=80',
-  'Moet et Chandon Brut':     'https://images.unsplash.com/photo-1548211091-0e8de7b28a0b?w=400&h=400&fit=crop&q=80',
-  'Veuve Clicquot Brut':      'https://images.unsplash.com/photo-1531401675083-f9e0abeef2c1?w=400&h=400&fit=crop&q=80',
-  'Dom Perignon Vintage':     'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
-  "Jack Daniel s Old N7":     'https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=400&h=400&fit=crop&q=80',
-  'Johnnie Walker Black':     'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=400&fit=crop&q=80',
-  'Hennessy VS':              'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
-  'Bacardi Carta Blanca':     'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&h=400&fit=crop&q=80',
-  'Absolut Vodka':            'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=crop&q=80',
-  'Baileys Original':         'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?w=400&h=400&fit=crop&q=80',
-  'Malibu Coco':              'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=400&h=400&fit=crop&q=80',
-  'Jagermeister':             'https://images.unsplash.com/photo-1575650772417-e6b418b0d9bf?w=400&h=400&fit=crop&q=80',
-  'Cointreau':                'https://images.unsplash.com/photo-1612528443702-f6741f70a049?w=400&h=400&fit=crop&q=80',
-  'Amarula Cream':            'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=400&fit=crop&q=80',
-  'Kahlua':                   'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop&q=80',
-  'Get 27':                   'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&q=80',
-  'Nescafe Classic':          'https://images.unsplash.com/photo-1607006344380-b6775a0824a7?w=400&h=400&fit=crop&q=80',
-  'Nescafe Gold':             'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop&q=80',
-  'Lipton Yellow Label':      'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=400&fit=crop&q=80',
-  'Lipton Green Tea':         'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400&h=400&fit=crop&q=80',
-  'Twinings English Breakfast':'https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=400&h=400&fit=crop&q=80',
-  'Twinings Camomille':       'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400&h=400&fit=crop&q=80',
+  'Coca-Cola Classic':        null,
+  'Coca-Cola 1.5L':           null,
+  'Fanta Orange':             null,
+  'Sprite':                   null,
+  'Schweppes Tonic':          null,
+  'Pepsi':                    null,
+  '7 Up':                     null,
+  'Darci Mangue':             null,
+  'Pressea Orange':           null,
+  'Ceres Multifruits':        null,
+  'Minute Maid Orange':       null,
+  'Malta Guinness':           null,
+  'Red Bull Original':        null,
+  'Monster Energy Green':     null,
+  'Evian':                    null,
+  'Cristaline':               null,
+  'Heineken':                 null,
+  'Desperados':               null,
+  'Guinness Stout':           null,
+  'Corona Extra':             null,
+  'Beaufort 65cl':            null,
+  'Ivoire Speciale':          null,
+  'JP Chenet Rouge':          null,
+  'Mouton Cadet Rouge':       null,
+  "Jacob s Creek Shiraz":     null,
+  'JP Chenet Blanc':          null,
+  'Mateus Blanc':             null,
+  'Mateus Rose':              null,
+  'Moet et Chandon Brut':     null,
+  'Veuve Clicquot Brut':      null,
+  'Dom Perignon Vintage':     null,
+  "Jack Daniel s Old N7":     null,
+  'Johnnie Walker Black':     null,
+  'Hennessy VS':              null,
+  'Bacardi Carta Blanca':     null,
+  'Absolut Vodka':            null,
+  'Baileys Original':         null,
+  'Malibu Coco':              null,
+  'Jagermeister':             null,
+  'Cointreau':                null,
+  'Amarula Cream':            null,
+  'Kahlua':                   null,
+  'Get 27':                   null,
+  'Nescafe Classic':          null,
+  'Nescafe Gold':             null,
+  'Lipton Yellow Label':      null,
+  'Lipton Green Tea':         null,
+  'Twinings English Breakfast':null,
+  'Twinings Camomille':       null,
 }
 
 function getPhoto(a) {
@@ -230,7 +230,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
                     <div key={i} style={{marginBottom:8}}>
                       <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
                         <span style={{fontSize:11,fontWeight:600,color:'#1e293b'}}>
-                          {i+1}. {a.personnel__nom} {a.personnel__prenom}
+                          {i+1}. {a.nom||"Anonyme"}
                         </span>
                         <span style={{fontSize:11,fontWeight:800,color:'#16a34a'}}>{a.ca.toLocaleString()} FCFA</span>
                       </div>
@@ -770,6 +770,16 @@ function ArticleCard({ a, qty, onAdd }) {
             display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:30}}>
             {a.nom}
           </div>
+          {/* Badge stock visible */}
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+            <span style={{
+              background: (a.stock||0)===0 ? '#fee2e2' : (a.stock||0) <= (a.stock_min||5) ? '#fef3c7' : '#dcfce7',
+              color: (a.stock||0)===0 ? '#dc2626' : (a.stock||0) <= (a.stock_min||5) ? '#92400e' : '#16a34a',
+              fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99
+            }}>
+              {(a.stock||0)===0 ? '🔴 Rupture' : `📦 ${a.stock||0} restant${(a.stock||0)>1?'s':''}`}
+            </span>
+          </div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{fontWeight:900,color:cfg.c,fontSize:15,fontFamily:'monospace'}}>
               {parseInt(a.prix).toLocaleString()}<span style={{fontSize:9,marginLeft:2}}>FCFA</span>
@@ -792,6 +802,9 @@ export default function Boutique() {
   const [stockQte,     setStockQte]     = useState(0)
   const [stockOp,      setStockOp]      = useState('add')
   const [stockRaison,  setStockRaison]  = useState('')
+  const [stockFilter,      setStockFilter]      = useState('')
+  const [stockCatFilter,   setStockCatFilter]   = useState('')
+  const [exclureAchatsInternes, setExclureAchatsInternes] = useState(false)
   useEffect(()=>{
     const h = ()=>setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize',h)
@@ -826,11 +839,15 @@ export default function Boutique() {
   const [newCatLabel,  setNewCatLabel]  = useState('')
   const [bonAgent,     setBonAgent]     = useState(null)
   const [analyses,     setAnalyses]     = useState(null)
+  const [histSearch,  setHistSearch]  = useState('')
+  const [histDate,    setHistDate]    = useState('')
+  const [histMode,    setHistMode]    = useState('')
   const [analysesPeriode, setAnalysesPeriode] = useState('30j')
   const [analysesLoading, setAnalysesLoading] = useState(false)   // solde bon de caisse agent
   const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
   const [showGererBons,setShowGererBons]= useState(false)
   const [modePaiement, setModePaiement] = useState(null)   // 'especes' | 'bon'
+  const [showPayModal, setShowPayModal] = useState(false)
   const scannerInst = useRef(null)
 
   const load = useCallback(() => {
@@ -1047,8 +1064,7 @@ export default function Boutique() {
           ['caisse','🛒 Caisse'],
           ['historique','📋 Historique'],
           ['catalogue','📦 Catalogue'],
-          ['analyses','📊 Analyses'],
-          ...(isAdmin ? [['bons','🎫 Bons de Caisse']] : [])
+          ...(isAdmin ? [['stock','📊 Gestion Stock'],['analyses','📈 Analyses'],['bons','🎫 Bons de Caisse']] : [])
         ].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{padding:'9px 20px',border:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,
@@ -1309,17 +1325,62 @@ export default function Boutique() {
       {/* ══ HISTORIQUE ══ */}
       {tab==='historique'&&(
         <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,overflow:'hidden'}}>
-          {consos.length===0?(
-            <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}><div style={{fontSize:44,marginBottom:10}}>📋</div><div style={{fontWeight:700,color:'#64748b'}}>Aucune vente aujourd'hui</div></div>
-          ):(
+          {/* Filtres historique */}
+          <div style={{display:'flex',gap:8,padding:'12px 16px',borderBottom:'1px solid #f1f5f9',flexWrap:'wrap',alignItems:'center'}}>
+            <input value={histSearch} onChange={e=>setHistSearch(e.target.value)}
+              placeholder="🔍 Rechercher agent, article..."
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12,flex:1,minWidth:160}}/>
+            <input type="date" value={histDate} onChange={e=>setHistDate(e.target.value)}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12}}/>
+            <select value={histMode} onChange={e=>setHistMode(e.target.value)}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12}}>
+              <option value="">Tous modes</option>
+              <option value="especes">💵 Espèces</option>
+              <option value="bon">🎫 Bon</option>
+            </select>
+            <button onClick={()=>{setHistSearch('');setHistDate('');setHistMode('')}}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,cursor:'pointer'}}>
+              ✕ Reset
+            </button>
+            <button onClick={()=>{
+              const cf = consos.filter(c => {
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
+              if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
+              if (histMode && (c.mode_paiement||'especes') !== histMode) return false
+              return true
+            })
+            const rows = cf.map(c=>[
+                c.date_conso ? new Date(c.date_conso).toLocaleDateString('fr-FR') : '',
+                new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+                c.personnel_nom||'—',c.article_nom||'',c.quantite,c.montant,c.mode_paiement||'especes'
+              ])
+              const csv = [['Date','Heure','Agent','Article','Qté','Montant','Mode'],...rows].map(r=>r.join(';')).join('\n')
+              const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href=url; a.download='historique_boutique.csv'; a.click()
+            }} style={{background:'#16a34a',color:'#fff',border:'none',borderRadius:8,padding:'6px 12px',fontSize:12,cursor:'pointer',fontWeight:700}}>
+              📥 CSV
+            </button>
+          </div>
+          {(() => {
+            const consosFiltered = consos.filter(c => {
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
+              if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
+              if (histMode && (c.mode_paiement||'especes') !== histMode) return false
+              return true
+            })
+            return consosFiltered.length===0?(
+              <div style={{padding:56,textAlign:'center',color:'#94a3b8'}}><div style={{fontSize:44,marginBottom:10}}>📋</div><div style={{fontWeight:700,color:'#64748b'}}>Aucune vente</div></div>
+            ):(
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead><tr style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)'}}>
-                {['Heure','Agent','Article','Qté','Montant'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
+                {['Date','Heure','Agent','Article','Qté','Montant','Mode'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {consos.map((c,i)=>(
+                {consosFiltered.map((c,i)=>(
                   <tr key={c.id} style={{borderTop:'1px solid #f1f5f9',background:i%2?'#fafafa':'#fff'}}>
-                    <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'#64748b'}}>{new Date(c.date_conso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+                    <td style={{padding:'10px 14px',fontSize:11,color:'#64748b'}}>{c.date_conso?new Date(c.date_conso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''}</td>
+                    <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'#64748b'}}>{new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
                     <td style={{padding:'10px 14px',fontSize:12,fontWeight:600}}>{c.personnel_nom||'Anonyme'}</td>
                     <td style={{padding:'10px 14px',fontSize:12}}>{getEmoji(c.article_nom||'')} {c.article_nom}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',textAlign:'center'}}>{c.quantite}</td>
@@ -1328,7 +1389,7 @@ export default function Boutique() {
                 ))}
               </tbody>
             </table>
-          )}
+          )})()}
         </div>
       )}
 
@@ -1393,6 +1454,7 @@ export default function Boutique() {
                                 display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
                               ✏️ Modifier
                             </button>
+
                             <button onClick={e=>{e.stopPropagation();setDelConfirm(a)}}
                               style={{flex:1,background:'#fef2f2',color:'#dc2626',border:'1.5px solid #fca5a5',
                                 padding:'8px 0',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
@@ -1419,7 +1481,182 @@ export default function Boutique() {
         </div>
       )}
 
-      {/* ══ ONGLET ANALYSES ══ */}
+      {tab==='stock' && (
+        <div style={{padding:'0 4px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:18,color:'#1e3a8a'}}>📊 Gestion du Stock</div>
+              <div style={{fontSize:12,color:'#64748b'}}>{articles.length} articles · Seuils et mouvements</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <label style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#16a34a',borderRadius:9,
+                padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                📥 Import CSV
+                <input type="file" accept=".csv" style={{display:'none'}} onChange={async e=>{
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const text = await file.text()
+                  const lines = text.split('\n').filter(l=>l.trim())
+                  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase())
+                  const rows = lines.slice(1).map(l=>l.split(','))
+                  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                  const token = localStorage.getItem('access_token')||''
+                  let ok=0
+                  for (const row of rows) {
+                    const obj={}; headers.forEach((h,i)=>obj[h]=row[i]?.trim())
+                    if (obj.nom && obj.stock !== undefined) {
+                      const art = articles.find(a=>a.nom.toLowerCase()===obj.nom.toLowerCase())
+                      if (art) {
+                        await fetch(`${BASE}/api/boutique/articles/${art.id}/ajuster_stock/`,{
+                          method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+                          body:JSON.stringify({operation:'set',quantite:parseInt(obj.stock)||0,raison:'Import CSV inventaire'})
+                        })
+                        ok++
+                      }
+                    }
+                  }
+                  alert(`✅ ${ok} article(s) mis à jour`)
+                  boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
+                }}/>
+              </label>
+              <button onClick={()=>boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))}
+                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
+                  fontSize:12,fontWeight:700,cursor:'pointer',color:'#1e3a8a'}}>
+                🔄 Actualiser
+              </button>
+            </div>
+          </div>
+          {/* Filtres analytiques */}
+          <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={stockFilter||''} onChange={e=>setStockFilter(e.target.value)}
+              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
+              <option value="">Tous les articles</option>
+              <option value="rupture">🔴 En rupture</option>
+              <option value="faible">⚠️ Stock faible</option>
+              <option value="ok">✅ Stock OK</option>
+              <option value="consomme">📊 Les + consommés</option>
+            </select>
+            <select value={stockCatFilter||''} onChange={e=>setStockCatFilter(e.target.value)}
+              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
+              <option value="">Toutes catégories</option>
+              {[...new Set(articles.map(a=>a.categorie).filter(Boolean))].map(cat=>(
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',
+              background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:9,padding:'6px 12px',cursor:'pointer'}}>
+              <input type="checkbox" checked={exclureAchatsInternes||false}
+                onChange={e=>setExclureAchatsInternes(e.target.checked)}/>
+              🚫 Exclure achats internes
+            </label>
+            {(stockFilter||stockCatFilter||exclureAchatsInternes) && (
+              <button onClick={()=>{setStockFilter('');setStockCatFilter('');setExclureAchatsInternes(false)}}
+                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                  borderRadius:9,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                ✕ Reset
+              </button>
+            )}
+          </div>
+
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <thead>
+                <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                  {['Article','Catégorie','Stock','Consommé','Seuil','Statut','Actions'].map(h=>(
+                    <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...articles]
+                .filter(a => {
+                  if (stockCatFilter && a.categorie !== stockCatFilter) return false
+                  const s = a.stock||0; const seuil = a.stock_min||5
+                  if (stockFilter==='rupture' && s!==0) return false
+                  if (stockFilter==='faible' && !(s>0&&s<=seuil)) return false
+                  if (stockFilter==='ok' && s<=seuil) return false
+                  if (exclureAchatsInternes && a.interne) return false
+                  return true
+                })
+                .sort((a,b)=>stockFilter==='consomme'?(b.total_vendu||0)-(a.total_vendu||0):(a.stock||0)-(b.stock||0))
+                .map((a,i)=>{
+                  const stock = a.stock || 0
+                  const seuil = a.stock_min || a.seuil_alerte || 5
+                  const critique = stock === 0
+                  const faible = stock > 0 && stock <= seuil
+                  const ok = stock > seuil
+                  return (
+                    <tr key={a.id} style={{borderBottom:'1px solid #f1f5f9',
+                      background: critique ? '#fef2f2' : faible ? '#fffbeb' : i%2===0?'#fff':'#fafafa'}}>
+                      <td style={{padding:'10px 12px',fontWeight:600}}>{a.nom}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{background:'#f1f5f9',padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600}}>
+                          {a.categorie||'—'}
+                        </span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{fontWeight:800,fontSize:16,
+                          color: critique?'#dc2626':faible?'#d97706':'#16a34a'}}>
+                          {stock}
+                        </span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{fontWeight:700,fontSize:14,color:'#8b5cf6'}}>
+                          {a.total_vendu||a.consomme||0}
+                        </span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
+                      </td>
+                      <td style={{padding:'10px 12px',color:'#64748b'}}>{seuil}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,
+                          background: critique?'#fee2e2':faible?'#fef3c7':'#dcfce7',
+                          color: critique?'#dc2626':faible?'#92400e':'#166534'}}>
+                          {critique?'🔴 Rupture':faible?'⚠️ Faible':'✅ OK'}
+                        </span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('add');setStockRaison('')}}
+                            style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            ➕ Entrée
+                          </button>
+                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('subtract');setStockRaison('')}}
+                            style={{background:'#fff7ed',color:'#ea580c',border:'1px solid #fed7aa',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            ➖ Sortie
+                          </button>
+                          <button onClick={()=>{setStockModal(a);setStockQte(stock);setStockOp('set');setStockRaison('Inventaire')}}
+                            style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',
+                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                            🔢 Inventaire
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Résumé */}
+          <div style={{display:'flex',gap:12,marginTop:20,flexWrap:'wrap'}}>
+            {[
+              {l:'Total articles',v:articles.length,c:'#1e3a8a',bg:'#eff6ff'},
+              {l:'En rupture',v:articles.filter(a=>(a.stock||0)===0).length,c:'#dc2626',bg:'#fef2f2'},
+              {l:'Stock faible',v:articles.filter(a=>{const s=a.stock||0;const seuil=a.stock_min||5;return s>0&&s<=seuil}).length,c:'#d97706',bg:'#fffbeb'},
+              {l:'Stock OK',v:articles.filter(a=>(a.stock||0)>(a.stock_min||5)).length,c:'#16a34a',bg:'#f0fdf4'},
+            ].map(({l,v,c,bg})=>(
+              <div key={l} style={{background:bg,borderRadius:12,padding:'14px 20px',flex:1,minWidth:140}}>
+                <div style={{fontSize:24,fontWeight:900,color:c}}>{v}</div>
+                <div style={{fontSize:12,color:'#64748b',fontWeight:600}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tab==='analyses' && (
         <AnalysesPanel
           periode={analysesPeriode}

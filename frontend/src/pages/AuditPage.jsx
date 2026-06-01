@@ -5,7 +5,7 @@ export default function AuditPage() {
   const [data, setData] = useState([])
   useEffect(() => { audit.list({ page_size:50 }).then(r => setData(r.data.results || r.data)) }, [])
   return (
-    <div style={{ padding:20 }}>
+    <div style={{ padding:16, flex:1 }}>
       <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>📋 Audit Trail Global</h2>
       <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:20 }}>Toutes les actions tracées · Niveau bancaire · django-simple-history</p>
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' }}>

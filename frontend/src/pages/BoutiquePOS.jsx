@@ -11,6 +11,7 @@ export default function BoutiquePOS() {
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
 
   const [waking,     setWaking]     = useState(false)
+  const [debugLog,   setDebugLog]   = useState([])
   const [articles,   setArticles]   = useState([])
   const [consos,     setConsos]     = useState([])
   const [personnel,  setPersonnel]  = useState([])
@@ -52,6 +53,13 @@ export default function BoutiquePOS() {
     } catch(e) { console.error(e) }
     finally { setLoading(false); setWaking(false) }
   }, [])
+
+  // Recharger quand la fenêtre reprend le focus (après retour depuis Catalogue)
+  useEffect(() => {
+    const handleFocus = () => load()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [load])
 
   useEffect(() => { load() }, [load])
 
@@ -106,9 +114,15 @@ export default function BoutiquePOS() {
       xhr.setRequestHeader('Content-Type', 'application/json')
       xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.timeout = 30000
-      xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText })
-      xhr.onerror = () => reject(new Error('Réseau indisponible'))
-      xhr.ontimeout = () => reject(new Error('Délai dépassé (30s)'))
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          const ok2 = xhr.status >= 200 && xhr.status < 300
+          setDebugLog(l => [...l.slice(-4), `${ok2?'✅':'❌'} HTTP ${xhr.status}: ${xhr.responseText?.slice(0,120)}`])
+          resolve({ ok: ok2, status: xhr.status, body: xhr.responseText })
+        }
+      }
+      xhr.onerror = () => { console.log('[Boutique] XHR error'); reject(new Error('Réseau indisponible')) }
+      xhr.ontimeout = () => { console.log('[Boutique] XHR timeout'); reject(new Error('Délai dépassé (30s)')) }
       xhr.send(JSON.stringify(body))
     })
     
@@ -116,12 +130,12 @@ export default function BoutiquePOS() {
       try {
         const resp = await doPost({ article: a.id, personnel: agentInfo?.id || null, quantite: q, mode_paiement: modePay })
         if (!resp.ok) {
-          try { const d = JSON.parse(resp.body); lastError = d.detail || `HTTP ${resp.status}` }
-          catch { lastError = `HTTP ${resp.status}` }
+          try { const d = JSON.parse(resp.body); lastError = d.detail || d.error || `HTTP ${resp.status}: ${resp.body?.slice(0,100)}` }
+          catch { lastError = `HTTP ${resp.status}: ${resp.body?.slice(0,100)}` }
           allOk = false; break
         }
       } catch(e) {
-        lastError = e.message
+        lastError = `${e.message} (XHR)`
         allOk = false; break
       }
     }
@@ -148,8 +162,16 @@ export default function BoutiquePOS() {
   const inp = { border: '1px solid #e2e8f0', borderRadius: 9, padding: '8px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' }
 
   return (
-    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit' }}>
+    <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto', fontFamily: 'inherit', flex:1, display:'flex', flexDirection:'column' }}>
 
+      {/* Debug log (visible sur mobile sans console) */}
+      {debugLog.length > 0 && (
+        <details style={{ background:'#0f172a', borderRadius:8, padding:'6px 10px', marginBottom:8, fontSize:10 }}>
+          <summary style={{ color:'#94a3b8', cursor:'pointer' }}>🔍 Debug ({debugLog.length})</summary>
+          {debugLog.map((l,i)=><div key={i} style={{color:'#e2e8f0',fontFamily:'monospace',marginTop:2}}>{l}</div>)}
+          <button onClick={()=>setDebugLog([])} style={{background:'#334155',color:'#fff',border:'none',borderRadius:4,padding:'2px 8px',cursor:'pointer',marginTop:4,fontSize:10}}>Effacer</button>
+        </details>
+      )}
       {/* Banner réveil serveur */}
       {waking && (
         <div style={{ background:'#f59e0b', color:'#fff', padding:'8px 16px',

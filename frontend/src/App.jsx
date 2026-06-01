@@ -14,7 +14,7 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-import React, { useEffect, useState } from 'react'
+import React, { lazy, Suspense, Component, useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
@@ -22,7 +22,12 @@ import { auth } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import MapPage from './pages/MapPage'
+const MapPage = lazy(() => import('./pages/MapPage'))
+const RotationsPage = lazy(() => import('./pages/RotationsPage'))
+const AssistantIA = lazy(() => import('./pages/AssistantIA'))
+const CentreOperationnel = lazy(() => import('./pages/CentreOperationnel'))
+const AnnuairePage = lazy(() => import('./pages/AnnuairePage'))
+const ReservationsPage = lazy(() => import('./pages/ReservationsPage'))
 import Residences from './pages/Residences'
 import Personnel from './pages/Personnel'
 import Evenements from './pages/Evenements'
@@ -31,11 +36,11 @@ import Voyages from './pages/Voyages'
 import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import MonCompte from './pages/MonCompte'
-import Analytics from './pages/Analytics'
-import Boutique from './pages/Boutique'
-import AuditPage from './pages/AuditPage'
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Boutique = lazy(() => import('./pages/Boutique'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
 import StatusPage from './pages/StatusPage'
-import InductionPage from './pages/InductionPage'
+const InductionPage = lazy(() => import('./pages/InductionPage'))
 import WorkflowHub from './pages/WorkflowHub'
 import BoutiquePOS from './pages/BoutiquePOS'
 import Presences   from './pages/Presences'
@@ -44,6 +49,35 @@ import RapportPage  from './pages/RapportPage'
 import Demandes from './pages/Demandes'
 import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
 import EventNotifBanner from './components/EventNotifBanner'
+
+// ── Global Error Boundary ─────────────────────────────────────
+class GlobalErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  componentDidCatch(error, info) { console.error('[RZI ErrorBoundary]', error, info) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding:40,textAlign:'center',fontFamily:'sans-serif'}}>
+          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:20,fontWeight:700,color:'#dc2626',marginBottom:8}}>
+            Une erreur s'est produite
+          </div>
+          <div style={{fontSize:13,color:'#64748b',marginBottom:24}}>
+            {this.state.error?.message || 'Erreur inattendue'}
+          </div>
+          <button onClick={()=>{ this.setState({hasError:false,error:null}); window.location.href='/' }}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:10,
+              padding:'10px 24px',cursor:'pointer',fontSize:14,fontWeight:700}}>
+            🔄 Retour au tableau de bord
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 
 // Handle 404.html redirect for SPA routing
 const urlParams = new URLSearchParams(window.location.search)
@@ -145,7 +179,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<RoleHome />} />
-          <Route path="carte" element={<MapPage />} />
+          <Route path="carte" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><MapPage /></Suspense>} />
           <Route path="residences" element={<Residences />} />
           <Route path="personnel" element={<Personnel />} />
           <Route path="evenements" element={<Evenements />} />
@@ -153,17 +187,22 @@ export default function App() {
           <Route path="voyages" element={<Voyages />} />
           <Route path="restauration" element={<Restauration />} />
           <Route path="maintenance" element={<Maintenance />} />
-          <Route path="analytics" element={<Analytics />} />
+          <Route path="analytics" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Analytics /></Suspense>} />
           <Route path="demandes" element={<Demandes/>}/>
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="boutique" element={<Boutique />} />
+          <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
+          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Boutique /></Suspense>} />
           <Route path="mon-compte" element={<MonCompte />} />
           <Route path="status"     element={<StatusPage />} />
           <Route path="presences"  element={<Presences />} />
-          <Route path="rapports"   element={<RapportPage />} />
+          <Route path="rapports"   element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RapportPage /></Suspense>} />
           <Route path="workflows" element={<WorkflowHub />} />
-          <Route path="induction" element={<InductionPage />} />
+          <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
+          <Route path="rotations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RotationsPage /></Suspense>} />
+          <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
+          <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />
+          <Route path="assistant" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AssistantIA /></Suspense>}/>
+          <Route path="operations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><CentreOperationnel /></Suspense>}/>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

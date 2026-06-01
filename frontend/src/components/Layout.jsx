@@ -1,4 +1,5 @@
 import GlobalSearch from './GlobalSearch'
+import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
@@ -9,23 +10,38 @@ import { useNotifications } from '../hooks/useNotifications'
 
 const ROLE_NAV = {
   admin: [
+    // ── Vue principale
     { to:'/', label:'📊 Dashboard', exact:true },
     { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/residences', label:'🏠 Résidences' },
+    { to:'/operations', label:'🖥️ Centre Opérationnel' },
+    // ── Personnel & Conformité
+    { group:'Personnel & Conformité' },
     { to:'/personnel', label:'👤 Personnel' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/voyages', label:'✈️ Voyages' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/boutique',     label:'🛒 Bar & Boutique' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
     { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/demandes', label:'📝 Demandes & Workflows' },
-    { to:'/historique', label:'📋 Historique' },
+    { to:'/annuaire', label:'📋 Annuaire' },
+    // ── Hébergement & Mobilité
+    { group:'Hébergement & Mobilité' },
+    { to:'/residences', label:'🏠 Résidences' },
+    { to:'/voyages', label:'✈️ Voyages' },
+    { to:'/rotations', label:'🔄 Rotations' },
+    // ── Services
+    { group:'Services aux Résidents' },
+    { to:'/restauration', label:'🍽️ Restauration' },
+    { to:'/boutique', label:'🛒 Bar & Boutique' },
+    { to:'/reservations', label:'📅 Réservations' },
+    // ── Exploitation
+    { group:'Exploitation' },
+    { to:'/maintenance', label:'🛠️ Maintenance' },
+    { to:'/evenements', label:'📡 Événements' },
+    { to:'/demandes', label:'📝 Demandes' },
+    // ── Pilotage
+    { group:'Pilotage & Analyse' },
     { to:'/analytics', label:'📈 Analytics' },
-    { to:'/rapports', label:'📑 Rapports' },
+    { to:'/rapports', label:'📄 Rapports' },
+    { to:'/historique', label:'📋 Historique' },
     { to:'/audit', label:'🔍 Audit' },
+    { to:'/assistant', label:'🤖 Assistant IA' },
     { to:'/status', label:'🔧 Diagnostic' },
-  { to:'/mon-compte', label:'👤 Mon compte' },
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },
@@ -66,10 +82,10 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+      background: 'var(--sidebar-bg,#0a1628)', border: 'none', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 16px', background: 'var(--rzi-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', background: 'var(--topbar-bg,#0a1628)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
@@ -93,14 +109,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
-              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--rzi-blue)', flexShrink: 0, marginTop: 4 }} />}
+              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--topbar-bg,#0a1628)', flexShrink: 0, marginTop: 4 }} />}
             </div>
           ))
         }
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: 'var(--rzi-blue)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: 'var(--topbar-bg,#0a1628)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -153,6 +169,7 @@ export default function Layout() {
   }, [showWelcome])
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
+  const { isOffline, syncMsg } = useOffline()
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
@@ -182,7 +199,21 @@ export default function Layout() {
   const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: 'light'  }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
+      {/* Bannière offline */}
+      {isOffline && (
+        <div style={{background:'#f59e0b',color:'#1c1917',padding:'8px 16px',
+          textAlign:'center',fontSize:13,fontWeight:700,zIndex:9999,
+          display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          📵 Vous êtes hors ligne — Les modifications seront synchronisées au retour de la connexion
+        </div>
+      )}
+      {syncMsg && !isOffline && (
+        <div style={{background: syncMsg.startsWith('✅') ? '#16a34a' : '#f59e0b',
+          color:'#fff',padding:'8px 16px',textAlign:'center',fontSize:13,fontWeight:700,zIndex:9999}}>
+          {syncMsg}
+        </div>
+      )}
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -193,7 +224,7 @@ export default function Layout() {
 
       <header style={{
         height: 54,
-        background: 'var(--rzi-blue)',
+        background: 'var(--topbar-bg,#0a1628)',
         borderBottom: '3px solid var(--rzi-gold)',
         display: 'flex', alignItems: 'center',
         padding: '0 10px', gap: 10,
@@ -206,7 +237,7 @@ export default function Layout() {
         </button>
 
         <div style={{ background: '#fff', borderRadius: 8, padding: '3px 9px', flexShrink: 0 }}>
-          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 32, objectFit: 'contain', display: 'block' }} />
+          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 30, objectFit: "contain" }}/>
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -222,7 +253,16 @@ export default function Layout() {
           </div>
         )}
 
-        <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
+        {/* Bascule thème */}
+          <button
+            onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); localStorage.setItem('theme', t) }}
+            title="Basculer thème"
+            style={{ background:'rgba(255,255,255,.12)', border:'none', color:'#fff',
+              width:38, height:38, borderRadius:8, cursor:'pointer', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
             style={{ background: notifOpen ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 38, height: 38, borderRadius: 8, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             🔔
@@ -283,18 +323,38 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {nav.map(item => (
+              {nav.map((item, i) => item.group ? (
+                <div key={`g${i}`} style={{
+                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
+                }}>
+                  <div style={{
+                    fontSize:10, fontWeight:800,
+                    color:'rgba(255,255,255,.9)',
+                    letterSpacing:1.2, textTransform:'uppercase',
+                    padding:'5px 10px',
+                    background:'rgba(255,255,255,.1)',
+                    borderRadius:6,
+                    borderLeft:'3px solid rgba(255,255,255,.4)',
+                    display:'flex', alignItems:'center', gap:6,
+                  }}>
+                    {item.group}
+                  </div>
+                </div>
+              ) : (
                 <NavLink key={item.to} to={item.to} end={item.exact}
                   style={({ isActive }) => ({
                     display: 'block',
-                    padding: '10px 12px',
-                    margin: '2px 0',
-                    borderRadius: 'var(--radius)',
+                    padding: '8px 10px 8px 12px',
+                    margin: '1px 6px',
+                    borderRadius: 8,
                     textDecoration: 'none',
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 500,
-                    background: isActive ? 'var(--rzi-blue)' : 'transparent',
-                    color: isActive ? '#fff' : 'var(--text)',
+                    fontSize: 12.5,
+                    fontWeight: isActive ? 700 : 400,
+                    background: isActive ? 'var(--sidebar-active,rgba(255,255,255,.12))' : 'transparent',
+                    color: isActive ? 'var(--sidebar-text-act,#fff)' : 'var(--sidebar-text,rgba(255,255,255,.75))',
+                    borderLeft: isActive
+                      ? '3px solid #fff'
+                      : '3px solid transparent',
                     transition: 'all .15s',
                   })}>
                   {item.label}
@@ -304,7 +364,7 @@ export default function Layout() {
           </nav>
         )}
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)' }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)', overflowY:'auto' }}>
             <Outlet />
           </main>
       </div>

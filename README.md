@@ -1,6 +1,8 @@
 # 🏔 RZI CAMP — ERP GIS Industriel
 ## Architecture Full-Stack : Django REST API + React/Vite
 
+> 💡 **Concept V2 disponible** → voir [`CONCEPT_V2.md`](./CONCEPT_V2.md) · prototype interactif dans [`frontend/concept-v2/`](./frontend/concept-v2/) · nouveau design system dans [`frontend/design-system/v2/`](./frontend/design-system/v2/)
+
 ---
 
 ## 📁 STRUCTURE
@@ -20,6 +22,14 @@ rzi-camp/
     │   ├── components/Layout.jsx
     │   ├── api/      ← Client Axios + intercepteurs JWT
     │   └── store.js  ← Zustand state management
+    ├── design-system/
+    │   ├── colors_and_type.css    ← v1 (préservé)
+    │   └── v2/                    ← v2 (opt-in, refonte)
+    │       ├── tokens.css
+    │       └── README.md
+    ├── concept-v2/    ← prototype interactif V2 (HTML autonome)
+    │   ├── index.html
+    │   └── README.md
     └── package.json
 ```
 

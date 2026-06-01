@@ -69,6 +69,11 @@ export default function Maintenance() {
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
+  const [selIds,     setSelIds]     = useState(new Set())
+  const [massAct,    setMassAct]    = useState('')
+  const [residences, setResidences] = useState([])
+  const [dateDebut,  setDateDebut]  = useState('')
+  const [dateFin,    setDateFin]    = useState('')
   const [showNew,    setShowNew]    = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [err,        setErr]        = useState('')
@@ -77,6 +82,18 @@ export default function Maintenance() {
   const [actionModal, setActionModal] = useState(null)
   const [actionComment, setActionComment] = useState('')
   const [actionTechId,  setActionTechId]  = useState('')
+
+  useEffect(() => {
+    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const token = localStorage.getItem('access_token') || ''
+    fetch(`${BASE}/api/batiments/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json())
+      .then(d=>{
+        const list = d.results || d || []
+        const resids = [...new Set(list.map(b=>b.residence).filter(Boolean))].sort()
+        if(resids.length) setResidences(resids)
+      }).catch(()=>{})
+  },[])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,10 +112,12 @@ export default function Maintenance() {
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter(i => {
-    if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||''). toLowerCase().includes(search.toLowerCase()))) return false
+    if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
     if (slaOnly && !i.sla_depasse) return false
+    if (dateDebut && i.date_creation && new Date(i.date_creation) < new Date(dateDebut)) return false
+    if (dateFin && i.date_creation && new Date(i.date_creation) > new Date(dateFin + 'T23:59:59')) return false
     return true
   })
 
@@ -204,9 +223,120 @@ export default function Maintenance() {
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
     padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
 
+  const exportCSV = (filteredList) => {
+    const headers = ['ID','Titre','Description','Catégorie','Priorité','Statut','Résidence','Bloc','Déclaré par','Assigné à','Date déclaration','Échéance SLA','SLA dépassé']
+    const rows = filteredList.map(inc => [
+      inc.id,
+      '"' + (inc.titre||'').replace(/"/g,'""') + '"',
+      '"' + (inc.description||'').replace(/"/g,'""') + '"',
+      inc.categorie||'',
+      inc.priorite||'',
+      inc.statut||'',
+      inc.residence||'',
+      inc.bloc||'',
+      inc.auteur_nom||'',
+      inc.assigne_nom||'Non assigné',
+      inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '',
+      inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : '',
+      inc.sla_depasse ? 'OUI' : 'NON'
+    ])
+    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'incidents_' + new Date().toISOString().slice(0,10) + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadTemplate = () => {
+    const csv = 'titre;description;residence;categorie;priorite;bloc\n' +
+      'Fuite d\'eau salle de bain;Fuite sous le lavabo;B1;Plomberie;haute;Chambre 101\n' +
+      'Climatisation en panne;L\'unité ne démarre plus;B2;Climatisation;moyenne;Chambre 205\n' +
+      'Porte bloquée;Serrure coincée;B3;Serrurerie;basse;Chambre 310'
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='template_incidents.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importCSV = () => {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.csv,.txt'
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      const lines = text.split('\n').filter(l=>l.trim())
+      if (lines.length < 2) { alert('CSV vide ou invalide'); return }
+      // Détecter séparateur
+      const sep = lines[0].includes(';') ? ';' : ','
+      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
+      const getCol = (row, names) => {
+        for (const n of names) {
+          const idx = headers.findIndex(h=>h.includes(n))
+          if (idx>=0) return row[idx]?.replace(/^"|"$/g,'').trim() || ''
+        }
+        return ''
+      }
+      let imported=0, errors=[]
+      for (let i=1; i<lines.length; i++) {
+        const row = lines[i].split(sep)
+        const titre = getCol(row,['titre','title'])
+        const description = getCol(row,['description','desc'])
+        const residence = getCol(row,['residence','résidence'])
+        const categorie = getCol(row,['catégorie','categorie','category']) || 'Autre'
+        const priorite = getCol(row,['priorité','priorite','priority']) || 'moyenne'
+        if (!titre || !description || !residence) { errors.push(`Ligne ${i+1}: titre/description/résidence requis`); continue }
+        try {
+          await incAPI.declarer({ titre, description, residence, categorie, priorite, bloc: getCol(row,['bloc','chambre']) })
+          imported++
+        } catch(err) {
+          errors.push(`Ligne ${i+1}: ${err.response?.data?.detail||err.message}`)
+        }
+      }
+      alert(`✅ ${imported} incident(s) importé(s)${errors.length ? '\n\n⚠️ Erreurs:\n'+errors.slice(0,5).join('\n') : ''}`)
+      load()
+    }
+    input.click()
+  }
+
+  const exportIncident = (inc) => {
+    const cmts = (inc.commentaires || []).map(c => {
+      const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
+      const ph = c.photo_base64 && c.photo_base64.length > 10
+        ? '<img style="max-width:100%;max-height:180px;border-radius:6px" src="data:image/jpeg;base64,' + c.photo_base64 + '"/>'
+        : ''
+      return '<div style="border-left:3px solid #1e3a8a;padding:8px;margin:8px 0">' +
+        '<strong>' + c.type_comment + '</strong> — ' + (c.auteur_nom || '') + ' — ' + d +
+        '<p>' + c.contenu + '</p>' + ph + '</div>'
+    }).join('')
+    const ph_decl = inc.photo_base64 && inc.photo_base64.length > 10
+      ? '<h2>Photo déclaration</h2><img style="max-width:100%;max-height:200px" src="data:' + inc.photo_mime + ';base64,' + inc.photo_base64 + '"/>'
+      : ''
+    const html = '<!DOCTYPE html><html><head><title>Incident #' + inc.id + '</title>' +
+      '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}' +
+      'table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}' +
+      'th{background:#eef2f7}h2{color:#1e3a8a}</style></head><body>' +
+      '<h2>Rapport Incident #' + inc.id + ' — ' + inc.titre + '</h2><table>' +
+      '<tr><th>Catégorie</th><td>' + inc.categorie + '</td><th>Priorité</th><td>' + inc.priorite + '</td></tr>' +
+      '<tr><th>Statut</th><td>' + inc.statut + '</td><th>Résidence</th><td>' + inc.residence + ' ' + (inc.bloc || '') + '</td></tr>' +
+      '<tr><th>Déclaré par</th><td>' + (inc.auteur_nom || '?') + '</td><th>Assigné à</th><td>' + (inc.assigne_nom || 'Non assigné') + '</td></tr>' +
+      '<tr><th>Déclaration</th><td>' + (inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '?') + '</td>' +
+      '<th>SLA</th><td>' + (inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : 'N/A') + '</td></tr>' +
+      '</table><p>' + inc.description + '</p>' + ph_decl +
+      '<h2>Historique (' + (inc.commentaires || []).length + ' entrées)</h2>' + cmts + '</body></html>'
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
+  }
+
   return (
     <MaintenanceBoundary>
-      <div style={{ maxWidth:1200, margin:'0 auto', padding:20 }}>
+      <div style={{ padding:20 }}>
 
         <div style={{ display:'flex', justifyContent:'space-between',
           alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
@@ -229,7 +359,7 @@ export default function Maintenance() {
           gap:10, marginBottom:20 }}>
           {[['📢 Déclarés',stats.declare||0,'#3b82f6'],['👷 Assignés',stats.assigne||0,'#f97316'],
             ['⚙️ En cours',stats.en_cours||0,'#eab308'],['✅ Résolus',stats.resolu||0,'#16a34a'],
-            ['⚠️ SLA',stats.sla_depasses||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
+            ['🔒 Clôturés',stats.cloture||0,'#64748b'],['⚠️ SLA',stats.sla_depasse||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
           ].map(([l,v,c]) => (
             <div key={l} style={{ background:'#fff', borderRadius:12, padding:'12px 14px',
               borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
@@ -240,7 +370,14 @@ export default function Maintenance() {
         </div>
 
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-          <input value={search} onChange={e=>setSearch(e.target.value)}
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
+          <input type="checkbox"
+            checked={selIds.size===filtered.length && filtered.length>0}
+            onChange={e=>setSelIds(e.target.checked ? new Set(filtered.map(i=>i.id)) : new Set())}
+            style={{width:16,height:16,accentColor:'#1e3a8a',cursor:'pointer'}}/>
+          Tout sélectionner
+        </label>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
           <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
@@ -256,6 +393,29 @@ export default function Maintenance() {
             <input type="checkbox" checked={slaOnly} onChange={e=>setSlaOnly(e.target.checked)} />
             ⚠️ SLA dépassé
           </label>
+          <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)}
+            title="Date début"
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
+          <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)}
+            title="Date fin"
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
+          <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
+            <button onClick={()=>downloadTemplate()}
+              style={{ background:'#7c3aed', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📋 Template
+            </button>
+            <button onClick={()=>importCSV()}
+              style={{ background:'#2563eb', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📤 Import CSV
+            </button>
+            <button onClick={()=>exportCSV(filtered)}
+              style={{ background:'#16a34a', color:'#fff', border:'none',
+                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              📥 Export CSV ({filtered.length})
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -273,7 +433,7 @@ export default function Maintenance() {
               const pr = PRIOS[inc.priorite] || PRIOS.moyenne
               const wfIdx = WF.findIndex(x => x.s === inc.statut)
               return (
-                <div key={inc.id} onClick={async() => {
+                <div key={inc.id} style={{position:'relative'}} onClick={async() => {
                   setSelected(inc)
                   try {
                     const r = await incAPI.detail(inc.id)
@@ -300,6 +460,14 @@ export default function Maintenance() {
                       <span style={{ background:st.bg, color:st.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{st.l}</span>
                       {isAdmin && (
                         <>
+                          <input type="checkbox"
+                            checked={selIds.has(inc.id)}
+                            onChange={e=>{
+                              e.stopPropagation()
+                              setSelIds(prev=>{const next=new Set(prev);e.target.checked?next.add(inc.id):next.delete(inc.id);return next})
+                            }}
+                            onClick={e=>e.stopPropagation()}
+                            style={{width:16,height:16,cursor:'pointer',accentColor:'#1e3a8a'}}/>
                           <button onClick={e=>{e.stopPropagation();setEditInc({...inc});setShowEdit(true)}}
                             title="Modifier l'incident"
                             style={{ background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
@@ -388,7 +556,12 @@ export default function Maintenance() {
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
                     <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
-                      placeholder="Ex: B-12, VIP..." style={inp}/>
+                      placeholder="Sélectionner ou saisir..." style={inp} list="res-list"/>
+                    <datalist id="res-list">
+                      {(residences.length>0 ? residences
+                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))]
+                      ).map(r=><option key={r} value={r}/>)}
+                    </datalist>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
@@ -441,12 +614,14 @@ export default function Maintenance() {
                     <div style={{ fontWeight:700, fontSize:15 }}>{selected.titre}</div>
                     <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{selected.residence} · {selected.categorie}</div>
                   </div>
-                  <button <button onClick={()=>{
-                    const inc=selected; const cmts=(inc.commentaires||[]).map(c=>`<div style='margin:8px 0;padding:8px;border-left:3px solid #1e3a8a'><b>${c.type_comment}</b> — ${c.auteur_nom||''} — ${c.date_creation?new Date(c.date_creation).toLocaleString('fr-FR'):''}<p>${c.contenu}</p>${c.photo_base64&&c.photo_base64.length>10?`<img style='max-width:100%;max-height:180px' src='data:image/jpeg;base64,${c.photo_base64}'/>`:''}</div>`).join('')
-                    const html='<html><head><title>Incident #'+inc.id+'</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}th{background:#eef2f7}</style></head><body><h2 style="color:#1e3a8a">Rapport Incident #'+inc.id+' — '+inc.titre+'</h2><table><tr><th>Catégorie</th><td>'+inc.categorie+'</td><th>Priorité</th><td>'+inc.priorite+'</td></tr><tr><th>Statut</th><td>'+inc.statut+'</td><th>Résidence</th><td>'+inc.residence+' '+(inc.bloc||'')+'</td></tr><tr><th>Déclaré par</th><td>'+(inc.auteur_nom||'?')+'</td><th>Assigné à</th><td>'+(inc.assigne_nom||'Non assigné')+'</td></tr><tr><th>Déclaration</th><td>'+(inc.date_creation?new Date(inc.date_creation).toLocaleString("fr-FR"):'?')+'</td><th>SLA</th><td>'+(inc.sla_echeance?new Date(inc.sla_echeance).toLocaleString("fr-FR"):'N/A')+'</td></tr></table><p>'+inc.description+'</p>'+(inc.photo_base64&&inc.photo_base64.length>10?'<img style="max-width:100%;max-height:200px" src="data:'+inc.photo_mime+';base64,'+inc.photo_base64+'"/>':'')+'<h3>Historique</h3>'+cmts+'<script>window.print()<\/script><\/body><\/html>'
-                    const w=window.open('','_blank'); w.document.write(html); w.document.close()
-                  }} style={{background:'rgba(240,165,0,.3)',border:'none',color:'#fff',padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>🖨️</button>
-                  onClick={()=>setSelected(null)}
+                  
+                  <button onClick={()=>exportIncident(selected)}
+                    title="Imprimer / Exporter"
+                    style={{ background:'rgba(240,165,0,.3)', border:'none', color:'#fff',
+                      padding:'3px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, marginRight:4 }}>
+                    🖨️
+                  </button>
+                  <button onClick={()=>setSelected(null)}
                     style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
                       width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
                 </div>
@@ -532,6 +707,13 @@ export default function Maintenance() {
                     ['Assigné à',selected.assigne_nom||'Non assigné'],
                     ['📅 Déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
                     ['⏰ Échéance SLA', selected.sla_echeance ? new Date(selected.sla_echeance).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'],
+                    ['⏱️ Durée tâche', (() => {
+                      const start = selected.date_debut || selected.date_creation
+                      const end = selected.date_resolution || selected.date_cloture || (selected.statut==='en_cours'?new Date().toISOString():null)
+                      if (!start || !end) return 'En attente'
+                      const h = Math.round((new Date(end)-new Date(start))/3600000)
+                      return h < 24 ? `${h}h` : `${Math.floor(h/24)}j ${h%24}h`
+                    })()],
                   ].map(([k,v])=>(
                     <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 10px' }}>
                       <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>{k}</div>

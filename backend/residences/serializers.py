@@ -53,6 +53,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
         try: return obj.password_genere
         except: return None
 
+
     class Meta:
         model  = Personnel
         fields = [
