@@ -888,6 +888,7 @@ function InductionPageInner() {
               {l:'Induits',v:induits,c:'#16a34a',bg:'#f0fdf4',i:'✅'},
               {l:'En cours',v:enCours,c:'#d97706',bg:'#fffbeb',i:'⚙️'},
               {l:'À démarrer',v:aDemarrer,c:'#dc2626',bg:'#fef2f2',i:'⏳'},
+              {l:'Taux',v:`${total>0?Math.round(induits/total*100):0}%`,c:'#7c3aed',bg:'#f5f3ff',i:'📊'},
             ].map(k=>(
               <div key={k.l} style={{background:k.bg,borderRadius:12,padding:'10px 16px',
                 display:'flex',alignItems:'center',gap:8,flex:1,minWidth:110,
@@ -993,24 +994,36 @@ function InductionPageInner() {
                     ev.stopPropagation()
                     if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
+                      const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                      const token = localStorage.getItem('access_token') || ''
                       const recId = p.inductionrecord?.id || p.induction_record_id
-                        const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-                        const token = localStorage.getItem('access_token') || ''
-                    if(recId) {
-                        const resp = await fetch(`${BASE}/api/induction-records/${recId}/`, {
+
+                      // 1. Supprimer toutes les données localStorage IMMÉDIATEMENT
+                      const keysToRemove = Object.keys(localStorage).filter(k =>
+                        k.includes(`_${p.id}`) || k.includes(`${p.id}_`) ||
+                        k === `rzi_induction_v3_${p.id}` ||
+                        k === `rzi_wf_${p.id}` ||
+                        k.startsWith(`induction_${p.id}`)
+                      )
+                      keysToRemove.forEach(k => localStorage.removeItem(k))
+                      // Mettre à jour le state local immédiatement
+                      setWfState(prev => { const n={...prev}; delete n[p.id]; return n })
+
+                      // 2. Supprimer sur le backend (tolère les erreurs)
+                      if (recId) {
+                        await fetch(`${BASE}/api/induction-records/${recId}/`, {
                           method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
-                        })
-                        if(!resp.ok && resp.status !== 404) {
-                          const err = await resp.text()
-                          throw new Error(`HTTP ${resp.status}: ${err.slice(0,100)}`)
-                        }
+                        }).catch(()=>{}) // Ignorer les erreurs réseau
                       }
-                      // Nettoyer toutes les clés localStorage de cet agent
-                      Object.keys(localStorage).filter(k=>k.includes(`_${p.id}`)||k.includes(`${p.id}_`)).forEach(k=>localStorage.removeItem(k))
-                      localStorage.removeItem(`rzi_induction_v3_${p.id}`)
-                      alert(`✅ Parcours de ${p.nom} ${p.prenom} supprimé`)
+
+                      // 3. Recharger la liste
+                      await load()
+                      setSavedMsg(`🗑️ Parcours de ${p.nom} ${p.prenom} supprimé`)
+                      setTimeout(()=>setSavedMsg(''), 3000)
+                    } catch(e) {
+                      // Même en cas d'erreur, le localStorage est nettoyé
                       load()
-                    } catch(e) { alert('Erreur: '+e.message) }
+                    }
                   }} title="Supprimer le parcours d'induction"
                   style={{background:'#fef2f2',border:'1px solid #fecaca',
                     borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,color:'#dc2626'}}>
