@@ -113,6 +113,23 @@ export default function MapPage() {
   },[filterStatut,filterBloc,filterRes])
 
   // Handlers globaux pour les popups Leaflet (Leaflet crée des innerHTML)
+  // Restaurer les imports GIS sauvegardés
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('rzi_gis_imports') || '[]')
+      if (stored.length > 0) {
+        const allFeatures = stored.flatMap(s => s.features || [])
+        if (allFeatures.length > 0) {
+          setGeojson(prev => ({
+            type: 'FeatureCollection',
+            features: [...(prev?.features||[]), ...allFeatures]
+          }))
+          setGeoKey(k => k+1)
+        }
+      }
+    } catch(e) {}
+  }, [])
+
   useEffect(() => {
     const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
     const token = localStorage.getItem('access_token') || ''
@@ -311,8 +328,25 @@ export default function MapPage() {
           onClick={e=>e.target===e.currentTarget&&setShowImport(false)}>
           <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:520,padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-              <div style={{fontSize:18,fontWeight:800,color:'#1e3a8a'}}>📥 Importer des données GIS</div>
-              <button onClick={()=>setShowImport(false)} style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+              <div>
+                <div style={{fontSize:18,fontWeight:800,color:'#1e3a8a'}}>📥 Importer des données GIS</div>
+                <div style={{fontSize:11,color:'#64748b',marginTop:2}}>
+                  {(() => { try { return JSON.parse(localStorage.getItem('rzi_gis_imports')||'[]').reduce((s,i)=>s+(i.features?.length||0),0) } catch(e){return 0} })()} entité(s) en mémoire
+                </div>
+              </div>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                <button onClick={()=>{
+                  if(confirm('Effacer tous les imports GIS sauvegardés?')) {
+                    localStorage.removeItem('rzi_gis_imports')
+                    setGeojson(null)
+                    setGeoKey(k=>k+1)
+                    setShowImport(false)
+                  }
+                }} style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                  🗑️ Vider
+                </button>
+                <button onClick={()=>setShowImport(false)} style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+              </div>
             </div>
             {importMsg && (
               <div style={{background:importMsg.ok?'#f0fdf4':'#fef2f2',border:`1px solid ${importMsg.ok?'#bbf7d0':'#fecaca'}`,
@@ -359,8 +393,30 @@ export default function MapPage() {
                       data = JSON.parse(text)
                     }
                     const count = data.features?.length || 0
-                    setImportMsg({ok:true,text:`✅ ${count} entité(s) importée(s) depuis ${file.name} — Couche: ${importLayer}`})
-                    // Ici on pourrait envoyer au backend pour persistance
+
+                    // Afficher immédiatement sur la carte
+                    setGeojson(prev => {
+                      const existing = prev?.features || []
+                      // Ajouter la couche aux features existantes
+                      const newFeatures = data.features.map(f => ({
+                        ...f,
+                        properties: { ...f.properties, layer: importLayer, imported: true }
+                      }))
+                      const merged = {
+                        type: 'FeatureCollection',
+                        features: [...existing, ...newFeatures]
+                      }
+                      // Persister dans localStorage
+                      try {
+                        const stored = JSON.parse(localStorage.getItem('rzi_gis_imports') || '[]')
+                        stored.push({ layer:importLayer, features:newFeatures, date:new Date().toISOString() })
+                        localStorage.setItem('rzi_gis_imports', JSON.stringify(stored.slice(-20)))
+                      } catch(e) {}
+                      return merged
+                    })
+                    setGeoKey(k => k+1)
+
+                    setImportMsg({ok:true,text:`✅ ${count} entité(s) affichées sur la carte — Couche: ${importLayer}`})
                     const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
                     const token = localStorage.getItem('access_token') || ''
                     fetch(`${BASE}/api/gis/import/`, {
