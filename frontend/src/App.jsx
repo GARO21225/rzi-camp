@@ -14,7 +14,7 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
@@ -22,10 +22,10 @@ import { auth } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import MapPage from './pages/MapPage'
-import RotationsPage from './pages/RotationsPage'
-import AnnuairePage from './pages/AnnuairePage'
-import ReservationsPage from './pages/ReservationsPage'
+const MapPage = lazy(() => import('./pages/MapPage'))
+const RotationsPage = lazy(() => import('./pages/RotationsPage'))
+const AnnuairePage = lazy(() => import('./pages/AnnuairePage'))
+const ReservationsPage = lazy(() => import('./pages/ReservationsPage'))
 import Residences from './pages/Residences'
 import Personnel from './pages/Personnel'
 import Evenements from './pages/Evenements'
@@ -34,11 +34,11 @@ import Voyages from './pages/Voyages'
 import Restauration from './pages/Restauration'
 import Maintenance from './pages/Maintenance'
 import MonCompte from './pages/MonCompte'
-import Analytics from './pages/Analytics'
-import Boutique from './pages/Boutique'
-import AuditPage from './pages/AuditPage'
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Boutique = lazy(() => import('./pages/Boutique'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
 import StatusPage from './pages/StatusPage'
-import InductionPage from './pages/InductionPage'
+const InductionPage = lazy(() => import('./pages/InductionPage'))
 import WorkflowHub from './pages/WorkflowHub'
 import BoutiquePOS from './pages/BoutiquePOS'
 import Presences   from './pages/Presences'
@@ -148,7 +148,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<RoleHome />} />
-          <Route path="carte" element={<MapPage />} />
+          <Route path="carte" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><MapPage /></Suspense>} />
           <Route path="residences" element={<Residences />} />
           <Route path="personnel" element={<Personnel />} />
           <Route path="evenements" element={<Evenements />} />
@@ -156,20 +156,20 @@ export default function App() {
           <Route path="voyages" element={<Voyages />} />
           <Route path="restauration" element={<Restauration />} />
           <Route path="maintenance" element={<Maintenance />} />
-          <Route path="analytics" element={<Analytics />} />
+          <Route path="analytics" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Analytics /></Suspense>} />
           <Route path="demandes" element={<Demandes/>}/>
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="boutique" element={<Boutique />} />
+          <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
+          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Boutique /></Suspense>} />
           <Route path="mon-compte" element={<MonCompte />} />
           <Route path="status"     element={<StatusPage />} />
           <Route path="presences"  element={<Presences />} />
-          <Route path="rapports"   element={<RapportPage />} />
+          <Route path="rapports"   element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RapportPage /></Suspense>} />
           <Route path="workflows" element={<WorkflowHub />} />
-          <Route path="induction" element={<InductionPage />} />
+          <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
-          <Route path="rotations" element={<RotationsPage />} />
-          <Route path="annuaire" element={<AnnuairePage />} />
-          <Route path="reservations" element={<ReservationsPage />} />
+          <Route path="rotations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RotationsPage /></Suspense>} />
+          <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
+          <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
