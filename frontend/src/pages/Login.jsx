@@ -74,7 +74,7 @@ export default function Login() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
-  const [forgot,   setForgot]   = useState(false)
+  const [showForgot,   setShowForgot]   = useState(false)
 
   const handleLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')

@@ -29,6 +29,37 @@ class InductionErrorBoundary extends React.Component {
 }
 
 const LS_KEY = 'rzi_induction_v3'
+function exportInductionCSV(list, dateFrom, dateTo) {
+  const filtered = list.filter(p => {
+    if (!dateFrom && !dateTo) return true
+    const rec = p.inductionrecord
+    if (!rec?.date_debut) return !dateFrom
+    const d = new Date(rec.date_debut)
+    if (dateFrom && d < new Date(dateFrom)) return false
+    if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false
+    return true
+  })
+  const headers = ['Matricule','Nom','Prénom','Société','Statut Induction','Date Début','Date Fin','Score Quiz','Badge Émis','Badge Expire']
+  const rows = filtered.map(p => {
+    const rec = p.inductionrecord
+    return [p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
+      rec ? rec.statut : 'non_commencé',
+      rec?.date_debut ? new Date(rec.date_debut).toLocaleDateString('fr-FR') : '',
+      rec?.date_fin ? new Date(rec.date_fin).toLocaleDateString('fr-FR') : '',
+      rec?.quiz_score != null ? rec.quiz_score+'%' : '',
+      rec?.badge_emis ? 'OUI' : 'NON',
+      rec?.badge_expire||'']
+  })
+  const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'inductions_' + new Date().toISOString().slice(0,10) + '.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 const OFFLINE_QUEUE_KEY = 'rzi_induction_offline_queue'
 
 // ─── Gestion de la file d'attente hors-ligne ──────────────────────
@@ -238,7 +269,8 @@ function EtapeFormation({ etape, wf, onValider }) {
   const tousLus = etape.modules.every(m => lus.includes(m.id))
   const mod = etape.modules[moduleActif]
 
-  const exportInductionCSV = (list, dateFrom, dateTo) => {
+  // eslint-disable-next-line no-unused-vars
+  const _unused_exportInductionCSV = (list, dateFrom, dateTo) => {
     const filtered = list.filter(p => {
       if (!dateFrom && !dateTo) return true
       const rec = p.inductionrecord
