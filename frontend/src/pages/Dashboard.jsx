@@ -137,6 +137,70 @@ function AlertesPredictives({ stats, voyStats, incStats }) {
   )
 }
 
+
+// ── Widget Prédictif d'Occupation ─────────────────────────────
+function OccupationPredictive() {
+  const [previsions, setPrevisions] = React.useState([])
+  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('access_token') || ''
+    // Charger les voyages pour calculer arrivées/départs
+    fetch(`${BASE}/api/voyages/?page_size=200&statut=planifie`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json()).then(d=>{
+        const list = d.results || d || []
+        const today = new Date()
+        const days = [1,2,3].map(offset => {
+          const date = new Date(today); date.setDate(today.getDate()+offset)
+          const ds = date.toISOString().slice(0,10)
+          const label = offset===1?'Demain':`J+${offset}`
+          const departs = list.filter(v=>v.date_depart?.slice(0,10)===ds).length
+          const retours = list.filter(v=>v.date_retour_prevue?.slice(0,10)===ds).length
+          return {label, date:ds, departs, retours}
+        })
+        setPrevisions(days)
+      }).catch(()=>{
+        // Données simulées si API indisponible
+        setPrevisions([
+          {label:'Demain', departs:0, retours:0},
+          {label:'J+2',    departs:0, retours:0},
+          {label:'J+3',    departs:0, retours:0},
+        ])
+      })
+  }, [])
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {previsions.map(({label,date,departs,retours})=>(
+        <div key={label} style={{display:'flex',alignItems:'center',gap:12,
+          background:'#f8fafc',borderRadius:10,padding:'10px 14px'}}>
+          <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',minWidth:60}}>{label}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:'#64748b'}}>{date}</div>
+          </div>
+          <div style={{display:'flex',gap:12}}>
+            {departs > 0 && (
+              <span style={{background:'#eff6ff',color:'#3b82f6',
+                padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                🚀 {departs} départ{departs>1?'s':''}
+              </span>
+            )}
+            {retours > 0 && (
+              <span style={{background:'#f0fdf4',color:'#16a34a',
+                padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                🏠 {retours} retour{retours>1?'s':''}
+              </span>
+            )}
+            {departs===0 && retours===0 && (
+              <span style={{color:'#94a3b8',fontSize:11}}>Aucun mouvement</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useStore()
   const navigate = useNavigate()
@@ -389,6 +453,14 @@ export default function Dashboard() {
               🔮 Prévisions & Alertes
             </div>
             <AlertesPredictives stats={stats} voyStats={voyStats} incStats={incStats}/>
+          </div>
+
+          {/* Prévisions d'occupation J+1/J+2/J+3 */}
+          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)',gridColumn:'1/-1'}}>
+            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
+              🏠 Mouvements prévus (logistique hébergement)
+            </div>
+            <OccupationPredictive/>
           </div>
 
         </div>
