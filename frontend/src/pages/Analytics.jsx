@@ -24,6 +24,135 @@ function StatBlock({ label, value, sub, color, icon }) {
   )
 }
 
+
+// ── Widget Rapport HSE Sous-traitants ────────────────────────
+function RapportHSESousTraitants() {
+  const [data, setData] = React.useState([])
+  const [loading, setLoading] = React.useState(true)
+  const [lastUpdate, setLastUpdate] = React.useState(null)
+  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('access_token') || ''
+    Promise.all([
+      fetch(`${BASE}/api/personnel/?page_size=500&type_personnel=sous_traitant`, {headers:{'Authorization':`Bearer ${token}`}}).then(r=>r.json()),
+      fetch(`${BASE}/api/maintenance/incidents/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}}).then(r=>r.json()),
+      fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}}).then(r=>r.json()),
+    ]).then(([stData, incData, allData]) => {
+      const soustraitants = stData.results || stData || []
+      const incidents = incData.results || incData || []
+      const all = allData.results || allData || []
+
+      // Grouper par société
+      const bySociete = {}
+      soustraitants.forEach(p => {
+        const soc = p.societe || 'Sans société'
+        if (!bySociete[soc]) bySociete[soc] = {personnel:[], induits:0, incidents:0, epi:0}
+        bySociete[soc].personnel.push(p)
+        if (p.inductionrecord?.statut === 'valide') bySociete[soc].induits++
+      })
+
+      // Compter incidents par société (via résidence)
+      incidents.forEach(inc => {
+        Object.values(bySociete).forEach(s => {
+          if (s.personnel.some(p => inc.titre?.toLowerCase().includes(p.societe?.toLowerCase()||'')))
+            s.incidents++
+        })
+      })
+
+      // EPI réservés (depuis réservations localStorage)
+      try {
+        const reservations = JSON.parse(localStorage.getItem('rzi_reservations_v3')||'[]')
+        const epiRes = reservations.filter(r => r.cat === 'materiels_hse' && r.statut !== 'annulé')
+        epiRes.forEach(r => {
+          const soc = r.demandeur?.split(' ')[0]
+          if (bySociete[soc]) bySociete[soc].epi++
+        })
+      } catch(e) {}
+
+      const result = Object.entries(bySociete).map(([soc, v]) => ({
+        societe: soc,
+        total: v.personnel.length,
+        induits: v.induits,
+        pct_induction: v.personnel.length > 0 ? Math.round(v.induits/v.personnel.length*100) : 0,
+        incidents: v.incidents,
+        epi: v.epi,
+        score: Math.max(0, Math.min(100, Math.round(
+          (v.personnel.length > 0 ? v.induits/v.personnel.length * 60 : 0) +
+          (v.incidents === 0 ? 30 : Math.max(0, 30 - v.incidents * 10)) +
+          (v.epi > 0 ? 10 : 0)
+        )))
+      })).sort((a,b) => b.score - a.score)
+
+      setData(result)
+      setLastUpdate(new Date().toLocaleDateString('fr-FR', {day:'numeric',month:'long'}))
+      setLoading(false)
+    }).catch(e => { setLoading(false) })
+  }, [])
+
+  const getScoreColor = s => s >= 80 ? '#16a34a' : s >= 50 ? '#d97706' : '#dc2626'
+  const getScoreLabel = s => s >= 80 ? '✅ Conforme' : s >= 50 ? '⚠️ Partiel' : '❌ Non conforme'
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
+  if (!data.length) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>Aucun sous-traitant enregistré</div>
+
+  return (
+    <div>
+      {lastUpdate && (
+        <div style={{fontSize:11,color:'#94a3b8',marginBottom:12}}>Mis à jour le {lastUpdate}</div>
+      )}
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead>
+            <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+              {['Société','Effectif','Induction %','Incidents','EPI','Score Global'].map(h=>(
+                <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row,i) => (
+              <tr key={row.societe} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'#fff':'#fafafa'}}>
+                <td style={{padding:'10px 12px',fontWeight:700}}>{row.societe}</td>
+                <td style={{padding:'10px 12px',color:'#64748b'}}>{row.total}</td>
+                <td style={{padding:'10px 12px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{flex:1,background:'#f1f5f9',borderRadius:99,height:6,minWidth:60}}>
+                      <div style={{background:getScoreColor(row.pct_induction),width:`${row.pct_induction}%`,
+                        height:'100%',borderRadius:99}}/>
+                    </div>
+                    <span style={{fontWeight:700,fontSize:12,color:getScoreColor(row.pct_induction),minWidth:35}}>
+                      {row.pct_induction}%
+                    </span>
+                  </div>
+                </td>
+                <td style={{padding:'10px 12px'}}>
+                  <span style={{color:row.incidents>0?'#dc2626':'#16a34a',fontWeight:700}}>
+                    {row.incidents > 0 ? `⚠️ ${row.incidents}` : '✅ 0'}
+                  </span>
+                </td>
+                <td style={{padding:'10px 12px',color:'#64748b'}}>{row.epi > 0 ? `🦺 ${row.epi}` : '—'}</td>
+                <td style={{padding:'10px 12px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{fontWeight:900,fontSize:16,color:getScoreColor(row.score)}}>{row.score}</div>
+                    <span style={{fontSize:11,background:getScoreColor(row.score)+'22',
+                      color:getScoreColor(row.score),padding:'2px 8px',borderRadius:99,fontWeight:700}}>
+                      {getScoreLabel(row.score)}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{fontSize:11,color:'#94a3b8',marginTop:12}}>
+        Score = 60% induction + 30% absence d'incidents + 10% EPI réservés
+      </div>
+    </div>
+  )
+}
+
 export default function Analytics() {
   const [bats,  setBats]  = useState(null)
   const [inc,   setInc]   = useState(null)
@@ -217,6 +346,18 @@ export default function Analytics() {
           ))}
         </div>
       )}
+
+      {/* Rapport HSE Sous-traitants */}
+      <div style={{background:'#fff',borderRadius:14,padding:20,marginTop:16,
+        boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:4}}>
+          🛡️ Conformité HSE par Société Sous-traitante
+        </div>
+        <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>
+          Induction · Incidents · EPI · Score global de conformité
+        </div>
+        <RapportHSESousTraitants/>
+      </div>
     </div>
   )
 }
