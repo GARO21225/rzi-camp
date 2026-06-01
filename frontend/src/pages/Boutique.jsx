@@ -1523,6 +1523,38 @@ export default function Boutique() {
               </button>
             </div>
           </div>
+          {/* Filtres analytiques */}
+          <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={stockFilter||''} onChange={e=>setStockFilter(e.target.value)}
+              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
+              <option value="">Tous les articles</option>
+              <option value="rupture">🔴 En rupture</option>
+              <option value="faible">⚠️ Stock faible</option>
+              <option value="ok">✅ Stock OK</option>
+              <option value="consomme">📊 Les + consommés</option>
+            </select>
+            <select value={stockCatFilter||''} onChange={e=>setStockCatFilter(e.target.value)}
+              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
+              <option value="">Toutes catégories</option>
+              {[...new Set(articles.map(a=>a.categorie).filter(Boolean))].map(cat=>(
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',
+              background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:9,padding:'6px 12px',cursor:'pointer'}}>
+              <input type="checkbox" checked={exclureAchatsInternes||false}
+                onChange={e=>setExclureAchatsInternes(e.target.checked)}/>
+              🚫 Exclure achats internes
+            </label>
+            {(stockFilter||stockCatFilter||exclureAchatsInternes) && (
+              <button onClick={()=>{setStockFilter('');setStockCatFilter('');setExclureAchatsInternes(false)}}
+                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                  borderRadius:9,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                ✕ Reset
+              </button>
+            )}
+          </div>
+
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
               <thead>
@@ -1533,7 +1565,18 @@ export default function Boutique() {
                 </tr>
               </thead>
               <tbody>
-                {[...articles].sort((a,b)=>(a.stock||0)-(b.stock||0)).map((a,i)=>{
+                {[...articles]
+                .filter(a => {
+                  if (stockCatFilter && a.categorie !== stockCatFilter) return false
+                  const s = a.stock||0; const seuil = a.stock_min||5
+                  if (stockFilter==='rupture' && s!==0) return false
+                  if (stockFilter==='faible' && !(s>0&&s<=seuil)) return false
+                  if (stockFilter==='ok' && s<=seuil) return false
+                  if (exclureAchatsInternes && a.interne) return false
+                  return true
+                })
+                .sort((a,b)=>stockFilter==='consomme'?(b.total_vendu||0)-(a.total_vendu||0):(a.stock||0)-(b.stock||0))
+                .map((a,i)=>{
                   const stock = a.stock || 0
                   const seuil = a.stock_min || a.seuil_alerte || 5
                   const critique = stock === 0
