@@ -76,7 +76,7 @@ export default function Login() {
   const [showPwd,  setShowPwd]  = useState(false)
   const [forgot,   setForgot]   = useState(false)
 
-  const doLogin = async () => {
+  const handleLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')
     setLoading(true); setError('')
     try {
@@ -92,7 +92,7 @@ export default function Login() {
     } finally { setLoading(false) }
   }
 
-  const onKey = e => { if (e.key === 'Enter') doLogin() }
+  const onKey = e => { if (e.key === 'Enter') handleLogin() }
 
   const inp = {
     width:'100%', background:'rgba(255,255,255,.07)', border:'1.5px solid rgba(255,255,255,.14)',
