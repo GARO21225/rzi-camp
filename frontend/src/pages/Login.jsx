@@ -106,128 +106,185 @@ export default function Login() {
       background:'#050f23',
       fontFamily:'"DM Sans", "Inter", system-ui, sans-serif',
     }}>
-      {/* Panel gauche - branding */}
-      <div style={{
+      {/* Responsive: sur mobile = colonne, desktop = 2 colonnes */}
+      <style>{`
+        @media (max-width:768px) {
+          .login-brand { display: none !important; }
+          .login-form-panel {
+            flex: 1 !important;
+            padding: 24px 20px !important;
+            justify-content: flex-start !important;
+          }
+          .login-mobile-header {
+            display: flex !important;
+          }
+        }
+        @media (min-width:769px) {
+          .login-mobile-header { display: none !important; }
+        }
+      `}</style>
+
+      {/* En-tête mobile uniquement */}
+      <div className="login-mobile-header" style={{
+        display:'none', position:'fixed', top:0, left:0, right:0, zIndex:100,
+        background:'linear-gradient(135deg,#060d1f,#0c1a38)',
+        padding:'12px 20px', alignItems:'center', gap:12,
+        borderBottom:'1px solid rgba(240,165,0,.2)',
+      }}>
+        <div style={{width:36,height:36,background:'#fff',borderRadius:8,
+          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <img src="/roxgold-logo.png" alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:3}}/>
+        </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:800,color:'#fff',letterSpacing:1}}>RZI CAMP ERP</div>
+          <div style={{fontSize:10,color:'#f0a500',fontWeight:600}}>ROXGOLD · SANGO</div>
+        </div>
+      </div>
+
+      {/* Panel gauche - branding desktop */}
+      <div className="login-brand" style={{
         flex:'0 0 50%', display:'flex', flexDirection:'column',
         justifyContent:'center', alignItems:'center',
         background:'linear-gradient(145deg, #060d1f 0%, #0c1a38 40%, #0f2447 100%)',
         position:'relative', overflow:'hidden', padding:40,
       }}>
-        {/* Grille décorative */}
-        <div style={{ position:'absolute', inset:0, opacity:.07, backgroundImage:'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize:'40px 40px' }}/>
-        {/* Cercles lumineux */}
-        <div style={{ position:'absolute', top:-100, right:-100, width:'100%', maxWidth:420, height:400, borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
-        <div style={{ position:'absolute', bottom:-80, left:-80, width:'100%', maxWidth:320, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
-
+        <div style={{ position:'absolute', inset:0, opacity:.07,
+          backgroundImage:'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)',
+          backgroundSize:'40px 40px' }}/>
+        <div style={{ position:'absolute', top:-100, right:-100, width:420, height:400,
+          borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
+        <div style={{ position:'absolute', bottom:-80, left:-80, width:320, height:300,
+          borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
         <div style={{ position:'relative', textAlign:'center', maxWidth:400 }}>
-          {/* Logo / Icon */}
-          <div style={{ width:'100%', height:90, margin:'0 auto 28px', borderRadius:18,
-              background:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-              boxShadow:'0 16px 48px rgba(240,165,0,.5)',
-              border:'3px solid #f0a500',
-              padding:8,
-            }}>
-            <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{width:'100%', height:'100%', objectFit:"contain"}}/>
+          <div style={{ height:90, margin:'0 auto 28px', borderRadius:18,
+            background:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:'0 16px 48px rgba(240,165,0,.5)', border:'3px solid #f0a500', padding:8 }}>
+            <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{height:'100%',objectFit:'contain'}}/>
           </div>
-          <div style={{ fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700, textTransform:'uppercase', marginBottom:12 }}>
+          <div style={{ fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700,
+            textTransform:'uppercase', marginBottom:12 }}>
             ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
           </div>
-          <h1 style={{ fontSize:36, fontWeight:900, color:'#fff', lineHeight:1.1, margin:'0 0 16px', letterSpacing:'-1px' }}>
-            RZI Camp<br/>
-            <span style={{ color:'#f0a500' }}>Management</span>
-          </h1>
-          <p style={{ color:'rgba(255,255,255,.45)', fontSize:14, lineHeight:1.7, maxWidth:300, margin:'0 auto' }}>
-            Plateforme de gestion intégrée du camp minier Roxgold Sango
-          </p>
-
-          {/* Stats décoratives */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginTop:48 }}>
-            {[['🏠','Résidences','Gestion complète'],['🍽️','Restauration','QR & Caisse'],['✈️','Voyages','Gestion déplacements'],['🛡️','QHSE','Induction & Sécurité']].map(([icon,lbl,sub])=>(
-              <div key={lbl} style={{ background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:14, padding:'14px 10px' }}>
-                <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
-                <div style={{ fontSize:12, fontWeight:700, color:'#fff' }}>{lbl}</div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,.4)', marginTop:2 }}>{sub}</div>
-              </div>
+          <div style={{ fontSize:28, fontWeight:900, color:'#fff', lineHeight:1.2, marginBottom:16 }}>
+            RZI Camp ERP
+          </div>
+          <div style={{ fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
+            Gestion intégrée de la résidence<br/>
+            minière Roxgold Sango
+          </div>
+          <div style={{ marginTop:32, display:'flex', gap:16, justifyContent:'center', flexWrap:'wrap' }}>
+            {['🏠 Résidences','👤 Personnel','🎓 Induction','🛠️ Maintenance'].map(f=>(
+              <span key={f} style={{ fontSize:12, color:'rgba(255,255,255,.5)',
+                background:'rgba(255,255,255,.07)', padding:'6px 12px', borderRadius:20 }}>
+                {f}
+              </span>
             ))}
           </div>
         </div>
       </div>
 
       {/* Panel droit - formulaire */}
-      <div style={{
-        flex:1, display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center',
-        padding:'40px 20px', background:'#080f20',
+      <div className="login-form-panel" style={{
+        flex:'0 0 50%', display:'flex', flexDirection:'column',
+        justifyContent:'center', alignItems:'center',
+        background:'#080f20', padding:'40px 32px',
+        overflowY:'auto',
+        paddingTop: 80, // espace pour header mobile
       }}>
         <div style={{ width:'100%', maxWidth:400 }}>
-          <div style={{ marginBottom:36 }}>
-            <div style={{ fontSize:11, letterSpacing:3, color:'#f0a500', fontWeight:700, textTransform:'uppercase', marginBottom:10 }}>ACCÈS SÉCURISÉ</div>
-            <h2 style={{ fontSize:28, fontWeight:900, color:'#fff', margin:0, letterSpacing:'-0.5px' }}>Connexion</h2>
-            <p style={{ color:'rgba(255,255,255,.4)', fontSize:13, marginTop:6 }}>Saisissez vos identifiants pour accéder à la plateforme</p>
+          <div style={{ marginBottom:32, textAlign:'center' }}>
+            <div style={{ fontSize:22, fontWeight:800, color:'#fff', marginBottom:6 }}>
+              Connexion
+            </div>
+            <div style={{ fontSize:13, color:'rgba(255,255,255,.45)' }}>
+              Bienvenue — entrez vos identifiants
+            </div>
           </div>
 
-          {error && (
-            <div style={{ background:'rgba(220,38,38,.12)', border:'1px solid rgba(220,38,38,.3)', borderRadius:12, padding:'11px 16px', marginBottom:20, color:'#fca5a5', fontSize:13, fontWeight:600 }}>
-              ⚠️ {error}
+          {err && (
+            <div style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
+              borderRadius:10, padding:'12px 16px', marginBottom:20,
+              fontSize:13, color:'#fca5a5', fontWeight:600 }}>
+              ❌ {err}
             </div>
           )}
 
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <div>
-              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'rgba(255,255,255,.5)', letterSpacing:1, textTransform:'uppercase', marginBottom:7 }}>Identifiant</label>
+              <label style={{ display:'block', fontSize:11, fontWeight:700,
+                color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
+                Identifiant
+              </label>
               <input
-                value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey}
-                placeholder="Votre login"
+                value={username} onChange={e=>setUsername(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+                placeholder="Votre identifiant"
                 autoComplete="username"
-                style={inp}
-                onFocus={e=>e.target.style.borderColor='rgba(240,165,0,.6)'}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.14)'}
+                style={{ width:'100%', background:'rgba(255,255,255,.06)',
+                  border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
+                  padding:'13px 16px', fontSize:14, color:'#fff', outline:'none',
+                  boxSizing:'border-box', transition:'border-color .2s',
+                }}
+                onFocus={e=>e.target.style.borderColor='#f0a500'}
+                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
               />
             </div>
 
             <div>
-              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'rgba(255,255,255,.5)', letterSpacing:1, textTransform:'uppercase', marginBottom:7 }}>Mot de passe</label>
+              <label style={{ display:'block', fontSize:11, fontWeight:700,
+                color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
+                Mot de passe
+              </label>
               <div style={{ position:'relative' }}>
                 <input
-                  value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey}
-                  type={showPwd?'text':'password'} placeholder="••••••••"
+                  type={showPwd ? 'text' : 'password'}
+                  value={password} onChange={e=>setPassword(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+                  placeholder="••••••••"
                   autoComplete="current-password"
-                  style={{ ...inp, paddingRight:48 }}
-                  onFocus={e=>e.target.style.borderColor='rgba(240,165,0,.6)'}
-                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.14)'}
+                  style={{ width:'100%', background:'rgba(255,255,255,.06)',
+                    border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
+                    padding:'13px 48px 13px 16px', fontSize:14, color:'#fff', outline:'none',
+                    boxSizing:'border-box', transition:'border-color .2s',
+                  }}
+                  onFocus={e=>e.target.style.borderColor='#f0a500'}
+                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
                 />
-                <button onClick={()=>setShowPwd(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'rgba(255,255,255,.4)', cursor:'pointer', fontSize:18, padding:0 }}>
-                  {showPwd?'🙈':'👁️'}
+                <button type="button" onClick={()=>setShowPwd(p=>!p)}
+                  style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                    background:'none', border:'none', color:'rgba(255,255,255,.4)',
+                    cursor:'pointer', fontSize:18, padding:4 }}>
+                  {showPwd ? '🙈' : '👁️'}
                 </button>
               </div>
             </div>
 
-            <button
-              onClick={doLogin} disabled={loading}
-              style={{ width:'100%', background: loading?'rgba(240,165,0,.5)':'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'14px', borderRadius:12, cursor:loading?'wait':'pointer', fontSize:15, fontWeight:900, fontFamily:'inherit', marginTop:6, letterSpacing:'.5px', boxShadow: loading?'none':'0 8px 24px rgba(240,165,0,.35)', transition:'all .2s' }}>
-              {loading ? '⏳ Connexion...' : 'SE CONNECTER →'}
+            <button onClick={handleLogin} disabled={loading}
+              style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
+                color:'#000', border:'none', borderRadius:10, padding:14,
+                fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer',
+                transition:'all .2s', marginTop:4,
+                boxShadow: loading ? 'none' : '0 4px 16px rgba(240,165,0,.3)',
+              }}>
+              {loading ? '⏳ Connexion...' : 'Se connecter →'}
             </button>
 
-            <button onClick={()=>setForgot(true)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.35)', fontSize:13, cursor:'pointer', fontFamily:'inherit', marginTop:4, textAlign:'center', textDecoration:'underline', padding:0 }}>
+            <button type="button" onClick={()=>setShowForgot(true)}
+              style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
+                cursor:'pointer', fontSize:12, padding:'4px 0', textDecoration:'underline' }}>
               Mot de passe oublié ?
             </button>
           </div>
 
-          <div style={{ marginTop:40, paddingTop:24, borderTop:'1px solid rgba(255,255,255,.08)', display:'flex', justifyContent:'center', gap:16 }}>
-            {['🏭 Roxgold Mining','🌍 Côte d\'Ivoire','🔒 Sécurisé'].map(t=>(
-              <span key={t} style={{ fontSize:11, color:'rgba(255,255,255,.2)', fontWeight:500 }}>{t}</span>
-            ))}
+          <div style={{ marginTop:32, textAlign:'center', fontSize:11,
+            color:'rgba(255,255,255,.25)', lineHeight:1.8 }}>
+            RZI Camp ERP · Roxgold Mining Sango<br/>
+            © {new Date().getFullYear()} — Usage interne uniquement
           </div>
         </div>
       </div>
 
-      {/* Responsive: cacher le panel gauche sur mobile */}
-      <style>{`
-        @media (max-width: 768px) {
-          #login-left { display: none !important; }
-        }
-      `}</style>
-
-      {forgot && <ForgotModal onClose={()=>setForgot(false)}/>}
+      {showForgot && <ForgotModal onClose={()=>setShowForgot(false)}/>}
     </div>
   )
 }
