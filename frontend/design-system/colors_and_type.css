@@ -1,9 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════
-   RZI CAMP — Design System v1 (legacy)
-   Conserved pour rétro-compatibilité. La v2 (refonte) est dans
-   ./v2/tokens.css — voir ./v2/README.md pour la migration.
-   ═══════════════════════════════════════════════════════════════ */
-
 :root {
   --rzi-blue:        #1e3a8a;
   --rzi-blue-light:  #2563eb;
