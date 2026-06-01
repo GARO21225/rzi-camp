@@ -162,6 +162,35 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             except Exception:
                 pass
 
+            # Alertes expiration induction (>11 mois = expire dans 30j)
+            try:
+                from django.db import connection
+                from datetime import datetime, timedelta
+                seuil = datetime.now() - timedelta(days=335)
+                with connection.cursor() as c:
+                    c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='residences_inductionrecord')")
+                    if c.fetchone()[0]:
+                        c.execute(
+                            "SELECT COUNT(*) FROM residences_inductionrecord ir "
+                            "JOIN residences_personnel p ON p.id=ir.personnel_id "
+                            "WHERE ir.statut='valide' AND ir.mis_a_jour<%s", [seuil])
+                        nb_expiring = c.fetchone()[0]
+                        if nb_expiring > 0:
+                            count += 1
+                            all_notifs.insert(0, {
+                                'id': 'induction_expiry',
+                                'evenement_titre': f'{nb_expiring} induction(s) expirent dans 30 jours',
+                                'evenement_type': 'alerte_induction',
+                                'evenement_date': None,
+                                'evenement_lieu': '',
+                                'lu': False,
+                                'date_envoi': datetime.now().isoformat(),
+                                'message': f'{nb_expiring} membre(s) du personnel ont une induction valide depuis plus de 11 mois. Renouvellement requis.',
+                                'source': 'induction_expiry',
+                            })
+            except Exception:
+                pass
+
             all_notifs.sort(key=lambda x: x['date_envoi'], reverse=True)
 
             try:
