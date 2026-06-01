@@ -308,6 +308,95 @@ export default function RotationsPage() {
           </div>
         </div>
       )}
+      {/* ── Planning Croisé Rotations × Véhicules ─────── */}
+      <div style={{marginTop:24,background:'#fff',borderRadius:16,padding:20,
+        boxShadow:'0 2px 8px rgba(0,0,0,.06)',border:'1px solid #e2e8f0'}}>
+        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:4}}>
+          🚙 Planning Croisé — Rotations × Véhicules
+        </div>
+        <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>
+          Disponibilité des véhicules vs rotations planifiées
+        </div>
+        {(() => {
+          const fleet = (() => { try { return Object.values(JSON.parse(localStorage.getItem('rzi_fleet_v1')||'{}')).flat() } catch(e){return[]} })()
+          const reservations = (() => { try { return JSON.parse(localStorage.getItem('rzi_reservations_v3')||'[]') } catch(e){return[]} })()
+          const today = new Date()
+          const days = Array.from({length:7}, (_,i) => {
+            const d = new Date(today); d.setDate(today.getDate()+i)
+            return d.toISOString().slice(0,10)
+          })
+          const vehicules = fleet.filter(v=>v.id)
+          if (!vehicules.length) return (
+            <div style={{textAlign:'center',padding:30,color:'#94a3b8',fontSize:13}}>
+              Aucun véhicule dans le catalogue · <button onClick={()=>window.location.href='/reservations'}
+                style={{color:'#1e3a8a',background:'none',border:'none',cursor:'pointer',fontWeight:700,textDecoration:'underline'}}>
+                Gérer le catalogue →
+              </button>
+            </div>
+          )
+          return (
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600}}>
+                <thead>
+                  <tr>
+                    <th style={{padding:'8px 12px',textAlign:'left',background:'#f8fafc',
+                      fontWeight:700,color:'#64748b',fontSize:11,borderBottom:'2px solid #e2e8f0',
+                      position:'sticky',left:0,zIndex:1,minWidth:120}}>
+                      Véhicule
+                    </th>
+                    {days.map(d=>(
+                      <th key={d} style={{padding:'8px 10px',textAlign:'center',
+                        background: d===today.toISOString().slice(0,10)?'#eff6ff':'#f8fafc',
+                        fontWeight:700,color: d===today.toISOString().slice(0,10)?'#1e3a8a':'#64748b',
+                        fontSize:11,borderBottom:'2px solid #e2e8f0',minWidth:90,borderLeft:'1px solid #e2e8f0'}}>
+                        {new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicules.slice(0,8).map(v=>(
+                    <tr key={v.id}>
+                      <td style={{padding:'8px 12px',fontWeight:600,color:'#1e293b',
+                        background:'#fff',borderBottom:'1px solid #f1f5f9',
+                        position:'sticky',left:0,zIndex:1}}>
+                        <div>{v.label}</div>
+                        {v.immat&&<div style={{fontSize:10,color:'#94a3b8'}}>{v.immat}</div>}
+                      </td>
+                      {days.map(d=>{
+                        const res = reservations.filter(r=>r.ressource_id===v.id&&r.date===d&&r.statut!=='annulé')
+                        const rot_day = voyages.filter(voy=>voy.date_depart?.slice(0,10)===d)
+                        const isOccupe = res.length > 0
+                        return (
+                          <td key={d} style={{padding:4,borderBottom:'1px solid #f1f5f9',
+                            borderLeft:'1px solid #f1f5f9',background:
+                              d===today.toISOString().slice(0,10)?'#fafcff':'#fff'}}>
+                            {isOccupe ? (
+                              <div style={{background:'#fee2e2',color:'#dc2626',borderRadius:6,
+                                padding:'3px 6px',fontSize:10,fontWeight:700,textAlign:'center'}}>
+                                🔴 Réservé
+                              </div>
+                            ) : (
+                              <div style={{background:'#dcfce7',color:'#16a34a',borderRadius:6,
+                                padding:'3px 6px',fontSize:10,fontWeight:700,textAlign:'center'}}>
+                                ✅ Libre
+                              </div>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{fontSize:11,color:'#94a3b8',marginTop:8}}>
+                Affiche les 8 premiers véhicules · 7 prochains jours
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
     </div>
   )
 }
