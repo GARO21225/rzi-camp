@@ -54,26 +54,11 @@ class PersonnelSerializer(serializers.ModelSerializer):
         except: return None
 
 
-    induction_requise = serializers.SerializerMethodField()
-
-    def get_induction_requise(self, obj):
-        try:
-            from django.db import connection
-            with connection.cursor() as c:
-                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='residences_personnel' AND column_name='induction_requise')")
-                if c.fetchone()[0]:
-                    c.execute("SELECT induction_requise FROM residences_personnel WHERE id=%s", [obj.id])
-                    row = c.fetchone()
-                    return row[0] if row else True
-        except Exception:
-            pass
-        return True
-
     class Meta:
         model  = Personnel
         fields = [
             "id", "nom", "prenom", "societe", "numero", "type_personnel",
-            "type_label", "email", "qr_code_data", "qr_code_string", "actif", "induction_requise",
+            "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "password_genere", "profil", "profil_label",
         ]
