@@ -14,7 +14,7 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-import React, { lazy, Suspense, Component } from 'react'
+import React, { lazy, Suspense, Component, useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
