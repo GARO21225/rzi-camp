@@ -264,6 +264,27 @@ export default function MapPage() {
       {/* MAP */}
       <div style={{flex:1,position:'relative',minHeight:0,overflow:'hidden'}}>
         {/* Bouton Import GIS */}
+      <button onClick={()=>{
+        // Export des données de la carte en GeoJSON
+        const data = JSON.stringify(geojson || {type:'FeatureCollection',features:[]}, null, 2)
+        const blob = new Blob([data], {type:'application/json'})
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `rzi_camp_gis_${new Date().toISOString().slice(0,10)}.geojson`
+        a.click()
+        URL.revokeObjectURL(url)
+      }} title="Exporter les données GIS"
+        style={{
+          position:'absolute', top:10, right:160, zIndex:1000,
+          background:'#fff', border:'none', borderRadius:8,
+          padding:'8px 14px', cursor:'pointer', fontSize:12, fontWeight:700,
+          color:'#16a34a', boxShadow:'0 2px 8px rgba(0,0,0,.15)',
+          display:'flex', alignItems:'center', gap:6
+        }}>
+        📤 Extraire
+      </button>
+
       <button onClick={()=>setShowImport(true)}
         style={{position:'absolute',top:54,right:12,zIndex:500,background:'#1e3a8a',color:'#fff',
           border:'none',padding:'8px 14px',borderRadius:10,cursor:'pointer',fontSize:12,
