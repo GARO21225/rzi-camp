@@ -28,8 +28,9 @@ export default function RotationsPage() {
   const [statFilter,setStatFilter]= useState('')
   const [form,      setForm]      = useState({
     personnel:'', destination:'', motif:'',
-    date_depart:'', date_retour_prevue:''
+    date_depart:'', date_retour_prevue:'', vehicule_suggere:''
   })
+  const [vehiculesDispo, setVehiculesDispo] = useState([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -40,6 +41,25 @@ export default function RotationsPage() {
     } catch(e) { console.error(e) }
     setLoading(false)
   }, [])
+
+  // Suggestions véhicules disponibles quand la date change
+  useEffect(() => {
+    if (!form.date_depart) { setVehiculesDispo([]); return }
+    try {
+      const fleet = JSON.parse(localStorage.getItem('rzi_fleet_v1')||'{}')
+      const reservations = JSON.parse(localStorage.getItem('rzi_reservations_v3')||'[]')
+      const vehicules = Object.entries(fleet)
+        .filter(([cat])=>cat.startsWith('vehicules'))
+        .flatMap(([,items])=>items)
+      const dispos = vehicules.filter(v => {
+        const occupe = reservations.some(r =>
+          r.ressource_id===v.id && r.date===form.date_depart && r.statut!=='annulé'
+        )
+        return !occupe
+      })
+      setVehiculesDispo(dispos)
+    } catch(e) { setVehiculesDispo([]) }
+  }, [form.date_depart])
 
   useEffect(() => {
     load()
@@ -217,6 +237,40 @@ export default function RotationsPage() {
                   <input type="date" value={form.date_retour_prevue} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
                 </div>
               </div>
+              {/* Suggestion véhicule disponible */}
+              {vehiculesDispo.length > 0 && (
+                <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,padding:'12px 14px'}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'#16a34a',marginBottom:8}}>
+                    🚙 Véhicules disponibles le {form.date_depart}
+                  </div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {vehiculesDispo.map(v=>(
+                      <button key={v.id}
+                        onClick={()=>setForm(f=>({...f,vehicule_suggere:`${v.label}${v.immat?` (${v.immat})`:''}`}))}
+                        style={{
+                          background:form.vehicule_suggere?.includes(v.label)?'#16a34a':'#fff',
+                          color:form.vehicule_suggere?.includes(v.label)?'#fff':'#16a34a',
+                          border:'1.5px solid #86efac',borderRadius:8,padding:'6px 12px',
+                          cursor:'pointer',fontSize:12,fontWeight:700,transition:'all .15s'
+                        }}>
+                        {v.label}{v.immat&&` · ${v.immat}`}
+                      </button>
+                    ))}
+                  </div>
+                  {form.vehicule_suggere && (
+                    <div style={{fontSize:11,color:'#16a34a',marginTop:8,fontWeight:600}}>
+                      ✅ Véhicule sélectionné: {form.vehicule_suggere}
+                    </div>
+                  )}
+                </div>
+              )}
+              {vehiculesDispo.length === 0 && form.date_depart && (
+                <div style={{background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:10,
+                  padding:'10px 14px',fontSize:12,color:'#92400e',fontWeight:600}}>
+                  ⚠️ Aucun véhicule disponible pour cette date
+                </div>
+              )}
+
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
                 <button onClick={()=>setModal(false)}
                   style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',
@@ -231,7 +285,7 @@ export default function RotationsPage() {
                     body:JSON.stringify({
                       personnel: parseInt(form.personnel),
                       destination: form.destination,
-                      motif: form.motif,
+                      motif: `${form.motif}${form.vehicule_suggere?` | Véhicule: ${form.vehicule_suggere}`:''}`,
                       date_depart: form.date_depart,
                       date_retour_prevue: form.date_retour_prevue,
                       statut:'planifie'
