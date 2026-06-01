@@ -1,243 +1,280 @@
 import React, { useState, useEffect, useCallback } from 'react'
 
 const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-const hdrs = () => ({ 'Content-Type':'application/json', 'Authorization':`Bearer ${localStorage.getItem('access_token')||''}` })
+const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
 
-const RESSOURCES = [
-  { id:'salle_reunion',   label:'🏢 Salle de réunion',     capacite:20, couleur:'#1e3a8a' },
-  { id:'salle_formation', label:'🎓 Salle de formation',   capacite:30, couleur:'#7c3aed' },
-  { id:'vehicule_a',      label:'🚙 Véhicule A (4x4)',     capacite:7,  couleur:'#f97316' },
-  { id:'vehicule_b',      label:'🚙 Véhicule B (Minibus)', capacite:15, couleur:'#ea580c' },
-  { id:'vehicule_c',      label:'🚙 Véhicule C (Pick-up)', capacite:4,  couleur:'#dc2626' },
-  { id:'groupe_electro',  label:'⚡ Groupe électrogène',   capacite:1,  couleur:'#ca8a04' },
-  { id:'equipement_forage',label:'⛏️ Équip. forage',      capacite:1,  couleur:'#64748b' },
-  { id:'materiel_hse',    label:'🦺 Matériel HSE',         capacite:1,  couleur:'#16a34a' },
-]
+// ── Catalogue des ressources ────────────────────────────────────
+const CATALOGUE = {
+  salles: {
+    label:'🏢 Salles', icon:'🏢',
+    items: [
+      { id:'salle_reunion',   label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc', couleur:'#1e3a8a' },
+      { id:'bureau_communautaire', label:'Bureau communautaire', capacite:10, detail:'Espace de travail partagé',  couleur:'#2563eb' },
+    ]
+  },
+  vehicules: {
+    label:'🚙 Véhicules', icon:'🚙',
+    items: [
+      { id:'4x4_a',    label:'4x4 — Land Cruiser A',  capacite:7,  immat:'CI-1234-AB', detail:'Tout-terrain, climatisé', couleur:'#f97316' },
+      { id:'4x4_b',    label:'4x4 — Land Cruiser B',  capacite:7,  immat:'CI-5678-CD', detail:'Tout-terrain, climatisé', couleur:'#ea580c' },
+      { id:'pickup_a', label:'Pick-up — Hilux A',      capacite:4,  immat:'CI-9012-EF', detail:'Benne, diesel',           couleur:'#dc2626' },
+      { id:'pickup_b', label:'Pick-up — Hilux B',      capacite:4,  immat:'CI-3456-GH', detail:'Benne, diesel',           couleur:'#b91c1c' },
+      { id:'minibus',  label:'Mini-Bus — Toyota Hiace',capacite:15, immat:'CI-7890-IJ', detail:'Navette camp/ville',      couleur:'#7c3aed' },
+    ]
+  },
+  materiels: {
+    label:'⚙️ Matériels', icon:'⚙️',
+    items: [
+      { id:'epi_kit',     label:'Kit EPI complet',     capacite:1, detail:'Casque, gilet, gants, lunettes, chaussures de sécurité', couleur:'#16a34a' },
+      { id:'epi_hauteur', label:'EPI Travail en hauteur', capacite:1, detail:'Harnais, longe, casque avec jugulaire', couleur:'#15803d' },
+      { id:'nacelle',     label:'Nacelle élévatrice',  capacite:2, detail:'Hauteur max 12m, homologuée', couleur:'#ca8a04' },
+      { id:'tractopelle', label:'Tractopelle',          capacite:1, detail:'Godet + chargeur frontal, diesel', couleur:'#d97706' },
+      { id:'generateur',  label:'Groupe électrogène',  capacite:1, detail:'50kVA, diesel, silencieux',  couleur:'#92400e' },
+    ]
+  }
+}
 
-const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9, padding:'10px 12px', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }
+const ALL_ITEMS = Object.values(CATALOGUE).flatMap(cat => cat.items)
+const STORAGE_KEY = 'rzi_reservations_v2'
+
+const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}
+
+function ResourceCard({ item, onReserver, reservations }) {
+  const today = new Date().toISOString().slice(0,10)
+  const active = reservations.filter(r => r.ressource_id === item.id && r.date === today && r.statut !== 'annulé').length
+  const dispo = active === 0
+
+  return (
+    <div style={{background:'#fff',borderRadius:14,padding:16,
+      border:`2px solid ${dispo ? '#e2e8f0' : '#fecaca'}`,
+      boxShadow:'0 2px 8px rgba(0,0,0,.06)',transition:'all .2s'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+        <div style={{fontWeight:700,fontSize:14,color:'#1e293b'}}>{item.label}</div>
+        <span style={{background:dispo?'#dcfce7':'#fee2e2',color:dispo?'#16a34a':'#dc2626',
+          padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+          {dispo ? '✅ Libre' : '🔴 Réservé'}
+        </span>
+      </div>
+      {item.immat && <div style={{fontSize:11,color:'#64748b',marginBottom:4}}>🪪 {item.immat}</div>}
+      {item.capacite > 1 && <div style={{fontSize:11,color:'#64748b',marginBottom:4}}>👥 {item.capacite} pers. max</div>}
+      <div style={{fontSize:11,color:'#94a3b8',marginBottom:12}}>{item.detail}</div>
+      <button onClick={()=>onReserver(item)}
+        style={{width:'100%',background:item.couleur,color:'#fff',border:'none',borderRadius:9,
+          padding:'9px',cursor:'pointer',fontSize:13,fontWeight:700}}>
+        + Réserver
+      </button>
+    </div>
+  )
+}
 
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState([])
-  const [loading,      setLoading]      = useState(false)
-  const [modal,        setModal]        = useState(false)
-  const [filter,       setFilter]       = useState('')
+  const [modal,        setModal]        = useState(null)  // item sélectionné
+  const [activeTab,    setActiveTab]    = useState('salles')
   const [filterDate,   setFilterDate]   = useState('')
-  const [form, setForm] = useState({
-    ressource: '', date: '', heure_debut: '', heure_fin: '',
-    motif: '', demandeur: ''
-  })
-
-  // Utiliser localStorage pour les réservations (pas de modèle backend dédié)
-  const STORAGE_KEY = 'rzi_reservations_v1'
+  const [form, setForm] = useState({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
+  const [msg, setMsg] = useState(null)
+  const today = new Date().toISOString().slice(0,10)
 
   const load = useCallback(() => {
-    setLoading(true)
     try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-      setReservations(stored.sort((a,b) => (a.date+a.heure_debut).localeCompare(b.date+b.heure_debut)))
-    } catch(e) {}
-    setLoading(false)
+      setReservations(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'))
+    } catch(e) { setReservations([]) }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const save = (newRes) => {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    stored.push({ ...newRes, id: Date.now(), statut: 'confirmé', cree_le: new Date().toISOString() })
+  const checkConflict = (item, f) =>
+    reservations.some(r =>
+      r.ressource_id === item.id && r.date === f.date && r.statut !== 'annulé' &&
+      !(f.heure_fin <= r.heure_debut || f.heure_debut >= r.heure_fin)
+    )
+
+  const submit = () => {
+    if (!form.demandeur||!form.date||!form.heure_debut||!form.heure_fin) {
+      setMsg({ok:false,text:'Remplissez tous les champs obligatoires'}); return
+    }
+    if (checkConflict(modal, form)) {
+      setMsg({ok:false,text:'⚠️ Conflit: déjà réservé sur ce créneau'}); return
+    }
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')
+    stored.push({
+      id: Date.now(), ressource_id: modal.id,
+      ressource_label: modal.label, immat: modal.immat||'',
+      ...form, statut:'confirmé', cree_le: new Date().toISOString()
+    })
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+    setModal(null); setMsg(null)
+    setForm({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
     load()
   }
 
   const cancel = (id) => {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    const updated = stored.map(r => r.id === id ? {...r, statut:'annulé'} : r)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored.map(r=>r.id===id?{...r,statut:'annulé'}:r)))
     load()
   }
 
-  const today = new Date().toISOString().slice(0,10)
-  const filtered = reservations.filter(r => {
-    const matchRes = !filter || r.ressource === filter
-    const matchDate = !filterDate || r.date === filterDate
-    return matchRes && matchDate
-  })
+  const filtered = reservations.filter(r => !filterDate || r.date === filterDate)
+    .sort((a,b)=>(a.date+a.heure_debut).localeCompare(b.date+b.heure_debut))
 
-  // Grouper par date
-  const byDate = {}
-  filtered.forEach(r => {
-    if (!byDate[r.date]) byDate[r.date] = []
-    byDate[r.date].push(r)
-  })
-
-  const getRessource = (id) => RESSOURCES.find(r=>r.id===id) || {label:id, couleur:'#64748b'}
-
-  const checkConflict = (f) => {
-    return reservations.some(r =>
-      r.ressource === f.ressource && r.date === f.date && r.statut !== 'annulé' &&
-      !(f.heure_fin <= r.heure_debut || f.heure_debut >= r.heure_fin)
-    )
-  }
+  const catItems = CATALOGUE[activeTab].items
 
   return (
     <div style={{padding:16}}>
+      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>📅 Réservation de Ressources</h1>
+          <h1 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>📅 Réservations de Ressources</h1>
           <div style={{fontSize:13,color:'#64748b',marginTop:4}}>
-            Salles · Véhicules · Équipements partagés
+            Salles · Véhicules · Matériels · {reservations.filter(r=>r.date===today&&r.statut!=='annulé').length} réservation(s) aujourd'hui
           </div>
         </div>
-        <button onClick={()=>setModal(true)}
-          style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:10,
-            padding:'10px 20px',cursor:'pointer',fontSize:13,fontWeight:700}}>
-          + Nouvelle réservation
-        </button>
+      </div>
+
+      {/* Tabs catégories */}
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {Object.entries(CATALOGUE).map(([k,cat])=>(
+          <button key={k} onClick={()=>setActiveTab(k)}
+            style={{padding:'8px 18px',borderRadius:10,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,
+              background:activeTab===k?'#1e3a8a':'#f1f5f9',
+              color:activeTab===k?'#fff':'#64748b',transition:'all .15s'}}>
+            {cat.label}
+          </button>
+        ))}
       </div>
 
       {/* Grille ressources */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10,marginBottom:20}}>
-        {RESSOURCES.map(r => {
-          const today_res = reservations.filter(rv=>rv.ressource===r.id&&rv.date===today&&rv.statut!=='annulé').length
-          return (
-            <div key={r.id} onClick={()=>setFilter(filter===r.id?'':r.id)}
-              style={{background:filter===r.id?r.couleur+'15':'#fff',
-                border:`2px solid ${filter===r.id?r.couleur:'#e2e8f0'}`,
-                borderRadius:12,padding:'12px 14px',cursor:'pointer',transition:'all .15s'}}>
-              <div style={{fontSize:14,fontWeight:700,color:r.couleur}}>{r.label}</div>
-              <div style={{fontSize:11,color:'#64748b',marginTop:4}}>
-                {today_res > 0 ? `🔴 ${today_res} résa aujourd'hui` : '🟢 Disponible'}
-              </div>
-            </div>
-          )
-        })}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14,marginBottom:28}}>
+        {catItems.map(item=>(
+          <ResourceCard key={item.id} item={item} reservations={reservations} onReserver={i=>{setModal(i);setMsg(null)}}/>
+        ))}
       </div>
 
-      {/* Filtres */}
-      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-        <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{...inp,maxWidth:180}}/>
-        {(filter||filterDate) && (
-          <button onClick={()=>{setFilter('');setFilterDate('')}}
-            style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:700}}>
-            ✕ Reset
-          </button>
-        )}
-      </div>
-
-      {/* Calendrier/liste */}
-      {Object.keys(byDate).length === 0 ? (
-        <div style={{textAlign:'center',padding:60,color:'#94a3b8',background:'#fff',borderRadius:12}}>
-          <div style={{fontSize:40,marginBottom:12}}>📅</div>
-          <div>Aucune réservation{filter?` pour ${getRessource(filter).label}`:''}</div>
-        </div>
-      ) : Object.entries(byDate).sort().map(([date, items]) => (
-        <div key={date} style={{marginBottom:20}}>
-          <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:8,
-            padding:'6px 12px',background:'#eff6ff',borderRadius:8,display:'inline-block'}}>
-            📅 {date === today ? 'Aujourd\'hui' : new Date(date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}
+      {/* Planning du jour */}
+      <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
+          <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>📋 Planning des réservations</div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)}
+              style={{...inp,maxWidth:180}}/>
+            {filterDate && <button onClick={()=>setFilterDate('')}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'8px 12px',cursor:'pointer',fontSize:12,color:'#64748b'}}>✕</button>}
           </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>
+            <div style={{fontSize:36,marginBottom:8}}>📅</div>
+            Aucune réservation{filterDate?` le ${filterDate}`:''}
+          </div>
+        ) : (
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {items.map(r => {
-              const res = getRessource(r.ressource)
+            {filtered.map(r=>{
+              const item = ALL_ITEMS.find(i=>i.id===r.ressource_id)||{couleur:'#64748b'}
               return (
-                <div key={r.id} style={{background:'#fff',borderRadius:12,padding:'14px 16px',
-                  border:`2px solid ${r.statut==='annulé'?'#e2e8f0':res.couleur+'40'}`,
-                  display:'flex',alignItems:'center',gap:16,opacity:r.statut==='annulé'?.5:1}}>
-                  <div style={{width:6,height:50,borderRadius:99,background:r.statut==='annulé'?'#e2e8f0':res.couleur,flexShrink:0}}/>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:14}}>{res.label}</div>
+                <div key={r.id} style={{display:'flex',alignItems:'center',gap:14,
+                  padding:'12px 16px',borderRadius:10,
+                  background:r.statut==='annulé'?'#f8fafc':'#fff',
+                  border:`1.5px solid ${r.statut==='annulé'?'#e2e8f0':item.couleur+'40'}`,
+                  opacity:r.statut==='annulé'?.5:1}}>
+                  <div style={{width:5,height:40,borderRadius:99,background:r.statut==='annulé'?'#e2e8f0':item.couleur,flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:13}}>{r.ressource_label} {r.immat&&`· ${r.immat}`}</div>
                     <div style={{fontSize:12,color:'#64748b'}}>
-                      🕐 {r.heure_debut} – {r.heure_fin} · 👤 {r.demandeur}
+                      📅 {r.date} · 🕐 {r.heure_debut}–{r.heure_fin} · 👤 {r.demandeur}
                     </div>
-                    {r.motif && <div style={{fontSize:12,color:'#94a3b8',marginTop:2}}>{r.motif}</div>}
+                    {r.motif && <div style={{fontSize:11,color:'#94a3b8'}}>{r.motif}</div>}
                   </div>
-                  <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <span style={{background:r.statut==='annulé'?'#f1f5f9':'#dcfce7',
-                      color:r.statut==='annulé'?'#94a3b8':'#16a34a',
-                      padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                      {r.statut}
-                    </span>
-                    {r.statut !== 'annulé' && (
-                      <button onClick={()=>{if(window.confirm('Annuler cette réservation ?')) cancel(r.id)}}
-                        style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
-                          borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
-                        ✕ Annuler
-                      </button>
-                    )}
-                  </div>
+                  <span style={{background:r.statut==='annulé'?'#f1f5f9':'#dcfce7',
+                    color:r.statut==='annulé'?'#94a3b8':'#16a34a',
+                    padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>
+                    {r.statut}
+                  </span>
+                  {r.statut!=='annulé' && (
+                    <button onClick={()=>{if(confirm('Annuler?'))cancel(r.id)}}
+                      style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                        borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700,flexShrink:0}}>
+                      ✕
+                    </button>
+                  )}
                 </div>
               )
             })}
           </div>
-        </div>
-      ))}
+        )}
+      </div>
 
-      {/* Modal création */}
+      {/* Modal réservation */}
       {modal && (
-        <div onClick={e=>e.target===e.currentTarget&&setModal(false)}
+        <div onClick={e=>e.target===e.currentTarget&&setModal(null)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:520,
+          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:500,
             boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
-            <div style={{fontWeight:800,fontSize:17,marginBottom:20,color:'#1e3a8a'}}>
-              📅 Nouvelle réservation
+            {/* En-tête */}
+            <div style={{background:`linear-gradient(135deg,${modal.couleur},${modal.couleur}cc)`,
+              borderRadius:12,padding:'16px 20px',marginBottom:20,color:'#fff'}}>
+              <div style={{fontWeight:800,fontSize:17}}>{modal.label}</div>
+              {modal.immat && <div style={{fontSize:12,opacity:.9}}>🪪 {modal.immat}</div>}
+              {modal.capacite > 1 && <div style={{fontSize:12,opacity:.9}}>👥 Max {modal.capacite} personnes</div>}
+              <div style={{fontSize:12,opacity:.8,marginTop:4}}>{modal.detail}</div>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>RESSOURCE *</label>
-                <select value={form.ressource} onChange={e=>setForm({...form,ressource:e.target.value})} style={inp}>
-                  <option value="">-- Sélectionner --</option>
-                  {RESSOURCES.map(r=><option key={r.id} value={r.id}>{r.label} (max {r.capacite} pers.)</option>)}
-                </select>
+
+            {msg && (
+              <div style={{background:msg.ok?'#f0fdf4':'#fef2f2',
+                border:`1px solid ${msg.ok?'#bbf7d0':'#fecaca'}`,
+                borderRadius:9,padding:'10px 14px',marginBottom:16,fontSize:13,
+                color:msg.ok?'#16a34a':'#dc2626',fontWeight:600}}>
+                {msg.text}
               </div>
+            )}
+
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DEMANDEUR *</label>
                 <input value={form.demandeur} onChange={e=>setForm({...form,demandeur:e.target.value})}
                   placeholder="Votre nom..." style={inp}/>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-                <div style={{gridColumn:'1/-1'}}>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DATE *</label>
-                  <input type="date" value={form.date} min={today}
-                    onChange={e=>setForm({...form,date:e.target.value})} style={inp}/>
-                </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DATE *</label>
+                <input type="date" value={form.date} min={today}
+                  onChange={e=>setForm({...form,date:e.target.value})} style={inp}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DÉBUT *</label>
+                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>HEURE DÉBUT *</label>
                   <input type="time" value={form.heure_debut}
                     onChange={e=>setForm({...form,heure_debut:e.target.value})} style={inp}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>FIN *</label>
+                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>HEURE FIN *</label>
                   <input type="time" value={form.heure_fin}
                     onChange={e=>setForm({...form,heure_fin:e.target.value})} style={inp}/>
                 </div>
               </div>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>MOTIF</label>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>MOTIF / OBJET</label>
                 <input value={form.motif} onChange={e=>setForm({...form,motif:e.target.value})}
-                  placeholder="Objet de la réservation..." style={inp}/>
+                  placeholder="Réunion de chantier, transport équipe..." style={inp}/>
               </div>
-              {form.ressource && form.date && form.heure_debut && form.heure_fin && checkConflict(form) && (
+
+              {form.date && form.heure_debut && form.heure_fin && checkConflict(modal, form) && (
                 <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:9,
                   padding:'10px 14px',color:'#dc2626',fontSize:13,fontWeight:600}}>
-                  ⚠️ Conflit détecté — cette ressource est déjà réservée sur ce créneau
+                  ⚠️ Conflit détecté — déjà réservé sur ce créneau
                 </div>
               )}
+
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
-                <button onClick={()=>setModal(false)}
+                <button onClick={()=>{setModal(null);setMsg(null)}}
                   style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
                   Annuler
                 </button>
-                <button onClick={()=>{
-                  if (!form.ressource||!form.demandeur||!form.date||!form.heure_debut||!form.heure_fin) {
-                    alert('Remplissez tous les champs obligatoires'); return
-                  }
-                  if (checkConflict(form)) { alert('Conflit de réservation!'); return }
-                  save(form)
-                  setModal(false)
-                  setForm({ressource:'',date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
-                }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
-                  padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
-                  ✅ Réserver
+                <button onClick={submit}
+                  style={{background:modal.couleur,color:'#fff',border:'none',borderRadius:9,
+                    padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  ✅ Confirmer la réservation
                 </button>
               </div>
             </div>
