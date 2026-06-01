@@ -1224,7 +1224,13 @@ function InductionPageInner() {
                                       ✅ Validé le {new Date(info.date).toLocaleDateString('fr-FR')} à {new Date(info.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
                                     </div>
                                   </div>
-                                  <div style={{display:'flex',gap:4}}>
+                                  {/* Assigné */}
+                                {info.assign && (
+                                  <div style={{fontSize:10,marginTop:2,opacity:.8}}>
+                                    👤 {info.assign}
+                                  </div>
+                                )}
+                                <div style={{display:'flex',gap:4}}>
                                     <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
                                       title="Modifier cette étape"
                                       style={{background:'rgba(255,255,255,0.25)',color:'#fff',border:'none',
@@ -1253,9 +1259,43 @@ function InductionPageInner() {
                                     </div>
                                   )}
                                   {/* Documents */}
-                                  {e.key==='documents' && info.docs && (
-                                    <div style={{fontSize:12,color:'#16a34a'}}>
-                                      ✅ Documents soumis: {Array.isArray(info.docs)?info.docs.join(', '):JSON.stringify(info.docs)}
+                                  {e.key==='documents' && (
+                                    <div>
+                                      {/* Photos des documents */}
+                                      {info.form?.photo && (
+                                        <div style={{marginBottom:10}}>
+                                          <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>📸 Photo identité</div>
+                                          <img src={info.form.photo} alt="ID"
+                                            style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0'}}/>
+                                        </div>
+                                      )}
+                                      {/* Docs soumis */}
+                                      {info.docs && (
+                                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                                          {(Array.isArray(info.docs)?info.docs:[info.docs]).map((doc,di)=>
+                                            typeof doc==='string'&&doc.startsWith('data:') ? (
+                                              <img key={di} src={doc} alt="doc"
+                                                style={{width:60,height:60,objectFit:'cover',borderRadius:6,border:'2px solid #bbf7d0'}}/>
+                                            ) : (
+                                              <span key={di} style={{background:'#f0fdf4',color:'#16a34a',
+                                                fontSize:11,padding:'3px 8px',borderRadius:6,fontWeight:600}}>
+                                                ✅ {doc}
+                                              </span>
+                                            )
+                                          )}
+                                        </div>
+                                      )}
+                                      {/* Champs saisis */}
+                                      {info.form && (
+                                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
+                                          {Object.entries(info.form||{}).filter(([k,v])=>k!=='photo'&&v&&typeof v==='string'&&!v.startsWith('data:')).map(([k,v])=>(
+                                            <div key={k} style={{fontSize:11}}>
+                                              <span style={{color:'#94a3b8',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
+                                              <span style={{color:'#1e293b'}}>{v}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {/* Quiz */}
@@ -1435,6 +1475,19 @@ function InductionPageInner() {
                                   ))}
                                 </datalist>
                                 </>
+                              ) : c.type==='datalist' ? (
+                                <>
+                                <input value={formData[c.key]||''}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
+                                  list={`dl-${c.key}`}
+                                  placeholder={c.placeholder}
+                                  style={{...inp,width:'100%',boxSizing:'border-box'}}/>
+                                <datalist id={`dl-${c.key}`}>
+                                  {c.datalist==='nationalities' && NATIONALITIES.map(n=>(
+                                    <option key={n} value={n}/>
+                                  ))}
+                                </datalist>
+                                </>
                               ) : (
                                 <input type={c.type} value={formData[c.key]||''}
                                   onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
@@ -1452,7 +1505,11 @@ function InductionPageInner() {
                             <button onClick={()=>{
                               const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
                               if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
-                              validerEtape(etape.key, {form:formData})
+                              if(etape.assignRole && !formData[`assign_${etape.key}`]?.trim()) {
+                                alert(`Assignation requise: ${etape.assignLabel}`)
+                                return
+                              }
+                              validerEtape(etape.key, {form:formData, assign:formData[`assign_${etape.key}`]||''})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
                                 background:etape.couleur,color:'#fff',fontWeight:700,
