@@ -579,8 +579,10 @@ function InductionPageInner() {
     const w = getWF(selected.id)
     const drafts = w.drafts || {}
     setFormData(drafts.form || w.etapes?.accueil?.form || {})
-    setDocUploads(drafts.docs || {})
-    setDocData(drafts.docData || {})
+    const docDraft = drafts.docs || {}
+    // Support ancien format (juste noms) et nouveau format {uploads, data}
+    setDocUploads(docDraft.uploads || (typeof docDraft === 'object' && !docDraft.uploads && !docDraft.data ? docDraft : {}))
+    setDocData(docDraft.data || drafts.docData || {})
     setMedData(drafts.medical || w.etapes?.medical?.medical || {})
   },[selected])
 
@@ -1285,34 +1287,71 @@ function InductionPageInner() {
                                         </div>
                                       )})()}
                                       {/* Docs soumis */}
-                                      {info.docs && (
-                                        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:8}}>
-                                          {Object.entries(info.docs||{}).map(([key, filename])=>(
-                                            <div key={key} style={{textAlign:'center'}}>
-                                              {info.docData?.[key]&&info.docData[key].startsWith('data:image') ? (
-                                                <div>
-                                                  <img src={info.docData[key]} alt={filename}
-                                                    style={{width:80,height:80,objectFit:'cover',borderRadius:8,
-                                                      border:'2px solid #bbf7d0',display:'block',marginBottom:4}}/>
-                                                  <div style={{fontSize:9,color:'#64748b',maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{filename}</div>
-                                                </div>
-                                              ) : info.docData?.[key]&&info.docData[key].startsWith('data:application') ? (
-                                                <div style={{width:80,height:80,background:'#eff6ff',borderRadius:8,
-                                                  border:'2px solid #bfdbfe',display:'flex',flexDirection:'column',
-                                                  alignItems:'center',justifyContent:'center',gap:4}}>
-                                                  <span style={{fontSize:28}}>📄</span>
-                                                  <div style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>PDF</div>
-                                                </div>
-                                              ) : (
-                                                <span style={{background:'#f0fdf4',color:'#16a34a',fontSize:11,
-                                                  padding:'4px 10px',borderRadius:6,fontWeight:600}}>
-                                                  ✅ {filename}
-                                                </span>
-                                              )}
+                                      {(() => {
+                                        const uploads = info.docs?.uploads || (info.docs && typeof info.docs==='object' && !info.docs.data ? info.docs : {})
+                                        const data = info.docs?.data || info.docData || {}
+                                        const entries = Object.entries(uploads)
+                                        if (!entries.length) return null
+                                        return (
+                                          <div style={{marginBottom:12}}>
+                                            <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:8}}>
+                                              📎 Documents soumis ({entries.length})
                                             </div>
-                                          ))}
-                                        </div>
-                                      )}
+                                            <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+                                              {entries.map(([key, filename])=>{
+                                                const src = data[key]
+                                                const isImg = src?.startsWith('data:image')
+                                                const isPdf = src?.startsWith('data:application/pdf')
+                                                return (
+                                                  <div key={key} style={{textAlign:'center',maxWidth:100}}>
+                                                    {isImg ? (
+                                                      <a href={src} target="_blank" rel="noreferrer">
+                                                        <img src={src} alt={filename}
+                                                          style={{width:90,height:90,objectFit:'cover',borderRadius:10,
+                                                            border:'2px solid #86efac',display:'block',cursor:'pointer'}}/>
+                                                      </a>
+                                                    ) : isPdf ? (
+                                                      <a href={src} download={filename} style={{textDecoration:'none'}}>
+                                                        <div style={{width:90,height:90,background:'#eff6ff',
+                                                          borderRadius:10,border:'2px solid #bfdbfe',
+                                                          display:'flex',flexDirection:'column',
+                                                          alignItems:'center',justifyContent:'center',
+                                                          cursor:'pointer',gap:4}}>
+                                                          <span style={{fontSize:32}}>📄</span>
+                                                          <span style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>PDF</span>
+                                                        </div>
+                                                      </a>
+                                                    ) : src ? (
+                                                      <a href={src} download={filename} style={{textDecoration:'none'}}>
+                                                        <div style={{width:90,height:90,background:'#f5f3ff',
+                                                          borderRadius:10,border:'2px solid #c4b5fd',
+                                                          display:'flex',flexDirection:'column',
+                                                          alignItems:'center',justifyContent:'center',gap:4}}>
+                                                          <span style={{fontSize:28}}>📎</span>
+                                                          <span style={{fontSize:9,color:'#7c3aed',fontWeight:700}}>Fichier</span>
+                                                        </div>
+                                                      </a>
+                                                    ) : (
+                                                      <div style={{width:90,height:90,background:'#f8fafc',
+                                                        borderRadius:10,border:'2px dashed #e2e8f0',
+                                                        display:'flex',flexDirection:'column',
+                                                        alignItems:'center',justifyContent:'center',gap:4}}>
+                                                        <span style={{fontSize:24}}>🗂️</span>
+                                                        <span style={{fontSize:9,color:'#94a3b8'}}>Non chargé</span>
+                                                      </div>
+                                                    )}
+                                                    <div style={{fontSize:9,color:'#64748b',marginTop:4,
+                                                      overflow:'hidden',textOverflow:'ellipsis',
+                                                      whiteSpace:'nowrap',maxWidth:90}}>
+                                                      {filename}
+                                                    </div>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        )
+                                      })()}
                                       {/* Champs saisis */}
                                       {info.form && (
                                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
@@ -1585,7 +1624,7 @@ function InductionPageInner() {
                             </div>
                           ))}
                           <div style={{display:'flex',gap:8,marginTop:8}}>
-                            <button onClick={()=>saveDraft('docs', docUploads)}
+                            <button onClick={()=>saveDraft('docs', {uploads: docUploads, data: docData})}
                               style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
                                 background:'#fff',color:etape.couleur,fontWeight:700,
                                 fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
