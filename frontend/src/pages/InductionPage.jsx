@@ -442,7 +442,8 @@ function InductionPageInner() {
   const [etapeActive, setEtapeActive] = useState(null)
   const [wfState,     setWfState]     = useState({})
   const [formData,    setFormData]    = useState({})
-  const [docUploads,  setDocUploads]  = useState({})
+  const [docUploads,  setDocUploads]  = useState({})  // {key: filename}
+  const [docData,     setDocData]     = useState({})   // {key: base64}
   const [medData,     setMedData]     = useState({})
   const [savedMsg,    setSavedMsg]    = useState('')
   const [slideTab,    setSlideTab]    = useState('etapes')
@@ -579,6 +580,7 @@ function InductionPageInner() {
     const drafts = w.drafts || {}
     setFormData(drafts.form || w.etapes?.accueil?.form || {})
     setDocUploads(drafts.docs || {})
+    setDocData(drafts.docData || {})
     setMedData(drafts.medical || w.etapes?.medical?.medical || {})
   },[selected])
 
@@ -1284,18 +1286,31 @@ function InductionPageInner() {
                                       )}
                                       {/* Docs soumis */}
                                       {info.docs && (
-                                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                                          {(Array.isArray(info.docs)?info.docs:[info.docs]).map((doc,di)=>
-                                            typeof doc==='string'&&doc.startsWith('data:') ? (
-                                              <img key={di} src={doc} alt="doc"
-                                                style={{width:60,height:60,objectFit:'cover',borderRadius:6,border:'2px solid #bbf7d0'}}/>
-                                            ) : (
-                                              <span key={di} style={{background:'#f0fdf4',color:'#16a34a',
-                                                fontSize:11,padding:'3px 8px',borderRadius:6,fontWeight:600}}>
-                                                ✅ {doc}
-                                              </span>
-                                            )
-                                          )}
+                                        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:8}}>
+                                          {Object.entries(info.docs||{}).map(([key, filename])=>(
+                                            <div key={key} style={{textAlign:'center'}}>
+                                              {info.docData?.[key]&&info.docData[key].startsWith('data:image') ? (
+                                                <div>
+                                                  <img src={info.docData[key]} alt={filename}
+                                                    style={{width:80,height:80,objectFit:'cover',borderRadius:8,
+                                                      border:'2px solid #bbf7d0',display:'block',marginBottom:4}}/>
+                                                  <div style={{fontSize:9,color:'#64748b',maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{filename}</div>
+                                                </div>
+                                              ) : info.docData?.[key]&&info.docData[key].startsWith('data:application') ? (
+                                                <div style={{width:80,height:80,background:'#eff6ff',borderRadius:8,
+                                                  border:'2px solid #bfdbfe',display:'flex',flexDirection:'column',
+                                                  alignItems:'center',justifyContent:'center',gap:4}}>
+                                                  <span style={{fontSize:28}}>📄</span>
+                                                  <div style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>PDF</div>
+                                                </div>
+                                              ) : (
+                                                <span style={{background:'#f0fdf4',color:'#16a34a',fontSize:11,
+                                                  padding:'4px 10px',borderRadius:6,fontWeight:600}}>
+                                                  ✅ {filename}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ))}
                                         </div>
                                       )}
                                       {/* Champs saisis */}
@@ -1558,7 +1573,11 @@ function InductionPageInner() {
                                   <input type="file" style={{display:'none'}}
                                     onChange={e=>{
                                       const file=e.target.files?.[0]
-                                      if(file) setDocUploads(prev=>({...prev,[d.key]:file.name}))
+                                      if(!file) return
+                                      setDocUploads(prev=>({...prev,[d.key]:file.name}))
+                                      const reader=new FileReader()
+                                      reader.onload=ev=>setDocData(prev=>({...prev,[d.key]:ev.target.result}))
+                                      reader.readAsDataURL(file)
                                     }}/>
                                   {docUploads[d.key]?'✓ Chargé':'📎 Charger'}
                                 </label>
@@ -1575,7 +1594,7 @@ function InductionPageInner() {
                             <button onClick={()=>{
                               const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
                               if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
-                              validerEtape(etape.key, {docs:Object.keys(docUploads)})
+                              validerEtape(etape.key, {docs:docUploads, docData:docData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
                                 background:etape.couleur,color:'#fff',fontWeight:700,
