@@ -1276,14 +1276,14 @@ function InductionPageInner() {
                                   {/* Documents */}
                                   {e.key==='documents' && (
                                     <div>
-                                      {/* Photos des documents */}
-                                      {info.form?.photo && (
+                                      {/* Photo identité depuis l'étape accueil */}
+                                      {(()=>{const photoSrc=w.etapes?.accueil?.form?.photo||info.form?.photo; return photoSrc&&(
                                         <div style={{marginBottom:10}}>
                                           <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>📸 Photo identité</div>
-                                          <img src={info.form.photo} alt="ID"
+                                          <img src={photoSrc} alt="ID"
                                             style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0'}}/>
                                         </div>
-                                      )}
+                                      )})()}
                                       {/* Docs soumis */}
                                       {info.docs && (
                                         <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:8}}>
