@@ -116,12 +116,12 @@ export default function Login() {
         {/* Grille décorative */}
         <div style={{ position:'absolute', inset:0, opacity:.07, backgroundImage:'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)', backgroundSize:'40px 40px' }}/>
         {/* Cercles lumineux */}
-        <div style={{ position:'absolute', top:-100, right:-100, width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
-        <div style={{ position:'absolute', bottom:-80, left:-80, width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
+        <div style={{ position:'absolute', top:-100, right:-100, width:'100%', maxWidth:420, height:400, borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
+        <div style={{ position:'absolute', bottom:-80, left:-80, width:'100%', maxWidth:320, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
 
         <div style={{ position:'relative', textAlign:'center', maxWidth:400 }}>
           {/* Logo / Icon */}
-          <div style={{ width:160, height:90, margin:'0 auto 28px', borderRadius:18,
+          <div style={{ width:'100%', height:90, margin:'0 auto 28px', borderRadius:18,
               background:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
               boxShadow:'0 16px 48px rgba(240,165,0,.5)',
               border:'3px solid #f0a500',
