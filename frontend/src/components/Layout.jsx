@@ -82,10 +82,10 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
-      background: '#0f1e3c', border: 'none', borderRadius: 16,
+      background: 'var(--sidebar-bg,#0a1628)', border: 'none', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 16px', background: 'var(--rzi-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', background: 'var(--topbar-bg,#0a1628)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
@@ -109,14 +109,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
-              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--rzi-blue)', flexShrink: 0, marginTop: 4 }} />}
+              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--topbar-bg,#0a1628)', flexShrink: 0, marginTop: 4 }} />}
             </div>
           ))
         }
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: 'var(--rzi-blue)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: 'var(--topbar-bg,#0a1628)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -224,7 +224,7 @@ export default function Layout() {
 
       <header style={{
         height: 54,
-        background: 'var(--rzi-blue)',
+        background: 'var(--topbar-bg,#0a1628)',
         borderBottom: '3px solid var(--rzi-gold)',
         display: 'flex', alignItems: 'center',
         padding: '0 10px', gap: 10,
@@ -350,12 +350,8 @@ export default function Layout() {
                     textDecoration: 'none',
                     fontSize: 12.5,
                     fontWeight: isActive ? 700 : 400,
-                    background: isActive
-                      ? 'rgba(255,255,255,.18)'
-                      : 'transparent',
-                    color: isActive
-                      ? '#fff'
-                      : 'rgba(255,255,255,.7)',
+                    background: isActive ? 'var(--sidebar-active,rgba(255,255,255,.12))' : 'transparent',
+                    color: isActive ? 'var(--sidebar-text-act,#fff)' : 'var(--sidebar-text,rgba(255,255,255,.75))',
                     borderLeft: isActive
                       ? '3px solid #fff'
                       : '3px solid transparent',
