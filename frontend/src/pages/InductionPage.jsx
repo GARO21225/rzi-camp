@@ -69,6 +69,14 @@ async function syncOfflineQueue() {
 }
 
 // ─── Définition des étapes ────────────────────────────────────────
+const NATIONALITIES = [
+  'Ivoirienne','Burkinabè','Malienne','Sénégalaise','Guinéenne','Ghanéenne','Nigériane',
+  'Togolaise','Béninoise','Camerounaise','Congolaise','Française','Américaine','Britannique',
+  'Australienne','Canadienne','Belge','Suisse','Marocaine','Algérienne','Tunisienne',
+  'Sud-Africaine','Mauritanienne','Gambienne','Sierra-Léonaise','Libérienne','Nigérienne',
+  'Tchadienne','Centrafricaine','Gabonaise','Équato-Guinéenne','Autre'
+]
+
 const ETAPES = [
   {
     key: 'accueil',
@@ -81,7 +89,7 @@ const ETAPES = [
     type: 'form',
     champs: [
       { key:'photo', label:'Photo d\'identité', type:'photo', required:true },
-      { key:'nationalite', label:'Nationalité', type:'text', placeholder:'Ex: Ivoirienne', required:true },
+      { key:'nationalite', label:'Nationalité', type:'datalist', datalist:'nationalities', placeholder:'Ex: Ivoirienne', required:true },
       { key:'urgence_nom', label:'Contact urgence (Nom)', type:'text', placeholder:'Nom complet', required:true },
       { key:'urgence_tel', label:'Contact urgence (Tél)', type:'tel', placeholder:'+225 XX XX XX XX', required:true },
       { key:'date_arrivee', label:'Date d\'arrivée prévue', type:'date', required:true },
@@ -92,8 +100,6 @@ const ETAPES = [
   },
   {
     key: 'documents',
-    assignRole: 'accueil',
-    assignLabel: "👋 Agent d'accueil",
     icon: '📄',
     titre: 'Documents obligatoires',
     desc: 'Tous les documents doivent être soumis',
@@ -123,8 +129,6 @@ const ETAPES = [
   },
   {
     key: 'quiz',
-    assignRole: 'qhse',
-    assignLabel: '🛡️ Formateur QHSE',
     icon: '📋',
     titre: 'Quiz QHSE',
     desc: 'Score minimum: 80% — 3 tentatives maximum',
@@ -169,7 +173,7 @@ const ETAPES = [
       { key:'alcool', label:'Test alcool', type:'select', options:['Négatif','Positif'], required:true },
       { key:'drogues', label:'Test drogues', type:'select', options:['Négatif','Positif'], required:true },
       { key:'resultat', label:'Résultat médecin', type:'select', options:['FIT — Apte','UNFIT — Inapte','PENDING — En attente'], required:true },
-      { key:'medecin', label:'🩺 Médecin assigné', type:'select_staff', profil:'medical', required:true },
+      
       { key:'observations', label:'Observations', type:'textarea', placeholder:'Observations médicales...', required:false },
     ]
   },
@@ -728,7 +732,25 @@ function InductionPageInner() {
     }
     saveWF(selected.id, newWf)
     setWfState(prev => ({...prev, [selected.id]: newWf}))
-    
+
+    // Badge automatique si toutes les étapes précédentes sont validées
+    const ETAPES_REQUISES = ['accueil','documents','formation','quiz','medical']
+    const toutValide = ETAPES_REQUISES.every(k => newWf.etapes?.[k]?.done)
+    if (toutValide && !newWf.etapes?.badge?.done) {
+      // Valider automatiquement le badge
+      const withBadge = {
+        ...newWf,
+        etapes: {
+          ...newWf.etapes,
+          badge: { done:true, date:new Date().toISOString(), badge_emis:new Date().toISOString(), auto:true }
+        }
+      }
+      saveWF(selected.id, withBadge)
+      setWfState(prev => ({...prev, [selected.id]: withBadge}))
+      setSavedMsg('🎫 Badge émis automatiquement !')
+      setTimeout(() => setSavedMsg(''), 4000)
+    }
+
     // Preparer les donnees pour le backend
     const fieldMap = {accueil:'form_data', documents:'docs_data', medical:'medical_data', quiz:'quiz_score'}
     const backendData = {
