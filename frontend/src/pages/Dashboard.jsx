@@ -38,6 +38,105 @@ function ActivityItem({ icon, text, time, color }) {
   )
 }
 
+
+// ── Widget Conformité Induction ──────────────────────────────
+function ConformiteWidget() {
+  const [data, setData] = React.useState([])
+  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('access_token') || ''
+    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+      .then(r=>r.json()).then(d=>{
+        const list = d.results || d || []
+        const bySociete = {}
+        list.forEach(p => {
+          const soc = p.societe || 'Sans société'
+          if (!bySociete[soc]) bySociete[soc] = {total:0, induits:0}
+          bySociete[soc].total++
+          if (p.inductionrecord?.statut==='valide') bySociete[soc].induits++
+        })
+        const sorted = Object.entries(bySociete)
+          .map(([s,v])=>({societe:s, ...v, pct:Math.round(v.induits/v.total*100)}))
+          .sort((a,b)=>b.pct-a.pct).slice(0,6)
+        setData(sorted)
+      }).catch(()=>{})
+  }, [])
+
+  if (!data.length) return <div style={{color:'#94a3b8',fontSize:12,textAlign:'center',padding:20}}>Chargement...</div>
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {data.map(({societe,total,induits,pct})=>(
+        <div key={societe}>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+            <span style={{fontWeight:600,color:'#1e293b'}}>{societe}</span>
+            <span style={{fontWeight:700,color:pct>=80?'#16a34a':pct>=50?'#d97706':'#dc2626'}}>
+              {induits}/{total} · {pct}%
+            </span>
+          </div>
+          <div style={{background:'#f1f5f9',borderRadius:99,height:6,overflow:'hidden'}}>
+            <div style={{background:pct>=80?'#16a34a':pct>=50?'#f59e0b':'#dc2626',
+              width:`${pct}%`,height:'100%',borderRadius:99,transition:'width .5s'}}/>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Widget Alertes Prédictives ────────────────────────────────
+function AlertesPredictives({ stats, voyStats, incStats }) {
+  const alertes = []
+
+  if (stats?.departs > 0) {
+    alertes.push({
+      icon:'🚀', color:'#3b82f6', bg:'#eff6ff',
+      titre: `${stats.departs} départ(s) cette semaine`,
+      desc: 'Résidences à libérer prochainement'
+    })
+  }
+  if (incStats?.critiques > 0) {
+    alertes.push({
+      icon:'🚨', color:'#dc2626', bg:'#fef2f2',
+      titre: `${incStats.critiques} incident(s) critique(s)`,
+      desc: 'Nécessite une intervention urgente'
+    })
+  }
+  if (incStats?.sla_depasse > 0) {
+    alertes.push({
+      icon:'⏰', color:'#d97706', bg:'#fffbeb',
+      titre: `${incStats.sla_depasse} SLA dépassé(s)`,
+      desc: 'Délais de résolution dépassés'
+    })
+  }
+  if (voyStats?.en_voyage > 0) {
+    alertes.push({
+      icon:'✈️', color:'#7c3aed', bg:'#f5f3ff',
+      titre: `${voyStats.en_voyage} personne(s) en déplacement`,
+      desc: 'Rotations actives en cours'
+    })
+  }
+  if (!alertes.length) {
+    return <div style={{color:'#16a34a',fontSize:13,textAlign:'center',padding:20,fontWeight:600}}>✅ Tout est normal</div>
+  }
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {alertes.map((a,i)=>(
+        <div key={i} style={{background:a.bg,border:`1px solid ${a.color}30`,
+          borderRadius:10,padding:'10px 14px',display:'flex',gap:10,alignItems:'flex-start'}}>
+          <span style={{fontSize:20}}>{a.icon}</span>
+          <div>
+            <div style={{fontWeight:700,fontSize:12,color:a.color}}>{a.titre}</div>
+            <div style={{fontSize:11,color:'#64748b'}}>{a.desc}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useStore()
   const navigate = useNavigate()
@@ -272,6 +371,27 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+        {/* ── Bloc Prédictif & Conformité ─────────────────────── */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:16}}>
+
+          {/* Score conformité HSE par société */}
+          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
+              🎓 Conformité Induction par société
+            </div>
+            <ConformiteWidget/>
+          </div>
+
+          {/* Alertes prédictives */}
+          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
+              🔮 Prévisions & Alertes
+            </div>
+            <AlertesPredictives stats={stats} voyStats={voyStats} incStats={incStats}/>
+          </div>
+
+        </div>
     </div>
   )
 }
