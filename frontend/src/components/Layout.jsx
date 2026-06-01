@@ -82,7 +82,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+      background: '#0f1e3c', border: 'none', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
       <div style={{ padding: '14px 16px', background: 'var(--rzi-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
