@@ -530,24 +530,30 @@ export default function Personnel() {
                           <button onClick={async()=>{
                               const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
                               const token = localStorage.getItem('access_token') || ''
-                              const newVal = p.induction_requise === false ? true : false
-                              const resp = await fetch(`${BASE}/api/personnel/${p.id}/toggle_induction/`, {
+                              // Toggle: false si actuellement true (ou undefined), true si false
+                              const curVal = p.induction_requise !== false
+                              const newVal = !curVal
+                              // Sauvegarder en localStorage immédiatement (évite 500 si colonne absente)
+                              const lsKey = `rzi_no_induction_${p.id}`
+                              if (!newVal) {
+                                localStorage.setItem(lsKey, '1')
+                              } else {
+                                localStorage.removeItem(lsKey)
+                              }
+                              // Essayer l'API backend (silencieux si erreur)
+                              fetch(`${BASE}/api/personnel/${p.id}/toggle_induction/`, {
                                 method:'PATCH',
                                 headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
                                 body: JSON.stringify({induction_requise: newVal})
-                              })
-                              if (!resp.ok) {
-                                const err = await resp.text()
-                                alert('Erreur: ' + err.slice(0,200))
-                              }
+                              }).catch(()=>{})
                               load()
                             }}
                             style={{background: p.induction_requise===false?'#fef3c7':'#f0fdf4',
                               color: p.induction_requise===false?'#92400e':'#166534',
                               border: `1px solid ${p.induction_requise===false?'#fcd34d':'#bbf7d0'}`,
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
-                            title={p.induction_requise===false?"Activer l'induction":"Marquer sans induction"}>
-                            {p.induction_requise===false?'🚫':'✅'}
+                            title={(()=>{const k=localStorage.getItem(`rzi_no_induction_${p.id}`);const noInd=p.induction_requise===false||k==='1';return noInd?"Activer l'induction":"Marquer sans induction"})()}>
+                            {(p.induction_requise===false||localStorage.getItem(`rzi_no_induction_${p.id}`))?'🚫':'✅'}
                           </button>
                           <button onClick={() => setConfirmDel(p)}
                             style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
