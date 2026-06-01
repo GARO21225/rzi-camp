@@ -1322,10 +1322,36 @@ function InductionPageInner() {
                         </div>
                       </div>
 
+                      {/* Assignation responsable AVANT l'étape */}
+                      {etape.assignRole && !(etape.type==='form') && (
+                        <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
+                          borderRadius:10,padding:'10px 14px',marginBottom:14}}>
+                          <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
+                            {etape.assignLabel}
+                          </div>
+                          <input
+                            value={formData[`assign_${etape.key}`]||''}
+                            onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
+                            list={`staff-list-${etape.key}`}
+                            placeholder="Saisir ou sélectionner..."
+                            style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
+                              padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                          <datalist id={`staff-list-${etape.key}`}>
+                            {(staffMap[etape.assignRole]||[]).map(p=>(
+                              <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
+                            ))}
+                          </datalist>
+                          {formData[`assign_${etape.key}`] && (
+                            <div style={{fontSize:11,color:'#0369a1',marginTop:4,fontWeight:600}}>
+                              ✅ {formData[`assign_${etape.key}`]}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* FORM */}
                       {etape.type==='form' && (
                         <div>
-                          {/* Sélecteur d'assignation pour cette étape */}
                           {etape.assignRole && (
                             <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
                               borderRadius:10,padding:'10px 14px',marginBottom:16}}>
