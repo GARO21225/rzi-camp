@@ -214,6 +214,8 @@ export default function ReservationsPage() {
   const [personnel,    setPersonnel]   = useState([])
   const [modal,        setModal]       = useState(null)
   const [ficheEdit,    setFicheEdit]   = useState(null)
+  const [showCatalogue,setShowCatalogue]= useState(false)
+  const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#1e3a8a',photo:'',id:''})
   const [activeTab,    setActiveTab]   = useState('salles')
   const [filterDate,   setFilterDate]  = useState('')
   const [msg,          setMsg]         = useState(null)
@@ -312,6 +314,11 @@ export default function ReservationsPage() {
             Salles · Véhicules · Matériels · {reservations.filter(r=>r.date===today&&r.statut!=='annulé').length} réservation(s) aujourd'hui
           </div>
         </div>
+        <button onClick={()=>setShowCatalogue(true)}
+          style={{background:'#f1f5f9',border:'2px solid #e2e8f0',borderRadius:10,
+            padding:'9px 18px',cursor:'pointer',fontSize:13,fontWeight:700,color:'#1e3a8a'}}>
+          ⚙️ Gérer le catalogue
+        </button>
       </div>
 
       {/* Onglets */}
@@ -479,6 +486,118 @@ export default function ReservationsPage() {
           onSave={updated=>updateItem(updated)}
           onClose={()=>setFicheEdit(null)}/>
       )}
+      {/* Modal Catalogue - Gestion des ressources */}
+      {showCatalogue && (
+        <div onClick={e=>e.target===e.currentTarget&&setShowCatalogue(false)}
+          style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+            display:'flex',alignItems:'center',justifyContent:'center',zIndex:2500,padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:700,
+            maxHeight:'90vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{padding:'20px 24px',borderBottom:'2px solid #f1f5f9',display:'flex',
+              justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>⚙️ Catalogue des ressources</div>
+              <button onClick={()=>setShowCatalogue(false)}
+                style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+            </div>
+            <div style={{padding:24}}>
+              {/* Liste par catégorie */}
+              {Object.entries(fleet).map(([cat, items])=>(
+                <div key={cat} style={{marginBottom:20}}>
+                  <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',marginBottom:8,
+                    background:'#eff6ff',padding:'6px 12px',borderRadius:8}}>
+                    {CAT_META[cat]?.label||cat}
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                    {items.map(item=>(
+                      <div key={item.id} style={{display:'flex',alignItems:'center',gap:12,
+                        padding:'8px 12px',background:'#f8fafc',borderRadius:8}}>
+                        {item.photo && <img src={item.photo} style={{width:40,height:40,objectFit:'cover',borderRadius:6}}/>}
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600,fontSize:13}}>{item.label}</div>
+                          <div style={{fontSize:11,color:'#64748b'}}>
+                            {item.immat&&`🪪 ${item.immat} · `}{item.km>0&&`📍 ${item.km?.toLocaleString()} km · `}{item.detail}
+                          </div>
+                        </div>
+                        <button onClick={()=>setFicheEdit(item)}
+                          style={{background:'#eff6ff',color:'#1e3a8a',border:'none',borderRadius:7,
+                            padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          ✏️ Modifier
+                        </button>
+                        <button onClick={()=>{
+                          if(!confirm(`Supprimer ${item.label} ?`)) return
+                          const nf={...fleet,[cat]:items.filter(i=>i.id!==item.id)}
+                          saveFleet(nf)
+                        }} style={{background:'#fef2f2',color:'#dc2626',border:'none',borderRadius:7,
+                          padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Formulaire ajout */}
+              <div style={{background:'#f0fdf4',border:'2px solid #bbf7d0',borderRadius:12,padding:18,marginTop:12}}>
+                <div style={{fontWeight:700,fontSize:14,color:'#16a34a',marginBottom:14}}>➕ Ajouter une ressource</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CATÉGORIE</label>
+                    <select value={newResource.cat} onChange={e=>setNewResource(n=>({...n,cat:e.target.value}))} style={inp}>
+                      {Object.entries(CAT_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>NOM *</label>
+                    <input value={newResource.label} onChange={e=>setNewResource(n=>({...n,label:e.target.value}))}
+                      placeholder="Ex: Land Cruiser C" style={inp}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>IMMAT / N° SÉRIE</label>
+                    <input value={newResource.immat} onChange={e=>setNewResource(n=>({...n,immat:e.target.value}))}
+                      placeholder="CI-XXXX-XX" style={inp}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
+                    <input type="number" value={newResource.capacite} onChange={e=>setNewResource(n=>({...n,capacite:parseInt(e.target.value)||1}))} style={inp}/>
+                  </div>
+                  <div style={{gridColumn:'1/-1'}}>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESCRIPTION</label>
+                    <input value={newResource.detail} onChange={e=>setNewResource(n=>({...n,detail:e.target.value}))}
+                      placeholder="Caractéristiques..." style={inp}/>
+                  </div>
+                  <div style={{gridColumn:'1/-1'}}>
+                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>PHOTO</label>
+                    <label style={{display:'block',border:'2px dashed #bbf7d0',borderRadius:9,padding:12,cursor:'pointer',
+                      color:'#16a34a',fontSize:12,textAlign:'center'}}>
+                      {newResource.photo ? '✅ Photo ajoutée' : '📷 Cliquer pour ajouter une photo'}
+                      <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
+                        const file=e.target.files?.[0]
+                        if(!file) return
+                        const r=new FileReader()
+                        r.onload=ev=>setNewResource(n=>({...n,photo:ev.target.result}))
+                        r.readAsDataURL(file)
+                      }}/>
+                    </label>
+                  </div>
+                </div>
+                <button onClick={()=>{
+                  if(!newResource.label) return
+                  const id=`custom_${Date.now()}`
+                  const item={...newResource,id,couleur:newResource.couleur||'#1e3a8a'}
+                  const nf={...fleet,[newResource.cat]:[...(fleet[newResource.cat]||[]),item]}
+                  saveFleet(nf)
+                  setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#1e3a8a',photo:'',id:''})
+                }} style={{width:'100%',background:'#16a34a',color:'#fff',border:'none',borderRadius:9,
+                  padding:'11px',cursor:'pointer',fontSize:13,fontWeight:700,marginTop:12}}>
+                  ✅ Ajouter au catalogue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
