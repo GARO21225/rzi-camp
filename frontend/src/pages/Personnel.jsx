@@ -381,8 +381,24 @@ export default function Personnel() {
             <select value={massAction} onChange={e=>setMassAction(e.target.value)}
               style={{border:'none',borderRadius:8,padding:'5px 10px',fontSize:12,fontWeight:600,
                 background:'rgba(255,255,255,.15)',color:'#fff',outline:'none',cursor:'pointer'}}>
-              <option value="">Changer type vers...</option>
-              {TYPES.map(t=><option key={t.v} value={t.v} style={{color:'#000'}}>{t.l}</option>)}
+              <option value="">— Action groupée —</option>
+              <optgroup label="── Type" style={{color:'#000'}}>
+                {TYPES.map(t=><option key={t.v} value={`type:${t.v}`} style={{color:'#000'}}>{t.l}</option>)}
+              </optgroup>
+              <optgroup label="── Profil" style={{color:'#000'}}>
+                {PROFILS.map(p=><option key={p.v} value={`profil:${p.v}`} style={{color:'#000'}}>{p.l}</option>)}
+              </optgroup>
+              <optgroup label="── Induction" style={{color:'#000'}}>
+                <option value="no_induction" style={{color:'#000'}}>🚫 Marquer sans induction</option>
+                <option value="with_induction" style={{color:'#000'}}>✅ Marquer avec induction</option>
+              </optgroup>
+              <optgroup label="── Statut" style={{color:'#000'}}>
+                <option value="activer" style={{color:'#000'}}>✅ Activer</option>
+                <option value="desactiver" style={{color:'#000'}}>🔒 Désactiver</option>
+              </optgroup>
+              <optgroup label="── Export" style={{color:'#000'}}>
+                <option value="export" style={{color:'#000'}}>📥 Exporter CSV</option>
+              </optgroup>
             </select>
             {massAction && (
               <button onClick={()=>massChangerRole(massAction)}
