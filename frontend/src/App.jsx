@@ -14,7 +14,7 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-import React, { useEffect, useState, lazy, Suspense } from 'react'
+import React, { lazy, Suspense, Component } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
@@ -47,6 +47,35 @@ import RapportPage  from './pages/RapportPage'
 import Demandes from './pages/Demandes'
 import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
 import EventNotifBanner from './components/EventNotifBanner'
+
+// ── Global Error Boundary ─────────────────────────────────────
+class GlobalErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  componentDidCatch(error, info) { console.error('[RZI ErrorBoundary]', error, info) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding:40,textAlign:'center',fontFamily:'sans-serif'}}>
+          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+          <div style={{fontSize:20,fontWeight:700,color:'#dc2626',marginBottom:8}}>
+            Une erreur s'est produite
+          </div>
+          <div style={{fontSize:13,color:'#64748b',marginBottom:24}}>
+            {this.state.error?.message || 'Erreur inattendue'}
+          </div>
+          <button onClick={()=>{ this.setState({hasError:false,error:null}); window.location.href='/' }}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:10,
+              padding:'10px 24px',cursor:'pointer',fontSize:14,fontWeight:700}}>
+            🔄 Retour au tableau de bord
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 
 // Handle 404.html redirect for SPA routing
 const urlParams = new URLSearchParams(window.location.search)
