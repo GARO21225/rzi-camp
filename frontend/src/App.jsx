@@ -24,6 +24,8 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 const MapPage = lazy(() => import('./pages/MapPage'))
 const RotationsPage = lazy(() => import('./pages/RotationsPage'))
+const AssistantIA = lazy(() => import('./pages/AssistantIA'))
+const CentreOperationnel = lazy(() => import('./pages/CentreOperationnel'))
 const AnnuairePage = lazy(() => import('./pages/AnnuairePage'))
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage'))
 import Residences from './pages/Residences'
