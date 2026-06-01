@@ -37,6 +37,8 @@ export default function Personnel() {
   const [typeFilter,   setTypeFilter]   = useState('')
   const [profilFilter, setProfilFilter] = useState('')
   const [societeFilter,setSocieteFilter]= useState('')
+  const [actifFilter,  setActifFilter]  = useState('')
+  const [inductionFilter,setInductionFilter]= useState('')
   const [modal,        setModal]        = useState(null)   // null | 'new' | personnel object
   const [qrModal,      setQrModal]      = useState(null)
   const [masseModal,   setMasseModal]   = useState(false)
@@ -333,6 +335,26 @@ export default function Personnel() {
             <option value="">Tous les types</option>
             {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
+          <select value={actifFilter||''} onChange={e=>setActifFilter(e.target.value)}
+            style={{...inp,maxWidth:140}}>
+            <option value="">Tous (actif)</option>
+            <option value="actif">✅ Actifs</option>
+            <option value="inactif">🔒 Inactifs</option>
+          </select>
+          <select value={inductionFilter||''} onChange={e=>setInductionFilter(e.target.value)}
+            style={{...inp,maxWidth:160}}>
+            <option value="">Toutes inducti.</option>
+            <option value="induit">✅ Induits</option>
+            <option value="en_cours">⏳ En cours</option>
+            <option value="non_commence">❌ Non commencé</option>
+          </select>
+          {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||search) && (
+            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setSearch('')}}
+              style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:9,
+                padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
+              ✕ Reset
+            </button>
+          )}
           <select value={profilFilter} onChange={e=>setProfilFilter(e.target.value)}
             style={{...inp,maxWidth:160}}>
             <option value="">Tous les profils</option>
