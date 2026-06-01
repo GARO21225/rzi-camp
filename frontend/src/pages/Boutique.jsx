@@ -770,6 +770,16 @@ function ArticleCard({ a, qty, onAdd }) {
             display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:30}}>
             {a.nom}
           </div>
+          {/* Badge stock visible */}
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+            <span style={{
+              background: (a.stock||0)===0 ? '#fee2e2' : (a.stock||0) <= (a.stock_min||5) ? '#fef3c7' : '#dcfce7',
+              color: (a.stock||0)===0 ? '#dc2626' : (a.stock||0) <= (a.stock_min||5) ? '#92400e' : '#16a34a',
+              fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99
+            }}>
+              {(a.stock||0)===0 ? '🔴 Rupture' : `📦 ${a.stock||0} restant${(a.stock||0)>1?'s':''}`}
+            </span>
+          </div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{fontWeight:900,color:cfg.c,fontSize:15,fontFamily:'monospace'}}>
               {parseInt(a.prix).toLocaleString()}<span style={{fontSize:9,marginLeft:2}}>FCFA</span>
