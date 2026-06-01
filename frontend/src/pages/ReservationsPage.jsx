@@ -2,123 +2,305 @@ import React, { useState, useEffect, useCallback } from 'react'
 
 const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
+const STORAGE_KEY = 'rzi_reservations_v3'
+const FLEET_KEY   = 'rzi_fleet_v1'
 
-// ── Catalogue des ressources ────────────────────────────────────
-const CATALOGUE = {
-  salles: {
-    label:'🏢 Salles', icon:'🏢',
-    items: [
-      { id:'salle_reunion',   label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc', couleur:'#1e3a8a' },
-      { id:'bureau_communautaire', label:'Bureau communautaire', capacite:10, detail:'Espace de travail partagé',  couleur:'#2563eb' },
-    ]
-  },
-  vehicules: {
-    label:'🚙 Véhicules', icon:'🚙',
-    items: [
-      { id:'4x4_a',    label:'4x4 — Land Cruiser A',  capacite:7,  immat:'CI-1234-AB', detail:'Tout-terrain, climatisé', couleur:'#f97316' },
-      { id:'4x4_b',    label:'4x4 — Land Cruiser B',  capacite:7,  immat:'CI-5678-CD', detail:'Tout-terrain, climatisé', couleur:'#ea580c' },
-      { id:'pickup_a', label:'Pick-up — Hilux A',      capacite:4,  immat:'CI-9012-EF', detail:'Benne, diesel',           couleur:'#dc2626' },
-      { id:'pickup_b', label:'Pick-up — Hilux B',      capacite:4,  immat:'CI-3456-GH', detail:'Benne, diesel',           couleur:'#b91c1c' },
-      { id:'minibus',  label:'Mini-Bus — Toyota Hiace',capacite:15, immat:'CI-7890-IJ', detail:'Navette camp/ville',      couleur:'#7c3aed' },
-    ]
-  },
-  materiels: {
-    label:'⚙️ Matériels', icon:'⚙️',
-    items: [
-      { id:'epi_kit',     label:'Kit EPI complet',     capacite:1, detail:'Casque, gilet, gants, lunettes, chaussures de sécurité', couleur:'#16a34a' },
-      { id:'epi_hauteur', label:'EPI Travail en hauteur', capacite:1, detail:'Harnais, longe, casque avec jugulaire', couleur:'#15803d' },
-      { id:'nacelle',     label:'Nacelle élévatrice',  capacite:2, detail:'Hauteur max 12m, homologuée', couleur:'#ca8a04' },
-      { id:'tractopelle', label:'Tractopelle',          capacite:1, detail:'Godet + chargeur frontal, diesel', couleur:'#d97706' },
-      { id:'generateur',  label:'Groupe électrogène',  capacite:1, detail:'50kVA, diesel, silencieux',  couleur:'#92400e' },
-    ]
-  }
+// ── Catalogue initial (modifiable) ─────────────────────────────
+const DEFAULT_FLEET = {
+  salles: [
+    { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'#1e3a8a', photo:'' },
+    { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'#2563eb', photo:'' },
+  ],
+  vehicules_4x4: [
+    { id:'4x4_a', cat:'vehicules_4x4', label:'Land Cruiser A', capacite:7,  immat:'CI-1234-AB', km:45230, carburant:'Diesel', couleur:'#f97316', photo:'' },
+    { id:'4x4_b', cat:'vehicules_4x4', label:'Land Cruiser B', capacite:7,  immat:'CI-5678-CD', km:38100, carburant:'Diesel', couleur:'#ea580c', photo:'' },
+  ],
+  vehicules_pickup: [
+    { id:'pickup_a', cat:'vehicules_pickup', label:'Hilux A', capacite:4, immat:'CI-9012-EF', km:62400, carburant:'Diesel', couleur:'#dc2626', photo:'' },
+    { id:'pickup_b', cat:'vehicules_pickup', label:'Hilux B', capacite:4, immat:'CI-3456-GH', km:57800, carburant:'Diesel', couleur:'#b91c1c', photo:'' },
+  ],
+  vehicules_minibus: [
+    { id:'minibus', cat:'vehicules_minibus', label:'Toyota Hiace', capacite:15, immat:'CI-7890-IJ', km:31200, carburant:'Diesel', couleur:'#7c3aed', photo:'' },
+  ],
+  materiels_hse: [
+    { id:'epi_complet',  cat:'materiels_hse',  label:'Kit EPI complet',          detail:'Casque, gilet, gants, lunettes, chaussures sécu', couleur:'#16a34a', photo:'' },
+    { id:'epi_hauteur',  cat:'materiels_hse',  label:'EPI Travail en hauteur',   detail:'Harnais, longe, casque avec jugulaire',           couleur:'#15803d', photo:'' },
+  ],
+  materiels_engins: [
+    { id:'nacelle',      cat:'materiels_engins', label:'Nacelle élévatrice',  detail:'Hauteur max 12m, homologuée, 2 pers.',  couleur:'#ca8a04', photo:'' },
+    { id:'tractopelle',  cat:'materiels_engins', label:'Tractopelle',         detail:'Godet + chargeur frontal, diesel',      couleur:'#d97706', photo:'' },
+    { id:'generateur',   cat:'materiels_engins', label:'Groupe électrogène',  detail:'50kVA, diesel, silencieux',             couleur:'#92400e', photo:'' },
+  ],
 }
 
-const ALL_ITEMS = Object.values(CATALOGUE).flatMap(cat => cat.items)
-const STORAGE_KEY = 'rzi_reservations_v2'
+const CAT_META = {
+  salles:           { label:'🏢 Salles',        group:'Salles' },
+  vehicules_4x4:    { label:'🚙 4x4',           group:'Véhicules' },
+  vehicules_pickup:  { label:'🛻 Pick-up',      group:'Véhicules' },
+  vehicules_minibus: { label:'🚌 Mini-Bus',     group:'Véhicules' },
+  materiels_hse:    { label:'🦺 Équip. HSE',    group:'Matériels' },
+  materiels_engins: { label:'⚙️ Engins',        group:'Matériels' },
+}
+
+const TABS = [
+  { id:'salles',           label:'🏢 Salles' },
+  { id:'vehicules',        label:'🚙 Véhicules' },
+  { id:'materiels',        label:'⚙️ Matériels' },
+]
 
 const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}
+const today = new Date().toISOString().slice(0,10)
 
-function ResourceCard({ item, onReserver, reservations }) {
-  const today = new Date().toISOString().slice(0,10)
-  const active = reservations.filter(r => r.ressource_id === item.id && r.date === today && r.statut !== 'annulé').length
-  const dispo = active === 0
+// ── Fiche ressource (éditable) ──────────────────────────────────
+function ResourceFiche({ item, onSave, onClose }) {
+  const [data, setData] = useState({...item})
+  const s = v => setData(d=>({...d,...v}))
+
+  const isVehicule = item.cat?.startsWith('vehicules')
+  const isMatériel = item.cat?.startsWith('materiels')
+
+  const handlePhoto = e => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => s({photo: ev.target.result})
+    reader.readAsDataURL(file)
+  }
 
   return (
-    <div style={{background:'#fff',borderRadius:14,padding:16,
-      border:`2px solid ${dispo ? '#e2e8f0' : '#fecaca'}`,
-      boxShadow:'0 2px 8px rgba(0,0,0,.06)',transition:'all .2s'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-        <div style={{fontWeight:700,fontSize:14,color:'#1e293b'}}>{item.label}</div>
-        <span style={{background:dispo?'#dcfce7':'#fee2e2',color:dispo?'#16a34a':'#dc2626',
-          padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-          {dispo ? '✅ Libre' : '🔴 Réservé'}
-        </span>
+    <div onClick={e=>e.target===e.currentTarget&&onClose()}
+      style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
+        display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:20}}>
+      <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:480,
+        boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
+        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:20}}>
+          ✏️ Fiche — {data.label}
+        </div>
+
+        {/* Photo */}
+        <div style={{marginBottom:16,textAlign:'center'}}>
+          {data.photo ? (
+            <div style={{position:'relative',display:'inline-block'}}>
+              <img src={data.photo} alt="" style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:12}}/>
+              <button onClick={()=>s({photo:''})}
+                style={{position:'absolute',top:8,right:8,background:'#dc2626',color:'#fff',border:'none',
+                  borderRadius:8,width:28,height:28,cursor:'pointer',fontSize:14}}>✕</button>
+            </div>
+          ) : (
+            <label style={{display:'block',border:'2px dashed #e2e8f0',borderRadius:12,
+              padding:24,cursor:'pointer',color:'#94a3b8',fontSize:13}}>
+              📷 Ajouter une photo
+              <input type="file" accept="image/*" onChange={handlePhoto} style={{display:'none'}}/>
+            </label>
+          )}
+        </div>
+
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>NOM</label>
+            <input value={data.label} onChange={e=>s({label:e.target.value})} style={inp}/>
+          </div>
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESCRIPTION / DÉTAILS</label>
+            <input value={data.detail||''} onChange={e=>s({detail:e.target.value})} style={inp}/>
+          </div>
+          {(isVehicule) && (<>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>IMMATRICULATION</label>
+                <input value={data.immat||''} onChange={e=>s({immat:e.target.value})} placeholder="CI-XXXX-XX" style={inp}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>KILOMÉTRAGE</label>
+                <input type="number" value={data.km||0} onChange={e=>s({km:parseInt(e.target.value)||0})} style={inp}/>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
+                <input type="number" value={data.capacite||0} onChange={e=>s({capacite:parseInt(e.target.value)||0})} style={inp}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CARBURANT</label>
+                <select value={data.carburant||'Diesel'} onChange={e=>s({carburant:e.target.value})} style={inp}>
+                  {['Diesel','Essence','Hybride','Électrique'].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>ASSURANCE (expiration)</label>
+              <input type="date" value={data.assurance||''} onChange={e=>s({assurance:e.target.value})} style={inp}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>PROCHAIN ENTRETIEN (km)</label>
+              <input type="number" value={data.entretien_km||''} onChange={e=>s({entretien_km:parseInt(e.target.value)||0})} style={inp}/>
+            </div>
+          </>)}
+          {isMatériel && (
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>N° SÉRIE / MATRICULE</label>
+              <input value={data.immat||''} onChange={e=>s({immat:e.target.value})} placeholder="SN-XXXX" style={inp}/>
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:20}}>
+          <button onClick={onClose}
+            style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
+            Annuler
+          </button>
+          <button onClick={()=>{onSave(data);onClose()}}
+            style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+              padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
+            💾 Enregistrer
+          </button>
+        </div>
       </div>
-      {item.immat && <div style={{fontSize:11,color:'#64748b',marginBottom:4}}>🪪 {item.immat}</div>}
-      {item.capacite > 1 && <div style={{fontSize:11,color:'#64748b',marginBottom:4}}>👥 {item.capacite} pers. max</div>}
-      <div style={{fontSize:11,color:'#94a3b8',marginBottom:12}}>{item.detail}</div>
-      <button onClick={()=>onReserver(item)}
-        style={{width:'100%',background:item.couleur,color:'#fff',border:'none',borderRadius:9,
-          padding:'9px',cursor:'pointer',fontSize:13,fontWeight:700}}>
-        + Réserver
-      </button>
     </div>
   )
 }
 
-export default function ReservationsPage() {
-  const [reservations, setReservations] = useState([])
-  const [modal,        setModal]        = useState(null)  // item sélectionné
-  const [activeTab,    setActiveTab]    = useState('salles')
-  const [filterDate,   setFilterDate]   = useState('')
-  const [form, setForm] = useState({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
-  const [msg, setMsg] = useState(null)
-  const today = new Date().toISOString().slice(0,10)
+// ── Carte ressource ─────────────────────────────────────────────
+function ResourceCard({ item, reservations, onReserver, onEdit }) {
+  const occupied = reservations.some(r => r.ressource_id===item.id && r.date===today && r.statut!=='annulé')
+  return (
+    <div style={{background:'#fff',borderRadius:14,overflow:'hidden',
+      border:`2px solid ${occupied?'#fecaca':'#e2e8f0'}`,
+      boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+      {/* Photo */}
+      {item.photo ? (
+        <img src={item.photo} alt="" style={{width:'100%',height:120,objectFit:'cover'}}/>
+      ) : (
+        <div style={{height:80,background:`linear-gradient(135deg,${item.couleur}22,${item.couleur}44)`,
+          display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>
+          {item.cat?.startsWith('vehicules_4x4')?'🚙':item.cat?.startsWith('vehicules_pickup')?'🛻':
+           item.cat?.startsWith('vehicules_minibus')?'🚌':item.cat?.startsWith('materiels_hse')?'🦺':
+           item.cat?.startsWith('materiels_engins')?'⚙️':'🏢'}
+        </div>
+      )}
+      <div style={{padding:'12px 14px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+          <div style={{fontWeight:700,fontSize:13,color:'#1e293b',flex:1}}>{item.label}</div>
+          <span style={{background:occupied?'#fee2e2':'#dcfce7',color:occupied?'#dc2626':'#16a34a',
+            padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700,flexShrink:0,marginLeft:6}}>
+            {occupied?'🔴 Réservé':'✅ Libre'}
+          </span>
+        </div>
+        {item.immat && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>🪪 {item.immat}</div>}
+        {item.km > 0 && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>📍 {item.km.toLocaleString()} km</div>}
+        {item.capacite > 1 && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>👥 {item.capacite} pers. max</div>}
+        {item.detail && <div style={{fontSize:10,color:'#94a3b8',marginBottom:10,lineHeight:1.4}}>{item.detail}</div>}
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>onEdit(item)}
+            style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'7px 10px',
+              cursor:'pointer',fontSize:11,fontWeight:600,color:'#64748b'}}>
+            ✏️
+          </button>
+          <button onClick={()=>onReserver(item)}
+            style={{flex:1,background:item.couleur,color:'#fff',border:'none',borderRadius:8,
+              padding:'8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+            + Réserver
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  const load = useCallback(() => {
+// ── Page principale ─────────────────────────────────────────────
+export default function ReservationsPage() {
+  const [fleet,        setFleet]       = useState(DEFAULT_FLEET)
+  const [reservations, setReservations]= useState([])
+  const [personnel,    setPersonnel]   = useState([])
+  const [modal,        setModal]       = useState(null)
+  const [ficheEdit,    setFicheEdit]   = useState(null)
+  const [activeTab,    setActiveTab]   = useState('salles')
+  const [filterDate,   setFilterDate]  = useState('')
+  const [msg,          setMsg]         = useState(null)
+  const [form, setForm] = useState({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
+
+  // Charger données persistées
+  useEffect(() => {
+    try { setReservations(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')) } catch(e) {}
     try {
-      setReservations(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'))
-    } catch(e) { setReservations([]) }
+      const saved = JSON.parse(localStorage.getItem(FLEET_KEY)||'{}')
+      if (Object.keys(saved).length) setFleet(saved)
+    } catch(e) {}
+    // Charger personnel
+    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:hdrs()})
+      .then(r=>r.json()).then(d=>setPersonnel(d.results||d||[])).catch(()=>{})
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const saveFleet = (newFleet) => {
+    setFleet(newFleet)
+    localStorage.setItem(FLEET_KEY, JSON.stringify(newFleet))
+  }
 
-  const checkConflict = (item, f) =>
-    reservations.some(r =>
-      r.ressource_id === item.id && r.date === f.date && r.statut !== 'annulé' &&
-      !(f.heure_fin <= r.heure_debut || f.heure_debut >= r.heure_fin)
-    )
-
-  const submit = () => {
+  const saveReservation = () => {
     if (!form.demandeur||!form.date||!form.heure_debut||!form.heure_fin) {
       setMsg({ok:false,text:'Remplissez tous les champs obligatoires'}); return
     }
-    if (checkConflict(modal, form)) {
-      setMsg({ok:false,text:'⚠️ Conflit: déjà réservé sur ce créneau'}); return
-    }
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')
-    stored.push({
-      id: Date.now(), ressource_id: modal.id,
-      ressource_label: modal.label, immat: modal.immat||'',
-      ...form, statut:'confirmé', cree_le: new Date().toISOString()
-    })
+    const conflict = reservations.some(r =>
+      r.ressource_id===modal.id && r.date===form.date && r.statut!=='annulé' &&
+      !(form.heure_fin<=r.heure_debut || form.heure_debut>=r.heure_fin))
+    if (conflict) { setMsg({ok:false,text:'⚠️ Conflit sur ce créneau'}); return }
+    const stored = [...reservations, {
+      id:Date.now(), ressource_id:modal.id, ressource_label:modal.label,
+      immat:modal.immat||'', cat:modal.cat||'',
+      ...form, statut:'confirmé', cree_le:new Date().toISOString()
+    }]
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+    setReservations(stored)
     setModal(null); setMsg(null)
     setForm({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
-    load()
   }
 
-  const cancel = (id) => {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored.map(r=>r.id===id?{...r,statut:'annulé'}:r)))
-    load()
+  const cancel = id => {
+    const updated = reservations.map(r=>r.id===id?{...r,statut:'annulé'}:r)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    setReservations(updated)
   }
 
-  const filtered = reservations.filter(r => !filterDate || r.date === filterDate)
+  const updateItem = (updatedItem) => {
+    const newFleet = {}
+    Object.entries(fleet).forEach(([cat, items]) => {
+      newFleet[cat] = items.map(i => i.id===updatedItem.id ? updatedItem : i)
+    })
+    saveFleet(newFleet)
+  }
+
+  // Items à afficher selon l'onglet actif
+  const getTabItems = () => {
+    if (activeTab==='salles') return fleet.salles||[]
+    if (activeTab==='vehicules') return [
+      ...(fleet.vehicules_4x4||[]),
+      ...(fleet.vehicules_pickup||[]),
+      ...(fleet.vehicules_minibus||[]),
+    ]
+    if (activeTab==='materiels') return [
+      ...(fleet.materiels_hse||[]),
+      ...(fleet.materiels_engins||[]),
+    ]
+    return []
+  }
+
+  const getCatLabel = (cat) => CAT_META[cat]?.label || cat
+
+  const filtered = reservations
+    .filter(r => !filterDate || r.date===filterDate)
     .sort((a,b)=>(a.date+a.heure_debut).localeCompare(b.date+b.heure_debut))
 
-  const catItems = CATALOGUE[activeTab].items
+  const tabItems = getTabItems()
+
+  // Grouper les véhicules et matériels par catégorie
+  const groupedItems = {}
+  tabItems.forEach(item => {
+    const g = getCatLabel(item.cat)
+    if (!groupedItems[g]) groupedItems[g] = []
+    groupedItems[g].push(item)
+  })
+
+  const allItems = Object.values(fleet).flat()
 
   return (
     <div style={{padding:16}}>
@@ -132,100 +314,110 @@ export default function ReservationsPage() {
         </div>
       </div>
 
-      {/* Tabs catégories */}
-      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
-        {Object.entries(CATALOGUE).map(([k,cat])=>(
-          <button key={k} onClick={()=>setActiveTab(k)}
-            style={{padding:'8px 18px',borderRadius:10,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,
-              background:activeTab===k?'#1e3a8a':'#f1f5f9',
-              color:activeTab===k?'#fff':'#64748b',transition:'all .15s'}}>
-            {cat.label}
+      {/* Onglets */}
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            style={{padding:'9px 20px',borderRadius:10,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,
+              background:activeTab===t.id?'#1e3a8a':'#f1f5f9',
+              color:activeTab===t.id?'#fff':'#64748b',transition:'all .15s'}}>
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Grille ressources */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14,marginBottom:28}}>
-        {catItems.map(item=>(
-          <ResourceCard key={item.id} item={item} reservations={reservations} onReserver={i=>{setModal(i);setMsg(null)}}/>
-        ))}
-      </div>
+      {/* Grille par sous-catégorie */}
+      {activeTab==='salles' ? (
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:14,marginBottom:24}}>
+          {tabItems.map(item=>(
+            <ResourceCard key={item.id} item={item} reservations={reservations}
+              onReserver={i=>{setModal(i);setMsg(null)}}
+              onEdit={i=>setFicheEdit(i)}/>
+          ))}
+        </div>
+      ) : (
+        Object.entries(groupedItems).map(([groupLabel, items])=>(
+          <div key={groupLabel} style={{marginBottom:24}}>
+            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:12,
+              display:'flex',alignItems:'center',gap:8}}>
+              <span style={{background:'#eff6ff',padding:'4px 14px',borderRadius:20}}>{groupLabel}</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:12}}>
+              {items.map(item=>(
+                <ResourceCard key={item.id} item={item} reservations={reservations}
+                  onReserver={i=>{setModal(i);setMsg(null)}}
+                  onEdit={i=>setFicheEdit(i)}/>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
 
-      {/* Planning du jour */}
+      {/* Planning */}
       <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
           <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>📋 Planning des réservations</div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)}
-              style={{...inp,maxWidth:180}}/>
-            {filterDate && <button onClick={()=>setFilterDate('')}
-              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'8px 12px',cursor:'pointer',fontSize:12,color:'#64748b'}}>✕</button>}
+          <div style={{display:'flex',gap:8}}>
+            <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{...inp,maxWidth:180}}/>
+            {filterDate&&<button onClick={()=>setFilterDate('')}
+              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'8px 12px',cursor:'pointer',color:'#64748b'}}>✕</button>}
           </div>
         </div>
-
-        {filtered.length === 0 ? (
+        {filtered.length===0 ? (
           <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>
-            <div style={{fontSize:36,marginBottom:8}}>📅</div>
-            Aucune réservation{filterDate?` le ${filterDate}`:''}
+            <div style={{fontSize:36,marginBottom:8}}>📅</div>Aucune réservation
           </div>
-        ) : (
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {filtered.map(r=>{
-              const item = ALL_ITEMS.find(i=>i.id===r.ressource_id)||{couleur:'#64748b'}
-              return (
-                <div key={r.id} style={{display:'flex',alignItems:'center',gap:14,
-                  padding:'12px 16px',borderRadius:10,
-                  background:r.statut==='annulé'?'#f8fafc':'#fff',
-                  border:`1.5px solid ${r.statut==='annulé'?'#e2e8f0':item.couleur+'40'}`,
-                  opacity:r.statut==='annulé'?.5:1}}>
-                  <div style={{width:5,height:40,borderRadius:99,background:r.statut==='annulé'?'#e2e8f0':item.couleur,flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:13}}>{r.ressource_label} {r.immat&&`· ${r.immat}`}</div>
-                    <div style={{fontSize:12,color:'#64748b'}}>
-                      📅 {r.date} · 🕐 {r.heure_debut}–{r.heure_fin} · 👤 {r.demandeur}
-                    </div>
-                    {r.motif && <div style={{fontSize:11,color:'#94a3b8'}}>{r.motif}</div>}
-                  </div>
-                  <span style={{background:r.statut==='annulé'?'#f1f5f9':'#dcfce7',
-                    color:r.statut==='annulé'?'#94a3b8':'#16a34a',
-                    padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>
-                    {r.statut}
-                  </span>
-                  {r.statut!=='annulé' && (
-                    <button onClick={()=>{if(confirm('Annuler?'))cancel(r.id)}}
-                      style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
-                        borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700,flexShrink:0}}>
-                      ✕
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+        ) : filtered.map(r=>{
+          const item = allItems.find(i=>i.id===r.ressource_id)||{couleur:'#64748b'}
+          return (
+            <div key={r.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',
+              borderRadius:10,marginBottom:8,background:'#fff',
+              border:`1.5px solid ${r.statut==='annulé'?'#e2e8f0':item.couleur+'40'}`,
+              opacity:r.statut==='annulé'?.5:1}}>
+              <div style={{width:5,height:44,borderRadius:99,background:r.statut==='annulé'?'#e2e8f0':item.couleur,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:13}}>{r.ressource_label}{r.immat&&` · ${r.immat}`}</div>
+                <div style={{fontSize:12,color:'#64748b'}}>📅 {r.date} · 🕐 {r.heure_debut}–{r.heure_fin} · 👤 {r.demandeur}</div>
+                {r.motif&&<div style={{fontSize:11,color:'#94a3b8'}}>{r.motif}</div>}
+              </div>
+              <span style={{background:r.statut==='annulé'?'#f1f5f9':'#dcfce7',
+                color:r.statut==='annulé'?'#94a3b8':'#16a34a',
+                padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>
+                {r.statut}
+              </span>
+              {r.statut!=='annulé'&&(
+                <button onClick={()=>{if(confirm('Annuler?'))cancel(r.id)}}
+                  style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
+                    borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>✕</button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Modal réservation */}
-      {modal && (
+      {modal&&(
         <div onClick={e=>e.target===e.currentTarget&&setModal(null)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}>
           <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:500,
             boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
-            {/* En-tête */}
+            {/* En-tête avec photo si dispo */}
             <div style={{background:`linear-gradient(135deg,${modal.couleur},${modal.couleur}cc)`,
-              borderRadius:12,padding:'16px 20px',marginBottom:20,color:'#fff'}}>
-              <div style={{fontWeight:800,fontSize:17}}>{modal.label}</div>
-              {modal.immat && <div style={{fontSize:12,opacity:.9}}>🪪 {modal.immat}</div>}
-              {modal.capacite > 1 && <div style={{fontSize:12,opacity:.9}}>👥 Max {modal.capacite} personnes</div>}
-              <div style={{fontSize:12,opacity:.8,marginTop:4}}>{modal.detail}</div>
+              borderRadius:12,marginBottom:20,overflow:'hidden'}}>
+              {modal.photo&&<img src={modal.photo} alt="" style={{width:'100%',height:120,objectFit:'cover',opacity:.7}}/>}
+              <div style={{padding:'14px 18px',color:'#fff'}}>
+                <div style={{fontWeight:800,fontSize:16}}>{modal.label}</div>
+                {modal.immat&&<div style={{fontSize:12,opacity:.9}}>🪪 {modal.immat}</div>}
+                {modal.km>0&&<div style={{fontSize:12,opacity:.9}}>📍 {modal.km?.toLocaleString()} km</div>}
+                {modal.capacite>1&&<div style={{fontSize:12,opacity:.9}}>👥 Max {modal.capacite} personnes</div>}
+                {modal.detail&&<div style={{fontSize:11,opacity:.8,marginTop:4}}>{modal.detail}</div>}
+              </div>
             </div>
 
-            {msg && (
-              <div style={{background:msg.ok?'#f0fdf4':'#fef2f2',
-                border:`1px solid ${msg.ok?'#bbf7d0':'#fecaca'}`,
-                borderRadius:9,padding:'10px 14px',marginBottom:16,fontSize:13,
-                color:msg.ok?'#16a34a':'#dc2626',fontWeight:600}}>
+            {msg&&(
+              <div style={{background:msg.ok?'#f0fdf4':'#fef2f2',border:`1px solid ${msg.ok?'#bbf7d0':'#fecaca'}`,
+                borderRadius:9,padding:'10px 14px',marginBottom:16,fontSize:13,color:msg.ok?'#16a34a':'#dc2626',fontWeight:600}}>
                 {msg.text}
               </div>
             )}
@@ -233,8 +425,17 @@ export default function ReservationsPage() {
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DEMANDEUR *</label>
-                <input value={form.demandeur} onChange={e=>setForm({...form,demandeur:e.target.value})}
-                  placeholder="Votre nom..." style={inp}/>
+                <input
+                  value={form.demandeur}
+                  onChange={e=>setForm({...form,demandeur:e.target.value})}
+                  list="personnel-list-demandeur"
+                  placeholder="Saisir ou sélectionner un nom..."
+                  style={inp}/>
+                <datalist id="personnel-list-demandeur">
+                  {personnel.map(p=>(
+                    <option key={p.id} value={`${p.nom} ${p.prenom}`}/>
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DATE *</label>
@@ -243,14 +444,12 @@ export default function ReservationsPage() {
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>HEURE DÉBUT *</label>
-                  <input type="time" value={form.heure_debut}
-                    onChange={e=>setForm({...form,heure_debut:e.target.value})} style={inp}/>
+                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DÉBUT *</label>
+                  <input type="time" value={form.heure_debut} onChange={e=>setForm({...form,heure_debut:e.target.value})} style={inp}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>HEURE FIN *</label>
-                  <input type="time" value={form.heure_fin}
-                    onChange={e=>setForm({...form,heure_fin:e.target.value})} style={inp}/>
+                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>FIN *</label>
+                  <input type="time" value={form.heure_fin} onChange={e=>setForm({...form,heure_fin:e.target.value})} style={inp}/>
                 </div>
               </div>
               <div>
@@ -258,28 +457,27 @@ export default function ReservationsPage() {
                 <input value={form.motif} onChange={e=>setForm({...form,motif:e.target.value})}
                   placeholder="Réunion de chantier, transport équipe..." style={inp}/>
               </div>
-
-              {form.date && form.heure_debut && form.heure_fin && checkConflict(modal, form) && (
-                <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:9,
-                  padding:'10px 14px',color:'#dc2626',fontSize:13,fontWeight:600}}>
-                  ⚠️ Conflit détecté — déjà réservé sur ce créneau
-                </div>
-              )}
-
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
                 <button onClick={()=>{setModal(null);setMsg(null)}}
                   style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
                   Annuler
                 </button>
-                <button onClick={submit}
+                <button onClick={saveReservation}
                   style={{background:modal.couleur,color:'#fff',border:'none',borderRadius:9,
                     padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
-                  ✅ Confirmer la réservation
+                  ✅ Confirmer
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal fiche édition */}
+      {ficheEdit&&(
+        <ResourceFiche item={ficheEdit}
+          onSave={updated=>updateItem(updated)}
+          onClose={()=>setFicheEdit(null)}/>
       )}
     </div>
   )
