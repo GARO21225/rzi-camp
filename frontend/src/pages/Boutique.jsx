@@ -1527,7 +1527,7 @@ export default function Boutique() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
               <thead>
                 <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Article','Catégorie','Stock actuel','Seuil alerte','Statut','Actions'].map(h=>(
+                  {['Article','Catégorie','Stock','Consommé','Seuil','Statut','Actions'].map(h=>(
                     <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -1553,7 +1553,13 @@ export default function Boutique() {
                           color: critique?'#dc2626':faible?'#d97706':'#16a34a'}}>
                           {stock}
                         </span>
-                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>unités</span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
+                      </td>
+                      <td style={{padding:'10px 12px'}}>
+                        <span style={{fontWeight:700,fontSize:14,color:'#8b5cf6'}}>
+                          {a.total_vendu||a.consomme||0}
+                        </span>
+                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
                       </td>
                       <td style={{padding:'10px 12px',color:'#64748b'}}>{seuil}</td>
                       <td style={{padding:'10px 12px'}}>
