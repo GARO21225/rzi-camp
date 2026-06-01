@@ -10,27 +10,38 @@ import { useNotifications } from '../hooks/useNotifications'
 
 const ROLE_NAV = {
   admin: [
+    // ── Vue principale
     { to:'/', label:'📊 Dashboard', exact:true },
     { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/residences', label:'🏠 Résidences' },
+    { to:'/operations', label:'🖥️ Centre Opérationnel' },
+    // ── Personnel & Conformité
+    { group:'Personnel & Conformité' },
     { to:'/personnel', label:'👤 Personnel' },
-    { to:'/evenements', label:'📅 Événements' },
+    { to:'/induction', label:'🎓 Induction QHSE' },
+    { to:'/annuaire', label:'📋 Annuaire' },
+    // ── Hébergement & Mobilité
+    { group:'Hébergement & Mobilité' },
+    { to:'/residences', label:'🏠 Résidences' },
     { to:'/voyages', label:'✈️ Voyages' },
     { to:'/rotations', label:'🔄 Rotations' },
+    // ── Services
+    { group:'Services aux Résidents' },
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/boutique', label:'🛒 Bar & Boutique' },
+    { to:'/reservations', label:'📅 Réservations' },
+    // ── Exploitation
+    { group:'Exploitation' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/demandes', label:'📝 Demandes & Workflows' },
-    { to:'/historique', label:'📋 Historique' },
+    { to:'/evenements', label:'📡 Événements' },
+    { to:'/demandes', label:'📝 Demandes' },
+    // ── Pilotage
+    { group:'Pilotage & Analyse' },
     { to:'/analytics', label:'📈 Analytics' },
     { to:'/rapports', label:'📄 Rapports' },
+    { to:'/historique', label:'📋 Historique' },
     { to:'/audit', label:'🔍 Audit' },
-    { to:'/status', label:'🔧 Diagnostic' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-    { to:'/reservations', label:'📅 Réservations' },
     { to:'/assistant', label:'🤖 Assistant IA' },
-    { to:'/operations', label:'🖥️ Centre Opérationnel' },
+    { to:'/status', label:'🔧 Diagnostic' },
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },
@@ -312,7 +323,16 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {nav.map((item, i) => (
+              {nav.map((item, i) => item.group ? (
+                <div key={`g${i}`} style={{
+                  fontSize:9, fontWeight:800, color:'rgba(255,255,255,.35)',
+                  letterSpacing:1.5, textTransform:'uppercase',
+                  padding:'14px 12px 4px 14px', marginTop:4,
+                  borderTop:'1px solid rgba(255,255,255,.08)',
+                }}>
+                  {item.group}
+                </div>
+              ) : (
                 <NavLink key={item.to} to={item.to} end={item.exact}
                   style={({ isActive }) => ({
                     display: 'block',
