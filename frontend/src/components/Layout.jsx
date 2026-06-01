@@ -29,6 +29,8 @@ const ROLE_NAV = {
     { to:'/status', label:'🔧 Diagnostic' },
     { to:'/annuaire', label:'📋 Annuaire' },
     { to:'/reservations', label:'📅 Réservations' },
+    { to:'/assistant', label:'🤖 Assistant IA' },
+    { to:'/operations', label:'🖥️ Centre Opérationnel' },
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },
