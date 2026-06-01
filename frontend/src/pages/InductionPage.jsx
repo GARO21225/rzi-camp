@@ -169,7 +169,7 @@ const ETAPES = [
       { key:'alcool', label:'Test alcool', type:'select', options:['Négatif','Positif'], required:true },
       { key:'drogues', label:'Test drogues', type:'select', options:['Négatif','Positif'], required:true },
       { key:'resultat', label:'Résultat médecin', type:'select', options:['FIT — Apte','UNFIT — Inapte','PENDING — En attente'], required:true },
-      { key:'medecin', label:'Nom du médecin', type:'text', placeholder:'Dr. ...', required:true },
+      { key:'medecin', label:'🩺 Médecin assigné', type:'select_staff', profil:'medical', required:true },
       { key:'observations', label:'Observations', type:'textarea', placeholder:'Observations médicales...', required:false },
     ]
   },
@@ -1332,18 +1332,18 @@ function InductionPageInner() {
                               <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
                                 {etape.assignLabel}
                               </div>
-                              <select
+                              <input
                                 value={formData[`assign_${etape.key}`]||''}
                                 onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
+                                list={`staff-list-${etape.key}`}
+                                placeholder="Saisir ou sélectionner..."
                                 style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
-                                  padding:'8px 12px',fontSize:13,outline:'none',background:'#fff'}}>
-                                <option value="">-- Sélectionner --</option>
+                                  padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                              <datalist id={`staff-list-${etape.key}`}>
                                 {(staffMap[etape.assignRole]||[]).map(p=>(
-                                  <option key={p.id} value={`${p.nom} ${p.prenom}`}>
-                                    {p.nom} {p.prenom} {p.numero?`· ${p.numero}`:''}
-                                  </option>
+                                  <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
                                 ))}
-                              </select>
+                              </datalist>
                               {formData[`assign_${etape.key}`] && (
                                 <div style={{fontSize:11,color:'#0369a1',marginTop:4}}>
                                   ✅ Assigné: <b>{formData[`assign_${etape.key}`]}</b>
@@ -1374,18 +1374,19 @@ function InductionPageInner() {
                                   {formData[c.key]?'✅ Photo chargée':'📷 Charger une photo'}
                                 </label>
                               ) : c.type==='select_staff' ? (
-                                <select value={formData[c.key]||''} style={inp}
-                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}>
-                                  <option value="">-- Sélectionner --</option>
+                                <>
+                                <input
+                                  value={formData[c.key]||''}
+                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
+                                  list={`sl-${c.key}`}
+                                  placeholder="Saisir ou sélectionner..."
+                                  style={{...inp,width:'100%',boxSizing:'border-box'}}/>
+                                <datalist id={`sl-${c.key}`}>
                                   {(staffMap[c.profil]||[]).map(p=>(
-                                    <option key={p.id} value={`${p.nom} ${p.prenom} · ${p.numero||p.email||''}`}>
-                                      {p.nom} {p.prenom} {p.numero?`· ${p.numero}`:''}
-                                    </option>
+                                    <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
                                   ))}
-                                  {(staffMap[c.profil]||[]).length===0 && (
-                                    <option disabled>Aucun personnel disponible</option>
-                                  )}
-                                </select>
+                                </datalist>
+                                </>
                               ) : (
                                 <input type={c.type} value={formData[c.key]||''}
                                   onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
