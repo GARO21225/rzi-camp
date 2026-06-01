@@ -214,6 +214,7 @@ export default function ReservationsPage() {
   const [personnel,    setPersonnel]   = useState([])
   const [modal,        setModal]       = useState(null)
   const [ficheEdit,    setFicheEdit]   = useState(null)
+  const [qrModal,      setQrModal]      = useState(null)   // réservation dont afficher le QR
   const [showCatalogue,setShowCatalogue]= useState(false)
   const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#1e3a8a',photo:'',id:''})
   const [activeTab,    setActiveTab]   = useState('salles')
@@ -254,6 +255,11 @@ export default function ReservationsPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
     setReservations(stored)
     setModal(null); setMsg(null)
+    // Proposer le QR pour les véhicules
+    if (modal.cat?.startsWith('vehicules')) {
+      const newRes = stored[stored.length-1]
+      setQrModal(newRes)
+    }
     setForm({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
   }
 
@@ -417,11 +423,18 @@ export default function ReservationsPage() {
                 padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>
                 {r.statut}
               </span>
-              {r.statut!=='annulé'&&(
+              {r.statut!=='annulé'&&(<>
+                {r.cat?.startsWith('vehicules') && (
+                  <button onClick={()=>setQrModal(r)}
+                    style={{background:'#eff6ff',color:'#1e3a8a',border:'1px solid #bfdbfe',
+                      borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                    📱 QR
+                  </button>
+                )}
                 <button onClick={()=>{if(confirm('Annuler?'))cancel(r.id)}}
                   style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
                     borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>✕</button>
-              )}
+              </>)}
             </div>
           )
         })}
@@ -619,6 +632,84 @@ export default function ReservationsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal QR Code véhicule */}
+      {qrModal && (
+        <div onClick={e=>e.target===e.currentTarget&&setQrModal(null)}
+          style={{position:'fixed',inset:0,background:'rgba(15,36,71,.8)',backdropFilter:'blur(4px)',
+            display:'flex',alignItems:'center',justifyContent:'center',zIndex:3500,padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,padding:28,maxWidth:380,width:'100%',
+            textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,.4)'}}>
+            <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:4}}>
+              📱 QR Code — {qrModal.ressource_label}
+            </div>
+            <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>
+              {qrModal.date} · {qrModal.heure_debut}–{qrModal.heure_fin} · {qrModal.demandeur}
+            </div>
+            {/* QR généré via API publique */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                JSON.stringify({
+                  type:'rzi_vehicule_depart',
+                  reservation_id: qrModal.id,
+                  vehicule: qrModal.ressource_label,
+                  immat: qrModal.immat||'',
+                  chauffeur: qrModal.demandeur,
+                  date: qrModal.date,
+                  heure_depart: qrModal.heure_debut,
+                  heure_retour: qrModal.heure_fin,
+                })
+              )}`}
+              alt="QR Code"
+              style={{width:200,height:200,borderRadius:12,marginBottom:16,border:'3px solid #e2e8f0'}}
+            />
+            <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:10,
+              padding:'10px 14px',marginBottom:16,fontSize:12,color:'#0369a1',textAlign:'left'}}>
+              <b>Instructions chauffeur :</b><br/>
+              📸 Scanner au départ pour confirmer la prise en charge<br/>
+              📸 Scanner au retour pour clôturer la réservation<br/>
+              📍 Renseigner le kilométrage au retour
+            </div>
+            {/* Mise à jour kilométrage */}
+            <div style={{display:'flex',gap:8,marginBottom:16}}>
+              <input
+                id="km-retour-input"
+                type="number"
+                placeholder="Kilométrage retour (km)"
+                style={{flex:1,border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:13,outline:'none'}}
+              />
+              <button onClick={()=>{
+                const km = parseInt(document.getElementById('km-retour-input')?.value)
+                if (!km || km < 1) { alert('Entrez le kilométrage'); return }
+                // Mettre à jour le fleet
+                const saved = JSON.parse(localStorage.getItem('rzi_fleet_v1')||'{}')
+                Object.keys(saved).forEach(cat => {
+                  saved[cat] = saved[cat].map(v =>
+                    v.id===qrModal.ressource_id ? {...v, km} : v
+                  )
+                })
+                localStorage.setItem('rzi_fleet_v1', JSON.stringify(saved))
+                // Clôturer la réservation
+                const stored = JSON.parse(localStorage.getItem('rzi_reservations_v3')||'[]')
+                localStorage.setItem('rzi_reservations_v3', JSON.stringify(
+                  stored.map(r=>r.id===qrModal.id?{...r,statut:'clôturé',km_retour:km}:r)
+                ))
+                setReservations(stored.map(r=>r.id===qrModal.id?{...r,statut:'clôturé',km_retour:km}:r))
+                alert(`✅ Kilométrage enregistré: ${km.toLocaleString()} km`)
+                setQrModal(null)
+              }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+                padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                ✅ Retour
+              </button>
+            </div>
+            <button onClick={()=>setQrModal(null)}
+              style={{width:'100%',background:'#f1f5f9',border:'none',borderRadius:9,
+                padding:'10px',cursor:'pointer',fontSize:13}}>
+              Fermer
+            </button>
           </div>
         </div>
       )}
