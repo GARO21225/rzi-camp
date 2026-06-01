@@ -321,6 +321,31 @@ export default function ReservationsPage() {
         </button>
       </div>
 
+      {/* KPIs */}
+      {(() => {
+        const todayRes  = reservations.filter(r=>r.date===today&&r.statut!=='annulé')
+        const weekStart = new Date(); weekStart.setDate(weekStart.getDate()-6)
+        const weekStr   = weekStart.toISOString().slice(0,10)
+        const weekRes   = reservations.filter(r=>r.date>=weekStr&&r.statut!=='annulé')
+        const cancelled = reservations.filter(r=>r.statut==='annulé').length
+        return (
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+            {[
+              {l:"Aujourd'hui",  v:todayRes.length,  c:'#1e3a8a', bg:'#eff6ff', icon:'📅'},
+              {l:'Cette semaine',v:weekRes.length,    c:'#7c3aed', bg:'#f5f3ff', icon:'📊'},
+              {l:'Total',        v:reservations.filter(r=>r.statut!=='annulé').length, c:'#16a34a', bg:'#f0fdf4', icon:'✅'},
+              {l:'Annulées',     v:cancelled,         c:'#dc2626', bg:'#fef2f2', icon:'❌'},
+            ].map(({l,v,c,bg,icon})=>(
+              <div key={l} style={{background:bg,borderRadius:12,padding:'14px 16px',
+                borderLeft:`4px solid ${c}`,boxShadow:'0 1px 4px rgba(0,0,0,.05)'}}>
+                <div style={{fontSize:24,fontWeight:900,color:c}}>{icon} {v}</div>
+                <div style={{fontSize:11,color:'#64748b',fontWeight:600,marginTop:2}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Onglets */}
       <div style={{display:'flex',gap:8,marginBottom:20}}>
         {TABS.map(t=>(
@@ -363,7 +388,7 @@ export default function ReservationsPage() {
       {/* Planning */}
       <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-          <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>📋 Planning des réservations</div>
+          <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>📋 Historique des réservations</div>
           <div style={{display:'flex',gap:8}}>
             <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{...inp,maxWidth:180}}/>
             {filterDate&&<button onClick={()=>setFilterDate('')}
