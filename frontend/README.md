@@ -147,3 +147,30 @@ C'est le HTML self-contained (68K, sans build), il charge les vraies données ba
 - **Lieu** : Camp Roxgold Sango, Côte d'Ivoire (lat 8.11°N, lng -6.82°W)
 - **Backend** : `https://rzi-camp-backend.onrender.com`
 - **Stack** : React 18 + Vite 5 + zustand + recharts + react-leaflet + html5-qrcode
+
+## 🆕 V2 — Sidebar groupé avec TOUTES les pages V1
+
+Le V2 a un **nouveau composant `Sidebar.jsx`** (séparé, ne casse pas le V1 Layout) qui groupe les 25 pages V1 :
+
+| Groupe | Pages |
+|---|---|
+| **OPÉRATIONS** | Dashboard, Carte GIS, Centre Opérationnel |
+| **PERSONNES** | Personnel, Annuaire, Induction QHSE |
+| **HÉBERGEMENT & MOBILITÉ** | Résidences, Voyages, Rotations |
+| **SERVICES AUX RÉSIDENTS** | Restauration, **Bar & Boutique**, Boutique POS, **Réservations** |
+| **EXPLOITATION** | Maintenance, Événements, Demandes, Présences, Workflow Hub |
+| **PILOTAGE & ANALYSE** | Analytics, Rapports, Historique, Audit, Assistant IA, Diagnostic |
+| **COMPTE** | Mon Compte |
+
+**Aucune page V1 n'a été supprimée ou renommée.**
+
+## 🧪 Test de régression `tests/sidebar.test.js`
+
+Garantit à chaque build que :
+- ✅ Les 25 routes V1 sont toutes présentes
+- ✅ Les 7 groupes sont là
+- ✅ Le texte est blanc (`#ffffff`, contraste élevé)
+- ✅ Les VRAIS noms V1 sont utilisés (Bar & Boutique, Réservations, etc.)
+- ❌ Aucune page inventée (DigitalTwin, QRScan, CopiloteIA)
+- ✅ Le logo Roxgold est utilisé
+- ✅ Le contexte Côte d'Ivoire est affiché
