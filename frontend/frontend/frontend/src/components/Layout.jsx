@@ -82,10 +82,10 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
-      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+      background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 16px', background: 'var(--rzi-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', background: '#1e3a8a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
@@ -100,23 +100,23 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
           : items.map(n => (
             <div key={n.id}
               onClick={() => { onClose(); navigate('/evenements') }}
-              style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: n.lu ? 'var(--surface)' : 'rgba(37,99,235,.04)', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-              onMouseLeave={e => e.currentTarget.style.background = n.lu ? 'var(--surface)' : 'rgba(37,99,235,.04)'}>
+              style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: n.lu ? '#ffffff' : 'rgba(37,99,235,.04)', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+              onMouseLeave={e => e.currentTarget.style.background = n.lu ? '#ffffff' : 'rgba(37,99,235,.04)'}>
               <div style={{ fontSize: 22, flexShrink: 0 }}>📅</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: 'var(--rzi-blue)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
+                <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: '#1e3a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
-              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--rzi-blue)', flexShrink: 0, marginTop: 4 }} />}
+              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#1e3a8a', flexShrink: 0, marginTop: 4 }} />}
             </div>
           ))
         }
       </div>
-      <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+      <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: 'var(--rzi-blue)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: '#1e3a8a', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -134,7 +134,7 @@ function WelcomeToast({ user, onClose }) {
       position: 'fixed', top: 72, right: 16, zIndex: 9999,
       width: 'min(320px, calc(100vw - 32px))',
       background: '#fff', border: '1px solid #e2e8f0',
-      borderLeft: '4px solid var(--rzi-blue)',
+      borderLeft: '4px solid #1e3a8ar(--rzi-blue)',
       borderRadius: 14, padding: '14px 16px',
       boxShadow: '0 8px 30px rgba(30,58,138,.2)',
       animation: 'fadeIn .3s ease',
@@ -142,7 +142,7 @@ function WelcomeToast({ user, onClose }) {
     }}>
       <div style={{ fontSize: 32 }}>{ROLE_ICONS[role] || '👤'}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, color: 'var(--rzi-blue)', fontSize: 14, marginBottom: 2 }}>
+        <div style={{ fontWeight: 700, color: '#1e3a8a', fontSize: 14, marginBottom: 2 }}>
           Bienvenue, {name} 👋
         </div>
         <div style={{ fontSize: 11, color: '#64748b' }}>
@@ -199,7 +199,7 @@ export default function Layout() {
   const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: 'var(--bg)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', background: '#f1f5f9', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
       {/* Bannière offline */}
       {isOffline && (
         <div style={{background:'#f59e0b',color:'#1c1917',padding:'8px 16px',
@@ -224,12 +224,12 @@ export default function Layout() {
 
       <header style={{
         height: 54,
-        background: 'var(--rzi-blue)',
-        borderBottom: '3px solid var(--rzi-gold)',
+        background: 'linear-gradient(135deg, #1e1e5e 0%, #303080 100%)',
+        borderBottom: '3px solid #f0b010',
         display: 'flex', alignItems: 'center',
         padding: '0 10px', gap: 10,
         flexShrink: 0, zIndex: 500,
-        boxShadow: '0 2px 16px rgba(30,58,138,.35)',
+        boxShadow: '0 2px 16px rgba(30,30,94,.4)',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
           style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -280,7 +280,7 @@ export default function Layout() {
           <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1.2, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
             {(user?.first_name && user?.last_name) ? `${user.first_name} ${user.last_name}` : user?.username || ''}
           </span>
-          <span style={{ background: 'rgba(240,165,0,.9)', color: '#000', padding: '2px 8px', borderRadius: 20, fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <span style={{ background: '#f0b010', color: '#1e1e5e', padding: '2px 8px', borderRadius: 20, fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
             {ROLE_LABELS[role] || role}
           </span>
         </div>
@@ -301,8 +301,8 @@ export default function Layout() {
         {sidebarOpen && (
           <nav style={{
             width: 240,
-            background: 'var(--surface)',
-            borderRight: '1px solid var(--border)',
+            background: '#0a1628',
+            borderRight: 'none',
             overflowY: 'auto',
             overflowX: 'hidden',
             flexShrink: 0,
@@ -317,48 +317,40 @@ export default function Layout() {
               boxShadow: '4px 0 20px rgba(0,0,0,.25)',
             } : {}),
           }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
                 Navigation
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
               {nav.map((item, i) => item.group ? (
-                <div key={`g${i}`} style={{
-                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
-                }}>
+                <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                   <div style={{
-                    fontSize:10, fontWeight:800,
-                    color:'rgba(255,255,255,.9)',
-                    letterSpacing:1.2, textTransform:'uppercase',
-                    padding:'5px 10px',
-                    background:'rgba(255,255,255,.1)',
-                    borderRadius:6,
-                    borderLeft:'3px solid rgba(255,255,255,.4)',
-                    display:'flex', alignItems:'center', gap:6,
+                    fontSize:10, fontWeight:800, letterSpacing:1.5,
+                    textTransform:'uppercase', color:'#f0a500',
+                    padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
+                    borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                   }}>
+                    <span style={{display:'inline-block',width:3,height:10,
+                      background:'#f0a500',borderRadius:99}}/>
                     {item.group}
                   </div>
                 </div>
               ) : (
                 <NavLink key={item.to} to={item.to} end={item.exact}
                   style={({ isActive }) => ({
-                    display: 'block',
-                    padding: '8px 10px 8px 12px',
-                    margin: '1px 6px',
-                    borderRadius: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '9px 12px 9px 16px',
+                    margin: '1px 8px',
+                    borderRadius: 9,
                     textDecoration: 'none',
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: isActive ? 700 : 400,
-                    background: isActive
-                      ? 'rgba(255,255,255,.18)'
-                      : 'transparent',
-                    color: isActive
-                      ? '#fff'
-                      : 'rgba(255,255,255,.7)',
-                    borderLeft: isActive
-                      ? '3px solid #fff'
-                      : '3px solid transparent',
+                    background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
+                    color: isActive ? '#f0a500' : 'rgba(255,255,255,.8)',
+                    borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
                     transition: 'all .15s',
                   })}>
                   {item.label}
@@ -368,7 +360,7 @@ export default function Layout() {
           </nav>
         )}
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)', overflowY:'auto' }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: '#f1f5f9', overflowY:'auto' }}>
             <Outlet />
           </main>
       </div>
