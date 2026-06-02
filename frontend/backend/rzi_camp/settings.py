@@ -82,6 +82,12 @@ SIMPLE_JWT = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://rzi-camp-frontend.onrender.com",
+    "https://rzi-camp-backend.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
 
 # Augmenter la limite pour les photos base64 (3Mo image → ~4Mo JSON)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20MB
