@@ -223,32 +223,34 @@ export default function Layout() {
       `}</style>
 
       <header style={{
-        height: 54,
-        background: 'linear-gradient(135deg, #1e1e5e 0%, #303080 100%)',
-        borderBottom: '3px solid #f0b010',
+        height: 56,
+        background: '#0A0A0A',
+        borderBottom: '3px solid #FFD400',
         display: 'flex', alignItems: 'center',
-        padding: '0 10px', gap: 10,
+        padding: '0 16px', gap: 12,
         flexShrink: 0, zIndex: 500,
-        boxShadow: '0 2px 16px rgba(30,30,94,.4)',
+        boxShadow: '0 1px 0 rgba(255,212,0,.15)',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          style={{ background: 'transparent', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           {sidebarOpen ? '✕' : '☰'}
         </button>
 
-        <div style={{ background: '#fff', borderRadius: 8, padding: '3px 9px', flexShrink: 0 }}>
-          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 30, objectFit: "contain" }}/>
+        <div style={{ background: '#fff', borderRadius: 6, padding: '5px 10px', flexShrink: 0, height: 36, display: 'flex', alignItems: 'center' }}>
+          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
         </div>
 
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          RÉSIDENCE ROXGOLD SANGO
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.55)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          RÉSIDENCE <span style={{ color: '#fff' }}>ROXGOLD SANGO</span>
         </div>
 
         {/* ── Recherche globale ── */}
-        {!isMobile && <GlobalSearch />}
+        {!isMobile && <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}><GlobalSearch /></div>}
 
         {alertes.length > 0 && !isMobile && (
-          <div style={{ background: 'rgba(220,38,38,.25)', border: '1px solid rgba(220,38,38,.5)', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: '#fca5a5', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <div style={{ background: 'rgba(220,38,38,.18)', border: '1px solid rgba(220,38,38,.35)', borderRadius: 6, padding: '5px 10px', fontSize: 11, color: '#fca5a5', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
             ⚠️ {alertes[0]?.message}
           </div>
         )}
@@ -257,17 +259,21 @@ export default function Layout() {
           <button
             onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); localStorage.setItem('theme', t) }}
             title="Basculer thème"
-            style={{ background:'rgba(255,255,255,.12)', border:'none', color:'#fff',
-              width:38, height:38, borderRadius:8, cursor:'pointer', flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>
+            style={{ background:'transparent', border:'none', color:'rgba(255,255,255,.7)',
+              width:36, height:36, borderRadius:6, cursor:'pointer', flexShrink:0,
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, transition: 'all 150ms' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' }}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
-            style={{ background: notifOpen ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 38, height: 38, borderRadius: 8, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : 'rgba(255,255,255,.7)', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
+            onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' } }}
+            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' } }}>
             🔔
             {notifCount > 0 && (
-              <span style={{ position: 'absolute', top: 4, right: 4, background: '#dc2626', color: '#fff', borderRadius: '50%', width: 17, height: 17, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ position: 'absolute', top: 4, right: 4, background: '#FFD400', color: '#0A0A0A', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0A0A0A' }}>
                 {notifCount > 9 ? '9+' : notifCount}
               </span>
             )}
@@ -276,18 +282,27 @@ export default function Layout() {
       {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
         </div>
 
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, maxWidth: 140 }}>
-          <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1.2, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
-            {(user?.first_name && user?.last_name) ? `${user.first_name} ${user.last_name}` : user?.username || ''}
-          </span>
-          <span style={{ background: '#f0b010', color: '#1e1e5e', padding: '2px 8px', borderRadius: 20, fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
-            {ROLE_LABELS[role] || role}
-          </span>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '3px 10px 3px 3px', background: 'rgba(255,255,255,.06)', borderRadius: 99, cursor: 'pointer', transition: 'all 150ms' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.12)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FFD400', color: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>
+            {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {(user?.first_name && user?.last_name) ? `${user.first_name}` : user?.username || ''}
+            </span>
+            <span style={{ color: '#FFD400', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {ROLE_LABELS[role] || role}
+            </span>
+          </div>
         </div>
 
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
-          ⎋
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.7)', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}>
+          ⎋ Déconnexion
         </button>
 
       </header>
@@ -301,8 +316,8 @@ export default function Layout() {
         {sidebarOpen && (
           <nav style={{
             width: 240,
-            background: '#0a1628',
-            borderRight: 'none',
+            background: '#FFFFFF',
+            borderRight: '1px solid #D4D4D4',
             overflowY: 'auto',
             overflowX: 'hidden',
             flexShrink: 0,
@@ -310,15 +325,15 @@ export default function Layout() {
             flexDirection: 'column',
             ...(isMobile ? {
               position: 'fixed',
-              top: 54,
+              top: 56,
               left: 0,
               bottom: 0,
               zIndex: 95,
               boxShadow: '4px 0 20px rgba(0,0,0,.25)',
             } : {}),
           }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
+              <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
               </div>
             </div>

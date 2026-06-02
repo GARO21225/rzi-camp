@@ -75,21 +75,21 @@ const NAV_GROUPS = [
   },
 ]
 
-// Palette ROXGOLD CÔTE D'IVOIRE — extraite du logo officiel
-// (bleu marine #303080 + or #f0b010 + orange #e87722)
+// Palette ROXGOLD INDUSTRIAL — design v11
+// (noir #0A0A0A + jaune #FFD400 + bleu #1E3A8A)
 const COLORS = {
-  bg:        '#1e1e5e',          // Roxgold bleu marine profond
-  bgAlt:     '#14144a',          // Roxgold bleu nuit (bandeau brand)
-  text:      '#ffffff',          // BLANC PUR — items
-  textDim:   '#cbd5e1',          // gris clair — items inactifs
-  textGroup: '#94a3b8',          // gris — titres de groupe
-  active:    '#f0b010',          // Roxgold OR — item actif (logo)
-  activeBg:  'rgba(240,176,16,.18)',
-  border:    'rgba(255,255,255,.08)',
-  hover:     'rgba(240,176,16,.08)',
-  gold:      '#f0b010',          // Roxgold OR — badges NEW
-  red:       '#dc2626',          // alerts
-  green:     '#16a34a',          // success
+  bg:        '#FFFFFF',          // sidebar blanche
+  bgAlt:     '#0A0A0A',          // bandeau brand noir
+  text:      '#0A0A0A',          // texte noir — items
+  textDim:   '#525252',          // gris moyen — items inactifs
+  textGroup: '#8A8A8A',          // gris clair — titres de groupe
+  active:    '#FFFFFF',          // item actif : texte BLANC sur fond noir
+  activeBg:  '#0A0A0A',          // fond noir pour item actif
+  border:    '#D4D4D4',          // bordures
+  hover:     '#EFEFEF',          // survol gris très clair
+  gold:      '#FFD400',          // jaune Roxgold — badges NEW
+  red:       '#DC2626',          // alerts
+  green:     '#16A34A',          // success
 }
 
 function SidebarItem({ to, label, icon, badge, exact, isActive }) {
@@ -101,12 +101,12 @@ function SidebarItem({ to, label, icon, badge, exact, isActive }) {
     <NavLink to={to} end={exact}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 12px', margin: '1px 6px',
-        borderRadius: 8, textDecoration: 'none',
-        fontSize: 13.5, fontWeight: isActive ? 700 : 500,
+        padding: '8px 10px', margin: '1px 6px',
+        borderRadius: 6, textDecoration: 'none',
+        fontSize: 13, fontWeight: isActive ? 600 : 500,
         color: isActive ? COLORS.active : COLORS.text,
         background: isActive ? COLORS.activeBg : 'transparent',
-        borderLeft: isActive ? `3px solid ${COLORS.active}` : '3px solid transparent',
+        borderLeft: isActive ? `3px solid ${COLORS.gold}` : '3px solid transparent',
         transition: 'all .15s ease',
       }}
       onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = COLORS.hover }}
@@ -118,14 +118,14 @@ function SidebarItem({ to, label, icon, badge, exact, isActive }) {
       </span>
       {isNewBadge && (
         <span style={{
-          background: COLORS.gold, color: '#1a0e00',
-          fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 6,
+          background: COLORS.gold, color: '#0A0A0A',
+          fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 4,
           letterSpacing: '.04em',
         }}>{badge}</span>
       )}
       {isNumberBadge && (
         <span style={{
-          background: COLORS.red, color: 'white',
+          background: COLORS.gold, color: '#0A0A0A',
           fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 99,
           minWidth: 20, textAlign: 'center',
         }}>{badge}</span>
@@ -159,18 +159,19 @@ export default function Sidebar({ currentPath }) {
       }}>
         <div style={{
           width: 36, height: 36,
-          background: `linear-gradient(135deg, ${COLORS.active}, #c25a18)`,
-          borderRadius: 8, display: 'grid', placeItems: 'center',
-          color: 'white', fontWeight: 800, fontSize: 14,
-          boxShadow: '0 2px 8px rgba(232,119,34,.4)',
+          background: '#FFD400',
+          borderRadius: 6, display: 'grid', placeItems: 'center',
+          color: '#0A0A0A', fontWeight: 800, fontSize: 13,
+          fontFamily: 'var(--font-mono, monospace)',
+          letterSpacing: '0.02em',
         }}>
           RZ
         </div>
         <div>
-          <div style={{ color: COLORS.text, fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>
+          <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>
             RZI CAMP
           </div>
-          <div style={{ color: COLORS.textDim, fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600, marginTop: 1 }}>
             Roxgold · Côte d'Ivoire
           </div>
         </div>
