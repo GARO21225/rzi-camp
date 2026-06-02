@@ -75,19 +75,18 @@ const NAV_GROUPS = [
   },
 ]
 
-// Palette ROXGOLD CÔTE D'IVOIRE — extraite du logo officiel
-// (bleu marine #303080 + or #f0b010 + orange #e87722)
+// Palette Roxgold (extraite du logo) + couleurs sémantiques
 const COLORS = {
-  bg:        '#1e1e5e',          // Roxgold bleu marine profond
-  bgAlt:     '#14144a',          // Roxgold bleu nuit (bandeau brand)
+  bg:        '#0a1628',          // Roxgold blue (dark)
+  bgAlt:     '#0f2044',          // Roxgold blue alt
   text:      '#ffffff',          // BLANC PUR — items
-  textDim:   '#cbd5e1',          // gris clair — items inactifs
+  textDim:   '#cbd5e1',          // gris clair — items inactifs (suffisamment lisible)
   textGroup: '#94a3b8',          // gris — titres de groupe
-  active:    '#f0b010',          // Roxgold OR — item actif (logo)
-  activeBg:  'rgba(240,176,16,.18)',
+  active:    '#e87722',          // Roxgold ORANGE — item actif
+  activeBg:  'rgba(232,119,34,.15)',
   border:    'rgba(255,255,255,.08)',
-  hover:     'rgba(240,176,16,.08)',
-  gold:      '#f0b010',          // Roxgold OR — badges NEW
+  hover:     'rgba(255,255,255,.06)',
+  gold:      '#ffcd00',          // Roxgold GOLD — badges NEW
   red:       '#dc2626',          // alerts
   green:     '#16a34a',          // success
 }

@@ -224,12 +224,12 @@ export default function Layout() {
 
       <header style={{
         height: 54,
-        background: 'linear-gradient(135deg, #1e1e5e 0%, #303080 100%)',
-        borderBottom: '3px solid #f0b010',
+        background: 'linear-gradient(135deg, #0a1628, #1e3a8a)',
+        borderBottom: '3px solid #f0a500',
         display: 'flex', alignItems: 'center',
         padding: '0 10px', gap: 10,
         flexShrink: 0, zIndex: 500,
-        boxShadow: '0 2px 16px rgba(30,30,94,.4)',
+        boxShadow: '0 2px 16px rgba(30,58,138,.35)',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
           style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -280,7 +280,7 @@ export default function Layout() {
           <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1.2, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
             {(user?.first_name && user?.last_name) ? `${user.first_name} ${user.last_name}` : user?.username || ''}
           </span>
-          <span style={{ background: '#f0b010', color: '#1e1e5e', padding: '2px 8px', borderRadius: 20, fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <span style={{ background: 'rgba(240,165,0,.9)', color: '#000', padding: '2px 8px', borderRadius: 20, fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>
             {ROLE_LABELS[role] || role}
           </span>
         </div>
