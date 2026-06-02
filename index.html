@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>RZI CAMP 2.0 — ERP Industriel · Concept Design</title>
+<title>RZI CAMP 2.0 — Résidence Roxgold Sango</title>
 <meta name="description" content="Prototype interactif de la refonte UX/UI de RZI CAMP ERP" />
 
 <!-- Fonts: Outfit (sans), DM Serif Display (display), JetBrains Mono -->
@@ -23,17 +23,17 @@
 
 <style>
   :root {
-    /* ── Brand: industrial copper + safety emerald + warm neutrals ── */
-    --copper-50:  #fef7ee;
-    --copper-100: #fde8c8;
-    --copper-200: #fbd094;
-    --copper-300: #f8b35d;
-    --copper-400: #f59532;
-    --copper-500: #ea760a;
-    --copper-600: #c25a05;
-    --copper-700: #9a4508;
-    --copper-800: #7c380d;
-    --copper-900: #5c2a0c;
+    /* ── Brand: Roxgold bleu marine (du design system V1 officiel) ── */
+    --copper-50:  #eff3fb;
+    --copper-100: #dbe5f5;
+    --copper-200: #b8cce8;
+    --copper-300: #8eb0d8;
+    --copper-400: #5b8ac1;
+    --copper-500: #1e3a8a;
+    --copper-600: #1e40af;
+    --copper-700: #1e3a8a;
+    --copper-800: #172554;
+    --copper-900: #0f172a;
 
     --emerald-50:  #ecfdf5;
     --emerald-100: #d1fae5;
@@ -179,7 +179,7 @@
   [data-theme="dark"] .badge-warn  { background: rgba(245,158,11,.15); color: #fcd34d; }
   [data-theme="dark"] .badge-alert { background: rgba(239,68,68,.15); color: #fca5a5; }
   [data-theme="dark"] .badge-info  { background: rgba(59,130,246,.15); color: #93c5fd; }
-  [data-theme="dark"] .badge-copper{ background: rgba(234,118,10,.18); color: #fdba74; }
+  [data-theme="dark"] .badge-copper{ background: rgba(30,58,138,.18); color: #fdba74; }
   [data-theme="dark"] .badge-ink   { background: var(--ink-700); color: var(--ink-100); }
 
   /* ── Status dot ── */
@@ -222,7 +222,7 @@
     outline: none;
     transition: all .15s;
   }
-  .input:focus { border-color: var(--copper-500); box-shadow: 0 0 0 4px rgba(234,118,10,.10); }
+  .input:focus { border-color: var(--copper-500); box-shadow: 0 0 0 4px rgba(30,58,138,.10); }
   .input::placeholder { color: var(--text-4); }
   textarea.input { height: auto; padding: 12px 14px; min-height: 90px; resize: vertical; line-height: 1.5; }
 
@@ -249,7 +249,7 @@
     border-radius: 10px;
     display: grid; place-items: center;
     color: white; font-weight: 800; font-size: 16px;
-    box-shadow: 0 4px 12px rgba(234,118,10,.35);
+    box-shadow: 0 4px 12px rgba(30,58,138,.35);
     letter-spacing: -0.5px;
   }
   .brand-name { color: white; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
@@ -269,7 +269,7 @@
   }
   .nav-item:hover { background: rgba(255,255,255,.05); color: white; }
   .nav-item.active {
-    background: linear-gradient(90deg, rgba(234,118,10,.18), rgba(234,118,10,.04));
+    background: linear-gradient(90deg, rgba(30,58,138,.18), rgba(234,118,10,.04));
     color: white;
     box-shadow: inset 2px 0 0 var(--copper-500);
   }
@@ -664,7 +664,7 @@
   .heatmap { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
   .heatcell { aspect-ratio: 1; border-radius: 3px; background: var(--bg-2); transition: transform .1s; cursor: pointer; }
   .heatcell:hover { transform: scale(1.4); }
-  .heatcell.l1 { background: rgba(234,118,10,.18); }
+  .heatcell.l1 { background: rgba(30,58,138,.18); }
   .heatcell.l2 { background: rgba(234,118,10,.38); }
   .heatcell.l3 { background: rgba(234,118,10,.62); }
   .heatcell.l4 { background: rgba(234,118,10,.85); }
@@ -698,6 +698,8 @@
 </style>
 </head>
 <body data-theme="light">
+  <!-- Logo Roxgold (depuis /roxgold-logo.png, asset du projet) -->
+  <img src="roxgold-logo.png" alt="" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" aria-hidden="true" />
 
 <!-- ═══════════════════════════════════════════════════════════════
      APP SHELL
@@ -710,7 +712,7 @@
       <div class="brand-mark">RZ</div>
       <div>
         <div class="brand-name">RZI CAMP</div>
-        <div class="brand-sub">Roxgold · Burkina Faso</div>
+        <div class="brand-sub">Roxgold · Côte d'Ivoire</div>
       </div>
     </div>
 
@@ -1132,7 +1134,7 @@
               Faible
               <div class="flex gap-1">
                 <span style="width:14px; height:14px; border-radius:3px; background: var(--bg-2);"></span>
-                <span style="width:14px; height:14px; border-radius:3px; background: rgba(234,118,10,.18);"></span>
+                <span style="width:14px; height:14px; border-radius:3px; background: rgba(30,58,138,.18);"></span>
                 <span style="width:14px; height:14px; border-radius:3px; background: rgba(234,118,10,.38);"></span>
                 <span style="width:14px; height:14px; border-radius:3px; background: rgba(234,118,10,.62);"></span>
                 <span style="width:14px; height:14px; border-radius:3px; background: var(--copper-600);"></span>
@@ -2049,7 +2051,7 @@
             <div class="flex items-center gap-3 mb-3">
               <div style="width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--copper-500), var(--copper-700)); color: white; display: grid; place-items: center; font-weight: 800;">AT</div>
               <div>
-                <div style="font-size:15px; font-weight:700;">AT-447 · Air Burkina</div>
+                <div style="font-size:15px; font-weight:700;">AT-447 · Air Ivoire</div>
                 <div style="font-size:12px; color:var(--text-3); margin-top:2px;">Ouaga → RZI · arrivée 21:30</div>
               </div>
               <span class="badge badge-ok" style="margin-left:auto;">✓ Arrivé</span>
@@ -2492,7 +2494,7 @@ function initCharts() {
       data: {
         labels,
         datasets: [
-          { label: 'Occupation %', data: labels.map(() => 80 + Math.random() * 12), borderColor: '#ea760a', backgroundColor: 'rgba(234,118,10,.10)', fill: true, tension: .4, borderWidth: 2, pointRadius: 0 },
+          { label: 'Occupation %', data: labels.map(() => 80 + Math.random() * 12), borderColor: '#ea760a', backgroundColor: 'rgba(30,58,138,.10)', fill: true, tension: .4, borderWidth: 2, pointRadius: 0 },
           { label: 'Incidents', data: labels.map(() => Math.round(2 + Math.random() * 10)), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.06)', fill: true, tension: .4, borderWidth: 2, pointRadius: 0, yAxisID: 'y1' }
         ]
       },
