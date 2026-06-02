@@ -25,7 +25,7 @@ export default function Induction() {
       </div>
 
       <div className="card card-pad mb-4">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+        <div style={{   display: 'grid',   gridTemplateColumns: 'repeat(4,   gap: 20 }}>
           {[
             { label: 'Vol AT-447 · arrivé 21h30', val: 38, sub: 'personnes à processer' },
             { label: 'Inductions en cours', val: 12, sub: '8 à l\'étape finale', color: 'var(--emerald-600)' },
@@ -33,37 +33,29 @@ export default function Induction() {
             { label: 'Temps moyen', val: '2h14', sub: '↓ 18 min vs moy.', color: 'var(--emerald-600)' },
           ].map((k) => (
             <div key={k.label}>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{k.label}</div>
-              <div style={{ fontSize: 32, fontWeight: 700, marginTop: 6, color: k.color || 'var(--text)' }}>{k.val}</div>
-              <div style={{ fontSize: 12, color: k.color || 'var(--text-3)' }}>{k.sub}</div>
+              <div style={{   fontSize: 11,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.06em',   fontWeight: 600 }}>{k.label}</div>
+              <div style={{   fontSize: 32,   fontWeight: 700,   marginTop: 6,   color: k.color || 'var(--text)' }}>{k.val}</div>
+              <div style={{   fontSize: 12,   color: k.color || 'var(--text-3)' }}>{k.sub}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div className="card card-pad-lg">
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 18 }}>Workflow en 8 étapes</h3>
-        <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 18 }}>Workflow en 8 étapes</h3>
+        <div className="flex" style={{   alignItems: 'center',   justifyContent: 'space-between' }}>
           {STEPS.map((s, i) => (
             <React.Fragment key={s.id}>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{   textAlign: 'center' }}>
                 <div
                   onClick={() => setActiveStep(s.id)}
-                  style={{
-                    width: 44, height: 44, borderRadius: '50%',
-                    background: s.done ? 'var(--emerald-600)' : s.active ? 'var(--copper-500)' : 'var(--bg-2)',
-                    color: s.done || s.active ? 'white' : 'var(--text-3)',
-                    border: s.active ? '2px solid var(--gold-500)' : 'none',
-                    boxShadow: s.active ? '0 0 0 4px rgba(255,205,0,.25)' : 'none',
-                    display: 'grid', placeItems: 'center',
-                    margin: '0 auto 8px', fontWeight: 700, cursor: 'pointer',
-                  }}>
+                  style={{   width: 44,   height: 44,   borderRadius: '50%',   background: s.done ? 'var(--emerald-600)' : s.active ? 'var(--copper-500)' : 'var(--bg-2)',   color: s.done || s.active ? 'white' : 'var(--text-3)',   border: s.active ? '2px solid var(--gold-500)' : 'none',   boxShadow: s.active ? '0 0 0 4px rgba(255,   .25)': 'none',   display: 'grid',   placeItems: 'center',   margin: '0 auto 8px',   fontWeight: 700,   cursor: 'pointer' }}>
                   {s.done ? <Check size={18} /> : s.id}
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</div>
+                <div style={{   fontSize: 12,   fontWeight: 600 }}>{s.label}</div>
               </div>
               {i < STEPS.length - 1 && (
-                <div style={{ flex: 1, height: 2, background: s.done ? 'var(--emerald-500)' : 'var(--border-2)', marginBottom: 24 }} />
+                <div style={{   flex: 1,   height: 2,   background: s.done ? 'var(--emerald-500)' : 'var(--border-2)',   marginBottom: 24 }} />
               )}
             </React.Fragment>
           ))}

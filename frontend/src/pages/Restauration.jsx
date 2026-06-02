@@ -16,36 +16,36 @@ export default function Restauration() {
         </div>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div className="card card-pad-lg text-center">
-          <div className="section-title" style={{ justifyContent: 'center' }}>Scanner QR</div>
+          <div className="section-title" style={{   justifyContent: 'center' }}>Scanner QR</div>
           <div className="qr-scanner">
             <div className="qr-grid" />
             <div className="qr-corners"><div className="bl" /><div className="br" /></div>
             <div className="qr-line" />
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 12 }}>Pointe la caméra vers le QR</div>
+          <div style={{   fontSize: 13,   color: 'var(--text-3)',   marginTop: 12 }}>Pointe la caméra vers le QR</div>
         </div>
 
         <div className="card card-pad-lg">
           <div className="section-title">🍽️ Services du jour</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 10 }}>
             {[
               { icon: <Coffee size={16} />, label: 'Petit-déjeuner', time: '06:00 — 08:30', val: 412, trend: '+3%', color: 'var(--bg-2)', trendColor: 'var(--emerald-600)' },
               { icon: <UtensilsCrossed size={16} />, label: 'Déjeuner', time: '12:00 — 14:00', val: 628, trend: 'en cours', color: 'var(--copper-50)', trendColor: 'var(--copper-700)', live: true },
               { icon: <Moon size={16} />, label: 'Dîner', time: '19:00 — 21:30', val: null, trend: 'à venir', color: 'var(--bg-2)', trendColor: 'var(--text-3)' },
             ].map((s) => (
-              <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: s.color, borderRadius: 10, border: s.live ? '1px solid var(--copper-200)' : 'none' }}>
+              <div key={s.label} style={{   display: 'flex',   alignItems: 'center',   justifyContent: 'space-between',   padding: 12,   background: s.color,   borderRadius: 10,   border: s.live ? '1px solid var(--copper-200)' : 'none' }}>
                 <div className="flex gap-2 items-center">
-                  <span style={{ color: 'var(--copper-600)' }}>{s.icon}</span>
+                  <span style={{   color: 'var(--copper-600)' }}>{s.icon}</span>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{s.label} {s.live && <span className="dot dot-pulse dot-info" style={{ display: 'inline-block', marginLeft: 4 }} />}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{s.time}</div>
+                    <div style={{   fontSize: 13,   fontWeight: 600 }}>{s.label} {s.live && <span className="dot dot-pulse dot-info" style={{   display: 'inline-block',   marginLeft: 4 }} />}</div>
+                    <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>{s.time}</div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>{s.val ?? '—'}</div>
-                  <div style={{ fontSize: 10, color: s.trendColor, fontWeight: 600 }}>{s.trend}</div>
+                <div style={{   textAlign: 'right' }}>
+                  <div style={{   fontSize: 18,   fontWeight: 700 }}>{s.val ?? '—'}</div>
+                  <div style={{   fontSize: 10,   color: s.trendColor,   fontWeight: 600 }}>{s.trend}</div>
                 </div>
               </div>
             ))}
@@ -54,26 +54,26 @@ export default function Restauration() {
 
         <div className="card card-pad-lg">
           <div className="section-title">🛡️ Anti-fraude</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.15)', borderRadius: 10, display: 'flex', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--status-alert)', color: 'white', display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 800 }}>!</div>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 8 }}>
+            <div style={{   padding: '10px 12px',   background: 'rgba(239,   border: '1px solid rgba(239,   borderRadius: 10,   display: 'flex',   gap: 10 }}>
+              <div style={{   width: 32,   height: 32,   borderRadius: 8,   background: 'var(--status-alert)',   color: 'white',   display: 'grid',   placeItems: 'center',   flexShrink: 0,   fontWeight: 800 }}>!</div>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>Doublon B12 · 14:32</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>3 scans même ID en 5min</div>
+                <div style={{   fontSize: 12.5,   fontWeight: 600 }}>Doublon B12 · 14:32</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>3 scans même ID en 5min</div>
               </div>
             </div>
-            <div style={{ padding: '10px 12px', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.18)', borderRadius: 10, display: 'flex', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--status-warn)', color: 'white', display: 'grid', placeItems: 'center', flexShrink: 0 }}>⚠</div>
+            <div style={{   padding: '10px 12px',   background: 'rgba(245,   border: '1px solid rgba(245,   borderRadius: 10,   display: 'flex',   gap: 10 }}>
+              <div style={{   width: 32,   height: 32,   borderRadius: 8,   background: 'var(--status-warn)',   color: 'white',   display: 'grid',   placeItems: 'center',   flexShrink: 0 }}>⚠</div>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>QR expiré · 14:18</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Tentative bloquée</div>
+                <div style={{   fontSize: 12.5,   fontWeight: 600 }}>QR expiré · 14:18</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>Tentative bloquée</div>
               </div>
             </div>
-            <div style={{ padding: '10px 12px', background: 'var(--emerald-50)', border: '1px solid var(--emerald-100)', borderRadius: 10, display: 'flex', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--emerald-600)', color: 'white', display: 'grid', placeItems: 'center', flexShrink: 0 }}>✓</div>
+            <div style={{   padding: '10px 12px',   background: 'var(--emerald-50)',   border: '1px solid var(--emerald-100)',   borderRadius: 10,   display: 'flex',   gap: 10 }}>
+              <div style={{   width: 32,   height: 32,   borderRadius: 8,   background: 'var(--emerald-600)',   color: 'white',   display: 'grid',   placeItems: 'center',   flexShrink: 0 }}>✓</div>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>Audit OK · 14:00</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>142 scans validés</div>
+                <div style={{   fontSize: 12.5,   fontWeight: 600 }}>Audit OK · 14:00</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>142 scans validés</div>
               </div>
             </div>
           </div>
@@ -81,7 +81,7 @@ export default function Restauration() {
       </div>
 
       <div className="card card-pad-lg mt-4">
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Consommation repas · 7 jours</h3>
+        <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Consommation repas · 7 jours</h3>
         <BarChart
           data={[
             { label: 'Lundi', value: 1380, color: 'var(--emerald-500)' },

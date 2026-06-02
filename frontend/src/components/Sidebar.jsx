@@ -63,7 +63,7 @@ export default function Sidebar({ inDrawer = false, onNavigate, currentView }) {
         </div>
       </div>
 
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '0 12px 20px' }}>
+      <nav style={{   flex: 1,   overflowY: 'auto',   padding: '0 12px 20px' }}>
         {NAV_ITEMS.map((group) => (
           <div key={group.group} className="nav-group">
             <div className="nav-label">{group.group}</div>
@@ -75,7 +75,7 @@ export default function Sidebar({ inDrawer = false, onNavigate, currentView }) {
                     key={item.to}
                     onClick={() => onNavigate(item.to.replace(/^\//, ''))}
                     className={`nav-item ${active ? 'active' : ''}`}
-                    style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
+                    style={{   background: 'none',   border: 'none',   width: '100%',   textAlign: 'left',   cursor: 'pointer',   fontFamily: 'inherit',   fontSize: 'inherit' }}
                   >
                     <item.icon size={18} />
                     <span>{item.label}</span>
@@ -111,11 +111,11 @@ export default function Sidebar({ inDrawer = false, onNavigate, currentView }) {
       <div className="sidebar-foot">
         <div className="user-card">
           <div className="avatar">AO</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: 'white', fontSize: 13, fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{   flex: 1,   minWidth: 0 }}>
+            <div style={{   color: 'white',   fontSize: 13,   fontWeight: 600,   lineHeight: 1.2,   whiteSpace: 'nowrap',   overflow: 'hidden',   textOverflow: 'ellipsis' }}>
               Aminata Ouédraogo
             </div>
-            <div style={{ color: 'var(--gold-400)', fontSize: 11, marginTop: 2 }}>Manager Camp</div>
+            <div style={{   color: 'var(--gold-400)',   fontSize: 11,   marginTop: 2 }}>Manager Camp</div>
           </div>
         </div>
       </div>

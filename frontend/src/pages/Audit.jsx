@@ -30,7 +30,7 @@ export default function Audit() {
       </div>
 
       <div className="card card-pad mb-4">
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+        <div className="flex gap-2" style={{   flexWrap: 'wrap' }}>
           <div className="tabs">
             {['all', 'UPDATE', 'CREATE', 'DELETE', 'LOGIN', 'DETECT', 'ALERT'].map((t) => (
               <button key={t} className={filter === t ? 'active' : ''} onClick={() => setFilter(t)}>
@@ -41,7 +41,7 @@ export default function Audit() {
         </div>
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr><th>Horodatage</th><th>Utilisateur</th><th>Action</th><th>Cible</th><th>Détail</th><th>IP</th><th>Hash</th></tr>
@@ -49,13 +49,13 @@ export default function Audit() {
           <tbody>
             {AUDIT.filter((a) => filter === 'all' || a.action === filter).map((a, i) => (
               <tr key={i}>
-                <td className="text-mono" style={{ fontSize: 12 }}>{a.ts}</td>
-                <td><strong style={{ fontSize: 12 }}>{a.user}</strong></td>
+                <td className="text-mono" style={{   fontSize: 12 }}>{a.ts}</td>
+                <td><strong style={{   fontSize: 12 }}>{a.user}</strong></td>
                 <td><span className={`badge badge-${ACT_COLOR[a.action]}`}>{a.action}</span></td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{a.target}</td>
-                <td style={{ fontSize: 12 }}>{a.detail}</td>
-                <td className="text-mono" style={{ fontSize: 11 }}>{a.ip}</td>
-                <td className="text-mono" style={{ fontSize: 10, color: 'var(--text-3)' }}>{a.hash}</td>
+                <td style={{   fontFamily: 'var(--font-mono)',   fontSize: 11 }}>{a.target}</td>
+                <td style={{   fontSize: 12 }}>{a.detail}</td>
+                <td className="text-mono" style={{   fontSize: 11 }}>{a.ip}</td>
+                <td className="text-mono" style={{   fontSize: 10,   color: 'var(--text-3)' }}>{a.hash}</td>
               </tr>
             ))}
           </tbody>

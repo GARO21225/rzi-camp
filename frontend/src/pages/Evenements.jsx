@@ -22,26 +22,26 @@ export default function Evenements() {
         <button className="btn btn-primary"><Plus size={14} /> Créer événement</button>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 1fr 1fr' }}>
         {EVENTS.map((e) => (
           <div key={e.id} className="card card-pad-lg hover-lift">
             <div className="flex items-center gap-2 mb-3">
               {e.required && <span className="badge badge-alert">Obligatoire</span>}
               <span className={`badge badge-${TYPE_COLOR[e.type]}`}>{TYPE_LABEL[e.type]}</span>
             </div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{e.title}</h3>
-            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6 }}>{e.desc}</div>
-            <div style={{ height: 1, background: 'var(--border)', margin: '16px 0' }} />
-            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>📅 {e.date}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>📍 {e.place}</div>
+            <h3 style={{   fontSize: 16,   fontWeight: 700,   marginBottom: 8 }}>{e.title}</h3>
+            <div style={{   fontSize: 13,   color: 'var(--text-3)',   lineHeight: 1.6 }}>{e.desc}</div>
+            <div style={{   height: 1,   background: 'var(--border)',   margin: '16px 0' }} />
+            <div style={{   fontSize: 12,   color: 'var(--text-3)' }}>📅 {e.date}</div>
+            <div style={{   fontSize: 12,   color: 'var(--text-3)',   marginTop: 4 }}>📍 {e.place}</div>
             {e.participants > 0 && (
               <div className="flex items-center gap-2 mt-3">
-                <div className="flex" style={{ marginRight: 4 }}>
-                  <div className="avatar" style={{ width: 24, height: 24, fontSize: 9, border: '2px solid var(--surface)' }}>AO</div>
-                  <div className="avatar" style={{ width: 24, height: 24, fontSize: 9, marginLeft: -8, border: '2px solid var(--surface)' }}>MK</div>
-                  <div className="avatar" style={{ width: 24, height: 24, fontSize: 9, marginLeft: -8, border: '2px solid var(--surface)' }}>PD</div>
+                <div className="flex" style={{   marginRight: 4 }}>
+                  <div className="avatar" style={{   width: 24,   height: 24,   fontSize: 9,   border: '2px solid var(--surface)' }}>AO</div>
+                  <div className="avatar" style={{   width: 24,   height: 24,   fontSize: 9,   marginLeft: -8,   border: '2px solid var(--surface)' }}>MK</div>
+                  <div className="avatar" style={{   width: 24,   height: 24,   fontSize: 9,   marginLeft: -8,   border: '2px solid var(--surface)' }}>PD</div>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>+ {e.participants} participants</span>
+                <span style={{   fontSize: 12,   color: 'var(--text-3)' }}>+ {e.participants} participants</span>
               </div>
             )}
             <style>{`.avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--copper-500), var(--emerald-600)); display: grid; place-items: center; color: white; font-weight: 700; font-size: 13px; }`}</style>

@@ -24,20 +24,20 @@ export default function Reservations() {
         <button className="btn btn-primary"><Plus size={14} /> Nouvelle réservation</button>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 2fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 2fr' }}>
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 11 }}>
+          <h3 style={{   fontSize: 14,   fontWeight: 700,   marginBottom: 12,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.08em',   fontSize: 11 }}>
             Paramètres
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 14 }}>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Salle</label>
+              <label style={{   fontSize: 11,   fontWeight: 700,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.06em',   display: 'block',   marginBottom: 6 }}>Salle</label>
               <select className="input" value={room} onChange={(e) => setRoom(e.target.value)}>
                 {ROOMS.map((r) => <option key={r}>{r}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Date</label>
+              <label style={{   fontSize: 11,   fontWeight: 700,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.06em',   display: 'block',   marginBottom: 6 }}>Date</label>
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <button className="btn btn-primary mt-2"><Plus size={14} /> Réserver</button>
@@ -45,8 +45,8 @@ export default function Reservations() {
         </div>
 
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Disponibilité · {date}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+          <h3 style={{   fontSize: 14,   fontWeight: 700,   marginBottom: 12 }}>Disponibilité · {date}</h3>
+          <div style={{   display: 'grid',   gridTemplateColumns: 'repeat(8,   gap: 6 }}>
             {TIMES.map((t) => {
               const reserved = RESA.some((r) => r.time.startsWith(t.slice(0, 5)))
               return (
@@ -62,8 +62,8 @@ export default function Reservations() {
                   }}
                   disabled={reserved}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 700 }}>{t}</div>
-                  <div style={{ fontSize: 9, marginTop: 2 }}>{reserved ? 'Réservé' : 'Libre'}</div>
+                  <div style={{   fontSize: 11,   fontWeight: 700 }}>{t}</div>
+                  <div style={{   fontSize: 9,   marginTop: 2 }}>{reserved ? 'Réservé' : 'Libre'}</div>
                 </button>
               )
             })}
@@ -71,7 +71,7 @@ export default function Reservations() {
         </div>
       </div>
 
-      <div className="card mt-4" style={{ overflow: 'hidden' }}>
+      <div className="card mt-4" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr><th>Salle</th><th>Date</th><th>Horaire</th><th>Demandé par</th><th>Motif</th><th></th></tr>
@@ -81,7 +81,7 @@ export default function Reservations() {
               <tr key={r.id}>
                 <td><strong>{r.room}</strong></td>
                 <td>{r.date}</td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{r.time}</td>
+                <td style={{   fontFamily: 'var(--font-mono)' }}>{r.time}</td>
                 <td>{r.by}</td>
                 <td>{r.motif}</td>
                 <td><button className="btn btn-sm btn-ghost">Annuler</button></td>

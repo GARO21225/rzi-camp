@@ -48,29 +48,29 @@ export default function Status() {
         </span>
       </div>
 
-      <div className="card card-pad-lg mb-4" style={{ textAlign: 'center', background: overall === 'operational' ? 'var(--emerald-50)' : 'rgba(245,158,11,.05)', borderColor: overall === 'operational' ? 'var(--emerald-100)' : 'rgba(245,158,11,.2)' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>
+      <div className="card card-pad-lg mb-4" style={{   textAlign: 'center',   background: overall === 'operational' ? 'var(--emerald-50)' : 'rgba(245,   borderColor: overall === 'operational' ? 'var(--emerald-100)' : 'rgba(245 }}>
+        <div style={{   fontSize: 48,   marginBottom: 12 }}>
           {overall === 'operational' ? '✅' : overall === 'degraded' ? '⚠️' : '🚨'}
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>
+        <h2 style={{   fontSize: 22,   fontWeight: 700,   color: 'var(--text)' }}>
           {overall === 'operational' ? 'Tous les systèmes fonctionnent' : overall === 'degraded' ? 'Système dégradé' : 'Incident en cours'}
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8 }}>
+        <p style={{   fontSize: 14,   color: 'var(--text-3)',   marginTop: 8 }}>
           Dernière vérif automatique il y a {Math.floor((new Date() - lastCheck) / 1000)}s
         </p>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: '1fr 1fr' }}>
         {COMPONENTS.map((c) => {
           const Icon = STATUS_META[c.status].icon
           return (
             <div key={c.name} className="card card-pad flex items-center gap-3 hover-lift">
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: c.status === 'operational' ? 'var(--emerald-100)' : c.status === 'degraded' ? 'rgba(245,158,11,.15)' : 'rgba(220,38,38,.1)', color: c.status === 'operational' ? 'var(--emerald-700)' : c.status === 'degraded' ? 'var(--status-warn)' : 'var(--status-alert)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <div style={{   width: 44,   height: 44,   borderRadius: 10,   background: c.status === 'operational' ? 'var(--emerald-100)' : c.status === 'degraded' ? 'rgba(245,   .15)': 'rgba(220,   color: c.status === 'operational' ? 'var(--emerald-700)' : c.status === 'degraded' ? 'var(--status-warn)' : 'var(--status-alert)',   display: 'grid',   placeItems: 'center',   flexShrink: 0 }}>
                 <Icon size={20} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{c.desc}</div>
+              <div style={{   flex: 1,   minWidth: 0 }}>
+                <div style={{   fontSize: 14,   fontWeight: 600 }}>{c.name}</div>
+                <div style={{   fontSize: 12,   color: 'var(--text-3)',   marginTop: 2 }}>{c.desc}</div>
               </div>
               <span className={`badge badge-${STATUS_META[c.status].color}`}>{STATUS_META[c.status].label}</span>
             </div>
@@ -79,15 +79,15 @@ export default function Status() {
       </div>
 
       <div className="card card-pad-lg">
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📋 Historique des incidents</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 16 }}>📋 Historique des incidents</h3>
+        <div style={{   display: 'flex',   flexDirection: 'column',   gap: 12 }}>
           {INCIDENTS.map((inc, i) => (
-            <div key={i} style={{ padding: 14, background: 'var(--bg-2)', borderRadius: 10, borderLeft: '3px solid var(--emerald-500)' }}>
+            <div key={i} style={{   padding: 14,   background: 'var(--bg-2)',   borderRadius: 10,   borderLeft: '3px solid var(--emerald-500)' }}>
               <div className="flex items-center gap-2">
-                <strong style={{ fontSize: 13 }}>{inc.title}</strong>
-                <span className="badge badge-ok" style={{ marginLeft: 'auto' }}>Résolu</span>
+                <strong style={{   fontSize: 13 }}>{inc.title}</strong>
+                <span className="badge badge-ok" style={{   marginLeft: 'auto' }}>Résolu</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{inc.date} · {inc.desc}</div>
+              <div style={{   fontSize: 12,   color: 'var(--text-3)',   marginTop: 4 }}>{inc.date} · {inc.desc}</div>
             </div>
           ))}
         </div>

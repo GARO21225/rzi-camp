@@ -44,16 +44,16 @@ export default function Historique() {
         />
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
-        <div style={{ padding: 20 }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
+        <div style={{   padding: 20 }}>
           {filtered.map((e, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none' }}>
-              <div className="avatar" style={{ width: 36, height: 36, fontSize: 12 }}>{e.user.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13 }}>
-                  <strong>{e.user}</strong> <span style={{ color: 'var(--text-3)' }}>{e.action}</span> <span style={{ color: 'var(--copper-600)' }}>{e.target}</span>
+            <div key={i} style={{   display: 'flex',   alignItems: 'center',   gap: 12,   padding: '10px 0',   borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div className="avatar" style={{   width: 36,   height: 36,   fontSize: 12 }}>{e.user.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
+              <div style={{   flex: 1,   minWidth: 0 }}>
+                <div style={{   fontSize: 13 }}>
+                  <strong>{e.user}</strong> <span style={{   color: 'var(--text-3)' }}>{e.action}</span> <span style={{   color: 'var(--copper-600)' }}>{e.target}</span>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>{e.ts}</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)',   marginTop: 2,   fontFamily: 'var(--font-mono)' }}>{e.ts}</div>
               </div>
               <span className={`badge badge-${ACTION_COLOR[e.action] || 'ink'}`}>{e.action}</span>
             </div>

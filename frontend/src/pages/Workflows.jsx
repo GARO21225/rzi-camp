@@ -24,27 +24,27 @@ export default function Workflows() {
         <button className="btn btn-primary"><Plus size={14} /> Nouveau workflow</button>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: 'repeat(2 }}>
         {WFS.map((w) => (
           <div key={w.id} className="card card-pad-lg hover-lift">
             <div className="flex items-center gap-3 mb-3">
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: w.color, color: 'white', display: 'grid', placeItems: 'center' }}>
+              <div style={{   width: 44,   height: 44,   borderRadius: 12,   background: w.color,   color: 'white',   display: 'grid',   placeItems: 'center' }}>
                 {w.status === 'completed' ? <CheckCircle2 size={22} /> : <Clock size={22} />}
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{w.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{w.id}</div>
+                <div style={{   fontSize: 14,   fontWeight: 700 }}>{w.name}</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)',   fontFamily: 'var(--font-mono)' }}>{w.id}</div>
               </div>
-              <span className={`badge badge-${STATUS_MAP[w.status].color}`} style={{ marginLeft: 'auto' }}>{STATUS_MAP[w.status].label}</span>
+              <span className={`badge badge-${STATUS_MAP[w.status].color}`} style={{   marginLeft: 'auto' }}>{STATUS_MAP[w.status].label}</span>
             </div>
 
             <div className="flex items-center gap-2 mb-2">
-              <div style={{ flex: 1 }}>
+              <div style={{   flex: 1 }}>
                 <ProgressBar value={w.done} max={w.steps} color={w.status === 'completed' ? 'emerald' : 'copper'} showLabel label={`${w.done}/${w.steps} étapes`} />
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-3" style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            <div className="flex items-center justify-between mt-3" style={{   fontSize: 11,   color: 'var(--text-3)' }}>
               <span>Mis à jour il y a 12 min</span>
               <button className="btn btn-sm btn-ghost">Détails <ArrowRight size={12} /></button>
             </div>

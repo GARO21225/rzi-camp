@@ -11,10 +11,10 @@ export default function QRScan() {
         </div>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 1fr' }}>
         <div className="card card-pad-lg text-center">
-          <div className="section-title" style={{ justifyContent: 'center' }}>Mon QR · rotation 30s</div>
-          <div style={{ display: 'inline-block', padding: 16, background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-2)' }}>
+          <div className="section-title" style={{   justifyContent: 'center' }}>Mon QR · rotation 30s</div>
+          <div style={{   display: 'inline-block',   padding: 16,   background: 'white',   borderRadius: 'var(--radius-lg)',   border: '1px solid var(--border-2)' }}>
             <svg width="200" height="200" viewBox="0 0 100 100">
               <rect x="0" y="0" width="100" height="100" fill="white" />
               <g fill="#001e42">
@@ -35,10 +35,10 @@ export default function QRScan() {
               </g>
             </svg>
           </div>
-          <div style={{ marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.1em' }}>
+          <div style={{   marginTop: 12,   fontFamily: 'var(--font-mono)',   fontSize: 11,   color: 'var(--text-3)',   letterSpacing: '0.1em' }}>
             TOKEN: 8F2A · 9C1D · 4E7B · 6A3F
           </div>
-          <div className="flex items-center justify-center gap-2 mt-2" style={{ fontSize: 12 }}>
+          <div className="flex items-center justify-center gap-2 mt-2" style={{   fontSize: 12 }}>
             <span className="dot dot-pulse dot-ok" />
             <span>Renouvellement dans <strong>24s</strong></span>
           </div>
@@ -46,7 +46,7 @@ export default function QRScan() {
 
         <div className="card card-pad-lg">
           <div className="section-title">Comment ça marche</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 14 }}>
             {[
               { n: 1, t: 'QR unique toutes les 30s', d: 'Basé sur HMAC-SHA256 + timestamp + user_id. Impossible à dupliquer.' },
               { n: 2, t: 'Validation hors-ligne', d: 'Le scanner vérifie la signature localement avant de sync. Pas de dépendance réseau.' },
@@ -54,10 +54,10 @@ export default function QRScan() {
               { n: 4, t: 'Audit immuable', d: 'Chaque scan signé et horodaté est inscrit dans le registre de conformité.' },
             ].map((s) => (
               <div key={s.n} className="flex gap-3">
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--gold-100)', color: 'var(--gold-800)', display: 'grid', placeItems: 'center', fontWeight: 800, flexShrink: 0 }}>{s.n}</div>
+                <div style={{   width: 32,   height: 32,   borderRadius: 8,   background: 'var(--gold-100)',   color: 'var(--gold-800)',   display: 'grid',   placeItems: 'center',   fontWeight: 800,   flexShrink: 0 }}>{s.n}</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{s.t}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{s.d}</div>
+                  <div style={{   fontSize: 13,   fontWeight: 600 }}>{s.t}</div>
+                  <div style={{   fontSize: 12,   color: 'var(--text-3)',   marginTop: 2 }}>{s.d}</div>
                 </div>
               </div>
             ))}

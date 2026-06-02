@@ -31,7 +31,7 @@ const Analytics = lazy(() => import('./pages/Analytics'))
 const CopiloteIA = lazy(() => import('./pages/CopiloteIA'))
 
 const Loader = () => (
-  <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-3)', fontSize: 32 }}>⏳</div>
+  <div style={{   padding: 60,   textAlign: 'center',   color: 'var(--text-3)',   fontSize: 32 }}>⏳</div>
 )
 
 export default function App() {

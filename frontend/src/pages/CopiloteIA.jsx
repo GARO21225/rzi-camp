@@ -41,23 +41,23 @@ export default function CopiloteIA() {
         <span className="badge badge-ok"><span className="dot dot-ok" />14 sources connectées</span>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '280px 1fr' }}>
-        <div className="card card-pad-lg" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: 11, fontWeight: 700, marginBottom: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Suggestions</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '280px 1fr' }}>
+        <div className="card card-pad-lg" style={{   height: 'fit-content' }}>
+          <h3 style={{   fontSize: 11,   fontWeight: 700,   marginBottom: 12,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.08em' }}>Suggestions</h3>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 6 }}>
             {SUGGESTIONS.map((s) => (
               <button
                 key={s.label}
                 onClick={() => send(s.label.replace(/^[^ ]+ /, ''))}
-                style={{ textAlign: 'left', padding: '10px 12px', fontSize: 12.5, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 9, cursor: 'pointer', color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
+                style={{   textAlign: 'left',   padding: '10px 12px',   fontSize: 12.5,   background: 'var(--bg-2)',   border: '1px solid var(--border)',   borderRadius: 9,   cursor: 'pointer',   color: 'var(--text-2)',   display: 'flex',   alignItems: 'center',   gap: 8,   fontFamily: 'inherit' }}
               >
                 {s.icon} {s.label}
               </button>
             ))}
           </div>
-          <div style={{ height: 1, background: 'var(--border)', margin: '16px 0' }} />
-          <h3 style={{ fontSize: 11, fontWeight: 700, marginBottom: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Capacités actives</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+          <div style={{   height: 1,   background: 'var(--border)',   margin: '16px 0' }} />
+          <h3 style={{   fontSize: 11,   fontWeight: 700,   marginBottom: 12,   color: 'var(--text-3)',   textTransform: 'uppercase',   letterSpacing: '0.08em' }}>Capacités actives</h3>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 8,   fontSize: 12.5 }}>
             {[
               { l: 'Prédiction panne', on: true },
               { l: 'Détection fraude', on: true },
@@ -73,32 +73,32 @@ export default function CopiloteIA() {
           </div>
         </div>
 
-        <div className="card" style={{ height: 600, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: 18, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg, var(--gold-400), var(--gold-600))', display: 'grid', placeItems: 'center' }}>
+        <div className="card" style={{   height: 600,   display: 'flex',   flexDirection: 'column' }}>
+          <div style={{   padding: 18,   borderBottom: '1px solid var(--border)',   display: 'flex',   alignItems: 'center',   gap: 12 }}>
+            <div style={{   width: 38,   height: 38,   borderRadius: 10,   background: 'linear-gradient(135deg,   display: 'grid',   placeItems: 'center' }}>
               <Bot size={20} color="white" />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>RZ-1 · Assistant Camp</div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Modèle RZI-Camp v2.3 · formé sur 18 mois</div>
+              <div style={{   fontSize: 14,   fontWeight: 700 }}>RZ-1 · Assistant Camp</div>
+              <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>Modèle RZI-Camp v2.3 · formé sur 18 mois</div>
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }} ref={bodyRef}>
+          <div style={{   flex: 1,   overflowY: 'auto',   padding: 20,   display: 'flex',   flexDirection: 'column',   gap: 14 }} ref={bodyRef}>
             {messages.map((m, i) => (
-              <div key={i} className={`ai-msg ${m.role}`} style={{ display: 'flex', gap: 8 }}>
-                <div className="ai-av" style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, background: m.role === 'user' ? 'var(--copper-100)' : 'linear-gradient(135deg, var(--gold-400), var(--gold-600))', color: m.role === 'user' ? 'var(--copper-700)' : 'white' }}>
+              <div key={i} className={`ai-msg ${m.role}`} style={{   display: 'flex',   gap: 8 }}>
+                <div className="ai-av" style={{   width: 26,   height: 26,   borderRadius: 7,   flexShrink: 0,   display: 'grid',   placeItems: 'center',   fontSize: 11,   fontWeight: 700,   background: m.role === 'user' ? 'var(--copper-100)' : 'linear-gradient(135deg,   color: m.role === 'user' ? 'var(--copper-700)' : 'white' }}>
                   {m.role === 'user' ? 'AO' : 'AI'}
                 </div>
-                <div className="bubble" style={{ background: m.role === 'user' ? 'var(--copper-100)' : 'var(--bg-2)', color: m.role === 'user' ? 'var(--copper-900)' : 'var(--text)', borderRadius: 12, padding: '10px 12px', fontSize: 13, lineHeight: 1.5, maxWidth: 480 }} dangerouslySetInnerHTML={{ __html: m.text }} />
+                <div className="bubble" style={{   background: m.role === 'user' ? 'var(--copper-100)' : 'var(--bg-2)',   color: m.role === 'user' ? 'var(--copper-900)' : 'var(--text)',   borderRadius: 12,   padding: '10px 12px',   fontSize: 13,   lineHeight: 1.5,   maxWidth: 480 }} dangerouslySetInnerHTML={{ __html: m.text }} />
               </div>
             ))}
           </div>
 
-          <div style={{ padding: 14, borderTop: '1px solid var(--border)' }}>
-            <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
+          <div style={{   padding: 14,   borderTop: '1px solid var(--border)' }}>
+            <div className="flex gap-2 mb-2" style={{   flexWrap: 'wrap' }}>
               {['📋 Crée intervention', '🔮 Prédictions', '👥 Effectif optimal', '📊 Rapport'].map((s) => (
-                <button key={s} onClick={() => send(s.replace(/^[^ ]+ /, ''))} style={{ fontSize: 11.5, padding: '5px 10px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 999, cursor: 'pointer', color: 'var(--text-2)', fontFamily: 'inherit' }}>{s}</button>
+                <button key={s} onClick={() => send(s.replace(/^[^ ]+ /, ''))} style={{   fontSize: 11.5,   padding: '5px 10px',   background: 'var(--bg-2)',   border: '1px solid var(--border)',   borderRadius: 999,   cursor: 'pointer',   color: 'var(--text-2)',   fontFamily: 'inherit' }}>{s}</button>
               ))}
             </div>
             <div className="flex gap-2">
@@ -108,7 +108,7 @@ export default function CopiloteIA() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && send()}
-                style={{ flex: 1 }}
+                style={{   flex: 1 }}
               />
               <button className="btn btn-icon btn-primary" onClick={() => send()}><Send size={14} /></button>
             </div>

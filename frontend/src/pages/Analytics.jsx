@@ -36,7 +36,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         <KpiCard label="Taux occupation moy" value="89.2%" delta="3.1 pts" deltaDir="up" progress={89.2} progressColor="emerald" progressLabel="Cible 85%" />
         <KpiCard label="MTTR moyen" value="4h 12m" delta="47 min" deltaDir="down" progress={68} progressColor="emerald" progressLabel="Cible 6h" />
         <KpiCard label="Coût / pers / jour" value="87.40€" delta="4.2%" deltaDir="up" progress={42} progressColor="copper" progressLabel="Budget" />
@@ -44,8 +44,8 @@ export default function Analytics() {
       </div>
 
       <div className="card card-pad-lg mb-4">
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Tendances occupation & incidents · 30 jours</h3>
-        <div style={{ height: 320 }}>
+        <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Tendances occupation & incidents · 30 jours</h3>
+        <div style={{   height: 320 }}>
           <Line
             data={{
               labels: Array.from({ length: 30 }, (_, i) => i + 1),
@@ -59,9 +59,9 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 1fr' }}>
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Top types d'incidents</h3>
+          <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Top types d'incidents</h3>
           <BarChart
             data={[
               { label: 'Plomberie', value: 18 },
@@ -76,8 +76,8 @@ export default function Analytics() {
           />
         </div>
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Consommation énergétique</h3>
-          <div style={{ height: 240 }}>
+          <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Consommation énergétique</h3>
+          <div style={{   height: 240 }}>
             <Line
               data={{
                 labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],

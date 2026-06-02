@@ -29,7 +29,7 @@ export default function Boutique() {
         </div>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         {[
           { label: 'CA jour', val: '247K', sub: 'FCFA', color: 'emerald' },
           { label: 'Articles vendus', val: 429, sub: '↑ 12%', color: 'emerald' },
@@ -45,12 +45,12 @@ export default function Boutique() {
       </div>
 
       {alerts.length > 0 && (
-        <div className="card card-pad mb-4" style={{ background: 'rgba(220,38,38,.04)', borderColor: 'rgba(220,38,38,.2)' }}>
+        <div className="card card-pad mb-4" style={{   background: 'rgba(220,   borderColor: 'rgba(220 }}>
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={16} color="var(--status-alert)" />
-            <strong style={{ color: 'var(--status-alert)' }}>{alerts.length} articles en stock critique</strong>
+            <strong style={{   color: 'var(--status-alert)' }}>{alerts.length} articles en stock critique</strong>
           </div>
-          <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+          <div className="flex gap-2" style={{   flexWrap: 'wrap' }}>
             {alerts.map((a) => (
               <span key={a.id} className="badge badge-alert">{a.name} · {a.stock}/{a.min}</span>
             ))}
@@ -58,7 +58,7 @@ export default function Boutique() {
         </div>
       )}
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
@@ -75,16 +75,16 @@ export default function Boutique() {
               <tr key={a.id}>
                 <td><strong>{a.name}</strong></td>
                 <td>{a.cat}</td>
-                <td style={{ minWidth: 180 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
+                <td style={{   minWidth: 180 }}>
+                  <div style={{   display: 'flex',   alignItems: 'center',   gap: 8 }}>
+                    <div style={{   flex: 1 }}>
                       <ProgressBar value={a.stock} max={a.min * 2} color={a.stock < a.min ? 'alert' : a.stock < a.min * 1.5 ? 'warn' : 'emerald'} size="sm" />
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{a.stock}</span>
+                    <span style={{   fontSize: 11,   color: 'var(--text-3)',   fontFamily: 'var(--font-mono)' }}>{a.stock}</span>
                   </div>
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{a.vendus}</td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{a.prix.toLocaleString('fr-FR')} F</td>
+                <td style={{   fontFamily: 'var(--font-mono)' }}>{a.vendus}</td>
+                <td style={{   fontFamily: 'var(--font-mono)' }}>{a.prix.toLocaleString('fr-FR')} F</td>
                 <td>
                   <span className={`badge badge-${a.stock < a.min ? 'alert' : a.stock < a.min * 1.5 ? 'warn' : 'ok'}`}>
                     {a.stock < a.min ? 'Critique' : a.stock < a.min * 1.5 ? 'Faible' : 'OK'}

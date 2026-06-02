@@ -14,7 +14,7 @@ export default function Presences() {
         </div>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         {[
           { label: 'Présents', val: 798, total: 847, color: 'emerald', icon: <UserCheck size={14} /> },
           { label: 'Absents', val: 32, total: 847, color: 'alert', icon: <UserX size={14} /> },
@@ -24,9 +24,9 @@ export default function Presences() {
           <div key={k.label} className="card kpi hover-lift">
             <div className="flex items-center justify-between">
               <div className="kpi-label">{k.label}</div>
-              <div style={{ color: 'var(--text-3)' }}>{k.icon}</div>
+              <div style={{   color: 'var(--text-3)' }}>{k.icon}</div>
             </div>
-            <div className="kpi-value">{k.val}<span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}> / {k.total}</span></div>
+            <div className="kpi-value">{k.val}<span style={{   fontSize: 14,   color: 'var(--text-3)',   fontWeight: 500 }}> / {k.total}</span></div>
             <div className="mt-2">
               <ProgressBar value={(k.val / k.total) * 100} color={k.color} size="sm" showLabel />
             </div>
@@ -34,9 +34,9 @@ export default function Presences() {
         ))}
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '2fr 1fr' }}>
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Heures de pointage · aujourd'hui</h3>
+          <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Heures de pointage · aujourd'hui</h3>
           <BarChart
             data={[
               { label: '05h', value: 12 },
@@ -55,19 +55,19 @@ export default function Presences() {
         </div>
 
         <div className="card card-pad-lg">
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Anomalies du jour</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <h3 style={{   fontSize: 15,   fontWeight: 700,   marginBottom: 14 }}>Anomalies du jour</h3>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 8 }}>
             {[
               { t: 'Retard B-012', d: 'A. Sawadogo · 47 min', c: 'warn' },
               { t: 'Oubli pointage', d: 'F. Compaoré · sortie', c: 'warn' },
               { t: 'Départ anticipé', d: 'I. Sawadogo · 16h30', c: 'alert' },
               { t: 'Heures sup', d: 'M. Koné · +2h30', c: 'info' },
             ].map((a, i) => (
-              <div key={i} style={{ padding: 10, background: 'var(--bg-2)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={i} style={{   padding: 10,   background: 'var(--bg-2)',   borderRadius: 10,   display: 'flex',   alignItems: 'center',   gap: 10 }}>
                 <div style={{ width: 6, height: 32, borderRadius: 3, background: `var(--status-${a.c})` }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{a.t}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{a.d}</div>
+                  <div style={{   fontSize: 13,   fontWeight: 600 }}>{a.t}</div>
+                  <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>{a.d}</div>
                 </div>
               </div>
             ))}

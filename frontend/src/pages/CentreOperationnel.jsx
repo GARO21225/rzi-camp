@@ -32,7 +32,7 @@ export default function CentreOperationnel() {
         <span className="badge badge-ok"><span className="dot dot-pulse dot-ok" />Live</span>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         {[
           { label: 'Uptime moyen', val: '99.94%', sub: '30j', color: 'emerald' },
           { label: 'Latence P95', val: '142ms', sub: 'API', color: 'emerald' },
@@ -47,7 +47,7 @@ export default function CentreOperationnel() {
         ))}
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
@@ -55,8 +55,8 @@ export default function CentreOperationnel() {
               <th>Statut</th>
               <th>Uptime</th>
               <th>Latence</th>
-              <th style={{ minWidth: 200 }}>CPU</th>
-              <th style={{ minWidth: 200 }}>Mémoire</th>
+              <th style={{   minWidth: 200 }}>CPU</th>
+              <th style={{   minWidth: 200 }}>Mémoire</th>
             </tr>
           </thead>
           <tbody>
@@ -70,8 +70,8 @@ export default function CentreOperationnel() {
                       <Icon size={12} /> {STATUS_INFO[s.status].label}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{s.uptime}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{s.latency}</td>
+                  <td style={{   fontFamily: 'var(--font-mono)' }}>{s.uptime}</td>
+                  <td style={{   fontFamily: 'var(--font-mono)' }}>{s.latency}</td>
                   <td>
                     <ProgressBar value={s.cpu} color={s.cpu > 80 ? 'alert' : s.cpu > 60 ? 'warn' : 'emerald'} size="sm" showLabel />
                   </td>

@@ -35,7 +35,7 @@ export default function Personnel() {
         </div>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         {[
           { label: 'Sur site', value: onSite, total, color: 'emerald', icon: <UserCheck size={14} /> },
           { label: 'En rotation', value: inRotation, total, color: 'warn', icon: <Globe size={14} /> },
@@ -45,7 +45,7 @@ export default function Personnel() {
           <div key={k.label} className="card kpi hover-lift">
             <div className="flex items-center justify-between">
               <div className="kpi-label">{k.label}</div>
-              <div style={{ color: 'var(--text-3)' }}>{k.icon}</div>
+              <div style={{   color: 'var(--text-3)' }}>{k.icon}</div>
             </div>
             <div className="kpi-value">{k.value}</div>
             <div className="mt-2">
@@ -55,7 +55,7 @@ export default function Personnel() {
         ))}
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
@@ -73,27 +73,27 @@ export default function Personnel() {
               <tr key={p.id}>
                 <td>
                   <div className="flex items-center gap-2">
-                    <div className="avatar" style={{ width: 32, height: 32, fontSize: 11 }}>{p.avatar}</div>
+                    <div className="avatar" style={{   width: 32,   height: 32,   fontSize: 11 }}>{p.avatar}</div>
                     <div>
-                      <strong style={{ fontSize: 13 }}>{p.name}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{p.role}</div>
+                      <strong style={{   fontSize: 13 }}>{p.name}</strong>
+                      <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>{p.role}</div>
                     </div>
                   </div>
                 </td>
-                <td className="text-mono" style={{ fontSize: 12 }}>{p.id}</td>
+                <td className="text-mono" style={{   fontSize: 12 }}>{p.id}</td>
                 <td>
                   <span className={`badge badge-${ROLE_COLOR[p.role] === 'copper' ? 'copper' : ROLE_COLOR[p.role] === 'gold' ? 'copper' : ROLE_COLOR[p.role] === 'info' ? 'info' : ROLE_COLOR[p.role] === 'purple' ? 'info' : 'ink'}`}>
                     {p.role}
                   </span>
                 </td>
                 <td>{p.company}</td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{p.room}</td>
+                <td style={{   fontFamily: 'var(--font-mono)' }}>{p.room}</td>
                 <td>
                   <span className={`badge badge-${p.status === 'on' ? 'ok' : 'warn'}`}>
                     {p.status === 'on' ? 'Sur site' : 'En rotation'}
                   </span>
                 </td>
-                <td style={{ fontSize: 12, color: 'var(--text-3)' }}>{p.since}</td>
+                <td style={{   fontSize: 12,   color: 'var(--text-3)' }}>{p.since}</td>
               </tr>
             ))}
           </tbody>

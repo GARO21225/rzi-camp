@@ -90,7 +90,7 @@ export default function Topbar({ onToggleCopilot, onMenu }) {
         <span className="dot dot-alert" />
       </button>
 
-      <button className="topbar-action" title="Copilote IA" onClick={onToggleCopilot} style={{ color: 'var(--gold-600)' }}>
+      <button className="topbar-action" title="Copilote IA" onClick={onToggleCopilot} style={{   color: 'var(--gold-600)' }}>
         🤖
       </button>
 

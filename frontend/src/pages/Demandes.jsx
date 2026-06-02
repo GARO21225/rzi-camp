@@ -30,7 +30,7 @@ export default function Demandes() {
         <button className="btn btn-primary"><Plus size={14} /> Nouvelle demande</button>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(3 }}>
         {[
           { label: 'En attente', val: counts.pending, color: 'warn', icon: <Clock size={14} /> },
           { label: 'Validées', val: counts.validated, color: 'emerald', icon: <CheckCircle2 size={14} /> },
@@ -39,14 +39,14 @@ export default function Demandes() {
           <div key={k.label} className="card kpi hover-lift">
             <div className="flex items-center justify-between">
               <div className="kpi-label">{k.label}</div>
-              <div style={{ color: 'var(--text-3)' }}>{k.icon}</div>
+              <div style={{   color: 'var(--text-3)' }}>{k.icon}</div>
             </div>
             <div className="kpi-value">{k.val}</div>
           </div>
         ))}
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
@@ -62,11 +62,11 @@ export default function Demandes() {
           <tbody>
             {DEMANDES.map((d) => (
               <tr key={d.id}>
-                <td className="text-mono" style={{ fontSize: 12 }}>{d.id}</td>
+                <td className="text-mono" style={{   fontSize: 12 }}>{d.id}</td>
                 <td><span className={`badge badge-${TYPE_COLOR[d.type] || 'ink'}`}>{d.type}</span></td>
-                <td><strong style={{ fontSize: 12 }}>{d.by}</strong></td>
-                <td style={{ fontSize: 12, color: 'var(--text-2)' }}>{d.desc}</td>
-                <td style={{ fontSize: 12, color: 'var(--text-3)' }}>{d.date}</td>
+                <td><strong style={{   fontSize: 12 }}>{d.by}</strong></td>
+                <td style={{   fontSize: 12,   color: 'var(--text-2)' }}>{d.desc}</td>
+                <td style={{   fontSize: 12,   color: 'var(--text-3)' }}>{d.date}</td>
                 <td><span className={`badge badge-${STATUS_MAP[d.status].color}`}>{STATUS_MAP[d.status].label}</span></td>
                 <td>
                   <div className="flex gap-2">

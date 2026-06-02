@@ -29,12 +29,12 @@ export default function Residences() {
       </div>
 
       <div className="card card-pad mb-4">
-        <div className="flex gap-3 items-center" style={{ flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
-            <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+        <div className="flex gap-3 items-center" style={{   flexWrap: 'wrap' }}>
+          <div style={{   position: 'relative',   flex: 1,   minWidth: 240 }}>
+            <Search size={16} style={{   position: 'absolute',   left: 12,   top: '50%',   transform: 'translateY(-50%)',   color: 'var(--text-3)' }} />
             <input
               className="input"
-              style={{ paddingLeft: 36 }}
+              style={{   paddingLeft: 36 }}
               placeholder="Rechercher par ID, section, type…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -56,14 +56,14 @@ export default function Residences() {
         </div>
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
               <th>ID</th>
               <th>Type</th>
               <th>Section</th>
-              <th style={{ minWidth: 200 }}>Occupation</th>
+              <th style={{   minWidth: 200 }}>Occupation</th>
               <th>Conso</th>
               <th>Responsable</th>
               <th>Statut</th>
@@ -73,21 +73,21 @@ export default function Residences() {
           <tbody>
             {filtered.slice(0, 50).map((b) => (
               <tr key={b.id}>
-                <td className="text-mono" style={{ fontSize: 12 }}>{b.id}</td>
+                <td className="text-mono" style={{   fontSize: 12 }}>{b.id}</td>
                 <td><strong>{b.type}</strong></td>
                 <td>Section {b.section}</td>
                 <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
+                  <div style={{   display: 'flex',   alignItems: 'center',   gap: 8 }}>
+                    <div style={{   flex: 1 }}>
                       <ProgressBar value={b.occupants} max={b.chambres} color={b.status === 'alert' ? 'alert' : 'copper'} size="sm" />
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', minWidth: 50 }}>
+                    <span style={{   fontSize: 11,   color: 'var(--text-3)',   fontFamily: 'var(--font-mono)',   minWidth: 50 }}>
                       {b.occupants}/{b.chambres}
                     </span>
                   </div>
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{b.consommation_kwh.toFixed(0)} kWh</td>
-                <td style={{ fontSize: 12 }}>{b.responsable}</td>
+                <td style={{   fontFamily: 'var(--font-mono)' }}>{b.consommation_kwh.toFixed(0)} kWh</td>
+                <td style={{   fontSize: 12 }}>{b.responsable}</td>
                 <td>
                   <span className={`badge badge-${b.status === 'ok' ? 'ok' : b.status === 'warn' ? 'warn' : b.status === 'alert' ? 'alert' : 'ink'}`}>
                     {b.status === 'ok' ? 'Occupé' : b.status === 'warn' ? 'Maintenance' : b.status === 'alert' ? 'Alerte' : 'Inoccupé'}

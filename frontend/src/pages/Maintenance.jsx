@@ -63,7 +63,7 @@ export default function Maintenance() {
           <p className="page-sub">{cols.nouveau.length + cols.en_cours.length} incidents ouverts · MTTR moyen 4h12 · Conformité SLA 94%</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex gap-2" style={{ alignItems: 'center', fontSize: 12, color: 'var(--text-3)' }}>
+          <div className="flex gap-2" style={{   alignItems: 'center',   fontSize: 12,   color: 'var(--text-3)' }}>
             <div className="kpi-delta up">SLA 94%</div>
           </div>
           <button className="btn btn-ghost"><Filter size={14} /> Filtres</button>
@@ -73,8 +73,8 @@ export default function Maintenance() {
 
       <div className="card card-pad mb-4">
         <div className="flex items-center gap-3">
-          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>SLA global</span>
-          <div style={{ flex: 1 }}>
+          <span style={{   fontSize: 12,   color: 'var(--text-3)' }}>SLA global</span>
+          <div style={{   flex: 1 }}>
             <ProgressBar value={94} color="emerald" showLabel />
           </div>
         </div>
@@ -97,16 +97,16 @@ export default function Maintenance() {
                 className="kcard"
                 draggable
                 onDragStart={() => setDragged(c)}
-                style={{ opacity: c.done ? 0.7 : 1, cursor: 'grab' }}
+                style={{   opacity: c.done ? 0.7 : 1,   cursor: 'grab' }}
               >
                 <div className="kcard-title">{c.title}</div>
-                <div className="flex items-center gap-2" style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                <div className="flex items-center gap-2" style={{   fontSize: 11,   color: 'var(--text-3)',   marginTop: 4 }}>
                   <span className={`badge badge-${c.prio === 'P1' ? 'alert' : c.prio === 'P2' ? 'warn' : 'ink'}`}>{c.prio}</span>
-                  <span style={{ background: 'var(--bg-2)', padding: '2px 8px', borderRadius: 6 }}>{c.cat}</span>
+                  <span style={{   background: 'var(--bg-2)',   padding: '2px 8px',   borderRadius: 6 }}>{c.cat}</span>
                 </div>
-                <div className="kcard-meta" style={{ marginTop: 8 }}>
+                <div className="kcard-meta" style={{   marginTop: 8 }}>
                   <span>{c.ts}</span>
-                  <div className="avatar" style={{ width: 22, height: 22, fontSize: 9 }}>{c.by}</div>
+                  <div className="avatar" style={{   width: 22,   height: 22,   fontSize: 9 }}>{c.by}</div>
                 </div>
               </div>
             ))}

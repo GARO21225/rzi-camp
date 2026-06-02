@@ -40,16 +40,13 @@ export default function ProgressBar({
   return (
     <div className={`progressbar ${className}`}>
       {(label || showLabel) && (
-        <div className="flex items-center justify-between mb-1" style={{ fontSize: 12 }}>
-          {label && <span style={{ color: 'var(--text-3)' }}>{label}</span>}
-          {showLabel && <strong style={{ color: 'var(--text-2)' }}>{pctVal.toFixed(0)}%</strong>}
+        <div className="flex items-center justify-between mb-1" style={{   fontSize: 12 }}>
+          {label && <span style={{   color: 'var(--text-3)' }}>{label}</span>}
+          {showLabel && <strong style={{   color: 'var(--text-2)' }}>{pctVal.toFixed(0)}%</strong>}
         </div>
       )}
       <div
-        style={{
-          width: '100%', height: h, borderRadius: h,
-          background: 'var(--bg-2)', overflow: 'hidden', position: 'relative',
-        }}
+        style={{   width: '100%',   height: h,   borderRadius: h,   background: 'var(--bg-2)',   overflow: 'hidden',   position: 'relative' }}
       >
         <div
           style={{

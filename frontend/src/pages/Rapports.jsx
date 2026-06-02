@@ -30,8 +30,8 @@ export default function Rapports() {
       </div>
 
       <div className="card card-pad mb-4">
-        <div className="flex gap-3 items-center" style={{ flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Type :</span>
+        <div className="flex gap-3 items-center" style={{   flexWrap: 'wrap' }}>
+          <span style={{   fontSize: 12,   color: 'var(--text-3)' }}>Type :</span>
           <div className="tabs">
             {['all', 'Mensuel', 'Trimestriel', 'Annuel'].map((t) => (
               <button key={t} className={type === t ? 'active' : ''} onClick={() => setType(t)}>
@@ -42,25 +42,25 @@ export default function Rapports() {
         </div>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: 'repeat(2 }}>
         {filtered.map((r) => (
           <div key={r.id} className="card card-pad-lg hover-lift">
             <div className="flex items-center gap-3 mb-3">
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--copper-100)', color: 'var(--copper-700)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <div style={{   width: 44,   height: 44,   borderRadius: 10,   background: 'var(--copper-100)',   color: 'var(--copper-700)',   display: 'grid',   placeItems: 'center',   flexShrink: 0 }}>
                 <FileText size={20} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{r.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{r.id}</div>
+              <div style={{   flex: 1,   minWidth: 0 }}>
+                <div style={{   fontSize: 14,   fontWeight: 700 }}>{r.name}</div>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)',   fontFamily: 'var(--font-mono)' }}>{r.id}</div>
               </div>
               <span className={`badge badge-${TYPE_COLOR[r.type] || 'ink'}`}>{r.type}</span>
             </div>
-            <div className="flex items-center gap-3 mb-3" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+            <div className="flex items-center gap-3 mb-3" style={{   fontSize: 12,   color: 'var(--text-3)' }}>
               <span>📄 {r.pages} pages</span>
               <span>📅 {r.date}</span>
               <span>👤 {r.author}</span>
             </div>
-            <button className="btn btn-soft" style={{ width: '100%' }}>
+            <button className="btn btn-soft" style={{   width: '100%' }}>
               <Download size={14} /> Télécharger
             </button>
           </div>

@@ -39,10 +39,10 @@ export default function Login() {
         <div className="login-brand-bg">
           <div className="login-brand-content">
             <img src="/roxgold-logo.png" alt="Roxgold" className="brand-mark-lg" />
-            <h1 className="font-display" style={{ fontSize: 42, lineHeight: 1.1, color: 'white', marginTop: 24, letterSpacing: '-0.02em' }}>
-              RZI <span style={{ color: 'var(--gold-400)' }}>Camp</span>
+            <h1 className="font-display" style={{   fontSize: 42,   lineHeight: 1.1,   color: 'white',   marginTop: 24,   letterSpacing: '-0.02em' }}>
+              RZI <span style={{   color: 'var(--gold-400)' }}>Camp</span>
             </h1>
-            <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 15, marginTop: 12, maxWidth: 360, lineHeight: 1.6 }}>
+            <p style={{   color: 'rgba(255,   fontSize: 15,   marginTop: 12,   maxWidth: 360,   lineHeight: 1.6 }}>
               ERP Industriel pour Roxgold · Côte d'Ivoire<br />
               Jumeau numérique · Maintenance prédictive · QR anti-fraude
             </p>
@@ -72,11 +72,11 @@ export default function Login() {
             <div className="brand-name">RZI CAMP</div>
           </div>
 
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+          <div style={{   marginBottom: 32 }}>
+            <h2 style={{   fontSize: 28,   fontWeight: 700,   letterSpacing: '-0.02em',   color: 'var(--text)' }}>
               Connexion
             </h2>
-            <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 6 }}>
+            <p style={{   color: 'var(--text-3)',   fontSize: 14,   marginTop: 6 }}>
               Bienvenue — entrez vos identifiants
             </p>
           </div>
@@ -85,14 +85,14 @@ export default function Login() {
             <div className="login-error">❌ {error}</div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{   display: 'flex',   flexDirection: 'column',   gap: 14 }}>
             <div>
               <label className="login-label">Identifiant</label>
               <div className="login-input-wrap">
                 <User size={16} />
                 <input
                   className="input"
-                  style={{ paddingLeft: 38 }}
+                  style={{   paddingLeft: 38 }}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
@@ -108,7 +108,7 @@ export default function Login() {
                 <Lock size={16} />
                 <input
                   className="input"
-                  style={{ paddingLeft: 38, paddingRight: 40 }}
+                  style={{   paddingLeft: 38,   paddingRight: 40 }}
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -126,25 +126,25 @@ export default function Login() {
               onClick={handleLogin}
               disabled={loading}
               className="btn btn-primary"
-              style={{ width: '100%', height: 46, fontSize: 15, marginTop: 4 }}
+              style={{   width: '100%',   height: 46,   fontSize: 15,   marginTop: 4 }}
             >
               {loading ? <span className="anim-spin">⏳</span> : <LogIn size={16} />}
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <div style={{   display: 'flex',   justifyContent: 'space-between',   alignItems: 'center',   fontSize: 12,   color: 'var(--text-3)',   marginTop: 8 }}>
+              <label style={{   display: 'flex',   alignItems: 'center',   gap: 6,   cursor: 'pointer' }}>
                 <input type="checkbox" /> Rester connecté
               </label>
-              <a href="#" style={{ color: 'var(--copper-600)', textDecoration: 'none', fontWeight: 600 }}>
+              <a href="#" style={{   color: 'var(--copper-600)',   textDecoration: 'none',   fontWeight: 600 }}>
                 Mot de passe oublié ?
               </a>
             </div>
           </div>
 
-          <div style={{ marginTop: 32, padding: 14, background: 'var(--bg-2)', borderRadius: 12, fontSize: 12, color: 'var(--text-3)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>🔑 Comptes démo</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div style={{   marginTop: 32,   padding: 14,   background: 'var(--bg-2)',   borderRadius: 12,   fontSize: 12,   color: 'var(--text-3)' }}>
+            <div style={{   fontWeight: 600,   color: 'var(--text-2)',   marginBottom: 6 }}>🔑 Comptes démo</div>
+            <div style={{   display: 'grid',   gridTemplateColumns: '1fr 1fr',   gap: 6 }}>
               <div><span className="font-mono">admin</span> / admin123</div>
               <div><span className="font-mono">manager</span> / manager123</div>
               <div><span className="font-mono">agent</span> / agent123</div>

@@ -23,14 +23,14 @@ export default function Rotations() {
         <button className="btn btn-primary"><Plus size={14} /> Nouvelle rotation</button>
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="card" style={{   overflow: 'hidden' }}>
         <table className="tbl">
           <thead>
             <tr>
               <th>ID</th>
               <th>Rotation</th>
               <th>Date</th>
-              <th style={{ minWidth: 220 }}>Confirmations</th>
+              <th style={{   minWidth: 220 }}>Confirmations</th>
               <th>Statut</th>
               <th></th>
             </tr>
@@ -38,15 +38,15 @@ export default function Rotations() {
           <tbody>
             {ROTATIONS.map((r) => (
               <tr key={r.id}>
-                <td className="text-mono" style={{ fontSize: 12 }}>{r.id}</td>
+                <td className="text-mono" style={{   fontSize: 12 }}>{r.id}</td>
                 <td><strong>{r.name}</strong></td>
                 <td>{r.date}</td>
                 <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
+                  <div style={{   display: 'flex',   alignItems: 'center',   gap: 8 }}>
+                    <div style={{   flex: 1 }}>
                       <ProgressBar value={r.confirmed} max={r.expected} color={r.status === 'confirmed' ? 'emerald' : 'warn'} size="sm" />
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', minWidth: 50 }}>
+                    <span style={{   fontSize: 11,   color: 'var(--text-3)',   fontFamily: 'var(--font-mono)',   minWidth: 50 }}>
                       {r.confirmed}/{r.expected}
                     </span>
                   </div>

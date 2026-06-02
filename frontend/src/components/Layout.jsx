@@ -18,15 +18,10 @@ function InactivityWarning() {
   }, [])
   if (!show) return null
   return (
-    <div style={{
-      position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-      background: 'var(--copper-600)', color: 'white', padding: '12px 20px', borderRadius: 12,
-      boxShadow: '0 8px 32px rgba(0,59,122,.4)', zIndex: 9999,
-      display: 'flex', alignItems: 'center', gap: 12, fontSize: 13,
-    }}>
+    <div style={{   position: 'fixed',   bottom: 80,   left: '50%',   transform: 'translateX(-50%)',   background: 'var(--copper-600)',   color: 'white',   padding: '12px 20px',   borderRadius: 12,   boxShadow: '0 8px 32px rgba(0,   zIndex: 9999,   display: 'flex',   alignItems: 'center',   gap: 12,   fontSize: 13 }}>
       ⏱️ Déconnexion dans <b>{secs}s</b>
       <button onClick={() => { setShow(false); document.dispatchEvent(new Event('mousemove')) }}
-        style={{ background: 'var(--gold-500)', color: 'var(--copper-900)', border: 'none', padding: '5px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
+        style={{   background: 'var(--gold-500)',   color: 'var(--copper-900)',   border: 'none',   padding: '5px 14px',   borderRadius: 8,   cursor: 'pointer',   fontWeight: 700,   fontSize: 12 }}>
         Rester
       </button>
     </div>

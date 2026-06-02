@@ -27,11 +27,11 @@ export default function Annuaire() {
       </div>
 
       <div className="card card-pad mb-4">
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+        <div style={{   position: 'relative' }}>
+          <Search size={16} style={{   position: 'absolute',   left: 12,   top: '50%',   transform: 'translateY(-50%)',   color: 'var(--text-3)' }} />
           <input
             className="input"
-            style={{ paddingLeft: 36 }}
+            style={{   paddingLeft: 36 }}
             placeholder="Rechercher par nom, rôle, département…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -39,14 +39,14 @@ export default function Annuaire() {
         </div>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: 'repeat(2 }}>
         {filtered.map((p) => (
           <div key={p.email} className="card card-pad flex items-center gap-3 hover-lift">
             <div className="avatar">{p.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{p.role}</div>
-              <div className="flex gap-3 mt-2" style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            <div style={{   flex: 1,   minWidth: 0 }}>
+              <div style={{   fontSize: 14,   fontWeight: 700 }}>{p.name}</div>
+              <div style={{   fontSize: 12,   color: 'var(--text-3)' }}>{p.role}</div>
+              <div className="flex gap-3 mt-2" style={{   fontSize: 11,   color: 'var(--text-3)' }}>
                 <span className="flex items-center gap-1"><Phone size={11} /> {p.phone}</span>
                 <span className="flex items-center gap-1"><Mail size={11} /> {p.email}</span>
                 <span className="flex items-center gap-1"><Building size={11} /> {p.location}</span>

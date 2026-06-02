@@ -22,7 +22,7 @@ export default function Voyages() {
         <button className="btn btn-primary"><Plus size={14} /> Nouveau vol</button>
       </div>
 
-      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="grid gap-4 mb-4" style={{   gridTemplateColumns: 'repeat(4 }}>
         {[
           { label: "Aujourd'hui", val: 83, sub: 'passagers' },
           { label: 'Cette semaine', val: 412, sub: '↑ 12%', color: 'var(--emerald-600)' },
@@ -32,43 +32,43 @@ export default function Voyages() {
           <div key={k.label} className="card kpi hover-lift">
             <div className="kpi-label">{k.label}</div>
             <div className="kpi-value">{k.val}</div>
-            <div style={{ fontSize: 12, color: k.color || 'var(--text-3)', marginTop: 8, fontWeight: 600 }}>{k.sub}</div>
+            <div style={{   fontSize: 12,   color: k.color || 'var(--text-3)',   marginTop: 8,   fontWeight: 600 }}>{k.sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      <div className="grid gap-4" style={{   gridTemplateColumns: '1fr 1fr' }}>
         {VOLS.map((v) => (
           <div key={v.num} className="card card-pad-lg">
             <div className="flex items-center gap-3 mb-3">
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: v.color, color: 'white', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 12 }}>
+              <div style={{   width: 48,   height: 48,   borderRadius: 12,   background: v.color,   color: 'white',   display: 'grid',   placeItems: 'center',   fontWeight: 800,   fontSize: 12 }}>
                 {v.comp.split(' ').map((w) => w[0]).join('').slice(0, 2)}
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{v.num} · {v.comp}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{v.route}</div>
+                <div style={{   fontSize: 15,   fontWeight: 700 }}>{v.num} · {v.comp}</div>
+                <div style={{   fontSize: 12,   color: 'var(--text-3)' }}>{v.route}</div>
               </div>
-              <span className={`badge badge-${STATUT[v.statut].color}`} style={{ marginLeft: 'auto' }}>
+              <span className={`badge badge-${STATUT[v.statut].color}`} style={{   marginLeft: 'auto' }}>
                 {STATUT[v.statut].label}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 14 }}>
-              <div style={{ background: 'var(--bg-2)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Passagers</div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{v.passagers}</div>
+            <div style={{   display: 'grid',   gridTemplateColumns: 'repeat(3,   gap: 10,   marginTop: 14 }}>
+              <div style={{   background: 'var(--bg-2)',   borderRadius: 10,   padding: 10,   textAlign: 'center' }}>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>Passagers</div>
+                <div style={{   fontSize: 18,   fontWeight: 700,   marginTop: 2 }}>{v.passagers}</div>
               </div>
-              <div style={{ background: 'var(--bg-2)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Expatriés</div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{v.expatries}</div>
+              <div style={{   background: 'var(--bg-2)',   borderRadius: 10,   padding: 10,   textAlign: 'center' }}>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>Expatriés</div>
+                <div style={{   fontSize: 18,   fontWeight: 700,   marginTop: 2 }}>{v.expatries}</div>
               </div>
-              <div style={{ background: 'var(--bg-2)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Bagages</div>
-                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{v.bagages}</div>
+              <div style={{   background: 'var(--bg-2)',   borderRadius: 10,   padding: 10,   textAlign: 'center' }}>
+                <div style={{   fontSize: 11,   color: 'var(--text-3)' }}>Bagages</div>
+                <div style={{   fontSize: 18,   fontWeight: 700,   marginTop: 2 }}>{v.bagages}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-3" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+            <div className="flex items-center gap-2 mt-3" style={{   fontSize: 12,   color: 'var(--text-3)' }}>
               <Clock size={12} /> Arrivée prévue {v.arrivee}
-              {v.retard > 0 && <span className="badge badge-warn" style={{ marginLeft: 'auto' }}>+{v.retard} min retard</span>}
+              {v.retard > 0 && <span className="badge badge-warn" style={{   marginLeft: 'auto' }}>+{v.retard} min retard</span>}
             </div>
           </div>
         ))}
