@@ -217,7 +217,7 @@ export default function Login() {
               </label>
               <input
                 value={username} onChange={e=>setUsername(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+                onKeyDown={e=>e.key==='Enter'&&doLogin()}
                 placeholder="Votre identifiant"
                 autoComplete="username"
                 style={{ width:'100%', background:'rgba(255,255,255,.06)',
@@ -239,7 +239,7 @@ export default function Login() {
                 <input
                   type={showPwd ? 'text' : 'password'}
                   value={password} onChange={e=>setPassword(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+                  onKeyDown={e=>e.key==='Enter'&&doLogin()}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   style={{ width:'100%', background:'rgba(255,255,255,.06)',
@@ -259,7 +259,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button onClick={handleLogin} disabled={loading}
+            <button onClick={doLogin} disabled={loading}
               style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                 color:'#000', border:'none', borderRadius:10, padding:14,
                 fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer',
@@ -269,7 +269,7 @@ export default function Login() {
               {loading ? '⏳ Connexion...' : 'Se connecter →'}
             </button>
 
-            <button type="button" onClick={()=>setShowForgot(true)}
+            <button type="button" onClick={()=>setForgot(true)}
               style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
                 cursor:'pointer', fontSize:12, padding:'4px 0', textDecoration:'underline' }}>
               Mot de passe oublié ?
@@ -284,7 +284,7 @@ export default function Login() {
         </div>
       </div>
 
-      {showForgot && <ForgotModal onClose={()=>setShowForgot(false)}/>}
+      {forgot && <ForgotModal onClose={()=>setForgot(false)}/>}
     </div>
   )
 }
