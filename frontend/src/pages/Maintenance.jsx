@@ -1,951 +1,134 @@
-/**
- * Maintenance — Gestion des incidents QHSE
- * Réécriture complète — zéro patch accumulé — Error Boundary intégré
- */
-import React, { useState, useEffect, useCallback } from 'react'
-import { incidents as incAPI } from '../api'
-import { useStore } from '../store'
+import React, { useState } from 'react'
+import { Plus, Filter, Wrench, AlertCircle, Clock, CheckCircle2 } from 'lucide-react'
+import ProgressBar from '../components/ProgressBar'
 
-class MaintenanceBoundary extends React.Component {
-  constructor(p) { super(p); this.state = { err: null } }
-  static getDerivedStateFromError(e) { return { err: e } }
-  componentDidCatch(e) { console.error('[Maintenance crash]', e) }
-  render() {
-    if (this.state.err) return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
-        <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 16, marginBottom: 8 }}>
-          Erreur dans Maintenance
-        </div>
-        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10,
-          padding: '10px 16px', fontSize: 11, color: '#991b1b', maxWidth: 400,
-          margin: '0 auto 16px', fontFamily: 'monospace' }}>
-          {String(this.state.err?.message || this.state.err)}
-        </div>
-        <button onClick={() => this.setState({ err: null })}
-          style={{ background: '#1e3a8a', color: '#fff', border: 'none',
-            padding: '10px 24px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
-          Réessayer
-        </button>
-      </div>
-    )
-    return this.props.children
-  }
-}
-
-const STATUTS = {
-  declare:  { l: 'Déclaré',  c: '#3b82f6', bg: '#eff6ff' },
-  assigne:  { l: 'Assigné',  c: '#f97316', bg: '#fff7ed' },
-  en_cours: { l: 'En cours', c: '#eab308', bg: '#fefce8' },
-  resolu:   { l: 'Résolu',   c: '#16a34a', bg: '#f0fdf4' },
-  cloture:  { l: 'Clôturé',  c: '#64748b', bg: '#f8fafc' },
-}
-const PRIOS = {
-  critique: { l: 'Critique', c: '#dc2626' },
-  haute:    { l: 'Haute',    c: '#f97316' },
-  moyenne:  { l: 'Moyenne',  c: '#eab308' },
-  basse:    { l: 'Basse',    c: '#16a34a' },
-}
-const CATS = ['Plomberie','Electricite','Climatisation','Serrurerie','Toiture','Peinture','Informatique','Autre']
-const WF = [
-  { s: 'declare',  icon: '📢', l: 'Déclaré' },
-  { s: 'assigne',  icon: '👷', l: 'Assigné' },
-  { s: 'en_cours', icon: '⚙️',  l: 'En cours' },
-  { s: 'resolu',   icon: '✅', l: 'Résolu' },
-  { s: 'cloture',  icon: '🔒', l: 'Clôturé' },
+const COLS = [
+  { id: 'nouveau', label: 'Nouveau', icon: Plus, color: 'info' },
+  { id: 'en_cours', label: 'En cours', icon: Wrench, color: 'copper' },
+  { id: 'verif', label: 'Vérification', icon: Clock, color: 'warn' },
+  { id: 'resolu', label: 'Résolu · 7j', icon: CheckCircle2, color: 'emerald' },
 ]
 
+const INITIAL = {
+  nouveau: [
+    { id: 'MNT-2849', title: 'Fuite plomberie B47', prio: 'P1', cat: 'Plomberie', ts: 'à l\'instant', by: 'AO' },
+    { id: 'MNT-2850', title: 'Clim bloquée B88', prio: 'P2', cat: 'HVAC', ts: 'il y a 1h', by: 'PD' },
+    { id: 'MNT-2851', title: 'Éclairage parking HS', prio: 'P3', cat: 'Électricité', ts: 'il y a 3h', by: 'IS' },
+    { id: 'MNT-2852', title: 'Porte cassée réfectoire', prio: 'P3', cat: 'Serrurerie', ts: 'il y a 4h', by: 'FC' },
+  ],
+  en_cours: [
+    { id: 'MNT-2847', title: 'Pompe P-203 vibrations', prio: 'P2', cat: 'Prédictif', ts: 'Tech en route', by: 'MK' },
+    { id: 'MNT-2848', title: 'Fuite réseau eau froide', prio: 'P2', cat: 'Plomberie', ts: 'ETA 25 min', by: 'AB' },
+  ],
+  verif: [
+    { id: 'MNT-2845', title: 'Générateur test hebdo', prio: 'P3', cat: 'Routine', ts: 'Planifié 06:00', by: 'AO' },
+  ],
+  resolu: [
+    { id: 'MNT-2840', title: 'Chaudière réfectoire', prio: 'P2', cat: 'HVAC', ts: '2h14', by: 'PD', done: true },
+    { id: 'MNT-2839', title: 'Clim salle serveurs', prio: 'P1', cat: 'HVAC', ts: '1h02', by: 'MK', done: true },
+    { id: 'MNT-2838', title: '5 ampoules couloirs', prio: 'P3', cat: 'Électricité', ts: '35min', by: 'IS', done: true },
+    { id: 'MNT-2837', title: 'Robinetterie dortoir C', prio: 'P2', cat: 'Plomberie', ts: '4h12', by: 'AB', done: true },
+  ],
+}
+
 export default function Maintenance() {
-  const { user } = useStore()
-  const isAdmin = !!(user?.is_staff || user?.is_superuser)
-  const [incidents, setIncidents] = useState([])
-  const [stats,     setStats]     = useState({})
-  const [techns,    setTechns]    = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [selected,  setSelected]  = useState(null)
-  const [editInc,   setEditInc]   = useState(null)
-  const [showEdit,  setShowEdit]  = useState(false)
-  const [search,    setSearch]    = useState('')
-  const [statFilter, setStatFilter] = useState('')
-  const [prioFilter, setPrioFilter] = useState('')
-  const [slaOnly,    setSlaOnly]    = useState(false)
-  const [selIds,     setSelIds]     = useState(new Set())
-  const [massAct,    setMassAct]    = useState('')
-  const [residences, setResidences] = useState([])
-  const [dateDebut,  setDateDebut]  = useState('')
-  const [dateFin,    setDateFin]    = useState('')
-  const [showNew,    setShowNew]    = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [err,        setErr]        = useState('')
-  const EMPTY = { titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'', bloc:'', photo_b64:'' }
-  const [form, setForm] = useState(EMPTY)
-  const [actionModal, setActionModal] = useState(null)
-  const [actionComment, setActionComment] = useState('')
-  const [actionTechId,  setActionTechId]  = useState('')
+  const [cols, setCols] = useState(INITIAL)
+  const [dragged, setDragged] = useState(null)
 
-  useEffect(() => {
-    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-    const token = localStorage.getItem('access_token') || ''
-    fetch(`${BASE}/api/batiments/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
-      .then(r=>r.json())
-      .then(d=>{
-        const list = d.results || d || []
-        const resids = [...new Set(list.map(b=>b.residence).filter(Boolean))].sort()
-        if(resids.length) setResidences(resids)
-      }).catch(()=>{})
-  },[])
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [ri, rs, rt] = await Promise.allSettled([
-        incAPI.list({ page_size:100 }),
-        incAPI.stats(),
-        incAPI.techniciens ? incAPI.techniciens() : Promise.resolve({data:[]}),
-      ])
-      if (ri.status === 'fulfilled') setIncidents(ri.value.data.results || ri.value.data || [])
-      if (rs.status === 'fulfilled') setStats(rs.value.data || {})
-      if (rt.status === 'fulfilled') setTechns(rt.value.data || [])
-    } finally { setLoading(false) }
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  const filtered = incidents.filter(i => {
-    if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
-    if (statFilter && i.statut !== statFilter) return false
-    if (prioFilter && i.priorite !== prioFilter) return false
-    if (slaOnly && !i.sla_depasse) return false
-    if (dateDebut && i.date_creation && new Date(i.date_creation) < new Date(dateDebut)) return false
-    if (dateFin && i.date_creation && new Date(i.date_creation) > new Date(dateFin + 'T23:59:59')) return false
-    return true
-  })
-
-  const declarer = async () => {
-    if (!form.titre || !form.description || !form.residence) { setErr('Titre, description et résidence requis'); return }
-    setSubmitting(true); setErr('')
-    try {
-      const payload = { titre:form.titre, description:form.description, categorie:form.categorie,
-        priorite:form.priorite, residence:form.residence, bloc:form.bloc }
-      if (form.photo_b64 && form.photo_b64.startsWith('data:')) {
-        const parts = form.photo_b64.split(',')
-        payload.photo_mime = form.photo_b64.split(';')[0].replace('data:','') || 'image/jpeg'
-        payload.photo_base64 = parts[1] || ''
-      }
-      await incAPI.declarer(payload)
-      setShowNew(false); setForm(EMPTY); await load()
-    } catch(e) {
-      setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur serveur')
-    } finally { setSubmitting(false) }
-  }
-
-  const doAction = async (action) => {
-    if (!selected) return
-    setSubmitting(true)
-    try {
-      if (action === 'assigner')  await incAPI.assigner(selected.id, { technicien_id: actionTechId })
-      if (action === 'commencer') await incAPI.commencer(selected.id, { commentaire: actionComment })
-      if (action === 'resoudre')  await incAPI.resoudre(selected.id, { commentaire: actionComment })
-      if (action === 'cloturer')  await incAPI.cloturer(selected.id, { commentaire: actionComment })
-      if (action === 'commenter') {
-        const fn = incAPI.addComment || incAPI.commenter
-        await fn(selected.id, { contenu: actionComment, type_comment: 'info' })
-      }
-      setActionModal(null); setActionComment(''); setActionTechId('')
-      await load()
-      const updated = await incAPI.list({ page_size:100 })
-      const items = updated.data.results || updated.data || []
-      setSelected(items.find(i => i.id === selected.id) || null)
-    } catch(e) { alert(e.response?.data?.detail || 'Erreur action') }
-    finally { setSubmitting(false) }
-  }
-
-  const compressImage = (file, maxSizeKB=800) => new Promise((resolve) => {
-    const canvas = document.createElement('canvas')
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      let w = img.width, h = img.height
-      const maxDim = 1200
-      if (w > maxDim || h > maxDim) {
-        if (w > h) { h = Math.round(h * maxDim/w); w = maxDim }
-        else { w = Math.round(w * maxDim/h); h = maxDim }
-      }
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      let quality = 0.85
-      let b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
-      while (b64.length > maxSizeKB*1024 && quality > 0.3) {
-        quality -= 0.1
-        b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
-      }
-      URL.revokeObjectURL(url)
-      resolve(b64)
-    }
-    img.src = url
-  })
-
-  const uploadPhoto = (type_comment) => {
-    const input = document.createElement('input')
-    input.type = 'file'; input.accept = 'image/*'
-    input.onchange = async (e) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      if (file.size > 10*1024*1024) { alert('Max 10Mo'); return }
-      try {
-        const b64 = await compressImage(file, 800)
-        const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
-        const token = localStorage.getItem('access_token') || ''
-        const resp = await fetch(`${BASE}/api/incidents/${selected.id}/commenter/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ type_comment, contenu: 'Photo ' + type_comment.replace('_',' '), photo_base64: b64 })
+  const moveCard = (toCol) => {
+    if (!dragged) return
+    setCols((c) => {
+      const next = { ...c }
+      let card = null
+      for (const k of Object.keys(next)) {
+        next[k] = next[k].filter((x) => {
+          if (x.id === dragged.id) { card = x; return false }
+          return true
         })
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}))
-          alert('Erreur upload: ' + (err.detail || err.error || `HTTP ${resp.status}`))
-          return
-        }
-        await load()
-        try {
-          const rd = await incAPI.detail(selected.id)
-          setSelected(rd.data)
-        } catch {
-          const updated = await incAPI.list({ page_size:100 })
-          const items = updated.data.results || updated.data || []
-          setSelected(items.find(i => i.id === selected.id) || null)
-        }
-      } catch(err2) { alert('Erreur upload: ' + (err2.message || String(err2))) }
-    }
-    input.click()
-  }
-
-  const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
-    padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
-
-  const exportCSV = (filteredList) => {
-    const headers = ['ID','Titre','Description','Catégorie','Priorité','Statut','Résidence','Bloc','Déclaré par','Assigné à','Date déclaration','Échéance SLA','SLA dépassé']
-    const rows = filteredList.map(inc => [
-      inc.id,
-      '"' + (inc.titre||'').replace(/"/g,'""') + '"',
-      '"' + (inc.description||'').replace(/"/g,'""') + '"',
-      inc.categorie||'',
-      inc.priorite||'',
-      inc.statut||'',
-      inc.residence||'',
-      inc.bloc||'',
-      inc.auteur_nom||'',
-      inc.assigne_nom||'Non assigné',
-      inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '',
-      inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : '',
-      inc.sla_depasse ? 'OUI' : 'NON'
-    ])
-    const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'incidents_' + new Date().toISOString().slice(0,10) + '.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const downloadTemplate = () => {
-    const csv = 'titre;description;residence;categorie;priorite;bloc\n' +
-      'Fuite d\'eau salle de bain;Fuite sous le lavabo;B1;Plomberie;haute;Chambre 101\n' +
-      'Climatisation en panne;L\'unité ne démarre plus;B2;Climatisation;moyenne;Chambre 205\n' +
-      'Porte bloquée;Serrure coincée;B3;Serrurerie;basse;Chambre 310'
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href=url; a.download='template_incidents.csv'; a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const importCSV = () => {
-    const input = document.createElement('input')
-    input.type = 'file'; input.accept = '.csv,.txt'
-    input.onchange = async (e) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      const text = await file.text()
-      const lines = text.split('\n').filter(l=>l.trim())
-      if (lines.length < 2) { alert('CSV vide ou invalide'); return }
-      // Détecter séparateur
-      const sep = lines[0].includes(';') ? ';' : ','
-      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
-      const getCol = (row, names) => {
-        for (const n of names) {
-          const idx = headers.findIndex(h=>h.includes(n))
-          if (idx>=0) return row[idx]?.replace(/^"|"$/g,'').trim() || ''
-        }
-        return ''
       }
-      let imported=0, errors=[]
-      for (let i=1; i<lines.length; i++) {
-        const row = lines[i].split(sep)
-        const titre = getCol(row,['titre','title'])
-        const description = getCol(row,['description','desc'])
-        const residence = getCol(row,['residence','résidence'])
-        const categorie = getCol(row,['catégorie','categorie','category']) || 'Autre'
-        const priorite = getCol(row,['priorité','priorite','priority']) || 'moyenne'
-        if (!titre || !description || !residence) { errors.push(`Ligne ${i+1}: titre/description/résidence requis`); continue }
-        try {
-          await incAPI.declarer({ titre, description, residence, categorie, priorite, bloc: getCol(row,['bloc','chambre']) })
-          imported++
-        } catch(err) {
-          errors.push(`Ligne ${i+1}: ${err.response?.data?.detail||err.message}`)
-        }
+      if (card) {
+        card = { ...card, ts: toCol === 'resolu' ? 'à l\'instant' : card.ts, done: toCol === 'resolu' }
+        next[toCol] = [card, ...next[toCol]]
       }
-      alert(`✅ ${imported} incident(s) importé(s)${errors.length ? '\n\n⚠️ Erreurs:\n'+errors.slice(0,5).join('\n') : ''}`)
-      load()
-    }
-    input.click()
-  }
-
-  const exportIncident = (inc) => {
-    const cmts = (inc.commentaires || []).map(c => {
-      const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
-      const ph = c.photo_base64 && c.photo_base64.length > 10
-        ? '<img style="max-width:100%;max-height:180px;border-radius:6px" src="data:image/jpeg;base64,' + c.photo_base64 + '"/>'
-        : ''
-      return '<div style="border-left:3px solid #1e3a8a;padding:8px;margin:8px 0">' +
-        '<strong>' + c.type_comment + '</strong> — ' + (c.auteur_nom || '') + ' — ' + d +
-        '<p>' + c.contenu + '</p>' + ph + '</div>'
-    }).join('')
-    const ph_decl = inc.photo_base64 && inc.photo_base64.length > 10
-      ? '<h2>Photo déclaration</h2><img style="max-width:100%;max-height:200px" src="data:' + inc.photo_mime + ';base64,' + inc.photo_base64 + '"/>'
-      : ''
-    const html = '<!DOCTYPE html><html><head><title>Incident #' + inc.id + '</title>' +
-      '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}' +
-      'table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}' +
-      'th{background:#eef2f7}h2{color:#1e3a8a}</style></head><body>' +
-      '<h2>Rapport Incident #' + inc.id + ' — ' + inc.titre + '</h2><table>' +
-      '<tr><th>Catégorie</th><td>' + inc.categorie + '</td><th>Priorité</th><td>' + inc.priorite + '</td></tr>' +
-      '<tr><th>Statut</th><td>' + inc.statut + '</td><th>Résidence</th><td>' + inc.residence + ' ' + (inc.bloc || '') + '</td></tr>' +
-      '<tr><th>Déclaré par</th><td>' + (inc.auteur_nom || '?') + '</td><th>Assigné à</th><td>' + (inc.assigne_nom || 'Non assigné') + '</td></tr>' +
-      '<tr><th>Déclaration</th><td>' + (inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '?') + '</td>' +
-      '<th>SLA</th><td>' + (inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : 'N/A') + '</td></tr>' +
-      '</table><p>' + inc.description + '</p>' + ph_decl +
-      '<h2>Historique (' + (inc.commentaires || []).length + ' entrées)</h2>' + cmts + '</body></html>'
-    const w = window.open('', '_blank')
-    w.document.write(html)
-    w.document.close()
-    setTimeout(() => w.print(), 500)
+      return next
+    })
+    setDragged(null)
   }
 
   return (
-    <MaintenanceBoundary>
-      <div style={{ padding:20 }}>
-
-        <div style={{ display:'flex', justifyContent:'space-between',
-          alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
-          <div>
-            <h2 style={{ fontSize:22, fontWeight:900, color:'#1e3a8a', margin:0 }}>
-              🔧 Maintenance
-            </h2>
-            <p style={{ fontSize:11, color:'#64748b', margin:'3px 0 0' }}>
-              Workflow · SLA · Assignation · Historique
-            </p>
-          </div>
-          <button onClick={() => { setForm(EMPTY); setErr(''); setShowNew(true) }}
-            style={{ background:'#1e3a8a', color:'#fff', border:'none',
-              padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-            + Déclarer un incident
-          </button>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Maintenance Terrain</h1>
+          <p className="page-sub">{cols.nouveau.length + cols.en_cours.length} incidents ouverts · MTTR moyen 4h12 · Conformité SLA 94%</p>
         </div>
-
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',
-          gap:10, marginBottom:20 }}>
-          {[['📢 Déclarés',stats.declare||0,'#3b82f6'],['👷 Assignés',stats.assigne||0,'#f97316'],
-            ['⚙️ En cours',stats.en_cours||0,'#eab308'],['✅ Résolus',stats.resolu||0,'#16a34a'],
-            ['🔒 Clôturés',stats.cloture||0,'#64748b'],['⚠️ SLA',stats.sla_depasse||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
-          ].map(([l,v,c]) => (
-            <div key={l} style={{ background:'#fff', borderRadius:12, padding:'12px 14px',
-              borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:22, fontWeight:900, color:c }}>{v}</div>
-              <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>{l}</div>
-            </div>
-          ))}
+        <div className="flex gap-2">
+          <div className="flex gap-2" style={{ alignItems: 'center', fontSize: 12, color: 'var(--text-3)' }}>
+            <div className="kpi-delta up">SLA 94%</div>
+          </div>
+          <button className="btn btn-ghost"><Filter size={14} /> Filtres</button>
+          <button className="btn btn-primary">+ Nouvel incident</button>
         </div>
-
-        <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
-          <input type="checkbox"
-            checked={selIds.size===filtered.length && filtered.length>0}
-            onChange={e=>setSelIds(e.target.checked ? new Set(filtered.map(i=>i.id)) : new Set())}
-            style={{width:16,height:16,accentColor:'#1e3a8a',cursor:'pointer'}}/>
-          Tout sélectionner
-        </label>
-        <input value={search} onChange={e=>setSearch(e.target.value)}
-            placeholder="🔍 Rechercher..."
-            style={{ ...inp, maxWidth:220 }} />
-          <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
-            <option value="">Tous statuts</option>
-            {Object.entries(STATUTS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
-          </select>
-          <select value={prioFilter} onChange={e=>setPrioFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
-            <option value="">Toutes priorités</option>
-            {Object.entries(PRIOS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
-          </select>
-          <label style={{ display:'flex', alignItems:'center', gap:6,
-            fontSize:12, fontWeight:700, color:'#dc2626', cursor:'pointer' }}>
-            <input type="checkbox" checked={slaOnly} onChange={e=>setSlaOnly(e.target.checked)} />
-            ⚠️ SLA dépassé
-          </label>
-          <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)}
-            title="Date début"
-            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
-          <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)}
-            title="Date fin"
-            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
-          <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
-            <button onClick={()=>downloadTemplate()}
-              style={{ background:'#7c3aed', color:'#fff', border:'none',
-                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              📋 Template
-            </button>
-            <button onClick={()=>importCSV()}
-              style={{ background:'#2563eb', color:'#fff', border:'none',
-                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              📤 Import CSV
-            </button>
-            <button onClick={()=>exportCSV(filtered)}
-              style={{ background:'#16a34a', color:'#fff', border:'none',
-                padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              📥 Export CSV ({filtered.length})
-            </button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign:'center', padding:60, fontSize:32 }}>⏳</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign:'center', padding:60, color:'#94a3b8' }}>
-            <div style={{ fontSize:48, marginBottom:12 }}>🔧</div>
-            <div style={{ fontWeight:600 }}>Aucun incident</div>
-            <div style={{ fontSize:12 }}>Cliquer sur "Déclarer un incident"</div>
-          </div>
-        ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {filtered.map(inc => {
-              const st = STATUTS[inc.statut] || STATUTS.declare
-              const pr = PRIOS[inc.priorite] || PRIOS.moyenne
-              const wfIdx = WF.findIndex(x => x.s === inc.statut)
-              return (
-                <div key={inc.id} style={{position:'relative'}} onClick={async() => {
-                  setSelected(inc)
-                  try {
-                    const r = await incAPI.detail(inc.id)
-                    setSelected(r.data)
-                  } catch(e) { console.warn('detail load failed', e) }
-                }}
-                  style={{ background:'#fff', borderRadius:12, padding:'14px 16px',
-                    boxShadow:'0 1px 4px rgba(0,0,0,.07)', cursor:'pointer',
-                    borderLeft:`4px solid ${st.c}`,
-                    outline: selected?.id === inc.id ? `2px solid ${st.c}` : 'none' }}>
-                  <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, fontSize:14, color:'#1e293b', marginBottom:3 }}>
-                        {inc.titre}
-                        {inc.sla_depasse && <span style={{ background:'#fef2f2', color:'#dc2626',
-                          fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:99, marginLeft:8 }}>SLA ⚠️</span>}
-                      </div>
-                      <div style={{ fontSize:12, color:'#64748b' }}>
-                        📍 {inc.residence}{inc.bloc ? ` · ${inc.bloc}` : ''} · {inc.categorie} · {inc.auteur_nom}
-                      </div>
-                    </div>
-                    <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
-                      <span style={{ background:pr.c+'20', color:pr.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{pr.l}</span>
-                      <span style={{ background:st.bg, color:st.c, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99 }}>{st.l}</span>
-                      {isAdmin && (
-                        <>
-                          <input type="checkbox"
-                            checked={selIds.has(inc.id)}
-                            onChange={e=>{
-                              e.stopPropagation()
-                              setSelIds(prev=>{const next=new Set(prev);e.target.checked?next.add(inc.id):next.delete(inc.id);return next})
-                            }}
-                            onClick={e=>e.stopPropagation()}
-                            style={{width:16,height:16,cursor:'pointer',accentColor:'#1e3a8a'}}/>
-                          <button onClick={e=>{e.stopPropagation();setEditInc({...inc});setShowEdit(true)}}
-                            title="Modifier l'incident"
-                            style={{ background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
-                              padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700 }}>
-                            ✏️
-                          </button>
-                          <button onClick={e=>{e.stopPropagation();
-                            if(window.confirm(`Supprimer l'incident "${inc.titre}" ?`))
-                              incAPI.supprimer(inc.id).then(()=>load()).catch(e=>alert('Erreur suppression: '+(e.response?.data?.detail||e.message||'inconnue')))
-                          }}
-                            title="Supprimer l'incident"
-                            style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
-                              padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700 }}>
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:0, marginTop:10 }}>
-                    {WF.map((w,i) => (
-                      <React.Fragment key={w.s}>
-                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', minWidth:50 }}>
-                          <div style={{ width:24, height:24, borderRadius:'50%',
-                            background: i<=wfIdx ? st.c : '#e2e8f0',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            fontSize:10, fontWeight:900, color: i<=wfIdx ? '#fff' : '#94a3b8' }}>
-                            {i<=wfIdx ? (i===wfIdx ? w.icon : '✓') : i+1}
-                          </div>
-                          <div style={{ fontSize:8, color: i<=wfIdx ? st.c : '#94a3b8', marginTop:2 }}>{w.l}</div>
-                        </div>
-                        {i < WF.length-1 && <div style={{ flex:1, height:2,
-                          background: i<wfIdx ? st.c : '#e2e8f0', marginBottom:16, minWidth:8 }}/>}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* ══ MODAL DÉCLARER ══ */}
-        {showNew && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.7)',
-            display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
-            onClick={e=>e.target===e.currentTarget&&setShowNew(false)}>
-            <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520,
-              maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
-                padding:'14px 20px', position:'sticky', top:0, display:'flex',
-                justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ fontWeight:700, fontSize:15 }}>🔧 Déclarer un incident</div>
-                <button onClick={()=>setShowNew(false)}
-                  style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
-                    width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-              </div>
-              <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-                {err && <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8,
-                  padding:'8px 12px', color:'#dc2626', fontSize:12 }}>❌ {err}</div>}
-                <div>
-                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>TITRE *</label>
-                  <input value={form.titre} onChange={e=>setForm({...form,titre:e.target.value})}
-                    placeholder="Titre de l'incident..." style={inp}/>
-                </div>
-                <div>
-                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION *</label>
-                  <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}
-                    placeholder="Décrivez le problème..." rows={3} style={{ ...inp, resize:'vertical' }}/>
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>CATÉGORIE</label>
-                    <select value={form.categorie} onChange={e=>setForm({...form,categorie:e.target.value})} style={inp}>
-                      {CATS.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>PRIORITÉ</label>
-                    <select value={form.priorite} onChange={e=>setForm({...form,priorite:e.target.value})} style={inp}>
-                      {Object.entries(PRIOS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
-                      placeholder="Sélectionner ou saisir..." style={inp} list="res-list"/>
-                    <datalist id="res-list">
-                      {(residences.length>0 ? residences
-                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))]
-                      ).map(r=><option key={r} value={r}/>)}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
-                    <input value={form.bloc} onChange={e=>setForm({...form,bloc:e.target.value})}
-                      placeholder="Ex: Bloc 3, Ch. 12" style={inp}/>
-                  </div>
-                </div>
-                <label style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px',
-                  background: form.photo_b64 ? '#f0fdf4' : '#f8fafc',
-                  border: `2px dashed ${form.photo_b64 ? '#16a34a' : '#e2e8f0'}`,
-                  borderRadius:10, cursor:'pointer', fontSize:12,
-                  color: form.photo_b64 ? '#16a34a' : '#64748b' }}>
-                  <input type="file" accept="image/*" style={{ display:'none' }}
-                    onChange={e=>{
-                      const file=e.target.files?.[0]
-                      if(!file) return
-                      if(file.size>3*1024*1024){alert('Max 3Mo');return}
-                      const r=new FileReader()
-                      r.onload=ev=>setForm(f=>({...f,photo_b64:ev.target.result}))
-                      r.readAsDataURL(file)
-                    }}/>
-                  {form.photo_b64 ? '✅ Photo ajoutée' : '📷 Photo (optionnel, max 3Mo)'}
-                </label>
-                <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8,
-                  padding:'8px 12px', fontSize:11, color:'#92400e' }}>
-                  ⏱️ SLA assigné automatiquement selon la priorité
-                </div>
-                <button onClick={declarer} disabled={submitting}
-                  style={{ background:submitting?'#94a3b8':'#1e3a8a', color:'#fff', border:'none',
-                    padding:13, borderRadius:10, cursor:submitting?'wait':'pointer',
-                    fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
-                  {submitting ? '⏳ Envoi...' : '🔧 Déclarer l\'incident'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ DETAIL INCIDENT (slide-over) ══ */}
-        {selected && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.5)',
-            display:'flex', alignItems:'center', justifyContent:'flex-end', zIndex:900 }}
-            onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-            <div style={{ background:'#fff', width:'100%', maxWidth:460,
-              height:'100%', overflow:'auto', boxShadow:'-4px 0 30px rgba(0,0,0,.2)' }}>
-              <div style={{ background:`linear-gradient(135deg,${STATUTS[selected.statut]?.c||'#1e3a8a'},#1e3a8a)`,
-                color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:15 }}>{selected.titre}</div>
-                    <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{selected.residence} · {selected.categorie}</div>
-                  </div>
-                  
-                  <button onClick={()=>exportIncident(selected)}
-                    title="Imprimer / Exporter"
-                    style={{ background:'rgba(240,165,0,.3)', border:'none', color:'#fff',
-                      padding:'3px 8px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700, marginRight:4 }}>
-                    🖨️
-                  </button>
-                  <button onClick={()=>setSelected(null)}
-                    style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
-                      width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', marginTop:10, gap:0 }}>
-                  {WF.map((w,i)=>{
-                    const idx=WF.findIndex(x=>x.s===selected.statut)
-                    const done=i<=idx
-                    return (
-                      <React.Fragment key={w.s}>
-                        <div style={{ textAlign:'center' }}>
-                          <div style={{ width:26, height:26, borderRadius:'50%',
-                            background: done?'rgba(255,255,255,.9)':'rgba(255,255,255,.2)',
-                            color: done?(STATUTS[selected.statut]?.c||'#1e3a8a'):'rgba(255,255,255,.4)',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            fontSize:11, fontWeight:700 }}>
-                            {done?(i===idx?w.icon:'✓'):i+1}
-                          </div>
-                          <div style={{ fontSize:8, color:'rgba(255,255,255,.6)', marginTop:2 }}>{w.l}</div>
-                        </div>
-                        {i<WF.length-1 && <div style={{ flex:1, height:2,
-                          background: i<idx?'rgba(255,255,255,.7)':'rgba(255,255,255,.2)',
-                          marginBottom:16, minWidth:8 }}/>}
-                      </React.Fragment>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div style={{ padding:16 }}>
-                <div style={{ background:'#f8fafc', borderRadius:10, padding:12, marginBottom:14 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION</div>
-                  <div style={{ fontSize:13 }}>{selected.description}</div>
-                  {selected.photo_base64 && String(selected.photo_base64).length>10 && (
-                    <img
-                      src={`data:${selected.photo_mime||'image/jpeg'};base64,${String(selected.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
-                      alt="Photo" style={{ width:'100%', maxHeight:200, objectFit:'cover', borderRadius:8, marginTop:8, cursor:'pointer' }}
-                      onClick={()=>window.open('data:image/jpeg;base64,'+String(selected.photo_base64).replace(/^data:[^;]+;base64,/,''),'_blank')}
-                      onError={e=>{e.target.style.display='none'}}/>
-                  )}
-                </div>
-
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
-                  {/* Timeline parcours */}
-                  <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Parcours</div>
-                    <div style={{ display:'flex', alignItems:'center', gap:0, overflowX:'auto', paddingBottom:4 }}>
-                      {[
-                        {s:'declare', label:'Déclaré', icon:'📢', date: selected.date_creation},
-                        {s:'assigne', label:'Assigné', icon:'👷', date: selected.date_assignation},
-                        {s:'en_cours', label:'En cours', icon:'⚙️', date: selected.date_debut},
-                        {s:'resolu', label:'Résolu', icon:'✅', date: selected.date_resolution},
-                        {s:'cloture', label:'Clôturé', icon:'🔒', date: selected.date_cloture},
-                      ].map((step, i, arr) => {
-                        const statuts = ['declare','assigne','en_cours','resolu','cloture']
-                        const curIdx = statuts.indexOf(selected.statut)
-                        const stepIdx = statuts.indexOf(step.s)
-                        const done = stepIdx <= curIdx
-                        const active = step.s === selected.statut
-                        return (
-                          <div key={step.s} style={{ display:'flex', alignItems:'center', flex: i < arr.length-1 ? 1 : 'none', minWidth: i < arr.length-1 ? 60 : 'auto' }}>
-                            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, minWidth:52 }}>
-                              <div style={{ width:32, height:32, borderRadius:'50%',
-                                background: active ? '#1e3a8a' : done ? '#16a34a' : '#f1f5f9',
-                                border: active ? '2px solid #f0a500' : done ? '2px solid #16a34a' : '2px solid #e2e8f0',
-                                display:'flex', alignItems:'center', justifyContent:'center',
-                                fontSize:14, boxShadow: active ? '0 0 0 3px rgba(240,165,0,.2)' : 'none',
-                                transition:'all .2s' }}>
-                                {done ? (active ? step.icon : '✓') : <span style={{color:'#cbd5e1',fontSize:11}}>{i+1}</span>}
-                              </div>
-                              <div style={{ fontSize:9, fontWeight: active?700:500, color: active?'#1e3a8a':done?'#16a34a':'#94a3b8', textAlign:'center', lineHeight:1.2 }}>{step.label}</div>
-                              {step.date && <div style={{ fontSize:8, color:'#94a3b8', textAlign:'center' }}>{new Date(step.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>}
-                            </div>
-                            {i < arr.length-1 && <div style={{ flex:1, height:2, background: stepIdx < curIdx ? '#16a34a' : '#e2e8f0', margin:'0 2px', marginBottom:18, transition:'background .3s' }}/>}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {[['Priorité',PRIOS[selected.priorite]?.l||selected.priorite],
-                    ['Statut',STATUTS[selected.statut]?.l||selected.statut],
-                    ['Déclaré par',selected.auteur_nom||'?'],
-                    ['Assigné à',selected.assigne_nom||'Non assigné'],
-                    ['📅 Déclaration', selected.date_creation ? new Date(selected.date_creation).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '?'],
-                    ['⏰ Échéance SLA', selected.sla_echeance ? new Date(selected.sla_echeance).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'],
-                    ['⏱️ Durée tâche', (() => {
-                      const start = selected.date_debut || selected.date_creation
-                      const end = selected.date_resolution || selected.date_cloture || (selected.statut==='en_cours'?new Date().toISOString():null)
-                      if (!start || !end) return 'En attente'
-                      const h = Math.round((new Date(end)-new Date(start))/3600000)
-                      return h < 24 ? `${h}h` : `${Math.floor(h/24)}j ${h%24}h`
-                    })()],
-                  ].map(([k,v])=>(
-                    <div key={k} style={{ background:'#f8fafc', borderRadius:8, padding:'8px 10px' }}>
-                      <div style={{ fontSize:10, color:'#94a3b8', marginBottom:2 }}>{k}</div>
-                      <div style={{ fontSize:12, fontWeight:600 }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Actions */}
-                {isAdmin && selected.statut==='declare' && (
-                  <button onClick={()=>{setActionModal('assigner');setActionTechId('')}}
-                    style={{ width:'100%', background:'#f97316', color:'#fff', border:'none',
-                      padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
-                      marginBottom:8, fontFamily:'inherit' }}>
-                    👷 Assigner à un technicien
-                  </button>
-                )}
-                {selected.statut==='assigne' && (
-                  <button onClick={()=>setActionModal('commencer')}
-                    style={{ width:'100%', background:'#eab308', color:'#fff', border:'none',
-                      padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
-                      marginBottom:8, fontFamily:'inherit' }}>
-                    ⚙️ Commencer l'intervention
-                  </button>
-                )}
-                {selected.statut==='en_cours' && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
-                    <div style={{ display:'flex', gap:8 }}>
-                      <button onClick={()=>uploadPhoto('photo_avant')}
-                        style={{ flex:1, background:'#f5f3ff', color:'#7c3aed',
-                          border:'2px dashed #c4b5fd', padding:10, borderRadius:9,
-                          cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit' }}>
-                        📷 Photo Avant
-                      </button>
-                      <button onClick={()=>uploadPhoto('photo_apres')}
-                        style={{ flex:1, background:'#f0fdf4', color:'#16a34a',
-                          border:'2px dashed #86efac', padding:10, borderRadius:9,
-                          cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit' }}>
-                        📷 Photo Après
-                      </button>
-                    </div>
-                    {(() => {
-                      const hasAvant = (selected.commentaires||[]).some(c=>c.type_comment==='photo_avant')
-                      const hasApres = (selected.commentaires||[]).some(c=>c.type_comment==='photo_apres')
-                      const canResolve = hasAvant && hasApres
-                      return (
-                        <div>
-                          {!hasAvant && <div style={{fontSize:11,color:'#dc2626',background:'#fef2f2',
-                            border:'1px solid #fecaca',borderRadius:7,padding:'5px 10px',marginBottom:5}}>
-                            ⚠️ Photo AVANT requise
-                          </div>}
-                          {!hasApres && <div style={{fontSize:11,color:'#dc2626',background:'#fef2f2',
-                            border:'1px solid #fecaca',borderRadius:7,padding:'5px 10px',marginBottom:5}}>
-                            ⚠️ Photo APRÈS requise
-                          </div>}
-                          <button onClick={()=>canResolve&&setActionModal('resoudre')}
-                            disabled={!canResolve}
-                            title={!canResolve?'Photos avant et après obligatoires':'Marquer résolu'}
-                            style={{ width:'100%', background:canResolve?'#16a34a':'#94a3b8', color:'#fff', border:'none',
-                              padding:11, borderRadius:10, cursor:canResolve?'pointer':'not-allowed',
-                              fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
-                            ✅ Marquer résolu {!canResolve?'(photos requises)':''}
-                          </button>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
-                {isAdmin && selected.statut==='resolu' && (
-                  <button onClick={()=>setActionModal('cloturer')}
-                    style={{ width:'100%', background:'#64748b', color:'#fff', border:'none',
-                      padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
-                      marginBottom:8, fontFamily:'inherit' }}>
-                    🔒 Clôturer
-                  </button>
-                )}
-                <button onClick={()=>setActionModal('commenter')}
-                  style={{ width:'100%', background:'#f8fafc', color:'#1e3a8a',
-                    border:'1px solid #e2e8f0', padding:10, borderRadius:10, cursor:'pointer',
-                    fontSize:12, fontWeight:700, marginBottom:14, marginTop:4, fontFamily:'inherit' }}>
-                  💬 Commentaire
-                </button>
-
-                <div style={{ fontSize:12, fontWeight:700, color:'#64748b',
-                  marginBottom:8, textTransform:'uppercase', letterSpacing:.5 }}>
-                  Historique ({selected.commentaires?.length||0})
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {(selected.commentaires||[]).map(c=>{
-                    const tc={info:'#64748b',assignation:'#2563eb',debut:'#f97316',
-                      photo_avant:'#7c3aed',photo_apres:'#059669',resolution:'#16a34a',cloture:'#64748b'}[c.type_comment]||'#64748b'
-                    return (
-                      <div key={c.id} style={{ display:'flex', gap:8 }}>
-                        <div style={{ width:3, borderRadius:99, background:tc, flexShrink:0 }}/>
-                        <div style={{ flex:1 }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
-                            <span style={{ fontSize:10, fontWeight:700, color:tc }}>{c.type_label||c.type_comment}</span>
-                            <span style={{ fontSize:10, color:'#94a3b8' }}>{c.auteur_nom}</span>
-                          </div>
-                          <div style={{ fontSize:12, color:'#334155' }}>{c.contenu}</div>
-                          {c.photo_base64 && String(c.photo_base64).length>10 && (
-                            <img src={'data:image/jpeg;base64,'+String(c.photo_base64).replace(/^data:[^;]+;base64,/,'')}
-                              alt="Photo" style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:8, marginTop:6, cursor:'pointer' }}
-                              onClick={()=>window.open('data:image/jpeg;base64,'+String(c.photo_base64).replace(/^data:[^;]+;base64,/,''),'_blank')}
-                              onError={e=>{e.target.style.display='none'}}/>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ MODAL MODIFIER INCIDENT ══ */}
-        {showEdit && editInc && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.7)',
-            display:'flex', alignItems:'center', justifyContent:'center', zIndex:1200, padding:16 }}
-            onClick={e=>e.target===e.currentTarget&&setShowEdit(false)}>
-            <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520,
-              maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
-                padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ fontWeight:700, fontSize:15 }}>✏️ Modifier l'incident</div>
-                <button onClick={()=>setShowEdit(false)}
-                  style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
-                    width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-              </div>
-              <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-                <div>
-                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>TITRE *</label>
-                  <input value={editInc.titre} onChange={e=>setEditInc({...editInc,titre:e.target.value})} style={inp}/>
-                </div>
-                <div>
-                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION *</label>
-                  <textarea value={editInc.description} onChange={e=>setEditInc({...editInc,description:e.target.value})}
-                    rows={3} style={{ ...inp, resize:'vertical' }}/>
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>CATÉGORIE</label>
-                    <select value={editInc.categorie} onChange={e=>setEditInc({...editInc,categorie:e.target.value})} style={inp}>
-                      {CATS.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>PRIORITÉ</label>
-                    <select value={editInc.priorite} onChange={e=>setEditInc({...editInc,priorite:e.target.value})} style={inp}>
-                      {Object.entries(PRIOS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <input value={editInc.residence} onChange={e=>setEditInc({...editInc,residence:e.target.value})} style={inp}/>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
-                    <input value={editInc.bloc||''} onChange={e=>setEditInc({...editInc,bloc:e.target.value})} style={inp}/>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:10 }}>
-                  <button onClick={async()=>{
-                    try {
-                      await incAPI.modifier(editInc.id, {
-                        titre: editInc.titre, description: editInc.description,
-                        categorie: editInc.categorie, priorite: editInc.priorite,
-                        residence: editInc.residence, bloc: editInc.bloc||''
-                      })
-                      setShowEdit(false); load()
-                    } catch(e) { alert(e.response?.data?.detail||'Erreur modification') }
-                  }}
-                    style={{ flex:1, background:'#1e3a8a', color:'#fff', border:'none',
-                      padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
-                    💾 Enregistrer
-                  </button>
-                  <button onClick={()=>setShowEdit(false)}
-                    style={{ background:'#f1f5f9', color:'#64748b', border:'1px solid #e2e8f0',
-                      padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontFamily:'inherit' }}>
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ MODAL ACTION ══ */}
-        {actionModal && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.7)',
-            display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}
-            onClick={e=>e.target===e.currentTarget&&setActionModal(null)}>
-            <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:420,
-              overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
-                padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div style={{ fontWeight:700 }}>
-                  {{assigner:'👷 Assigner',commencer:'⚙️ Commencer',
-                    resoudre:'✅ Résoudre',cloturer:'🔒 Clôturer',commenter:'💬 Commentaire'}[actionModal]}
-                </div>
-                <button onClick={()=>setActionModal(null)}
-                  style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff',
-                    width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-              </div>
-              <div style={{ padding:18, display:'flex', flexDirection:'column', gap:12 }}>
-                {actionModal==='assigner' ? (
-                  <select value={actionTechId} onChange={e=>setActionTechId(e.target.value)} style={inp}>
-                    <option value="">-- Sélectionner un technicien --</option>
-                    {techns.map(t=>(
-                      <option key={t.id} value={t.id}>{t.first_name} {t.last_name} ({t.username})</option>
-                    ))}
-                  </select>
-                ) : (
-                  <textarea value={actionComment} onChange={e=>setActionComment(e.target.value)}
-                    placeholder={actionModal==='commenter'?'Votre commentaire...':'Commentaire (optionnel)...'}
-                    rows={3} style={{ ...inp, resize:'vertical' }}/>
-                )}
-                <button onClick={()=>doAction(actionModal)} disabled={submitting}
-                  style={{ background:submitting?'#94a3b8':'#1e3a8a', color:'#fff', border:'none',
-                    padding:12, borderRadius:10, cursor:submitting?'wait':'pointer',
-                    fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
-                  {submitting?'⏳...':'Confirmer'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
-    </MaintenanceBoundary>
+
+      <div className="card card-pad mb-4">
+        <div className="flex items-center gap-3">
+          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>SLA global</span>
+          <div style={{ flex: 1 }}>
+            <ProgressBar value={94} color="emerald" showLabel />
+          </div>
+        </div>
+      </div>
+
+      <div className="kanban">
+        {COLS.map((col) => (
+          <div
+            key={col.id}
+            className="kcol"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => moveCard(col.id)}
+          >
+            <h4>
+              <col.icon size={14} /> {col.label} <span className="count">{cols[col.id].length}</span>
+            </h4>
+            {cols[col.id].map((c) => (
+              <div
+                key={c.id}
+                className="kcard"
+                draggable
+                onDragStart={() => setDragged(c)}
+                style={{ opacity: c.done ? 0.7 : 1, cursor: 'grab' }}
+              >
+                <div className="kcard-title">{c.title}</div>
+                <div className="flex items-center gap-2" style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                  <span className={`badge badge-${c.prio === 'P1' ? 'alert' : c.prio === 'P2' ? 'warn' : 'ink'}`}>{c.prio}</span>
+                  <span style={{ background: 'var(--bg-2)', padding: '2px 8px', borderRadius: 6 }}>{c.cat}</span>
+                </div>
+                <div className="kcard-meta" style={{ marginTop: 8 }}>
+                  <span>{c.ts}</span>
+                  <div className="avatar" style={{ width: 22, height: 22, fontSize: 9 }}>{c.by}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .flex { display: flex; } .gap-2 { gap: 8px; } .items-center { align-items: center; }
+        .mb-4 { margin-bottom: 16px; }
+        .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .kcol { background: var(--bg-2); border-radius: 14px; padding: 12px; min-height: 400px; }
+        .kcol h4 { font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .kcol h4 .count { background: var(--surface); padding: 1px 8px; border-radius: 999px; font-size: 11px; }
+        .kcard { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-xs); transition: all .15s; }
+        .kcard:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+        .kcard-title { font-size: 13px; font-weight: 600; color: var(--text); }
+        .kcard-meta { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-3); }
+        .avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--copper-500), var(--emerald-600)); display: grid; place-items: center; color: white; font-weight: 700; font-size: 13px; }
+        @media (max-width: 1024px) { .kanban { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 640px) { .kanban { grid-template-columns: 1fr; } }
+      `}</style>
+    </div>
   )
 }

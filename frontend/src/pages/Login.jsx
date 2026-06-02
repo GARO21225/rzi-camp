@@ -1,290 +1,226 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '../store'
+import { useStore } from '../store/useStore'
 import { auth } from '../api'
-
-function ForgotModal({ onClose }) {
-  const [step, setStep] = useState('request')
-  const [username, setUsername] = useState('')
-  const [token, setToken] = useState('')
-  const [newPwd, setNewPwd] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState(null)
-
-  const apiCall = async (path, data) => {
-    const baseUrl = window.__API_BASE__ || import.meta.env.VITE_API_URL || ''
-    const r = await fetch(`${baseUrl}/api${path}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
-    return r.json()
-  }
-
-  const requestReset = async () => {
-    if (!username.trim()) return setMsg({ type:'error', text:'Saisissez votre identifiant' })
-    setLoading(true); setMsg(null)
-    try {
-      const r = await apiCall('/forgot-password/', { username: username.trim() })
-      if (r.token) { setToken(r.token); setMsg({ type:'info', text:'Token généré — transmettez-le à l\'utilisateur' }) }
-      else if (r.message) setMsg({ type:'success', text: r.message })
-      else if (r.error) { setMsg({ type:'error', text: r.error }); return }
-      setStep('confirm')
-    } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
-    finally { setLoading(false) }
-  }
-
-  const confirmReset = async () => {
-    if (!token.trim() || !newPwd) return setMsg({ type:'error', text:'Token et mot de passe requis' })
-    if (newPwd.length < 6) return setMsg({ type:'error', text:'Minimum 6 caractères' })
-    setLoading(true); setMsg(null)
-    try {
-      const r = await apiCall('/reset-password-confirm/', { token: token.trim(), password: newPwd })
-      if (r.message) { setMsg({ type:'success', text: r.message }); setTimeout(onClose, 2500) }
-      else setMsg({ type:'error', text: r.error || 'Token invalide' })
-    } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
-    finally { setLoading(false) }
-  }
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(5,15,35,.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-      <div style={{ background:'#0d1b2e', border:'1px solid rgba(240,165,0,.3)', borderRadius:20, width:'100%', maxWidth:420, overflow:'hidden', boxShadow:'0 32px 80px rgba(0,0,0,.6)' }}>
-        <div style={{ background:'linear-gradient(135deg,#0f2447,#1a3560)', padding:'18px 22px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid rgba(240,165,0,.2)' }}>
-          <span style={{ color:'#f0a500', fontWeight:800, fontSize:15, letterSpacing:'.5px' }}>🔐 RÉINITIALISATION</span>
-          <button onClick={onClose} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.15)', color:'#94a3b8', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
-        </div>
-        <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14 }}>
-          {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
-          {step === 'request' ? <>
-            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            {token && <div style={{ background:'rgba(240,165,0,.1)', border:'1px solid rgba(240,165,0,.3)', borderRadius:10, padding:'10px 14px' }}><div style={{ fontSize:11, color:'#f0a500', marginBottom:4, fontWeight:700 }}>TOKEN À TRANSMETTRE</div><div style={{ fontFamily:'monospace', fontSize:13, color:'#fef3c7', wordBreak:'break-all' }}>{token}</div></div>}
-            <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Génération...':'Générer le token'}</button>
-          </> : <>
-            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Coller le token ici" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
-            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'#fff', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
-          </>}
-        </div>
-      </div>
-    </div>
-  )
-}
+import { Eye, EyeOff, LogIn, Lock, User, Globe2 } from 'lucide-react'
 
 export default function Login() {
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
   const { setUser, setToken } = useStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
-  const [showPwd,  setShowPwd]  = useState(false)
-  const [showForgot,   setShowForgot]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
 
   const handleLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     try {
-      const r  = await auth.login(username.trim(), password)
-      setToken(r.data.access)
-      localStorage.setItem('refresh_token', r.data.refresh)
+      const r = await auth.login(username.trim(), password)
+      setToken(r.access)
+      localStorage.setItem('refresh_token', r.refresh)
       const me = await auth.me()
-      setUser(me.data)
+      setUser(me)
       sessionStorage.setItem('just_logged_in', '1')
       navigate('/')
-    } catch(e) {
+    } catch (e) {
       setError(e.response?.data?.detail || e.response?.data?.non_field_errors?.[0] || 'Identifiant ou mot de passe incorrect')
-    } finally { setLoading(false) }
-  }
-
-  const onKey = e => { if (e.key === 'Enter') handleLogin() }
-
-  const inp = {
-    width:'100%', background:'rgba(255,255,255,.07)', border:'1.5px solid rgba(255,255,255,.14)',
-    borderRadius:12, padding:'13px 16px', fontSize:15, outline:'none', color:'#fff',
-    fontFamily:'inherit', boxSizing:'border-box', transition:'border-color .15s',
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={{
-      minHeight:'100dvh', display:'flex', alignItems:'stretch',
-      background:'#050f23',
-      fontFamily:'"DM Sans", "Inter", system-ui, sans-serif',
-    }}>
-      {/* Responsive: sur mobile = colonne, desktop = 2 colonnes */}
-      <style>{`
-        @media (max-width:768px) {
-          .login-brand { display: none !important; }
-          .login-form-panel {
-            flex: 1 !important;
-            padding: 24px 20px !important;
-            justify-content: flex-start !important;
-          }
-          .login-mobile-header {
-            display: flex !important;
-          }
-        }
-        @media (min-width:769px) {
-          .login-mobile-header { display: none !important; }
-        }
-      `}</style>
+    <div className="login-page">
+      {/* Brand panel — left */}
+      <div className="login-brand">
+        <div className="login-brand-bg">
+          <div className="login-brand-content">
+            <img src="/roxgold-logo.png" alt="Roxgold" className="brand-mark-lg" />
+            <h1 className="font-display" style={{ fontSize: 42, lineHeight: 1.1, color: 'white', marginTop: 24, letterSpacing: '-0.02em' }}>
+              RZI <span style={{ color: 'var(--gold-400)' }}>Camp</span>
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 15, marginTop: 12, maxWidth: 360, lineHeight: 1.6 }}>
+              ERP Industriel pour Roxgold · Côte d'Ivoire<br />
+              Jumeau numérique · Maintenance prédictive · QR anti-fraude
+            </p>
 
-      {/* En-tête mobile uniquement */}
-      <div className="login-mobile-header" style={{
-        display:'none', position:'fixed', top:0, left:0, right:0, zIndex:100,
-        background:'linear-gradient(135deg,#060d1f,#0c1a38)',
-        padding:'12px 20px', alignItems:'center', gap:12,
-        borderBottom:'1px solid rgba(240,165,0,.2)',
-      }}>
-        <div style={{width:36,height:36,background:'#fff',borderRadius:8,
-          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-          <img src="/roxgold-logo.png" alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:3}}/>
-        </div>
-        <div>
-          <div style={{fontSize:12,fontWeight:800,color:'#fff',letterSpacing:1}}>RZI CAMP ERP</div>
-          <div style={{fontSize:10,color:'#f0a500',fontWeight:600}}>ROXGOLD · SANGO</div>
-        </div>
-      </div>
-
-      {/* Panel gauche - branding desktop */}
-      <div className="login-brand" style={{
-        flex:'0 0 50%', display:'flex', flexDirection:'column',
-        justifyContent:'center', alignItems:'center',
-        background:'linear-gradient(145deg, #060d1f 0%, #0c1a38 40%, #0f2447 100%)',
-        position:'relative', overflow:'hidden', padding:40,
-      }}>
-        <div style={{ position:'absolute', inset:0, opacity:.07,
-          backgroundImage:'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)',
-          backgroundSize:'40px 40px' }}/>
-        <div style={{ position:'absolute', top:-100, right:-100, width:420, height:400,
-          borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
-        <div style={{ position:'absolute', bottom:-80, left:-80, width:320, height:300,
-          borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
-        <div style={{ position:'relative', textAlign:'center', maxWidth:400 }}>
-          <div style={{ height:90, margin:'0 auto 28px', borderRadius:18,
-            background:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 16px 48px rgba(240,165,0,.5)', border:'3px solid #f0a500', padding:8 }}>
-            <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{height:'100%',objectFit:'contain'}}/>
-          </div>
-          <div style={{ fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700,
-            textTransform:'uppercase', marginBottom:12 }}>
-            ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
-          </div>
-          <div style={{ fontSize:28, fontWeight:900, color:'#fff', lineHeight:1.2, marginBottom:16 }}>
-            RZI Camp ERP
-          </div>
-          <div style={{ fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
-            Gestion intégrée de la résidence<br/>
-            minière Roxgold Sango
-          </div>
-          <div style={{ marginTop:32, display:'flex', gap:16, justifyContent:'center', flexWrap:'wrap' }}>
-            {['🏠 Résidences','👤 Personnel','🎓 Induction','🛠️ Maintenance'].map(f=>(
-              <span key={f} style={{ fontSize:12, color:'rgba(255,255,255,.5)',
-                background:'rgba(255,255,255,.07)', padding:'6px 12px', borderRadius:20 }}>
-                {f}
-              </span>
-            ))}
+            <div className="brand-features">
+              {[
+                { icon: '🛰️', label: '204 bâtiments en temps réel' },
+                { icon: '🤖', label: 'Copilote IA proactif' },
+                { icon: '🔒', label: 'Conformité ISO 27001' },
+                { icon: '📡', label: 'Multi-capteurs IoT' },
+              ].map((f) => (
+                <div key={f.label} className="brand-feature">
+                  <span>{f.icon}</span>
+                  <span>{f.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Panel droit - formulaire */}
-      <div className="login-form-panel" style={{
-        flex:'0 0 50%', display:'flex', flexDirection:'column',
-        justifyContent:'center', alignItems:'center',
-        background:'#080f20', padding:'40px 32px',
-        overflowY:'auto',
-        paddingTop: 80, // espace pour header mobile
-      }}>
-        <div style={{ width:'100%', maxWidth:400 }}>
-          <div style={{ marginBottom:32, textAlign:'center' }}>
-            <div style={{ fontSize:22, fontWeight:800, color:'#fff', marginBottom:6 }}>
+      {/* Form panel — right */}
+      <div className="login-form">
+        <div className="login-form-inner">
+          <div className="login-mobile-header">
+            <img src="/roxgold-logo.png" alt="Roxgold" className="brand-img-sm" />
+            <div className="brand-name">RZI CAMP</div>
+          </div>
+
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
               Connexion
-            </div>
-            <div style={{ fontSize:13, color:'rgba(255,255,255,.45)' }}>
+            </h2>
+            <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 6 }}>
               Bienvenue — entrez vos identifiants
-            </div>
+            </p>
           </div>
 
           {error && (
-            <div style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
-              borderRadius:10, padding:'12px 16px', marginBottom:20,
-              fontSize:13, color:'#fca5a5', fontWeight:600 }}>
-              ❌ {error}
-            </div>
+            <div className="login-error">❌ {error}</div>
           )}
 
-          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ display:'block', fontSize:11, fontWeight:700,
-                color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
-                Identifiant
-              </label>
-              <input
-                value={username} onChange={e=>setUsername(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&handleLogin()}
-                placeholder="Votre identifiant"
-                autoComplete="username"
-                style={{ width:'100%', background:'rgba(255,255,255,.06)',
-                  border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
-                  padding:'13px 16px', fontSize:14, color:'#fff', outline:'none',
-                  boxSizing:'border-box', transition:'border-color .2s',
-                }}
-                onFocus={e=>e.target.style.borderColor='#f0a500'}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
-              />
+              <label className="login-label">Identifiant</label>
+              <div className="login-input-wrap">
+                <User size={16} />
+                <input
+                  className="input"
+                  style={{ paddingLeft: 38 }}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                  placeholder="Votre identifiant"
+                  autoComplete="username"
+                />
+              </div>
             </div>
 
             <div>
-              <label style={{ display:'block', fontSize:11, fontWeight:700,
-                color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
-                Mot de passe
-              </label>
-              <div style={{ position:'relative' }}>
+              <label className="login-label">Mot de passe</label>
+              <div className="login-input-wrap">
+                <Lock size={16} />
                 <input
+                  className="input"
+                  style={{ paddingLeft: 38, paddingRight: 40 }}
                   type={showPwd ? 'text' : 'password'}
-                  value={password} onChange={e=>setPassword(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  style={{ width:'100%', background:'rgba(255,255,255,.06)',
-                    border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
-                    padding:'13px 48px 13px 16px', fontSize:14, color:'#fff', outline:'none',
-                    boxSizing:'border-box', transition:'border-color .2s',
-                  }}
-                  onFocus={e=>e.target.style.borderColor='#f0a500'}
-                  onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
                 />
-                <button type="button" onClick={()=>setShowPwd(p=>!p)}
-                  style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-                    background:'none', border:'none', color:'rgba(255,255,255,.4)',
-                    cursor:'pointer', fontSize:18, padding:4 }}>
-                  {showPwd ? '🙈' : '👁️'}
+                <button className="login-eye" type="button" onClick={() => setShowPwd(!showPwd)}>
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <button onClick={handleLogin} disabled={loading}
-              style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
-                color:'#000', border:'none', borderRadius:10, padding:14,
-                fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer',
-                transition:'all .2s', marginTop:4,
-                boxShadow: loading ? 'none' : '0 4px 16px rgba(240,165,0,.3)',
-              }}>
-              {loading ? '⏳ Connexion...' : 'Se connecter →'}
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="btn btn-primary"
+              style={{ width: '100%', height: 46, fontSize: 15, marginTop: 4 }}
+            >
+              {loading ? <span className="anim-spin">⏳</span> : <LogIn size={16} />}
+              {loading ? 'Connexion...' : 'Se connecter'}
             </button>
 
-            <button type="button" onClick={()=>setShowForgot(true)}
-              style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
-                cursor:'pointer', fontSize:12, padding:'4px 0', textDecoration:'underline' }}>
-              Mot de passe oublié ?
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <input type="checkbox" /> Rester connecté
+              </label>
+              <a href="#" style={{ color: 'var(--copper-600)', textDecoration: 'none', fontWeight: 600 }}>
+                Mot de passe oublié ?
+              </a>
+            </div>
           </div>
 
-          <div style={{ marginTop:32, textAlign:'center', fontSize:11,
-            color:'rgba(255,255,255,.25)', lineHeight:1.8 }}>
-            RZI Camp ERP · Roxgold Mining Sango<br/>
-            © {new Date().getFullYear()} — Usage interne uniquement
+          <div style={{ marginTop: 32, padding: 14, background: 'var(--bg-2)', borderRadius: 12, fontSize: 12, color: 'var(--text-3)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>🔑 Comptes démo</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <div><span className="font-mono">admin</span> / admin123</div>
+              <div><span className="font-mono">manager</span> / manager123</div>
+              <div><span className="font-mono">agent</span> / agent123</div>
+              <div><span className="font-mono">resto</span> / resto123</div>
+            </div>
           </div>
         </div>
       </div>
 
-      {showForgot && <ForgotModal onClose={()=>setShowForgot(false)}/>}
+      <style>{`
+        .login-page { min-height: 100dvh; display: grid; grid-template-columns: 1.1fr 1fr; }
+        .login-brand { position: relative; overflow: hidden; }
+        .login-brand-bg {
+          position: absolute; inset: 0;
+          background:
+            radial-gradient(circle at 20% 30%, rgba(255,205,0,.15), transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(12,78,162,.4), transparent 50%),
+            linear-gradient(135deg, var(--ink-900), var(--copper-700));
+        }
+        .login-brand-content {
+          position: relative; height: 100%;
+          display: flex; flex-direction: column; justify-content: center;
+          padding: 60px;
+        }
+        .brand-mark-lg {
+          width: 72px; height: 72px;
+          background: white;
+          border-radius: 18px;
+          display: grid; place-items: center;
+          padding: 10px;
+          box-shadow: 0 10px 40px rgba(0,0,0,.3);
+          object-fit: contain;
+        }
+        .brand-img-sm {
+          width: 32px; height: 32px;
+          background: white;
+          border-radius: 6px;
+          padding: 3px;
+          object-fit: contain;
+        }
+        .brand-features { display: flex; flex-direction: column; gap: 12px; margin-top: 36px; }
+        .brand-feature {
+          display: flex; align-items: center; gap: 12px;
+          color: rgba(255,255,255,.85);
+          font-size: 14px;
+          padding: 10px 14px;
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 10px;
+          width: fit-content;
+        }
+        .login-form {
+          display: flex; align-items: center; justify-content: center;
+          padding: 40px;
+          background: var(--bg);
+        }
+        .login-form-inner { width: 100%; max-width: 420px; }
+        .login-mobile-header { display: none; align-items: center; gap: 12px; margin-bottom: 24px; }
+        .login-mobile-header .brand-name { color: var(--text); font-weight: 700; font-size: 16px; }
+        .login-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-3); margin-bottom: 6px; letter-spacing: .08em; text-transform: uppercase; }
+        .login-input-wrap { position: relative; }
+        .login-input-wrap > svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-3); }
+        .login-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-3); cursor: pointer; padding: 6px; border-radius: 6px; }
+        .login-eye:hover { background: var(--bg-2); color: var(--text); }
+        .login-error {
+          background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c;
+          padding: 12px 14px; border-radius: 10px; margin-bottom: 20px;
+          font-size: 13px; font-weight: 600;
+        }
+        [data-theme="dark"] .login-error { background: rgba(220,38,38,.15); color: #fca5a5; border-color: rgba(220,38,38,.3); }
+        @media (max-width: 900px) {
+          .login-page { grid-template-columns: 1fr; }
+          .login-brand { display: none; }
+          .login-mobile-header { display: flex; }
+        }
+      `}</style>
     </div>
   )
 }
