@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
+import Sidebar from './Sidebar'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -299,69 +300,9 @@ export default function Layout() {
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
         )}
         {sidebarOpen && (
-          <nav style={{
-            width: 240,
-            background: 'var(--surface)',
-            borderRight: '1px solid var(--border)',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            ...(isMobile ? {
-              position: 'fixed',
-              top: 54,
-              left: 0,
-              bottom: 0,
-              zIndex: 95,
-              boxShadow: '4px 0 20px rgba(0,0,0,.25)',
-            } : {}),
-          }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
-                Navigation
-              </div>
-            </div>
-            <div style={{ padding: 8, flex: 1 }}>
-              {nav.map((item, i) => item.group ? (
-                <div key={`g${i}`} style={{
-                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
-                }}>
-                  <div style={{
-                    fontSize:10, fontWeight:800,
-                    color:'rgba(255,255,255,.9)',
-                    letterSpacing:1.2, textTransform:'uppercase',
-                    padding:'5px 10px',
-                    background:'rgba(255,255,255,.1)',
-                    borderRadius:6,
-                    borderLeft:'3px solid rgba(255,255,255,.4)',
-                    display:'flex', alignItems:'center', gap:6,
-                  }}>
-                    {item.group}
-                  </div>
-                </div>
-              ) : (
-                <NavLink key={item.to} to={item.to} end={item.exact}
-                  style={({ isActive }) => ({
-                    display: 'block',
-                    padding: '8px 10px 8px 12px',
-                    margin: '1px 6px',
-                    borderRadius: 8,
-                    textDecoration: 'none',
-                    fontSize: 12.5,
-                    fontWeight: isActive ? 700 : 400,
-                    background: isActive ? 'var(--sidebar-active,rgba(255,255,255,.12))' : 'transparent',
-                    color: isActive ? 'var(--sidebar-text-act,#fff)' : 'var(--sidebar-text,rgba(255,255,255,.75))',
-                    borderLeft: isActive
-                      ? '3px solid #fff'
-                      : '3px solid transparent',
-                    transition: 'all .15s',
-                  })}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          </nav>
+          <div style={isMobile ? { position: 'fixed', top: 54, left: 0, bottom: 0, zIndex: 95, boxShadow: '4px 0 20px rgba(0,0,0,.25)' } : {}}>
+            <Sidebar currentPath={location.pathname} badges={{}} />
+          </div>
         )}
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)', overflowY:'auto' }}>
