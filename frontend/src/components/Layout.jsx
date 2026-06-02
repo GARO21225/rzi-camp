@@ -324,19 +324,15 @@ export default function Layout() {
             </div>
             <div style={{ padding: 8, flex: 1 }}>
               {nav.map((item, i) => item.group ? (
-                <div key={`g${i}`} style={{
-                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
-                }}>
+                <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                   <div style={{
-                    fontSize:10, fontWeight:800,
-                    color:'rgba(255,255,255,.9)',
-                    letterSpacing:1.2, textTransform:'uppercase',
-                    padding:'5px 10px',
-                    background:'rgba(255,255,255,.1)',
-                    borderRadius:6,
-                    borderLeft:'3px solid rgba(255,255,255,.4)',
-                    display:'flex', alignItems:'center', gap:6,
+                    fontSize:10, fontWeight:800, letterSpacing:1.5,
+                    textTransform:'uppercase', color:'#f0a500',
+                    padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
+                    borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                   }}>
+                    <span style={{display:'inline-block',width:3,height:10,
+                      background:'#f0a500',borderRadius:99}}/>
                     {item.group}
                   </div>
                 </div>
