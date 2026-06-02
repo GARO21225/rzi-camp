@@ -5,26 +5,45 @@
    ═══════════════════════════════════════════ */
 
 :root {
+  /* ══════════════════════════════════════════════════════════════════
+     ROXGOLD CÔTE D'IVOIRE — Charte officielle
+     Couleurs extraites du logo (roxgold-logo.png) + standards
+     de la marque. Toutes les variables de l'app pointent ici.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* ── Couleurs primaires ROXGOLD ── */
+  --roxgold-blue:       #303080;   /* bleu marine logo (couleur majeure) */
+  --roxgold-blue-dark:  #1e1e5e;   /* bleu nuit profond — header/sidebar */
+  --roxgold-blue-light: #e8eaf5;   /* tint clair du bleu marine */
+  --roxgold-navy:       #0a1628;   /* navy historique — surfaces sombres */
+
+  /* ── Couleurs d'accent ROXGOLD ── */
+  --roxgold-gold:       #f0b010;   /* or jaune vif du logo */
+  --roxgold-gold-soft:  #fcd34d;   /* or doux — badges NEW */
+  --roxgold-gold-light: #fef3c7;   /* fond or très clair */
+  --roxgold-orange:     #e87722;   /* orange signature Roxgold */
+  --roxgold-orange-dark:#c25a18;   /* orange foncé — dégradés */
+
   /* ── Alias rzi (utilisés dans Layout) ── */
-  --rzi-blue:   #1e3a8a;
-  --rzi-gold:   #f0a500;
-  --rzi-navy:   #0a1628;
+  --rzi-blue:   var(--roxgold-blue);
+  --rzi-gold:   var(--roxgold-gold);
+  --rzi-navy:   var(--roxgold-navy);
 
-  /* ── Brand ── */
-  --gold:        #f0a500;
-  --gold-hover:  #d99400;
-  --gold-light:  #fff8e1;
-  --navy:        #0a1628;
+  /* ── Brand (rétrocompat) ── */
+  --gold:        var(--roxgold-gold);
+  --gold-hover:  #d99a00;
+  --gold-light:  var(--roxgold-gold-light);
+  --navy:        var(--roxgold-navy);
 
-  /* ── Couleurs vives ── */
+  /* ── Couleurs sémantiques (alignées Roxgold) ── */
   --blue:        #1d4ed8;
-  --blue-dark:   #1e3a8a;
-  --blue-light:  #dbeafe;
-  --green:       #059669;
-  --green-light: #d1fae5;
+  --blue-dark:   var(--roxgold-blue);
+  --blue-light:  var(--roxgold-blue-light);
+  --green:       #16a34a;           /* vert logo ajusté (#40a040 → tailwind) */
+  --green-light: #dcfce7;
   --red:         #dc2626;
   --red-light:   #fee2e2;
-  --orange:      #ea580c;
+  --orange:      var(--roxgold-orange);
   --orange-light:#ffedd5;
   --purple:      #7c3aed;
   --purple-light:#ede9fe;
@@ -78,7 +97,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
 
 /* ── Focus ── */
-:focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:4px; }
+:focus-visible { outline:2px solid var(--roxgold-gold); outline-offset:2px; border-radius:4px; }
 
 /* ══════════════════════════════════
    SIDEBAR — toujours sombre
@@ -119,19 +138,19 @@ p, span, label, td, th, li {
 }
 
 /* KPI cards colorées */
-.kpi-blue   { background:#dbeafe !important; border-left:4px solid #1d4ed8; }
-.kpi-blue   * { color:#1e3a8a !important; }
-.kpi-green  { background:#d1fae5 !important; border-left:4px solid #059669; }
-.kpi-green  * { color:#065f46 !important; }
-.kpi-orange { background:#ffedd5 !important; border-left:4px solid #ea580c; }
-.kpi-orange * { color:#9a3412 !important; }
+.kpi-blue   { background: var(--roxgold-blue-light) !important; border-left:4px solid var(--roxgold-blue); }
+.kpi-blue   * { color: var(--roxgold-blue-dark) !important; }
+.kpi-green  { background:#dcfce7 !important; border-left:4px solid #16a34a; }
+.kpi-green  * { color:#14532d !important; }
+.kpi-orange { background:#ffedd5 !important; border-left:4px solid var(--roxgold-orange); }
+.kpi-orange * { color:#7c2d12 !important; }
 .kpi-purple { background:#ede9fe !important; border-left:4px solid #7c3aed; }
 .kpi-purple * { color:#4c1d95 !important; }
 .kpi-red    { background:#fee2e2 !important; border-left:4px solid #dc2626; }
 .kpi-red    * { color:#7f1d1d !important; }
 .kpi-teal   { background:#cffafe !important; border-left:4px solid #0891b2; }
 .kpi-teal   * { color:#164e63 !important; }
-.kpi-gold   { background:#fff8e1 !important; border-left:4px solid #f0a500; }
+.kpi-gold   { background: var(--roxgold-gold-light) !important; border-left:4px solid var(--roxgold-gold); }
 .kpi-gold   * { color:#78350f !important; }
 .kpi-pink   { background:#fce7f3 !important; border-left:4px solid #db2777; }
 .kpi-pink   * { color:#831843 !important; }
@@ -146,7 +165,7 @@ p, span, label, td, th, li {
 .badge-blue   { background:#dbeafe; color:#1e40af; }
 .badge-purple { background:#ede9fe; color:#4c1d95; }
 .badge-gray   { background:#f1f5f9; color:#334155; }
-.badge-gold   { background:#fff8e1; color:#92400e; }
+.badge-gold   { background: var(--roxgold-gold-light); color:#92400e; }
 
 /* ══════════════════════════════════
    BOUTONS
@@ -157,10 +176,10 @@ p, span, label, td, th, li {
   font-family:var(--font); font-size:.875rem; font-weight:600;
   cursor:pointer; transition:var(--t); white-space:nowrap;
 }
-.btn-primary { background:#1d4ed8; color:#fff; }
-.btn-primary:hover { background:#1e40af; }
-.btn-gold    { background:#f0a500; color:#1a0e00; }
-.btn-gold:hover { background:#d99400; }
+.btn-primary { background: var(--roxgold-blue); color:#fff; }
+.btn-primary:hover { background: var(--roxgold-blue-dark); }
+.btn-gold    { background: var(--roxgold-gold); color: var(--roxgold-navy); }
+.btn-gold:hover { background: var(--gold-hover); }
 .btn-green   { background:#059669; color:#fff; }
 .btn-red     { background:#dc2626; color:#fff; }
 .btn-ghost   { background:#f1f5f9; color:#1e293b; border:1px solid #e2e8f0; }
@@ -181,7 +200,7 @@ input, select, textarea {
   color:var(--text); background:var(--surface);
   transition:var(--t);
 }
-.input:focus { border-color:#1d4ed8; box-shadow:0 0 0 3px rgba(29,78,216,.12); }
+.input:focus { border-color: var(--roxgold-blue); box-shadow: 0 0 0 3px rgba(48,48,128,.15); }
 
 /* ══════════════════════════════════
    TABLEAUX
@@ -193,7 +212,7 @@ input, select, textarea {
   color:#475569; background:#f1f5f9; border-bottom:2px solid #e2e8f0;
 }
 .tbl td { padding:11px 14px; border-bottom:1px solid #f1f5f9; color:var(--text-2); }
-.tbl tbody tr:hover { background:#eff6ff; }
+.tbl tbody tr:hover { background: var(--roxgold-blue-light); }
 .tbl tbody tr:nth-child(even) { background:var(--surface-2); }
 
 /* ══════════════════════════════════
@@ -213,6 +232,23 @@ input, select, textarea {
   display:flex; align-items:center; justify-content:center;
   z-index:2000; padding:20px;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   ROXGOLD — composants additionnels
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Brand mark : pastille "RZ" header/sidebar */
+.brand-mark {
+  width:36px; height:36px; border-radius:8px;
+  background: linear-gradient(135deg, var(--roxgold-orange) 0%, var(--roxgold-orange-dark) 100%);
+  display:grid; place-items:center;
+  color:#fff; font-weight:800; font-size:14px;
+  box-shadow: 0 2px 8px rgba(232,119,34,.4);
+}
+
+/* Lien or signature */
+.link-gold { color: var(--roxgold-gold); text-decoration:none; font-weight:600; }
+.link-gold:hover { color: var(--gold-hover); text-decoration: underline; }
 .modal-box {
   background:var(--surface); border-radius:var(--radius-lg);
   box-shadow:var(--shadow-lg); width:100%; max-height:90vh; overflow-y:auto;
