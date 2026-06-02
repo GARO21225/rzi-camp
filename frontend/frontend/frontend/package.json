@@ -1,0 +1,50 @@
+{
+  "name": "rzi-camp-frontend",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build && cp dist-static/index.html dist/index.html.tmpl",
+    "dev": "vite",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:errors": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "postbuild": "cp dist-static/index.html dist/index.html.full && mv dist/index.html.full dist/index.html && rm dist/index.html.tmpl",
+    "build:static": "rm -rf dist && mkdir -p dist && cp dist-static/index.html dist/index.html && cp -r public/* dist/ 2>/dev/null; exit 0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "axios": "^1.6.7",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.12.0",
+    "zustand": "^4.5.0",
+    "html5-qrcode": "^2.3.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/react": "^16.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^1.6.0",
+    "eslint": "^9.10.0",
+    "eslint-plugin-react": "^7.36.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "jsdom": "^24.0.0",
+    "vite": "^5.1.4",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=8"
+  },
+  "packageManager": "npm@10.0.0"
+}
