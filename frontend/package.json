@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build && cp dist-static/index.html dist/index.html.tmpl",
+    "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -13,7 +13,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "postbuild": "cp dist-static/index.html dist/index.html.full && mv dist/index.html.full dist/index.html && rm dist/index.html.tmpl",
+    "postbuild": "echo 'Build complete'",
     "build:static": "rm -rf dist && mkdir -p dist && cp dist-static/index.html dist/index.html && cp -r public/* dist/ 2>/dev/null; exit 0"
   },
   "dependencies": {
