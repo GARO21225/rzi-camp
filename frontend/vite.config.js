@@ -5,38 +5,17 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
-    emptyOutDir: true, // Nettoie dist/ avant chaque build
+    emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // React et router → chunk stable
-          if (id.includes('node_modules/react') ||
-              id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/react-router')) {
-            return 'react-vendor'
-          }
-          // Leaflet (carte GIS)
-          if (id.includes('node_modules/leaflet') ||
-              id.includes('node_modules/react-leaflet')) {
-            return 'map'
-          }
-          // Recharts (graphiques)
-          if (id.includes('node_modules/recharts') ||
-              id.includes('node_modules/d3')) {
-            return 'charts'
-          }
-          // Axios + Zustand
-          if (id.includes('node_modules/axios') ||
-              id.includes('node_modules/zustand')) {
-            return 'utils'
-          }
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'charts': ['recharts'],
+          'utils': ['axios', 'zustand'],
         },
       },
     },
     chunkSizeWarningLimit: 1000,
   },
-  server: {
-    port: 5173,
-    proxy: {},
-  },
+  server: { port: 5173 },
 })
