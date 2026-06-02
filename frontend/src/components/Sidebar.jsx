@@ -1,99 +1,142 @@
-// Sidebar V2 — Navigation latérale groupée et lisible
-// Fidèle à la V1 : utilise les VRAIS noms des pages (Boutique, Reservations, etc.)
-// AUCUN renommage, AUCUNE page supprimée.
-// Couleurs avec contraste élevé pour rester lisible dans tous les modes.
+// Sidebar V2 — Groupé, Roxgold, avec labels V2 + routes V1
+// Connexion au backend inchangée (routes V1 utilisées)
 import React from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 
-// ── TOUTES les 26 pages V1, groupées (noms fidèles au V1) ─────────
+// ROUTES V1 inchangées (le backend ne bouge pas)
+// LABELS V2 affichés dans la sidebar
 const NAV_GROUPS = [
+  {
+    label: 'PILOTAGE',
+    items: [
+      { to: '/',           label: 'Tableau de bord',     icon: '📊' },
+      { to: '/carte',      label: 'Jumeau Numérique',    icon: '🌐', badge: 'NEW' },
+      { to: '/analytics',  label: 'Analytics IA',        icon: '📈' },
+      { to: '/assistant',  label: 'Copilote IA',         icon: '🤖', badge: 3 },
+    ],
+  },
   {
     label: 'OPÉRATIONS',
     items: [
-      { to: '/',          label: 'Dashboard',          icon: '📊', exact: true },
-      { to: '/carte',     label: 'Carte GIS',          icon: '🗺️' },
-      { to: '/operations',label: 'Centre Opérationnel',icon: '🖥️' },
+      { to: '/residences',   label: 'Résidences',    icon: '🏠', badge: 204 },
+      { to: '/maintenance',  label: 'Maintenance',   icon: '🛠️', badge: 7 },
+      { to: '/restauration', label: 'Restauration',  icon: '🍽️' },
+      { to: '/qr',           label: 'QR Anti-Fraude',icon: '🔒' },
     ],
   },
   {
     label: 'PERSONNES',
     items: [
-      { to: '/personnel', label: 'Personnel',     icon: '👥' },
-      { to: '/annuaire',  label: 'Annuaire',      icon: '📋' },
-      { to: '/induction', label: 'Induction QHSE',icon: '🎓' },
+      { to: '/personnel',  label: 'Personnel',   icon: '👤' },
+      { to: '/evenements', label: 'Événements',  icon: '📅' },
+      { to: '/induction',  label: 'Induction',   icon: '🎓' },
     ],
   },
   {
     label: 'HÉBERGEMENT & MOBILITÉ',
     items: [
-      { to: '/residences', label: 'Résidences',  icon: '🏠' },
-      { to: '/voyages',    label: 'Voyages',     icon: '✈️' },
-      { to: '/rotations',  label: 'Rotations',   icon: '🔄' },
+      { to: '/voyages',    label: 'Voyages',    icon: '✈️' },
+      { to: '/rotations',  label: 'Rotations',  icon: '🔄' },
     ],
   },
   {
-    label: 'SERVICES AUX RÉSIDENTS',
+    label: 'SERVICES',
     items: [
-      { to: '/restauration', label: 'Restauration',  icon: '🍽️' },
-      { to: '/boutique',     label: 'Bar & Boutique',icon: '🛒' },
-      { to: '/boutique-pos', label: 'Boutique POS',  icon: '💳' },
-      { to: '/reservations', label: 'Réservations',  icon: '📅' },
+      { to: '/boutique',     label: 'Bar & Boutique', icon: '🛒' },
+      { to: '/boutique-pos', label: 'Boutique POS',   icon: '💳' },
+      { to: '/reservations', label: 'Réservations',   icon: '📋' },
     ],
   },
   {
     label: 'EXPLOITATION',
     items: [
-      { to: '/maintenance', label: 'Maintenance',  icon: '🛠️' },
-      { to: '/evenements',  label: 'Événements',   icon: '📡' },
-      { to: '/demandes',    label: 'Demandes',     icon: '📝' },
-      { to: '/presences',   label: 'Présences',    icon: '✅' },
-      { to: '/workflows',   label: 'Workflow Hub', icon: '⚙️' },
+      { to: '/demandes',  label: 'Demandes',    icon: '📝' },
+      { to: '/presences', label: 'Présences',   icon: '✅' },
+      { to: '/workflows', label: 'Workflow Hub',icon: '⚙️' },
     ],
   },
   {
-    label: 'PILOTAGE & ANALYSE',
+    label: 'CONFORMITÉ',
     items: [
-      { to: '/analytics',  label: 'Analytics',    icon: '📈' },
-      { to: '/rapports',   label: 'Rapports',     icon: '📄' },
-      { to: '/historique', label: 'Historique',   icon: '📋' },
-      { to: '/audit',      label: 'Audit',        icon: '🔍' },
-      { to: '/assistant',  label: 'Assistant IA', icon: '🤖' },
-      { to: '/status',     label: 'Diagnostic',   icon: '🔧' },
+      { to: '/audit',       label: 'Audit Trail',      icon: '🛡️' },
+      { to: '/historique',  label: 'Historique',       icon: '📜' },
+      { to: '/rapports',    label: 'Rapports',         icon: '📄' },
+      { to: '/status',      label: 'Diagnostic',       icon: '🔧' },
     ],
   },
   {
     label: 'COMPTE',
     items: [
-      { to: '/mon-compte', label: 'Mon Compte', icon: '👤' },
+      { to: '/mon-compte',  label: 'Mon Compte',  icon: '👤' },
+      { to: '/annuaire',    label: 'Annuaire',    icon: '📇' },
+      { to: '/operations',  label: 'Centre Op.',  icon: '🖥️' },
     ],
   },
 ]
 
-// Couleurs avec CONTRASTE ÉLEVÉ — toujours lisible
+// Palette Roxgold (extraite du logo) + couleurs sémantiques
 const COLORS = {
-  bg:        '#0a1628',          // dark navy (forcé, peu importe le thème)
-  bgAlt:     '#0f2044',
-  text:      '#ffffff',          // BLANC PUR pour les items
-  textDim:   '#cbd5e1',          // gris clair pour les items inactifs
-  textGroup: '#94a3b8',          // gris pour les titres de groupe
-  active:    '#f0a500',          // or Roxgold pour l'item actif
-  activeBg:  'rgba(240,165,0,.12)',
+  bg:        '#0a1628',          // Roxgold blue (dark)
+  bgAlt:     '#0f2044',          // Roxgold blue alt
+  text:      '#ffffff',          // BLANC PUR — items
+  textDim:   '#cbd5e1',          // gris clair — items inactifs (suffisamment lisible)
+  textGroup: '#94a3b8',          // gris — titres de groupe
+  active:    '#e87722',          // Roxgold ORANGE — item actif
+  activeBg:  'rgba(232,119,34,.15)',
   border:    'rgba(255,255,255,.08)',
   hover:     'rgba(255,255,255,.06)',
+  gold:      '#ffcd00',          // Roxgold GOLD — badges NEW
+  red:       '#dc2626',          // alerts
+  green:     '#16a34a',          // success
 }
 
-export default function Sidebar({ onNavigate, currentPath, badges = {} }) {
+function SidebarItem({ to, label, icon, badge, exact, isActive }) {
+  // Badge peut être un nombre ou du texte ('NEW')
+  const isNewBadge = typeof badge === 'string'
+  const isNumberBadge = typeof badge === 'number' && badge > 0
+
+  return (
+    <NavLink to={to} end={exact}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px', margin: '1px 6px',
+        borderRadius: 8, textDecoration: 'none',
+        fontSize: 13.5, fontWeight: isActive ? 700 : 500,
+        color: isActive ? COLORS.active : COLORS.text,
+        background: isActive ? COLORS.activeBg : 'transparent',
+        borderLeft: isActive ? `3px solid ${COLORS.active}` : '3px solid transparent',
+        transition: 'all .15s ease',
+      }}
+      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = COLORS.hover }}
+      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+    >
+      <span style={{ fontSize: 16, flexShrink: 0, width: 20, textAlign: 'center' }}>{icon}</span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      {isNewBadge && (
+        <span style={{
+          background: COLORS.gold, color: '#1a0e00',
+          fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 6,
+          letterSpacing: '.04em',
+        }}>{badge}</span>
+      )}
+      {isNumberBadge && (
+        <span style={{
+          background: COLORS.red, color: 'white',
+          fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 99,
+          minWidth: 20, textAlign: 'center',
+        }}>{badge}</span>
+      )}
+    </NavLink>
+  )
+}
+
+export default function Sidebar({ currentPath }) {
   const navigate = useNavigate()
   const { user, logout } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
-
-  const handleClick = (to, e) => {
-    if (onNavigate) {
-      e.preventDefault()
-      onNavigate(to)
-    }
-  }
 
   return (
     <aside style={{
@@ -110,83 +153,58 @@ export default function Sidebar({ onNavigate, currentPath, badges = {} }) {
       <div style={{
         padding: '16px 14px 14px',
         background: COLORS.bgAlt,
-        borderBottom: `3px solid #f0a500`,
+        borderBottom: `3px solid ${COLORS.gold}`,
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <div style={{
-          width: 36, height: 36, background: 'white',
-          borderRadius: 8, padding: 4, display: 'grid', placeItems: 'center',
+          width: 36, height: 36,
+          background: `linear-gradient(135deg, ${COLORS.active}, #c25a18)`,
+          borderRadius: 8, display: 'grid', placeItems: 'center',
+          color: 'white', fontWeight: 800, fontSize: 14,
+          boxShadow: '0 2px 8px rgba(232,119,34,.4)',
         }}>
-          <img src="/roxgold-logo.png" alt="Roxgold" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          RZ
         </div>
         <div>
-          <div style={{ color: COLORS.text, fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>RZI CAMP</div>
-          <div style={{ color: '#f0a500', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 700 }}>Roxgold · Côte d'Ivoire</div>
+          <div style={{ color: COLORS.text, fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>
+            RZI CAMP
+          </div>
+          <div style={{ color: COLORS.textDim, fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+            Roxgold · Côte d'Ivoire
+          </div>
         </div>
       </div>
 
       {/* Nav items groupés */}
       <nav style={{ flex: 1, padding: '8px 6px 20px' }}>
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} style={{ marginBottom: 8 }}>
-            {/* Titre de groupe — TRÈS LISIBLE */}
+          <div key={group.label} style={{ marginBottom: 6 }}>
+            {/* Titre de groupe */}
             <div style={{
               fontSize: 10, fontWeight: 800,
-              color: COLORS.textGroup,                // contraste fort
+              color: COLORS.textGroup,
               letterSpacing: '1.4px', textTransform: 'uppercase',
               padding: '10px 12px 6px',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              <span style={{
-                flex: 1, height: 1,
-                background: COLORS.border,
-                marginRight: 4,
-              }} />
+              <span style={{ flex: 1, height: 1, background: COLORS.border, marginRight: 4 }} />
               {group.label}
-              <span style={{
-                flex: 1, height: 1,
-                background: COLORS.border,
-                marginLeft: 4,
-              }} />
+              <span style={{ flex: 1, height: 1, background: COLORS.border, marginLeft: 4 }} />
             </div>
 
             {/* Items */}
             {group.items.map((item) => {
-              const isActive = currentPath === item.to || (currentPath === '/' && item.to === '/')
+              const isActive = currentPath === item.to || (item.to === '/' && (currentPath === '/' || currentPath === ''))
               return (
-                <NavLink key={item.to} to={item.to} end={item.exact}
-                  onClick={(e) => handleClick(item.to, e)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 12px',
-                    margin: '1px 4px',
-                    borderRadius: 8,
-                    textDecoration: 'none',
-                    fontSize: 13.5,
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? COLORS.active : COLORS.text,  // BLANC ou OR — TRÈS LISIBLE
-                    background: isActive ? COLORS.activeBg : 'transparent',
-                    borderLeft: isActive ? `3px solid ${COLORS.active}` : '3px solid transparent',
-                    transition: 'all .15s ease',
-                  }}
-                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = COLORS.hover }}
-                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-                >
-                  <span style={{ fontSize: 16, flexShrink: 0, width: 20, textAlign: 'center' }}>{item.icon}</span>
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.label}
-                  </span>
-                  {badges[item.to] != null && badges[item.to] > 0 && (
-                    <span style={{
-                      background: '#dc2626', color: 'white',
-                      fontSize: 10, fontWeight: 800,
-                      padding: '2px 7px', borderRadius: 99,
-                      minWidth: 20, textAlign: 'center',
-                    }}>
-                      {badges[item.to]}
-                    </span>
-                  )}
-                </NavLink>
+                <SidebarItem
+                  key={item.to}
+                  to={item.to}
+                  label={item.label}
+                  icon={item.icon}
+                  badge={item.badge}
+                  exact={item.exact}
+                  isActive={isActive}
+                />
               )
             })}
           </div>
@@ -202,8 +220,8 @@ export default function Sidebar({ onNavigate, currentPath, badges = {} }) {
       }}>
         <div style={{
           width: 36, height: 36, borderRadius: 8,
-          background: 'linear-gradient(135deg, #f0a500, #b07800)',
-          color: '#1a0e00', display: 'grid', placeItems: 'center',
+          background: `linear-gradient(135deg, ${COLORS.active}, #c25a18)`,
+          color: 'white', display: 'grid', placeItems: 'center',
           fontWeight: 800, fontSize: 14, flexShrink: 0,
         }}>
           {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}
@@ -212,7 +230,7 @@ export default function Sidebar({ onNavigate, currentPath, badges = {} }) {
           <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : (user?.username || 'Utilisateur')}
           </div>
-          <div style={{ color: '#f0a500', fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+          <div style={{ color: COLORS.active, fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>
             {role}
           </div>
         </div>
