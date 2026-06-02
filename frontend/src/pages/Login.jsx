@@ -201,11 +201,11 @@ export default function Login() {
             </div>
           </div>
 
-          {err && (
+          {error && (
             <div style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
               borderRadius:10, padding:'12px 16px', marginBottom:20,
               fontSize:13, color:'#fca5a5', fontWeight:600 }}>
-              ❌ {err}
+              ❌ {error}
             </div>
           )}
 
