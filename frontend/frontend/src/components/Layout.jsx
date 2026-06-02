@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
-import Sidebar from './Sidebar'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -83,10 +82,10 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
-      background: 'var(--sidebar-bg,#0a1628)', border: 'none', borderRadius: 16,
+      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 16px', background: 'var(--topbar-bg,#0a1628)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', background: 'var(--rzi-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
@@ -110,14 +109,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
-              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--topbar-bg,#0a1628)', flexShrink: 0, marginTop: 4 }} />}
+              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--rzi-blue)', flexShrink: 0, marginTop: 4 }} />}
             </div>
           ))
         }
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: 'var(--topbar-bg,#0a1628)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: 'var(--rzi-blue)', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -225,7 +224,7 @@ export default function Layout() {
 
       <header style={{
         height: 54,
-        background: 'var(--topbar-bg,#0a1628)',
+        background: 'var(--rzi-blue)',
         borderBottom: '3px solid var(--rzi-gold)',
         display: 'flex', alignItems: 'center',
         padding: '0 10px', gap: 10,
@@ -300,9 +299,73 @@ export default function Layout() {
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
         )}
         {sidebarOpen && (
-          <div style={isMobile ? { position: 'fixed', top: 54, left: 0, bottom: 0, zIndex: 95, boxShadow: '4px 0 20px rgba(0,0,0,.25)' } : {}}>
-            <Sidebar currentPath={location.pathname} badges={{}} />
-          </div>
+          <nav style={{
+            width: 240,
+            background: 'var(--surface)',
+            borderRight: '1px solid var(--border)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            ...(isMobile ? {
+              position: 'fixed',
+              top: 54,
+              left: 0,
+              bottom: 0,
+              zIndex: 95,
+              boxShadow: '4px 0 20px rgba(0,0,0,.25)',
+            } : {}),
+          }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
+                Navigation
+              </div>
+            </div>
+            <div style={{ padding: 8, flex: 1 }}>
+              {nav.map((item, i) => item.group ? (
+                <div key={`g${i}`} style={{
+                  margin: i===0 ? '8px 8px 4px' : '16px 8px 4px',
+                }}>
+                  <div style={{
+                    fontSize:10, fontWeight:800,
+                    color:'rgba(255,255,255,.9)',
+                    letterSpacing:1.2, textTransform:'uppercase',
+                    padding:'5px 10px',
+                    background:'rgba(255,255,255,.1)',
+                    borderRadius:6,
+                    borderLeft:'3px solid rgba(255,255,255,.4)',
+                    display:'flex', alignItems:'center', gap:6,
+                  }}>
+                    {item.group}
+                  </div>
+                </div>
+              ) : (
+                <NavLink key={item.to} to={item.to} end={item.exact}
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '8px 10px 8px 12px',
+                    margin: '1px 6px',
+                    borderRadius: 8,
+                    textDecoration: 'none',
+                    fontSize: 12.5,
+                    fontWeight: isActive ? 700 : 400,
+                    background: isActive
+                      ? 'rgba(255,255,255,.18)'
+                      : 'transparent',
+                    color: isActive
+                      ? '#fff'
+                      : 'rgba(255,255,255,.7)',
+                    borderLeft: isActive
+                      ? '3px solid #fff'
+                      : '3px solid transparent',
+                    transition: 'all .15s',
+                  })}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          </nav>
         )}
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--bg)', overflowY:'auto' }}>
