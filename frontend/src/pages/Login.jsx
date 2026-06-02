@@ -269,7 +269,7 @@ export default function Login() {
               {loading ? '⏳ Connexion...' : 'Se connecter →'}
             </button>
 
-            <button type="button" onClick={()=>setShowForgot(true)}
+            <button type="button" onClick={()=>setForgot(true)}
               style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
                 cursor:'pointer', fontSize:12, padding:'4px 0', textDecoration:'underline' }}>
               Mot de passe oublié ?
@@ -284,7 +284,7 @@ export default function Login() {
         </div>
       </div>
 
-      {showForgot && <ForgotModal onClose={()=>setShowForgot(false)}/>}
+      {forgot && <ForgotModal onClose={()=>setForgot(false)}/>}
     </div>
   )
 }
