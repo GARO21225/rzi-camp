@@ -20,7 +20,7 @@ services:
   - type: web
     name: rzi-camp-frontend
     runtime: static
-    rootDir: frontend/frontend
+    rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
