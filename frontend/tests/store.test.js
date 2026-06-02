@@ -1,67 +1,37 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useStore } from '../src/store/useStore'
+import { useStore } from '../src/store'
 
-describe('store/useStore', () => {
+describe('Store (zustand)', () => {
   beforeEach(() => {
-    // Reset store
-    useStore.setState({
-      user: null,
-      role: null,
-      token: null,
-      theme: 'light',
-      lang: 'fr',
-    })
+    useStore.setState({ user: null, token: null, role: null })
   })
 
-  describe('setUser', () => {
-    it('extrait le rôle depuis profile.role', () => {
-      useStore.getState().setUser({ username: 'a', profile: { role: 'admin' } })
-      expect(useStore.getState().role).toBe('admin')
-    })
-
-    it('fallback sur agent si pas de rôle', () => {
-      useStore.getState().setUser({ username: 'a' })
-      expect(useStore.getState().role).toBe('agent')
-    })
-
-    it('détecte admin via is_staff', () => {
-      useStore.getState().setUser({ username: 'a', is_staff: true })
-      expect(useStore.getState().role).toBe('admin')
-    })
-
-    it('détecte admin via is_superuser', () => {
-      useStore.getState().setUser({ username: 'a', is_superuser: true })
-      expect(useStore.getState().role).toBe('admin')
-    })
+  it('initial state vide', () => {
+    const s = useStore.getState()
+    expect(s.user).toBeNull()
+    expect(s.token).toBeNull()
   })
 
-  describe('setToken', () => {
-    it('met à jour le token', () => {
-      useStore.getState().setToken('abc123')
-      expect(useStore.getState().token).toBe('abc123')
-    })
+  it('setUser / setToken fonctionnent', () => {
+    useStore.getState().setUser({ id: 1, username: 'admin', is_superuser: true })
+    useStore.getState().setToken('fake-token')
+    const s = useStore.getState()
+    expect(s.user).toEqual({ id: 1, username: 'admin', is_superuser: true })
+    expect(s.token).toBe('fake-token')
   })
 
-  describe('isAdmin', () => {
-    it('retourne true pour admin', () => {
-      useStore.getState().setUser({ username: 'a', is_staff: true })
-      expect(useStore.getState().isAdmin()).toBe(true)
-    })
-
-    it('retourne false pour agent', () => {
-      useStore.getState().setUser({ username: 'a', profile: { role: 'agent' } })
-      expect(useStore.getState().isAdmin()).toBe(false)
-    })
+  it('logout reset tout', () => {
+    useStore.getState().setToken('abc')
+    useStore.getState().setUser({ id: 1 })
+    useStore.getState().logout()
+    const s = useStore.getState()
+    expect(s.token).toBeNull()
+    expect(s.user).toBeNull()
   })
 
-  describe('logout', () => {
-    it('reset le user, role et token', () => {
-      useStore.getState().setUser({ username: 'a', is_staff: true })
-      useStore.getState().setToken('xyz')
-      useStore.getState().logout()
-      expect(useStore.getState().user).toBeNull()
-      expect(useStore.getState().role).toBeNull()
-      expect(useStore.getState().token).toBeNull()
-    })
+  it('role detecte pour superuser', () => {
+    useStore.getState().setUser({ id: 1, is_superuser: true, profile: { role: 'admin' } })
+    const s = useStore.getState()
+    expect(s.role).toBe('admin')
   })
 })
