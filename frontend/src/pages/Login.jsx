@@ -201,11 +201,11 @@ export default function Login() {
             </div>
           </div>
 
-          {error && (
+          {err && (
             <div style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
               borderRadius:10, padding:'12px 16px', marginBottom:20,
               fontSize:13, color:'#fca5a5', fontWeight:600 }}>
-              ❌ {error}
+              ❌ {err}
             </div>
           )}
 
@@ -217,7 +217,7 @@ export default function Login() {
               </label>
               <input
                 value={username} onChange={e=>setUsername(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&doLogin()}
+                onKeyDown={e=>e.key==='Enter'&&handleLogin()}
                 placeholder="Votre identifiant"
                 autoComplete="username"
                 style={{ width:'100%', background:'rgba(255,255,255,.06)',
@@ -239,7 +239,7 @@ export default function Login() {
                 <input
                   type={showPwd ? 'text' : 'password'}
                   value={password} onChange={e=>setPassword(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter'&&doLogin()}
+                  onKeyDown={e=>e.key==='Enter'&&handleLogin()}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   style={{ width:'100%', background:'rgba(255,255,255,.06)',
@@ -259,7 +259,7 @@ export default function Login() {
               </div>
             </div>
 
-            <button onClick={doLogin} disabled={loading}
+            <button onClick={handleLogin} disabled={loading}
               style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                 color:'#000', border:'none', borderRadius:10, padding:14,
                 fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer',
@@ -269,7 +269,7 @@ export default function Login() {
               {loading ? '⏳ Connexion...' : 'Se connecter →'}
             </button>
 
-            <button type="button" onClick={()=>setForgot(true)}
+            <button type="button" onClick={()=>setShowForgot(true)}
               style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
                 cursor:'pointer', fontSize:12, padding:'4px 0', textDecoration:'underline' }}>
               Mot de passe oublié ?
@@ -284,7 +284,7 @@ export default function Login() {
         </div>
       </div>
 
-      {forgot && <ForgotModal onClose={()=>setForgot(false)}/>}
+      {showForgot && <ForgotModal onClose={()=>setShowForgot(false)}/>}
     </div>
   )
 }
