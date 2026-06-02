@@ -21,6 +21,7 @@ export default [
       'public/**',
       '*.config.js',
       'concept-v2/**', // prototype HTML statique
+      'tests/**', // tests Vitest
     ],
   },
 

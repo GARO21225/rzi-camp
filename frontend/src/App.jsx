@@ -42,6 +42,7 @@ const AuditPage = lazy(() => import('./pages/AuditPage'))
 import StatusPage from './pages/StatusPage'
 const InductionPage = lazy(() => import('./pages/InductionPage'))
 import WorkflowHub from './pages/WorkflowHub'
+import QrAntiFraude from './pages/QrAntiFraude'
 import BoutiquePOS from './pages/BoutiquePOS'
 import Presences   from './pages/Presences'
 import RapportPage  from './pages/RapportPage'
@@ -196,6 +197,7 @@ export default function App() {
           <Route path="presences"  element={<Presences />} />
           <Route path="rapports"   element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RapportPage /></Suspense>} />
           <Route path="workflows" element={<WorkflowHub />} />
+          <Route path="qr" element={<QrAntiFraude />} />
           <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
           <Route path="rotations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RotationsPage /></Suspense>} />

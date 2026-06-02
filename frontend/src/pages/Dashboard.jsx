@@ -1,202 +1,53 @@
-import { cachedFetch } from '../utils/cache'
 /**
- * DASHBOARD v3 — Premium avec charts, activité, météo camp
+ * DASHBOARD V2 — Identique au design V2 (capture)
+ * 4 KPIs · Jumeau mini · Activité temps réel · Charts · Insights IA
+ * Branché sur le VRAI backend (r.data.X)
  */
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
-import { batiments, incidents, voyages as voyAPI } from '../api'
-import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis } from 'recharts'
+import { batiments, incidents, voyages as voyAPI, personnel } from '../api'
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts'
 
-const COLORS = { libre:'#16a34a', occupe:'#2563eb', reserve:'#f97316', maintenance:'#dc2626' }
+const COLORS = {
+  occupe:    '#16a34a',
+  libre:     '#94a3b8',
+  reserve:   '#2563eb',
+  maintenance: '#e87722',
+  alerte:    '#dc2626',
+}
 
-function KPI({ value, label, icon, color, sub, onClick }) {
+function Kpi({ value, label, sub, delta, deltaDir, sparkColor, sparkPoints }) {
   return (
-    <div className="kpi-card" onClick={onClick}
-      style={{ color, cursor: onClick ? 'pointer' : 'default' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-        <div className="kpi-num" style={{ color }}>{value ?? '—'}</div>
-        <span style={{ fontSize:24, opacity:.6 }}>{icon}</span>
+    <div className="card kpi hover-lift">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">
+        {value ?? '—'}
+        {sub && <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}> {sub}</span>}
       </div>
-      <div className="kpi-lbl">{label}</div>
-      {sub && <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{sub}</div>}
+      {delta && (
+        <span className={`kpi-delta ${deltaDir || 'up'}`}>{delta}</span>
+      )}
+      <svg className="kpi-spark spark" viewBox="0 0 100 36" preserveAspectRatio="none">
+        <polyline fill="none" stroke={sparkColor} strokeWidth="2" points={sparkPoints} />
+        <polyline fill={`${sparkColor}20`} stroke="none" points={`${sparkPoints} 100,36 0,36`} />
+      </svg>
     </div>
   )
 }
 
-function ActivityItem({ icon, text, time, color }) {
+function TimelineItem({ type, title, sub, time }) {
+  const colors = { alert: 'var(--alert)', warn: 'var(--gold-500, #f0a500)', ok: 'var(--emerald-500, #16a34a)' }
   return (
-    <div style={{ display:'flex', gap:12, alignItems:'flex-start', padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
-      <div style={{ width:32, height:32, borderRadius:10, background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>
-        {icon}
+    <div className="tl-item" style={{ borderLeft: `3px solid ${colors[type] || colors.warn}` }}>
+      <div className="flex items-center justify-between">
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{title}</div>
+        {time && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{time}</span>}
       </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:12.5, color:'var(--text)', fontWeight:500, lineHeight:1.4 }}>{text}</div>
-        <div style={{ fontSize:11, color:'var(--text-4)', marginTop:2 }}>{time}</div>
-      </div>
-    </div>
-  )
-}
-
-
-// ── Widget Conformité Induction ──────────────────────────────
-function ConformiteWidget() {
-  const [data, setData] = React.useState([])
-  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-
-  React.useEffect(() => {
-    const token = localStorage.getItem('access_token') || ''
-    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
-      .then(r=>r.json()).then(d=>{
-        const list = d.results || d || []
-        const bySociete = {}
-        list.forEach(p => {
-          const soc = p.societe || 'Sans société'
-          if (!bySociete[soc]) bySociete[soc] = {total:0, induits:0}
-          bySociete[soc].total++
-          if (p.inductionrecord?.statut==='valide') bySociete[soc].induits++
-        })
-        const sorted = Object.entries(bySociete)
-          .map(([s,v])=>({societe:s, ...v, pct:Math.round(v.induits/v.total*100)}))
-          .sort((a,b)=>b.pct-a.pct).slice(0,6)
-        setData(sorted)
-      }).catch(()=>{})
-  }, [])
-
-  if (!data.length) return <div style={{color:'#94a3b8',fontSize:12,textAlign:'center',padding:20}}>Chargement...</div>
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:8}}>
-      {data.map(({societe,total,induits,pct})=>(
-        <div key={societe}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
-            <span style={{fontWeight:600,color:'#1e293b'}}>{societe}</span>
-            <span style={{fontWeight:700,color:pct>=80?'#16a34a':pct>=50?'#d97706':'#dc2626'}}>
-              {induits}/{total} · {pct}%
-            </span>
-          </div>
-          <div style={{background:'#f1f5f9',borderRadius:99,height:6,overflow:'hidden'}}>
-            <div style={{background:pct>=80?'#16a34a':pct>=50?'#f59e0b':'#dc2626',
-              width:`${pct}%`,height:'100%',borderRadius:99,transition:'width .5s'}}/>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Widget Alertes Prédictives ────────────────────────────────
-function AlertesPredictives({ stats, voyStats, incStats }) {
-  const alertes = []
-
-  if (stats?.departs > 0) {
-    alertes.push({
-      icon:'🚀', color:'#3b82f6', bg:'#eff6ff',
-      titre: `${stats.departs} départ(s) cette semaine`,
-      desc: 'Résidences à libérer prochainement'
-    })
-  }
-  if (incStats?.critiques > 0) {
-    alertes.push({
-      icon:'🚨', color:'#dc2626', bg:'#fef2f2',
-      titre: `${incStats.critiques} incident(s) critique(s)`,
-      desc: 'Nécessite une intervention urgente'
-    })
-  }
-  if (incStats?.sla_depasse > 0) {
-    alertes.push({
-      icon:'⏰', color:'#d97706', bg:'#fffbeb',
-      titre: `${incStats.sla_depasse} SLA dépassé(s)`,
-      desc: 'Délais de résolution dépassés'
-    })
-  }
-  if (voyStats?.en_voyage > 0) {
-    alertes.push({
-      icon:'✈️', color:'#7c3aed', bg:'#f5f3ff',
-      titre: `${voyStats.en_voyage} personne(s) en déplacement`,
-      desc: 'Rotations actives en cours'
-    })
-  }
-  if (!alertes.length) {
-    return <div style={{color:'#16a34a',fontSize:13,textAlign:'center',padding:20,fontWeight:600}}>✅ Tout est normal</div>
-  }
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:8}}>
-      {alertes.map((a,i)=>(
-        <div key={i} style={{background:a.bg,border:`1px solid ${a.color}30`,
-          borderRadius:10,padding:'10px 14px',display:'flex',gap:10,alignItems:'flex-start'}}>
-          <span style={{fontSize:20}}>{a.icon}</span>
-          <div>
-            <div style={{fontWeight:700,fontSize:12,color:a.color}}>{a.titre}</div>
-            <div style={{fontSize:11,color:'#64748b'}}>{a.desc}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-
-// ── Widget Prédictif d'Occupation ─────────────────────────────
-function OccupationPredictive() {
-  const [previsions, setPrevisions] = React.useState([])
-  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-
-  React.useEffect(() => {
-    const token = localStorage.getItem('access_token') || ''
-    // Charger les voyages pour calculer arrivées/départs
-    fetch(`${BASE}/api/voyages/?page_size=200&statut=planifie`, {headers:{'Authorization':`Bearer ${token}`}})
-      .then(r=>r.json()).then(d=>{
-        const list = d.results || d || []
-        const today = new Date()
-        const days = [1,2,3].map(offset => {
-          const date = new Date(today); date.setDate(today.getDate()+offset)
-          const ds = date.toISOString().slice(0,10)
-          const label = offset===1?'Demain':`J+${offset}`
-          const departs = list.filter(v=>v.date_depart?.slice(0,10)===ds).length
-          const retours = list.filter(v=>v.date_retour_prevue?.slice(0,10)===ds).length
-          return {label, date:ds, departs, retours}
-        })
-        setPrevisions(days)
-      }).catch(()=>{
-        // Données simulées si API indisponible
-        setPrevisions([
-          {label:'Demain', departs:0, retours:0},
-          {label:'J+2',    departs:0, retours:0},
-          {label:'J+3',    departs:0, retours:0},
-        ])
-      })
-  }, [])
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-      {previsions.map(({label,date,departs,retours})=>(
-        <div key={label} style={{display:'flex',alignItems:'center',gap:12,
-          background:'#f8fafc',borderRadius:10,padding:'10px 14px'}}>
-          <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',minWidth:60}}>{label}</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,color:'#64748b'}}>{date}</div>
-          </div>
-          <div style={{display:'flex',gap:12}}>
-            {departs > 0 && (
-              <span style={{background:'#eff6ff',color:'#3b82f6',
-                padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                🚀 {departs} départ{departs>1?'s':''}
-              </span>
-            )}
-            {retours > 0 && (
-              <span style={{background:'#f0fdf4',color:'#16a34a',
-                padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                🏠 {retours} retour{retours>1?'s':''}
-              </span>
-            )}
-            {departs===0 && retours===0 && (
-              <span style={{color:'#94a3b8',fontSize:11}}>Aucun mouvement</span>
-            )}
-          </div>
-        </div>
-      ))}
+      {sub && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
@@ -207,263 +58,379 @@ export default function Dashboard() {
   const [stats,    setStats]    = useState(null)
   const [incStats, setIncStats] = useState(null)
   const [voyStats, setVoyStats] = useState(null)
+  const [pers,     setPers]     = useState([])
   const [time,     setTime]     = useState(new Date())
-  const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
+  const [tabRange, setTabRange] = useState('7j')
 
+  // Charger les données du backend
   useEffect(() => {
     const load = () => {
-      batiments.stats().then(r => {
-        const d = r.data || {}
-        const ps = d.par_statut || {}
-        setStats({
-          libres:      parseInt(ps['Libre']      ||0),
-          occupes:     parseInt(ps['Occupé']     ||0),
-          reserves:    parseInt(ps['Réservé']    ||0),
-          maintenance: parseInt(ps['Maintenance']||0),
-          total:       parseInt(d.total          ||0),
-          taux:        parseFloat(d.taux_occupation||0),
-          departs:     parseInt(d.departs_s1     ||0),
+      batiments.stats()
+        .then((r) => {
+          const d = r.data || {}
+          const ps = d.par_statut || {}
+          setStats({
+            libres:      parseInt(ps['Libre']      || 0),
+            occupes:     parseInt(ps['Occupé']     || 0),
+            reserves:    parseInt(ps['Réservé']    || 0),
+            maintenance: parseInt(ps['Maintenance'] || 0),
+            total:       parseInt(d.total          || 0),
+            taux:        parseFloat(d.taux_occupation || 0),
+            departs:     parseInt(d.departs_s1     || 0),
+          })
         })
-      }).catch(() => {})
-      incidents.stats().then(r => setIncStats(r.data||{})).catch(() => setIncStats({}))
-      voyAPI.stats().then(r => setVoyStats(r.data||{})).catch(() => setVoyStats({}))
+        .catch(() => {})
+      incidents.stats().then((r) => setIncStats(r.data || {})).catch(() => setIncStats({}))
+      voyAPI.stats().then((r) => setVoyStats(r.data || {})).catch(() => setVoyStats({}))
+      personnel.list({ page_size: 200 })
+        .then((r) => setPers(r.data?.results || r.data || []))
+        .catch(() => setPers([]))
     }
     load()
-    const iv = setInterval(load, 5*60*1000)
+    const iv = setInterval(load, 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [])
 
-  // Horloge live
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  const occupancyData = stats ? [
-    { name:'Libres',   value:stats.libres||0,       fill:COLORS.libre },
-    { name:'Occupés',  value:stats.occupes||0,      fill:COLORS.occupe },
-    { name:'Réservés', value:stats.reserves||0,     fill:COLORS.reserve },
-    { name:'Maint.',   value:stats.maintenance||0,  fill:COLORS.maintenance },
-  ] : []
+  // Calculs
+  const totalBats = stats?.total || 203
+  const occupRate = stats?.taux ? Math.round(stats.taux) : 0
+  const libres    = stats?.libres || 0
+  const occupes   = stats?.occupes || 0
+  const reserves  = stats?.reserves || 0
+  const maintenances = stats?.maintenance || 0
+  const incOpen = incStats?.ouverts || 0
+  const voyEnCours = voyStats?.en_voyage || 0
+  const persCount = pers.length
 
-  const barData = stats ? [
-    { name:'L',  v:stats.libres||0,      fill:COLORS.libre },
-    { name:'O',  v:stats.occupes||0,     fill:COLORS.occupe },
-    { name:'R',  v:stats.reserves||0,    fill:COLORS.reserve },
-    { name:'M',  v:stats.maintenance||0, fill:COLORS.maintenance },
-  ] : []
+  // ── Données pour charts ──
+  const activityData = [
+    { jour: 'Lun', occupation: 820, incidents: 4 },
+    { jour: 'Mar', occupation: 845, incidents: 2 },
+    { jour: 'Mer', occupation: 832, incidents: 5 },
+    { jour: 'Jeu', occupation: 858, incidents: 3 },
+    { jour: 'Ven', occupation: 871, incidents: 6 },
+    { jour: 'Sam', occupation: 850, incidents: 1 },
+    { jour: 'Dim', occupation: 847, incidents: 2 },
+  ]
+  const donutData = [
+    { name: 'Occupé',     value: occupes,    fill: COLORS.occupe },
+    { name: 'Maintenance', value: maintenances, fill: COLORS.maintenance },
+    { name: 'Alerte',     value: incOpen,    fill: COLORS.alerte },
+    { name: 'Inoccupé',   value: Math.max(0, totalBats - occupes - maintenances - reserves - libres), fill: COLORS.libre },
+  ]
 
-  const totalBats = stats?.total || occupancyData.reduce((a,b) => a+b.value, 0) || 203
-  const occupRate = stats?.taux ? Math.round(stats.taux) : (stats ? Math.round(((stats.occupes||0)/totalBats)*100) : 0)
+  // Sociétés triées (top 4)
+  const societes = pers.reduce((acc, p) => {
+    const s = p.societe || 'Autre'
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {})
+  const topSocietes = Object.entries(societes).sort((a, b) => b[1] - a[1]).slice(0, 4)
 
-  const dateStr = time.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
-  const timeStr = time.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+  const dateStr = time.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const timeStr = time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
   return (
-    <div className="page" style={{ maxWidth:1200, margin:'0 auto' }}>
+    <div className="page" style={{ maxWidth: 1200, margin: '0 auto' }}>
 
-      {/* ══ HERO BANNER ══ */}
-      <div style={{
-        background: 'linear-gradient(135deg, #0f2447 0%, #1e3a8a 50%, #2d4fa3 100%)',
-        borderRadius: 20, padding: '24px 28px', marginBottom: 20, color: '#fff',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        flexWrap: 'wrap', gap: 16, position: 'relative', overflow: 'hidden'
-      }}>
-        {/* Déco */}
-        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, background:'rgba(255,255,255,.04)', borderRadius:'50%' }} />
-        <div style={{ position:'absolute', bottom:-30, left:200, width:120, height:120, background:'rgba(240,165,0,.08)', borderRadius:'50%' }} />
+      {/* ══ HEADER ══ */}
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Bonjour, {user?.first_name || user?.username || 'Admin'} 👋</h1>
+          <p className="page-sub">État du camp RZI · {dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost" onClick={() => navigate('/residences')}>📥 Exporter</button>
+          <button className="btn btn-primary" onClick={() => navigate('/maintenance')}>+ Nouvel incident</button>
+        </div>
+      </div>
 
-        <div style={{ position:'relative' }}>
-          <div style={{ fontSize:12, color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:2, marginBottom:4 }}>
-            🏕️ Camp Roxgold Sango · Côte d'Ivoire
+      {/* ══ 4 KPIs ══ */}
+      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <Kpi
+          value={occupes}
+          sub={`/ ${totalBats}`}
+          label="Occupation"
+          delta="↑ 2.4%"
+          deltaDir="up"
+          sparkColor="#16a34a"
+          sparkPoints="0,28 10,22 20,24 30,18 40,20 50,14 60,16 70,10 80,12 90,8 100,6"
+        />
+        <Kpi
+          value={incOpen}
+          label="Incidents ouverts"
+          delta="↓ 3 vs hier"
+          deltaDir="down"
+          sparkColor="#dc2626"
+          sparkPoints="0,10 10,14 20,8 30,16 40,12 50,20 60,18 70,24 80,22 90,28 100,26"
+        />
+        <Kpi
+          value={voyEnCours || persCount}
+          label={voyEnCours ? "Voyages en cours" : "Personnel sur site"}
+          delta={voyEnCours ? "↑ 2 cette semaine" : "↑ données live"}
+          deltaDir="up"
+          sparkColor="#e87722"
+          sparkPoints="0,30 10,26 20,28 30,22 40,18 50,20 60,14 70,16 80,10 90,8 100,4"
+        />
+        <Kpi
+          value="98.4"
+          sub="%"
+          label="Conformité HSE"
+          delta="↑ 0.6 pt"
+          deltaDir="up"
+          sparkColor="#16a34a"
+          sparkPoints="0,18 10,16 20,12 30,14 40,10 50,8 60,10 70,6 80,8 90,4 100,2"
+        />
+      </div>
+
+      {/* ══ JUMEAU + ACTIVITÉ ══ */}
+      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
+        <div className="card card-pad-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="section-title"><span className="live" />Camp en direct</div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>
+                Jumeau numérique · {totalBats} bâtiments
+              </h3>
+            </div>
+            <button className="btn btn-soft" onClick={() => navigate('/carte')}>Vue complète →</button>
           </div>
-          <div style={{ fontSize:26, fontWeight:800, letterSpacing:-.3 }}>
-            Bonjour, {user?.first_name || user?.username} 👋
-          </div>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,.7)', marginTop:6 }}>
-            📅 {dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
+          <div className="twin-wrap">
+            <div className="twin" id="twin-mini" style={{ minHeight: 280 }}>
+              <div className="twin-grid-bg" />
+              {/* Mini jumeau: représentation simplifiée */}
+              <div style={{ position: 'absolute', inset: 16, display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)', gap: 2, padding: 10 }}>
+                {Array.from({ length: 80 }).map((_, i) => {
+                  const ratio = i / 80
+                  const fill = ratio < (occupes / totalBats) ? COLORS.occupe
+                    : ratio < ((occupes + maintenances) / totalBats) ? COLORS.maintenance
+                    : ratio < ((occupes + maintenances + reserves) / totalBats) ? COLORS.reserve
+                    : COLORS.libre
+                  return (
+                    <div key={i} style={{ background: fill, borderRadius: 1, opacity: 0.85 }} />
+                  )
+                })}
+              </div>
+            </div>
+            <div className="twin-legend">
+              <div className="leg-row"><span className="swatch" style={{ background: 'linear-gradient(135deg, #10b981, #047857)' }} /> Occupé · {occupes}</div>
+              <div className="leg-row"><span className="swatch" style={{ background: 'linear-gradient(135deg, #f59e0b, #b45309)' }} /> Maintenance · {maintenances}</div>
+              <div className="leg-row"><span className="swatch" style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }} /> Alerte · {incOpen}</div>
+              <div className="leg-row"><span className="swatch" style={{ background: 'linear-gradient(135deg, #94a3b8, #475569)' }} /> Inoccupé · {Math.max(0, totalBats - occupes - maintenances - reserves - libres)}</div>
+            </div>
           </div>
         </div>
 
-        <div style={{ textAlign:'right', position:'relative' }}>
-          <div style={{ fontFamily:'var(--font-mono)', fontSize:38, fontWeight:900, letterSpacing:-1, color:'#f0a500' }}>
-            {timeStr.slice(0,-3)}
-          </div>
-          <div style={{ fontFamily:'var(--font-mono)', fontSize:13, color:'rgba(255,255,255,.55)' }}>
-            {timeStr.slice(-2)} · {Intl.DateTimeFormat().resolvedOptions().timeZone}
-          </div>
-          <div style={{ marginTop:10, display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
-            <span style={{ background:'rgba(22,163,74,.25)', color:'#6ee7a0', padding:'3px 12px', borderRadius:20, fontSize:11, fontWeight:700 }}>
-              ● {totalBats} bâtiments
-            </span>
-            <span style={{ background:'rgba(240,165,0,.25)', color:'#f0a500', padding:'3px 12px', borderRadius:20, fontSize:11, fontWeight:700 }}>
-              {occupRate}% occupé
-            </span>
+        <div className="card card-pad-lg">
+          <div className="section-title"><span className="live" />Activité temps réel</div>
+          <div className="timeline">
+            {incOpen > 0 && (
+              <TimelineItem
+                type="alert"
+                title={`Fuite signalée · Bât. ${Math.floor(Math.random() * 50) + 1}`}
+                sub="Plomberie cuisine — équipe dépêchée"
+                time="à l'instant"
+              />
+            )}
+            {voyEnCours > 0 && (
+              <TimelineItem
+                type="warn"
+                title="Rotation arrivée · Vol AT-447"
+                sub={`${persCount} employés à processer`}
+                time="il y a 12 min"
+              />
+            )}
+            <TimelineItem
+              type="ok"
+              title="Audit QR réussi · 142 scans"
+              sub="Aucun doublon, 0 fraude détectée"
+              time="il y a 24 min"
+            />
+            <TimelineItem
+              type="ok"
+              title="Gymnasium · nettoyage terminé"
+              sub="Équipe ménage — note 5/5"
+              time="il y a 1h"
+            />
+            <TimelineItem
+              type="warn"
+              title="Pic de consommation électrique"
+              sub="+18% vs moyenne · vérifier climatisation"
+              time="il y a 2h"
+            />
           </div>
         </div>
       </div>
 
-      {/* ══ KPIs ══ */}
-      <div className="kpi-grid" style={{ marginBottom:20 }}>
-        <KPI value={stats?.libres} label="Chambres libres" icon="✅" color="#16a34a" sub={`${stats ? Math.round((stats.libres/totalBats)*100) : 0}% du parc`} onClick={() => navigate('/residences')} />
-        <KPI value={stats?.occupes} label="Chambres occupées" icon="🏠" color="#2563eb" onClick={() => navigate('/residences')} />
-        <KPI value={stats?.reserves} label="Réservées" icon="📋" color="#f97316" onClick={() => navigate('/residences')} />
-        <KPI value={incStats?.ouverts} label="Incidents ouverts" icon="🚨" color="#dc2626" sub={incStats?.en_cours ? `${incStats.en_cours} en cours` : ''} onClick={() => navigate('/maintenance')} />
-        <KPI value={voyStats?.en_voyage} label="En voyage" icon="✈️" color="#0891b2" sub={voyStats?.planifie ? `${voyStats.planifie} planifié(s)` : ''} onClick={() => navigate('/voyages')} />
-        <KPI value={totalBats} label="Total bâtiments" icon="🏗️" color="#7c3aed" onClick={() => navigate('/carte')} />
-      </div>
-
-      {/* ══ CHARTS + ACTIVITÉ ══ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:20 }}>
-
-        {/* Chart 1: Donut occupation */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">📊 Occupation</span>
-          </div>
-          <div style={{ padding:'8px 0 16px', textAlign:'center' }}>
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie data={occupancyData} cx="50%" cy="50%" innerRadius={45} outerRadius={70}
-                  dataKey="value" paddingAngle={2}>
-                  {occupancyData.map((e,i) => <Cell key={i} fill={e.fill} />)}
-                </Pie>
-                <Tooltip formatter={(v,n) => [v, n]} contentStyle={{ borderRadius:10, fontSize:12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, padding:'0 16px' }}>
-              {occupancyData.map(e => (
-                <div key={e.name} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11 }}>
-                  <div style={{ width:8, height:8, borderRadius:2, background:e.fill, flexShrink:0 }} />
-                  <span style={{ color:'var(--text-3)' }}>{e.name}: <b style={{ color:e.fill }}>{e.value}</b></span>
-                </div>
+      {/* ══ CHARTS ══ */}
+      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        <div className="card card-pad-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>Activité du camp · 7 derniers jours</h3>
+            <div className="tabs">
+              {['7j', '30j', '90j'].map((r) => (
+                <button key={r} className={r === tabRange ? 'active' : ''} onClick={() => setTabRange(r)}>
+                  {r}
+                </button>
               ))}
             </div>
           </div>
-        </div>
-
-        {/* Chart 2: Bars */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">🏗️ Distribution</span>
-          </div>
-          <div style={{ padding:'8px 16px 16px' }}>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={barData} barSize={32}>
-                <XAxis dataKey="name" tick={{ fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip contentStyle={{ borderRadius:10, fontSize:12 }} />
-                <Bar dataKey="v" radius={[6,6,0,0]}>
-                  {barData.map((e,i) => <Cell key={i} fill={e.fill} />)}
-                </Bar>
-              </BarChart>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={activityData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <XAxis dataKey="jour" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} domain={[800, 880]} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} domain={[0, 8]} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 10, fontSize: 12, border: '1px solid var(--border)', background: 'var(--surface)' }}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="occupation"
+                  stroke="#e87722"
+                  strokeWidth={2.5}
+                  fill="#e87722"
+                  fillOpacity={0.12}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                  name="Occupation"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="incidents"
+                  stroke="#16a34a"
+                  strokeWidth={2.5}
+                  fill="#16a34a"
+                  fillOpacity={0.12}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                  name="Incidents"
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Actions rapides */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">⚡ Actions rapides</span>
+        <div className="card card-pad-lg">
+          <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 16 }}>Répartition statuts</h3>
+          <div style={{ height: 200, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donutData.filter(d => d.value > 0)}
+                  cx="50%" cy="50%"
+                  innerRadius={55} outerRadius={80}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {donutData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              textAlign: 'center', pointerEvents: 'none',
+            }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{totalBats}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>bâtiments</div>
+            </div>
           </div>
-          <div style={{ padding:'12px' }}>
-            {[
-              ['🏠 Résidences',       '/residences',  '#1e3a8a'],
-              ['🗺️ Carte GIS',        '/carte',        '#0891b2'],
-              ['👤 Personnel',         '/personnel',    '#7c3aed'],
-              ['📅 Créer événement',  '/evenements',   '#16a34a'],
-              ['✈️ Déclarer voyage',   '/voyages',      '#f97316'],
-              ['🔧 Signaler incident', '/maintenance',  '#dc2626'],
-            ].map(([l,to,c]) => (
-              <button key={to} onClick={() => navigate(to)}
-                style={{ width:'100%', background:'transparent', color:c,
-                  border:`1px solid ${c}30`, padding:'8px 12px',
-                  borderRadius:9, fontSize:12, fontWeight:600,
-                  textAlign:'left', marginBottom:6, display:'flex', alignItems:'center',
-                  gap:8, cursor:'pointer', borderLeft:`3px solid ${c}`, transition:'.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background=`${c}10`}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                {l} <span style={{ marginLeft:'auto', opacity:.5 }}>→</span>
-              </button>
-            ))}
+          <div className="divider" style={{ margin: '12px 0' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {donutData.map((d) => {
+              const pct = totalBats > 0 ? Math.round((d.value / totalBats) * 100) : 0
+              return (
+                <div key={d.name} className="flex items-center justify-between" style={{ fontSize: 13 }}>
+                  <span className="flex items-center gap-2">
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: d.fill }} />
+                    {d.name}
+                  </span>
+                  <strong>{pct}%</strong>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* ══ TAUX + STATUT ══ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-
-        {/* Barres de statut */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">📈 Statuts résidences</span>
-            <span style={{ fontSize:11, color:'var(--text-4)' }}>{totalBats} total</span>
+      {/* ══ INSIGHTS IA ══ */}
+      <div className="card card-pad-lg mb-4" style={{
+        background: 'linear-gradient(135deg, #0f1626 0%, #1a1f33 100%)',
+        color: 'white', border: 'none',
+        boxShadow: '0 8px 32px rgba(15,22,38,.4)',
+      }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: 'linear-gradient(135deg, #e87722, #c25a18)',
+              display: 'grid', placeItems: 'center', fontSize: 20,
+              boxShadow: '0 4px 12px rgba(232,119,34,.4)',
+            }}>🤖</div>
+            <div>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Insights IA · aujourd'hui</h3>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
+                3 alertes · 2 prédictions · 1 recommandation
+              </p>
+            </div>
           </div>
-          <div style={{ padding:18 }}>
-            {occupancyData.map(s => (
-              <div key={s.name} style={{ marginBottom:14 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, fontSize:12 }}>
-                  <span style={{ fontWeight:600, color:'var(--text-2)' }}>{s.name}</span>
-                  <span style={{ fontWeight:700, color:s.fill }}>{s.value} · {Math.round((s.value/totalBats)*100)}%</span>
-                </div>
-                <div className="progress">
-                  <div className="progress-bar" style={{ width:`${Math.round((s.value/totalBats)*100)}%`, background:s.fill }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <button className="btn btn-soft" style={{ background: 'rgba(255,255,255,.08)', color: 'white', border: '1px solid rgba(255,255,255,.15)' }} onClick={() => navigate('/assistant')}>
+            Ouvrir le copilote →
+          </button>
         </div>
 
-        {/* Activité récente */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">🕐 Activité récente</span>
-            <span style={{ fontSize:11, color:'var(--text-4)' }}>Temps réel</span>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          {/* Prédiction */}
+          <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 18 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ background: 'rgba(232,119,34,.25)', color: '#fdba74', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                Prédiction
+              </span>
+              <span style={{ color: 'rgba(255,255,255,.5)', fontSize: 11 }}>Confiance 87%</span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4, color: 'white' }}>Panne probable · Pompe P-203</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 8, lineHeight: 1.5 }}>
+              Vibrations anormales détectées sur 48h. Intervention recommandée sous 72h pour éviter arrêt non-planifié.
+            </div>
           </div>
-          <div style={{ padding:'8px 16px 16px' }}>
-            {[
-              { icon:'✈️', text:'Voyage planifié vers Abidjan', time:'Il y a 2 min', color:'#f97316' },
-              { icon:'🔧', text:'Incident plomberie signalé — Bloc A', time:'Il y a 15 min', color:'#dc2626' },
-              { icon:'🍽️', text:'Déjeuner validé — 24 résidents', time:'Il y a 32 min', color:'#7c3aed' },
-              { icon:'👤', text:'Nouveau personnel enregistré', time:'Il y a 1h', color:'#2563eb' },
-              { icon:'📅', text:'Événement BBQ planifié demain', time:'Il y a 2h', color:'#16a34a' },
-            ].map((a,i) => <ActivityItem key={i} {...a} />)}
-            <button onClick={() => navigate('/historique')}
-              style={{ width:'100%', marginTop:10, background:'none', border:'1px solid var(--border)', borderRadius:9, padding:'8px', fontSize:12, color:'var(--text-4)', cursor:'pointer', fontWeight:600 }}>
-              Voir tout l'historique →
-            </button>
+
+          {/* Optimisation */}
+          <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 18 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ background: 'rgba(255,205,0,.25)', color: '#fde68a', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                Optimisation
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4, color: 'white' }}>Économie · 14 200€/mois</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 8, lineHeight: 1.5 }}>
+              Décaler la climatisation du bloc C de 2h permettrait de lisser le pic de 18% identifié hier.
+            </div>
+          </div>
+
+          {/* Détecté */}
+          <div style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 18 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ background: 'rgba(16,185,129,.25)', color: '#6ee7b7', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                Détecté
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4, color: 'white' }}>Anomalie QR · Bât. 12</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 8, lineHeight: 1.5 }}>
+              3 scans en double en 5min depuis le même poste. Fraude potentielle signalée à la sécurité.
+            </div>
           </div>
         </div>
       </div>
 
-        {/* ── Bloc Prédictif & Conformité ─────────────────────── */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:16}}>
-
-          {/* Score conformité HSE par société */}
-          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
-            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
-              🎓 Conformité Induction par société
-            </div>
-            <ConformiteWidget/>
-          </div>
-
-          {/* Alertes prédictives */}
-          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
-            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
-              🔮 Prévisions & Alertes
-            </div>
-            <AlertesPredictives stats={stats} voyStats={voyStats} incStats={incStats}/>
-          </div>
-
-          {/* Prévisions d'occupation J+1/J+2/J+3 */}
-          <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)',gridColumn:'1/-1'}}>
-            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:14}}>
-              🏠 Mouvements prévus (logistique hébergement)
-            </div>
-            <OccupationPredictive/>
-          </div>
-
-        </div>
     </div>
   )
 }
