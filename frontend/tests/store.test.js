@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useStore } from '../src/store'
 
-describe('Store (zustand)', () => {
+describe('Store (zustand) — V2', () => {
   beforeEach(() => {
     useStore.setState({ user: null, token: null, role: null })
   })

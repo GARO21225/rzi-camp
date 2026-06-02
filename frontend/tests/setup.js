@@ -40,6 +40,15 @@ vi.mock('recharts', () => ({
   Legend: () => null,
 }))
 
+// Mock html5-qrcode (utilisé dans certains scanners)
+vi.mock('html5-qrcode', () => ({
+  Html5Qrcode: vi.fn().mockImplementation(() => ({
+    start: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn().mockResolvedValue(undefined),
+  })),
+  Html5QrcodeSupportedFormats: {},
+}))
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({

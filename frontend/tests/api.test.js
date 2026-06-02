@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { auth, batiments, personnel, incidents, voyages, evenements } from '../src/api'
 
-describe('API exports', () => {
+describe('API exports (V2 — fidele au V1)', () => {
   it('auth expose login et me', () => {
     expect(typeof auth.login).toBe('function')
     expect(typeof auth.me).toBe('function')
