@@ -56,10 +56,10 @@ export default function Sidebar({ inDrawer = false, onNavigate, currentView }) {
   return (
     <aside className={`sidebar ${inDrawer ? 'in-drawer' : ''}`}>
       <div className="sidebar-brand">
-        <div className="brand-mark">RZ</div>
+        <img src="/roxgold-logo.png" alt="Roxgold" className="brand-img" />
         <div>
           <div className="brand-name">RZI CAMP</div>
-          <div className="brand-sub">Roxgold · Burkina Faso</div>
+          <div className="brand-sub">Roxgold · Côte d'Ivoire</div>
         </div>
       </div>
 
@@ -143,6 +143,14 @@ export default function Sidebar({ inDrawer = false, onNavigate, currentView }) {
           color: white; font-weight: 800; font-size: 16px;
           box-shadow: 0 4px 12px rgba(12,78,162,.4);
           letter-spacing: -0.5px;
+        }
+        .brand-img {
+          width: 36px; height: 36px;
+          object-fit: contain;
+          background: white;
+          border-radius: 8px;
+          padding: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,.15);
         }
         .brand-name { color: white; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
         .brand-sub { color: var(--gold-400); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; font-weight: 600; }

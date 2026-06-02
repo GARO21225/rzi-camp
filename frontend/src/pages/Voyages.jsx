@@ -3,7 +3,7 @@ import { Plane, ArrowRight, MapPin, Calendar, Users, TrendingUp } from 'lucide-r
 import BarChart from '../components/BarChart'
 
 const VOLS = [
-  { num: 'AT-447', comp: 'Air Burkina', route: 'Ouaga → RZI', arrivee: '21:30', statut: 'arrived', passagers: 38, expatries: 12, bagages: 42, retard: 0, color: 'var(--emerald-600)' },
+  { num: 'AT-447', comp: 'Air Ivoire', route: 'Abidjan → RZI', arrivee: '21:30', statut: 'arrived', passagers: 38, expatries: 12, bagages: 42, retard: 0, color: 'var(--emerald-600)' },
   { num: 'AF-722', comp: 'Air France', route: 'CDG → OUA → RZI', arrivee: '23:45', statut: 'inflight', passagers: 14, expatries: 14, bagages: 18, retard: 0, color: 'var(--status-warn)' },
   { num: 'ET-921', comp: 'Ethiopian', route: 'ADD → OUA → RZI', arrivee: '02:15', statut: 'scheduled', passagers: 22, expatries: 8, bagages: 26, retard: 25, color: 'var(--status-info)' },
   { num: 'TK-456', comp: 'Turkish', route: 'IST → OUA → RZI', arrivee: '04:30', statut: 'scheduled', passagers: 9, expatries: 9, bagages: 11, retard: 0, color: 'var(--status-info)' },

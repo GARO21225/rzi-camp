@@ -1,5 +1,5 @@
 // Génère 204 bâtiments avec coordonnées géographiques simulées
-// (autour du camp RZI, Burkina Faso, près de -0.5° lat, 12° lon)
+// (autour du camp RZI, Côte d'Ivoire, près de 8.11° lat, -6.82° lon)
 
 const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const TYPES = ['residentiel', 'bureau', 'restauration', 'sante', 'technique', 'sport', 'logistique']

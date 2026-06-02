@@ -47,15 +47,15 @@ export default function Dashboard() {
         ])
         if (cancelled) return
         setData({
-          batiments: b.results || b || [],
-          personnel: p.results || p || [],
-          incidents: i.results || i || [],
-          voyages: v.results || v || [],
-          evenements: e.results || e || [],
+          batiments: b.results || [],
+          personnel: p.results || [],
+          incidents: i.results || [],
+          voyages: v.results || [],
+          evenements: e.results || [],
         })
         setFeed([
-          { type: 'success', text: '✓ ' + (b.results || b || []).length + ' bâtiments synchronisés' },
-          { type: 'info', text: '👥 ' + (p.results || p || []).length + ' employés sur site' },
+          { type: 'success', text: '✓ ' + (b.results || []).length + ' bâtiments synchronisés' },
+          { type: 'info', text: '👥 ' + (p.results || []).length + ' employés sur site' },
         ])
       } catch (e) {
         if (!cancelled) setError(e.message)
@@ -318,7 +318,7 @@ async function exportCSV() {
   // Export simple des bâtiments
   try {
     const r = await batiments.list()
-    const data = r.results || r || []
+    const data = r.results || []
     if (data.length === 0) { alert('Aucune donnée à exporter'); return }
     const headers = Object.keys(data[0])
     const csv = [

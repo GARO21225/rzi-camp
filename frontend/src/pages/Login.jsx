@@ -19,8 +19,8 @@ export default function Login() {
     setError('')
     try {
       const r = await auth.login(username.trim(), password)
-      setToken(r.data.access)
-      localStorage.setItem('refresh_token', r.data.refresh)
+      setToken(r.access)
+      localStorage.setItem('refresh_token', r.refresh)
       const me = await auth.me()
       setUser(me.data)
       sessionStorage.setItem('just_logged_in', '1')
@@ -38,12 +38,12 @@ export default function Login() {
       <div className="login-brand">
         <div className="login-brand-bg">
           <div className="login-brand-content">
-            <div className="brand-mark-lg">RZ</div>
+            <img src="/roxgold-logo.png" alt="Roxgold" className="brand-mark-lg" />
             <h1 className="font-display" style={{ fontSize: 42, lineHeight: 1.1, color: 'white', marginTop: 24, letterSpacing: '-0.02em' }}>
               RZI <span style={{ color: 'var(--gold-400)' }}>Camp</span>
             </h1>
             <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 15, marginTop: 12, maxWidth: 360, lineHeight: 1.6 }}>
-              ERP Industriel pour Roxgold · Burkina Faso<br />
+              ERP Industriel pour Roxgold · Côte d'Ivoire<br />
               Jumeau numérique · Maintenance prédictive · QR anti-fraude
             </p>
 
@@ -68,7 +68,7 @@ export default function Login() {
       <div className="login-form">
         <div className="login-form-inner">
           <div className="login-mobile-header">
-            <div className="brand-mark">RZ</div>
+            <img src="/roxgold-logo.png" alt="Roxgold" className="brand-img-sm" />
             <div className="brand-name">RZI CAMP</div>
           </div>
 
@@ -171,11 +171,19 @@ export default function Login() {
         }
         .brand-mark-lg {
           width: 72px; height: 72px;
-          background: linear-gradient(135deg, var(--copper-500), var(--copper-800));
+          background: white;
           border-radius: 18px;
           display: grid; place-items: center;
-          color: white; font-weight: 800; font-size: 28px;
-          box-shadow: 0 10px 40px rgba(12,78,162,.5);
+          padding: 10px;
+          box-shadow: 0 10px 40px rgba(0,0,0,.3);
+          object-fit: contain;
+        }
+        .brand-img-sm {
+          width: 32px; height: 32px;
+          background: white;
+          border-radius: 6px;
+          padding: 3px;
+          object-fit: contain;
         }
         .brand-features { display: flex; flex-direction: column; gap: 12px; margin-top: 36px; }
         .brand-feature {

@@ -19,7 +19,10 @@ api.interceptors.request.use((cfg) => {
 })
 
 api.interceptors.response.use(
-  (r) => r,
+  // ✅ OPTION C : unwrap automatique — `r` est la `data` du backend, pas l'objet axios
+  // Ex: `auth.login()` retourne maintenant `{ access, refresh }` directement
+  //     au lieu de `{ data: { access, refresh }, status, headers }`
+  (r) => r.data,
   async (err) => {
     const url = err.config?.url || ''
     const isAuthCall = url.includes('/auth/login/') || url.includes('/auth/refresh/')
