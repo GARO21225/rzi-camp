@@ -5,13 +5,31 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+    emptyOutDir: true, // Nettoie dist/ avant chaque build
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'map': ['leaflet', 'react-leaflet'],
-          'charts': ['recharts'],
-          'utils': ['axios', 'zustand'],
+        manualChunks: (id) => {
+          // React et router → chunk stable
+          if (id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/react-router')) {
+            return 'react-vendor'
+          }
+          // Leaflet (carte GIS)
+          if (id.includes('node_modules/leaflet') ||
+              id.includes('node_modules/react-leaflet')) {
+            return 'map'
+          }
+          // Recharts (graphiques)
+          if (id.includes('node_modules/recharts') ||
+              id.includes('node_modules/d3')) {
+            return 'charts'
+          }
+          // Axios + Zustand
+          if (id.includes('node_modules/axios') ||
+              id.includes('node_modules/zustand')) {
+            return 'utils'
+          }
         },
       },
     },
@@ -19,5 +37,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {},
   },
 })
