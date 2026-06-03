@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useState as useLeafletState, useEffect as useLeafletEffect, lazy as lazyLeaflet, Suspense } from 'react'
-// Leaflet chargé dynamiquement pour éviter conflit de chunks
-const LeafletMap = lazyLeaflet(() => import('../components/LeafletMap'))
+const LeafletMap = lazy(() => import('../components/LeafletMap'))
 
 const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
 const h = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}`  })
