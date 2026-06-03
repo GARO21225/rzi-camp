@@ -6,7 +6,7 @@ import { useInactivityLogout } from './hooks/useInactivityLogout'
 import { auth } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
+const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MapPage = lazy(() => import('./pages/MapPage'))
 const RotationsPage = lazy(() => import('./pages/RotationsPage'))
 const AssistantIA = lazy(() => import('./pages/AssistantIA'))
