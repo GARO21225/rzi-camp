@@ -8,7 +8,8 @@
 
 :root {
   /* ── PALETTE PRIMAIRE (3 couleurs) ── */
-  --roxgold-noir:    #0A0A0A;   /* texte, header, actions denses */
+  --roxgold-noir:    #0A0A0A;
+  --text-dim:        #525252;   /* texte secondaire, ajout pour nav */   /* texte, header, actions denses */
   --roxgold-noir-2:  #1A1A1A;   /* surfaces sombres alt */
   --roxgold-jaune:   #FFD400;   /* signature Roxgold, signal, CTA */
   --roxgold-jaune-d: #E5BD00;   /* jaune foncé (hover) */
