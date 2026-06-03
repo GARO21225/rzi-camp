@@ -86,12 +86,12 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
       <div style={{ padding: '14px 16px', background: '#1e3a8a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
-          🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
+        <div style={{ color: '#111827', fontWeight: 700, fontSize: 15 }}>
+          🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#111827', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {count > 0 && <button onClick={onMarkAll} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11 }}>✓ Tout lire</button>}
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          {count > 0 && <button onClick={onMarkAll} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#111827', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11 }}>✓ Tout lire</button>}
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#111827', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
       </div>
       <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
@@ -116,7 +116,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: '#1e3a8a', color: '#fff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: '#1e3a8a', color: '#111827', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -232,7 +232,7 @@ export default function Layout() {
         boxShadow: '0 1px 0 rgba(255,212,0,.15)',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'transparent', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: 'none', color: '#111827', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           {sidebarOpen ? '✕' : '☰'}
@@ -243,7 +243,7 @@ export default function Layout() {
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.55)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          RÉSIDENCE <span style={{ color: '#fff' }}>ROXGOLD SANGO</span>
+          RÉSIDENCE <span style={{ color: '#111827' }}>ROXGOLD SANGO</span>
         </div>
 
         {/* ── Recherche globale ── */}
@@ -289,7 +289,7 @@ export default function Layout() {
             {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#111827', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(user?.first_name && user?.last_name) ? `${user.first_name}` : user?.username || ''}
             </span>
             <span style={{ color: '#FFD400', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -299,7 +299,7 @@ export default function Layout() {
         </div>
 
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.7)', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#1a1a1a', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}>
           ⎋ Déconnexion
