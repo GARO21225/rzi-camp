@@ -1,5 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+// Composant carte lazy — chargé uniquement quand visible
+const LeafletMapLazy = lazy(() => import('../components/LeafletMap'))
+
+function MapPreview({ geojson }) {
+  return (
+    <div style={{height:260,position:'relative'}}>
+      <Suspense fallback={
+        <div style={{height:'100%',display:'flex',alignItems:'center',
+          justifyContent:'center',background:'#f8fafc',color:'#94a3b8',fontSize:12}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:32,marginBottom:8}}>🗺️</div>
+            Chargement de la carte...
+          </div>
+        </div>
+      }>
+        <LeafletMapLazy geojson={geojson} center={[8.111,-6.822]} zoom={16}/>
+      </Suspense>
+      {/* Overlay transparent pour capter le clic sans bloquer Leaflet */}
+      <div style={{position:'absolute',inset:0,zIndex:1000,cursor:'pointer'}}/>
+    </div>
+  )
+}
 
 const BASE = import.meta.env.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
 const tok  = () => localStorage.getItem('access_token') || ''
@@ -181,8 +204,44 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Ligne 2: Alertes + Conformité */}
+      {/* Ligne 2: Carte GIS + Alertes */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:14,marginBottom:18}}>
+
+        {/* Mini-carte GIS cliquable */}
+        <div
+          onClick={()=>nav('/carte')}
+          style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',
+            overflow:'hidden',cursor:'pointer',boxShadow:'0 1px 4px rgba(0,0,0,.06)',
+            transition:'box-shadow .15s'}}
+          onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'}
+          onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'}>
+          {/* Header carte */}
+          <div style={{padding:'12px 16px',borderBottom:'1px solid #f1f5f9',
+            display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:'#0f172a',margin:0}}>🗺️ Carte du camp</p>
+              <p style={{fontSize:11,color:'#94a3b8',margin:'2px 0 0'}}>Résidences · Statuts en temps réel</p>
+            </div>
+            <span style={{fontSize:11,fontWeight:700,color:'#1e3a8a',background:'#eff6ff',
+              padding:'4px 10px',borderRadius:99,border:'1px solid #bfdbfe'}}>
+              Ouvrir la carte →
+            </span>
+          </div>
+          {/* Carte Leaflet */}
+          <MapPreview geojson={geojson} />
+          {/* Légende */}
+          <div style={{padding:'10px 16px',display:'flex',gap:16,flexWrap:'wrap',
+            borderTop:'1px solid #f1f5f9',background:'#fafafa'}}>
+            {[{l:'Libre',c:'#16a34a',n:libres},{l:'Occupé',c:'#2563eb',n:occupes},
+              {l:'Réservé',c:'#ca8a04',n:reserve},{l:'Maintenance',c:'#dc2626',n:maint}]
+              .map(({l,c,n})=>(
+                <div key={l} style={{display:'flex',alignItems:'center',gap:5}}>
+                  <span style={{width:9,height:9,borderRadius:'50%',background:c,flexShrink:0}}/>
+                  <span style={{fontSize:11,color:'#64748b'}}>{l}: <b style={{color:'#0f172a'}}>{n}</b></span>
+                </div>
+              ))}
+          </div>
+        </div>
 
         {/* Alertes */}
         <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',padding:'16px 18px'}}>
@@ -208,16 +267,7 @@ export default function Dashboard() {
               <p style={{fontSize:12,color:'#94a3b8',marginTop:4,margin:0}}>Aucune alerte active</p>
             </div>
           )}
-          {/* Lien carte GIS */}
-          <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid #f1f5f9',
-            display:'flex',justifyContent:'center'}}>
-            <button onClick={()=>nav('/carte')}
-              style={{background:'#eff6ff',color:'#1e3a8a',border:'1px solid #bfdbfe',
-                borderRadius:9,padding:'9px 20px',fontSize:12,fontWeight:700,
-                cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-              🗺️ Ouvrir la carte GIS →
-            </button>
-          </div>
+
         </div>
 
         {/* Conformité HSE */}
