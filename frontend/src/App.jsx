@@ -97,7 +97,7 @@ function RoleHome() {
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const mapRoles = ['agent', 'restauration', 'technicien', 'menage']
   if (mapRoles.includes(role)) return <Navigate to="/carte" replace />
-  return <Dashboard />
+  return <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>}><Dashboard /></Suspense>
 }
 
 function InactivityWarning() {
