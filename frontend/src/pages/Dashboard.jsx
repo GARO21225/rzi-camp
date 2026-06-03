@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useState as useLeafletState, useEffect as useLeafletEffect, lazy as lazyLeaflet, Suspense } from 'react'
+// Leaflet chargé dynamiquement pour éviter conflit de chunks
+const LeafletMap = lazyLeaflet(() => import('../components/LeafletMap'))
 
 const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
 const h = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}`  })
@@ -233,31 +234,14 @@ export default function Dashboard() {
             </button>
           }>
           <div style={{borderRadius:8,overflow:'hidden',border:'1px solid #e2e8f0',height:260}}>
-            <MapContainer
-              center={[8.111, -6.822]} zoom={16}
-              style={{width:'100%',height:'100%'}}
-              zoomControl={false} attributionControl={false}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-              {geojson && (
-                <GeoJSON data={geojson}
-                  pointToLayer={(_,latlng)=>{
-                    const L = window.L
-                    return L ? L.circleMarker(latlng,{
-                      radius:8, fillColor:'#1e3a8a', color:'#fff',
-                      weight:2, fillOpacity:.85
-                    }) : null
-                  }}
-                  onEachFeature={(f,layer)=>{
-                    const p = f.properties
-                    layer.bindPopup(
-                      `<b>${p.residence||p.bloc||'Résidence'}</b><br>` +
-                      `Statut: <b>${p.statut||'—'}</b><br>` +
-                      `Occupant: ${p.occupant||'Libre'}`
-                    )
-                  }}
-                />
-              )}
-            </MapContainer>
+            <Suspense fallback={
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',
+                  height:'100%',color:'#94a3b8',fontSize:13}}>
+                  ⏳ Chargement de la carte...
+                </div>
+              }>
+                <LeafletMap geojson={geojson} center={[8.111,-6.822]} zoom={16}/>
+              </Suspense>
           </div>
           {/* Légende statuts */}
           <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
