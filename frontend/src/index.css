@@ -99,7 +99,7 @@ html { font-size: 14px; scroll-behavior: smooth; }
 body {
   font-family: var(--font);
   background: var(--bg);
-  color: var(--text);
+  color: #0c0b09;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
