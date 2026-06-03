@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build && (test -f dist-static/index.html && cp dist-static/index.html dist/index.html || true)",
+    "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
     "lint": "eslint .",
