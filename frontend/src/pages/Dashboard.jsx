@@ -1,25 +1,19 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-// Composant carte lazy — chargé uniquement quand visible
-const LeafletMapLazy = lazy(() => import('../components/LeafletMap'))
-
-function MapPreview({ geojson }) {
+function MapPreview() {
+  // Carte OpenStreetMap via iframe — zéro dépendance, zéro crash
+  // Centre: camp Roxgold Sango ~8.111, -6.822
   return (
-    <div style={{height:260,position:'relative'}}>
-      <Suspense fallback={
-        <div style={{height:'100%',display:'flex',alignItems:'center',
-          justifyContent:'center',background:'#f8fafc',color:'#94a3b8',fontSize:12}}>
-          <div style={{textAlign:'center'}}>
-            <div style={{fontSize:32,marginBottom:8}}>🗺️</div>
-            Chargement de la carte...
-          </div>
-        </div>
-      }>
-        <LeafletMapLazy geojson={geojson} center={[8.111,-6.822]} zoom={16}/>
-      </Suspense>
-      {/* Overlay transparent pour capter le clic sans bloquer Leaflet */}
-      <div style={{position:'absolute',inset:0,zIndex:1000,cursor:'pointer'}}/>
+    <div style={{height:260,position:'relative',background:'#e8f4f8'}}>
+      <iframe
+        title="Carte camp Roxgold"
+        src="https://www.openstreetmap.org/export/embed.html?bbox=-6.832%2C8.101%2C-6.812%2C8.121&layer=mapnik&marker=8.111%2C-6.822"
+        style={{width:'100%',height:'100%',border:'none',display:'block'}}
+        loading="lazy"
+        sandbox="allow-scripts allow-same-origin"
+      />
+      <div style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer'}}/>
     </div>
   )
 }
@@ -228,7 +222,7 @@ export default function Dashboard() {
             </span>
           </div>
           {/* Carte Leaflet */}
-          <MapPreview geojson={geojson} />
+          <MapPreview />
           {/* Légende */}
           <div style={{padding:'10px 16px',display:'flex',gap:16,flexWrap:'wrap',
             borderTop:'1px solid #f1f5f9',background:'#fafafa'}}>
