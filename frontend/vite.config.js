@@ -19,3 +19,4 @@ export default defineConfig({
   },
   server: { port: 5173 },
 })
+// rebuild: 2026-06-03T19:49:46.015388
