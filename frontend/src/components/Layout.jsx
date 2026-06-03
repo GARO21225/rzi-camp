@@ -364,7 +364,7 @@ export default function Layout() {
                     fontSize: 13,
                     fontWeight: isActive ? 700 : 400,
                     background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                    color: isActive ? '#f0a500' : 'rgba(255,255,255,.8)',
+                    color: isActive ? '#1e3a8a' : '#374151',
                     borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
                     transition: 'all .15s',
                   })}>
