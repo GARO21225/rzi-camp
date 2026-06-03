@@ -1,19 +1,4 @@
 
-// ── Enregistrement Service Worker (offline mode) ──────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        // Sync au retour du réseau
-        window.addEventListener('online', () => {
-          if (reg.sync) reg.sync.register('rzi-sync').catch(() => {})
-          reg.active?.postMessage({ type: 'SYNC_NOW' })
-        })
-      })
-      .catch(() => {})
-  })
-}
-
 import React, { lazy, Suspense, Component, useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
@@ -49,6 +34,22 @@ import RapportPage  from './pages/RapportPage'
 import Demandes from './pages/Demandes'
 import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
 import EventNotifBanner from './components/EventNotifBanner'
+
+// ── Enregistrement Service Worker (offline mode) ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        // Sync au retour du réseau
+        window.addEventListener('online', () => {
+          if (reg.sync) reg.sync.register('rzi-sync').catch(() => {})
+          reg.active?.postMessage({ type: 'SYNC_NOW' })
+        })
+      })
+      .catch(() => {})
+  })
+}
+
 
 // ── Global Error Boundary ─────────────────────────────────────
 class GlobalErrorBoundary extends Component {
