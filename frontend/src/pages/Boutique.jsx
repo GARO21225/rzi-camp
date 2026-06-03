@@ -797,6 +797,9 @@ function ArticleCard({ a, qty, onAdd }) {
 export default function Boutique() {
   const {user} = useStore()
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [stockFilter,           setStockFilter]          = useState('')
+  const [stockCatFilter,        setStockCatFilter]       = useState('')
+  const [exclureAchatsInternes, setExclureAchatsInternes] = useState(false)
   // Gestion stock
   const [stockModal,   setStockModal]   = useState(null)
   const [stockQte,     setStockQte]     = useState(0)
