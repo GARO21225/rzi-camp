@@ -339,13 +339,15 @@ export default function Layout() {
             </div>
             <div style={{ padding: 8, flex: 1 }}>
               {nav.map((item, i) => item.group ? (
-                <div key={`g${i}`} style={{ padding:'0 12px', margin: i===0?'16px 0 8px':'22px 0 8px' }}>
+                <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                   <div style={{
-                    fontSize:10.5, fontWeight:600,
-                    color:'rgba(255,255,255,.4)',
-                    letterSpacing:'0.12em', textTransform:'uppercase',
-                    padding:'0 10px 8px',
+                    fontSize:10, fontWeight:800, letterSpacing:1.5,
+                    textTransform:'uppercase', color:'#f0a500',
+                    padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
+                    borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                   }}>
+                    <span style={{display:'inline-block',width:3,height:10,
+                      background:'#f0a500',borderRadius:99}}/>
                     {item.group}
                   </div>
                 </div>
@@ -354,19 +356,17 @@ export default function Layout() {
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
-                    padding: '9px 12px',
-                    margin: '1px 0',
+                    gap: 8,
+                    padding: '9px 12px 9px 16px',
+                    margin: '1px 8px',
                     borderRadius: 9,
                     textDecoration: 'none',
-                    fontSize: 13.5,
-                    fontWeight: isActive ? 600 : 500,
-                    background: isActive
-                      ? 'linear-gradient(90deg,rgba(234,118,10,.18),rgba(234,118,10,.04))'
-                      : 'transparent',
-                    color: isActive ? '#fff' : 'rgba(255,255,255,.7)',
-                    boxShadow: isActive ? 'inset 2px 0 0 #ea760a' : 'none',
-                    transition: 'all .15s cubic-bezier(.4,0,.2,1)',
+                    fontSize: 13,
+                    fontWeight: isActive ? 700 : 400,
+                    background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
+                    color: isActive ? '#f0a500' : 'rgba(255,255,255,.8)',
+                    borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
+                    transition: 'all .15s',
                   })}>
                   {item.label}
                 </NavLink>
