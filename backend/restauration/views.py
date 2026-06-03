@@ -297,10 +297,20 @@ from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, Cons
 
 class ArticleSerializer(drf_serializers.ModelSerializer):
     """Sérialiseur robuste — image_url accepte URL ou base64 data URI"""
+    total_vendu = drf_serializers.SerializerMethodField()
+
+    def get_total_vendu(self, obj):
+        """Total des quantités vendues (toutes périodes confondues)"""
+        try:
+            from django.db.models import Sum
+            result = obj.consommationboutique_set.aggregate(total=Sum('quantite'))
+            return result['total'] or 0
+        except Exception:
+            return 0
 
     class Meta:
         model  = ArticleBoutique
-        fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le']
+        fields = ['id','nom','categorie','prix','stock','unite','actif','image_url','cree_le','total_vendu']
         extra_kwargs = {'image_url': {'required': False, 'default': '', 'allow_blank': True}}
 
     def to_representation(self, obj):
