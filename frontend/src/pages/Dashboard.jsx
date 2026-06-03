@@ -172,7 +172,7 @@ export default function Dashboard() {
         <div>
           <h1 style={{fontSize:21,fontWeight:800,color:'#0f172a',margin:0}}>Tableau de bord</h1>
           <p style={{fontSize:12,color:'#94a3b8',marginTop:4}}>
-            Résidence Roxgold Sango ·{sync ? \` Sync ${sync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} ` : ' Chargement...'}
+            Résidence Roxgold Sango ·{sync ? ` Sync ${sync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}` : ' Chargement...'}
           </p>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
