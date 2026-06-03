@@ -96,7 +96,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       </div>
       <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
         {items.length === 0
-          ? <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-dim)' }}><div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>Aucune notification</div>
+          ? <div style={{ padding: '32px 16px', textAlign: 'center', color: '#525252' }}><div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>Aucune notification</div>
           : items.map(n => (
             <div key={n.id}
               onClick={() => { onClose(); navigate('/evenements') }}
@@ -106,8 +106,8 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
               <div style={{ fontSize: 22, flexShrink: 0 }}>📅</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: '#1e3a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
-                {n.evenement_lieu && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
-                {n.evenement_date && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
+                {n.evenement_lieu && <div style={{ fontSize: 11, color: '#525252', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
+                {n.evenement_date && <div style={{ fontSize: 11, color: '#525252' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
               {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#1e3a8a', flexShrink: 0, marginTop: 4 }} />}
             </div>
@@ -242,7 +242,7 @@ export default function Layout() {
           <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
         </div>
 
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.55)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#525252', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           RÉSIDENCE <span style={{ color: '#111827' }}>ROXGOLD SANGO</span>
         </div>
 
@@ -259,18 +259,18 @@ export default function Layout() {
           <button
             onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); localStorage.setItem('theme', t) }}
             title="Basculer thème"
-            style={{ background:'transparent', border:'none', color:'rgba(255,255,255,.7)',
+            style={{ background:'transparent', border:'none', color:'#374151',
               width:36, height:36, borderRadius:6, cursor:'pointer', flexShrink:0,
               display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, transition: 'all 150ms' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' }}>
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' }}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
-            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : 'rgba(255,255,255,.7)', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
+            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#374151', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
             onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' } }}
-            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)' } }}>
+            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' } }}>
             🔔
             {notifCount > 0 && (
               <span style={{ position: 'absolute', top: 4, right: 4, background: '#FFD400', color: '#0A0A0A', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0A0A0A' }}>
@@ -301,7 +301,7 @@ export default function Layout() {
         <button onClick={() => { logout(); navigate('/login') }}
           style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#1a1a1a', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,.7)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}>
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}>
           ⎋ Déconnexion
         </button>
 
