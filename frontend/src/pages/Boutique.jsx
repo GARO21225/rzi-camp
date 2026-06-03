@@ -1483,180 +1483,278 @@ export default function Boutique() {
 
       {tab==='stock' && (
         <div style={{padding:'0 4px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <div>
-              <div style={{fontWeight:800,fontSize:18,color:'#1e3a8a'}}>📊 Gestion du Stock</div>
-              <div style={{fontSize:12,color:'#64748b'}}>{articles.length} articles · Seuils et mouvements</div>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <label style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#16a34a',borderRadius:9,
-                padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                📥 Import CSV
-                <input type="file" accept=".csv" style={{display:'none'}} onChange={async e=>{
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const text = await file.text()
-                  const lines = text.split('\n').filter(l=>l.trim())
-                  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase())
-                  const rows = lines.slice(1).map(l=>l.split(','))
-                  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
-                  const token = localStorage.getItem('access_token')||''
-                  let ok=0
-                  for (const row of rows) {
-                    const obj={}; headers.forEach((h,i)=>obj[h]=row[i]?.trim())
-                    if (obj.nom && obj.stock !== undefined) {
-                      const art = articles.find(a=>a.nom.toLowerCase()===obj.nom.toLowerCase())
-                      if (art) {
-                        await fetch(`${BASE}/api/boutique/articles/${art.id}/ajuster_stock/`,{
-                          method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                          body:JSON.stringify({operation:'set',quantite:parseInt(obj.stock)||0,raison:'Import CSV inventaire'})
-                        })
-                        ok++
-                      }
-                    }
-                  }
-                  alert(`✅ ${ok} article(s) mis à jour`)
-                  boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
-                }}/>
-              </label>
-              <button onClick={()=>boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))}
-                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'8px 14px',
-                  fontSize:12,fontWeight:700,cursor:'pointer',color:'#1e3a8a'}}>
-                🔄 Actualiser
-              </button>
-            </div>
-          </div>
-          {/* Filtres analytiques */}
+
+          {/* ── HEADER avec KPIs ── */}
+          {(() => {
+            const totalArticles = articles.length
+            const enRupture = articles.filter(a=>(a.stock||0)===0).length
+            const faible    = articles.filter(a=>(a.stock||0)>0&&(a.stock||0)<=(a.stock_min||5)).length
+            const valeurTot = articles.reduce((s,a)=>s+(a.stock||0)*(a.prix||0),0)
+            const totalConso = consos?.length || articles.reduce((s,a)=>s+(a.total_vendu||0),0)
+            return (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+                {[
+                  {icon:'📦',label:'Articles',val:totalArticles,    color:'#1e3a8a',bg:'#eff6ff'},
+                  {icon:'🔴',label:'En rupture',val:enRupture,      color:'#dc2626',bg:'#fef2f2'},
+                  {icon:'⚠️',label:'Stock faible',val:faible,       color:'#d97706',bg:'#fffbeb'},
+                  {icon:'📉',label:'Consommés (mois)',val:totalConso,color:'#7c3aed',bg:'#f5f3ff'},
+                  {icon:'💰',label:'Valeur stock',val:valeurTot.toLocaleString('fr-FR')+'F',color:'#059669',bg:'#f0fdf4'},
+                ].map(k=>(
+                  <div key={k.label} style={{background:k.bg,borderRadius:12,padding:'14px 16px',
+                    borderLeft:`4px solid ${k.color}`,boxShadow:'0 1px 4px rgba(0,0,0,.05)'}}>
+                    <div style={{fontSize:20,marginBottom:4}}>{k.icon}</div>
+                    <div style={{fontSize:22,fontWeight:900,color:k.color,lineHeight:1}}>{k.val}</div>
+                    <div style={{fontSize:11,color:'#64748b',fontWeight:600,marginTop:3}}>{k.label}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
+          {/* ── BARRE d'outils ── */}
           <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-            <select value={stockFilter||''} onChange={e=>setStockFilter(e.target.value)}
-              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
-              <option value="">Tous les articles</option>
-              <option value="rupture">🔴 En rupture</option>
-              <option value="faible">⚠️ Stock faible</option>
-              <option value="ok">✅ Stock OK</option>
-              <option value="consomme">📊 Les + consommés</option>
-            </select>
+            {/* Recherche */}
+            <div style={{position:'relative',flex:1,minWidth:200}}>
+              <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'#94a3b8'}}>🔍</span>
+              <input
+                value={stockFilter||''}
+                onChange={e=>setStockFilter(e.target.value)}
+                placeholder="Rechercher un article..."
+                style={{width:'100%',paddingLeft:38,paddingRight:12,height:38,
+                  border:'1.5px solid #e2e8f0',borderRadius:9,fontSize:13,outline:'none',background:'#fff'}}
+              />
+            </div>
+            {/* Catégorie */}
             <select value={stockCatFilter||''} onChange={e=>setStockCatFilter(e.target.value)}
-              style={{border:'2px solid #e2e8f0',borderRadius:9,padding:'8px 12px',fontSize:12,outline:'none'}}>
+              style={{height:38,border:'1.5px solid #e2e8f0',borderRadius:9,padding:'0 12px',fontSize:13,outline:'none',background:'#fff'}}>
               <option value="">Toutes catégories</option>
-              {[...new Set(articles.map(a=>a.categorie).filter(Boolean))].map(cat=>(
-                <option key={cat} value={cat}>{cat}</option>
+              {[...new Set(articles.map(a=>a.categorie).filter(Boolean))].map(c=>(
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',
-              background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:9,padding:'6px 12px',cursor:'pointer'}}>
-              <input type="checkbox" checked={exclureAchatsInternes||false}
-                onChange={e=>setExclureAchatsInternes(e.target.checked)}/>
-              🚫 Exclure achats internes
-            </label>
-            {(stockFilter||stockCatFilter||exclureAchatsInternes) && (
-              <button onClick={()=>{setStockFilter('');setStockCatFilter('');setExclureAchatsInternes(false)}}
-                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
-                  borderRadius:9,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>
-                ✕ Reset
-              </button>
-            )}
+            {/* Statut */}
+            <select value={exclureAchatsInternes?'rupture':''} onChange={e=>setExclureAchatsInternes(e.target.value==='rupture')}
+              style={{height:38,border:'1.5px solid #e2e8f0',borderRadius:9,padding:'0 12px',fontSize:13,outline:'none',background:'#fff'}}>
+              <option value="">Tous les statuts</option>
+              <option value="rupture">🔴 Rupture seulement</option>
+            </select>
+            {/* Ajout rapide */}
+            <button onClick={()=>setStockModal({mode:'in',article:null})}
+              style={{height:38,background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+                padding:'0 16px',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',
+                alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
+              ➕ Entrée stock
+            </button>
           </div>
 
-          <div style={{overflowX:'auto'}}>
+          {/* ── TABLEAU style Odoo/Shopify ── */}
+          <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',overflow:'hidden',boxShadow:'0 2px 8px rgba(0,0,0,.05)'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
               <thead>
-                <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
-                  {['Article','Catégorie','Stock','Consommé','Seuil','Statut','Actions'].map(h=>(
-                    <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>{h}</th>
+                <tr style={{background:'#f8fafc'}}>
+                  {['Article','Catégorie','Stock actuel','Consommé','Seuil alerte','Valeur stock','Dernière mvt.','Actions'].map(h=>(
+                    <th key={h} style={{padding:'11px 14px',textAlign:'left',fontWeight:700,
+                      fontSize:11,color:'#6b7280',textTransform:'uppercase',letterSpacing:.5,
+                      borderBottom:'2px solid #e5e7eb',whiteSpace:'nowrap'}}>
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...articles]
-                .filter(a => {
-                  if (stockCatFilter && a.categorie !== stockCatFilter) return false
-                  const s = a.stock||0; const seuil = a.stock_min||5
-                  if (stockFilter==='rupture' && s!==0) return false
-                  if (stockFilter==='faible' && !(s>0&&s<=seuil)) return false
-                  if (stockFilter==='ok' && s<=seuil) return false
-                  if (exclureAchatsInternes && a.interne) return false
-                  return true
-                })
-                .sort((a,b)=>stockFilter==='consomme'?(b.total_vendu||0)-(a.total_vendu||0):(a.stock||0)-(b.stock||0))
-                .map((a,i)=>{
-                  const stock = a.stock || 0
-                  const seuil = a.stock_min || a.seuil_alerte || 5
-                  const critique = stock === 0
-                  const faible = stock > 0 && stock <= seuil
-                  const ok = stock > seuil
-                  return (
-                    <tr key={a.id} style={{borderBottom:'1px solid #f1f5f9',
-                      background: critique ? '#fef2f2' : faible ? '#fffbeb' : i%2===0?'#fff':'#fafafa'}}>
-                      <td style={{padding:'10px 12px',fontWeight:600}}>{a.nom}</td>
-                      <td style={{padding:'10px 12px'}}>
-                        <span style={{background:'#f1f5f9',padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600}}>
-                          {a.categorie||'—'}
-                        </span>
-                      </td>
-                      <td style={{padding:'10px 12px'}}>
-                        <span style={{fontWeight:800,fontSize:16,
-                          color: critique?'#dc2626':faible?'#d97706':'#16a34a'}}>
-                          {stock}
-                        </span>
-                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
-                      </td>
-                      <td style={{padding:'10px 12px'}}>
-                        <span style={{fontWeight:700,fontSize:14,color:'#8b5cf6'}}>
-                          {a.total_vendu||a.consomme||0}
-                        </span>
-                        <span style={{fontSize:11,color:'#94a3b8',marginLeft:4}}>u.</span>
-                      </td>
-                      <td style={{padding:'10px 12px',color:'#64748b'}}>{seuil}</td>
-                      <td style={{padding:'10px 12px'}}>
-                        <span style={{padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,
-                          background: critique?'#fee2e2':faible?'#fef3c7':'#dcfce7',
-                          color: critique?'#dc2626':faible?'#92400e':'#166534'}}>
-                          {critique?'🔴 Rupture':faible?'⚠️ Faible':'✅ OK'}
-                        </span>
-                      </td>
-                      <td style={{padding:'10px 12px'}}>
-                        <div style={{display:'flex',gap:6}}>
-                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('add');setStockRaison('')}}
-                            style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',
-                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
-                            ➕ Entrée
-                          </button>
-                          <button onClick={()=>{setStockModal(a);setStockQte(0);setStockOp('subtract');setStockRaison('')}}
-                            style={{background:'#fff7ed',color:'#ea580c',border:'1px solid #fed7aa',
-                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
-                            ➖ Sortie
-                          </button>
-                          <button onClick={()=>{setStockModal(a);setStockQte(stock);setStockOp('set');setStockRaison('Inventaire')}}
-                            style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',
-                              borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
-                            🔢 Inventaire
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {articles
+                  .filter(a => {
+                    if (stockCatFilter && a.categorie !== stockCatFilter) return false
+                    if (stockFilter && !a.nom?.toLowerCase().includes(stockFilter.toLowerCase())) return false
+                    if (exclureAchatsInternes && (a.stock||0) > 0) return false
+                    return true
+                  })
+                  .map((a, i) => {
+                    const stock  = a.stock || 0
+                    const seuil  = a.stock_min || 5
+                    const conso  = a.total_vendu || a.consomme || 0
+                    const valeur = stock * (a.prix || 0)
+                    const statut = stock === 0 ? 'rupture' : stock <= seuil ? 'faible' : 'ok'
+                    const cfg    = getCatCfg(a.categorie)
+                    return (
+                      <tr key={a.id} style={{borderBottom:'1px solid #f3f4f6',
+                        background:i%2===0?'#fff':'#fafafa',transition:'background .12s'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#eff6ff'}
+                        onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'#fff':'#fafafa'}>
+
+                        {/* Article */}
+                        <td style={{padding:'12px 14px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:10}}>
+                            <span style={{fontSize:22}}>{cfg.icon}</span>
+                            <div>
+                              <div style={{fontWeight:700,color:'#111827',fontSize:13}}>{a.nom}</div>
+                              <div style={{fontSize:11,color:'#94a3b8',fontFamily:'monospace'}}>REF-{a.id}</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Catégorie */}
+                        <td style={{padding:'12px 14px'}}>
+                          <span style={{background:'#f3f4f6',color:'#374151',
+                            padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:600}}>
+                            {a.categorie||'—'}
+                          </span>
+                        </td>
+
+                        {/* Stock actuel */}
+                        <td style={{padding:'12px 14px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <span style={{
+                              fontWeight:900,fontSize:18,
+                              color: statut==='rupture'?'#dc2626':statut==='faible'?'#d97706':'#059669'
+                            }}>
+                              {stock}
+                            </span>
+                            <span style={{
+                              fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:99,
+                              background: statut==='rupture'?'#fee2e2':statut==='faible'?'#fef3c7':'#d1fae5',
+                              color:      statut==='rupture'?'#dc2626':statut==='faible'?'#92400e':'#059669'
+                            }}>
+                              {statut==='rupture'?'RUPTURE':statut==='faible'?'FAIBLE':'OK'}
+                            </span>
+                          </div>
+                          {/* Barre de stock */}
+                          <div style={{marginTop:4,background:'#f3f4f6',borderRadius:99,height:4,width:80}}>
+                            <div style={{
+                              width:`${Math.min(100,Math.round(stock/(Math.max(stock,seuil*2)||1)*100))}%`,
+                              height:'100%',borderRadius:99,
+                              background: statut==='rupture'?'#dc2626':statut==='faible'?'#f59e0b':'#10b981',
+                              transition:'width .4s'
+                            }}/>
+                          </div>
+                        </td>
+
+                        {/* Consommé */}
+                        <td style={{padding:'12px 14px'}}>
+                          <div style={{fontWeight:700,fontSize:16,color:'#7c3aed'}}>{conso}</div>
+                          <div style={{fontSize:10,color:'#94a3b8'}}>unités / mois</div>
+                        </td>
+
+                        {/* Seuil alerte */}
+                        <td style={{padding:'12px 14px',color:'#6b7280',fontWeight:600}}>{seuil}</td>
+
+                        {/* Valeur stock */}
+                        <td style={{padding:'12px 14px'}}>
+                          <div style={{fontWeight:700,color:'#059669',fontFamily:'monospace'}}>
+                            {valeur.toLocaleString('fr-FR')} F
+                          </div>
+                        </td>
+
+                        {/* Dernière mvt */}
+                        <td style={{padding:'12px 14px',color:'#94a3b8',fontSize:11}}>
+                          {a.updated_at ? new Date(a.updated_at).toLocaleDateString('fr-FR') : '—'}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{padding:'12px 14px'}}>
+                          <div style={{display:'flex',gap:6}}>
+                            <button onClick={()=>setStockModal({mode:'in',article:a})}
+                              title="Entrée stock"
+                              style={{background:'#d1fae5',color:'#059669',border:'none',borderRadius:7,
+                                padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+                              ↑ In
+                            </button>
+                            <button onClick={()=>setStockModal({mode:'out',article:a})}
+                              title="Sortie stock"
+                              disabled={stock===0}
+                              style={{background:stock===0?'#f3f4f6':'#fee2e2',
+                                color:stock===0?'#d1d5db':'#dc2626',
+                                border:'none',borderRadius:7,padding:'5px 10px',
+                                cursor:stock===0?'not-allowed':'pointer',fontSize:12,fontWeight:700}}>
+                              ↓ Out
+                            </button>
+                            <button onClick={()=>setStockModal({mode:'edit',article:a})}
+                              title="Modifier"
+                              style={{background:'#eff6ff',color:'#1e3a8a',border:'none',borderRadius:7,
+                                padding:'5px 8px',cursor:'pointer',fontSize:12}}>
+                              ✏️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
               </tbody>
+              {/* Footer totaux */}
+              <tfoot>
+                <tr style={{background:'#f8fafc',borderTop:'2px solid #e5e7eb'}}>
+                  <td colSpan={2} style={{padding:'10px 14px',fontWeight:700,fontSize:12,color:'#374151'}}>
+                    TOTAUX ({articles.filter(a=>{
+                      if(stockCatFilter&&a.categorie!==stockCatFilter)return false
+                      if(stockFilter&&!a.nom?.toLowerCase().includes(stockFilter.toLowerCase()))return false
+                      return true
+                    }).length} articles)
+                  </td>
+                  <td style={{padding:'10px 14px',fontWeight:900,color:'#1e3a8a'}}>
+                    {articles.reduce((s,a)=>s+(a.stock||0),0)} u.
+                  </td>
+                  <td style={{padding:'10px 14px',fontWeight:900,color:'#7c3aed'}}>
+                    {articles.reduce((s,a)=>s+(a.total_vendu||a.consomme||0),0)} u.
+                  </td>
+                  <td colSpan={2} style={{padding:'10px 14px',fontWeight:900,color:'#059669'}}>
+                    {articles.reduce((s,a)=>s+(a.stock||0)*(a.prix||0),0).toLocaleString('fr-FR')} F
+                  </td>
+                  <td colSpan={2}/>
+                </tr>
+              </tfoot>
             </table>
           </div>
-          {/* Résumé */}
-          <div style={{display:'flex',gap:12,marginTop:20,flexWrap:'wrap'}}>
-            {[
-              {l:'Total articles',v:articles.length,c:'#1e3a8a',bg:'#eff6ff'},
-              {l:'En rupture',v:articles.filter(a=>(a.stock||0)===0).length,c:'#dc2626',bg:'#fef2f2'},
-              {l:'Stock faible',v:articles.filter(a=>{const s=a.stock||0;const seuil=a.stock_min||5;return s>0&&s<=seuil}).length,c:'#d97706',bg:'#fffbeb'},
-              {l:'Stock OK',v:articles.filter(a=>(a.stock||0)>(a.stock_min||5)).length,c:'#16a34a',bg:'#f0fdf4'},
-            ].map(({l,v,c,bg})=>(
-              <div key={l} style={{background:bg,borderRadius:12,padding:'14px 20px',flex:1,minWidth:140}}>
-                <div style={{fontSize:24,fontWeight:900,color:c}}>{v}</div>
-                <div style={{fontSize:12,color:'#64748b',fontWeight:600}}>{l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
+          {/* ── RAPPORT DE CONSOMMATION ── */}
+          <div style={{marginTop:20,background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',padding:20}}>
+            <div style={{fontWeight:800,fontSize:15,color:'#1e3a8a',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+              📊 Rapport de consommation
+              <span style={{fontSize:11,color:'#94a3b8',fontWeight:500}}>Top articles consommés ce mois</span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[...articles]
+                .filter(a=>a.total_vendu||a.consomme)
+                .sort((a,b)=>((b.total_vendu||b.consomme||0)-(a.total_vendu||a.consomme||0)))
+                .slice(0,8)
+                .map((a,i)=>{
+                  const conso = a.total_vendu||a.consomme||0
+                  const maxConso = articles.reduce((m,x)=>Math.max(m,x.total_vendu||x.consomme||0),1)
+                  const cfg = getCatCfg(a.categorie)
+                  return (
+                    <div key={a.id} style={{display:'flex',alignItems:'center',gap:12}}>
+                      <div style={{width:24,height:24,borderRadius:6,background:'#f3f4f6',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:11,fontWeight:800,color:'#6b7280',flexShrink:0}}>
+                        {i+1}
+                      </div>
+                      <span style={{fontSize:18,flexShrink:0}}>{cfg.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:600,color:'#111827',marginBottom:2}}>{a.nom}</div>
+                        <div style={{background:'#f3f4f6',borderRadius:99,height:6,overflow:'hidden'}}>
+                          <div style={{
+                            width:`${Math.round(conso/maxConso*100)}%`,
+                            height:'100%',borderRadius:99,
+                            background:'linear-gradient(90deg,#7c3aed,#a78bfa)',
+                            transition:'width .5s'
+                          }}/>
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <div style={{fontWeight:900,fontSize:15,color:'#7c3aed'}}>{conso}</div>
+                        <div style={{fontSize:10,color:'#94a3b8'}}>unités</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              {articles.every(a=>!(a.total_vendu||a.consomme)) && (
+                <div style={{textAlign:'center',color:'#94a3b8',padding:20,fontSize:13}}>
+                  Aucune consommation enregistrée ce mois
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
       {tab==='analyses' && (
         <AnalysesPanel
           periode={analysesPeriode}
