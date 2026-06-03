@@ -147,7 +147,8 @@ export default function AnnuairePage() {
               ['🎓 Induction', selected.inductionrecord ?
                 (selected.inductionrecord.statut==='valide'?'✅ Induit':'⏳ En cours') :
                 '❌ Non commencé'],
-              ['📞 Contact', selected.numero || selected.email || '—'],
+              ['📞 Téléphone', selected.numero || '—'],
+              ['📧 Email', selected.email || '—'],
               ['🪪 Matricule', selected.matricule || '—'],
               ['📅 Arrivée', selected.date_creation?.slice(0,10) || '—'],
             ].map(([label, value]) => (
@@ -157,6 +158,38 @@ export default function AnnuairePage() {
                 <span style={{fontSize:12,color:'#1e293b',fontWeight:700,textAlign:'right',maxWidth:'55%'}}>{value}</span>
               </div>
             ))}
+
+            {/* Boutons d'action rapide */}
+            {(selected.numero || selected.email) && (
+              <div style={{display:'flex',gap:10,marginTop:16,marginBottom:4}}>
+                {selected.numero && (
+                  <a href={`tel:${selected.numero}`}
+                    style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                      gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
+                      fontSize:14,background:'#059669',color:'#fff',
+                      boxShadow:'0 2px 8px rgba(5,150,105,.3)'}}>
+                    📞 Appeler
+                  </a>
+                )}
+                {selected.numero && (
+                  <a href={`sms:${selected.numero}`}
+                    style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                      gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
+                      fontSize:14,background:'#1d4ed8',color:'#fff',
+                      boxShadow:'0 2px 8px rgba(29,78,216,.3)'}}>
+                    💬 Message
+                  </a>
+                )}
+                {!selected.numero && selected.email && (
+                  <a href={`mailto:${selected.email}`}
+                    style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                      gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
+                      fontSize:14,background:'#7c3aed',color:'#fff'}}>
+                    📧 Email
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Voyage actif */}
             <div style={{marginTop:12,background:'#f0fdf4',borderRadius:10,padding:'10px 14px'}}>
