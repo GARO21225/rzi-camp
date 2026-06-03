@@ -1755,6 +1755,7 @@ export default function Boutique() {
           </div>
 
         </div>
+      )}
       {tab==='analyses' && (
         <AnalysesPanel
           periode={analysesPeriode}
