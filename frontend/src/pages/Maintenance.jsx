@@ -433,17 +433,18 @@ export default function Maintenance() {
               const pr = PRIOS[inc.priorite] || PRIOS.moyenne
               const wfIdx = WF.findIndex(x => x.s === inc.statut)
               return (
-                <div key={inc.id} style={{position:'relative'}} onClick={async() => {
-                  setSelected(inc)
-                  try {
-                    const r = await incAPI.detail(inc.id)
-                    setSelected(r.data)
-                  } catch(e) { console.warn('detail load failed', e) }
-                }}
-                  style={{ background:'#fff', borderRadius:12, padding:'14px 16px',
+                <div key={inc.id}
+                  style={{ position:'relative', background:'#fff', borderRadius:12, padding:'14px 16px',
                     boxShadow:'0 1px 4px rgba(0,0,0,.07)', cursor:'pointer',
                     borderLeft:`4px solid ${st.c}`,
-                    outline: selected?.id === inc.id ? `2px solid ${st.c}` : 'none' }}>
+                    outline: selected?.id === inc.id ? `2px solid ${st.c}` : 'none' }}
+                  onClick={async() => {
+                    setSelected(inc)
+                    try {
+                      const r = await incAPI.detail(inc.id)
+                      setSelected(r.data)
+                    } catch(e) { console.warn('detail load failed', e) }
+                  }}>
                   <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ fontWeight:700, fontSize:14, color:'#1e293b', marginBottom:3 }}>
