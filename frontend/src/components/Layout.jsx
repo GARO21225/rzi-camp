@@ -86,7 +86,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
       <div style={{ padding: '14px 16px', background: '#1e3a8a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ color: '#111827', fontWeight: 700, fontSize: 15 }}>
+        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#111827', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -316,8 +316,8 @@ export default function Layout() {
         {sidebarOpen && (
           <nav style={{
             width: 240,
-            background: '#FFFFFF',
-            borderRight: '1px solid #D4D4D4',
+            background: '#0f172a',
+            borderRight: 'none',
             overflowY: 'auto',
             overflowX: 'hidden',
             flexShrink: 0,
@@ -342,7 +342,7 @@ export default function Layout() {
                 <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                   <div style={{
                     fontSize:10, fontWeight:800, letterSpacing:1.5,
-                    textTransform:'uppercase', color:'#f0a500',
+                    textTransform:'uppercase', color:'#64748b',
                     padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
                     borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                   }}>
@@ -364,7 +364,7 @@ export default function Layout() {
                     fontSize: 13,
                     fontWeight: isActive ? 700 : 400,
                     background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                    color: isActive ? '#1e3a8a' : '#374151',
+                    color: isActive ? '#ffffff' : '#94a3b8',
                     borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
                     transition: 'all .15s',
                   })}>
