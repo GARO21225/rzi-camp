@@ -6,17 +6,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'charts': ['recharts'],
+          'map': ['leaflet', 'react-leaflet'],
           'utils': ['axios', 'zustand'],
         },
       },
     },
-    chunkSizeWarningLimit: 1000,
   },
   server: { port: 5173 },
 })
-// rebuild: 2026-06-03T19:49:46.015388
