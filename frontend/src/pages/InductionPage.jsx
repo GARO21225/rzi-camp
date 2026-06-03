@@ -582,7 +582,16 @@ function InductionPageInner() {
     const docDraft = drafts.docs || {}
     // Support ancien format (juste noms) et nouveau format {uploads, data}
     setDocUploads(docDraft.uploads || (typeof docDraft === 'object' && !docDraft.uploads && !docDraft.data ? docDraft : {}))
-    setDocData(docDraft.data || drafts.docData || {})
+    // Restaurer depuis sessionStorage (base64 des docs uploadés)
+    const restoredDocData = {}
+    if (selected) {
+      Object.keys(docDraft.uploads || docDraft || {}).forEach(key => {
+        const ssKey = `rzi_doc_${selected.id}_${key}`
+        const stored = sessionStorage.getItem(ssKey)
+        if (stored) restoredDocData[key] = stored
+      })
+    }
+    setDocData({...restoredDocData, ...(docDraft.data || drafts.docData || {})})
     setMedData(drafts.medical || w.etapes?.medical?.medical || {})
   },[selected])
 
@@ -1299,7 +1308,9 @@ function InductionPageInner() {
                                             </div>
                                             <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
                                               {entries.map(([key, filename])=>{
-                                                const src = data[key]
+                                                // Lire depuis sessionStorage si base64 absent (gros fichiers)
+                                                const ssKey = `rzi_doc_${selected?.id}_${key}`
+                                                const src = data[key] || sessionStorage.getItem(ssKey) || null
                                                 const isImg = src?.startsWith('data:image')
                                                 const isPdf = src?.startsWith('data:application/pdf')
                                                 return (
@@ -1615,7 +1626,18 @@ function InductionPageInner() {
                                       if(!file) return
                                       setDocUploads(prev=>({...prev,[d.key]:file.name}))
                                       const reader=new FileReader()
-                                      reader.onload=ev=>setDocData(prev=>({...prev,[d.key]:ev.target.result}))
+                                      reader.onload=ev=>{
+                                        const b64data = ev.target.result
+                                        setDocData(prev=>({...prev,[d.key]:b64data}))
+                                        // Stocker dans sessionStorage (>5MB) pour persistance
+                                        try {
+                                          const key = `rzi_doc_${selected?.id}_${d.key}`
+                                          sessionStorage.setItem(key, b64data)
+                                        } catch(e) {
+                                          // sessionStorage plein → stocker sans base64
+                                          console.warn('sessionStorage full, doc base64 not persisted')
+                                        }
+                                      }
                                       reader.readAsDataURL(file)
                                     }}/>
                                   {docUploads[d.key]?'✓ Chargé':'📎 Charger'}
