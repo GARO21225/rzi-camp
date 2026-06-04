@@ -1,19 +1,71 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-function MapPreview() {
-  // Carte OpenStreetMap via iframe — zéro dépendance, zéro crash
-  // Centre: camp Roxgold Sango ~8.111, -6.822
+function MapPreview({ bats, onClick }) {
+  const mapRef = React.useRef(null)
+  const mapInstanceRef = React.useRef(null)
+
+  React.useEffect(() => {
+    // Charger Leaflet dynamiquement
+    if (!window.L) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.onload = () => initMap()
+      document.head.appendChild(script)
+    } else {
+      initMap()
+    }
+
+    function initMap() {
+      if (!mapRef.current || mapInstanceRef.current) return
+      const L = window.L
+      const map = L.map(mapRef.current, {
+        center: [8.111, -6.822], zoom: 17,
+        zoomControl: false, attributionControl: false
+      })
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
+      mapInstanceRef.current = map
+    }
+    return () => {}
+  }, [])
+
+  // Ajouter les markers quand bats changent
+  React.useEffect(() => {
+    if (!mapInstanceRef.current || !bats.length) return
+    const L = window.L
+    if (!L) return
+    const STATUS_COLOR = {
+      'Libre':'#16a34a','Occupé':'#2563eb','Réservé':'#ca8a04','Maintenance':'#dc2626'
+    }
+    bats.forEach(b => {
+      if (!b.latitude || !b.longitude) return
+      const color = STATUS_COLOR[b.statut] || '#64748b'
+      const circle = L.circleMarker([parseFloat(b.latitude), parseFloat(b.longitude)], {
+        radius: 10, fillColor: color, color: '#fff',
+        weight: 2, fillOpacity: 0.9
+      }).addTo(mapInstanceRef.current)
+      circle.bindPopup(
+        `<div style="font-family:system-ui;font-size:13px;min-width:140px">
+          <b style="color:#0f172a">${b.residence || b.bloc || 'Résidence'}</b><br>
+          <span style="color:#64748b">Statut:</span> <b style="color:${color}">${b.statut}</b><br>
+          ${b.occupant ? `<span style="color:#64748b">Occupant:</span> ${b.occupant}` : ''}
+        </div>`
+      )
+    })
+    // Fit bounds si assez de points
+    const pts = bats.filter(b=>b.latitude&&b.longitude).map(b=>[parseFloat(b.latitude),parseFloat(b.longitude)])
+    if (pts.length > 1) mapInstanceRef.current.fitBounds(pts, {padding:[20,20]})
+  }, [bats])
+
   return (
-    <div style={{height:260,position:'relative',background:'#e8f4f8'}}>
-      <iframe
-        title="Carte camp Roxgold"
-        src="https://www.openstreetmap.org/export/embed.html?bbox=-6.832%2C8.101%2C-6.812%2C8.121&layer=mapnik&marker=8.111%2C-6.822"
-        style={{width:'100%',height:'100%',border:'none',display:'block'}}
-        loading="lazy"
-        sandbox="allow-scripts allow-same-origin"
-      />
-      <div style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer'}}/>
+    <div style={{height:260,position:'relative'}}>
+      <div ref={mapRef} style={{width:'100%',height:'100%'}}/>
+      <div onClick={onClick}
+        style={{position:'absolute',inset:0,zIndex:1000,cursor:'pointer',background:'transparent'}}/>
     </div>
   )
 }
@@ -74,6 +126,7 @@ export default function Dashboard() {
   const nav = useNavigate()
   const [d, setD] = useState({})
   const [perso, setPerso] = useState([])
+  const [dbBats, setDbBats] = useState([])
   const [loading, setLoading] = useState(true)
   const [sync, setSync] = useState(null)
 
@@ -222,7 +275,7 @@ export default function Dashboard() {
             </span>
           </div>
           {/* Carte Leaflet */}
-          <MapPreview />
+          <MapPreview bats={dbBats} onClick={()=>nav('/carte')}/>
           {/* Légende */}
           <div style={{padding:'10px 16px',display:'flex',gap:16,flexWrap:'wrap',
             borderTop:'1px solid #f1f5f9',background:'#fafafa'}}>
