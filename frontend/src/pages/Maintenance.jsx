@@ -4,7 +4,7 @@ import { useStore } from '../store'
 
 
 // ── Générateur de rapport maintenance ──────────────────────────
-function genererRapport(incidents, stats) {
+function genererRapport(incidents, stats, periode={}) {
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-FR', {day:'numeric',month:'long',year:'numeric'})
   const timeStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -697,15 +697,7 @@ export default function Maintenance() {
             </p>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={() => {
-                const html = genererRapport(incidents, stats)
-                const blob = new Blob([html], {type:'text/html;charset=utf-8'})
-                const url  = URL.createObjectURL(blob)
-                const a    = document.createElement('a')
-                a.href = url; a.target = '_blank'; a.rel = 'noopener'
-                document.body.appendChild(a); a.click()
-                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 500)
-              }}
+            <button onClick={()=>setShowPeriodeModal(true)}
               style={{ background:'#059669', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
                 display:'flex', alignItems:'center', gap:6 }}>
