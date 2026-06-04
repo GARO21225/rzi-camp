@@ -852,7 +852,7 @@ export default function Boutique() {
 
   const load = useCallback(() => {
     Promise.allSettled([
-      boutiqueAPI.articles(),
+      boutiqueAPI.articles({page_size:200}),
       boutiqueAPI.consommations({page_size:50}),
       boutiqueAPI.statsJour(),
       personnelAPI.list({page_size:200}),
