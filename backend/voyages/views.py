@@ -190,6 +190,158 @@ class VoyageViewSet(viewsets.ModelViewSet):
             "voyages":voyages_data,
         })
 
+
+    @action(detail=False, methods=["get"])
+    def rotations(self, request):
+        """Liste des rotations groupées par rotation_id"""
+        from django.db.models import Count, Min, Max
+        # Voyages avec rotation_id (convois)
+        groupes = (Voyage.objects
+            .exclude(rotation_id__isnull=True)
+            .exclude(rotation_id="")
+            .values("rotation_id","destination","date_depart","date_retour_prevue",
+                    "vehicule","nb_places_total","heure_depart","point_rdv","type_voyage","statut")
+            .annotate(nb_passagers=Count("id"))
+            .order_by("-date_depart"))
+
+        result = []
+        for g in groupes:
+            passagers = list(
+                Voyage.objects.filter(rotation_id=g["rotation_id"])
+                .select_related("personnel")
+                .values("id","personnel__nom","personnel__prenom",
+                        "personnel__societe","statut","batiment_nom")
+            )
+            g["passagers"] = passagers
+            g["places_libres"] = max(0, (g["nb_places_total"] or 15) - g["nb_passagers"])
+            result.append(g)
+
+        # Voyages individuels (sans rotation_id)
+        indiv = list(
+            Voyage.objects.filter(rotation_id__isnull=True)
+            .select_related("personnel")
+            .values("id","personnel__nom","personnel__prenom",
+                    "destination","date_depart","statut")
+            .order_by("-date_depart")[:50]
+        )
+
+        return Response({"rotations": result, "individuels": indiv, "total_rotations": len(result)})
+
+    @action(detail=False, methods=["post"])
+    def creer_rotation(self, request):
+        """Crée une rotation (convoi) et y inscrit les passagers"""
+        import uuid
+        data = request.data
+        rotation_id = str(uuid.uuid4())[:8].upper()
+        destination     = data.get("destination","")
+        date_depart     = data.get("date_depart")
+        date_retour     = data.get("date_retour_prevue")
+        vehicule        = data.get("vehicule","")
+        nb_places       = int(data.get("nb_places_total",15))
+        heure_depart    = data.get("heure_depart","")
+        point_rdv       = data.get("point_rdv","")
+        motif           = data.get("motif","")
+        type_voyage     = data.get("type_voyage","rotation")
+        passagers_ids   = data.get("passagers",[])  # liste d'IDs personnel
+
+        if not date_depart or not date_retour:
+            return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
+
+        created = []
+        for pid in passagers_ids:
+            try:
+                v = Voyage.objects.create(
+                    personnel_id   = pid,
+                    destination    = destination,
+                    date_depart    = date_depart,
+                    date_retour_prevue = date_retour,
+                    vehicule       = vehicule,
+                    nb_places_total= nb_places,
+                    heure_depart   = heure_depart or None,
+                    point_rdv      = point_rdv,
+                    motif          = motif,
+                    type_voyage    = type_voyage,
+                    rotation_id    = rotation_id,
+                    statut         = "planifie",
+                    enregistre_par = request.user,
+                )
+                created.append(v.id)
+            except Exception as e:
+                pass  # skip invalid personnel IDs
+
+        return Response({
+            "rotation_id": rotation_id,
+            "voyages_crees": len(created),
+            "ids": created,
+        }, status=201)
+
+    @action(detail=False, methods=["post"])
+    def rejoindre_rotation(self, request):
+        """Un passager rejoint une rotation existante"""
+        rotation_id  = request.data.get("rotation_id")
+        personnel_id = request.data.get("personnel_id")
+        if not rotation_id or not personnel_id:
+            return Response({"error":"rotation_id et personnel_id requis"},status=400)
+
+        # Récupérer les infos de la rotation
+        existing = Voyage.objects.filter(rotation_id=rotation_id).first()
+        if not existing:
+            return Response({"error":"Rotation introuvable"},status=404)
+
+        # Vérifier capacité
+        prises = Voyage.objects.filter(rotation_id=rotation_id).count()
+        if prises >= (existing.nb_places_total or 15):
+            return Response({"error":"Rotation complète, aucune place disponible"},status=400)
+
+        # Vérifier si déjà inscrit
+        if Voyage.objects.filter(rotation_id=rotation_id, personnel_id=personnel_id).exists():
+            return Response({"error":"Ce passager est déjà inscrit sur cette rotation"},status=400)
+
+        v = Voyage.objects.create(
+            personnel_id       = personnel_id,
+            destination        = existing.destination,
+            date_depart        = existing.date_depart,
+            date_retour_prevue = existing.date_retour_prevue,
+            vehicule           = existing.vehicule,
+            nb_places_total    = existing.nb_places_total,
+            heure_depart       = existing.heure_depart,
+            point_rdv          = existing.point_rdv,
+            motif              = existing.motif,
+            type_voyage        = existing.type_voyage,
+            rotation_id        = rotation_id,
+            statut             = "planifie",
+            enregistre_par     = request.user,
+        )
+        return Response(VoyageSerializer(v).data, status=201)
+
+    @action(detail=False, methods=["post"])
+    def partir_rotation(self, request):
+        """Fait partir tous les voyageurs d'une rotation"""        rotation_id = request.data.get("rotation_id")
+        if not rotation_id:
+            return Response({"error":"rotation_id requis"},status=400)
+        voyages = Voyage.objects.filter(rotation_id=rotation_id, statut="planifie")
+        count = 0
+        for v in voyages:
+            try: v.partir(); count+=1
+            except: pass
+        return Response({"ok":True,"partis":count})
+
+    @action(detail=False, methods=["post"])
+    def retour_rotation(self, request):
+        """Fait revenir tous les voyageurs d'une rotation"""        rotation_id = request.data.get("rotation_id")
+        if not rotation_id:
+            return Response({"error":"rotation_id requis"},status=400)
+        import datetime
+        date_str = request.data.get("date_retour")
+        date = datetime.date.fromisoformat(date_str) if date_str else None
+        voyages = Voyage.objects.filter(rotation_id=rotation_id, statut="en_voyage")
+        count = 0
+        for v in voyages:
+            try: v.revenir(date); count+=1
+            except: pass
+        return Response({"ok":True,"rentres":count})
+
+
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])
     def export_csv(self, request):
         qs = Voyage.objects.select_related("personnel","batiment").order_by("-date_depart")
