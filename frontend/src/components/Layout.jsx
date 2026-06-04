@@ -18,6 +18,7 @@ const ROLE_NAV = {
     { group:'Personnel & Conformité' },
     { to:'/personnel', label:'👤 Personnel' },
     { to:'/induction', label:'🎓 Induction QHSE' },
+    { to:'/induction-camp', label:'🏕️ Induction Camp' },
     { to:'/annuaire', label:'📋 Annuaire' },
     // ── Hébergement & Mobilité
     { group:'Hébergement & Mobilité' },
