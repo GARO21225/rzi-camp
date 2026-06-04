@@ -1371,6 +1371,65 @@ export default function Maintenance() {
         )}
 
       </div>
+
+      {/* ── MODAL Période Rapport ── */}
+      {showPeriodeModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',zIndex:3000,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:400}}>
+            <h3 style={{fontSize:16,fontWeight:800,color:'#0f172a',margin:'0 0 16px'}}>📄 Générer un rapport</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+              {['Cette semaine','Ce mois','Tout'].map((l,i)=>(
+                <button key={l} onClick={()=>{
+                  const n=new Date()
+                  if(i===0){const d=new Date(n);d.setDate(n.getDate()-((n.getDay()||7)-1));setPeriodeRapport({debut:d.toISOString().slice(0,10),fin:n.toISOString().slice(0,10)})}
+                  else if(i===1){setPeriodeRapport({debut:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`,fin:n.toISOString().slice(0,10)})}
+                  else setPeriodeRapport({debut:'',fin:''})
+                }}
+                  style={{background:'#eff6ff',color:'#1e3a8a',border:'1px solid #bfdbfe',
+                    borderRadius:8,padding:'8px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                  {l}
+                </button>
+              ))}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                {[['Du',  'debut'],['Au','fin']].map(([l,k])=>(
+                  <div key={k}>
+                    <label style={{fontSize:10,fontWeight:600,color:'#64748b',display:'block',marginBottom:3}}>{l}</label>
+                    <input type="date" value={periodeRapport[k]||''}
+                      onChange={e=>setPeriodeRapport(p=>({...p,[k]:e.target.value}))}
+                      style={{width:'100%',height:36,border:'1.5px solid #e2e8f0',borderRadius:7,
+                        padding:'0 8px',fontSize:12,outline:'none',color:'#0f172a'}}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>{
+                  const incP = incidents.filter(i=>{
+                    if(periodeRapport.debut&&new Date(i.date_creation)<new Date(periodeRapport.debut)) return false
+                    if(periodeRapport.fin&&new Date(i.date_creation)>new Date(periodeRapport.fin+'T23:59:59')) return false
+                    return true
+                  })
+                  const html = genererRapport(incP, stats, periodeRapport)
+                  const blob = new Blob([html],{type:'text/html;charset=utf-8'})
+                  const url  = URL.createObjectURL(blob)
+                  const a    = document.createElement('a')
+                  a.href=url;a.target='_blank';a.rel='noopener'
+                  document.body.appendChild(a);a.click()
+                  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},500)
+                  setShowPeriodeModal(false)
+                }}
+                style={{flex:1,background:'#059669',color:'#fff',border:'none',borderRadius:9,
+                  padding:'10px',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                📄 Générer le rapport
+              </button>
+              <button onClick={()=>setShowPeriodeModal(false)}
+                style={{background:'#f1f5f9',color:'#374151',border:'none',borderRadius:9,
+                  padding:'10px 14px',cursor:'pointer',fontSize:13}}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
     </MaintenanceBoundary>
   )
 }
