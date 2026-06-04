@@ -1545,6 +1545,78 @@ export default function Boutique() {
                 alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
               ➕ Entrée stock
             </button>
+
+            {/* Export CSV */}
+            <button onClick={()=>{
+              const headers = ['ID','Article','Catégorie','Stock','Consommé','Prix','Valeur stock','Unité']
+              const rows = articles.map(a=>[
+                a.id,
+                `"${(a.nom||'').replace(/"/g,'""')}"`,
+                a.categorie||'',
+                a.stock||0,
+                a.total_vendu||a.consomme||0,
+                a.prix||0,
+                ((a.stock||0)*(a.prix||0)).toFixed(0),
+                a.unite||''
+              ])
+              const csv = [headers,...rows].map(r=>r.join(',')).join('\n')
+              const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'})
+              const a = document.createElement('a')
+              a.href = URL.createObjectURL(blob)
+              a.download = `stock_${new Date().toISOString().slice(0,10)}.csv`
+              a.click(); URL.revokeObjectURL(a.href)
+            }}
+              style={{height:38,background:'#059669',color:'#fff',border:'none',borderRadius:9,
+                padding:'0 14px',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',
+                alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
+              ⬇️ Export CSV
+            </button>
+
+            {/* Import CSV */}
+            <label style={{height:38,background:'#7c3aed',color:'#fff',border:'none',borderRadius:9,
+              padding:'0 14px',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',
+              alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
+              ⬆️ Import CSV
+              <input type="file" accept=".csv" style={{display:'none'}}
+                onChange={async(e)=>{
+                  const file = e.target.files[0]; if(!file) return
+                  const text = await file.text()
+                  const lines = text.trim().split('\n')
+                  const headers = lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase())
+                  const idxNom  = headers.findIndex(h=>h.includes('article')||h.includes('nom'))
+                  const idxCat  = headers.findIndex(h=>h.includes('catégorie')||h.includes('categorie'))
+                  const idxStk  = headers.findIndex(h=>h.includes('stock'))
+                  const idxPrix = headers.findIndex(h=>h.includes('prix'))
+                  const idxUnit = headers.findIndex(h=>h.includes('unit'))
+                  let ok=0, err=0
+                  for(const line of lines.slice(1)) {
+                    const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''))
+                    if(!cols[idxNom]) continue
+                    try {
+                      const tok = localStorage.getItem('access_token')||''
+                      const BASE2 = import.meta.env.VITE_API_URL||'https://rzi-camp-backend.onrender.com'
+                      await fetch(`${BASE2}/api/boutique/articles/`,{
+                        method:'POST',
+                        headers:{'Content-Type':'application/json','Authorization':`Bearer ${tok}`},
+                        body: JSON.stringify({
+                          nom:      cols[idxNom]||'',
+                          categorie:idxCat>=0?cols[idxCat]:'',
+                          stock:    idxStk>=0?parseInt(cols[idxStk])||0:0,
+                          prix:     idxPrix>=0?parseFloat(cols[idxPrix])||0:0,
+                          unite:    idxUnit>=0?cols[idxUnit]:'unité',
+                          actif:    true
+                        })
+                      })
+                      ok++
+                    } catch { err++ }
+                  }
+                  alert(`Import terminé: ${ok} article(s) créé(s)${err?`, ${err} erreur(s)`:''}`)
+                  e.target.value = ''
+                  // Recharger les articles
+                  window.location.reload()
+                }}
+              />
+            </label>
           </div>
 
           {/* ── TABLEAU style Odoo/Shopify ── */}
