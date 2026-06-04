@@ -83,6 +83,7 @@ export default function MapPage() {
   const [geojson,setGeojson]=useState(null)
   const [geoKey,setGeoKey]=useState(0)
   const [stats,setStats]=useState(null)
+  const [dbBats,setDbBats]=useState([])   // bâtiments depuis la DB
   const [filterStatut,setFilterStatut]=useState('')
   const [showImport,  setShowImport]  = useState(false)
   const [editBat,     setEditBat]     = useState(null)
