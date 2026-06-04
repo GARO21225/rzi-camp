@@ -8,8 +8,7 @@ import Login from './pages/Login'
 import Layout from './components/Layout'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MapPage = lazy(() => import('./pages/MapPage'))
-const RotationsPage = lazy(() => import('./pages/RotationsPage'))
-const RotationCommandCenter = lazy(() => import('./pages/RotationCommandCenter'))
+const MissionControl = lazy(() => import('./pages/MissionControl'))
 const AssistantIA    = lazy(() => import('./pages/AssistantIA'))
 const InductionCamp  = lazy(() => import('./pages/InductionCamp'))
 const CentreOperationnel = lazy(() => import('./pages/CentreOperationnel'))
@@ -203,7 +202,7 @@ export default function App() {
           <Route path="induction-camp" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionCamp /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
-          <Route path="rotations-command" element={<Suspense fallback={<div style={{background:'#070b14',minHeight:'100vh'}}/>}><RotationCommandCenter /></Suspense>} />
+          }><RotationCommandCenter /></Suspense>} />
               <Route path="rotations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RotationsPage /></Suspense>} />
           <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
           <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />
