@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 function MapPreview({ bats, onClick }) {
-  const mapRef = React.useRef(null)
-  const mapInstanceRef = React.useRef(null)
+  const mapRef = useRef(null)
+  const mapInstanceRef = useRef(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Charger Leaflet dynamiquement
     if (!window.L) {
       const link = document.createElement('link')
@@ -34,7 +34,7 @@ function MapPreview({ bats, onClick }) {
   }, [])
 
   // Ajouter les markers quand bats changent
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mapInstanceRef.current || !bats.length) return
     const L = window.L
     if (!L) return
