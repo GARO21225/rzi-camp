@@ -202,8 +202,7 @@ export default function App() {
           <Route path="induction-camp" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionCamp /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<BoutiquePOS />} />
-          }><RotationCommandCenter /></Suspense>} />
-              <Route path="rotations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RotationsPage /></Suspense>} />
+          <Route path="rotations" element={<Suspense fallback={<div style={{background:'#060d1f',minHeight:'100vh'}}/>}><MissionControl /></Suspense>} />
           <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
           <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />
           <Route path="assistant" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AssistantIA /></Suspense>}/>
