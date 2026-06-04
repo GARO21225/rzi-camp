@@ -351,9 +351,7 @@ ${critiques.length > 0 ? `<div class="section">
 </body>
 </html>`
 
-  const win = window.open('', '_blank', 'width=1000,height=800')
-  win.document.write(HTML)
-  win.document.close()
+  return HTML
 }
 
 class MaintenanceBoundary extends React.Component {
@@ -699,7 +697,15 @@ export default function Maintenance() {
             </p>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={() => genererRapport(incidents, stats)}
+            <button onClick={() => {
+                const html = genererRapport(incidents, stats)
+                const blob = new Blob([html], {type:'text/html;charset=utf-8'})
+                const url  = URL.createObjectURL(blob)
+                const a    = document.createElement('a')
+                a.href = url; a.target = '_blank'; a.rel = 'noopener'
+                document.body.appendChild(a); a.click()
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 500)
+              }}
               style={{ background:'#059669', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
                 display:'flex', alignItems:'center', gap:6 }}>
