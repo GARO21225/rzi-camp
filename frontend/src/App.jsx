@@ -198,7 +198,7 @@ export default function App() {
           <Route path="mon-compte" element={<MonCompte />} />
           <Route path="status"     element={<StatusPage />} />
           <Route path="presences"  element={<Presences />} />
-          <Route path="rapports" element={<Suspense fallback={<div style={{padding:40,textAlign:'center'}}>⏳</div>}><RapportsPage /></Suspense>}   element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><RapportPage /></Suspense>} />
+          <Route path="rapports" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳</div>}><RapportsPage /></Suspense>} />
           <Route path="workflows" element={<WorkflowHub />} />
           <Route path="induction-camp" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionCamp /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
