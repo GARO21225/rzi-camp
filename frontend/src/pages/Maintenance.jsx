@@ -430,6 +430,8 @@ export default function Maintenance() {
   const [actionModal, setActionModal] = useState(null)
   const [actionComment, setActionComment] = useState('')
   const [actionTechId,  setActionTechId]  = useState('')
+  const [showPeriodeModal, setShowPeriodeModal] = useState(false)
+  const [periodeRapport,   setPeriodeRapport]   = useState({debut:'',fin:''})
 
   useEffect(() => {
     const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
