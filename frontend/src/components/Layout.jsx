@@ -24,6 +24,7 @@ const ROLE_NAV = {
     { group:'Hébergement & Mobilité' },
     { to:'/residences', label:'🏠 Résidences' },
     { to:'/voyages', label:'✈️ Voyages' },
+    { to:'/rotations-command', label:'🛰️ Command Center' },
     { to:'/rotations', label:'🔄 Rotations' },
     // ── Services
     { group:'Services aux Résidents' },
