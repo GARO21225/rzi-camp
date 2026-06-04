@@ -1,3 +1,68 @@
+              {/* ── KPIs Maintenance style SAP ── */}
+              {(() => {
+                const now = Date.now()
+                const ouverts = incidents.filter(i=>!['resolu','cloture','annule'].includes(i.statut))
+                const enCours = incidents.filter(i=>i.statut==='en_cours')
+                const resolus = incidents.filter(i=>i.statut==='resolu'||i.statut==='cloture')
+                const slaOk   = incidents.filter(i=>!i.sla_depasse&&!['resolu','cloture','annule'].includes(i.statut))
+
+                // Durée moyenne de résolution (incidents résolus avec date)
+                const resolved = incidents.filter(i=>i.statut==='resolu'&&i.date_creation&&i.date_resolution)
+                const avgDays = resolved.length ? Math.round(
+                  resolved.reduce((s,i)=>{
+                    const d = (new Date(i.date_resolution)-new Date(i.date_creation))/86400000
+                    return s+d
+                  },0)/resolved.length
+                ) : null
+
+                // Plus vieux incident ouvert
+                const oldest = ouverts.length ? ouverts.reduce((a,b)=>
+                  new Date(a.date_creation)<new Date(b.date_creation)?a:b, ouverts[0]
+                ) : null
+                const oldestDays = oldest ? Math.round((now-new Date(oldest.date_creation))/86400000) : null
+
+                // Répartition par catégorie
+                const byCat = {}
+                incidents.forEach(i=>{ if(i.categorie) { byCat[i.categorie]=(byCat[i.categorie]||0)+1 } })
+                const topCat = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3)
+
+                // Taux de résolution
+                const tauxRes = incidents.length ? Math.round(resolus.length/incidents.length*100) : 0
+
+                return (
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10,marginBottom:16}}>
+                    {[
+                      {icon:'🔓',label:'Incidents ouverts',  val:ouverts.length,   c:'#dc2626',bg:'#fee2e2'},
+                      {icon:'⚙️',label:'En cours',           val:enCours.length,   c:'#ea580c',bg:'#fff7ed'},
+                      {icon:'✅',label:'Taux résolution',    val:`${tauxRes}%`,    c:'#059669',bg:'#f0fdf4'},
+                      {icon:'⏱️',label:'Durée moy. résol.',  val:avgDays!=null?`${avgDays}j`:'—', c:'#7c3aed',bg:'#f5f3ff'},
+                      {icon:'🕰️',label:'+ vieux ouvert',     val:oldestDays!=null?`${oldestDays}j`:'—', c:'#ca8a04',bg:'#fefce8'},
+                    ].map(k=>(
+                      <div key={k.label} style={{background:k.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${k.c}`}}>
+                        <div style={{fontSize:18,marginBottom:4}}>{k.icon}</div>
+                        <div style={{fontSize:20,fontWeight:800,color:k.c,lineHeight:1}}>{k.val}</div>
+                        <div style={{fontSize:10,color:'#64748b',fontWeight:600,marginTop:4}}>{k.label}</div>
+                      </div>
+                    ))}
+                    {topCat.length>0&&(
+                      <div style={{background:'#f8fafc',borderRadius:10,padding:'12px 14px',borderLeft:'3px solid #1e3a8a',gridColumn:'span 2'}}>
+                        <div style={{fontSize:11,fontWeight:700,color:'#1e3a8a',marginBottom:8}}>📊 Top catégories</div>
+                        {topCat.map(([cat,n])=>(
+                          <div key={cat} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                            <span style={{fontSize:12,color:'#374151',flex:1}}>{cat}</span>
+                            <div style={{height:6,width:80,background:'#e2e8f0',borderRadius:99,overflow:'hidden'}}>
+                              <div style={{width:`${Math.round(n/incidents.length*100)}%`,height:'100%',background:'#1e3a8a',borderRadius:99}}/>
+                            </div>
+                            <span style={{fontSize:11,fontWeight:700,color:'#1e3a8a'}}>{n}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+
 /**
  * Maintenance — Gestion des incidents QHSE
  * Réécriture complète — zéro patch accumulé — Error Boundary intégré
@@ -454,6 +519,11 @@ export default function Maintenance() {
                       </div>
                       <div style={{ fontSize:12, color:'#64748b' }}>
                         📍 {inc.residence}{inc.bloc ? ` · ${inc.bloc}` : ''} · {inc.categorie} · {inc.auteur_nom}
+                      </div>
+                      <div style={{ fontSize:11, color:'#94a3b8', marginTop:3, display:'flex', gap:10, flexWrap:'wrap' }}>
+                        <span>📅 {inc.date_creation ? new Date(inc.date_creation).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}) : '—'}</span>
+                        {inc.sla_echeance && <span style={{color: new Date(inc.sla_echeance)<new Date()?'#dc2626':'#64748b'}}>⏳ SLA: {new Date(inc.sla_echeance).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span>}
+                        {inc.assigne_nom && <span>👷 {inc.assigne_nom}</span>}
                       </div>
                     </div>
                     <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
