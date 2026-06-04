@@ -22,6 +22,23 @@ class Voyage(models.Model):
     enregistre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ── Champs Rotation (convoi groupe) ──
+    rotation_id       = models.CharField(max_length=50, blank=True, null=True, db_index=True,
+                         help_text="ID partagé entre tous les voyageurs du même convoi")
+    vehicule          = models.CharField(max_length=50, blank=True,
+                         help_text="BUS-01, 4WD-02, VOL-AIR...")
+    nb_places_total   = models.PositiveIntegerField(default=15, blank=True, null=True,
+                         help_text="Capacité totale du véhicule pour ce convoi")
+    heure_depart      = models.TimeField(null=True, blank=True,
+                         help_text="Heure de départ prévue")
+    point_rdv         = models.CharField(max_length=200, blank=True,
+                         help_text="Point de rendez-vous / embarquement")
+    type_voyage       = models.CharField(max_length=20, blank=True, default='individuel',
+                         choices=[('individuel','Individuel'),('rotation','Rotation groupe'),
+                                  ('urgence','Urgence'),('medical','Médical')])
+    notes_admin       = models.TextField(blank=True,
+                         help_text="Notes internes admin")
+
     class Meta:
         ordering = ["-date_depart"]
         verbose_name = "Voyage"
