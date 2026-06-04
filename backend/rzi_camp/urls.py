@@ -133,6 +133,22 @@ def setup_db(request):
                 c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN mode_paiement VARCHAR(20) NOT NULL DEFAULT 'especes'")
                 created.append('restauration_consommationboutique.mode_paiement')
 
+
+            # ── Champs rotation dans voyages_voyage ──
+            for col_sql in [
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS rotation_id VARCHAR(50) DEFAULT NULL",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS vehicule VARCHAR(50) DEFAULT ''",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS nb_places_total INTEGER DEFAULT 15",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS heure_depart TIME DEFAULT NULL",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS point_rdv VARCHAR(200) DEFAULT ''",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS type_voyage VARCHAR(20) DEFAULT 'individuel'",
+                "ALTER TABLE voyages_voyage ADD COLUMN IF NOT EXISTS notes_admin TEXT DEFAULT ''",
+                "CREATE INDEX IF NOT EXISTS idx_voyage_rotation_id ON voyages_voyage(rotation_id)",
+            ]:
+                try: c.execute(col_sql)
+                except Exception: pass
+            created.append("voyage_rotation_fields")
+
     except Exception as e:
         errors.append(str(e))
 
