@@ -420,19 +420,82 @@ export default function Maintenance() {
           </button>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',
-          gap:10, marginBottom:20 }}>
-          {[['📢 Déclarés',stats.declare||0,'#3b82f6'],['👷 Assignés',stats.assigne||0,'#f97316'],
-            ['⚙️ En cours',stats.en_cours||0,'#eab308'],['✅ Résolus',stats.resolu||0,'#16a34a'],
-            ['🔒 Clôturés',stats.cloture||0,'#64748b'],['⚠️ SLA',stats.sla_depasse||0,'#dc2626'],['🔴 Critiques',stats.critique||0,'#7c3aed']
-          ].map(([l,v,c]) => (
-            <div key={l} style={{ background:'#fff', borderRadius:12, padding:'12px 14px',
-              borderTop:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:22, fontWeight:900, color:c }}>{v}</div>
-              <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>{l}</div>
+        {/* ── KPIs enrichis ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10, marginBottom:12 }}>
+          {[
+            ['📢','Déclarés',    stats.declare||0,   '#3b82f6','#eff6ff'],
+            ['👷','Assignés',    stats.assigne||0,   '#f97316','#fff7ed'],
+            ['⚙️','En cours',   stats.en_cours||0,  '#eab308','#fefce8'],
+            ['✅','Résolus',     stats.resolu||0,    '#16a34a','#f0fdf4'],
+            ['⚠️','SLA dépassé',stats.sla_depasse||0,'#dc2626','#fee2e2'],
+            ['🔴','Critiques',  stats.critique||0,  '#7c3aed','#f5f3ff'],
+          ].map(([ic,l,v,c,bg]) => (
+            <div key={l} style={{ background:bg, borderRadius:12, padding:'12px 14px',
+              borderLeft:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
+              <div style={{ fontSize:20, marginBottom:4 }}>{ic}</div>
+              <div style={{ fontSize:22, fontWeight:900, color:c, lineHeight:1 }}>{v}</div>
+              <div style={{ fontSize:10, color:'#64748b', fontWeight:600, marginTop:3 }}>{l}</div>
             </div>
           ))}
         </div>
+
+        {/* ── KPIs avancés (calcul local) ── */}
+        {incidents.length > 0 && (() => {
+          const now = Date.now()
+          const ouverts = incidents.filter(i=>!['resolu','cloture','annule'].includes(i.statut))
+          // Durée moy. résolution
+          const resolved = incidents.filter(i=>['resolu','cloture'].includes(i.statut)&&i.date_creation)
+          const avgDays = resolved.length ? (resolved.reduce((s,i)=>{
+            const end = i.date_resolution ? new Date(i.date_resolution) : new Date()
+            return s + (end - new Date(i.date_creation))/86400000
+          },0)/resolved.length).toFixed(1) : null
+          // Plus vieux ouvert
+          const oldest = ouverts.length ? ouverts.reduce((a,b)=>
+            new Date(a.date_creation)<new Date(b.date_creation)?a:b
+          ) : null
+          const oldestDays = oldest ? Math.round((now-new Date(oldest.date_creation))/86400000) : null
+          // Répartition catégories
+          const byCat = {}
+          incidents.forEach(i=>{ if(i.categorie) byCat[i.categorie]=(byCat[i.categorie]||0)+1 })
+          const topCats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,4)
+          // Taux résolution
+          const tauxRes = incidents.length ? Math.round((resolved.length/incidents.length)*100) : 0
+
+          return (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10, marginBottom:20 }}>
+              <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>⏱️ Durée moy. résolution</div>
+                <div style={{ fontSize:26, fontWeight:900, color:'#7c3aed' }}>{avgDays ? `${avgDays}j` : '—'}</div>
+                <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>{resolved.length} incident(s) résolu(s)</div>
+              </div>
+              <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0',
+                borderLeft: oldestDays&&oldestDays>7 ? '3px solid #dc2626' : '1px solid #e2e8f0' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>🕰️ Plus vieux ouvert</div>
+                <div style={{ fontSize:26, fontWeight:900, color: oldestDays&&oldestDays>7?'#dc2626':'#ea580c' }}>{oldestDays != null ? `${oldestDays}j` : '—'}</div>
+                <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>{oldest?.titre?.slice(0,30)||'—'}</div>
+              </div>
+              <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>✅ Taux de résolution</div>
+                <div style={{ fontSize:26, fontWeight:900, color: tauxRes>=70?'#16a34a':'#ea580c' }}>{tauxRes}%</div>
+                <div style={{ height:5, background:'#f1f5f9', borderRadius:99, marginTop:6, overflow:'hidden' }}>
+                  <div style={{ width:`${tauxRes}%`, height:'100%', background:tauxRes>=70?'#16a34a':'#ea580c', borderRadius:99, transition:'width .5s' }}/>
+                </div>
+              </div>
+              <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>📊 Top catégories</div>
+                {topCats.map(([cat,n])=>(
+                  <div key={cat} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+                    <span style={{ fontSize:11, color:'#374151', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cat}</span>
+                    <div style={{ height:5, width:60, background:'#f1f5f9', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
+                      <div style={{ width:`${Math.round(n/incidents.length*100)}%`, height:'100%', background:'#1e3a8a', borderRadius:99 }}/>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#1e3a8a', flexShrink:0 }}>{n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
