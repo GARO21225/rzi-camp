@@ -462,6 +462,8 @@ export default function Maintenance() {
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter(i => {
+    // Masquer clôturés par défaut sauf si sélectionné explicitement
+    if (i.statut === 'cloture' && statFilter !== 'cloture') return false
     if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
@@ -802,7 +804,8 @@ export default function Maintenance() {
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
           <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
-            <option value="">Tous statuts</option>
+            <option value="">Actifs (hors clôturés)</option>
+            <option value="cloture">Clôturés</option>
             {Object.entries(STATUTS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
           </select>
           <select value={prioFilter} onChange={e=>setPrioFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
