@@ -160,6 +160,13 @@ def auth_me(request):
         'is_staff': user.is_staff, 'profile': profile,
     })
 
+
+def favicon(request):
+    from django.http import HttpResponse
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" fill="#1e3a8a" rx="4"/><text x="4" y="26" font-size="22" fill="#FFD400">RZ</text></svg>'
+    return HttpResponse(svg, content_type='image/svg+xml')
+
+
 def setup_db(request):
     """Crée les tables manquantes en DB"""
     from django.db import connection
@@ -301,6 +308,7 @@ urlpatterns = [
     path('api/auth/login/', custom_login, name='token_obtain'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/me/', auth_me, name='auth_me'),
+    path('favicon.ico', favicon),
     path('api/setup-db/', setup_db, name='setup_db'),
     path('api/diagnostic/', diagnostic, name='diagnostic'),
     path('api/version/', version, name='version'),
