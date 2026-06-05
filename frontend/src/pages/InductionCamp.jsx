@@ -47,7 +47,7 @@ const REGLES = [
   { id:'visiteurs', emoji:'🪪', titre:'Contrôle des Accès',       niveau:'important',
     texte:'Badge obligatoire 24h/24. Aucun visiteur sans autorisation écrite préalable de la direction. Tout accès non autorisé est signalé.' },
   { id:'energie',   emoji:'⚡', titre:'Économie d\'Énergie',      niveau:'important',
-    texte:'Climatisation entre 20°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores (>100W) à déclarer.' },
+    texte:'Climatisation entre 20°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores ({'>'}100W) à déclarer.' },
   { id:'dechets',   emoji:'♻️', titre:'Tri Sélectif Obligatoire', niveau:'standard',
     texte:'Bacs verts (organique), bleus (plastique/verre), noirs (ordures). Tri non respecté = pénalité sur bonus mensuel.' },
   { id:'internet',  emoji:'📶', titre:'Usage Réseau',             niveau:'standard',
@@ -62,7 +62,7 @@ const QUIZ = [
     explication:'Le silence est obligatoire de 22h à 6h. Respecter le sommeil de vos collègues est essentiel.' },
   { q:'Que devez-vous faire avec un appareil électrique de plus de 100W ?',
     opts:['Le garder discrètement','Le déclarer à l\'administration','L\'interdire totalement','Ne rien faire'], rep:1,
-    explication:'Tout appareil >100W doit être déclaré pour la gestion énergétique du camp. La déclaration est gratuite.' },
+    explication:'Tout appareil {'>'}100W doit être déclaré pour la gestion énergétique du camp. La déclaration est gratuite.' },
   { q:'En cas d\'urgence médicale à 3h du matin, que faites-vous ?',
     opts:['Attendre le matin','Appeler l\'infirmerie (24h/24)','Aller à la pharmacie','Gérer seul'], rep:1,
     explication:'L\'infirmerie est ouverte 24h/24. N\'hésitez jamais à appeler en cas d\'urgence.' },
@@ -495,7 +495,7 @@ export default function InductionCamp() {
                   {emoji:'🏗️',label:'Découvrir les 8 infrastructures'},
                   {emoji:'📜',label:'Lire les 8 règles de vie'},
                   {emoji:'🧠',label:'Passer le quiz (5 questions)'},
-                  {emoji:'⚡',label:'Déclarer vos appareils >100W'},
+                  {emoji:'⚡',label:'Déclarer vos appareils {'>'}100W'},
                   {emoji:'✍️',label:'Signer votre engagement'},
                   {emoji:'🏅',label:'Obtenir votre certificat'},
                 ].map(({emoji,label})=>(
@@ -799,7 +799,7 @@ export default function InductionCamp() {
               borderRadius:12,padding:'12px 16px',marginBottom:16,display:'flex',gap:10}}>
               <span style={{fontSize:20}}>⚠️</span>
               <div style={{fontSize:12,color:'#fcd34d',lineHeight:1.5}}>
-                <strong>Obligatoire :</strong> Les appareils non déclarés seront confisqués.
+                <strong>Obligatoire</strong> — Les appareils non déclarés seront confisqués.
                 La déclaration est gratuite et protège votre équipement.
               </div>
             </div>
@@ -887,7 +887,7 @@ export default function InductionCamp() {
                 <button className="ic-btn ic-btn-ghost"
                   style={{flex:1,padding:'12px',fontSize:13,borderRadius:12}}
                   onClick={()=>setEtape(5)}>
-                  Je n'ai pas d'appareil >100W →
+                  Je n'ai pas d'appareil {'>'}100W →
                 </button>
               )}
               {appareils.length>0 && (
