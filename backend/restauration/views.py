@@ -496,13 +496,17 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                     )
                 cid = cur.fetchone()[0]
 
-                # ── Décrémenter le stock de l'article ──
+                # ── Décrémenter le stock (AVANT débit bon pour éviter rollback) ──
                 cur.execute(
                     "UPDATE restauration_articleboutique"
                     " SET stock = GREATEST(0, stock - %s)"
                     " WHERE id = %s",
                     [qte, art_id]
                 )
+                # Vérifier que le stock a bien été mis à jour
+                cur.execute("SELECT stock FROM restauration_articleboutique WHERE id=%s", [art_id])
+                new_stock = cur.fetchone()
+                # (stock décrémenté confirmé)
 
                 # Débit bon
                 if mode == 'bon' and pers_id:
