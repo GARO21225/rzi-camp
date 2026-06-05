@@ -28,19 +28,41 @@ const ST_CFG = {
   annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
 }
 
-const TYPE_VEH = [
-  { id:'BUS',    ic:'🚌', label:'Bus',          nums:['01','02','03','04','05','06','07','08'] },
-  { id:'4WD',    ic:'🚙', label:'4×4',           nums:['01','02','03','04','05'] },
-  { id:'AVION',  ic:'✈️', label:'Vol charter',   nums:['001','002','003'] },
-  { id:'HELICO', ic:'🚁', label:'Hélicoptère',   nums:['01','02'] },
-  { id:'BATEAU', ic:'⛵', label:'Vedette',        nums:['01','02'] },
-  { id:'CAMION', ic:'🚛', label:'Camion',         nums:['01','02','03'] },
-]
+const // Modes de déplacement scindés: Terrestre / Aérien
+const MODES_DEPLACEMENT = {
+  terrestre: {
+    label: '🚗 Terrestre',
+    vehicules: [
+      { id:'BUS',    ic:'🚌', label:'Bus (Minibus)',    nums:['01','02','03','04','05','06','07','08'] },
+      { id:'4WD',    ic:'🚙', label:'4×4 / Pickup',    nums:['01','02','03','04','05'] },
+      { id:'CAMION', ic:'🚛', label:'Camion / Navette', nums:['01','02','03'] },
+      { id:'MOTO',   ic:'🏍️', label:'Moto / Scooter',  nums:['01','02','03','04'] },
+    ]
+  },
+  aerien: {
+    label: '✈️ Aérien',
+    vehicules: [
+      { id:'AVION',  ic:'✈️', label:'Vol charter',      nums:['001','002','003'] },
+      { id:'HELICO', ic:'🚁', label:'Hélicoptère',      nums:['01','02'] },
+      { id:'ULM',    ic:'🛩️', label:'ULM / Petit avion',nums:['01','02'] },
+    ]
+  }
+}
 
-// Générer la liste complète des véhicules nominaux
-const VEHICULES_LIST = TYPE_VEH.flatMap(t =>
-  t.nums.map(n => ({ code: `${t.id}-${n}`, ic: t.ic, label: `${t.ic} ${t.id}-${n} (${t.label})` }))
+// Liste à plat pour usage dans les sélecteurs
+const VEHICULES_LIST = Object.entries(MODES_DEPLACEMENT).flatMap(([mode, cat]) =>
+  cat.vehicules.flatMap(t =>
+    t.nums.map(n => ({
+      code: `${t.id}-${n}`,
+      ic: t.ic,
+      label: `${t.ic} ${t.id}-${n}`,
+      labelFull: `${t.ic} ${t.id}-${n} (${t.label})`,
+      mode,
+      type: t.id,
+    }))
+  )
 )
+const TYPE_VEH = Object.values(MODES_DEPLACEMENT).flatMap(cat => cat.vehicules)
 
 function fmt(iso, opts={day:'2-digit',month:'short'}) {
   return iso ? new Date(iso).toLocaleDateString('fr-FR', opts) : '—'
@@ -328,6 +350,7 @@ export default function MissionControl() {
   // Formulaires
   const [formRot, setFormRot] = useState({
     destination:'Abidjan', vehicule:'BUS', numero_veh:'01',
+    modeDeplacement:'terrestre',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
     passagers:[],
@@ -1151,29 +1174,48 @@ export default function MissionControl() {
                         ))}
                       </select>
                     </div>
-                    {/* Véhicule — liste complète */}
-                    <div style={{gridColumn:'span 2'}}>
-                      <label style={labelStyle}>Véhicule assigné</label>
-                      <select value={`${formRot.vehicule}-${formRot.numero_veh}`}
-                        onChange={e=>{
-                          const parts = e.target.value.split('-')
-                          setFormRot(p=>({...p,
-                            vehicule: parts.slice(0,-1).join('-'),
-                            numero_veh: parts[parts.length-1]
-                          }))
-                        }}
-                        style={inputStyle}>
-                        <option value="">Sélectionner un véhicule...</option>
-                        {VEHICULES_LIST.map(v=>(
-                          <option key={v.code} value={v.code}>{v.label}</option>
-                        ))}
-                        <option value="AUTRE-00">✏️ Saisie manuelle</option>
-                      </select>
+                    {/* Mode de déplacement + Véhicule — 2 sélecteurs */}
+                    <div style={{gridColumn:'span 2',display:'grid',
+                      gridTemplateColumns:'1fr 1fr',gap:10}}>
+                      {/* Sélecteur mode */}
+                      <div>
+                        <label style={labelStyle}>Mode de déplacement</label>
+                        <select
+                          value={formRot.modeDeplacement||'terrestre'}
+                          onChange={e=>setFormRot(p=>({...p,
+                            modeDeplacement:e.target.value,vehicule:'',numero_veh:''}))}
+                          style={inputStyle}>
+                          {Object.entries(MODES_DEPLACEMENT).map(([k,cat])=>(
+                            <option key={k} value={k}>{cat.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Sélecteur véhicule filtré par mode */}
+                      <div>
+                        <label style={labelStyle}>Véhicule</label>
+                        <select
+                          value={`${formRot.vehicule||''}-${formRot.numero_veh||''}`}
+                          onChange={e=>{
+                            const v = VEHICULES_LIST.find(x=>x.code===e.target.value)
+                            if(v) setFormRot(p=>({...p,vehicule:v.type,numero_veh:e.target.value.split('-').pop()}))
+                          }}
+                          style={inputStyle}>
+                          <option value="">Sélectionner...</option>
+                          {VEHICULES_LIST.filter(v=>v.mode===(formRot.modeDeplacement||'terrestre')).map(v=>(
+                            <option key={v.code} value={v.code}>{v.labelFull}</option>
+                          ))}
+                          <option value="AUTRE-00">✏️ Autre (saisie manuelle)</option>
+                        </select>
+                      </div>
+                      {/* Saisie manuelle si AUTRE */}
                       {formRot.vehicule==='AUTRE' && (
-                        <input value={formRot.numero_veh}
-                          onChange={e=>setFormRot(p=>({...p,numero_veh:e.target.value}))}
-                          placeholder="ex: HELICOPTER-AGIP-01"
-                          style={{...inputStyle,marginTop:6}}/>
+                        <div style={{gridColumn:'span 2'}}>
+                          <label style={labelStyle}>Nom du véhicule</label>
+                          <input value={formRot.numero_veh}
+                            onChange={e=>setFormRot(p=>({...p,numero_veh:e.target.value}))}
+                            placeholder="ex: CESSNA-172, LAND-CRUISER-06..."
+                            style={inputStyle}/>
+                        </div>
                       )}
                     </div>
                     {/* Capacité */}
