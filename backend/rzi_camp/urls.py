@@ -55,8 +55,6 @@ def test_boutique(request):
     return Response(result)
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
 
 @api_view(['POST', 'OPTIONS'])
 @permission_classes([AllowAny])
