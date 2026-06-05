@@ -57,6 +57,111 @@ def test_boutique(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+
+@api_view(['POST', 'OPTIONS'])
+@permission_classes([AllowAny])
+def custom_login(request):
+    """Login avec gestion d'erreurs améliorée et CORS explicite"""
+    from django.contrib.auth import authenticate
+    from rest_framework_simplejwt.tokens import RefreshToken
+    from rest_framework.response import Response
+    from rest_framework import status
+
+    if request.method == 'OPTIONS':
+        return Response(status=200)
+
+    username = request.data.get('username', '').strip()
+    password = request.data.get('password', '')
+
+    if not username or not password:
+        return Response({'detail': 'Identifiants requis'}, status=400)
+
+    user = authenticate(request, username=username, password=password)
+    if not user:
+        return Response({'detail': 'Identifiants incorrects'}, status=401)
+
+    if not user.is_active:
+        return Response({'detail': 'Compte désactivé'}, status=401)
+
+    try:
+        refresh = RefreshToken.for_user(user)
+        access  = str(refresh.access_token)
+    except Exception as e:
+        return Response({'detail': f'Erreur token: {e}'}, status=500)
+
+    # Profil utilisateur
+    profile = {}
+    try:
+        from accounts.models import Profile
+        p = Profile.objects.filter(user=user).first()
+        if p:
+            profile = {
+                'id':    p.id,
+                'role':  p.role,
+                'nom':   p.nom or user.get_full_name() or user.username,
+            }
+            # Lier au personnel si possible
+            try:
+                from residences.models import Personnel
+                pers = Personnel.objects.filter(user=user).first()
+                if not pers:
+                    pers = Personnel.objects.filter(
+                        nom__icontains=user.last_name,
+                        prenom__icontains=user.first_name
+                    ).first() if user.last_name else None
+                if pers:
+                    profile['personnel_id'] = pers.id
+                    profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+            except Exception:
+                pass
+    except Exception:
+        profile = {'role': 'admin' if user.is_superuser else 'agent',
+                   'nom': user.get_full_name() or user.username}
+
+    return Response({
+        'access':  access,
+        'refresh': str(refresh),
+        'user': {
+            'id':           user.id,
+            'username':     user.username,
+            'email':        user.email,
+            'is_superuser': user.is_superuser,
+            'is_staff':     user.is_staff,
+            'profile':      profile,
+        }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def auth_me(request):
+    """Endpoint /api/auth/me/ — profil utilisateur connecté"""
+    from rest_framework.response import Response
+    if not request.user or not request.user.is_authenticated:
+        return Response({'detail': 'Non authentifié'}, status=401)
+    user = request.user
+    profile = {}
+    try:
+        from accounts.models import Profile
+        p = Profile.objects.filter(user=user).first()
+        if p:
+            profile = {'id': p.id, 'role': p.role, 'nom': p.nom or user.get_full_name()}
+            try:
+                from residences.models import Personnel
+                pers = Personnel.objects.filter(user=user).first()
+                if pers:
+                    profile['personnel_id'] = pers.id
+                    profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+            except: pass
+    except:
+        profile = {'role': 'admin' if user.is_superuser else 'agent',
+                   'nom': user.get_full_name() or user.username}
+    return Response({
+        'id': user.id, 'username': user.username,
+        'email': user.email, 'is_superuser': user.is_superuser,
+        'is_staff': user.is_staff, 'profile': profile,
+    })
+
 def setup_db(request):
     """Crée les tables manquantes en DB"""
     from django.db import connection
@@ -195,8 +300,9 @@ def version(request):
 urlpatterns = [
     path('api/induction/', include('induction.api.urls')),
     path('admin/', admin.site.urls),
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain'),
+    path('api/auth/login/', custom_login, name='token_obtain'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/me/', auth_me, name='auth_me'),
     path('api/setup-db/', setup_db, name='setup_db'),
     path('api/diagnostic/', diagnostic, name='diagnostic'),
     path('api/version/', version, name='version'),
