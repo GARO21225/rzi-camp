@@ -955,8 +955,9 @@ export default function Boutique() {
     if(allOk){
       setMsg({type:'success',text:`✅ ${mode==='bon'?'Payé par bon':'Payé en espèces'} — ${totalP.toLocaleString()} FCFA`})
       setPanier([]); setAgentId(''); setAgentInfo(null); setBonAgent(null); setModePaiement(null); load()
-      // Recharger les stocks après le commit backend
-      setTimeout(()=>boutiqueAPI.articles({page_size:200}).then(r=>{ if(r.data) setArticles(r.data.results||r.data||[]) }),800)
+      // Double reload pour garantir la mise à jour du stock
+      setTimeout(()=>boutiqueAPI.articles({page_size:200}).then(r=>{ if(r.data) setArticles(r.data.results||r.data||[]) }),600)
+      setTimeout(()=>boutiqueAPI.articles({page_size:200}).then(r=>{ if(r.data) setArticles(r.data.results||r.data||[]) }),2000)
       setTimeout(()=>setMsg(null),4000)
     } else {
       setMsg({type:'error',text:`❌ ${lastError}`})
