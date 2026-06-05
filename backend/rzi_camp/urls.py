@@ -59,17 +59,22 @@ def test_boutique(request):
 @api_view(['POST', 'OPTIONS'])
 @permission_classes([AllowAny])
 def custom_login(request):
-    """Login avec gestion d'erreurs améliorée et CORS explicite"""
+    """Login robuste — catch toutes les erreurs, CORS géré par ASGI"""
     from django.contrib.auth import authenticate
     from rest_framework_simplejwt.tokens import RefreshToken
     from rest_framework.response import Response
-    from rest_framework import status
 
     if request.method == 'OPTIONS':
         return Response(status=200)
 
-    username = request.data.get('username', '').strip()
-    password = request.data.get('password', '')
+    try:
+        username = (request.data.get('username') or '').strip()
+        password = (request.data.get('password') or '')
+    except Exception:
+        return Response({'detail': 'Corps de requête invalide'}, status=400)
+
+    if not username or not password:
+        return Response({'detail': 'Identifiants requis'}, status=400)
 
     if not username or not password:
         return Response({'detail': 'Identifiants requis'}, status=400)
@@ -116,18 +121,21 @@ def custom_login(request):
         profile = {'role': 'admin' if user.is_superuser else 'agent',
                    'nom': user.get_full_name() or user.username}
 
-    return Response({
-        'access':  access,
-        'refresh': str(refresh),
-        'user': {
-            'id':           user.id,
-            'username':     user.username,
-            'email':        user.email,
-            'is_superuser': user.is_superuser,
-            'is_staff':     user.is_staff,
-            'profile':      profile,
-        }
-    })
+    try:
+        return Response({
+            'access':  access,
+            'refresh': str(refresh),
+            'user': {
+                'id':           user.id,
+                'username':     user.username,
+                'email':        user.email or '',
+                'is_superuser': bool(user.is_superuser),
+                'is_staff':     bool(user.is_staff),
+                'profile':      profile,
+            }
+        })
+    except Exception as e:
+        return Response({'detail': f'Erreur réponse: {str(e)}'}, status=500)
 
 
 @api_view(['GET'])
