@@ -188,3 +188,70 @@ img, svg { max-width: 100%; height: auto; }
 @media (max-width: 480px) {
   .page-content { padding: 8px; }
 }
+
+/* ── Transitions globales fluides ── */
+button, a, input, select, textarea, [role="button"] {
+  transition: all 0.15s ease;
+}
+button:active { transform: scale(0.97); }
+
+/* ── Loading states ── */
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-spin { animation: spin 1s linear infinite; }
+.loading-pulse { animation: shimmer 1.5s ease infinite; }
+
+/* ── Cartes hover élévation ── */
+.card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.10);
+}
+
+/* ── Scrollbar fine sur les panels ── */
+.scroll-y { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+.scroll-x { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+
+/* ── Toast notifications ── */
+.toast {
+  position: fixed; top: 20px; right: 20px; z-index: 9999;
+  padding: 12px 20px; border-radius: 10px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  animation: fadeIn .25s ease;
+  max-width: 340px;
+}
+.toast-ok     { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+.toast-error  { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+.toast-info   { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+
+/* ── Responsive inputs ── */
+input, select, textarea {
+  max-width: 100%;
+  font-family: var(--font);
+}
+
+/* ── Responsive typography ── */
+@media (max-width: 768px) {
+  h1 { font-size: 1.4rem !important; }
+  h2 { font-size: 1.2rem !important; }
+  .kpi-val { font-size: 1.6rem !important; }
+}
+
+/* ── Safe area pour mobiles (notch) ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .bottom-safe { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ── Print ── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+}
