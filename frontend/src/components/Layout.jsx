@@ -197,6 +197,7 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
+  const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth >= 768)
   const isMobile = window.innerWidth < 768
 
   return (
@@ -315,7 +316,13 @@ export default function Layout() {
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
         )}
         {sidebarOpen && (
-          <nav style={{
+          {/* Overlay mobile */}
+        {isMobile && sidebarOpen && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',
+            zIndex:998,animation:'fadeIn .2s ease'}}
+            onClick={()=>setSidebarOpen(false)}/>
+        )}
+        <nav style={{
             width: 240,
             background: '#0f172a',
             borderRight: 'none',
@@ -324,6 +331,7 @@ export default function Layout() {
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
+            transition: 'transform 0.25s ease',
             ...(isMobile ? {
               position: 'fixed',
               top: 56,
