@@ -29,12 +29,18 @@ const ST_CFG = {
 }
 
 const TYPE_VEH = [
-  { id:'BUS',    ic:'🚌', label:'Bus' },
-  { id:'4WD',    ic:'🚙', label:'4×4' },
-  { id:'AVION',  ic:'✈️', label:'Vol' },
-  { id:'HELICO', ic:'🚁', label:'Hélico' },
-  { id:'BATEAU', ic:'⛵', label:'Bateau' },
+  { id:'BUS',    ic:'🚌', label:'Bus',          nums:['01','02','03','04','05','06','07','08'] },
+  { id:'4WD',    ic:'🚙', label:'4×4',           nums:['01','02','03','04','05'] },
+  { id:'AVION',  ic:'✈️', label:'Vol charter',   nums:['001','002','003'] },
+  { id:'HELICO', ic:'🚁', label:'Hélicoptère',   nums:['01','02'] },
+  { id:'BATEAU', ic:'⛵', label:'Vedette',        nums:['01','02'] },
+  { id:'CAMION', ic:'🚛', label:'Camion',         nums:['01','02','03'] },
 ]
+
+// Générer la liste complète des véhicules nominaux
+const VEHICULES_LIST = TYPE_VEH.flatMap(t =>
+  t.nums.map(n => ({ code: `${t.id}-${n}`, ic: t.ic, label: `${t.ic} ${t.id}-${n} (${t.label})` }))
+)
 
 function fmt(iso, opts={day:'2-digit',month:'short'}) {
   return iso ? new Date(iso).toLocaleDateString('fr-FR', opts) : '—'
@@ -1145,20 +1151,30 @@ export default function MissionControl() {
                         ))}
                       </select>
                     </div>
-                    {/* Véhicule */}
-                    <div>
-                      <label style={labelStyle}>Type véhicule</label>
-                      <select value={formRot.vehicule}
-                        onChange={e=>setFormRot(p=>({...p,vehicule:e.target.value}))}
+                    {/* Véhicule — liste complète */}
+                    <div style={{gridColumn:'span 2'}}>
+                      <label style={labelStyle}>Véhicule assigné</label>
+                      <select value={`${formRot.vehicule}-${formRot.numero_veh}`}
+                        onChange={e=>{
+                          const parts = e.target.value.split('-')
+                          setFormRot(p=>({...p,
+                            vehicule: parts.slice(0,-1).join('-'),
+                            numero_veh: parts[parts.length-1]
+                          }))
+                        }}
                         style={inputStyle}>
-                        {TYPE_VEH.map(t=><option key={t.id} value={t.id}>{t.ic} {t.label}</option>)}
+                        <option value="">Sélectionner un véhicule...</option>
+                        {VEHICULES_LIST.map(v=>(
+                          <option key={v.code} value={v.code}>{v.label}</option>
+                        ))}
+                        <option value="AUTRE-00">✏️ Saisie manuelle</option>
                       </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>N° véhicule</label>
-                      <input value={formRot.numero_veh}
-                        onChange={e=>setFormRot(p=>({...p,numero_veh:e.target.value}))}
-                        placeholder="01" style={inputStyle}/>
+                      {formRot.vehicule==='AUTRE' && (
+                        <input value={formRot.numero_veh}
+                          onChange={e=>setFormRot(p=>({...p,numero_veh:e.target.value}))}
+                          placeholder="ex: HELICOPTER-AGIP-01"
+                          style={{...inputStyle,marginTop:6}}/>
+                      )}
                     </div>
                     {/* Capacité */}
                     <div>
