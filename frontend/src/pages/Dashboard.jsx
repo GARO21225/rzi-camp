@@ -200,6 +200,36 @@ export default function Dashboard() {
     {icon:'🔄',label:'Rotations',     path:'/rotations',   c:'#ca8a04',bg:'#fefce8'},
   ]
 
+  // Skeleton loader pendant le premier chargement
+  if (loading && !sync) return (
+    <div style={{padding:'20px',background:'#f8fafc',minHeight:'100vh'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div>
+          <div style={{width:180,height:24,background:'#e2e8f0',borderRadius:6,marginBottom:6,animation:'shimmer 1.5s ease infinite'}}/>
+          <div style={{width:120,height:14,background:'#f1f5f9',borderRadius:4,animation:'shimmer 1.5s .2s ease infinite'}}/>
+        </div>
+        <div style={{width:100,height:36,background:'#e2e8f0',borderRadius:9,animation:'shimmer 1.5s .1s ease infinite'}}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(185px,1fr))',gap:12,marginBottom:18}}>
+        {Array.from({length:5},(_,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',
+            padding:'18px 20px',animation:`shimmer 1.5s ${i*.1}s ease infinite`}}>
+            <div style={{width:80,height:10,background:'#f1f5f9',borderRadius:4,marginBottom:12}}/>
+            <div style={{width:60,height:28,background:'#e2e8f0',borderRadius:6,marginBottom:8}}/>
+            <div style={{width:100,height:10,background:'#f1f5f9',borderRadius:4}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) 320px',gap:14,marginBottom:18}}>
+        <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',height:320,
+          animation:'shimmer 1.5s .3s ease infinite'}}/>
+        <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',height:320,
+          animation:'shimmer 1.5s .4s ease infinite'}}/>
+      </div>
+      <style>{`@keyframes shimmer{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
+    </div>
+  )
+
   return (
     <div style={{padding:'20px',background:'#f8fafc',minHeight:'100vh',fontFamily:'Inter,system-ui,sans-serif'}}>
 
@@ -252,7 +282,7 @@ export default function Dashboard() {
       </div>
 
       {/* Ligne 2: Carte GIS + Alertes */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:14,marginBottom:18}}>
+      <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) 320px',gap:14,marginBottom:18}}>
 
         {/* Mini-carte GIS cliquable */}
         <div
@@ -343,7 +373,7 @@ export default function Dashboard() {
       </div>
 
       {/* Ligne 3: Notifications + Modules */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
 
         {/* Notifications */}
         <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',padding:'16px 18px'}}>
@@ -379,7 +409,7 @@ export default function Dashboard() {
         {/* Modules */}
         <div style={{background:'#fff',borderRadius:12,border:'1px solid #e2e8f0',padding:'16px 18px'}}>
           <p style={{fontSize:14,fontWeight:700,color:'#0f172a',margin:'0 0 14px'}}>Accès rapides</p>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
             {MODULES.map(({icon,label,path,c,bg}) => (
               <div key={path} onClick={()=>nav(path)}
                 style={{background:bg,borderRadius:10,padding:'14px',cursor:'pointer',
