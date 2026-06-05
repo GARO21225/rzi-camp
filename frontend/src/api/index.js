@@ -9,7 +9,15 @@ const BASE = (() => {
     return 'https://rzi-camp-backend.onrender.com'
   return 'http://localhost:8000'
 })()
-const api = axios.create({ baseURL: BASE, timeout: 30000 })
+const api = axios.create({
+  baseURL: BASE,
+  timeout: 30000,
+  withCredentials: false,   // Évite les preflight complexes
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  }
+})
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('access_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
