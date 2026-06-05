@@ -314,12 +314,7 @@ export default function Layout() {
           <div onClick={() => setSidebarOpen(false)}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
         )}
-        {/* Overlay mobile quand sidebar ouverte */}
-        {isMobile && sidebarOpen && (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',
-            zIndex:998,animation:'fadeIn .2s ease'}}
-            onClick={()=>setSidebarOpen(false)}/>
-        )}
+
         <nav style={{
             width: 240,
             background: '#0f172a',
