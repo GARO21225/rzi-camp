@@ -1,158 +1,219 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 
-// ── Données du camp ──────────────────────────────────────────
-const INFOS_CAMP = {
-  nom:       'Camp Résidentiel Roxgold Sango',
-  site:      'Mine d\'or de Sango, Côte d\'Ivoire',
-  capacite:  '247 résidents',
-  superficie:'12 hectares',
-  altitude:  '347m',
-  contact:   '+225 07 XX XX XX',
+// ─────────────────────────────────────────────
+//  DONNÉES CAMP
+// ─────────────────────────────────────────────
+const CAMP = {
+  nom: 'Camp Résidentiel Roxgold Sango',
+  site: 'Mine d\'Or de Sango · Côte d\'Ivoire',
+  capacite: 247, superficie: '12 ha', altitude: '347m',
 }
 
-const INFRASTRUCTURES = [
-  { id:'residences', icon:'🏠', titre:'Résidences', desc:'5 blocs résidentiels (A-E) + VIP. Chaque chambre individuelle avec climatisation, salle de bain privée, Wi-Fi.', color:'#1e3a8a', bg:'#eff6ff' },
-  { id:'restauration', icon:'🍽️', titre:'Restauration', desc:'Cafétéria principale ouverte 06h-21h. Petit-déjeuner, déjeuner, dîner servis. Régimes spéciaux disponibles sur demande.', color:'#059669', bg:'#f0fdf4' },
-  { id:'medical', icon:'🏥', titre:'Infirmerie', desc:'Infirmière présente 24h/24. Médecin visite 3x/semaine. Évacuation médicale disponible en urgence.', color:'#dc2626', bg:'#fee2e2' },
-  { id:'sport', icon:'⚽', titre:'Zone sportive', desc:'Terrain de foot, salle de musculation, terrain de basket. Horaires: 06h-08h et 17h-20h.', color:'#7c3aed', bg:'#f5f3ff' },
-  { id:'loisirs', icon:'📺', titre:'Salle de loisirs', desc:'TV, bibliothèque, jeux de société, connexion internet haut débit. Ouverte tous les jours.', color:'#0891b2', bg:'#ecfeff' },
-  { id:'laverie', icon:'👕', titre:'Laverie', desc:'Machines disponibles 24h/24. Service blanchisserie disponible (délai 24h). Chaque résident dispose d\'un casier.', color:'#ca8a04', bg:'#fefce8' },
-  { id:'mosque', icon:'🕌', titre:'Lieu de culte', desc:'Espace de prière disponible dans le bloc C. Moment de silence respecté.', color:'#64748b', bg:'#f8fafc' },
-  { id:'securite', icon:'🔒', titre:'Sécurité', desc:'Badge obligatoire 24h/24. Ronde de sécurité toutes les 2h. Caméras dans les espaces communs.', color:'#374151', bg:'#f9fafb' },
+const INFRAS = [
+  { id:'residences', emoji:'🏠', titre:'Résidences',   couleur:'#3b82f6',
+    desc:'5 blocs résidentiels A–E + bloc VIP. Chambres individuelles climatisées, salle de bain privée, Wi-Fi haut débit.',
+    details:['Clim réglable 20–26°C','Wi-Fi 50 Mbps','Linge de lit fourni','Ménage quotidien'] },
+  { id:'restauration', emoji:'🍽️', titre:'Restauration', couleur:'#f59e0b',
+    desc:'Cafétéria principale ouverte 6h–21h. 3 repas par jour inclus. Régimes spéciaux disponibles.',
+    details:['Buffet petit-déjeuner 6h–9h','Déjeuner 11h30–13h30','Dîner 18h–21h','Snacks disponibles 24h'] },
+  { id:'medical', emoji:'🏥', titre:'Infirmerie',    couleur:'#ef4444',
+    desc:'Infirmière présente 24h/24. Médecin en visite 3×/semaine. Évacuation médicale disponible.',
+    details:['Urgences 24h/7j','Médicaments de base fournis','Évacuation hélico si nécessaire','Formulaires médicaux en ligne'] },
+  { id:'sport', emoji:'⚽', titre:'Sport & Loisirs', couleur:'#10b981',
+    desc:'Terrain de foot, salle de muscu, basket, ping-pong. Horaires : 6h–8h et 17h–20h.',
+    details:['Terrain foot éclairé','Salle musculation équipée','Court basketball','Salle TV & bibliothèque'] },
+  { id:'laverie', emoji:'👕', titre:'Laverie',       couleur:'#8b5cf6',
+    desc:'Machines disponibles 24h/24. Service blanchisserie (délai 24h). Casier personnel.',
+    details:['8 machines à laver','4 sèche-linge','Service pressing','Lessive fournie'] },
+  { id:'securite', emoji:'🔒', titre:'Sécurité',     couleur:'#64748b',
+    desc:'Badge obligatoire 24h/24. Rondes toutes les 2h. Caméras dans les espaces communs.',
+    details:['Contrôle accès 24h','Caméras HD','Équipe sécurité dédiée','Coffre-fort réception'] },
+  { id:'culte', emoji:'🕌', titre:'Lieu de culte',  couleur:'#ca8a04',
+    desc:'Espace de prière disponible bloc C. Moment de silence respecté par tous.',
+    details:['Accessible 24h','Tapis fournis','Orientation qibla','Espace multi-confession'] },
+  { id:'transport', emoji:'🚌', titre:'Transport',    couleur:'#0891b2',
+    desc:'Navettes camp ↔ mine matin et soir. Rotations Abidjan planifiées toutes les 2 semaines.',
+    details:['Navette mine 5h45 & 17h45','Rotation Abidjan bi-mensuelle','Réservation 72h à l\'avance','App mobile disponible'] },
 ]
 
 const REGLES = [
-  { id:'alcool',   icon:'🚫', titre:'Zéro alcool', texte:'Toute consommation d\'alcool est strictement interdite dans l\'enceinte du camp. Violation = rapatriement immédiat.', niveau:'critique' },
-  { id:'bruit',    icon:'🔇', titre:'Couvre-feu sonore', texte:'Silence obligatoire de 22h à 06h dans toutes les résidences. Musique avec écouteurs uniquement.', niveau:'important' },
-  { id:'visiteurs',icon:'👤', titre:'Visiteurs', texte:'Aucun visiteur extérieur sans autorisation écrite préalable de la direction du camp.', niveau:'important' },
-  { id:'tenue',    icon:'👔', titre:'Tenue de travail', texte:'EPI complet obligatoire dans les zones opérationnelles. Tenue correcte exigée dans les espaces communs.', niveau:'standard' },
-  { id:'dechet',   icon:'♻️', titre:'Gestion des déchets', texte:'Tri sélectif obligatoire. Bacs colorés : vert (organique), bleu (plastique/verre), noir (ordures).', niveau:'standard' },
-  { id:'energie',  icon:'⚡', titre:'Économie d\'énergie', texte:'Climatisation entre 22°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores à déclarer.', niveau:'important' },
-  { id:'internet', icon:'📶', titre:'Usage internet', texte:'Wi-Fi fourni pour usage personnel. Téléchargements massifs et streaming HD sont limités. Usage professionnel prioritaire.', niveau:'standard' },
-  { id:'vehicule', icon:'🚗', titre:'Véhicules du camp', texte:'Conduite strictement réservée aux personnes autorisées. Permis de conduire + autorisation camp obligatoires.', niveau:'important' },
+  { id:'alcool',    emoji:'🚫', titre:'Tolérance Zéro Alcool',   niveau:'critique',
+    texte:'Toute consommation ou détention d\'alcool est strictement interdite dans l\'enceinte du camp. Violation = rapatriement immédiat sans préavis.' },
+  { id:'bruit',     emoji:'🔇', titre:'Couvre-feu Sonore 22h',   niveau:'important',
+    texte:'Silence obligatoire de 22h à 6h dans les résidences. Musique uniquement avec écouteurs. Respect du sommeil des collègues.' },
+  { id:'tenue',     emoji:'👷', titre:'EPI Obligatoires',         niveau:'critique',
+    texte:'Port du casque, gilet, lunettes et chaussures de sécurité obligatoire dans toutes les zones opérationnelles sans exception.' },
+  { id:'visiteurs', emoji:'🪪', titre:'Contrôle des Accès',       niveau:'important',
+    texte:'Badge obligatoire 24h/24. Aucun visiteur sans autorisation écrite préalable de la direction. Tout accès non autorisé est signalé.' },
+  { id:'energie',   emoji:'⚡', titre:'Économie d\'Énergie',      niveau:'important',
+    texte:'Climatisation entre 20°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores (>100W) à déclarer.' },
+  { id:'dechets',   emoji:'♻️', titre:'Tri Sélectif Obligatoire', niveau:'standard',
+    texte:'Bacs verts (organique), bleus (plastique/verre), noirs (ordures). Tri non respecté = pénalité sur bonus mensuel.' },
+  { id:'internet',  emoji:'📶', titre:'Usage Réseau',             niveau:'standard',
+    texte:'Wi-Fi pour usage personnel raisonnable. Téléchargements massifs interdits. Streaming 4K limité aux heures creuses (22h–6h).' },
+  { id:'respect',   emoji:'🤝', titre:'Respect Mutuel',           niveau:'standard',
+    texte:'Langue inclusive, respect des différences culturelles et religieuses. Tout acte de harcèlement ou discrimination est un motif de licenciement.' },
 ]
 
 const QUIZ = [
-  { q:'À quelle heure commence le couvre-feu sonore ?', opts:['20h00','21h00','22h00','23h00'], rep:2 },
-  { q:'Que doit-on faire avec un appareil énergivore ?', opts:['L\'utiliser discrètement','Le déclarer à l\'administration','L\'interdire totalement','Ne rien faire'], rep:1 },
-  { q:'En cas d\'urgence médicale la nuit, qui appeler ?', opts:['Le chef de bloc','L\'infirmerie (24h/24)','Le médecin','La sécurité'], rep:1 },
-  { q:'Le tri sélectif est-il obligatoire ?', opts:['Non, optionnel','Oui, absolument','Seulement pour le plastique','Uniquement en journée'], rep:1 },
-  { q:'Peut-on inviter des visiteurs sans autorisation ?', opts:['Oui si c\'est la famille','Oui le week-end','Non, jamais','Oui si discrets'], rep:2 },
+  { q:'À quelle heure commence le couvre-feu sonore dans les résidences ?',
+    opts:['20h00','21h00','22h00','00h00'], rep:2,
+    explication:'Le silence est obligatoire de 22h à 6h. Respecter le sommeil de vos collègues est essentiel.' },
+  { q:'Que devez-vous faire avec un appareil électrique de plus de 100W ?',
+    opts:['Le garder discrètement','Le déclarer à l\'administration','L\'interdire totalement','Ne rien faire'], rep:1,
+    explication:'Tout appareil >100W doit être déclaré pour la gestion énergétique du camp. La déclaration est gratuite.' },
+  { q:'En cas d\'urgence médicale à 3h du matin, que faites-vous ?',
+    opts:['Attendre le matin','Appeler l\'infirmerie (24h/24)','Aller à la pharmacie','Gérer seul'], rep:1,
+    explication:'L\'infirmerie est ouverte 24h/24. N\'hésitez jamais à appeler en cas d\'urgence.' },
+  { q:'Peut-on inviter un ami à dormir au camp sans autorisation ?',
+    opts:['Oui, entre amis','Oui le week-end','Absolument pas','Oui si discret'], rep:2,
+    explication:'Aucun visiteur sans autorisation écrite de la direction. La sécurité du camp est l\'affaire de tous.' },
+  { q:'Quelle température de climatisation est autorisée ?',
+    opts:['Moins de 18°C','Entre 20°C et 26°C','N\'importe quelle température','Au-dessus de 28°C'], rep:1,
+    explication:'La plage 20-26°C est le compromis entre confort et économie d\'énergie.' },
 ]
 
 const APPAREILS_TYPES = [
   'Climatiseur personnel','Réfrigérateur','Micro-ondes','Fer à repasser',
-  'Machine à café','Chargeur rapide (>65W)','Ordinateur de bureau','Console de jeux',
-  'Bouilloire électrique','Autre (préciser)',
+  'Machine à café','Chargeur rapide >65W','Ordinateur fixe','Console de jeux',
+  'Bouilloire électrique','Radiateur électrique','Autre',
 ]
 
-const NIVEAUX_COLOR = { critique:'#dc2626', important:'#ea580c', standard:'#1e3a8a' }
-const NIVEAUX_BG    = { critique:'#fee2e2', important:'#fff7ed', standard:'#eff6ff' }
+const NIVEAUX = {
+  critique:  { c:'#ef4444', bg:'#fef2f2', label:'CRITIQUE',  ring:'rgba(239,68,68,.3)' },
+  important: { c:'#f97316', bg:'#fff7ed', label:'IMPORTANT', ring:'rgba(249,115,22,.3)' },
+  standard:  { c:'#3b82f6', bg:'#eff6ff', label:'STANDARD',  ring:'rgba(59,130,246,.3)' },
+}
 
-// ── Composant principal ──────────────────────────────────────
+// ─────────────────────────────────────────────
+//  COMPOSANTS
+// ─────────────────────────────────────────────
+
+function ProgressRing({ pct, size=80, stroke=6, color='#3b82f6', children }) {
+  const r = (size - stroke) / 2
+  const circ = 2 * Math.PI * r
+  const dash = (pct / 100) * circ
+  return (
+    <div style={{position:'relative',width:size,height:size,display:'inline-flex',
+      alignItems:'center',justifyContent:'center'}}>
+      <svg width={size} height={size} style={{position:'absolute',transform:'rotate(-90deg)'}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none"
+          stroke="rgba(255,255,255,.1)" strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none"
+          stroke={color} strokeWidth={stroke}
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          style={{transition:'stroke-dasharray .6s ease'}}/>
+      </svg>
+      <div style={{position:'relative',zIndex:1,textAlign:'center'}}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Particle({ x, y, color, size, delay }) {
+  return (
+    <div style={{
+      position:'absolute', left:`${x}%`, top:`${y}%`,
+      width:size, height:size, borderRadius:'50%',
+      background:color, opacity:.4,
+      animation:`float ${2+delay}s ease-in-out ${delay}s infinite alternate`,
+    }}/>
+  )
+}
+
+// ─────────────────────────────────────────────
+//  COMPOSANT PRINCIPAL
+// ─────────────────────────────────────────────
 export default function InductionCamp() {
   const { user } = useStore()
   const BASE = import.meta.env.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
   const tok  = () => localStorage.getItem('access_token') || ''
 
-  const [etape,       setEtape]       = useState(0)   // 0-5
-  const [quizRep,     setQuizRep]     = useState({})
-  const [quizOk,      setQuizOk]      = useState(false)
-  const [showQuizErr, setShowQuizErr] = useState(false)
-  const [signature,   setSignature]   = useState('')
-  const [appareils,   setAppareils]   = useState([])
-  const [formApp,     setFormApp]     = useState({type:'',marque:'',modele:'',puissance:'',chambre:''})
-  const [showFormApp, setShowFormApp] = useState(false)
-  const [validated,   setValidated]   = useState(false)
-  const [saving,      setSaving]      = useState(false)
-  const [infraSel,    setInfraSel]    = useState(null)
+  // États globaux
+  const [etape,        setEtape]        = useState(0)
+  const [completed,    setCompleted]    = useState(new Set())
+  const [infrasVues,   setInfrasVues]   = useState(new Set())
+  const [reglesVues,   setReglesVues]   = useState(new Set())
+  const [quizRep,      setQuizRep]      = useState({})
+  const [quizOk,       setQuizOk]       = useState(false)
+  const [quizErr,      setQuizErr]      = useState(false)
+  const [quizScore,    setQuizScore]    = useState(0)
+  const [appareils,    setAppareils]    = useState([])
+  const [formApp,      setFormApp]      = useState({type:'',marque:'',modele:'',puissance:'',chambre:''})
+  const [showFormApp,  setShowFormApp]  = useState(false)
+  const [signature,    setSignature]    = useState('')
+  const [validated,    setValidated]    = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [infraSel,     setInfraSel]     = useState(null)
+  const [regleSel,     setRegleSel]     = useState(null)
   const canvasRef = useRef(null)
   const drawing   = useRef(false)
 
-  // Charger appareils existants
-  useEffect(() => {
-    fetch(`${BASE}/api/appareils-camp/?personnel=${user?.profile?.id||''}`, {
-      headers:{Authorization:`Bearer ${tok()}`}
-    }).then(r=>r.json()).then(d=>setAppareils(d.results||d||[])).catch(()=>{})
-  }, [])
+  const ETAPES = ['Bienvenue','Infrastructures','Règles','Quiz','Appareils','Engagement']
+  const nomUser = user?.profile?.nom || user?.username || 'Résident'
+
+  // Progression globale
+  const progression = Math.round((etape / (ETAPES.length - 1)) * 100)
 
   // Canvas signature
   useEffect(() => {
-    if (etape !== 4) return
+    if (etape !== 5) return
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 2; ctx.lineCap = 'round'
-
-    const pos = (e) => {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    const pos = e => {
       const r = canvas.getBoundingClientRect()
-      const src = e.touches?.[0] || e
-      return [src.clientX - r.left, src.clientY - r.top]
+      const s = e.touches?.[0] || e
+      return [(s.clientX-r.left)*(canvas.width/r.width), (s.clientY-r.top)*(canvas.height/r.height)]
     }
-    const start = (e) => { drawing.current = true; ctx.beginPath(); const [x,y]=pos(e); ctx.moveTo(x,y) }
-    const move  = (e) => {
-      if (!drawing.current) return
-      e.preventDefault()
-      const [x,y] = pos(e); ctx.lineTo(x,y); ctx.stroke()
-      setSignature(canvas.toDataURL())
-    }
-    const stop = () => { drawing.current = false }
-
-    canvas.addEventListener('mousedown', start)
-    canvas.addEventListener('mousemove', move)
-    canvas.addEventListener('mouseup',   stop)
-    canvas.addEventListener('touchstart', start, {passive:false})
-    canvas.addEventListener('touchmove',  move,  {passive:false})
-    canvas.addEventListener('touchend',   stop)
+    const start = e => { drawing.current=true; const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y) }
+    const move  = e => { if(!drawing.current) return; e.preventDefault(); const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); setSignature(canvas.toDataURL()) }
+    const stop  = () => { drawing.current=false }
+    canvas.addEventListener('mousedown',start)
+    canvas.addEventListener('mousemove',move)
+    canvas.addEventListener('mouseup',stop)
+    canvas.addEventListener('touchstart',start,{passive:false})
+    canvas.addEventListener('touchmove',move,{passive:false})
+    canvas.addEventListener('touchend',stop)
     return () => {
-      canvas.removeEventListener('mousedown', start)
-      canvas.removeEventListener('mousemove', move)
-      canvas.removeEventListener('mouseup',   stop)
-      canvas.removeEventListener('touchstart', start)
-      canvas.removeEventListener('touchmove',  move)
-      canvas.removeEventListener('touchend',   stop)
+      canvas.removeEventListener('mousedown',start)
+      canvas.removeEventListener('mousemove',move)
+      canvas.removeEventListener('mouseup',stop)
+      canvas.removeEventListener('touchstart',start)
+      canvas.removeEventListener('touchmove',move)
+      canvas.removeEventListener('touchend',stop)
     }
   }, [etape])
 
-  const ETAPES = ['Bienvenue','Infrastructures','Règles','Quiz','Appareils','Signature']
+  // Marquer infra vue
+  const voirInfra = (id) => {
+    setInfrasVues(prev => new Set([...prev, id]))
+    setInfraSel(id === infraSel ? null : id)
+  }
 
-  // Valider le quiz
+  // Marquer règle vue
+  const voirRegle = (id) => {
+    setReglesVues(prev => new Set([...prev, id]))
+    setRegleSel(id === regleSel ? null : id)
+  }
+
+  // Valider quiz
   const validerQuiz = () => {
-    const ok = QUIZ.every((q,i) => quizRep[i] === q.rep)
-    if (ok) { setQuizOk(true); setShowQuizErr(false) }
-    else { setShowQuizErr(true) }
+    let score = 0
+    QUIZ.forEach((q,i) => { if(quizRep[i]===q.rep) score++ })
+    setQuizScore(score)
+    if (score === QUIZ.length) { setQuizOk(true); setQuizErr(false) }
+    else { setQuizErr(true) }
   }
 
-  // Soumettre
-  const soumettre = async () => {
-    if (!signature) return
-    setSaving(true)
-    try {
-      await fetch(`${BASE}/api/induction-camp/`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json', Authorization:`Bearer ${tok()}`},
-        body: JSON.stringify({
-          personnel: user?.profile?.id,
-          signature_base64: signature,
-          appareils_declares: appareils.length,
-          date_completion: new Date().toISOString(),
-        })
-      })
-      setValidated(true)
-      setEtape(5)
-    } catch (e) {
-      console.error(e)
-    }
-    setSaving(false)
-  }
-
-  // Ajouter appareil
   const ajouterAppareil = async () => {
     if (!formApp.type) return
     const app = { ...formApp, id: Date.now() }
     setAppareils(prev => [...prev, app])
-    // Tentative de sauvegarde API
     try {
       await fetch(`${BASE}/api/appareils-camp/`, {
         method:'POST',
@@ -164,6 +225,25 @@ export default function InductionCamp() {
     setShowFormApp(false)
   }
 
+  const soumettre = async () => {
+    if (!signature) return
+    setSaving(true)
+    try {
+      await fetch(`${BASE}/api/induction-camp/`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
+        body: JSON.stringify({
+          personnel: user?.profile?.id,
+          signature_base64: signature,
+          appareils_declares: appareils.length,
+          date_completion: new Date().toISOString(),
+        })
+      })
+      setValidated(true)
+    } catch(e) {}
+    setSaving(false)
+  }
+
   const clearCanvas = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -171,448 +251,735 @@ export default function InductionCamp() {
     setSignature('')
   }
 
-  // ── RENDU ─────────────────────────────────────────────────────
-  const nomUser = user?.profile?.nom || user?.username || 'Résident'
+  const canNext = () => {
+    if (etape===1) return infrasVues.size >= 4
+    if (etape===2) return reglesVues.size >= REGLES.length
+    if (etape===3) return quizOk
+    if (etape===5) return !!signature
+    return true
+  }
 
-  // Étape finale — Badge
-  if (etape === 5 && validated) {
+  // CSS global
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    .ic-root { font-family:'Space Grotesk',system-ui,sans-serif; }
+    @keyframes float { from{transform:translateY(0) scale(1)} to{transform:translateY(-20px) scale(1.1)} }
+    @keyframes icPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.05)} }
+    @keyframes icSlideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes icFadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes icSpin { to{transform:rotate(360deg)} }
+    @keyframes icBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(59,130,246,.3)} 50%{box-shadow:0 0 40px rgba(59,130,246,.6)} }
+    .ic-slide { animation:icSlideIn .4s ease; }
+    .ic-infra-card { transition:all .2s; cursor:pointer; }
+    .ic-infra-card:hover { transform:translateY(-3px) scale(1.02); }
+    .ic-regle-card { transition:all .2s; cursor:pointer; }
+    .ic-regle-card:hover { transform:translateX(4px); }
+    .ic-quiz-opt { transition:all .15s; cursor:pointer; }
+    .ic-quiz-opt:hover { transform:scale(1.01); }
+    .ic-btn { display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      font-family:'Space Grotesk',sans-serif;font-weight:700;border:none;cursor:pointer;
+      border-radius:12px;transition:all .2s; }
+    .ic-btn:active { transform:scale(.97); }
+    .ic-btn-primary { background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;
+      box-shadow:0 4px 20px rgba(59,130,246,.4); }
+    .ic-btn-primary:hover { background:linear-gradient(135deg,#2563eb,#1e40af);
+      box-shadow:0 6px 24px rgba(59,130,246,.6);transform:translateY(-1px); }
+    .ic-btn-primary:disabled { background:#94a3b8;box-shadow:none;transform:none;cursor:not-allowed; }
+    .ic-btn-ghost { background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2); }
+    .ic-btn-ghost:hover { background:rgba(255,255,255,.15); }
+    .ic-input { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+      border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;
+      font-family:'Space Grotesk',sans-serif;outline:none;width:100%;box-sizing:border-box; }
+    .ic-input:focus { border-color:rgba(59,130,246,.6);background:rgba(255,255,255,.12); }
+    .ic-input option { background:#1e293b;color:#fff; }
+    select.ic-input option { background:#1e293b; }
+  `
+
+  // ── Écran certificat final ────────────────────────────────────────
+  if (etape===5 && validated) {
     return (
-      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a,#1e3a8a)',
+      <div className="ic-root" style={{minHeight:'100vh',
+        background:'linear-gradient(135deg,#0f172a,#1e3a8a,#0f172a)',
         display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-        <div style={{background:'#fff',borderRadius:24,padding:40,maxWidth:480,
-          width:'100%',textAlign:'center',boxShadow:'0 25px 60px rgba(0,0,0,.4)'}}>
-          <div style={{fontSize:72,marginBottom:16}}>🏅</div>
-          <div style={{background:'linear-gradient(135deg,#1e3a8a,#059669)',
-            borderRadius:16,padding:'20px 24px',marginBottom:24}}>
-            <p style={{color:'rgba(255,255,255,.7)',fontSize:12,margin:0}}>CERTIFICAT D'INDUCTION DU CAMP</p>
-            <h1 style={{color:'#fff',fontSize:22,fontWeight:900,margin:'8px 0 4px'}}>{nomUser}</h1>
-            <p style={{color:'rgba(255,255,255,.8)',fontSize:13,margin:0}}>
-              {new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}
-            </p>
+        <style>{css}</style>
+        <div style={{maxWidth:520,width:'100%',textAlign:'center',animation:'icFadeIn .8s ease'}}>
+          {/* Étoiles animées */}
+          <div style={{fontSize:60,marginBottom:8,animation:'icBounce 2s ease infinite'}}>🏅</div>
+          
+          <div style={{background:'rgba(255,255,255,.05)',backdropFilter:'blur(20px)',
+            border:'1px solid rgba(255,255,255,.15)',borderRadius:24,padding:40,
+            boxShadow:'0 25px 60px rgba(0,0,0,.4)',animation:'glowPulse 3s ease infinite'}}>
+            
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:'uppercase',
+              color:'#94a3b8',marginBottom:16}}>CERTIFICAT D'INDUCTION CAMP</div>
+            
+            <div style={{fontSize:24,fontWeight:900,color:'#fff',marginBottom:6}}>{nomUser}</div>
+            <div style={{fontSize:13,color:'#94a3b8',marginBottom:28}}>
+              {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+            </div>
+            
+            {/* Badge circulaire */}
+            <div style={{display:'flex',justifyContent:'center',marginBottom:28}}>
+              <ProgressRing pct={100} size={120} stroke={8} color='#10b981'>
+                <div style={{fontSize:32}}>⛏️</div>
+              </ProgressRing>
+            </div>
+
+            {/* Checklist */}
+            <div style={{background:'rgba(16,185,129,.1)',border:'1px solid rgba(16,185,129,.3)',
+              borderRadius:12,padding:16,textAlign:'left',marginBottom:24}}>
+              {[
+                '✅ 8 infrastructures du camp découvertes',
+                '✅ 8 règles de vie lues et comprises',
+                `✅ Quiz validé — ${quizScore}/${QUIZ.length} bonnes réponses`,
+                `✅ ${appareils.length} appareil(s) énergivore(s) déclaré(s)`,
+                '✅ Engagement signé électroniquement',
+              ].map((l,i)=>(
+                <div key={i} style={{fontSize:13,color:'#d1fae5',padding:'4px 0',
+                  fontWeight:i===2?700:500}}>{l}</div>
+              ))}
+            </div>
+
+            <div style={{background:'linear-gradient(135deg,#ffd400,#f59e0b)',
+              borderRadius:12,padding:'14px 20px',marginBottom:24}}>
+              <p style={{fontSize:14,fontWeight:800,color:'#1e3a8a',margin:0}}>
+                🎉 Bienvenue au Camp Roxgold Sango !
+              </p>
+              <p style={{fontSize:12,color:'#1e3a8a',margin:'4px 0 0',fontWeight:500}}>
+                Votre induction est complète. Bonne mission !
+              </p>
+            </div>
+
+            <button className="ic-btn ic-btn-primary" style={{padding:'14px 32px',fontSize:15}}
+              onClick={()=>window.location.href='/'}>
+              Aller au Dashboard →
+            </button>
           </div>
-          <p style={{fontSize:14,color:'#374151',marginBottom:8}}>
-            ✅ Règles du camp lues et acceptées<br/>
-            ✅ Quiz de validation réussi<br/>
-            ✅ {appareils.length} appareil(s) déclaré(s)<br/>
-            ✅ Signature électronique apposée
-          </p>
-          <div style={{background:'#f0fdf4',border:'2px solid #16a34a',borderRadius:12,
-            padding:'12px 20px',marginTop:16}}>
-            <p style={{color:'#166534',fontWeight:700,fontSize:13,margin:0}}>
-              🎉 Bienvenue au camp Roxgold Sango !
-            </p>
-            <p style={{color:'#16a34a',fontSize:12,margin:'4px 0 0'}}>
-              Votre induction camp est maintenant complète.
-            </p>
-          </div>
-          <button onClick={()=>window.location.href='/'}
-            style={{marginTop:20,background:'#1e3a8a',color:'#fff',border:'none',
-              borderRadius:10,padding:'12px 32px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-            Aller au Dashboard →
-          </button>
         </div>
       </div>
     )
   }
 
-  return (
-    <div style={{minHeight:'100vh',background:'#f8fafc'}}>
+  // ── Layout principal ─────────────────────────────────────────────
+  const bgGradients = [
+    'linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#0f172a 100%)',  // Bienvenue
+    'linear-gradient(135deg,#0c1821 0%,#0f2942 50%,#0c1821 100%)',  // Infra
+    'linear-gradient(135deg,#0f172a 0%,#1a0a2e 50%,#0f172a 100%)',  // Règles
+    'linear-gradient(135deg,#0a1628 0%,#0f3460 50%,#0a1628 100%)',  // Quiz
+    'linear-gradient(135deg,#0f172a 0%,#132a1f 50%,#0f172a 100%)',  // Appareils
+    'linear-gradient(135deg,#0f172a 0%,#1a0f2a 50%,#0f172a 100%)',  // Signature
+  ]
 
-      {/* Header progress */}
-      <div style={{background:'linear-gradient(135deg,#0f172a,#1e3a8a)',padding:'20px 24px 0'}}>
-        <div style={{maxWidth:800,margin:'0 auto'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-            <span style={{fontSize:24}}>🏕️</span>
-            <div>
-              <h1 style={{color:'#fff',fontSize:18,fontWeight:800,margin:0}}>Induction du Camp</h1>
-              <p style={{color:'rgba(255,255,255,.7)',fontSize:12,margin:0}}>
-                Camp Roxgold Sango · Bienvenue, {nomUser}
-              </p>
-            </div>
-          </div>
-          {/* Stepper */}
-          <div style={{display:'flex',gap:0}}>
-            {ETAPES.map((e,i)=>(
-              <div key={i} style={{flex:1,textAlign:'center',paddingBottom:12,cursor:i<etape?'pointer':'default'}}
-                onClick={()=>i<etape&&setEtape(i)}>
-                <div style={{width:28,height:28,borderRadius:'50%',margin:'0 auto 4px',
-                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,
-                  background:i===etape?'#FFD400':i<etape?'#16a34a':'rgba(255,255,255,.2)',
-                  color:i===etape?'#0f172a':i<etape?'#fff':'rgba(255,255,255,.6)',
-                  border:i===etape?'2px solid #FFD400':'none',
-                  boxShadow:i===etape?'0 0 0 4px rgba(255,212,0,.3)':'none'}}>
-                  {i<etape ? '✓' : i+1}
-                </div>
-                <p style={{fontSize:9,color:i===etape?'#FFD400':i<etape?'rgba(255,255,255,.8)':'rgba(255,255,255,.4)',
-                  margin:0,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap',overflow:'hidden'}}>
-                  {e}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+  return (
+    <div className="ic-root" style={{minHeight:'100vh',
+      background:bgGradients[etape],color:'#fff',
+      transition:'background 0.6s ease'}}>
+      <style>{css}</style>
+
+      {/* Particules de fond */}
+      <div style={{position:'fixed',inset:0,pointerEvents:'none',overflow:'hidden',zIndex:0}}>
+        {Array.from({length:12},(_,i)=>(
+          <Particle key={i} x={Math.random()*100} y={Math.random()*100}
+            color={['#3b82f6','#8b5cf6','#10b981','#ffd400'][i%4]}
+            size={3+Math.random()*4} delay={Math.random()*3}/>
+        ))}
       </div>
 
-      {/* Contenu */}
-      <div style={{maxWidth:800,margin:'0 auto',padding:24}}>
+      <div style={{position:'relative',zIndex:1,maxWidth:860,margin:'0 auto',padding:'20px 16px'}}>
 
-        {/* ── ÉTAPE 0: Bienvenue ── */}
-        {etape===0&&(
-          <div>
-            <div style={{background:'#fff',borderRadius:16,padding:28,marginBottom:16,
-              border:'1px solid #e2e8f0',boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
-              <h2 style={{fontSize:20,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-                👋 Bienvenue au {INFOS_CAMP.nom}
+        {/* ── HEADER ───────────────────────────────────────────── */}
+        <div style={{marginBottom:24}}>
+          {/* Logo & titre */}
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+            <div style={{width:42,height:42,borderRadius:12,
+              background:'rgba(255,255,255,.1)',backdropFilter:'blur(10px)',
+              border:'1px solid rgba(255,255,255,.2)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>
+              🏕️
+            </div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:'#fff'}}>Induction du Camp</div>
+              <div style={{fontSize:11,color:'#94a3b8'}}>Roxgold Sango · Bienvenue, {nomUser}</div>
+            </div>
+            <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+              <ProgressRing pct={progression} size={52} stroke={4} color='#3b82f6'>
+                <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{progression}%</span>
+              </ProgressRing>
+            </div>
+          </div>
+
+          {/* Stepper */}
+          <div style={{display:'flex',alignItems:'center',gap:0}}>
+            {ETAPES.map((e,i)=>{
+              const done  = i < etape
+              const actif = i === etape
+              return (
+                <div key={i} style={{flex:1,display:'flex',alignItems:'center'}}>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',
+                    cursor:done?'pointer':'default',flex:'none'}}
+                    onClick={()=>done&&setEtape(i)}>
+                    <div style={{
+                      width:32,height:32,borderRadius:'50%',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:12,fontWeight:700,
+                      background: done?'#10b981':actif?'#3b82f6':'rgba(255,255,255,.1)',
+                      color: '#fff',
+                      border: actif?'2px solid rgba(59,130,246,.6)':'2px solid transparent',
+                      boxShadow: actif?'0 0 0 4px rgba(59,130,246,.2)':done?'0 0 12px rgba(16,185,129,.4)':'none',
+                      transition:'all .3s',
+                    }}>
+                      {done ? '✓' : i+1}
+                    </div>
+                    <div style={{fontSize:9,marginTop:4,fontWeight:600,
+                      color:actif?'#93c5fd':done?'#6ee7b7':'#475569',
+                      textAlign:'center',whiteSpace:'nowrap',
+                      letterSpacing:.3,textTransform:'uppercase'}}>
+                      {e}
+                    </div>
+                  </div>
+                  {i < ETAPES.length-1 && (
+                    <div style={{flex:1,height:2,margin:'0 4px 16px',
+                      background:done?'#10b981':'rgba(255,255,255,.1)',
+                      transition:'background .5s'}}/>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ══ ÉTAPE 0: BIENVENUE ═══════════════════════════════ */}
+        {etape===0 && (
+          <div className="ic-slide">
+            {/* Hero */}
+            <div style={{textAlign:'center',marginBottom:32,padding:'20px 0'}}>
+              <div style={{fontSize:72,marginBottom:16,animation:'icBounce 3s ease infinite'}}>⛏️</div>
+              <h1 style={{fontSize:28,fontWeight:900,margin:'0 0 8px',
+                background:'linear-gradient(135deg,#fff,#93c5fd)',
+                WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+                Bienvenue au Camp
+              </h1>
+              <h2 style={{fontSize:14,color:'#94a3b8',fontWeight:400,margin:0}}>
+                {CAMP.nom}
               </h2>
-              <p style={{color:'#64748b',fontSize:14,marginBottom:20}}>
-                Cette induction vous prend environ <b>10 minutes</b>. 
-                Elle couvre les infrastructures, les règles de vie et vous permet de déclarer vos appareils électriques.
-              </p>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:10,marginBottom:20}}>
+            </div>
+
+            {/* Stats camp */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:28}}>
+              {[
+                {ic:'👥',val:CAMP.capacite,lbl:'Résidents'},
+                {ic:'📐',val:CAMP.superficie,lbl:'Superficie'},
+                {ic:'⛰️',val:CAMP.altitude,lbl:'Altitude'},
+                {ic:'🔧',val:'8',lbl:'Services'},
+              ].map(({ic,val,lbl})=>(
+                <div key={lbl} style={{background:'rgba(255,255,255,.06)',
+                  backdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.1)',
+                  borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
+                  <div style={{fontSize:24,marginBottom:6}}>{ic}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>{val}</div>
+                  <div style={{fontSize:10,color:'#64748b',textTransform:'uppercase',
+                    letterSpacing:.5,marginTop:2}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Parcours */}
+            <div style={{background:'rgba(59,130,246,.1)',border:'1px solid rgba(59,130,246,.25)',
+              borderRadius:16,padding:20,marginBottom:28}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#93c5fd',marginBottom:12}}>
+                📋 Votre parcours d'induction — ~15 minutes
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                 {[
-                  ['📍',INFOS_CAMP.site],['👥',INFOS_CAMP.capacite],
-                  ['📐',INFOS_CAMP.superficie],['⛰️',INFOS_CAMP.altitude],
-                  ['📞',INFOS_CAMP.contact],['🕐','Ouvert 24h/24'],
-                ].map(([ic,v],i)=>(
-                  <div key={i} style={{background:'#f8fafc',borderRadius:10,padding:'10px 14px',
-                    display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:20}}>{ic}</span>
-                    <span style={{fontSize:12,color:'#374151',fontWeight:500}}>{v}</span>
+                  {emoji:'🏗️',label:'Découvrir les 8 infrastructures'},
+                  {emoji:'📜',label:'Lire les 8 règles de vie'},
+                  {emoji:'🧠',label:'Passer le quiz (5 questions)'},
+                  {emoji:'⚡',label:'Déclarer vos appareils >100W'},
+                  {emoji:'✍️',label:'Signer votre engagement'},
+                  {emoji:'🏅',label:'Obtenir votre certificat'},
+                ].map(({emoji,label})=>(
+                  <div key={label} style={{display:'flex',gap:8,alignItems:'center',
+                    fontSize:12,color:'#cbd5e1'}}>
+                    <span style={{fontSize:16}}>{emoji}</span>{label}
                   </div>
                 ))}
               </div>
-              <div style={{background:'#eff6ff',borderRadius:12,padding:'14px 18px',
-                borderLeft:'4px solid #1e3a8a'}}>
-                <p style={{fontSize:13,color:'#1e3a8a',fontWeight:600,margin:0}}>
-                  📋 Ce que vous allez faire :
-                </p>
-                <ul style={{margin:'8px 0 0',paddingLeft:20,color:'#374151',fontSize:13,lineHeight:1.8}}>
-                  <li>Découvrir les infrastructures du camp</li>
-                  <li>Lire et accepter les règles de vie</li>
-                  <li>Passer un quiz de validation (5 questions)</li>
-                  <li>Déclarer vos appareils énergivores</li>
-                  <li>Signer électroniquement votre engagement</li>
-                </ul>
-              </div>
             </div>
-            <button onClick={()=>setEtape(1)}
-              style={{width:'100%',background:'linear-gradient(135deg,#1e3a8a,#2563eb)',
-                color:'#fff',border:'none',borderRadius:12,padding:'16px',
-                fontSize:15,fontWeight:700,cursor:'pointer',
-                boxShadow:'0 4px 16px rgba(30,58,138,.35)'}}>
-              Commencer l'induction → 
+
+            <button className="ic-btn ic-btn-primary"
+              style={{width:'100%',padding:'16px',fontSize:16,borderRadius:14}}
+              onClick={()=>setEtape(1)}>
+              Commencer l'induction ✦
             </button>
           </div>
         )}
 
-        {/* ── ÉTAPE 1: Infrastructures ── */}
-        {etape===1&&(
-          <div>
-            <h2 style={{fontSize:18,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-              🏗️ Infrastructures du camp
-            </h2>
-            <p style={{color:'#64748b',fontSize:13,marginBottom:16}}>
-              Cliquez sur chaque infrastructure pour en savoir plus.
-            </p>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
-              {INFRASTRUCTURES.map(inf=>(
-                <div key={inf.id}
-                  onClick={()=>setInfraSel(infraSel?.id===inf.id?null:inf)}
-                  style={{background:infraSel?.id===inf.id?inf.bg:'#fff',
-                    borderRadius:12,padding:'16px',cursor:'pointer',
-                    border:`2px solid ${infraSel?.id===inf.id?inf.color:'#e2e8f0'}`,
-                    boxShadow:infraSel?.id===inf.id?`0 4px 16px ${inf.color}22`:'0 1px 4px rgba(0,0,0,.05)',
-                    transition:'all .2s'}}>
-                  <div style={{fontSize:28,marginBottom:8}}>{inf.icon}</div>
-                  <p style={{fontSize:13,fontWeight:700,color:inf.color,margin:0}}>{inf.titre}</p>
-                </div>
-              ))}
+        {/* ══ ÉTAPE 1: INFRASTRUCTURES ════════════════════════ */}
+        {etape===1 && (
+          <div className="ic-slide">
+            <div style={{textAlign:'center',marginBottom:20}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>🏗️ Infrastructures du Camp</h2>
+              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+                Explorez les 8 zones — cliquez pour en savoir plus
+                <span style={{marginLeft:8,background:'rgba(59,130,246,.2)',padding:'2px 8px',
+                  borderRadius:99,fontSize:11,color:'#93c5fd'}}>
+                  {infrasVues.size}/{INFRAS.length} vues
+                </span>
+              </p>
             </div>
-            {infraSel&&(
-              <div style={{background:infraSel.bg,borderRadius:12,padding:'16px 20px',
-                marginBottom:20,border:`1.5px solid ${infraSel.color}`,
-                animation:'fadeIn .2s ease'}}>
-                <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
-                  <span style={{fontSize:32}}>{infraSel.icon}</span>
-                  <div>
-                    <h3 style={{fontSize:15,fontWeight:800,color:infraSel.color,margin:'0 0 6px'}}>{infraSel.titre}</h3>
-                    <p style={{fontSize:13,color:'#374151',margin:0,lineHeight:1.6}}>{infraSel.desc}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            <button onClick={()=>setEtape(2)}
-              style={{width:'100%',background:'#1e3a8a',color:'#fff',border:'none',
-                borderRadius:12,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-              Continuer → Règles du camp
-            </button>
-          </div>
-        )}
 
-        {/* ── ÉTAPE 2: Règles ── */}
-        {etape===2&&(
-          <div>
-            <h2 style={{fontSize:18,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-              📜 Règles de vie du camp
-            </h2>
-            <p style={{color:'#64748b',fontSize:13,marginBottom:16}}>
-              Lisez attentivement chaque règle. Un quiz vous sera posé ensuite.
-            </p>
-            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
-              {REGLES.map((r,i)=>(
-                <div key={r.id} style={{background:NIVEAUX_BG[r.niveau],
-                  borderRadius:12,padding:'14px 18px',
-                  borderLeft:`4px solid ${NIVEAUX_COLOR[r.niveau]}`,
-                  display:'flex',gap:14,alignItems:'flex-start'}}>
-                  <span style={{fontSize:24,flexShrink:0}}>{r.icon}</span>
-                  <div style={{flex:1}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:800,color:NIVEAUX_COLOR[r.niveau]}}>{r.titre}</span>
-                      <span style={{background:NIVEAUX_COLOR[r.niveau],color:'#fff',
-                        fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:99,
-                        textTransform:'uppercase'}}>
-                        {r.niveau}
-                      </span>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+              {INFRAS.map(inf=>{
+                const vue = infrasVues.has(inf.id)
+                const sel = infraSel === inf.id
+                return (
+                  <div key={inf.id} className="ic-infra-card"
+                    onClick={()=>voirInfra(inf.id)}
+                    style={{
+                      background: sel ? `${inf.couleur}22` : 'rgba(255,255,255,.05)',
+                      border: `1.5px solid ${sel?inf.couleur:vue?`${inf.couleur}60`:'rgba(255,255,255,.1)'}`,
+                      borderRadius:14,padding:'16px 12px',textAlign:'center',
+                      boxShadow: sel ? `0 0 24px ${inf.couleur}40` : 'none',
+                    }}>
+                    <div style={{fontSize:28,marginBottom:8,
+                      filter:!vue?'grayscale(0.5)':'none'}}>{inf.emoji}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:vue?inf.couleur:'#94a3b8'}}>
+                      {inf.titre}
                     </div>
-                    <p style={{fontSize:13,color:'#374151',margin:0,lineHeight:1.5}}>{r.texte}</p>
+                    {vue && !sel && <div style={{fontSize:9,color:'#10b981',marginTop:4}}>✓ Vue</div>}
                   </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={()=>setEtape(3)}
-              style={{width:'100%',background:'#1e3a8a',color:'#fff',border:'none',
-                borderRadius:12,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-              J'ai lu les règles → Quiz de validation
-            </button>
-          </div>
-        )}
-
-        {/* ── ÉTAPE 3: Quiz ── */}
-        {etape===3&&(
-          <div>
-            <h2 style={{fontSize:18,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-              📝 Quiz de validation
-            </h2>
-            <p style={{color:'#64748b',fontSize:13,marginBottom:20}}>
-              {QUIZ.length} questions — Toutes les bonnes réponses sont requises.
-            </p>
-            {quizOk?(
-              <div style={{background:'#f0fdf4',border:'2px solid #16a34a',borderRadius:16,
-                padding:'24px',textAlign:'center',marginBottom:20}}>
-                <div style={{fontSize:48,marginBottom:8}}>🎉</div>
-                <h3 style={{color:'#166534',fontSize:16,fontWeight:800,margin:'0 0 8px'}}>
-                  Quiz réussi !
-                </h3>
-                <p style={{color:'#16a34a',fontSize:13,margin:0}}>
-                  Vous avez répondu correctement à toutes les questions.
-                </p>
-              </div>
-            ):(
-              <div style={{display:'flex',flexDirection:'column',gap:16,marginBottom:20}}>
-                {QUIZ.map((q,qi)=>(
-                  <div key={qi} style={{background:'#fff',borderRadius:12,padding:'16px 18px',
-                    border:`1.5px solid ${quizRep[qi]!==undefined?
-                      (showQuizErr&&quizRep[qi]!==q.rep?'#dc2626':'#e2e8f0'):'#e2e8f0'}`}}>
-                    <p style={{fontSize:13,fontWeight:700,color:'#0f172a',marginBottom:12}}>
-                      {qi+1}. {q.q}
-                    </p>
-                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                      {q.opts.map((opt,oi)=>(
-                        <label key={oi} style={{display:'flex',alignItems:'center',gap:10,
-                          cursor:'pointer',padding:'8px 12px',borderRadius:8,
-                          background:quizRep[qi]===oi?'#eff6ff':'transparent',
-                          border:`1px solid ${quizRep[qi]===oi?'#1e3a8a':'transparent'}`,
-                          transition:'all .1s'}}>
-                          <input type="radio" name={`q${qi}`} checked={quizRep[qi]===oi}
-                            onChange={()=>setQuizRep(prev=>({...prev,[qi]:oi}))}
-                            style={{accentColor:'#1e3a8a'}}/>
-                          <span style={{fontSize:13,color:'#374151'}}>{opt}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {showQuizErr&&quizRep[qi]!==undefined&&quizRep[qi]!==q.rep&&(
-                      <p style={{color:'#dc2626',fontSize:11,margin:'8px 0 0',fontWeight:600}}>
-                        ❌ Réponse incorrecte — relisez les règles
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {!quizOk&&<button onClick={validerQuiz}
-              style={{width:'100%',background:'#059669',color:'#fff',border:'none',
-                borderRadius:12,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer',marginBottom:10}}>
-              Valider le quiz ✓
-            </button>}
-            {quizOk&&<button onClick={()=>setEtape(4)}
-              style={{width:'100%',background:'#1e3a8a',color:'#fff',border:'none',
-                borderRadius:12,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-              Continuer → Déclaration d'appareils
-            </button>}
-            {showQuizErr&&!quizOk&&<button onClick={()=>{setEtape(2);setQuizRep({});setShowQuizErr(false)}}
-              style={{width:'100%',background:'transparent',color:'#dc2626',
-                border:'1px solid #dc2626',borderRadius:12,padding:'12px',
-                fontSize:13,fontWeight:700,cursor:'pointer',marginTop:8}}>
-              ← Revoir les règles
-            </button>}
-          </div>
-        )}
-
-        {/* ── ÉTAPE 4: Appareils énergivores ── */}
-        {etape===4&&(
-          <div>
-            <h2 style={{fontSize:18,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-              ⚡ Déclaration d'appareils énergivores
-            </h2>
-            <p style={{color:'#64748b',fontSize:13,marginBottom:4}}>
-              Tout appareil de plus de <b>100W</b> doit être déclaré. C'est obligatoire pour la gestion énergétique du camp.
-            </p>
-            <div style={{background:'#fefce8',borderRadius:10,padding:'10px 14px',marginBottom:16,
-              border:'1px solid #ca8a04',fontSize:12,color:'#713f12'}}>
-              ⚠️ Les appareils non déclarés seront confisqués. La déclaration est gratuite et immédiate.
+                )
+              })}
             </div>
 
-            {/* Liste appareils */}
-            {appareils.length > 0 && (
-              <div style={{marginBottom:16}}>
-                {appareils.map((a,i)=>(
-                  <div key={a.id||i} style={{background:'#fff',borderRadius:10,padding:'12px 14px',
-                    marginBottom:8,border:'1px solid #e2e8f0',
-                    display:'flex',alignItems:'center',gap:12}}>
-                    <span style={{fontSize:22}}>🔌</span>
+            {/* Détail infra sélectionnée */}
+            {infraSel && (() => {
+              const inf = INFRAS.find(i=>i.id===infraSel)
+              return (
+                <div className="ic-slide" style={{
+                  background:`linear-gradient(135deg,${inf.couleur}18,${inf.couleur}08)`,
+                  border:`1.5px solid ${inf.couleur}40`,borderRadius:16,
+                  padding:20,marginBottom:16}}>
+                  <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
+                    <div style={{fontSize:40,flexShrink:0}}>{inf.emoji}</div>
                     <div style={{flex:1}}>
-                      <p style={{fontSize:13,fontWeight:700,color:'#0f172a',margin:0}}>{a.type}</p>
-                      <p style={{fontSize:11,color:'#64748b',margin:'2px 0 0'}}>
-                        {[a.marque,a.modele,a.puissance?a.puissance+'W':'',a.chambre?'Chambre '+a.chambre:''].filter(Boolean).join(' · ')}
+                      <h3 style={{fontSize:17,fontWeight:800,color:inf.couleur,margin:'0 0 8px'}}>
+                        {inf.titre}
+                      </h3>
+                      <p style={{fontSize:13,color:'#cbd5e1',margin:'0 0 12px',lineHeight:1.6}}>
+                        {inf.desc}
                       </p>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {inf.details.map(d=>(
+                          <span key={d} style={{background:`${inf.couleur}20`,color:inf.couleur,
+                            padding:'4px 10px',borderRadius:99,fontSize:11,fontWeight:600}}>
+                            {d}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <span style={{background:'#d1fae5',color:'#065f46',fontSize:10,fontWeight:700,
-                      padding:'2px 8px',borderRadius:99}}>Déclaré</span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Progress & next */}
+            <div style={{background:'rgba(255,255,255,.05)',borderRadius:12,
+              padding:'12px 16px',marginBottom:16,display:'flex',
+              alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,color:'#94a3b8'}}>
+                {infrasVues.size < 4
+                  ? `Visitez encore ${4-infrasVues.size} infrastructure(s) pour continuer`
+                  : `${infrasVues.size}/${INFRAS.length} infrastructures visitées ✓`}
+              </span>
+              <div style={{height:6,width:120,background:'rgba(255,255,255,.1)',borderRadius:99,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${infrasVues.size/INFRAS.length*100}%`,
+                  background:'#10b981',borderRadius:99,transition:'width .4s'}}/>
+              </div>
+            </div>
+
+            <button className="ic-btn ic-btn-primary"
+              style={{width:'100%',padding:'14px',fontSize:15,borderRadius:14,
+                opacity:canNext()?1:.5}}
+              disabled={!canNext()}
+              onClick={()=>setEtape(2)}>
+              {canNext() ? 'Continuer → Règles du camp' : `Visitez encore ${Math.max(0,4-infrasVues.size)} zone(s)`}
+            </button>
+          </div>
+        )}
+
+        {/* ══ ÉTAPE 2: RÈGLES ══════════════════════════════════ */}
+        {etape===2 && (
+          <div className="ic-slide">
+            <div style={{textAlign:'center',marginBottom:20}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>📜 Règles de Vie du Camp</h2>
+              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+                Cliquez sur chaque règle pour la lire — un quiz suivra
+                <span style={{marginLeft:8,background:'rgba(139,92,246,.2)',padding:'2px 8px',
+                  borderRadius:99,fontSize:11,color:'#c4b5fd'}}>
+                  {reglesVues.size}/{REGLES.length} lues
+                </span>
+              </p>
+            </div>
+
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
+              {REGLES.map(r=>{
+                const niv  = NIVEAUX[r.niveau]
+                const lue  = reglesVues.has(r.id)
+                const sel  = regleSel===r.id
+                return (
+                  <div key={r.id} className="ic-regle-card"
+                    onClick={()=>voirRegle(r.id)}
+                    style={{
+                      background: sel ? `${niv.c}18` : 'rgba(255,255,255,.05)',
+                      border: `1.5px solid ${sel?niv.c:lue?`${niv.c}50`:'rgba(255,255,255,.08)'}`,
+                      borderRadius:12,padding:'12px 16px',
+                      boxShadow: sel ? `0 0 20px ${niv.c}30` : 'none',
+                    }}>
+                    <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                      <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <span style={{fontSize:13,fontWeight:700,color:lue?niv.c:'#e2e8f0'}}>
+                            {r.titre}
+                          </span>
+                          <span style={{background:`${niv.c}25`,color:niv.c,
+                            padding:'1px 7px',borderRadius:99,fontSize:9,fontWeight:700,
+                            letterSpacing:.5,textTransform:'uppercase'}}>
+                            {niv.label}
+                          </span>
+                          {lue && !sel && <span style={{color:'#10b981',fontSize:12}}>✓</span>}
+                        </div>
+                        {sel && (
+                          <p style={{fontSize:12,color:'#cbd5e1',margin:'8px 0 0',lineHeight:1.6,
+                            animation:'icFadeIn .2s ease'}}>
+                            {r.texte}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{fontSize:16,color:'#475569',flexShrink:0}}>
+                        {sel?'▲':'▼'}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <button className="ic-btn ic-btn-primary"
+              style={{width:'100%',padding:'14px',fontSize:15,borderRadius:14,
+                opacity:canNext()?1:.5}}
+              disabled={!canNext()}
+              onClick={()=>setEtape(3)}>
+              {canNext() ? 'J\'ai tout lu → Quiz de validation' : `Lisez encore ${REGLES.length-reglesVues.size} règle(s)`}
+            </button>
+          </div>
+        )}
+
+        {/* ══ ÉTAPE 3: QUIZ ════════════════════════════════════ */}
+        {etape===3 && (
+          <div className="ic-slide">
+            <div style={{textAlign:'center',marginBottom:24}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>🧠 Quiz de Validation</h2>
+              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+                {QUIZ.length} questions · Toutes les bonnes réponses requises
+              </p>
+            </div>
+
+            {quizOk ? (
+              <div style={{textAlign:'center',padding:'32px 0',animation:'icFadeIn .5s ease'}}>
+                <div style={{fontSize:64,marginBottom:16,animation:'icBounce 2s ease infinite'}}>🎉</div>
+                <div style={{fontSize:20,fontWeight:800,color:'#10b981',marginBottom:8}}>
+                  Quiz réussi ! {quizScore}/{QUIZ.length}
+                </div>
+                <div style={{fontSize:13,color:'#94a3b8',marginBottom:24}}>
+                  Excellent ! Vous connaissez les règles du camp.
+                </div>
+                <button className="ic-btn ic-btn-primary"
+                  style={{padding:'14px 32px',fontSize:15,borderRadius:14}}
+                  onClick={()=>setEtape(4)}>
+                  Continuer → Appareils énergivores
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:20}}>
+                  {QUIZ.map((q,qi)=>{
+                    const rep = quizRep[qi]
+                    const correct = quizErr && rep!==undefined && rep===q.rep
+                    const wrong   = quizErr && rep!==undefined && rep!==q.rep
+                    return (
+                      <div key={qi} style={{
+                        background: wrong?'rgba(239,68,68,.08)':correct?'rgba(16,185,129,.08)':'rgba(255,255,255,.05)',
+                        border: `1.5px solid ${wrong?'rgba(239,68,68,.4)':correct?'rgba(16,185,129,.4)':'rgba(255,255,255,.1)'}`,
+                        borderRadius:14,padding:'16px',
+                        boxShadow: wrong?'0 0 16px rgba(239,68,68,.15)':correct?'0 0 16px rgba(16,185,129,.15)':'none',
+                      }}>
+                        <div style={{fontSize:13,fontWeight:700,color:'#f1f5f9',marginBottom:12}}>
+                          <span style={{color:'#64748b',fontFamily:'JetBrains Mono,monospace',
+                            fontSize:11}}>{qi+1}/{QUIZ.length} </span>
+                          {q.q}
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                          {q.opts.map((opt,oi)=>{
+                            const chosen = rep===oi
+                            const isRight = quizErr && oi===q.rep
+                            const isWrong = quizErr && chosen && oi!==q.rep
+                            return (
+                              <label key={oi} className="ic-quiz-opt"
+                                style={{
+                                  display:'flex',alignItems:'center',gap:8,padding:'9px 12px',
+                                  borderRadius:9,cursor:'pointer',
+                                  background: isRight?'rgba(16,185,129,.2)':isWrong?'rgba(239,68,68,.2)':chosen?'rgba(59,130,246,.2)':'rgba(255,255,255,.04)',
+                                  border: `1px solid ${isRight?'rgba(16,185,129,.5)':isWrong?'rgba(239,68,68,.5)':chosen?'rgba(59,130,246,.5)':'rgba(255,255,255,.08)'}`,
+                                }}>
+                                <input type="radio" name={`q${qi}`} checked={chosen}
+                                  onChange={()=>setQuizRep(prev=>({...prev,[qi]:oi}))}
+                                  style={{accentColor:'#3b82f6'}}/>
+                                <span style={{fontSize:12,color: isRight?'#6ee7b7':isWrong?'#fca5a5':chosen?'#93c5fd':'#cbd5e1'}}>
+                                  {opt}
+                                </span>
+                                {isRight && <span style={{marginLeft:'auto',color:'#10b981'}}>✓</span>}
+                                {isWrong && <span style={{marginLeft:'auto',color:'#ef4444'}}>✗</span>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {quizErr && wrong && (
+                          <div style={{marginTop:10,padding:'8px 12px',
+                            background:'rgba(59,130,246,.1)',borderRadius:8,
+                            fontSize:11,color:'#93c5fd'}}>
+                            💡 {q.explication}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {quizErr && !quizOk && (
+                  <div style={{background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.3)',
+                    borderRadius:12,padding:'12px 16px',marginBottom:12,textAlign:'center'}}>
+                    <div style={{fontSize:13,color:'#fca5a5',fontWeight:600}}>
+                      {quizScore}/{QUIZ.length} correctes — Corrigez les réponses en rouge
+                    </div>
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:8}}>
+                  <button className="ic-btn ic-btn-ghost"
+                    style={{flex:'none',padding:'12px 20px',fontSize:13}}
+                    onClick={()=>{setEtape(2);setQuizRep({});setQuizErr(false)}}>
+                    ← Revoir les règles
+                  </button>
+                  <button className="ic-btn ic-btn-primary"
+                    style={{flex:1,padding:'12px',fontSize:14,borderRadius:12}}
+                    onClick={validerQuiz}>
+                    {quizErr ? '🔄 Réessayer' : '✓ Valider le quiz'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══ ÉTAPE 4: APPAREILS ═══════════════════════════════ */}
+        {etape===4 && (
+          <div className="ic-slide">
+            <div style={{textAlign:'center',marginBottom:20}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>⚡ Appareils Énergivores</h2>
+              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+                Tout appareil de plus de 100W doit être déclaré
+              </p>
+            </div>
+
+            {/* Alerte */}
+            <div style={{background:'rgba(251,191,36,.1)',border:'1px solid rgba(251,191,36,.3)',
+              borderRadius:12,padding:'12px 16px',marginBottom:16,display:'flex',gap:10}}>
+              <span style={{fontSize:20}}>⚠️</span>
+              <div style={{fontSize:12,color:'#fcd34d',lineHeight:1.5}}>
+                <strong>Obligatoire :</strong> Les appareils non déclarés seront confisqués.
+                La déclaration est gratuite et protège votre équipement.
+              </div>
+            </div>
+
+            {/* Liste appareils déclarés */}
+            {appareils.length > 0 && (
+              <div style={{marginBottom:14}}>
+                {appareils.map((a,i)=>(
+                  <div key={a.id||i} style={{display:'flex',gap:10,alignItems:'center',
+                    background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.25)',
+                    borderRadius:10,padding:'10px 14px',marginBottom:6}}>
+                    <span style={{fontSize:20}}>🔌</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:'#6ee7b7'}}>{a.type}</div>
+                      <div style={{fontSize:11,color:'#94a3b8'}}>
+                        {[a.marque,a.modele,a.puissance?a.puissance+'W':'',a.chambre?'Ch.'+a.chambre:''].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <span style={{background:'rgba(16,185,129,.2)',color:'#10b981',
+                      padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>
+                      Déclaré ✓
+                    </span>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Formulaire ajout */}
-            {showFormApp?(
-              <div style={{background:'#fff',borderRadius:12,padding:'18px',marginBottom:16,
-                border:'1.5px solid #1e3a8a'}}>
-                <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:14}}>
+            {/* Formulaire */}
+            {showFormApp ? (
+              <div style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(59,130,246,.3)',
+                borderRadius:14,padding:18,marginBottom:14}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#93c5fd',marginBottom:14}}>
                   Nouvel appareil
-                </h3>
+                </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div style={{gridColumn:'span 2'}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#64748b',display:'block',marginBottom:4}}>
-                      TYPE D'APPAREIL *
+                    <label style={{fontSize:10,fontWeight:700,color:'#64748b',
+                      textTransform:'uppercase',letterSpacing:.5,display:'block',marginBottom:4}}>
+                      Type *
                     </label>
-                    <select value={formApp.type} onChange={e=>setFormApp(p=>({...p,type:e.target.value}))}
-                      style={{width:'100%',height:38,border:'1.5px solid #e2e8f0',borderRadius:8,
-                        padding:'0 10px',fontSize:13,outline:'none',color:'#0f172a'}}>
+                    <select value={formApp.type} className="ic-input"
+                      onChange={e=>setFormApp(p=>({...p,type:e.target.value}))}>
                       <option value="">Sélectionner...</option>
                       {APPAREILS_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  {[
-                    ['MARQUE','marque','Philips, Samsung...'],
-                    ['MODÈLE','modele','AC-1200...'],
-                    ['PUISSANCE (W)','puissance','ex: 1500'],
-                    ['N° CHAMBRE','chambre','ex: A-204'],
-                  ].map(([lbl,key,ph])=>(
-                    <div key={key}>
-                      <label style={{fontSize:11,fontWeight:600,color:'#64748b',display:'block',marginBottom:4}}>
-                        {lbl}
+                  {[['Marque','marque','Philips, Samsung...'],
+                    ['Modèle','modele','AC-1200...'],
+                    ['Puissance (W)','puissance','ex: 1500'],
+                    ['N° Chambre','chambre','ex: A-204']].map(([l,k,ph])=>(
+                    <div key={k}>
+                      <label style={{fontSize:10,fontWeight:700,color:'#64748b',
+                        textTransform:'uppercase',letterSpacing:.5,display:'block',marginBottom:4}}>
+                        {l}
                       </label>
-                      <input value={formApp[key]} placeholder={ph}
-                        onChange={e=>setFormApp(p=>({...p,[key]:e.target.value}))}
-                        style={{width:'100%',height:38,border:'1.5px solid #e2e8f0',borderRadius:8,
-                          padding:'0 10px',fontSize:13,outline:'none',color:'#0f172a'}}/>
+                      <input value={formApp[k]} placeholder={ph} className="ic-input"
+                        onChange={e=>setFormApp(p=>({...p,[k]:e.target.value}))}/>
                     </div>
                   ))}
                 </div>
                 <div style={{display:'flex',gap:8,marginTop:14}}>
-                  <button onClick={ajouterAppareil}
-                    style={{flex:1,background:'#059669',color:'#fff',border:'none',borderRadius:9,
-                      padding:'10px',fontSize:13,fontWeight:700,cursor:'pointer'}}>
-                    ✓ Ajouter
+                  <button className="ic-btn ic-btn-primary"
+                    style={{flex:1,padding:'10px',fontSize:13}}
+                    onClick={ajouterAppareil} disabled={!formApp.type}>
+                    ✓ Déclarer
                   </button>
-                  <button onClick={()=>setShowFormApp(false)}
-                    style={{background:'#f1f5f9',color:'#374151',border:'none',borderRadius:9,
-                      padding:'10px 16px',fontSize:13,cursor:'pointer'}}>
+                  <button className="ic-btn ic-btn-ghost"
+                    style={{padding:'10px 16px',fontSize:13}}
+                    onClick={()=>setShowFormApp(false)}>
                     Annuler
                   </button>
                 </div>
               </div>
-            ):(
-              <button onClick={()=>setShowFormApp(true)}
-                style={{width:'100%',background:'#f8fafc',color:'#1e3a8a',
-                  border:'2px dashed #bfdbfe',borderRadius:12,padding:'14px',
-                  fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:16}}>
-                + Déclarer un appareil
+            ) : (
+              <button className="ic-btn ic-btn-ghost"
+                style={{width:'100%',padding:'14px',fontSize:13,borderRadius:12,
+                  marginBottom:14,borderStyle:'dashed'}}
+                onClick={()=>setShowFormApp(true)}>
+                + Déclarer un appareil énergivore
               </button>
             )}
 
             <div style={{display:'flex',gap:8}}>
-              {appareils.length === 0 && (
-                <button onClick={()=>setEtape(5)}
-                  style={{flex:1,background:'#f1f5f9',color:'#64748b',border:'none',borderRadius:12,
-                    padding:'14px',fontSize:13,fontWeight:600,cursor:'pointer'}}>
-                  Je n'ai pas d'appareil → Continuer
+              {appareils.length===0 && (
+                <button className="ic-btn ic-btn-ghost"
+                  style={{flex:1,padding:'12px',fontSize:13,borderRadius:12}}
+                  onClick={()=>setEtape(5)}>
+                  Je n'ai pas d'appareil >100W →
                 </button>
               )}
-              <button onClick={()=>setEtape(5)}
-                style={{flex:2,background:'#1e3a8a',color:'#fff',border:'none',borderRadius:12,
-                  padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-                {appareils.length > 0 ? `${appareils.length} appareil(s) déclaré(s) → Continuer` : 'Passer →'}
-              </button>
+              {appareils.length>0 && (
+                <button className="ic-btn ic-btn-primary"
+                  style={{flex:1,padding:'12px',fontSize:14,borderRadius:12}}
+                  onClick={()=>setEtape(5)}>
+                  {appareils.length} appareil(s) déclaré(s) → Continuer
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* ── ÉTAPE 5: Signature ── */}
-        {etape===5&&!validated&&(
-          <div>
-            <h2 style={{fontSize:18,fontWeight:800,color:'#0f172a',marginBottom:4}}>
-              ✍️ Signature d'engagement
-            </h2>
-            <p style={{color:'#64748b',fontSize:13,marginBottom:16}}>
-              En signant, vous attestez avoir lu et accepté l'ensemble des règles du camp Roxgold Sango.
-            </p>
-            <div style={{background:'#fff',borderRadius:12,padding:'16px',marginBottom:16,
-              border:'1px solid #e2e8f0'}}>
-              <div style={{background:'#f8fafc',borderRadius:8,padding:'10px 14px',marginBottom:12,
-                fontSize:12,color:'#374151',lineHeight:1.7}}>
-                <b>Je soussigné(e), {nomUser}</b>, certifie avoir pris connaissance des règles de vie 
-                du camp résidentiel Roxgold Sango, m'engage à les respecter et à signaler tout 
-                manquement. Je déclare que les informations fournies sont exactes.
+        {/* ══ ÉTAPE 5: SIGNATURE ═══════════════════════════════ */}
+        {etape===5 && !validated && (
+          <div className="ic-slide">
+            <div style={{textAlign:'center',marginBottom:24}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>✍️ Engagement & Signature</h2>
+              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+                Signez pour finaliser votre induction
+              </p>
+            </div>
+
+            {/* Récapitulatif */}
+            <div style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',
+              borderRadius:14,padding:18,marginBottom:20}}>
+              <div style={{fontSize:12,fontWeight:700,color:'#94a3b8',
+                textTransform:'uppercase',letterSpacing:.5,marginBottom:12}}>
+                Récapitulatif de votre induction
               </div>
-              {/* Canvas signature */}
-              <div style={{border:'2px solid #e2e8f0',borderRadius:8,background:'#fafafa',
-                overflow:'hidden',marginBottom:8}}>
-                <canvas ref={canvasRef} width={720} height={160}
-                  style={{width:'100%',height:160,touchAction:'none',display:'block'}}/>
+              {[
+                {ic:'🏗️',l:`${infrasVues.size}/${INFRAS.length} infrastructures visitées`,
+                 ok:infrasVues.size>=4},
+                {ic:'📜',l:`${reglesVues.size}/${REGLES.length} règles lues`,ok:reglesVues.size===REGLES.length},
+                {ic:'🧠',l:`Quiz validé — ${quizScore}/${QUIZ.length}`,ok:quizOk},
+                {ic:'⚡',l:`${appareils.length} appareil(s) déclaré(s)`,ok:true},
+              ].map(({ic,l,ok})=>(
+                <div key={l} style={{display:'flex',gap:8,alignItems:'center',
+                  padding:'5px 0',fontSize:12,color:ok?'#e2e8f0':'#94a3b8'}}>
+                  <span>{ic}</span>
+                  <span style={{flex:1}}>{l}</span>
+                  <span style={{color:ok?'#10b981':'#64748b'}}>{ok?'✓':'…'}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Texte engagement */}
+            <div style={{background:'rgba(59,130,246,.08)',border:'1px solid rgba(59,130,246,.2)',
+              borderRadius:12,padding:'14px 16px',marginBottom:16,
+              fontSize:12,color:'#93c5fd',lineHeight:1.7}}>
+              Je soussigné(e), <strong style={{color:'#fff'}}>{nomUser}</strong>, certifie avoir pris
+              connaissance de l'ensemble des règles de vie du camp résidentiel Roxgold Sango,
+              m'engage à les respecter et à signaler tout manquement à la direction.
+            </div>
+
+            {/* Canvas signature */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#64748b',
+                textTransform:'uppercase',letterSpacing:.5,marginBottom:8}}>
+                Votre signature
               </div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <span style={{fontSize:11,color:'#94a3b8'}}>Signez dans le cadre ci-dessus</span>
+              <div style={{border:'1.5px solid rgba(255,255,255,.2)',borderRadius:12,
+                background:'rgba(255,255,255,.03)',overflow:'hidden',
+                boxShadow:signature?'0 0 20px rgba(59,130,246,.2)':'none'}}>
+                <canvas ref={canvasRef} width={800} height={180}
+                  style={{width:'100%',height:180,touchAction:'none',display:'block',cursor:'crosshair'}}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
+                <span style={{fontSize:11,color:'#475569'}}>
+                  {signature ? '✓ Signature enregistrée' : 'Signez dans la zone ci-dessus'}
+                </span>
                 <button onClick={clearCanvas}
-                  style={{background:'transparent',color:'#dc2626',border:'1px solid #dc2626',
-                    borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer'}}>
+                  style={{background:'transparent',color:'#ef4444',border:'1px solid rgba(239,68,68,.3)',
+                    borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
                   Effacer
                 </button>
               </div>
             </div>
-            <button onClick={soumettre} disabled={!signature||saving}
-              style={{width:'100%',
-                background:signature?'linear-gradient(135deg,#059669,#16a34a)':'#e2e8f0',
-                color:signature?'#fff':'#94a3b8',border:'none',borderRadius:12,padding:'16px',
-                fontSize:15,fontWeight:700,cursor:signature?'pointer':'not-allowed',
-                boxShadow:signature?'0 4px 16px rgba(5,150,105,.35)':'none'}}>
-              {saving ? '⏳ Enregistrement...' : '🎉 Finaliser l\'induction →'}
+
+            <button className="ic-btn ic-btn-primary"
+              style={{width:'100%',padding:'16px',fontSize:16,borderRadius:14,
+                background:signature?'linear-gradient(135deg,#10b981,#059669)':'#334155',
+                boxShadow:signature?'0 4px 24px rgba(16,185,129,.4)':'none',
+                opacity:signature?1:.6}}
+              disabled={!signature||saving}
+              onClick={soumettre}>
+              {saving ? '⏳ Finalisation...' : signature ? '🎉 Finaliser mon induction →' : 'Signez d\'abord pour continuer'}
             </button>
           </div>
         )}
-      </div>
 
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      </div>
     </div>
   )
 }
