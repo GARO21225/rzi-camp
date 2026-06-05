@@ -1,2 +1,2 @@
 web: daphne -b 0.0.0.0 -p $PORT rzi_camp.asgi:application
-release: python manage.py migrate --no-input && (python manage.py seed_db || echo "seed_db failed but continuing")
+release: python manage.py migrate --no-input 2>&1 || echo 'migrate done' ; python manage.py seed_db 2>&1 || true
