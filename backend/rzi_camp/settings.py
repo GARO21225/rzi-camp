@@ -80,19 +80,33 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
+# ── CORS Configuration complète ─────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_URLS_REGEX = r'^.*$'   # Toutes les URLs
+CORS_ALLOW_METHODS = [
+    'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT',
+]
 CORS_ALLOW_HEADERS = [
     'accept', 'accept-encoding', 'authorization',
     'content-type', 'dnt', 'origin', 'user-agent',
-    'x-csrftoken', 'x-requested-with',
+    'x-csrftoken', 'x-requested-with', 'cache-control',
 ]
 CORS_EXPOSE_HEADERS = ['content-type', 'authorization']
 CORS_PREFLIGHT_MAX_AGE = 86400
 
-# Fix pour Render - HOST header
+# Fix pour Render - HOST header et proxy
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Désactiver CSRF pour les API (JWT est utilisé)
+CSRF_COOKIE_SECURE = False
+CSRF_TRUSTED_ORIGINS = [
+    'https://rzi-camp-frontend.onrender.com',
+    'https://rzi-camp-backend.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
+]
 
 # Augmenter la limite pour les photos base64 (3Mo image → ~4Mo JSON)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20MB
