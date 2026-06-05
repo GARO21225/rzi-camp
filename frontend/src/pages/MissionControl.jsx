@@ -28,7 +28,7 @@ const ST_CFG = {
   annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
 }
 
-const // Modes de déplacement scindés: Terrestre / Aérien
+// Modes de déplacement scindés: Terrestre / Aérien
 const MODES_DEPLACEMENT = {
   terrestre: {
     label: '🚗 Terrestre',
