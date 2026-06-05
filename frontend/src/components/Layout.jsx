@@ -197,8 +197,7 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  const [sidebarOpen, setSidebarOpen] = React.useState(window.innerWidth >= 768)
-  const isMobile = window.innerWidth < 768
+    const isMobile = window.innerWidth < 768
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', overflowX: 'hidden', maxWidth: '100vw', background: '#f1f5f9', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
