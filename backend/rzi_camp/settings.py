@@ -82,6 +82,17 @@ SIMPLE_JWT = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept', 'accept-encoding', 'authorization',
+    'content-type', 'dnt', 'origin', 'user-agent',
+    'x-csrftoken', 'x-requested-with',
+]
+CORS_EXPOSE_HEADERS = ['content-type', 'authorization']
+CORS_PREFLIGHT_MAX_AGE = 86400
+
+# Fix pour Render - HOST header
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Augmenter la limite pour les photos base64 (3Mo image → ~4Mo JSON)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20MB
