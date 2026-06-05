@@ -132,6 +132,40 @@ export default function InductionCamp() {
   const BASE = import.meta.env.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
   const tok  = () => localStorage.getItem('access_token') || ''
 
+  // Vérification induction existante
+  const [dejaComplete, setDejaComplete] = useState(false)
+  const [loadingCheck, setLoadingCheck] = useState(true)
+  const [adminView,    setAdminView]    = useState(false)
+  const [allInductions,setAllInductions]= useState([])
+  const isAdmin = user?.is_superuser || user?.is_staff || user?.profile?.role === 'admin'
+
+  // Vérifier si induction déjà validée
+  useEffect(() => {
+    const checkExisting = async () => {
+      try {
+        const r = await fetch(
+          `${BASE}/api/induction-records/?personnel=${user?.profile?.id||''}`,
+          { headers: { Authorization: `Bearer ${tok()}` } }
+        )
+        const d = await r.json()
+        const records = d.results || d || []
+        const myRecord = records.find(rec =>
+          rec.personnel === user?.profile?.id ||
+          rec.personnel_id === user?.profile?.id
+        )
+        if (myRecord?.statut === 'valide') setDejaComplete(true)
+      } catch(e) {}
+      setLoadingCheck(false)
+    }
+    checkExisting()
+    // Si admin, charger toutes les inductions camp
+    if (isAdmin) {
+      fetch(`${BASE}/api/induction-records/?page_size=200`, {
+        headers: { Authorization: `Bearer ${tok()}` }
+      }).then(r=>r.json()).then(d => setAllInductions(d.results||d||[])).catch(()=>{})
+    }
+  }, [])
+
   // États globaux
   const [etape,        setEtape]        = useState(0)
   const [completed,    setCompleted]    = useState(new Set())
@@ -264,6 +298,7 @@ export default function InductionCamp() {
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     .ic-root { font-family:'Space Grotesk',system-ui,sans-serif; }
     @keyframes float { from{transform:translateY(0) scale(1)} to{transform:translateY(-20px) scale(1.1)} }
+    @keyframes icBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
     @keyframes icPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.05)} }
     @keyframes icSlideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     @keyframes icFadeIn { from{opacity:0} to{opacity:1} }
@@ -361,6 +396,192 @@ export default function InductionCamp() {
     )
   }
 
+  // ── Écran chargement ─────────────────────────────────────────────
+  if (loadingCheck) return (
+    <div style={{minHeight:'100vh',background:'#0f172a',display:'flex',
+      alignItems:'center',justifyContent:'center'}}>
+      <div style={{textAlign:'center',color:'#94a3b8'}}>
+        <div style={{fontSize:40,marginBottom:12}}>⏳</div>
+        <div style={{fontSize:14}}>Vérification...</div>
+      </div>
+    </div>
+  )
+
+  // ── Vue Admin ─────────────────────────────────────────────────────
+  if (isAdmin && adminView) return (
+    <div style={{minHeight:'100vh',background:'#0f172a',color:'#fff',padding:24}}>
+      <div style={{maxWidth:900,margin:'0 auto'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+          <button onClick={()=>setAdminView(false)}
+            style={{background:'rgba(255,255,255,.1)',border:'none',color:'#94a3b8',
+              borderRadius:8,padding:'8px 14px',cursor:'pointer',fontSize:13}}>
+            ← Retour
+          </button>
+          <h1 style={{fontSize:20,fontWeight:800,margin:0}}>🏕️ Induction Camp — Vue Admin</h1>
+          <span style={{marginLeft:'auto',background:'rgba(59,130,246,.2)',color:'#93c5fd',
+            padding:'4px 12px',borderRadius:99,fontSize:12,fontWeight:600}}>
+            {allInductions.length} dossier(s)
+          </span>
+        </div>
+
+        {/* KPIs */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+          {[
+            {l:'Total',v:allInductions.length,c:'#60a5fa'},
+            {l:'Validés',v:allInductions.filter(r=>r.statut==='valide').length,c:'#34d399'},
+            {l:'En cours',v:allInductions.filter(r=>r.statut==='en_cours').length,c:'#fbbf24'},
+            {l:'Non commencé',v:allInductions.filter(r=>!r.statut||r.statut==='').length,c:'#f87171'},
+          ].map(k=>(
+            <div key={k.l} style={{background:'rgba(255,255,255,.05)',borderRadius:12,
+              padding:'14px 16px',borderLeft:`3px solid ${k.c}`}}>
+              <div style={{fontSize:24,fontWeight:900,color:k.c}}>{k.v}</div>
+              <div style={{fontSize:11,color:'#64748b',marginTop:4,textTransform:'uppercase',letterSpacing:.5}}>{k.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tableau */}
+        <div style={{background:'rgba(255,255,255,.04)',borderRadius:12,overflow:'hidden',
+          border:'1px solid rgba(255,255,255,.08)'}}>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <thead>
+                <tr style={{background:'rgba(255,255,255,.06)'}}>
+                  {['Personnel','Statut','Progression','Appareils','Date','Actions'].map(h=>(
+                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,
+                      fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5,
+                      borderBottom:'1px solid rgba(255,255,255,.08)',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {allInductions.map((r,i)=>{
+                  const pct = r.progression || 0
+                  const statusColor = r.statut==='valide'?'#34d399':r.statut==='en_cours'?'#fbbf24':'#64748b'
+                  return (
+                    <tr key={r.id} style={{borderBottom:'1px solid rgba(255,255,255,.04)'}}>
+                      <td style={{padding:'10px 14px',fontWeight:600,color:'#e2eaf6'}}>
+                        {r.personnel_nom || `Personnel #${r.personnel}`}
+                      </td>
+                      <td style={{padding:'10px 14px'}}>
+                        <span style={{background:`${statusColor}20`,color:statusColor,
+                          padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                          {r.statut==='valide'?'✓ Validé':r.statut==='en_cours'?'En cours':'—'}
+                        </span>
+                      </td>
+                      <td style={{padding:'10px 14px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div style={{height:5,width:80,background:'rgba(255,255,255,.1)',
+                            borderRadius:99,overflow:'hidden',flexShrink:0}}>
+                            <div style={{height:'100%',width:`${pct}%`,borderRadius:99,
+                              background:pct===100?'#34d399':pct>50?'#fbbf24':'#64748b'}}/>
+                          </div>
+                          <span style={{fontSize:11,color:'#94a3b8',fontFamily:'monospace'}}>{pct}%</span>
+                        </div>
+                      </td>
+                      <td style={{padding:'10px 14px',color:'#94a3b8',fontSize:12}}>
+                        {r.etapes_data?.appareils?.length||0} déclaré(s)
+                      </td>
+                      <td style={{padding:'10px 14px',color:'#64748b',fontSize:11,whiteSpace:'nowrap'}}>
+                        {r.date_validation
+                          ? new Date(r.date_validation).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})
+                          : r.created_at
+                          ? new Date(r.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})
+                          : '—'}
+                      </td>
+                      <td style={{padding:'10px 14px'}}>
+                        {r.statut!=='valide' && (
+                          <button onClick={async()=>{
+                              await fetch(`${BASE}/api/induction-records/${r.id}/`, {
+                                method:'PATCH',
+                                headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
+                                body: JSON.stringify({statut:'valide'})
+                              })
+                              const d2 = await fetch(`${BASE}/api/induction-records/?page_size=200`,
+                                {headers:{Authorization:`Bearer ${tok()}`}}).then(r=>r.json())
+                              setAllInductions(d2.results||d2||[])
+                            }}
+                            style={{background:'rgba(52,211,153,.15)',color:'#10b981',
+                              border:'1px solid rgba(52,211,153,.3)',borderRadius:7,
+                              padding:'4px 10px',fontSize:11,cursor:'pointer',fontWeight:600}}>
+                            ✓ Valider
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {allInductions.length===0 && (
+                  <tr><td colSpan={6} style={{padding:30,textAlign:'center',color:'#64748b'}}>
+                    Aucune induction enregistrée
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Déjà complété — afficher badge ───────────────────────────────
+  if (dejaComplete) return (
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a,#1e3a8a,#0f172a)',
+      display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{maxWidth:500,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:72,marginBottom:12,animation:'icBounce 2s ease infinite'}}>🏅</div>
+        <div style={{background:'rgba(255,255,255,.06)',backdropFilter:'blur(20px)',
+          border:'1px solid rgba(255,255,255,.12)',borderRadius:24,padding:36,
+          boxShadow:'0 25px 60px rgba(0,0,0,.4)'}}>
+          <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:'uppercase',
+            color:'#64748b',marginBottom:14}}>CERTIFICAT D'INDUCTION CAMP</div>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:20}}>
+            <div style={{width:80,height:80,borderRadius:'50%',
+              background:'linear-gradient(135deg,#10b981,#059669)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,
+              boxShadow:'0 0 30px rgba(16,185,129,.4)'}}>⛏️</div>
+          </div>
+          <div style={{fontSize:22,fontWeight:900,color:'#fff',marginBottom:6}}>{nomUser}</div>
+          <div style={{fontSize:13,color:'#94a3b8',marginBottom:20}}>
+            A complété l'induction du camp Roxgold Sango
+          </div>
+          <div style={{background:'rgba(16,185,129,.1)',border:'1px solid rgba(16,185,129,.25)',
+            borderRadius:12,padding:'12px 16px',marginBottom:20,textAlign:'left'}}>
+            {['✅ Infrastructures du camp découvertes',
+              '✅ Règles de vie lues et acceptées',
+              '✅ Quiz de validation réussi',
+              '✅ Engagement signé électroniquement'
+            ].map(l=>(
+              <div key={l} style={{fontSize:12,color:'#6ee7b7',padding:'3px 0'}}>{l}</div>
+            ))}
+          </div>
+          <div style={{background:'linear-gradient(135deg,#ffd400,#f59e0b)',
+            borderRadius:10,padding:'10px 16px',marginBottom:20}}>
+            <p style={{fontSize:13,fontWeight:800,color:'#1e3a8a',margin:0}}>
+              🎉 Bienvenue — Induction validée !
+            </p>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+            <button onClick={()=>window.location.href='/'}
+              style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',
+                border:'none',borderRadius:10,padding:'12px 24px',
+                fontSize:14,fontWeight:700,cursor:'pointer'}}>
+              Dashboard →
+            </button>
+            {isAdmin && (
+              <button onClick={()=>setAdminView(true)}
+                style={{background:'rgba(167,139,250,.2)',color:'#a78bfa',
+                  border:'1px solid rgba(167,139,250,.3)',borderRadius:10,
+                  padding:'12px 24px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+                Vue Admin 👁️
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Layout principal ─────────────────────────────────────────────
   const bgGradients = [
     'linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#0f172a 100%)',  // Bienvenue
@@ -403,6 +624,14 @@ export default function InductionCamp() {
               <div style={{fontSize:11,color:'#94a3b8'}}>Roxgold Sango · Bienvenue, {nomUser}</div>
             </div>
             <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+              {isAdmin && (
+                <button onClick={()=>setAdminView(true)}
+                  style={{background:'rgba(167,139,250,.2)',color:'#a78bfa',
+                    border:'1px solid rgba(167,139,250,.3)',borderRadius:8,
+                    padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                  👁️ Admin
+                </button>
+              )}
               <ProgressRing pct={progression} size={52} stroke={4} color='#3b82f6'>
                 <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{progression}%</span>
               </ProgressRing>
