@@ -11,8 +11,12 @@ from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, Cons
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
 
 class QRTokenViewSet(viewsets.ViewSet):
-    """ViewSet pour QR Token avec scan POST"""
-    permission_classes = [AllowAny]  # Permettre scan sans auth
+    """ViewSet pour QR Token avec scan POST.
+    Seules les actions de scan (utilisées par le scanner physique au réfectoire,
+    qui n'a pas de session utilisateur) restent publiques — voir permission_classes
+    sur chaque @action individuellement. Toute autre action hérite d'IsAuthenticated.
+    """
+    permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def scan(self, request):
@@ -449,7 +453,7 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
 
 class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
     serializer_class = ConsommationSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['article__nom']
 
@@ -798,37 +802,6 @@ class BonCaisseSerializer(drf_serializers.ModelSerializer):
 
 from rest_framework.decorators import api_view as drf_api_view, permission_classes as drf_pc
 from rest_framework.permissions import AllowAny as AllowAnyPerm
-
-@drf_api_view(['POST'])
-@drf_pc([AllowAnyPerm])  
-def test_conso(request):
-    """Endpoint de test pour diagnostiquer le paiement"""
-    from django.db import connection
-    from rest_framework.response import Response
-    data = request.data
-    result = {
-        'received': dict(data),
-        'steps': []
-    }
-    try:
-        with connection.cursor() as c:
-            c.execute('SELECT id, prix FROM restauration_articleboutique WHERE id=%s', [data.get('article')])
-            row = c.fetchone()
-            result['steps'].append(f'Article found: {row}')
-            
-            c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
-            count = c.fetchone()[0]
-            result['steps'].append(f'Current conso count: {count}')
-            
-            c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='restauration_consommationboutique' AND column_name='mode_paiement'")
-            has_mode = c.fetchone() is not None
-            result['steps'].append(f'has mode_paiement: {has_mode}')
-            
-        return Response(result)
-    except Exception as e:
-        result['error'] = str(e)
-        return Response(result, status=500)
-
 
 class BonCaisseViewSet(viewsets.ModelViewSet):
     serializer_class   = BonCaisseSerializer
