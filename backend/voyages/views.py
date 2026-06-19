@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from accounts.permissions import TokenInQueryOrHeader
 import datetime, csv, uuid
 from django.http import HttpResponse
 from .models import Voyage
@@ -242,7 +243,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                          "top_voyageurs":list(top),"voyages":voyages_data})
 
     # ── Export CSV ─────────────────────────────────────────────────
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_csv(self, request):
         qs = Voyage.objects.select_related("personnel","batiment").order_by("-date_depart")
         response = HttpResponse(content_type="text/csv; charset=utf-8")
