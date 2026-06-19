@@ -112,10 +112,20 @@ def reset_user_password(request, user_id):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
-    """Générer un token de reset (retourne token pour email/SMS)"""
+    """Générer un token de reset — jamais exposé directement au client"""
+    from django.core.cache import cache
+
     username = request.data.get("username", "").strip()
     if not username:
         return Response({"error": "Identifiant requis"}, status=400)
+
+    # Rate limiting basique par IP : 5 tentatives / 15 min
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown')).split(',')[0].strip()
+    rl_key = f"forgot_pwd_rl:{ip}"
+    attempts = cache.get(rl_key, 0)
+    if attempts >= 5:
+        return Response({"error": "Trop de tentatives. Réessayez dans 15 minutes."}, status=429)
+    cache.set(rl_key, attempts + 1, timeout=900)
 
     user = User.objects.filter(username=username).first()
     if not user:
@@ -156,13 +166,23 @@ L\'équipe RZI Camp""",
     except Exception:
         pass
 
-    # Admin: afficher le token dans la réponse si pas d'email configuré
-    resp = {"message": "Lien de réinitialisation généré."}
+    # SÉCURITÉ CRITIQUE : ne JAMAIS renvoyer le token dans la réponse HTTP,
+    # même si l'email n'a pas pu être envoyé — sinon n'importe qui peut
+    # prendre le contrôle de n'importe quel compte (y compris admin) en
+    # appelant cet endpoint sans aucune authentification.
     if not email_sent:
-        resp["token"] = token
-        resp["note"] = "Email non configuré. Transmettez ce token à l\'utilisateur ou contactez l\'admin."
+        # Log côté serveur uniquement (visible par l'admin via les logs Render),
+        # jamais transmis au client.
+        import logging
+        logging.getLogger('security').warning(
+            f"Reset password demandé pour {username} mais email non envoyé "
+            f"(SMTP non configuré). Token généré mais NON exposé à l'API. "
+            f"Un admin doit utiliser reset_user_password pour ce compte."
+        )
 
-    return Response(resp)
+    return Response({
+        "message": "Si ce compte existe, un lien de réinitialisation a été envoyé."
+    })
 
 
 @api_view(["POST"])
