@@ -242,7 +242,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                          "top_voyageurs":list(top),"voyages":voyages_data})
 
     # ── Export CSV ─────────────────────────────────────────────────
-    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def export_csv(self, request):
         qs = Voyage.objects.select_related("personnel","batiment").order_by("-date_depart")
         response = HttpResponse(content_type="text/csv; charset=utf-8")
