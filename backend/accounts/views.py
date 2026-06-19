@@ -241,10 +241,27 @@ def diagnostic_status(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def force_seed(request):
-    """Initialiser/réinitialiser les données de base (secret requis)"""
+    """Initialiser/réinitialiser les données de base — désactivé en prod par défaut"""
+    import os
+    # SÉCURITÉ : le secret vient OBLIGATOIREMENT d'une variable d'environnement,
+    # jamais d'une valeur en dur dans le code source (visible publiquement sur GitHub).
+    # Si la variable n'est pas définie sur Render, l'endpoint est désactivé.
+    required_secret = os.environ.get('FORCE_SEED_SECRET', '')
+    if not required_secret:
+        return Response({'error': 'Endpoint désactivé (FORCE_SEED_SECRET non configuré)'}, status=403)
     secret = request.data.get('secret', '')
-    if secret != 'roxgold2026':
+    if secret != required_secret:
         return Response({'error': 'Secret invalide'}, status=403)
+    # Une fois les comptes de démo créés, ce endpoint NE DOIT PLUS recréer
+    # le mot de passe admin par défaut — seulement la 1ère fois.
+    from django.contrib.auth.models import User
+    admin_exists = User.objects.filter(username='admin', is_superuser=True).exists()
+    if admin_exists and request.data.get('force_admin_reset') != True:
+        return Response({
+            'error': 'Compte admin déjà initialisé. Ce endpoint ne peut plus réinitialiser '
+                     'le mot de passe admin par défaut pour des raisons de sécurité. '
+                     'Utilisez /api/auth/reset-password/<user_id>/ en tant qu\'admin connecté.'
+        }, status=403)
 
     results = []
     errors  = []
