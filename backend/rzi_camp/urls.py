@@ -293,29 +293,38 @@ def setup_db(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def diagnostic(request):
+    """Endpoint public de statut système — utilisé par StatusPage.jsx sans authentification
+    (page de monitoring consultée avant même qu'un login soit possible si la DB est down).
+    Volontairement minimal : ne renvoie ni comptes de lignes ni versions de dépendances,
+    qui sont des informations utiles à un attaquant en reconnaissance et inutiles
+    pour la simple question "le système répond-il"."""
     from django.db import connection
     from rest_framework.response import Response
-    import sys
-    result = {
-        'status': 'ok',
-        'database': 'disconnected',
-        'tables': {},
-        'python': sys.version,
-        'django': __import__('django').get_version(),
-    }
+    result = {'status': 'ok', 'database': 'disconnected'}
     try:
         with connection.cursor() as c:
-            c.execute("SELECT COUNT(*) FROM residences_personnel")
-            result['tables']['personnel'] = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM maintenance_incident")
-            result['tables']['incidents'] = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
-            result['tables']['consommations'] = c.fetchone()[0]
+            c.execute("SELECT 1")
         result['database'] = 'connected'
-    except Exception as e:
-        result['database_error'] = str(e)
+    except Exception:
+        result['database'] = 'disconnected'
+    # Détail (comptes, versions) réservé aux utilisateurs authentifiés
+    if request.user and request.user.is_authenticated:
+        import sys
+        result['python'] = sys.version
+        result['django'] = __import__('django').get_version()
+        try:
+            with connection.cursor() as c:
+                result['tables'] = {}
+                c.execute("SELECT COUNT(*) FROM residences_personnel")
+                result['tables']['personnel'] = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM maintenance_incident")
+                result['tables']['incidents'] = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
+                result['tables']['consommations'] = c.fetchone()[0]
+        except Exception as e:
+            result['database_error'] = str(e)
     return Response(result)
 
 @api_view(['GET'])
