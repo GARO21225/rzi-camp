@@ -38,7 +38,7 @@ from rest_framework.decorators import api_view, permission_classes as pc
 from rest_framework.permissions import AllowAny
 
 @api_view(['GET'])
-@pc([AllowAny])
+@pc([IsAuthenticated])
 def detail_incident(request, pk):
     """Detail complet avec commentaires et photos"""
     from django.db import connection
@@ -94,7 +94,7 @@ def detail_incident(request, pk):
 
 
 @api_view(['GET'])
-@pc([AllowAny])
+@pc([IsAuthenticated])
 def stats_incidents(request):
     """Stats incidents via SQL direct"""
     from django.db import connection
@@ -124,7 +124,7 @@ def stats_incidents(request):
 
 
 @api_view(['GET'])
-@pc([AllowAny])
+@pc([IsAuthenticated])
 def list_incidents(request):
     """Liste des incidents via SQL direct - bypass ORM/historique"""
     from django.db import connection
@@ -186,7 +186,7 @@ def list_incidents(request):
 
 
 @api_view(['POST'])
-@pc([AllowAny])
+@pc([IsAuthenticated])
 def declarer_incident(request):
     """Endpoint simplifié pour déclarer un incident - bypass ORM complet"""
     from django.db import connection
@@ -268,8 +268,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering         = ['-date_creation']
 
     def get_permissions(self):
-        from rest_framework.permissions import AllowAny
-        return [AllowAny()]
+        from rest_framework.permissions import IsAuthenticated
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         qs  = super().get_queryset()
