@@ -31,7 +31,6 @@ const InductionPage = lazy(() => import('./pages/InductionPage'))
 const WorkflowHub = lazy(() => import('./pages/WorkflowHub'))
 const BoutiquePOS = lazy(() => import('./pages/BoutiquePOS'))
 import Presences   from './pages/Presences'
-import RapportPage  from './pages/RapportPage'
 
 const Demandes = lazy(() => import('./pages/Demandes'))
 import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
