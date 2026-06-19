@@ -176,7 +176,21 @@ def favicon(request):
 
 
 def setup_db(request):
-    """Crée les tables manquantes en DB"""
+    """Crée les tables manquantes en DB — protégé par secret d'environnement"""
+    import os
+    from django.http import JsonResponse
+    # SÉCURITÉ : cet endpoint exécute des ALTER TABLE / CREATE TABLE arbitraires.
+    # Avant ce correctif il n'avait AUCUNE protection — accessible publiquement
+    # sans authentification, ce qui permettait à n'importe qui de modifier le
+    # schéma de la base de production. Protégé désormais par secret d'env,
+    # transmis en query param ?secret=... ou header X-Setup-Secret.
+    required_secret = os.environ.get('SETUP_DB_SECRET', '')
+    if not required_secret:
+        return JsonResponse({'error': 'Endpoint désactivé (SETUP_DB_SECRET non configuré sur Render)'}, status=403)
+    provided = request.GET.get('secret', '') or request.headers.get('X-Setup-Secret', '')
+    if provided != required_secret:
+        return JsonResponse({'error': 'Secret invalide'}, status=403)
+
     from django.db import connection
     created = []
     errors = []
