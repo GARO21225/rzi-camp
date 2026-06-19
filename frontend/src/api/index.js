@@ -18,6 +18,13 @@ const api = axios.create({
     'Accept': 'application/json',
   }
 })
+
+// Construit une URL de téléchargement de fichier en y ajoutant le token JWT courant,
+// nécessaire car <a href> et window.open() ne peuvent pas attacher de header HTTP.
+const withToken = (url) => {
+  const t = localStorage.getItem('access_token')
+  return t ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(t)}` : url
+}
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('access_token')
   if (token) cfg.headers.Authorization = `Bearer ${token}`
@@ -56,8 +63,8 @@ export const batiments = {
   stats: () => api.get('/api/batiments/stats/'),
   update: (id,d,confirm=false) => api.patch(`/api/batiments/${id}/`, {...d, confirm}),
   updateDraft: (id,d) => api.patch(`/api/batiments/${id}/`, {...d, confirm:false}),
-  exportCsv: (p) => `${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`,
-  exportBlocs: () => `${BASE}/api/batiments/export_par_bloc/`,
+  exportCsv: (p) => withToken(`${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`),
+  exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
 }
 export const personnel = {
@@ -131,7 +138,7 @@ export const occupationHistoryAdmin = {
 export const occupationHistory = {
   recherche: (p) => api.get('/api/occupation-history/recherche/', {params:p}),
   list: (p) => api.get('/api/occupation-history/', {params:p}),
-  exportCsv: (p) => `${BASE}/api/occupation-history/export_csv/?${new URLSearchParams(p||{})}`,
+  exportCsv: (p) => withToken(`${BASE}/api/occupation-history/export_csv/?${new URLSearchParams(p||{})}`),
 }
 export const voyages = {
   list: (p) => api.get('/api/voyages/', {params:p}),
@@ -141,7 +148,7 @@ export const voyages = {
   revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
   stats: () => api.get('/api/voyages/stats/'),
   vueEnsemble: (p) => api.get('/api/voyages/vue_ensemble/', {params:p}),
-  exportCsv: (p) => `${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`,
+  exportCsv: (p) => withToken(`${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`),
   annuler: (id) => api.post(`/api/voyages/${id}/annuler/`),
   supprimer: (id) => api.delete(`/api/voyages/${id}/supprimer_planifie/`),
 }
