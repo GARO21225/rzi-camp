@@ -558,7 +558,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
             "departs_s1_list":departs_s1_list,
         })
 
-    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def export_csv(self, request):
         qs = natsorted(list(Batiment.objects.select_related("personnel").all()), key=lambda x: x.residence)
         statut = request.query_params.get("statut")
@@ -578,7 +578,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 b.date_arrivee or "", b.date_depart or ""])
         return response
 
-    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def export_par_bloc(self, request):
         from django.db.models import Count, Q
         qs = Batiment.objects.values("bloc").annotate(
@@ -661,7 +661,7 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-    @action(detail=False, methods=["get"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def export_csv(self, request):
         import csv
         from django.http import HttpResponse
@@ -1148,11 +1148,10 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
                 return Response({'detail': str(e)}, status=200)  # 200 pour éviter crash frontend
 
     def get_permissions(self):
-        """Permet l'acces a update_etape et list sans authentification stricte."""
-        if self.action in ['update_etape', 'list', 'retrieve']:
-            from rest_framework.permissions import AllowAny
-            return [AllowAny()]
-        return super().get_permissions()
+        """Toutes les actions nécessitent une authentification — un dossier d'induction
+        contient des données personnelles (nom, société, scores) qui ne doivent pas être
+        lisibles ni modifiables sans session valide."""
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         qs = super().get_queryset()
