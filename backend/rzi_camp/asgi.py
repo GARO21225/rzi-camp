@@ -52,16 +52,8 @@ class CORSMiddleware:
                     event = {**event, "headers": headers}
                 await send(event)
 
-            # Répondre aux preflight OPTIONS directement
-            method = ""
-            for k, v in scope.get("headers", []):
-                if k == b":method":
-                    method = v.decode()
-                    break
-            # Chercher la méthode dans le scope
+            # Répondre aux preflight OPTIONS directement (évite un aller-retour Django)
             if scope.get("method", "") == "OPTIONS":
-                async def recv():
-                    return {"type": "http.request", "body": b"", "more_body": False}
                 await send_with_cors({"type": "http.response.start", "status": 200, "headers": []})
                 await send({"type": "http.response.body", "body": b""})
                 return
