@@ -300,7 +300,11 @@ class ArticleSerializer(drf_serializers.ModelSerializer):
     total_vendu = drf_serializers.SerializerMethodField()
 
     def get_total_vendu(self, obj):
-        """Total des quantités vendues (toutes périodes confondues)"""
+        """Total des quantités vendues — utilise l'annotation si dispo (1 requête au lieu de N)"""
+        annotated = getattr(obj, 'total_vendu_annot', None)
+        if annotated is not None:
+            return annotated
+        # Fallback si l'objet n'est pas passé par le queryset annoté (ex: create/update)
         try:
             from django.db.models import Sum
             result = obj.consommationboutique_set.aggregate(total=Sum('quantite'))
@@ -368,8 +372,15 @@ class ConsommationSerializer(drf_serializers.ModelSerializer):
         fields = '__all__'
 
 class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
-    queryset = ArticleBoutique.objects.order_by('categorie','nom')
     serializer_class = ArticleSerializer
+
+    def get_queryset(self):
+        from django.db.models import Sum
+        # Annotation: total_vendu calculé en UNE seule requête SQL (LEFT JOIN + GROUP BY)
+        # au lieu d'une requête par article (N+1)
+        return (ArticleBoutique.objects
+            .annotate(total_vendu_annot=Sum('consommationboutique__quantite'))
+            .order_by('categorie','nom'))
 
     @action(detail=True, methods=['post'])
     def ajuster_stock(self, request, pk=None):
