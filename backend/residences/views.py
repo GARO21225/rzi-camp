@@ -3,6 +3,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from accounts.permissions import TokenInQueryOrHeader
 from .models import InductionRecord, Batiment, Personnel, OccupationHistory, Demande
 from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer, InductionRecordSerializer
 import csv, datetime
@@ -558,7 +559,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
             "departs_s1_list":departs_s1_list,
         })
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_csv(self, request):
         qs = natsorted(list(Batiment.objects.select_related("personnel").all()), key=lambda x: x.residence)
         statut = request.query_params.get("statut")
@@ -578,7 +579,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 b.date_arrivee or "", b.date_depart or ""])
         return response
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_par_bloc(self, request):
         from django.db.models import Count, Q
         qs = Batiment.objects.values("bloc").annotate(
@@ -661,7 +662,7 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_csv(self, request):
         import csv
         from django.http import HttpResponse
