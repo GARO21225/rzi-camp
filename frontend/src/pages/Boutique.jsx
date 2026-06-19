@@ -3,7 +3,7 @@
  * BAR & BOUTIQUE — CRUD complet Admin
  * Ajouter / Modifier / Supprimer articles + catégories + images
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import api from '../api'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
@@ -996,10 +996,20 @@ export default function Boutique() {
   }
 
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
-  const arts = articles.filter(a=>(!catFilter||a.categorie===catFilter)&&(!search||a.nom.toLowerCase().includes(search.toLowerCase())))
-  const byCat = arts.reduce((acc,a)=>({...acc,[a.categorie]:[...(acc[a.categorie]||[]),a]}),{})
+  const arts = useMemo(() =>
+    articles.filter(a=>(!catFilter||a.categorie===catFilter)&&(!search||a.nom.toLowerCase().includes(search.toLowerCase()))),
+    [articles, catFilter, search]
+  )
+  const byCat = useMemo(() => {
+    const acc = {}
+    for (const a of arts) {
+      if (!acc[a.categorie]) acc[a.categorie] = []
+      acc[a.categorie].push(a)
+    }
+    return acc
+  }, [arts])
   // Toutes les catégories dynamiques présentes
-  const allCatsPresent = [...new Set(articles.map(a=>a.categorie))]
+  const allCatsPresent = useMemo(() => [...new Set(articles.map(a=>a.categorie))], [articles])
   const catOrder = ['gazeuse','jus','energie','eau','biere','vin_rouge','vin_blanc','vin_rose','champagne','spiritueux','liqueur','cafe','the',...allCatsPresent.filter(c=>!Object.keys(CAT_DEFAULTS).includes(c)),'autre']
 
   return (
