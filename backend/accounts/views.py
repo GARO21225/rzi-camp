@@ -213,9 +213,11 @@ def reset_password_confirm(request):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def diagnostic_status(request):
-    """Diagnostic public — état de la base de données"""
+    """Diagnostic — état de la base de données (authentification requise :
+    le nombre d'utilisateurs/personnel/bâtiments est une information interne,
+    utile pour de la reconnaissance par un attaquant si exposée publiquement)."""
     from django.db import connection
     results = {}
     checks = {
