@@ -792,6 +792,94 @@ export default function Maintenance() {
           )
         })()}
 
+        {/* ── KPIs complémentaires : priorité, charge technicien, top résidences ── */}
+        {incidents.length > 0 && (() => {
+          const byPrioFull = { critique:0, haute:0, moyenne:0, basse:0 }
+          incidents.forEach(i => { if (i.priorite && byPrioFull[i.priorite] !== undefined) byPrioFull[i.priorite]++ })
+          const prioTotal = Object.values(byPrioFull).reduce((s,n)=>s+n,0)
+
+          const byTech = {}
+          incidents.forEach(i => {
+            const nom = i.assigne_a_nom || i.assigne_a_username || (i.assigne_a ? `Technicien #${i.assigne_a}` : null)
+            if (nom) byTech[nom] = (byTech[nom] || 0) + 1
+          })
+          const topTechs = Object.entries(byTech).sort((a,b)=>b[1]-a[1]).slice(0,5)
+
+          const byResidence = {}
+          incidents.forEach(i => { if (i.residence) byResidence[i.residence] = (byResidence[i.residence] || 0) + 1 })
+          const topResidences = Object.entries(byResidence).sort((a,b)=>b[1]-a[1]).slice(0,5)
+
+          const critResolus = incidents.filter(i => i.priorite==='critique' && ['resolu','cloture'].includes(i.statut))
+          const critTotal = incidents.filter(i => i.priorite==='critique')
+          const tauxCritResolu = critTotal.length ? Math.round(critResolus.length / critTotal.length * 100) : null
+
+          const PRIO_COLORS = { critique:'#DC2626', haute:'#D4A017', moyenne:'#2563EB', basse:'#16A34A' }
+          const PRIO_LABELS = { critique:'Critique', haute:'Haute', moyenne:'Moyenne', basse:'Basse' }
+
+          return (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14, marginBottom:20 }}>
+
+              {/* Répartition par priorité */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>🎯 Par priorité</h3>
+                {prioTotal === 0 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune donnée</p>
+                ) : Object.entries(byPrioFull).filter(([,n])=>n>0).map(([k,n]) => (
+                  <div key={k} style={{ marginBottom:9 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                      <span style={{ fontSize:11.5, color:'var(--rzc-text-2)' }}>{PRIO_LABELS[k]}</span>
+                      <span style={{ fontSize:11.5, fontWeight:700, color:PRIO_COLORS[k] }}>{n} ({Math.round(n/prioTotal*100)}%)</span>
+                    </div>
+                    <div style={{ height:6, background:'rgba(15,26,46,.06)', borderRadius:99, overflow:'hidden' }}>
+                      <div style={{ width:`${n/prioTotal*100}%`, height:'100%', background:PRIO_COLORS[k], borderRadius:99 }}/>
+                    </div>
+                  </div>
+                ))}
+                {tauxCritResolu !== null && (
+                  <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--rzc-border)' }}>
+                    <span style={{ fontSize:11, color:'var(--rzc-text-3)' }}>Critiques résolus : </span>
+                    <span style={{ fontSize:13, fontWeight:700, color: tauxCritResolu>=80?'#15803D':'#DC2626' }}>{tauxCritResolu}%</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Charge par technicien */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>👷 Charge par technicien</h3>
+                {topTechs.length === 0 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune assignation</p>
+                ) : topTechs.map(([nom,n]) => (
+                  <div key={nom} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
+                    <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', flex:1, overflow:'hidden',
+                      textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nom}</span>
+                    <div style={{ height:6, width:70, background:'rgba(15,26,46,.06)', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
+                      <div style={{ width:`${Math.round(n/topTechs[0][1]*100)}%`, height:'100%', background:'var(--rzc-navy)', borderRadius:99 }}/>
+                    </div>
+                    <span style={{ fontSize:11.5, fontWeight:700, color:'var(--rzc-navy)', flexShrink:0, minWidth:18, textAlign:'right' }}>{n}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Top résidences à incidents */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>🏠 Résidences les + touchées</h3>
+                {topResidences.length === 0 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune donnée</p>
+                ) : topResidences.map(([res,n]) => (
+                  <div key={res} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
+                    <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', flex:1, overflow:'hidden',
+                      textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{res}</span>
+                    <div style={{ height:6, width:70, background:'rgba(15,26,46,.06)', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
+                      <div style={{ width:`${Math.round(n/topResidences[0][1]*100)}%`, height:'100%', background:'var(--rzc-ore-gold)', borderRadius:99 }}/>
+                    </div>
+                    <span style={{ fontSize:11.5, fontWeight:700, color:'var(--rzc-ore-gold)', flexShrink:0, minWidth:18, textAlign:'right' }}>{n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ── Graphiques visuels à l'écran (camembert, histogramme, courbe) ── */}
         {incidents.length > 0 && (() => {
           const COLORS_STATUT = { declare:'#2563EB', assigne:'#D4A017', en_cours:'#B87333', resolu:'#16A34A', cloture:'#5B6472' }
@@ -834,7 +922,7 @@ export default function Maintenance() {
           const ROXGOLD_BARS = ['#0F2A5C','#2563EB','#D4A017','#B87333','#16A34A','#DC2626','#5B6472','#7C3AED']
 
           return (
-            <div className="rzc-card-hover" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
               gap:14, marginBottom:20 }}>
 
               {/* Camembert statuts */}
@@ -866,7 +954,7 @@ export default function Maintenance() {
                 {catData.length === 0 ? (
                   <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'30px 0' }}>Aucune donnée</p>
                 ) : (
-                  <svg width="100%" height={170} viewBox={`0 0 ${catData.length*(barW+10)+20} 170`} preserveAspectRatio="xMinYMid meet">
+                  <svg width="100%" height={150} style={{maxHeight:150}} viewBox={`0 0 ${catData.length*(barW+10)+20} 170`} preserveAspectRatio="xMinYMid meet">
                     {catData.map(([cat,n],i) => {
                       const h = Math.round((n/maxCatVal)*120)
                       const x = i*(barW+10)+10
@@ -889,7 +977,7 @@ export default function Maintenance() {
                 {monthData.length < 2 ? (
                   <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'30px 0' }}>Données insuffisantes (minimum 2 mois)</p>
                 ) : (
-                  <svg width="100%" height={170} viewBox="0 0 380 170" preserveAspectRatio="xMinYMid meet">
+                  <svg width="100%" height={150} style={{maxHeight:150}} viewBox="0 0 380 170" preserveAspectRatio="xMinYMid meet">
                     {(() => {
                       const pts = monthData.map(([,n],i) => ({
                         x: 20 + i*(340/(monthData.length-1)),
