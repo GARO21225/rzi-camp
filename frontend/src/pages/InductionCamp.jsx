@@ -118,10 +118,15 @@ export default function InductionCamp() {
   // Vérifier si induction déjà validée
   useEffect(() => {
     const checkExisting = async () => {
+      // Timeout de 8s : si le backend est en cold start (plan Render gratuit,
+      // 10-60s de réveil), on n'attend pas indéfiniment avec un écran bloqué —
+      // on suppose "pas encore complété" et le parcours démarre normalement.
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
       try {
         const r = await fetch(
           `${BASE}/api/induction-records/?personnel=${user?.profile?.id||''}`,
-          { headers: { Authorization: `Bearer ${tok()}` } }
+          { headers: { Authorization: `Bearer ${tok()}` }, signal: controller.signal }
         )
         const d = await r.json()
         const records = d.results || d || []
@@ -130,7 +135,8 @@ export default function InductionCamp() {
           rec.personnel_id === user?.profile?.id
         )
         if (myRecord?.statut === 'valide') setDejaComplete(true)
-      } catch(e) {}
+      } catch(e) { /* timeout ou réseau indisponible — on démarre le parcours par défaut */ }
+      finally { clearTimeout(timeoutId) }
       setLoadingCheck(false)
     }
     checkExisting()
