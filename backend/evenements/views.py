@@ -83,9 +83,12 @@ class EvenementViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def agenda(self, request):
         import django.utils.timezone as tz
-        qs = Evenement.objects.filter(
-            date_debut__gte=tz.now(), statut__in=["planifie","en_cours"]
-        ).order_by("date_debut")[:10]
+        from django.db.models import Count
+        qs = (Evenement.objects
+            .select_related('cree_par')
+            .annotate(nb_notifies_annot=Count('notifications'))
+            .filter(date_debut__gte=tz.now(), statut__in=["planifie","en_cours"])
+            .order_by("date_debut")[:10])
         return Response(EvenementSerializer(qs, many=True).data)
 
 
