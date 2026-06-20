@@ -309,7 +309,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPIs PRINCIPAUX ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
         <Kpi loading={loading && !sync} icon="🏠" label="Occupation camp" accent="gold"
           value={taux !== null ? `${taux}%` : '—'}
           sub={`${occupes} occupées · ${libres} libres`} />
