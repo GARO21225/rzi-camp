@@ -137,7 +137,7 @@ function Panel({ title, action, children, style = {} }) {
 
 function ProgBar({ value, color = 'var(--rzc-ore-gold)' }) {
   return (
-    <div style={{ height: 5, background: 'rgba(255,255,255,.06)', borderRadius: 99, overflow: 'hidden', marginTop: 5 }}>
+    <div style={{ height: 5, background: 'rgba(15,26,46,.07)', borderRadius: 99, overflow: 'hidden', marginTop: 5 }}>
       <div style={{ width: `${Math.min(100, Math.max(0, value || 0))}%`, height: '100%',
         background: color, borderRadius: 99, transition: 'width .6s ease' }} />
     </div>
@@ -149,7 +149,7 @@ function AlertRow({ icon, title, desc, severity = 'info' }) {
   const borderColor = { ok:'var(--rzc-green)', alert:'var(--rzc-red)', info:'var(--rzc-blue)', gold:'var(--rzc-ore-gold)' }[severity]
   return (
     <div style={{ display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 8,
-      background: 'rgba(255,255,255,.03)', borderLeft: `3px solid ${borderColor}`, marginBottom: 8 }}>
+      background: 'rgba(15,26,46,.025)', borderLeft: `3px solid ${borderColor}`, marginBottom: 8 }}>
       <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--rzc-text)', margin: 0 }}>{title}</p>
@@ -297,9 +297,9 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6,
             background: 'var(--rzc-green-l)', border: '1px solid rgba(74,222,128,.25)',
-            borderRadius: 99, padding: '5px 13px', fontSize: 11, fontWeight: 700, color: '#4ADE80' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80',
-              display: 'inline-block', boxShadow: '0 0 6px #4ADE80' }} />
+            borderRadius: 99, padding: '5px 13px', fontSize: 11, fontWeight: 700, color: '#15803D' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A',
+              display: 'inline-block', boxShadow: '0 0 6px rgba(22,163,74,.5)' }} />
             Opérations en direct
           </div>
           <button className="rzc-btn rzc-btn-primary" onClick={load} disabled={loading}>
@@ -377,7 +377,7 @@ export default function Dashboard() {
           {critiques === 0 && sla === 0 && !stockCritiqueCount && (
             <div style={{ textAlign: 'center', padding: '28px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-              <p style={{ fontWeight: 700, fontSize: 14, color: '#4ADE80', margin: 0 }}>Opérations nominales</p>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#15803D', margin: 0 }}>Opérations nominales</p>
               <p style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginTop: 4 }}>Aucune alerte active</p>
             </div>
           )}
@@ -396,7 +396,7 @@ export default function Dashboard() {
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--rzc-text-2)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{s}</span>
                   <span style={{ fontSize: 12, fontWeight: 700,
-                    color: pct >= 80 ? '#4ADE80' : pct >= 60 ? 'var(--rzc-bright-gold)' : '#F87171' }}>{pct}%</span>
+                    color: pct >= 80 ? '#15803D' : pct >= 60 ? 'var(--rzc-bright-gold)' : '#DC2626' }}>{pct}%</span>
                 </div>
                 <ProgBar value={pct} color={pct >= 80 ? 'var(--rzc-green)' : pct >= 60 ? 'var(--rzc-bright-gold)' : 'var(--rzc-red)'} />
                 <p style={{ fontSize: 10, color: 'var(--rzc-text-4)', marginTop: 3 }}>{i}/{t} membres</p>
@@ -431,7 +431,7 @@ export default function Dashboard() {
             {MODULES.map(({ icon, label, path }) => (
               <div key={path} onClick={() => nav(path)}
                 className="rzc-card-hover"
-                style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--rzc-border)',
+                style={{ background: 'rgba(15,26,46,.025)', border: '1px solid var(--rzc-border)',
                   borderRadius: 9, padding: '11px 12px', cursor: 'pointer', textAlign: 'center' }}>
                 <div style={{ fontSize: 19, marginBottom: 4 }}>{icon}</div>
                 <p style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--rzc-text-2)', margin: 0 }}>{label}</p>
