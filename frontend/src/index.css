@@ -264,39 +264,54 @@ input, select, textarea {
    de nombreux composants existants en dépendent encore.
    ══════════════════════════════════════════════════════════════════ */
 :root {
-  /* Couleurs de marque Roxgold */
-  --rzc-charcoal:      #0B0F14;  /* Noir charbon — fonds, sidebar, nav */
-  --rzc-charcoal-l1:   #11161D;  /* charbon +1 niveau (cards sur fond noir) */
-  --rzc-charcoal-l2:   #161C25;  /* charbon +2 niveaux (hover, inputs) */
-  --rzc-rock-gray:     #374151;  /* Gris roche — éléments secondaires */
-  --rzc-ore-gold:      #C9972B;  /* Or minerai — identité, actions importantes */
-  --rzc-ore-gold-l:    rgba(201,151,43,.15);
-  --rzc-bright-gold:   #F5C542;  /* Or lumineux — KPI, alertes positives */
-  --rzc-bright-gold-l: rgba(245,197,66,.15);
-  --rzc-copper:        #B87333;  /* Cuivre métal — accents premium */
-  --rzc-white:         #F8FAFC;  /* Blanc industriel — cartes et contenus clairs */
+  /* ── Identité Roxgold réelle : bleu marine + or + blanc (logo) ──
+     Le fond sombre charbon est réservé à la SIDEBAR uniquement (--rzc-sidebar-*).
+     Tout le contenu (pages, cards, KPI, modals) est désormais en fond CLAIR
+     pour une lisibilité maximale — c'est le changement demandé. */
+  --rzc-navy:          #0F2A5C;  /* Bleu marine Roxgold — identité, headers, actions */
+  --rzc-navy-l:        rgba(15,42,92,.08);
+  --rzc-navy-l2:       rgba(15,42,92,.14);
+  --rzc-ore-gold:      #C9972B;  /* Or minerai — accents, bordures actives */
+  --rzc-ore-gold-l:    rgba(201,151,43,.12);
+  --rzc-bright-gold:   #D4A017;  /* Or — KPI, valeurs mises en avant (assombri pour contraste sur blanc) */
+  --rzc-bright-gold-l: rgba(212,160,23,.14);
+  --rzc-copper:        #B87333;  /* Cuivre — accents secondaires */
+  --rzc-white:         #FFFFFF;
   --rzc-blue:          #2563EB;  /* Bleu sécurité — informations */
-  --rzc-blue-l:        rgba(37,99,235,.15);
+  --rzc-blue-l:        rgba(37,99,235,.10);
   --rzc-green:         #16A34A;  /* Vert opérationnel — statuts OK */
-  --rzc-green-l:       rgba(22,163,74,.15);
+  --rzc-green-l:       rgba(22,163,74,.10);
   --rzc-red:           #DC2626;  /* Rouge alerte — incidents */
-  --rzc-red-l:         rgba(220,38,38,.15);
+  --rzc-red-l:         rgba(220,38,38,.10);
 
-  /* Texte sur fond sombre */
-  --rzc-text:          #F1F5F9;
-  --rzc-text-2:        #CBD5E1;
-  --rzc-text-3:        #8B95A1;
-  --rzc-text-4:        #5B6472;
-  --rzc-border:        rgba(255,255,255,.08);
-  --rzc-border-light:  rgba(255,255,255,.14);
+  /* Fonds de contenu — clairs, blanc industriel */
+  --rzc-charcoal:      #F4F6F9;  /* anciennement fond sombre → fond de PAGE clair */
+  --rzc-charcoal-l1:   #FFFFFF;  /* anciennement carte sombre niveau 1 → carte blanche */
+  --rzc-charcoal-l2:   #EEF1F6;  /* anciennement niveau 2 → gris très clair (hover, inputs) */
+  --rzc-rock-gray:     #5B6472;  /* Gris roche — texte secondaire, éléments neutres */
 
-  /* Élévation / ombres (mode sombre industriel) */
-  --rzc-shadow-sm:  0 1px 2px rgba(0,0,0,.4);
-  --rzc-shadow:     0 4px 16px rgba(0,0,0,.5);
-  --rzc-shadow-lg:  0 12px 32px rgba(0,0,0,.6);
-  --rzc-glow-gold:  0 0 24px rgba(245,197,66,.25);
-  --rzc-glow-blue:  0 0 24px rgba(37,99,235,.2);
-  --rzc-glow-red:   0 0 24px rgba(220,38,38,.25);
+  /* Texte — sombre sur fond clair, contraste vérifié AA */
+  --rzc-text:          #0F1A2E;  /* texte principal, quasi-noir bleuté */
+  --rzc-text-2:        #2D3B52;
+  --rzc-text-3:        #5B6472;
+  --rzc-text-4:        #8B95A1;
+  --rzc-border:        rgba(15,26,46,.09);
+  --rzc-border-light:  rgba(15,26,46,.14);
+
+  /* Sidebar — seule zone qui reste sombre, par choix explicite */
+  --rzc-sidebar-bg:        #0B0F14;
+  --rzc-sidebar-bg-l1:     #161C25;
+  --rzc-sidebar-text:      #C9D2DC;
+  --rzc-sidebar-text-dim:  #6B7686;
+  --rzc-sidebar-border:    rgba(255,255,255,.08);
+
+  /* Élévation / ombres — douces, adaptées au fond clair */
+  --rzc-shadow-sm:  0 1px 3px rgba(15,26,46,.07);
+  --rzc-shadow:     0 4px 16px rgba(15,26,46,.10);
+  --rzc-shadow-lg:  0 12px 32px rgba(15,26,46,.16);
+  --rzc-glow-gold:  0 0 0 3px rgba(212,160,23,.15);
+  --rzc-glow-blue:  0 0 0 3px rgba(37,99,235,.15);
+  --rzc-glow-red:   0 0 0 3px rgba(220,38,38,.15);
 
   /* Rayons et espacements */
   --rzc-radius-sm:  6px;
@@ -363,7 +378,7 @@ input, select, textarea {
 .rzc-badge-alert   { background: var(--rzc-red-l);    color: #F87171; border-color: rgba(248,113,113,.3); }
 .rzc-badge-info    { background: var(--rzc-blue-l);   color: #60A5FA; border-color: rgba(96,165,250,.3); }
 .rzc-badge-gold    { background: var(--rzc-bright-gold-l); color: var(--rzc-bright-gold); border-color: rgba(245,197,66,.3); }
-.rzc-badge-neutral { background: rgba(255,255,255,.06); color: var(--rzc-text-3); border-color: var(--rzc-border); }
+.rzc-badge-neutral { background: rgba(15,26,46,.05); color: var(--rzc-text-3); border-color: var(--rzc-border); }
 
 /* ── Boutons industriels ── */
 .rzc-btn {
@@ -378,10 +393,10 @@ input, select, textarea {
 }
 .rzc-btn-primary:hover { box-shadow: 0 4px 16px rgba(201,151,43,.5); transform: translateY(-1px); }
 .rzc-btn-ghost {
-  background: rgba(255,255,255,.04); color: var(--rzc-text-2);
+  background: rgba(15,26,46,.04); color: var(--rzc-text-2);
   border: 1px solid var(--rzc-border-light);
 }
-.rzc-btn-ghost:hover { background: rgba(255,255,255,.08); }
+.rzc-btn-ghost:hover { background: rgba(15,26,46,.07); }
 .rzc-btn-danger { background: var(--rzc-red-l); color: #F87171; border: 1px solid rgba(248,113,113,.3); }
 
 /* ── Sidebar industrielle (mode sombre nouvelle identité) ── */
@@ -416,14 +431,14 @@ input, select, textarea {
 .rzc-table th {
   padding: 11px 14px; text-align: left; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .6px; color: var(--rzc-text-3);
-  background: rgba(255,255,255,.02); border-bottom: 1px solid var(--rzc-border);
+  background: rgba(15,26,46,.025); border-bottom: 1px solid var(--rzc-border);
   white-space: nowrap;
 }
 .rzc-table td {
   padding: 12px 14px; border-bottom: 1px solid var(--rzc-border); color: var(--rzc-text-2);
 }
 .rzc-table tbody tr { transition: background .12s ease; }
-.rzc-table tbody tr:hover { background: rgba(245,197,66,.04); }
+.rzc-table tbody tr:hover { background: rgba(212,160,23,.06); }
 
 /* ── Skeleton loader industriel (anti-écran-blanc) ── */
 @keyframes rzcShimmer {
@@ -440,7 +455,7 @@ input, select, textarea {
 /* ── Search globale ── */
 .rzc-search {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,.05); border: 1px solid var(--rzc-border-light);
+  background: rgba(15,26,46,.035); border: 1px solid var(--rzc-border-light);
   border-radius: var(--rzc-radius); padding: 8px 14px;
 }
 .rzc-search input {
@@ -464,10 +479,14 @@ input, select, textarea {
 .rzc-fade-in { animation: rzcFadeIn .25s ease; }
 
 /* ── Scope sombre : appliquer uniquement aux pages qui adoptent la nouvelle identité ── */
-.rzc-dark-scope {
+/* .rzc-page-scope est le nom actuel (fond clair). .rzc-dark-scope est conservé comme
+   alias pour ne pas casser Dashboard.jsx / Personnel.jsx qui l'utilisent déjà. */
+.rzc-page-scope, .rzc-dark-scope {
   background: var(--rzc-charcoal);
   color: var(--rzc-text);
   min-height: 100vh;
 }
+.rzc-page-scope h1, .rzc-page-scope h2, .rzc-page-scope h3,
 .rzc-dark-scope h1, .rzc-dark-scope h2, .rzc-dark-scope h3 { color: var(--rzc-text); }
+.rzc-page-scope ::-webkit-scrollbar-thumb,
 .rzc-dark-scope ::-webkit-scrollbar-thumb { background: var(--rzc-border-light); }
