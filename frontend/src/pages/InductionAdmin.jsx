@@ -121,8 +121,14 @@ export default function InductionAdmin() {
   const [saving, setSaving] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
 
+  const DEFAULT_CONFIG = {
+    nom: 'Camp Résidentiel', site: '', capacite: 0,
+    superficie: '', altitude: '', duree_parcours_min: 15,
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
+    const failed = []
     try {
       const [rC, rI, rR, rQ] = await Promise.allSettled([
         inductionConfig.actuelle(),
@@ -131,10 +137,19 @@ export default function InductionAdmin() {
         inductionQuiz.list(),
       ])
       if (rC.status === 'fulfilled') setConfig(rC.value.data)
+      else { failed.push('configuration'); setConfig(DEFAULT_CONFIG) }
       if (rI.status === 'fulfilled') setInfras(rI.value.data.results || rI.value.data || [])
+      else failed.push('infrastructures')
       if (rR.status === 'fulfilled') setRegles(rR.value.data.results || rR.value.data || [])
+      else failed.push('règles')
       if (rQ.status === 'fulfilled') setQuiz(rQ.value.data.results || rQ.value.data || [])
-    } catch (e) { setErr('Erreur de chargement') }
+      else failed.push('quiz')
+      if (failed.length) {
+        setErr(`Chargement partiel — ${failed.join(', ')} indisponible(s). ` +
+          `Si le problème persiste, les tables de la base ne sont peut-être pas encore créées ` +
+          `(exécuter /api/setup-db/ une fois côté backend).`)
+      }
+    } catch (e) { setErr('Erreur de chargement'); setConfig(DEFAULT_CONFIG) }
     setLoading(false)
   }, [])
 
