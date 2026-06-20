@@ -73,6 +73,7 @@ export const inductionConfig = {
   list:     () => api.get('/api/induction-config/'),
   create:   (d) => api.post('/api/induction-config/', d),
   update:   (id, d) => api.patch(`/api/induction-config/${id}/`, d),
+  importerDonneesOriginales: () => api.post('/api/induction-config/importer_donnees_originales/'),
 }
 export const inductionInfras = {
   list:   (p) => api.get('/api/induction-infras/', { params: p }),
