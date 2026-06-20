@@ -281,6 +281,66 @@ def setup_db(request):
                 except Exception: pass
             created.append("voyage_rotation_fields")
 
+            # ── Contenu éditable Induction Camp ──
+            c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='residences_inductioncampconfig')")
+            if not c.fetchone()[0]:
+                c.execute("""CREATE TABLE residences_inductioncampconfig (
+                    id BIGSERIAL PRIMARY KEY,
+                    nom VARCHAR(200) NOT NULL DEFAULT 'Camp Résidentiel',
+                    site VARCHAR(200) NOT NULL DEFAULT '',
+                    capacite INTEGER NOT NULL DEFAULT 0,
+                    superficie VARCHAR(50) NOT NULL DEFAULT '',
+                    altitude VARCHAR(50) NOT NULL DEFAULT '',
+                    duree_parcours_min INTEGER NOT NULL DEFAULT 15,
+                    date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )""")
+                created.append('residences_inductioncampconfig')
+
+            c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='residences_inductioninfra')")
+            if not c.fetchone()[0]:
+                c.execute("""CREATE TABLE residences_inductioninfra (
+                    id BIGSERIAL PRIMARY KEY,
+                    titre VARCHAR(100) NOT NULL DEFAULT '',
+                    emoji VARCHAR(10) NOT NULL DEFAULT '🏠',
+                    couleur VARCHAR(20) NOT NULL DEFAULT '#3b82f6',
+                    description TEXT NOT NULL DEFAULT '',
+                    details JSONB NOT NULL DEFAULT '[]',
+                    photo_base64 TEXT NOT NULL DEFAULT '',
+                    photo_mime VARCHAR(50) NOT NULL DEFAULT 'image/jpeg',
+                    ordre INTEGER NOT NULL DEFAULT 0,
+                    actif BOOLEAN NOT NULL DEFAULT TRUE,
+                    date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )""")
+                created.append('residences_inductioninfra')
+
+            c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='residences_inductionregle')")
+            if not c.fetchone()[0]:
+                c.execute("""CREATE TABLE residences_inductionregle (
+                    id BIGSERIAL PRIMARY KEY,
+                    titre VARCHAR(150) NOT NULL DEFAULT '',
+                    emoji VARCHAR(10) NOT NULL DEFAULT '📋',
+                    niveau VARCHAR(20) NOT NULL DEFAULT 'standard',
+                    texte TEXT NOT NULL DEFAULT '',
+                    ordre INTEGER NOT NULL DEFAULT 0,
+                    actif BOOLEAN NOT NULL DEFAULT TRUE,
+                    date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )""")
+                created.append('residences_inductionregle')
+
+            c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='residences_inductionquizquestion')")
+            if not c.fetchone()[0]:
+                c.execute("""CREATE TABLE residences_inductionquizquestion (
+                    id BIGSERIAL PRIMARY KEY,
+                    question TEXT NOT NULL DEFAULT '',
+                    options JSONB NOT NULL DEFAULT '[]',
+                    bonne_reponse SMALLINT NOT NULL DEFAULT 0,
+                    explication TEXT NOT NULL DEFAULT '',
+                    ordre INTEGER NOT NULL DEFAULT 0,
+                    actif BOOLEAN NOT NULL DEFAULT TRUE,
+                    date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )""")
+                created.append('residences_inductionquizquestion')
+
     except Exception as e:
         errors.append(str(e))
 
