@@ -4,8 +4,12 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import TokenInQueryOrHeader
-from .models import InductionRecord, Batiment, Personnel, OccupationHistory, Demande
-from .serializers import BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer, DemandeSerializer, InductionRecordSerializer
+from .models import (InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
+    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion)
+from .serializers import (BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
+    DemandeSerializer, InductionRecordSerializer, InductionCampConfigSerializer,
+    InductionInfraSerializer, InductionRegleSerializer, InductionQuizQuestionSerializer,
+    InductionQuizQuestionPublicSerializer)
 import csv, datetime
 from django.http import HttpResponse
 from natsort import natsorted
@@ -1230,3 +1234,123 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
                 'error': str(e), 
                 'traceback': traceback.format_exc()
             }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CONTENU ÉDITABLE — Induction Camp
+#  CRUD complet réservé aux admins en écriture ; lecture ouverte à tout
+#  utilisateur authentifié (le personnel doit pouvoir consulter le
+#  contenu de son propre parcours d'induction).
+# ═══════════════════════════════════════════════════════════════════
+
+def _is_admin_user(user):
+    if user.is_staff or user.is_superuser:
+        return True
+    try:
+        return user.profile.role == 'admin'
+    except Exception:
+        return False
+
+
+class InductionAdminWriteMixin:
+    """Lecture pour tout utilisateur authentifié, écriture réservée aux admins."""
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def _check_admin(self, request):
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+        return None
+
+    def create(self, request, *args, **kwargs):
+        err = self._check_admin(request)
+        if err: return err
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        err = self._check_admin(request)
+        if err: return err
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        err = self._check_admin(request)
+        if err: return err
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        err = self._check_admin(request)
+        if err: return err
+        return super().destroy(request, *args, **kwargs)
+
+
+class InductionCampConfigViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    queryset = InductionCampConfig.objects.all()
+    serializer_class = InductionCampConfigSerializer
+
+    @action(detail=False, methods=["get"])
+    def actuelle(self, request):
+        """Renvoie la configuration la plus récente, ou un objet vide si aucune n'existe."""
+        cfg = InductionCampConfig.objects.order_by("-id").first()
+        if not cfg:
+            return Response({
+                "id": None, "nom": "Camp Résidentiel", "site": "", "capacite": 0,
+                "superficie": "", "altitude": "", "duree_parcours_min": 15,
+            })
+        return Response(InductionCampConfigSerializer(cfg).data)
+
+
+class InductionInfraViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    serializer_class = InductionInfraSerializer
+
+    def get_queryset(self):
+        qs = InductionInfra.objects.all()
+        if self.request.query_params.get("actives_only"):
+            qs = qs.filter(actif=True)
+        return qs.order_by("ordre", "id")
+
+
+class InductionRegleViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    serializer_class = InductionRegleSerializer
+
+    def get_queryset(self):
+        qs = InductionRegle.objects.all()
+        if self.request.query_params.get("actives_only"):
+            qs = qs.filter(actif=True)
+        return qs.order_by("ordre", "id")
+
+
+class InductionQuizQuestionViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    """Le serializer change selon le rôle : un admin voit la bonne réponse pour
+    l'éditer, un agent qui passe le quiz ne la voit jamais dans la réponse réseau."""
+    queryset = InductionQuizQuestion.objects.all().order_by("ordre", "id")
+
+    def get_serializer_class(self):
+        if _is_admin_user(self.request.user):
+            return InductionQuizQuestionSerializer
+        return InductionQuizQuestionPublicSerializer
+
+    def get_queryset(self):
+        qs = InductionQuizQuestion.objects.all()
+        if self.request.query_params.get("actives_only"):
+            qs = qs.filter(actif=True)
+        return qs.order_by("ordre", "id")
+
+    @action(detail=False, methods=["post"])
+    def verifier(self, request):
+        """Vérifie les réponses soumises sans jamais exposer les bonnes réponses
+        d'avance. Payload attendu: {"reponses": {"<question_id>": <index_choisi>, ...}}"""
+        reponses = request.data.get("reponses", {})
+        questions = InductionQuizQuestion.objects.filter(actif=True)
+        total = questions.count()
+        correctes = 0
+        detail = []
+        for q in questions:
+            choisi = reponses.get(str(q.id))
+            ok = choisi is not None and int(choisi) == q.bonne_reponse
+            if ok: correctes += 1
+            detail.append({
+                "id": q.id, "correct": ok,
+                "bonne_reponse": q.bonne_reponse, "explication": q.explication,
+            })
+        score = round(correctes / total * 100) if total else 0
+        return Response({"score": score, "correctes": correctes, "total": total, "detail": detail})
