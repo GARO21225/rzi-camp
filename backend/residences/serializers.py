@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Batiment, Personnel, OccupationHistory, InductionRecord
+from .models import (Batiment, Personnel, OccupationHistory, InductionRecord,
+    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion)
 
 class PersonnelSerializer(serializers.ModelSerializer):
     type_label      = serializers.SerializerMethodField()
@@ -136,3 +137,36 @@ class InductionRecordSerializer(serializers.ModelSerializer):
             "progression",
         ]
         read_only_fields = ["date_debut", "date_fin", "badge_date"]
+
+
+# ── Contenu éditable Induction Camp ──────────────────────────────────
+class InductionCampConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InductionCampConfig
+        fields = "__all__"
+
+
+class InductionInfraSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InductionInfra
+        fields = "__all__"
+
+
+class InductionRegleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InductionRegle
+        fields = "__all__"
+
+
+class InductionQuizQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InductionQuizQuestion
+        fields = "__all__"
+
+
+class InductionQuizQuestionPublicSerializer(serializers.ModelSerializer):
+    """Version sans la bonne réponse — exposée au personnel qui passe le quiz,
+    pour éviter de tricher en lisant la réponse dans la requête réseau."""
+    class Meta:
+        model = InductionQuizQuestion
+        fields = ["id", "question", "options", "ordre"]
