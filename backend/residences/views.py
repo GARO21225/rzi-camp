@@ -1300,6 +1300,7 @@ class InductionCampConfigViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet
 
 
 class InductionInfraViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    queryset = InductionInfra.objects.all()  # requis par DRF pour le basename du router
     serializer_class = InductionInfraSerializer
 
     def get_queryset(self):
@@ -1310,6 +1311,7 @@ class InductionInfraViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
 
 
 class InductionRegleViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet):
+    queryset = InductionRegle.objects.all()  # requis par DRF pour le basename du router
     serializer_class = InductionRegleSerializer
 
     def get_queryset(self):
