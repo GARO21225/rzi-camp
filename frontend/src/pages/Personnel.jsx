@@ -19,7 +19,7 @@ class PersonnelBoundary extends React.Component {
           {this.state.err}
         </div>
         <button onClick={()=>this.setState({err:null})}
-          style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 24px',
+          style={{background:'var(--rzc-ore-gold)',color:'#1A1206',border:'none',padding:'10px 24px',
             borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700}}>
           🔄 Réessayer
         </button>
@@ -184,9 +184,9 @@ export default function Personnel() {
 
   // Styles
   const inp = {
-    width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
+    width:'100%', border:'1px solid var(--rzc-border-light)', borderRadius:9,
     padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit',
-    boxSizing:'border-box'
+    boxSizing:'border-box', background:'var(--rzc-charcoal-l2)', color:'var(--rzc-text)'
   }
   const btn = (bg, color='#fff') => ({
     background:bg, color, border:'none', padding:'9px 16px', borderRadius:9,
@@ -296,32 +296,32 @@ export default function Personnel() {
 
   return (
     <PersonnelBoundary>
-      <div className="page" style={{padding:'0 16px'}}>
+      <div className="page rzc-dark-scope" style={{padding:'20px 22px'}}>
 
         {/* ── HEADER ── */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
           <div>
-            <h2 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>
+            <h2 style={{fontSize:22,fontWeight:800,color:'var(--rzc-bright-gold)',margin:0}}>
               👤 Gestion du Personnel
             </h2>
-            <p style={{fontSize:12,color:'#64748b',margin:'4px 0 0'}}>
+            <p style={{fontSize:12,color:'var(--rzc-text-3)',margin:'4px 0 0'}}>
               {data.length} membres enregistrés
             </p>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             <button onClick={()=>{setMasseResult(null);setMasseModal(true)}}
-              style={btn('#f59e0b')}>
+              style={{...btn('var(--rzc-copper)')}}>
               👥 Sous-traitants masse
             </button>
             <button onClick={()=>{
               setForm({nom:'',prenom:'',email:'',telephone:'',societe:'',type_personnel:'employe',numero:'',actif:true})
               setErr(''); setModal('new')
-            }} style={btn('#1e3a8a')}>
+            }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
               ➕ Nouveau membre
             </button>
-            <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('#7c3aed'),fontSize:12}}>📋 Template</button>
-            <button onClick={()=>importPersonnelCSV()} style={{...btn('#2563eb'),fontSize:12}}>📤 Import CSV</button>
-            <button onClick={()=>exportPersonnelCSV(filtered)} style={{...btn('#16a34a'),fontSize:12}}>📥 Export CSV ({filtered.length})</button>
+            <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📋 Template</button>
+            <button onClick={()=>importPersonnelCSV()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📤 Import CSV</button>
+            <button onClick={()=>exportPersonnelCSV(filtered)} style={{...btn('var(--rzc-green)'),fontSize:12}}>📥 Export CSV ({filtered.length})</button>
           </div>
         </div>
 
@@ -350,7 +350,7 @@ export default function Personnel() {
           </select>
           {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||search) && (
             <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setSearch('')}}
-              style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:9,
+              style={{background:'var(--rzc-red-l)',color:'#F87171',border:'1px solid rgba(248,113,113,.3)',borderRadius:9,
                 padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
               ✕ Reset
             </button>
@@ -364,15 +364,15 @@ export default function Personnel() {
             placeholder="🏢 Filtrer par société..." style={{...inp,maxWidth:200}}/>
           {(typeFilter||profilFilter||societeFilter) && (
             <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('')}}
-              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'7px 12px',
-                fontSize:12,cursor:'pointer',color:'#64748b'}}>✕ Reset</button>
+              style={{background:'rgba(255,255,255,.06)',border:'none',borderRadius:8,padding:'7px 12px',
+                fontSize:12,cursor:'pointer',color:'var(--rzc-text-3)'}}>✕ Reset</button>
           )}
         </div>
 
         {/* ── TABLE ── */}
         {/* Barre actions masse */}
         {selected_ids.size > 0 && (
-          <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+          <div style={{background:'linear-gradient(135deg,var(--rzc-ore-gold),var(--rzc-copper))',color:'#1A1206',
             borderRadius:12,padding:'10px 16px',marginBottom:12,
             display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
             <span style={{fontWeight:700,fontSize:13}}>
@@ -428,10 +428,10 @@ export default function Personnel() {
             <div>Aucun membre trouvé</div>
           </div>
         ) : (
-          <div style={{background:'#fff',borderRadius:14,overflow:'hidden',boxShadow:'0 1px 6px rgba(0,0,0,.08)'}}>
-            <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <div className="rzc-card" style={{overflow:'hidden'}}>
+            <table className="rzc-table" style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
-                <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                <tr style={{background:'rgba(255,255,255,.02)',borderBottom:'1px solid var(--rzc-border)'}}>
                   <th style={{padding:'12px 14px',width:40}}>
                     <input type="checkbox"
                       checked={filtered.length>0 && filtered.every(p=>selected_ids.has(p.id))}
@@ -444,7 +444,7 @@ export default function Personnel() {
                   </th>
                   {['Nom','Type','Société','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
-                      fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5}}>
+                      fontWeight:700,color:'var(--rzc-text-3)',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
                     </th>
                   ))}
@@ -452,50 +452,50 @@ export default function Personnel() {
               </thead>
               <tbody>
                 {filtered.map((p, i) => (
-                  <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9',
-                    background:i%2===0?'#fff':'#fafbfc'}}>
+                  <tr key={p.id} style={{borderBottom:'1px solid var(--rzc-border)',
+                    background:i%2===0?'transparent':'rgba(255,255,255,.02)'}}>
                     <td style={{padding:'10px 14px',width:40}}>
                       <input type="checkbox" checked={selected_ids.has(p.id)}
                         onChange={()=>toggleSelect(p.id)} onClick={e=>e.stopPropagation()}
                         style={{cursor:'pointer',width:16,height:16}}/>
                     </td>
                     <td style={{padding:'10px 14px'}}>
-                      <div style={{fontWeight:600,color:'#1e293b'}}>{p.nom} {p.prenom}</div>
-                      <div style={{fontSize:11,color:'#94a3b8'}}>{p.email}</div>
+                      <div style={{fontWeight:600,color:'var(--rzc-text)'}}>{p.nom} {p.prenom}</div>
+                      <div style={{fontSize:11,color:'var(--rzc-text-4)'}}>{p.email}</div>
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       <span style={{
-                        background: p.type_personnel==='roxgold'?'#1e3a8a20':
-                          p.type_personnel==='sous_traitant'?'#f59e0b20':
-                          p.type_personnel==='visiteur'?'#16a34a20':'#e2e8f0',
-                        color: p.type_personnel==='roxgold'?'#1e3a8a':
-                          p.type_personnel==='sous_traitant'?'#b45309':
-                          p.type_personnel==='visiteur'?'#16a34a':'#475569',
+                        background: p.type_personnel==='roxgold'?'var(--rzc-bright-gold-l)':
+                          p.type_personnel==='sous_traitant'?'var(--rzc-ore-gold-l)':
+                          p.type_personnel==='visiteur'?'var(--rzc-green-l)':'rgba(255,255,255,.06)',
+                        color: p.type_personnel==='roxgold'?'var(--rzc-bright-gold)':
+                          p.type_personnel==='sous_traitant'?'var(--rzc-copper)':
+                          p.type_personnel==='visiteur'?'#4ADE80':'var(--rzc-text-3)',
                         padding:'3px 8px',borderRadius:99,fontSize:11,fontWeight:700
                       }}>
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
                       </span>
                     </td>
 
-                    <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
+                    <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       {p.societe || '—'}
                     </td>
-                    <td style={{padding:'10px 14px',fontSize:12,color:'#475569'}}>
+                    <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       {p.telephone || '—'}
                     </td>
-                    <td style={{padding:'10px 14px',fontSize:11,color:'#94a3b8'}}>
+                    <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-4)'}}>
                       {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       {p.qr_code_data ? (
                         <button onClick={() => setQrModal(p)}
-                          style={{background:'#f8fafc',border:'1px solid #e2e8f0',
+                          style={{background:'rgba(255,255,255,.04)',border:'1px solid var(--rzc-border-light)',
                             borderRadius:6,padding:'4px 8px',cursor:'pointer',
-                            fontSize:11,fontWeight:700,color:'#1e3a8a'}}>
+                            fontSize:11,fontWeight:700,color:'var(--rzc-bright-gold)'}}>
                           🔲 QR
                         </button>
                       ) : (
-                        <span style={{fontSize:11,color:'#94a3b8'}}>—</span>
+                        <span style={{fontSize:11,color:'var(--rzc-text-4)'}}>—</span>
                       )}
                     </td>
                     <td style={{padding:'10px 14px'}}>
@@ -509,20 +509,20 @@ export default function Personnel() {
                               numero:p.numero||'', actif:p.actif
                             })
                             setErr(''); setModal(p)
-                          }} style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
+                          }} style={{background:'var(--rzc-blue-l)',color:'#60A5FA',border:'1px solid rgba(96,165,250,.3)',
                             padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
                             ✏️
                           </button>
                           <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setRoleModal(p)}}
-                            style={{background:'#f5f3ff',color:'#7c3aed',border:'1px solid #c4b5fd',
+                            style={{background:'var(--rzc-blue-l)',color:'#60A5FA',border:'1px solid rgba(96,165,250,.3)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Changer le profil">
                             👤
                           </button>
                           <button onClick={() => handleToggleActif(p)}
-                            style={{background:p.actif?'#fef3c7':'#f0fdf4',
-                              color:p.actif?'#b45309':'#16a34a',
-                              border:'1px solid '+(p.actif?'#fde68a':'#86efac'),
+                            style={{background:p.actif?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
+                              color:p.actif?'var(--rzc-bright-gold)':'#4ADE80',
+                              border:'1px solid '+(p.actif?'rgba(245,197,66,.3)':'rgba(74,222,128,.3)'),
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title={p.actif?'Désactiver':'Activer'}>
                             {p.actif ? '🔒' : '🔓'}
@@ -548,15 +548,15 @@ export default function Personnel() {
                               }).catch(()=>{})
                               load()
                             }}
-                            style={{background: p.induction_requise===false?'#fef3c7':'#f0fdf4',
-                              color: p.induction_requise===false?'#92400e':'#166534',
-                              border: `1px solid ${p.induction_requise===false?'#fcd34d':'#bbf7d0'}`,
+                            style={{background: p.induction_requise===false?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
+                              color: p.induction_requise===false?'var(--rzc-bright-gold)':'#4ADE80',
+                              border: `1px solid ${p.induction_requise===false?'rgba(245,197,66,.3)':'rgba(74,222,128,.3)'}`,
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title={(()=>{const k=localStorage.getItem(`rzi_no_induction_${p.id}`);const noInd=p.induction_requise===false||k==='1';return noInd?"Activer l'induction":"Marquer sans induction"})()}>
                             {(p.induction_requise===false||localStorage.getItem(`rzi_no_induction_${p.id}`))?'🚫':'✅'}
                           </button>
                           <button onClick={() => setConfirmDel(p)}
-                            style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
+                            style={{background:'var(--rzc-red-l)',color:'#F87171',border:'1px solid rgba(248,113,113,.3)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Supprimer">
                             🗑️
@@ -573,12 +573,12 @@ export default function Personnel() {
 
         {/* ══ MODAL CRÉER/MODIFIER ══ */}
         {modal && (
-          <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+          <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
             onClick={e=>e.target===e.currentTarget&&setModal(null)}>
-            <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:500,
-              overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-              <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+            <div className="rzc-card" style={{width:'100%',maxWidth:500,
+              overflow:'hidden'}}>
+              <div style={{background:'linear-gradient(135deg,var(--rzc-ore-gold),var(--rzc-copper))',color:'#1A1206',
                 padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div style={{fontWeight:700,fontSize:15}}>
                   {modal==='new' ? '➕ Nouveau membre' : `✏️ Modifier — ${modal.nom} ${modal.prenom}`}
@@ -596,25 +596,25 @@ export default function Personnel() {
                 )}
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>NOM *</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>NOM *</label>
                     <input value={form.nom} onChange={e=>setForm({...form,nom:e.target.value})} style={inp}/>
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>PRÉNOM *</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>PRÉNOM *</label>
                     <input value={form.prenom} onChange={e=>setForm({...form,prenom:e.target.value})} style={inp}/>
                   </div>
                 </div>
                 <div>
-                  <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>EMAIL</label>
+                  <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>EMAIL</label>
                   <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} style={inp}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>TÉLÉPHONE</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TÉLÉPHONE</label>
                     <input value={form.telephone} onChange={e=>setForm({...form,telephone:e.target.value})} style={inp}/>
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>TYPE</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TYPE</label>
                     <select value={form.type_personnel} onChange={e=>setForm({...form,type_personnel:e.target.value})} style={inp}>
                       {/* Type de personnel */}
                 {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
@@ -623,22 +623,22 @@ export default function Personnel() {
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>SOCIÉTÉ</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>SOCIÉTÉ</label>
                     <input value={form.societe} onChange={e=>setForm({...form,societe:e.target.value})} style={inp}/>
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:4}}>N° MATRICULE</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>N° MATRICULE</label>
                     <input value={form.numero} onChange={e=>setForm({...form,numero:e.target.value})} style={inp}/>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:10,marginTop:4}}>
                   <button onClick={()=>setModal(null)}
-                    style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                    style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                       padding:12,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                     Annuler
                   </button>
                   <button onClick={handleSave} disabled={saving}
-                    style={{flex:2,background:saving?'#94a3b8':'#1e3a8a',color:'#fff',border:'none',
+                    style={{flex:2,background:saving?'var(--rzc-rock-gray)':'var(--rzc-ore-gold)',color:'#1A1206',border:'none',
                       padding:12,borderRadius:9,cursor:saving?'wait':'pointer',fontFamily:'inherit',
                       fontSize:13,fontWeight:700}}>
                     {saving ? '⏳ Enregistrement...' : '💾 Enregistrer'}
@@ -651,14 +651,14 @@ export default function Personnel() {
 
         {/* ══ MODAL QR ══ */}
         {qrModal && (
-          <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+          <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
             onClick={e=>e.target===e.currentTarget&&setQrModal(null)}>
-            <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:340,
-              overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-              <div style={{background:'linear-gradient(135deg,#1e3a8a,#2563eb)',color:'#fff',
+            <div style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:16,width:'100%',maxWidth:340,
+              overflow:'hidden',boxShadow:'var(--rzc-shadow-lg)'}}>
+              <div style={{background:'linear-gradient(135deg,var(--rzc-ore-gold),var(--rzc-copper))',color:'#1A1206',
                 padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div style={{fontWeight:700}}>🔲 QR — {qrModal.nom} {qrModal.prenom}</div>
+                <div style={{fontWeight:700,color:'#1A1206'}}>🔲 QR — {qrModal.nom} {qrModal.prenom}</div>
                 <button onClick={()=>setQrModal(null)}
                   style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
                     width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
@@ -667,23 +667,23 @@ export default function Personnel() {
                 {qrModal.qr_code_data ? (
                   <img src={"data:image/png;base64," + qrModal.qr_code_data}
                     alt="QR Code" style={{width:200,height:200,imageRendering:'pixelated',
-                      border:'3px solid #1e3a8a',borderRadius:12,padding:8}}/>
+                      border:'3px solid var(--rzc-ore-gold)',borderRadius:12,padding:8}}/>
                 ) : (
-                  <div style={{width:200,height:200,background:'#f8fafc',border:'2px dashed #e2e8f0',
+                  <div style={{width:200,height:200,background:'rgba(255,255,255,.03)',border:'2px dashed var(--rzc-border-light)',
                     borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',
-                    color:'#94a3b8',fontSize:12,margin:'0 auto'}}>
+                    color:'var(--rzc-text-4)',fontSize:12,margin:'0 auto'}}>
                     QR non disponible
                   </div>
                 )}
-                <div style={{marginTop:12,fontWeight:700,color:'#1e3a8a',fontSize:14}}>
+                <div style={{marginTop:12,fontWeight:700,color:'var(--rzc-bright-gold)',fontSize:14}}>
                   {qrModal.nom} {qrModal.prenom}
                 </div>
-                <div style={{fontSize:11,color:'#64748b',marginTop:4}}>
+                <div style={{fontSize:11,color:'var(--rzc-text-3)',marginTop:4}}>
                   {qrModal.societe} · {TYPES.find(t=>t.v===qrModal.type_personnel)?.l}
                 </div>
                 {qrModal.login_genere && (
-                  <div style={{marginTop:8,background:'#f8fafc',borderRadius:8,padding:'8px 12px',
-                    fontFamily:'monospace',fontSize:12,color:'#1e3a8a'}}>
+                  <div style={{marginTop:8,background:'rgba(255,255,255,.04)',borderRadius:8,padding:'8px 12px',
+                    fontFamily:'monospace',fontSize:12,color:'var(--rzc-bright-gold)'}}>
                     Login: {qrModal.login_genere}
                   </div>
                 )}
@@ -694,11 +694,11 @@ export default function Personnel() {
 
         {/* ══ MODAL SOUS-TRAITANTS EN MASSE ══ */}
         {masseModal && (
-          <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+          <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
             onClick={e=>e.target===e.currentTarget&&setMasseModal(false)}>
-            <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:480,
-              overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:16,width:'100%',maxWidth:480,
+              overflow:'hidden',boxShadow:'var(--rzc-shadow-lg)'}}>
               <div style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#fff',
                 padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
@@ -714,13 +714,13 @@ export default function Personnel() {
               <div style={{padding:20}}>
                 {masseResult === null ? (
                   <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                    <div style={{background:'#fef3c7',borderRadius:10,padding:'10px 14px',
-                      fontSize:12,color:'#92400e'}}>
+                    <div style={{background:'var(--rzc-bright-gold-l)',borderRadius:10,padding:'10px 14px',
+                      fontSize:12,color:'var(--rzc-bright-gold)'}}>
                       💡 Logins et mots de passe générés automatiquement
                     </div>
                     <div>
                       <label style={{display:'block',fontSize:11,fontWeight:700,
-                        color:'#64748b',marginBottom:5}}>SOCIÉTÉ *</label>
+                        color:'var(--rzc-text-3)',marginBottom:5}}>SOCIÉTÉ *</label>
                       <input value={masseForm.societe}
                         onChange={e=>setMasseForm({...masseForm,societe:e.target.value})}
                         placeholder="Ex: SGBCI Mining, SAPH..."
@@ -729,14 +729,14 @@ export default function Personnel() {
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                       <div>
                         <label style={{display:'block',fontSize:11,fontWeight:700,
-                          color:'#64748b',marginBottom:5}}>NOMBRE</label>
+                          color:'var(--rzc-text-3)',marginBottom:5}}>NOMBRE</label>
                         <input type="number" value={masseForm.nombre}
                           onChange={e=>setMasseForm({...masseForm,nombre:parseInt(e.target.value)||1})}
                           min={1} max={100} style={inp}/>
                       </div>
                       <div>
                         <label style={{display:'block',fontSize:11,fontWeight:700,
-                          color:'#64748b',marginBottom:5}}>DURÉE</label>
+                          color:'var(--rzc-text-3)',marginBottom:5}}>DURÉE</label>
                         <select value={masseForm.duree_h}
                           onChange={e=>setMasseForm({...masseForm,duree_h:parseInt(e.target.value)})}
                           style={inp}>
@@ -762,7 +762,7 @@ export default function Personnel() {
                           setMasseLoading(false)
                         }
                       }}
-                      style={{background:masseLoading?'#94a3b8':'#f59e0b',color:'#fff',
+                      style={{background:masseLoading?'var(--rzc-rock-gray)':'var(--rzc-copper)',color:'#fff',
                         border:'none',padding:13,borderRadius:10,cursor:masseLoading?'wait':'pointer',
                         fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
                       {masseLoading ? '⏳ Création...' : ("Créer " + masseForm.nombre + " agents — " + masseForm.societe)}
@@ -770,31 +770,31 @@ export default function Personnel() {
                   </div>
                 ) : (
                   <div>
-                    <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:12,
+                    <div style={{background:'var(--rzc-green-l)',border:'1px solid rgba(74,222,128,.3)',borderRadius:12,
                       padding:'12px 16px',marginBottom:16}}>
-                      <div style={{fontWeight:700,color:'#166534'}}>{masseResult.message}</div>
-                      <div style={{fontSize:11,color:'#16a34a'}}>Expire: {masseResult.expire}</div>
+                      <div style={{fontWeight:700,color:'#4ADE80'}}>{masseResult.message}</div>
+                      <div style={{fontSize:11,color:'#4ADE80'}}>Expire: {masseResult.expire}</div>
                     </div>
-                    <div style={{maxHeight:220,overflowY:'auto',border:'1px solid #e2e8f0',
+                    <div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--rzc-border-light)',
                       borderRadius:10,overflow:'hidden'}}>
                       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                         <thead>
-                          <tr style={{background:'#f8fafc'}}>
+                          <tr style={{background:'rgba(255,255,255,.04)'}}>
                             {['#','Login','Mot de passe'].map(h=>(
                               <th key={h} style={{padding:'8px 12px',textAlign:'left',
-                                color:'#64748b',fontWeight:700}}>{h}</th>
+                                color:'var(--rzc-text-3)',fontWeight:700}}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {(masseResult.agents||[]).map((a,i)=>(
-                            <tr key={i} style={{borderTop:'1px solid #f1f5f9',
-                              background:i%2?'#fafafa':'#fff'}}>
-                              <td style={{padding:'7px 12px',color:'#94a3b8'}}>{i+1}</td>
+                            <tr key={i} style={{borderTop:'1px solid var(--rzc-border)',
+                              background:i%2?'rgba(255,255,255,.02)':'transparent'}}>
+                              <td style={{padding:'7px 12px',color:'var(--rzc-text-4)'}}>{i+1}</td>
                               <td style={{padding:'7px 12px',fontFamily:'monospace',
-                                fontWeight:700,color:'#1e3a8a'}}>{a.login}</td>
+                                fontWeight:700,color:'var(--rzc-bright-gold)'}}>{a.login}</td>
                               <td style={{padding:'7px 12px',fontFamily:'monospace',
-                                color:'#dc2626'}}>{a.pwd}</td>
+                                color:'#F87171'}}>{a.pwd}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -804,14 +804,14 @@ export default function Personnel() {
                       <button onClick={()=>{
                         const txt = (masseResult.agents||[]).map(a=>a.login+' / '+a.pwd).join('\n')
                         navigator.clipboard.writeText(txt).then(()=>alert('Copié !'))
-                      }} style={{flex:1,background:'#1e3a8a',color:'#fff',border:'none',
+                      }} style={{flex:1,background:'var(--rzc-ore-gold)',color:'#1A1206',border:'none',
                         padding:11,borderRadius:9,cursor:'pointer',fontWeight:700,fontFamily:'inherit',fontSize:12}}>
                         📋 Copier
                       </button>
                       <button onClick={()=>{
                         setMasseResult(null)
                         setMasseForm({societe:'',nombre:5,duree_h:72})
-                      }} style={{flex:1,background:'#f59e0b',color:'#fff',border:'none',
+                      }} style={{flex:1,background:'var(--rzc-copper)',color:'#fff',border:'none',
                         padding:11,borderRadius:9,cursor:'pointer',fontWeight:700,fontFamily:'inherit',fontSize:12}}>
                         👥 Nouvelle
                       </button>
@@ -825,23 +825,23 @@ export default function Personnel() {
 
       {/* ══ MODAL CONFIRMER SUPPRESSION ══ */}
       {confirmDel && (
-        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+        <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
           display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16}}
           onClick={e=>e.target===e.currentTarget&&setConfirmDel(null)}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
-            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+          <div style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'var(--rzc-shadow-lg)'}}>
             <div style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',
               padding:'14px 20px'}}>
               <div style={{fontWeight:700}}>🗑️ Supprimer le membre</div>
             </div>
             <div style={{padding:20}}>
-              <p style={{color:'#1e293b',fontSize:14,margin:'0 0 16px'}}>
+              <p style={{color:'var(--rzc-text-2)',fontSize:14,margin:'0 0 16px'}}>
                 Confirmer la suppression de <strong>{confirmDel.nom} {confirmDel.prenom}</strong> ?
                 <br/><span style={{color:'#dc2626',fontSize:12}}>⚠️ Action irréversible</span>
               </p>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={()=>setConfirmDel(null)}
-                  style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                  style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                   Annuler
                 </button>
@@ -858,11 +858,11 @@ export default function Personnel() {
 
       {/* ══ MODAL CHANGER RÔLE ══ */}
       {roleModal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
+        <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
           display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16}}
           onClick={e=>e.target===e.currentTarget&&setRoleModal(null)}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,
-            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+          <div style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'var(--rzc-shadow-lg)'}}>
             <div style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'#fff',
               padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{fontWeight:700}}>👤 Changer le profil</div>
@@ -871,15 +871,15 @@ export default function Personnel() {
                   width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
             </div>
             <div style={{padding:20}}>
-              <p style={{fontSize:13,color:'#64748b',margin:'0 0 12px'}}>
+              <p style={{fontSize:13,color:'var(--rzc-text-3)',margin:'0 0 12px'}}>
                 Profil actuel de <strong>{roleModal.nom} {roleModal.prenom}</strong> :
-                <span style={{fontWeight:700,color:'#7c3aed',marginLeft:6}}>
+                <span style={{fontWeight:700,color:'var(--rzc-blue)',marginLeft:6}}>
                   {TYPES.find(t=>t.v===roleModal.type_personnel)?.l || roleModal.type_personnel}
                 </span>
               </p>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
                 <div>
-                  <div style={{fontSize:10,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
                     Type personnel
                   </div>
                   <select value={newRole} onChange={e=>setNewRole(e.target.value)} style={inp}>
@@ -887,7 +887,7 @@ export default function Personnel() {
                   </select>
                 </div>
                 <div>
-                  <div style={{fontSize:10,fontWeight:700,color:'#64748b',marginBottom:5,textTransform:'uppercase'}}>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
                     Profil système
                   </div>
                   <select value={newProfil||''} onChange={e=>setNewProfil(e.target.value)} style={inp}>
@@ -897,19 +897,19 @@ export default function Personnel() {
                 </div>
               </div>
               {newProfil && (
-                <div style={{background:'#f5f3ff',border:'1px solid #ddd6fe',borderRadius:8,
-                  padding:'6px 10px',fontSize:11,color:'#7c3aed',marginBottom:10}}>
+                <div style={{background:'var(--rzc-blue-l)',border:'1px solid rgba(96,165,250,.3)',borderRadius:8,
+                  padding:'6px 10px',fontSize:11,color:'#60A5FA',marginBottom:10}}>
                   🎭 <strong>{PROFILS.find(pr=>pr.v===newProfil)?.l}</strong> · Type: <strong>{TYPES.find(t=>t.v===newRole)?.l}</strong>
                 </div>
               )}
               <div style={{display:'flex',gap:10,marginTop:0}}>
                 <button onClick={()=>setRoleModal(null)}
-                  style={{flex:1,background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',
+                  style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                   Annuler
                 </button>
                 <button onClick={handleChangeRole}
-                  style={{flex:2,background:'#7c3aed',color:'#fff',border:'none',
+                  style={{flex:2,background:'var(--rzc-blue)',color:'#fff',border:'none',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',
                     fontSize:13,fontWeight:700}}>
                   💾 Enregistrer Type & Profil
