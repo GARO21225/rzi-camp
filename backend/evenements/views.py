@@ -49,6 +49,8 @@ import datetime
 
 class EvenementViewSet(viewsets.ModelViewSet):
     serializer_class = EvenementSerializer
+    queryset = Evenement.objects.all()  # requis par DRF pour déduire le basename du router
+                                          # (get_queryset() ci-dessous prime à l'exécution réelle)
 
     def get_queryset(self):
         from django.db.models import Count
