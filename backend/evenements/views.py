@@ -48,11 +48,16 @@ import datetime
 
 
 class EvenementViewSet(viewsets.ModelViewSet):
-    queryset = Evenement.objects.all()
     serializer_class = EvenementSerializer
 
     def get_queryset(self):
-        return Evenement.objects.all().order_by("-date_debut")
+        from django.db.models import Count
+        # select_related('cree_par') + annotation Count : élimine le N+1
+        # (était 2 requêtes par événement avant ce fix, voir ERROR_LOG.md #7 pour le pattern jumeau)
+        return (Evenement.objects
+            .select_related('cree_par')
+            .annotate(nb_notifies_annot=Count('notifications'))
+            .order_by("-date_debut"))
 
     def destroy(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
