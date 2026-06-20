@@ -1243,6 +1243,63 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
 #  contenu de son propre parcours d'induction).
 # ═══════════════════════════════════════════════════════════════════
 
+def _ensure_induction_tables():
+    """Crée les 4 tables de contenu Induction Camp si elles n'existent pas encore.
+    Auto-réparation sans nécessiter le secret SETUP_DB_SECRET — ces CREATE TABLE
+    sont strictement additifs et sûrs à exécuter de façon répétée (IF NOT EXISTS).
+    Évite que l'admin voie un onglet vide silencieusement si /api/setup-db/ n'a
+    jamais été appelé après le déploiement de ces modèles."""
+    from django.db import connection
+    try:
+        with connection.cursor() as c:
+            c.execute("""CREATE TABLE IF NOT EXISTS residences_inductioncampconfig (
+                id BIGSERIAL PRIMARY KEY,
+                nom VARCHAR(200) NOT NULL DEFAULT 'Camp Résidentiel',
+                site VARCHAR(200) NOT NULL DEFAULT '',
+                capacite INTEGER NOT NULL DEFAULT 0,
+                superficie VARCHAR(50) NOT NULL DEFAULT '',
+                altitude VARCHAR(50) NOT NULL DEFAULT '',
+                duree_parcours_min INTEGER NOT NULL DEFAULT 15,
+                date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            )""")
+            c.execute("""CREATE TABLE IF NOT EXISTS residences_inductioninfra (
+                id BIGSERIAL PRIMARY KEY,
+                titre VARCHAR(100) NOT NULL DEFAULT '',
+                emoji VARCHAR(10) NOT NULL DEFAULT '🏠',
+                couleur VARCHAR(20) NOT NULL DEFAULT '#3b82f6',
+                description TEXT NOT NULL DEFAULT '',
+                details JSONB NOT NULL DEFAULT '[]',
+                photo_base64 TEXT NOT NULL DEFAULT '',
+                photo_mime VARCHAR(50) NOT NULL DEFAULT 'image/jpeg',
+                ordre INTEGER NOT NULL DEFAULT 0,
+                actif BOOLEAN NOT NULL DEFAULT TRUE,
+                date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            )""")
+            c.execute("""CREATE TABLE IF NOT EXISTS residences_inductionregle (
+                id BIGSERIAL PRIMARY KEY,
+                titre VARCHAR(150) NOT NULL DEFAULT '',
+                emoji VARCHAR(10) NOT NULL DEFAULT '📋',
+                niveau VARCHAR(20) NOT NULL DEFAULT 'standard',
+                texte TEXT NOT NULL DEFAULT '',
+                ordre INTEGER NOT NULL DEFAULT 0,
+                actif BOOLEAN NOT NULL DEFAULT TRUE,
+                date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            )""")
+            c.execute("""CREATE TABLE IF NOT EXISTS residences_inductionquizquestion (
+                id BIGSERIAL PRIMARY KEY,
+                question TEXT NOT NULL DEFAULT '',
+                options JSONB NOT NULL DEFAULT '[]',
+                bonne_reponse SMALLINT NOT NULL DEFAULT 0,
+                explication TEXT NOT NULL DEFAULT '',
+                ordre INTEGER NOT NULL DEFAULT 0,
+                actif BOOLEAN NOT NULL DEFAULT TRUE,
+                date_maj TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            )""")
+        return True
+    except Exception:
+        return False
+
+
 def _is_admin_user(user):
     if user.is_staff or user.is_superuser:
         return True
@@ -1256,6 +1313,20 @@ class InductionAdminWriteMixin:
     """Lecture pour tout utilisateur authentifié, écriture réservée aux admins."""
     def get_permissions(self):
         return [IsAuthenticated()]
+
+    def list(self, request, *args, **kwargs):
+        """Auto-répare la table si elle n'existe pas encore (cas d'un déploiement
+        où /api/setup-db/ n'a pas été appelé manuellement) plutôt que de renvoyer
+        une 500 qui laisse l'onglet admin vide sans explication."""
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception:
+            if _ensure_induction_tables():
+                try:
+                    return super().list(request, *args, **kwargs)
+                except Exception:
+                    pass
+            return Response([])
 
     def _check_admin(self, request):
         if not _is_admin_user(request.user):
@@ -1289,13 +1360,23 @@ class InductionCampConfigViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet
 
     @action(detail=False, methods=["get"])
     def actuelle(self, request):
-        """Renvoie la configuration la plus récente, ou un objet vide si aucune n'existe."""
-        cfg = InductionCampConfig.objects.order_by("-id").first()
+        """Renvoie la configuration la plus récente, ou un objet vide si aucune n'existe.
+        Auto-répare la table si elle n'existe pas encore (cas d'un déploiement où
+        /api/setup-db/ n'a pas été appelé manuellement après l'ajout de ce modèle)."""
+        default = {
+            "id": None, "nom": "Camp Résidentiel", "site": "", "capacite": 0,
+            "superficie": "", "altitude": "", "duree_parcours_min": 15,
+        }
+        try:
+            cfg = InductionCampConfig.objects.order_by("-id").first()
+        except Exception:
+            _ensure_induction_tables()
+            try:
+                cfg = InductionCampConfig.objects.order_by("-id").first()
+            except Exception:
+                return Response(default)
         if not cfg:
-            return Response({
-                "id": None, "nom": "Camp Résidentiel", "site": "", "capacite": 0,
-                "superficie": "", "altitude": "", "duree_parcours_min": 15,
-            })
+            return Response(default)
         return Response(InductionCampConfigSerializer(cfg).data)
 
 
