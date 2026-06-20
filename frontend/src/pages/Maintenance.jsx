@@ -371,7 +371,7 @@ class MaintenanceBoundary extends React.Component {
           {String(this.state.err?.message || this.state.err)}
         </div>
         <button onClick={() => this.setState({ err: null })}
-          style={{ background: '#1e3a8a', color: '#fff', border: 'none',
+          style={{ background: 'var(--rzc-navy)', color: '#fff', border: 'none',
             padding: '10px 24px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
           Réessayer
         </button>
@@ -661,7 +661,7 @@ export default function Maintenance() {
       const ph = c.photo_base64 && c.photo_base64.length > 10
         ? '<img style="max-width:100%;max-height:180px;border-radius:6px" src="data:image/jpeg;base64,' + c.photo_base64 + '"/>'
         : ''
-      return '<div style="border-left:3px solid #1e3a8a;padding:8px;margin:8px 0">' +
+      return '<div style="border-left:3px solid var(--rzc-navy);padding:8px;margin:8px 0">' +
         '<strong>' + c.type_comment + '</strong> — ' + (c.auteur_nom || '') + ' — ' + d +
         '<p>' + c.contenu + '</p>' + ph + '</div>'
     }).join('')
@@ -671,7 +671,7 @@ export default function Maintenance() {
     const html = '<!DOCTYPE html><html><head><title>Incident #' + inc.id + '</title>' +
       '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}' +
       'table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}' +
-      'th{background:#eef2f7}h2{color:#1e3a8a}</style></head><body>' +
+      'th{background:#eef2f7}h2{color:var(--rzc-navy)}</style></head><body>' +
       '<h2>Rapport Incident #' + inc.id + ' — ' + inc.titre + '</h2><table>' +
       '<tr><th>Catégorie</th><td>' + inc.categorie + '</td><th>Priorité</th><td>' + inc.priorite + '</td></tr>' +
       '<tr><th>Statut</th><td>' + inc.statut + '</td><th>Résidence</th><td>' + inc.residence + ' ' + (inc.bloc || '') + '</td></tr>' +
@@ -688,12 +688,12 @@ export default function Maintenance() {
 
   return (
     <MaintenanceBoundary>
-      <div style={{ padding:20 }}>
+      <div className="rzc-page-scope" style={{ padding:20 }}>
 
         <div style={{ display:'flex', justifyContent:'space-between',
           alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
           <div>
-            <h2 style={{ fontSize:22, fontWeight:900, color:'#1e3a8a', margin:0 }}>
+            <h2 style={{ fontSize:22, fontWeight:900, color:'var(--rzc-navy)', margin:0 }}>
               🔧 Maintenance
             </h2>
             <p style={{ fontSize:11, color:'#64748b', margin:'3px 0 0' }}>
@@ -702,13 +702,13 @@ export default function Maintenance() {
           </div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setShowPeriodeModal(true)}
-              style={{ background:'#059669', color:'#fff', border:'none',
+              style={{ background:'var(--rzc-green)', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
                 display:'flex', alignItems:'center', gap:6 }}>
               📄 Rapport PDF
             </button>
             <button onClick={() => { setForm(EMPTY); setErr(''); setShowNew(true) }}
-              style={{ background:'#1e3a8a', color:'#fff', border:'none',
+              style={{ background:'var(--rzc-navy)', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
               + Déclarer un incident
             </button>
@@ -782,11 +782,134 @@ export default function Maintenance() {
                   <div key={cat} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
                     <span style={{ fontSize:11, color:'#374151', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cat}</span>
                     <div style={{ height:5, width:60, background:'#f1f5f9', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
-                      <div style={{ width:`${Math.round(n/incidents.length*100)}%`, height:'100%', background:'#1e3a8a', borderRadius:99 }}/>
+                      <div style={{ width:`${Math.round(n/incidents.length*100)}%`, height:'100%', background:'var(--rzc-navy)', borderRadius:99 }}/>
                     </div>
-                    <span style={{ fontSize:11, fontWeight:700, color:'#1e3a8a', flexShrink:0 }}>{n}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:'var(--rzc-navy)', flexShrink:0 }}>{n}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* ── Graphiques visuels à l'écran (camembert, histogramme, courbe) ── */}
+        {incidents.length > 0 && (() => {
+          const COLORS_STATUT = { declare:'#2563EB', assigne:'#D4A017', en_cours:'#B87333', resolu:'#16A34A', cloture:'#5B6472' }
+          const LABELS_STATUT = { declare:'Déclarés', assigne:'Assignés', en_cours:'En cours', resolu:'Résolus', cloture:'Clôturés' }
+          const pieData = Object.entries(stats)
+            .filter(([k]) => COLORS_STATUT[k])
+            .map(([k, n]) => [LABELS_STATUT[k], n, COLORS_STATUT[k]])
+            .filter(([,n]) => n > 0)
+          const pieTotal = pieData.reduce((s,[,n]) => s + n, 0)
+
+          const byCatFull = {}
+          incidents.forEach(i => { if (i.categorie) byCatFull[i.categorie] = (byCatFull[i.categorie] || 0) + 1 })
+          const catData = Object.entries(byCatFull).sort((a,b) => b[1]-a[1]).slice(0, 8)
+          const maxCatVal = Math.max(...catData.map(([,n]) => n), 1)
+
+          const byMonthFull = {}
+          incidents.forEach(i => {
+            if (i.date_creation) {
+              const m = new Date(i.date_creation).toLocaleDateString('fr-FR', { month:'short', year:'2-digit' })
+              byMonthFull[m] = (byMonthFull[m] || 0) + 1
+            }
+          })
+          const monthData = Object.entries(byMonthFull).slice(-12)
+          const maxMonthVal = Math.max(...monthData.map(([,n]) => n), 1)
+
+          // ── Camembert SVG (statuts) ──
+          let pieAngle = -Math.PI / 2
+          const pieR = 70, pieCx = 90, pieCy = 90
+          const pieSlices = pieData.map(([lbl, n, color]) => {
+            const slice = pieTotal ? (n / pieTotal) * Math.PI * 2 : 0
+            const x1 = pieCx + pieR * Math.cos(pieAngle), y1 = pieCy + pieR * Math.sin(pieAngle)
+            pieAngle += slice
+            const x2 = pieCx + pieR * Math.cos(pieAngle), y2 = pieCy + pieR * Math.sin(pieAngle)
+            const large = slice > Math.PI ? 1 : 0
+            const pct = pieTotal ? Math.round(n / pieTotal * 100) : 0
+            return { lbl, n, color, pct, d: `M${pieCx},${pieCy} L${x1.toFixed(1)},${y1.toFixed(1)} A${pieR},${pieR} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z` }
+          })
+
+          const barW = Math.min(38, Math.floor(300 / Math.max(catData.length, 1)))
+          const ROXGOLD_BARS = ['#0F2A5C','#2563EB','#D4A017','#B87333','#16A34A','#DC2626','#5B6472','#7C3AED']
+
+          return (
+            <div className="rzc-card-hover" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',
+              gap:14, marginBottom:20 }}>
+
+              {/* Camembert statuts */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>🥧 Répartition par statut</h3>
+                {pieTotal === 0 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'30px 0' }}>Aucune donnée</p>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                    <svg width={180} height={180} viewBox="0 0 180 180" style={{ flexShrink:0 }}>
+                      {pieSlices.map((s,i) => <path key={i} d={s.d} fill={s.color} stroke="#fff" strokeWidth={2} />)}
+                    </svg>
+                    <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:0 }}>
+                      {pieSlices.map((s,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ width:9, height:9, borderRadius:'50%', background:s.color, flexShrink:0 }} />
+                          <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', whiteSpace:'nowrap' }}>{s.lbl}</span>
+                          <span style={{ fontSize:11.5, fontWeight:700, color:s.color, marginLeft:'auto' }}>{s.n} ({s.pct}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Histogramme catégories */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>📊 Incidents par catégorie</h3>
+                {catData.length === 0 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'30px 0' }}>Aucune donnée</p>
+                ) : (
+                  <svg width="100%" height={170} viewBox={`0 0 ${catData.length*(barW+10)+20} 170`} preserveAspectRatio="xMinYMid meet">
+                    {catData.map(([cat,n],i) => {
+                      const h = Math.round((n/maxCatVal)*120)
+                      const x = i*(barW+10)+10
+                      const color = ROXGOLD_BARS[i % ROXGOLD_BARS.length]
+                      return (
+                        <g key={cat}>
+                          <rect x={x} y={140-h} width={barW} height={h} fill={color} rx={4} />
+                          <text x={x+barW/2} y={155} textAnchor="middle" fontSize="9" fill="var(--rzc-text-3)">{cat.slice(0,9)}</text>
+                          <text x={x+barW/2} y={134-h} textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>{n}</text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                )}
+              </div>
+
+              {/* Courbe mensuelle */}
+              <div className="rzc-card" style={{ padding:'16px 18px' }}>
+                <h3 style={{ fontSize:13, fontWeight:700, color:'var(--rzc-navy)', margin:'0 0 12px' }}>📈 Évolution mensuelle</h3>
+                {monthData.length < 2 ? (
+                  <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'30px 0' }}>Données insuffisantes (minimum 2 mois)</p>
+                ) : (
+                  <svg width="100%" height={170} viewBox="0 0 380 170" preserveAspectRatio="xMinYMid meet">
+                    {(() => {
+                      const pts = monthData.map(([,n],i) => ({
+                        x: 20 + i*(340/(monthData.length-1)),
+                        y: 130 - Math.round((n/maxMonthVal)*110),
+                      }))
+                      return (
+                        <>
+                          <polyline points={pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--rzc-navy)" strokeWidth={2.5} />
+                          {pts.map((p,i) => (
+                            <g key={i}>
+                              <circle cx={p.x} cy={p.y} r={4} fill="var(--rzc-ore-gold)" />
+                              <text x={p.x} y={p.y-10} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--rzc-navy)">{monthData[i][1]}</text>
+                              <text x={p.x} y={148} textAnchor="middle" fontSize="9" fill="var(--rzc-text-3)">{monthData[i][0]}</text>
+                            </g>
+                          ))}
+                        </>
+                      )
+                    })()}
+                  </svg>
+                )}
               </div>
             </div>
           )
@@ -797,7 +920,7 @@ export default function Maintenance() {
           <input type="checkbox"
             checked={selIds.size===filtered.length && filtered.length>0}
             onChange={e=>setSelIds(e.target.checked ? new Set(filtered.map(i=>i.id)) : new Set())}
-            style={{width:16,height:16,accentColor:'#1e3a8a',cursor:'pointer'}}/>
+            style={{width:16,height:16,accentColor:'var(--rzc-navy)',cursor:'pointer'}}/>
           Tout sélectionner
         </label>
         <input value={search} onChange={e=>setSearch(e.target.value)}
@@ -897,7 +1020,7 @@ export default function Maintenance() {
                               setSelIds(prev=>{const next=new Set(prev);e.target.checked?next.add(inc.id):next.delete(inc.id);return next})
                             }}
                             onClick={e=>e.stopPropagation()}
-                            style={{width:16,height:16,cursor:'pointer',accentColor:'#1e3a8a'}}/>
+                            style={{width:16,height:16,cursor:'pointer',accentColor:'var(--rzc-navy)'}}/>
                           <button onClick={e=>{e.stopPropagation();setEditInc({...inc});setShowEdit(true)}}
                             title="Modifier l'incident"
                             style={{ background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
@@ -947,7 +1070,7 @@ export default function Maintenance() {
             onClick={e=>e.target===e.currentTarget&&setShowNew(false)}>
             <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520,
               maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
+              <div style={{ background:'linear-gradient(135deg,var(--rzc-navy),#2563eb)', color:'#fff',
                 padding:'14px 20px', position:'sticky', top:0, display:'flex',
                 justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ fontWeight:700, fontSize:15 }}>🔧 Déclarer un incident</div>
@@ -1020,7 +1143,7 @@ export default function Maintenance() {
                   ⏱️ SLA assigné automatiquement selon la priorité
                 </div>
                 <button onClick={declarer} disabled={submitting}
-                  style={{ background:submitting?'#94a3b8':'#1e3a8a', color:'#fff', border:'none',
+                  style={{ background:submitting?'#94a3b8':'var(--rzc-navy)', color:'#fff', border:'none',
                     padding:13, borderRadius:10, cursor:submitting?'wait':'pointer',
                     fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
                   {submitting ? '⏳ Envoi...' : '🔧 Déclarer l\'incident'}
@@ -1037,7 +1160,7 @@ export default function Maintenance() {
             onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
             <div style={{ background:'#fff', width:'100%', maxWidth:460,
               height:'100%', overflow:'auto', boxShadow:'-4px 0 30px rgba(0,0,0,.2)' }}>
-              <div style={{ background:`linear-gradient(135deg,${STATUTS[selected.statut]?.c||'#1e3a8a'},#1e3a8a)`,
+              <div style={{ background:`linear-gradient(135deg,${STATUTS[selected.statut]?.c||'var(--rzc-navy)'},var(--rzc-navy))`,
                 color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                   <div style={{ flex:1 }}>
@@ -1064,7 +1187,7 @@ export default function Maintenance() {
                         <div style={{ textAlign:'center' }}>
                           <div style={{ width:26, height:26, borderRadius:'50%',
                             background: done?'rgba(255,255,255,.9)':'rgba(255,255,255,.2)',
-                            color: done?(STATUTS[selected.statut]?.c||'#1e3a8a'):'rgba(255,255,255,.4)',
+                            color: done?(STATUTS[selected.statut]?.c||'var(--rzc-navy)'):'rgba(255,255,255,.4)',
                             display:'flex', alignItems:'center', justifyContent:'center',
                             fontSize:11, fontWeight:700 }}>
                             {done?(i===idx?w.icon:'✓'):i+1}
@@ -1114,14 +1237,14 @@ export default function Maintenance() {
                           <div key={step.s} style={{ display:'flex', alignItems:'center', flex: i < arr.length-1 ? 1 : 'none', minWidth: i < arr.length-1 ? 60 : 'auto' }}>
                             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, minWidth:52 }}>
                               <div style={{ width:32, height:32, borderRadius:'50%',
-                                background: active ? '#1e3a8a' : done ? '#16a34a' : '#f1f5f9',
+                                background: active ? 'var(--rzc-navy)' : done ? '#16a34a' : '#f1f5f9',
                                 border: active ? '2px solid #f0a500' : done ? '2px solid #16a34a' : '2px solid #e2e8f0',
                                 display:'flex', alignItems:'center', justifyContent:'center',
                                 fontSize:14, boxShadow: active ? '0 0 0 3px rgba(240,165,0,.2)' : 'none',
                                 transition:'all .2s' }}>
                                 {done ? (active ? step.icon : '✓') : <span style={{color:'#cbd5e1',fontSize:11}}>{i+1}</span>}
                               </div>
-                              <div style={{ fontSize:9, fontWeight: active?700:500, color: active?'#1e3a8a':done?'#16a34a':'#94a3b8', textAlign:'center', lineHeight:1.2 }}>{step.label}</div>
+                              <div style={{ fontSize:9, fontWeight: active?700:500, color: active?'var(--rzc-navy)':done?'#16a34a':'#94a3b8', textAlign:'center', lineHeight:1.2 }}>{step.label}</div>
                               {step.date && <div style={{ fontSize:8, color:'#94a3b8', textAlign:'center' }}>{new Date(step.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>}
                             </div>
                             {i < arr.length-1 && <div style={{ flex:1, height:2, background: stepIdx < curIdx ? '#16a34a' : '#e2e8f0', margin:'0 2px', marginBottom:18, transition:'background .3s' }}/>}
@@ -1221,7 +1344,7 @@ export default function Maintenance() {
                   </button>
                 )}
                 <button onClick={()=>setActionModal('commenter')}
-                  style={{ width:'100%', background:'#f8fafc', color:'#1e3a8a',
+                  style={{ width:'100%', background:'#f8fafc', color:'var(--rzc-navy)',
                     border:'1px solid #e2e8f0', padding:10, borderRadius:10, cursor:'pointer',
                     fontSize:12, fontWeight:700, marginBottom:14, marginTop:4, fontFamily:'inherit' }}>
                   💬 Commentaire
@@ -1267,7 +1390,7 @@ export default function Maintenance() {
             onClick={e=>e.target===e.currentTarget&&setShowEdit(false)}>
             <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520,
               maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
+              <div style={{ background:'linear-gradient(135deg,var(--rzc-navy),#2563eb)', color:'#fff',
                 padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ fontWeight:700, fontSize:15 }}>✏️ Modifier l'incident</div>
                 <button onClick={()=>setShowEdit(false)}
@@ -1319,7 +1442,7 @@ export default function Maintenance() {
                       setShowEdit(false); load()
                     } catch(e) { alert(e.response?.data?.detail||'Erreur modification') }
                   }}
-                    style={{ flex:1, background:'#1e3a8a', color:'#fff', border:'none',
+                    style={{ flex:1, background:'var(--rzc-navy)', color:'#fff', border:'none',
                       padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
                     💾 Enregistrer
                   </button>
@@ -1341,7 +1464,7 @@ export default function Maintenance() {
             onClick={e=>e.target===e.currentTarget&&setActionModal(null)}>
             <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:420,
               overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-              <div style={{ background:'linear-gradient(135deg,#1e3a8a,#2563eb)', color:'#fff',
+              <div style={{ background:'linear-gradient(135deg,var(--rzc-navy),#2563eb)', color:'#fff',
                 padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ fontWeight:700 }}>
                   {{assigner:'👷 Assigner',commencer:'⚙️ Commencer',
@@ -1365,7 +1488,7 @@ export default function Maintenance() {
                     rows={3} style={{ ...inp, resize:'vertical' }}/>
                 )}
                 <button onClick={()=>doAction(actionModal)} disabled={submitting}
-                  style={{ background:submitting?'#94a3b8':'#1e3a8a', color:'#fff', border:'none',
+                  style={{ background:submitting?'#94a3b8':'var(--rzc-navy)', color:'#fff', border:'none',
                     padding:12, borderRadius:10, cursor:submitting?'wait':'pointer',
                     fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
                   {submitting?'⏳...':'Confirmer'}
@@ -1391,7 +1514,7 @@ export default function Maintenance() {
                   else if(i===1){setPeriodeRapport({debut:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`,fin:n.toISOString().slice(0,10)})}
                   else setPeriodeRapport({debut:'',fin:''})
                 }}
-                  style={{background:'#eff6ff',color:'#1e3a8a',border:'1px solid #bfdbfe',
+                  style={{background:'#eff6ff',color:'var(--rzc-navy)',border:'1px solid #bfdbfe',
                     borderRadius:8,padding:'8px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                   {l}
                 </button>
