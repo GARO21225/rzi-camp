@@ -350,7 +350,7 @@ export default function Personnel() {
           </select>
           {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||search) && (
             <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setSearch('')}}
-              style={{background:'var(--rzc-red-l)',color:'#F87171',border:'1px solid rgba(248,113,113,.3)',borderRadius:9,
+              style={{background:'var(--rzc-red-l)',color:'#DC2626',border:'1px solid rgba(220,38,38,.25)',borderRadius:9,
                 padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
               ✕ Reset
             </button>
@@ -364,7 +364,7 @@ export default function Personnel() {
             placeholder="🏢 Filtrer par société..." style={{...inp,maxWidth:200}}/>
           {(typeFilter||profilFilter||societeFilter) && (
             <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('')}}
-              style={{background:'rgba(255,255,255,.06)',border:'none',borderRadius:8,padding:'7px 12px',
+              style={{background:'rgba(15,26,46,.06)',border:'none',borderRadius:8,padding:'7px 12px',
                 fontSize:12,cursor:'pointer',color:'var(--rzc-text-3)'}}>✕ Reset</button>
           )}
         </div>
@@ -431,7 +431,7 @@ export default function Personnel() {
           <div className="rzc-card" style={{overflow:'hidden'}}>
             <table className="rzc-table" style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
-                <tr style={{background:'rgba(255,255,255,.02)',borderBottom:'1px solid var(--rzc-border)'}}>
+                <tr style={{background:'rgba(15,26,46,.02)',borderBottom:'1px solid var(--rzc-border)'}}>
                   <th style={{padding:'12px 14px',width:40}}>
                     <input type="checkbox"
                       checked={filtered.length>0 && filtered.every(p=>selected_ids.has(p.id))}
@@ -453,7 +453,7 @@ export default function Personnel() {
               <tbody>
                 {filtered.map((p, i) => (
                   <tr key={p.id} style={{borderBottom:'1px solid var(--rzc-border)',
-                    background:i%2===0?'transparent':'rgba(255,255,255,.02)'}}>
+                    background:i%2===0?'transparent':'rgba(15,26,46,.02)'}}>
                     <td style={{padding:'10px 14px',width:40}}>
                       <input type="checkbox" checked={selected_ids.has(p.id)}
                         onChange={()=>toggleSelect(p.id)} onClick={e=>e.stopPropagation()}
@@ -467,10 +467,10 @@ export default function Personnel() {
                       <span style={{
                         background: p.type_personnel==='roxgold'?'var(--rzc-bright-gold-l)':
                           p.type_personnel==='sous_traitant'?'var(--rzc-ore-gold-l)':
-                          p.type_personnel==='visiteur'?'var(--rzc-green-l)':'rgba(255,255,255,.06)',
+                          p.type_personnel==='visiteur'?'var(--rzc-green-l)':'rgba(15,26,46,.06)',
                         color: p.type_personnel==='roxgold'?'var(--rzc-bright-gold)':
                           p.type_personnel==='sous_traitant'?'var(--rzc-copper)':
-                          p.type_personnel==='visiteur'?'#4ADE80':'var(--rzc-text-3)',
+                          p.type_personnel==='visiteur'?'#15803D':'var(--rzc-text-3)',
                         padding:'3px 8px',borderRadius:99,fontSize:11,fontWeight:700
                       }}>
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
@@ -489,7 +489,7 @@ export default function Personnel() {
                     <td style={{padding:'10px 14px'}}>
                       {p.qr_code_data ? (
                         <button onClick={() => setQrModal(p)}
-                          style={{background:'rgba(255,255,255,.04)',border:'1px solid var(--rzc-border-light)',
+                          style={{background:'rgba(15,26,46,.04)',border:'1px solid var(--rzc-border-light)',
                             borderRadius:6,padding:'4px 8px',cursor:'pointer',
                             fontSize:11,fontWeight:700,color:'var(--rzc-bright-gold)'}}>
                           🔲 QR
@@ -509,19 +509,19 @@ export default function Personnel() {
                               numero:p.numero||'', actif:p.actif
                             })
                             setErr(''); setModal(p)
-                          }} style={{background:'var(--rzc-blue-l)',color:'#60A5FA',border:'1px solid rgba(96,165,250,.3)',
+                          }} style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
                             padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
                             ✏️
                           </button>
                           <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setRoleModal(p)}}
-                            style={{background:'var(--rzc-blue-l)',color:'#60A5FA',border:'1px solid rgba(96,165,250,.3)',
+                            style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Changer le profil">
                             👤
                           </button>
                           <button onClick={() => handleToggleActif(p)}
                             style={{background:p.actif?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
-                              color:p.actif?'var(--rzc-bright-gold)':'#4ADE80',
+                              color:p.actif?'var(--rzc-bright-gold)':'#15803D',
                               border:'1px solid '+(p.actif?'rgba(245,197,66,.3)':'rgba(74,222,128,.3)'),
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title={p.actif?'Désactiver':'Activer'}>
@@ -549,14 +549,14 @@ export default function Personnel() {
                               load()
                             }}
                             style={{background: p.induction_requise===false?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
-                              color: p.induction_requise===false?'var(--rzc-bright-gold)':'#4ADE80',
+                              color: p.induction_requise===false?'var(--rzc-bright-gold)':'#15803D',
                               border: `1px solid ${p.induction_requise===false?'rgba(245,197,66,.3)':'rgba(74,222,128,.3)'}`,
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title={(()=>{const k=localStorage.getItem(`rzi_no_induction_${p.id}`);const noInd=p.induction_requise===false||k==='1';return noInd?"Activer l'induction":"Marquer sans induction"})()}>
                             {(p.induction_requise===false||localStorage.getItem(`rzi_no_induction_${p.id}`))?'🚫':'✅'}
                           </button>
                           <button onClick={() => setConfirmDel(p)}
-                            style={{background:'var(--rzc-red-l)',color:'#F87171',border:'1px solid rgba(248,113,113,.3)',
+                            style={{background:'var(--rzc-red-l)',color:'#DC2626',border:'1px solid rgba(220,38,38,.25)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Supprimer">
                             🗑️
@@ -633,7 +633,7 @@ export default function Personnel() {
                 </div>
                 <div style={{display:'flex',gap:10,marginTop:4}}>
                   <button onClick={()=>setModal(null)}
-                    style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
+                    style={{flex:1,background:'rgba(15,26,46,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                       padding:12,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                     Annuler
                   </button>
@@ -669,7 +669,7 @@ export default function Personnel() {
                     alt="QR Code" style={{width:200,height:200,imageRendering:'pixelated',
                       border:'3px solid var(--rzc-ore-gold)',borderRadius:12,padding:8}}/>
                 ) : (
-                  <div style={{width:200,height:200,background:'rgba(255,255,255,.03)',border:'2px dashed var(--rzc-border-light)',
+                  <div style={{width:200,height:200,background:'rgba(15,26,46,.03)',border:'2px dashed var(--rzc-border-light)',
                     borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',
                     color:'var(--rzc-text-4)',fontSize:12,margin:'0 auto'}}>
                     QR non disponible
@@ -682,7 +682,7 @@ export default function Personnel() {
                   {qrModal.societe} · {TYPES.find(t=>t.v===qrModal.type_personnel)?.l}
                 </div>
                 {qrModal.login_genere && (
-                  <div style={{marginTop:8,background:'rgba(255,255,255,.04)',borderRadius:8,padding:'8px 12px',
+                  <div style={{marginTop:8,background:'rgba(15,26,46,.04)',borderRadius:8,padding:'8px 12px',
                     fontFamily:'monospace',fontSize:12,color:'var(--rzc-bright-gold)'}}>
                     Login: {qrModal.login_genere}
                   </div>
@@ -772,14 +772,14 @@ export default function Personnel() {
                   <div>
                     <div style={{background:'var(--rzc-green-l)',border:'1px solid rgba(74,222,128,.3)',borderRadius:12,
                       padding:'12px 16px',marginBottom:16}}>
-                      <div style={{fontWeight:700,color:'#4ADE80'}}>{masseResult.message}</div>
-                      <div style={{fontSize:11,color:'#4ADE80'}}>Expire: {masseResult.expire}</div>
+                      <div style={{fontWeight:700,color:'#15803D'}}>{masseResult.message}</div>
+                      <div style={{fontSize:11,color:'#15803D'}}>Expire: {masseResult.expire}</div>
                     </div>
                     <div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--rzc-border-light)',
                       borderRadius:10,overflow:'hidden'}}>
                       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                         <thead>
-                          <tr style={{background:'rgba(255,255,255,.04)'}}>
+                          <tr style={{background:'rgba(15,26,46,.04)'}}>
                             {['#','Login','Mot de passe'].map(h=>(
                               <th key={h} style={{padding:'8px 12px',textAlign:'left',
                                 color:'var(--rzc-text-3)',fontWeight:700}}>{h}</th>
@@ -789,12 +789,12 @@ export default function Personnel() {
                         <tbody>
                           {(masseResult.agents||[]).map((a,i)=>(
                             <tr key={i} style={{borderTop:'1px solid var(--rzc-border)',
-                              background:i%2?'rgba(255,255,255,.02)':'transparent'}}>
+                              background:i%2?'rgba(15,26,46,.02)':'transparent'}}>
                               <td style={{padding:'7px 12px',color:'var(--rzc-text-4)'}}>{i+1}</td>
                               <td style={{padding:'7px 12px',fontFamily:'monospace',
                                 fontWeight:700,color:'var(--rzc-bright-gold)'}}>{a.login}</td>
                               <td style={{padding:'7px 12px',fontFamily:'monospace',
-                                color:'#F87171'}}>{a.pwd}</td>
+                                color:'#DC2626'}}>{a.pwd}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -841,7 +841,7 @@ export default function Personnel() {
               </p>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={()=>setConfirmDel(null)}
-                  style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
+                  style={{flex:1,background:'rgba(15,26,46,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                   Annuler
                 </button>
@@ -897,14 +897,14 @@ export default function Personnel() {
                 </div>
               </div>
               {newProfil && (
-                <div style={{background:'var(--rzc-blue-l)',border:'1px solid rgba(96,165,250,.3)',borderRadius:8,
-                  padding:'6px 10px',fontSize:11,color:'#60A5FA',marginBottom:10}}>
+                <div style={{background:'var(--rzc-blue-l)',border:'1px solid rgba(37,99,235,.25)',borderRadius:8,
+                  padding:'6px 10px',fontSize:11,color:'#2563EB',marginBottom:10}}>
                   🎭 <strong>{PROFILS.find(pr=>pr.v===newProfil)?.l}</strong> · Type: <strong>{TYPES.find(t=>t.v===newRole)?.l}</strong>
                 </div>
               )}
               <div style={{display:'flex',gap:10,marginTop:0}}>
                 <button onClick={()=>setRoleModal(null)}
-                  style={{flex:1,background:'rgba(255,255,255,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
+                  style={{flex:1,background:'rgba(15,26,46,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',
                     padding:11,borderRadius:9,cursor:'pointer',fontFamily:'inherit',fontSize:13}}>
                   Annuler
                 </button>
