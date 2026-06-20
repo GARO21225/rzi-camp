@@ -1362,6 +1362,120 @@ class InductionCampConfigViewSet(InductionAdminWriteMixin, viewsets.ModelViewSet
     queryset = InductionCampConfig.objects.all()
     serializer_class = InductionCampConfigSerializer
 
+    @action(detail=False, methods=["post"])
+    def importer_donnees_originales(self, request):
+        """Importe une seule fois le contenu qui était codé en dur dans
+        InductionCamp.jsx avant la refonte admin (8 infrastructures, 8 règles,
+        5 questions de quiz, config du camp). Idempotent : si des infrastructures
+        existent déjà, ne réimporte rien pour éviter les doublons — un admin qui
+        a déjà commencé à personnaliser le contenu ne perd jamais son travail.
+        Réservé aux admins (même garde que les autres écritures)."""
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+
+        _ensure_induction_tables()
+
+        if InductionInfra.objects.exists() or InductionRegle.objects.exists() or InductionQuizQuestion.objects.exists():
+            return Response({
+                "status": "skipped",
+                "message": "Du contenu existe déjà — import ignoré pour ne pas créer de doublons. "
+                           "Supprimez tout le contenu existant si vous voulez réimporter depuis zéro.",
+            })
+
+        if not InductionCampConfig.objects.exists():
+            InductionCampConfig.objects.create(
+                nom="Camp Résidentiel Roxgold Sango",
+                site="Mine d'Or de Sango · Côte d'Ivoire",
+                capacite=247, superficie="12 ha", altitude="347m",
+                duree_parcours_min=15,
+            )
+
+        infras_data = [
+            ("Résidences", "🏠", "#3b82f6",
+             "5 blocs résidentiels A–E + bloc VIP. Chambres individuelles climatisées, salle de bain privée, Wi-Fi haut débit.",
+             ["Clim réglable 20–26°C", "Wi-Fi 50 Mbps", "Linge de lit fourni", "Ménage quotidien"]),
+            ("Restauration", "🍽️", "#f59e0b",
+             "Cafétéria principale ouverte 6h–21h. 3 repas par jour inclus. Régimes spéciaux disponibles.",
+             ["Buffet petit-déjeuner 6h–9h", "Déjeuner 11h30–13h30", "Dîner 18h–21h", "Snacks disponibles 24h"]),
+            ("Infirmerie", "🏥", "#ef4444",
+             "Infirmière présente 24h/24. Médecin en visite 3×/semaine. Évacuation médicale disponible.",
+             ["Urgences 24h/7j", "Médicaments de base fournis", "Évacuation hélico si nécessaire", "Formulaires médicaux en ligne"]),
+            ("Sport & Loisirs", "⚽", "#10b981",
+             "Terrain de foot, salle de muscu, basket, ping-pong. Horaires : 6h–8h et 17h–20h.",
+             ["Terrain foot éclairé", "Salle musculation équipée", "Court basketball", "Salle TV & bibliothèque"]),
+            ("Laverie", "👕", "#8b5cf6",
+             "Machines disponibles 24h/24. Service blanchisserie (délai 24h). Casier personnel.",
+             ["8 machines à laver", "4 sèche-linge", "Service pressing", "Lessive fournie"]),
+            ("Sécurité", "🔒", "#64748b",
+             "Badge obligatoire 24h/24. Rondes toutes les 2h. Caméras dans les espaces communs.",
+             ["Contrôle accès 24h", "Caméras HD", "Équipe sécurité dédiée", "Coffre-fort réception"]),
+            ("Lieu de culte", "🕌", "#ca8a04",
+             "Espace de prière disponible bloc C. Moment de silence respecté par tous.",
+             ["Accessible 24h", "Tapis fournis", "Orientation qibla", "Espace multi-confession"]),
+            ("Transport", "🚌", "#0891b2",
+             "Navettes camp ↔ mine matin et soir. Rotations Abidjan planifiées toutes les 2 semaines.",
+             ["Navette mine 5h45 & 17h45", "Rotation Abidjan bi-mensuelle", "Réservation 72h à l'avance", "App mobile disponible"]),
+        ]
+        for ordre, (titre, emoji, couleur, desc, details) in enumerate(infras_data):
+            InductionInfra.objects.create(
+                titre=titre, emoji=emoji, couleur=couleur, description=desc,
+                details=details, ordre=ordre, actif=True,
+            )
+
+        regles_data = [
+            ("Tolérance Zéro Alcool", "🚫", "critique",
+             "Toute consommation ou détention d'alcool est strictement interdite dans l'enceinte du camp. Violation = rapatriement immédiat sans préavis."),
+            ("Couvre-feu Sonore 22h", "🔇", "important",
+             "Silence obligatoire de 22h à 6h dans les résidences. Musique uniquement avec écouteurs. Respect du sommeil des collègues."),
+            ("EPI Obligatoires", "👷", "critique",
+             "Port du casque, gilet, lunettes et chaussures de sécurité obligatoire dans toutes les zones opérationnelles sans exception."),
+            ("Contrôle des Accès", "🪪", "important",
+             "Badge obligatoire 24h/24. Aucun visiteur sans autorisation écrite préalable de la direction. Tout accès non autorisé est signalé."),
+            ("Économie d'Énergie", "⚡", "important",
+             "Climatisation entre 20°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores (>100W) à déclarer."),
+            ("Tri Sélectif Obligatoire", "♻️", "standard",
+             "Bacs verts (organique), bleus (plastique/verre), noirs (ordures). Tri non respecté = pénalité sur bonus mensuel."),
+            ("Usage Réseau", "📶", "standard",
+             "Wi-Fi pour usage personnel raisonnable. Téléchargements massifs interdits. Streaming 4K limité aux heures creuses (22h–6h)."),
+            ("Respect Mutuel", "🤝", "standard",
+             "Langue inclusive, respect des différences culturelles et religieuses. Tout acte de harcèlement ou discrimination est un motif de licenciement."),
+        ]
+        for ordre, (titre, emoji, niveau, texte) in enumerate(regles_data):
+            InductionRegle.objects.create(
+                titre=titre, emoji=emoji, niveau=niveau, texte=texte,
+                ordre=ordre, actif=True,
+            )
+
+        quiz_data = [
+            ("À quelle heure commence le couvre-feu sonore dans les résidences ?",
+             ["20h00", "21h00", "22h00", "00h00"], 2,
+             "Le silence est obligatoire de 22h à 6h. Respecter le sommeil de vos collègues est essentiel."),
+            ("Que devez-vous faire avec un appareil électrique de plus de 100W ?",
+             ["Le garder discrètement", "Le déclarer à l'administration", "L'interdire totalement", "Ne rien faire"], 1,
+             "Tout appareil de plus de 100W doit être déclaré pour la gestion énergétique du camp. La déclaration est gratuite."),
+            ("En cas d'urgence médicale à 3h du matin, que faites-vous ?",
+             ["Attendre le matin", "Appeler l'infirmerie (24h/24)", "Aller à la pharmacie", "Gérer seul"], 1,
+             "L'infirmerie est ouverte 24h/24. N'hésitez jamais à appeler en cas d'urgence."),
+            ("Peut-on inviter un ami à dormir au camp sans autorisation ?",
+             ["Oui, entre amis", "Oui le week-end", "Absolument pas", "Oui si discret"], 2,
+             "Aucun visiteur sans autorisation écrite de la direction. La sécurité du camp est l'affaire de tous."),
+            ("Quelle température de climatisation est autorisée ?",
+             ["Moins de 18°C", "Entre 20°C et 26°C", "N'importe quelle température", "Au-dessus de 28°C"], 1,
+             "La plage 20-26°C est le compromis entre confort et économie d'énergie."),
+        ]
+        for ordre, (question, options, bonne_reponse, explication) in enumerate(quiz_data):
+            InductionQuizQuestion.objects.create(
+                question=question, options=options, bonne_reponse=bonne_reponse,
+                explication=explication, ordre=ordre, actif=True,
+            )
+
+        return Response({
+            "status": "ok",
+            "infras_importees": len(infras_data),
+            "regles_importees": len(regles_data),
+            "quiz_importes": len(quiz_data),
+        })
+
     @action(detail=False, methods=["get"])
     def actuelle(self, request):
         """Renvoie la configuration la plus récente, ou un objet vide si aucune n'existe.
