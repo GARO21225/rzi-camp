@@ -556,11 +556,24 @@ class BatimentViewSet(viewsets.ModelViewSet):
         departs_s1_list = list(qs.filter(date_depart__gte=today, date_depart__lte=today+datetime.timedelta(days=7))
                                .select_related("personnel")
                                .values("residence","occupant","date_depart","personnel__nom","personnel__prenom"))
+
+        # Règle métier camp minier : une personne peut être hébergée (chambre affectée)
+        # ou non hébergée (pas de chambre, prise en compte uniquement en restauration).
+        # On expose les deux comptes séparément pour ne jamais les confondre côté frontend.
+        from residences.models import Personnel
+        personnel_loge_ids = set(Batiment.objects.filter(personnel__isnull=False).values_list("personnel_id", flat=True))
+        personnel_total = Personnel.objects.filter(actif=True).count()
+        personnel_loge = len(personnel_loge_ids)
+        personnel_non_loge = max(0, personnel_total - personnel_loge)
+
         return Response({
             "total":total,"par_statut":par_statut,"par_bloc":par_bloc,
             "taux_occupation":round(par_statut.get("Occupé",0)/total*100,1) if total else 0,
             "departs_s1":departs_s1,
             "departs_s1_list":departs_s1_list,
+            "personnel_total": personnel_total,
+            "personnel_loge": personnel_loge,
+            "personnel_non_loge": personnel_non_loge,
         })
 
     @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
