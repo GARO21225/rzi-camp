@@ -229,6 +229,11 @@ export default function Dashboard() {
   const reserve = ps['Réservé']     || 0
   const maint   = ps['Maintenance'] || 0
   const taux    = d.bat?.taux_occupation ?? null
+  // Règle métier camp minier : une personne peut être hébergée (chambre affectée)
+  // ou non hébergée (pas de chambre, suivie uniquement en restauration). Les deux
+  // comptes viennent du backend, jamais déduits par approximation côté frontend.
+  const personnelLoge    = d.bat?.personnel_loge ?? null
+  const personnelNonLoge = d.bat?.personnel_non_loge ?? null
 
   const ouverts   = (d.inc?.declare||0) + (d.inc?.assigne||0) + (d.inc?.en_cours||0)
   const critiques = d.inc?.critique    || 0
@@ -313,9 +318,9 @@ export default function Dashboard() {
         <Kpi loading={loading && !sync} icon="🏠" label="Occupation camp" accent="gold"
           value={taux !== null ? `${taux}%` : '—'}
           sub={`${occupes} occupées · ${libres} libres`} />
-        <Kpi loading={loading && !sync} icon="👥" label="Personnel présent" accent="blue"
-          value={total - enVoyage || total || '—'}
-          sub={`${total} au total · ${enVoyage} en déplacement`} />
+        <Kpi loading={loading && !sync} icon="👥" label="Personnel total" accent="blue"
+          value={total || '—'}
+          sub={`${personnelLoge ?? 0} hébergé(s) · ${personnelNonLoge ?? 0} non hébergé(s)`} />
         <Kpi loading={loading && !sync} icon="✈️" label="Rotation en cours" accent="gold"
           value={planifies || 0}
           sub={`${enVoyage} en transit actuellement`} />
