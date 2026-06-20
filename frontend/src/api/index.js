@@ -67,6 +67,32 @@ export const batiments = {
   exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
 }
+// ── Contenu éditable Induction Camp ──────────────────────────────────
+export const inductionConfig = {
+  actuelle: () => api.get('/api/induction-config/actuelle/'),
+  list:     () => api.get('/api/induction-config/'),
+  create:   (d) => api.post('/api/induction-config/', d),
+  update:   (id, d) => api.patch(`/api/induction-config/${id}/`, d),
+}
+export const inductionInfras = {
+  list:   (p) => api.get('/api/induction-infras/', { params: p }),
+  create: (d) => api.post('/api/induction-infras/', d),
+  update: (id, d) => api.patch(`/api/induction-infras/${id}/`, d),
+  delete: (id) => api.delete(`/api/induction-infras/${id}/`),
+}
+export const inductionRegles = {
+  list:   (p) => api.get('/api/induction-regles/', { params: p }),
+  create: (d) => api.post('/api/induction-regles/', d),
+  update: (id, d) => api.patch(`/api/induction-regles/${id}/`, d),
+  delete: (id) => api.delete(`/api/induction-regles/${id}/`),
+}
+export const inductionQuiz = {
+  list:     (p) => api.get('/api/induction-quiz/', { params: p }),
+  create:   (d) => api.post('/api/induction-quiz/', d),
+  update:   (id, d) => api.patch(`/api/induction-quiz/${id}/`, d),
+  delete:   (id) => api.delete(`/api/induction-quiz/${id}/`),
+  verifier: (reponses) => api.post('/api/induction-quiz/verifier/', { reponses }),
+}
 export const personnel = {
   declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),
   list: (p) => api.get('/api/personnel/', {params:p}),
