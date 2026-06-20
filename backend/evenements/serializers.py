@@ -12,8 +12,15 @@ class EvenementSerializer(serializers.ModelSerializer):
         read_only_fields = ["cree_par","date_creation"]
     def get_type_label(self,obj): return dict(Evenement.TYPE_CHOICES).get(obj.type_event,obj.type_event)
     def get_statut_label(self,obj): return dict(Evenement.STATUT).get(obj.statut,obj.statut)
-    def get_nb_notifies(self,obj): return obj.notifications.count()
-    def get_cree_par_nom(self,obj): return obj.cree_par.get_full_name() or obj.cree_par.username if obj.cree_par else "—"
+    def get_nb_notifies(self,obj):
+        # Utilise l'annotation du queryset si présente (1 requête au lieu de N)
+        annotated = getattr(obj, 'nb_notifies_annot', None)
+        if annotated is not None: return annotated
+        return obj.notifications.count()
+    def get_cree_par_nom(self,obj):
+        # select_related('cree_par') sur le queryset évite la requête supplémentaire ici
+        if not obj.cree_par: return "—"
+        return obj.cree_par.get_full_name() or obj.cree_par.username
     def create(self,validated_data):
         validated_data["cree_par"] = self.context["request"].user
         return super().create(validated_data)
