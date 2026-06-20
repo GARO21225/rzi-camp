@@ -4,75 +4,17 @@ import { useStore } from '../store'
 // ─────────────────────────────────────────────
 //  DONNÉES CAMP
 // ─────────────────────────────────────────────
-const CAMP = {
-  nom: 'Camp Résidentiel Roxgold Sango',
-  site: 'Mine d\'Or de Sango · Côte d\'Ivoire',
-  capacite: 247, superficie: '12 ha', altitude: '347m',
+// CAMP/INFRAS/REGLES/QUIZ sont désormais chargés dynamiquement depuis l'API
+// (voir useEffect de chargement dans le composant principal) — administrables
+// via /induction-admin. Ces constantes sont gardées comme fallback minimal au
+// cas où l'API serait inaccessible (pas d'écran blanc en réseau terrain faible).
+const CAMP_FALLBACK = {
+  nom: 'Camp Résidentiel', site: '', capacite: 0, superficie: '', altitude: '',
 }
+const INFRAS_FALLBACK = []
+const REGLES_FALLBACK = []
+const QUIZ_FALLBACK = []
 
-const INFRAS = [
-  { id:'residences', emoji:'🏠', titre:'Résidences',   couleur:'#3b82f6',
-    desc:'5 blocs résidentiels A–E + bloc VIP. Chambres individuelles climatisées, salle de bain privée, Wi-Fi haut débit.',
-    details:['Clim réglable 20–26°C','Wi-Fi 50 Mbps','Linge de lit fourni','Ménage quotidien'] },
-  { id:'restauration', emoji:'🍽️', titre:'Restauration', couleur:'#f59e0b',
-    desc:'Cafétéria principale ouverte 6h–21h. 3 repas par jour inclus. Régimes spéciaux disponibles.',
-    details:['Buffet petit-déjeuner 6h–9h','Déjeuner 11h30–13h30','Dîner 18h–21h','Snacks disponibles 24h'] },
-  { id:'medical', emoji:'🏥', titre:'Infirmerie',    couleur:'#ef4444',
-    desc:'Infirmière présente 24h/24. Médecin en visite 3×/semaine. Évacuation médicale disponible.',
-    details:['Urgences 24h/7j','Médicaments de base fournis','Évacuation hélico si nécessaire','Formulaires médicaux en ligne'] },
-  { id:'sport', emoji:'⚽', titre:'Sport & Loisirs', couleur:'#10b981',
-    desc:'Terrain de foot, salle de muscu, basket, ping-pong. Horaires : 6h–8h et 17h–20h.',
-    details:['Terrain foot éclairé','Salle musculation équipée','Court basketball','Salle TV & bibliothèque'] },
-  { id:'laverie', emoji:'👕', titre:'Laverie',       couleur:'#8b5cf6',
-    desc:'Machines disponibles 24h/24. Service blanchisserie (délai 24h). Casier personnel.',
-    details:['8 machines à laver','4 sèche-linge','Service pressing','Lessive fournie'] },
-  { id:'securite', emoji:'🔒', titre:'Sécurité',     couleur:'#64748b',
-    desc:'Badge obligatoire 24h/24. Rondes toutes les 2h. Caméras dans les espaces communs.',
-    details:['Contrôle accès 24h','Caméras HD','Équipe sécurité dédiée','Coffre-fort réception'] },
-  { id:'culte', emoji:'🕌', titre:'Lieu de culte',  couleur:'#ca8a04',
-    desc:'Espace de prière disponible bloc C. Moment de silence respecté par tous.',
-    details:['Accessible 24h','Tapis fournis','Orientation qibla','Espace multi-confession'] },
-  { id:'transport', emoji:'🚌', titre:'Transport',    couleur:'#0891b2',
-    desc:'Navettes camp ↔ mine matin et soir. Rotations Abidjan planifiées toutes les 2 semaines.',
-    details:['Navette mine 5h45 & 17h45','Rotation Abidjan bi-mensuelle','Réservation 72h à l\'avance','App mobile disponible'] },
-]
-
-const REGLES = [
-  { id:'alcool',    emoji:'🚫', titre:'Tolérance Zéro Alcool',   niveau:'critique',
-    texte:'Toute consommation ou détention d\'alcool est strictement interdite dans l\'enceinte du camp. Violation = rapatriement immédiat sans préavis.' },
-  { id:'bruit',     emoji:'🔇', titre:'Couvre-feu Sonore 22h',   niveau:'important',
-    texte:'Silence obligatoire de 22h à 6h dans les résidences. Musique uniquement avec écouteurs. Respect du sommeil des collègues.' },
-  { id:'tenue',     emoji:'👷', titre:'EPI Obligatoires',         niveau:'critique',
-    texte:'Port du casque, gilet, lunettes et chaussures de sécurité obligatoire dans toutes les zones opérationnelles sans exception.' },
-  { id:'visiteurs', emoji:'🪪', titre:'Contrôle des Accès',       niveau:'important',
-    texte:'Badge obligatoire 24h/24. Aucun visiteur sans autorisation écrite préalable de la direction. Tout accès non autorisé est signalé.' },
-  { id:'energie',   emoji:'⚡', titre:'Économie d\'Énergie',      niveau:'important',
-    texte:'Climatisation entre 20°C et 26°C uniquement. Lumières éteintes en quittant la chambre. Appareils énergivores ({'>'}100W) à déclarer.' },
-  { id:'dechets',   emoji:'♻️', titre:'Tri Sélectif Obligatoire', niveau:'standard',
-    texte:'Bacs verts (organique), bleus (plastique/verre), noirs (ordures). Tri non respecté = pénalité sur bonus mensuel.' },
-  { id:'internet',  emoji:'📶', titre:'Usage Réseau',             niveau:'standard',
-    texte:'Wi-Fi pour usage personnel raisonnable. Téléchargements massifs interdits. Streaming 4K limité aux heures creuses (22h–6h).' },
-  { id:'respect',   emoji:'🤝', titre:'Respect Mutuel',           niveau:'standard',
-    texte:'Langue inclusive, respect des différences culturelles et religieuses. Tout acte de harcèlement ou discrimination est un motif de licenciement.' },
-]
-
-const QUIZ = [
-  { q:'À quelle heure commence le couvre-feu sonore dans les résidences ?',
-    opts:['20h00','21h00','22h00','00h00'], rep:2,
-    explication:'Le silence est obligatoire de 22h à 6h. Respecter le sommeil de vos collègues est essentiel.' },
-  { q:'Que devez-vous faire avec un appareil électrique de plus de 100W ?',
-    opts:['Le garder discrètement','Le déclarer à l\'administration','L\'interdire totalement','Ne rien faire'], rep:1,
-    explication:'Tout appareil {'>'}100W doit être déclaré pour la gestion énergétique du camp. La déclaration est gratuite.' },
-  { q:'En cas d\'urgence médicale à 3h du matin, que faites-vous ?',
-    opts:['Attendre le matin','Appeler l\'infirmerie (24h/24)','Aller à la pharmacie','Gérer seul'], rep:1,
-    explication:'L\'infirmerie est ouverte 24h/24. N\'hésitez jamais à appeler en cas d\'urgence.' },
-  { q:'Peut-on inviter un ami à dormir au camp sans autorisation ?',
-    opts:['Oui, entre amis','Oui le week-end','Absolument pas','Oui si discret'], rep:2,
-    explication:'Aucun visiteur sans autorisation écrite de la direction. La sécurité du camp est l\'affaire de tous.' },
-  { q:'Quelle température de climatisation est autorisée ?',
-    opts:['Moins de 18°C','Entre 20°C et 26°C','N\'importe quelle température','Au-dessus de 28°C'], rep:1,
-    explication:'La plage 20-26°C est le compromis entre confort et économie d\'énergie.' },
-]
 
 const APPAREILS_TYPES = [
   'Climatiseur personnel','Réfrigérateur','Micro-ondes','Fer à repasser',
@@ -138,6 +80,40 @@ export default function InductionCamp() {
   const [adminView,    setAdminView]    = useState(false)
   const [allInductions,setAllInductions]= useState([])
   const isAdmin = user?.is_superuser || user?.is_staff || user?.profile?.role === 'admin'
+
+  // Contenu administrable — chargé depuis l'API, avec fallback si réseau indisponible
+  const [CAMP,   setCAMP]   = useState(CAMP_FALLBACK)
+  const [INFRAS, setINFRAS] = useState(INFRAS_FALLBACK)
+  const [REGLES, setREGLES] = useState(REGLES_FALLBACK)
+  const [QUIZ,   setQUIZ]   = useState(QUIZ_FALLBACK)
+  const [quizResult, setQuizResult] = useState(null) // résultat de /induction-quiz/verifier/
+
+  useEffect(() => {
+    const loadContenu = async () => {
+      try {
+        const [rC, rI, rR, rQ] = await Promise.allSettled([
+          fetch(`${BASE}/api/induction-config/actuelle/`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
+          fetch(`${BASE}/api/induction-infras/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
+          fetch(`${BASE}/api/induction-regles/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
+          fetch(`${BASE}/api/induction-quiz/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
+        ])
+        if (rC.status === 'fulfilled' && rC.value?.nom) setCAMP(rC.value)
+        if (rI.status === 'fulfilled') {
+          const list = rI.value.results || rI.value || []
+          if (list.length) setINFRAS(list.map(i => ({ ...i, desc: i.description })))
+        }
+        if (rR.status === 'fulfilled') {
+          const list = rR.value.results || rR.value || []
+          if (list.length) setREGLES(list)
+        }
+        if (rQ.status === 'fulfilled') {
+          const list = rQ.value.results || rQ.value || []
+          if (list.length) setQUIZ(list.map(q => ({ q: q.question, opts: q.options, id: q.id, explication: q.explication })))
+        }
+      } catch (e) { /* fallback déjà en place, pas d'écran blanc */ }
+    }
+    loadContenu()
+  }, [])
 
   // Vérifier si induction déjà validée
   useEffect(() => {
@@ -236,12 +212,31 @@ export default function InductionCamp() {
   }
 
   // Valider quiz
-  const validerQuiz = () => {
-    let score = 0
-    QUIZ.forEach((q,i) => { if(quizRep[i]===q.rep) score++ })
-    setQuizScore(score)
-    if (score === QUIZ.length) { setQuizOk(true); setQuizErr(false) }
-    else { setQuizErr(true) }
+  const validerQuiz = async () => {
+    // Vérification côté serveur — la bonne réponse n'est jamais transmise
+    // au navigateur avant validation (voir InductionQuizQuestionViewSet.verifier).
+    try {
+      const reponses = {}
+      QUIZ.forEach((q, i) => { if (q.id) reponses[q.id] = quizRep[i] })
+      const r = await fetch(`${BASE}/api/induction-quiz/verifier/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ reponses })
+      })
+      const data = await r.json()
+      setQuizResult(data)
+      setQuizScore(data.correctes ?? 0)
+      if (data.score === 100) { setQuizOk(true); setQuizErr(false) }
+      else { setQuizErr(true) }
+    } catch (e) {
+      // Fallback local si l'API est inaccessible (réseau terrain faible) —
+      // moins sûr mais évite de bloquer le parcours d'induction.
+      let score = 0
+      QUIZ.forEach((q, i) => { if (quizRep[i] === q.rep) score++ })
+      setQuizScore(score)
+      if (score === QUIZ.length) { setQuizOk(true); setQuizErr(false) }
+      else { setQuizErr(true) }
+    }
   }
 
   const ajouterAppareil = async () => {
@@ -953,8 +948,11 @@ export default function InductionCamp() {
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                           {q.opts.map((opt,oi)=>{
                             const chosen = rep===oi
-                            const isRight = quizErr && oi===q.rep
-                            const isWrong = quizErr && chosen && oi!==q.rep
+                            // bonne_reponse vient du résultat serveur (quizResult), jamais affiché avant validation
+                            const detailQ = quizResult?.detail?.find(d => d.id === q.id)
+                            const bonneReponseIdx = detailQ?.bonne_reponse ?? q.rep
+                            const isRight = quizErr && oi===bonneReponseIdx
+                            const isWrong = quizErr && chosen && oi!==bonneReponseIdx
                             return (
                               <label key={oi} className="ic-quiz-opt"
                                 style={{
