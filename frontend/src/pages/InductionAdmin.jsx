@@ -130,11 +130,16 @@ export default function InductionAdmin() {
     setLoading(true)
     const failed = []
     try {
+      // Timeout 10s par appel : sur cold start Render (plan gratuit), évite que
+      // l'écran de chargement reste bloqué jusqu'aux 30s du timeout Axios global.
+      const withTimeout = (p) => Promise.race([
+        p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
+      ])
       const [rC, rI, rR, rQ] = await Promise.allSettled([
-        inductionConfig.actuelle(),
-        inductionInfras.list(),
-        inductionRegles.list(),
-        inductionQuiz.list(),
+        withTimeout(inductionConfig.actuelle()),
+        withTimeout(inductionInfras.list()),
+        withTimeout(inductionRegles.list()),
+        withTimeout(inductionQuiz.list()),
       ])
       if (rC.status === 'fulfilled') setConfig(rC.value.data)
       else { failed.push('configuration'); setConfig(DEFAULT_CONFIG) }
