@@ -291,3 +291,94 @@ class InductionRecord(models.Model):
         etapes = ['accueil','documents','formation','quiz','medical','badge']
         done = sum(1 for e in etapes if self.etapes_data.get(e,{}).get('done'))
         return int(done / len(etapes) * 100)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CONTENU ÉDITABLE — Induction Camp
+#  Remplace le contenu codé en dur côté frontend (CAMP/INFRAS/REGLES/QUIZ
+#  dans InductionCamp.jsx) par des données administrables : un admin peut
+#  ajouter/modifier/supprimer infrastructures, règles, questions de quiz,
+#  et joindre de vraies photos (même pattern base64 que Incident.photo_base64
+#  et Evenement.image_base64 — TextField, pas de stockage fichier externe).
+# ═══════════════════════════════════════════════════════════════════
+
+class InductionCampConfig(models.Model):
+    """Configuration générale du camp affichée à l'écran d'accueil de l'induction.
+    Singleton applicatif : on utilise toujours l'enregistrement le plus récent."""
+    nom        = models.CharField(max_length=200, default="Camp Résidentiel")
+    site       = models.CharField(max_length=200, blank=True, default="")
+    capacite   = models.PositiveIntegerField(default=0)
+    superficie = models.CharField(max_length=50, blank=True, default="")
+    altitude   = models.CharField(max_length=50, blank=True, default="")
+    duree_parcours_min = models.PositiveIntegerField(default=15)
+    date_maj   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuration Induction Camp"
+
+    def __str__(self):
+        return self.nom
+
+
+class InductionInfra(models.Model):
+    """Une infrastructure présentée dans l'étape 2 de l'induction (résidences,
+    restauration, médical, etc.). Remplace le tableau INFRAS codé en dur."""
+    titre      = models.CharField(max_length=100)
+    emoji      = models.CharField(max_length=10, blank=True, default="🏠")
+    couleur    = models.CharField(max_length=20, blank=True, default="#3b82f6")
+    description = models.TextField(blank=True, default="")
+    details    = models.JSONField(default=list, blank=True)  # liste de courtes lignes
+    photo_base64 = models.TextField(blank=True, default="")
+    photo_mime   = models.CharField(max_length=50, blank=True, default="image/jpeg")
+    ordre      = models.PositiveIntegerField(default=0)
+    actif      = models.BooleanField(default=True)
+    date_maj   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+        verbose_name = "Infrastructure (Induction)"
+
+    def __str__(self):
+        return self.titre
+
+
+class InductionRegle(models.Model):
+    """Une règle de vie du camp présentée dans l'étape 3. Remplace REGLES."""
+    NIVEAUX = [
+        ("critique",  "Critique"),
+        ("important", "Important"),
+        ("standard",  "Standard"),
+    ]
+    titre   = models.CharField(max_length=150)
+    emoji   = models.CharField(max_length=10, blank=True, default="📋")
+    niveau  = models.CharField(max_length=20, choices=NIVEAUX, default="standard")
+    texte   = models.TextField()
+    ordre   = models.PositiveIntegerField(default=0)
+    actif   = models.BooleanField(default=True)
+    date_maj = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+        verbose_name = "Règle (Induction)"
+
+    def __str__(self):
+        return self.titre
+
+
+class InductionQuizQuestion(models.Model):
+    """Une question du quiz de validation (étape 4). Remplace QUIZ.
+    `options` est une liste de chaînes, `bonne_reponse` est l'index (0-based)."""
+    question      = models.TextField()
+    options       = models.JSONField(default=list)
+    bonne_reponse = models.PositiveSmallIntegerField(default=0)
+    explication   = models.TextField(blank=True, default="")
+    ordre         = models.PositiveIntegerField(default=0)
+    actif         = models.BooleanField(default=True)
+    date_maj      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+        verbose_name = "Question Quiz (Induction)"
+
+    def __str__(self):
+        return self.question[:60]
