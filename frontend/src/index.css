@@ -490,3 +490,27 @@ input, select, textarea {
 .rzc-dark-scope h1, .rzc-dark-scope h2, .rzc-dark-scope h3 { color: var(--rzc-text); }
 .rzc-page-scope ::-webkit-scrollbar-thumb,
 .rzc-dark-scope ::-webkit-scrollbar-thumb { background: var(--rzc-border-light); }
+
+/* ── Barre de recherche globale (header) — manquait, causait texte illisible ── */
+.global-search {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px; padding: 7px 14px;
+  width: 100%; max-width: 340px;
+}
+.global-search input {
+  background: transparent !important;
+  border: none !important; outline: none !important;
+  color: #F5F5F5 !important;
+  font-size: 13px; width: 100%; font-family: inherit;
+}
+.global-search input::placeholder { color: #8A8A8A !important; }
+.search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--rzc-charcoal-l1, #fff);
+  border: 1px solid var(--rzc-border-light, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: var(--rzc-shadow-lg, 0 12px 32px rgba(15,26,46,.16));
+  max-height: 360px; overflow-y: auto; z-index: 2000;
+}
