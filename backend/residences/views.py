@@ -1317,16 +1317,20 @@ class InductionAdminWriteMixin:
     def list(self, request, *args, **kwargs):
         """Auto-répare la table si elle n'existe pas encore (cas d'un déploiement
         où /api/setup-db/ n'a pas été appelé manuellement) plutôt que de renvoyer
-        une 500 qui laisse l'onglet admin vide sans explication."""
+        une 500 qui laisse l'onglet admin vide sans explication.
+        Important : ne catche QUE l'erreur 'table manquante' — toute autre erreur
+        remonte normalement, pour ne jamais masquer un vrai bug derrière un faux
+        'aucune donnée' silencieux."""
         try:
             return super().list(request, *args, **kwargs)
-        except Exception:
+        except Exception as e:
+            msg = str(e).lower()
+            table_missing = 'does not exist' in msg or 'no such table' in msg
+            if not table_missing:
+                raise  # erreur réelle (pas liée à une table absente) : ne pas la masquer
             if _ensure_induction_tables():
-                try:
-                    return super().list(request, *args, **kwargs)
-                except Exception:
-                    pass
-            return Response([])
+                return super().list(request, *args, **kwargs)
+            raise
 
     def _check_admin(self, request):
         if not _is_admin_user(request.user):
