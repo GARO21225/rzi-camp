@@ -234,7 +234,7 @@ export default function Layout() {
         boxShadow: '0 1px 0 rgba(255,212,0,.15)',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'transparent', border: 'none', color: '#111827', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
           {sidebarOpen ? '✕' : '☰'}
@@ -244,8 +244,8 @@ export default function Layout() {
           <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
         </div>
 
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#525252', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          RÉSIDENCE <span style={{ color: '#111827' }}>ROXGOLD SANGO</span>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#A3A3A3', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          RÉSIDENCE <span style={{ color: '#FFD400' }}>ROXGOLD SANGO</span>
         </div>
 
         {/* ── Recherche globale ── */}
