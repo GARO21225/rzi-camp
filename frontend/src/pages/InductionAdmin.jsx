@@ -120,6 +120,21 @@ export default function InductionAdmin() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  const importerDonnees = async () => {
+    setImporting(true); setErr('')
+    try {
+      const r = await inductionConfig.importerDonneesOriginales()
+      if (r.data.status === 'skipped') {
+        setErr(r.data.message)
+      }
+      load()
+    } catch (e) {
+      setErr(e.response?.data?.error || 'Erreur lors de l\'import des données existantes')
+    }
+    setImporting(false)
+  }
 
   const DEFAULT_CONFIG = {
     nom: 'Camp Résidentiel', site: '', capacite: 0,
@@ -252,6 +267,11 @@ export default function InductionAdmin() {
             Personnalisez le contenu vu par le personnel lors de son induction
           </p>
         </div>
+        {infras.length === 0 && regles.length === 0 && quiz.length === 0 && (
+          <button onClick={importerDonnees} disabled={importing} className="rzc-btn rzc-btn-primary">
+            {importing ? '⏳ Import en cours...' : '📥 Récupérer les données existantes'}
+          </button>
+        )}
       </div>
 
       {err && (
