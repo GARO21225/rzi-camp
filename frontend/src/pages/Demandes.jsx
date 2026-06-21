@@ -126,7 +126,7 @@ export default function Demandes() {
 
       {/* Admin KPIs */}
       {isAdmin && stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
           {[
             [stats.en_attente,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
