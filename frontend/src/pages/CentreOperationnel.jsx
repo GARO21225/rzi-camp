@@ -137,7 +137,7 @@ export default function CentreOperationnel() {
       </div>
 
       {/* KPIs principaux */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:12, marginBottom:20 }}>
         <KpiCard icon="🏠" value={bat.libres??'—'} label="Résidences libres" color="#16a34a" bg="#f0fdf4"/>
         <KpiCard icon="👥" value={bat.occupes??'—'} label="Résidences occupées" color="#1e3a8a" bg="#eff6ff"/>
         <KpiCard icon="📊" value={bat.taux_occupation!=null?`${bat.taux_occupation}%`:'—'} label="Taux occupation" color="#7c3aed" bg="#f5f3ff"/>
