@@ -335,7 +335,7 @@ export default function ReservationsPage() {
         const weekRes   = reservations.filter(r=>r.date>=weekStr&&r.statut!=='annulé')
         const cancelled = reservations.filter(r=>r.statut==='annulé').length
         return (
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:12,marginBottom:20}}>
             {[
               {l:"Aujourd'hui",  v:todayRes.length,  c:'#1e3a8a', bg:'#eff6ff', icon:'📅'},
               {l:'Cette semaine',v:weekRes.length,    c:'#7c3aed', bg:'#f5f3ff', icon:'📊'},
