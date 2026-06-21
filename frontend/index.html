@@ -6,19 +6,8 @@
     <title>RZI Camp — ERP GIS</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%231e3a8a' rx='6'/><text x='4' y='26' font-size='20' fill='%23FFD400'>⛏</text></svg>"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script>
-      // Nettoyer les anciens Service Workers
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          for(var reg of regs) { reg.unregister(); }
-        });
-        if (window.caches) {
-          caches.keys().then(function(names) {
-            for (var name of names) { caches.delete(name); }
-          });
-        }
-      }
-    </script>
+    <link rel="manifest" href="/manifest.json"/>
+    <meta name="theme-color" content="#0F2A5C"/>
   </head>
   <body>
     <div id="root"></div>
