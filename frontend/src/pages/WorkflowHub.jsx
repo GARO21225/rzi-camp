@@ -193,7 +193,7 @@ export default function WorkflowHub() {
       )}
 
       {/* Stats globales */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5, minmax(0, 1fr))',
         gap:10,marginBottom:24}}>
         {[
           ['🔧 Incidents ouverts',   stats.declare||0,   '#3b82f6'],
