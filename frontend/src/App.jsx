@@ -34,7 +34,8 @@ const BoutiquePOS = lazy(() => import('./pages/BoutiquePOS'))
 import Presences   from './pages/Presences'
 
 const Demandes = lazy(() => import('./pages/Demandes'))
-import { OfflineBanner, PWAInstallButton } from './components/OfflineBanner'
+import { OfflineBanner } from './components/OfflineBanner'
+import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 
 // ── Enregistrement Service Worker (offline mode) ──────────────
