@@ -2,7 +2,7 @@
  * Personnel — Gestion des membres, QR codes, sous-traitants
  * Version stable - Erreurs gérées par Error Boundary
  */
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { personnel as personnelAPI } from '../api'
 
 // ── Error Boundary ───────────────────────────────────────
@@ -68,8 +68,11 @@ export default function Personnel() {
 
   useEffect(() => { load() }, [load])
 
-  // Filtrage
-  const filtered = data.filter(p => {
+  // Filtrage — mémoïsé : recalculé seulement quand data ou les filtres changent,
+  // pas à chaque re-render du composant (ex: ouverture d'un modal, saisie dans
+  // un autre champ du formulaire). Sur 500 personnes × 7 champs comparés, ce
+  // calcul n'est pas gratuit à répéter inutilement.
+  const filtered = useMemo(() => data.filter(p => {
     const q = search.toLowerCase()
     const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.profil,p.matricule]
       .some(v => (v||'').toLowerCase().includes(q))
@@ -77,7 +80,7 @@ export default function Personnel() {
     const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
     const matchProfil  = !profilFilter  || p.profil === profilFilter
     return matchSearch && matchType && matchSociete && matchProfil
-  })
+  }), [data, search, typeFilter, societeFilter, profilFilter])
 
   // Sauvegarde
   const handleSave = async () => {
