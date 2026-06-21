@@ -308,7 +308,7 @@ export default function Historique() {
 
           {voyData && (
             <div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:10,marginBottom:14}}>
                 {[[voyData.total_voyages,'Total','var(--blue)','✈️'],[voyData.en_voyage||0,'En voyage','#ea580c','🚀'],
                   [voyData.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [(voyData.voyages||[]).filter(v=>v.statut==='retour'||v.statut?.includes('Retour')).length,'Retours','#16a34a','🏠']
@@ -350,7 +350,7 @@ export default function Historique() {
         <div>
           {voyEnsemble?(
             <div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:10,marginBottom:14}}>
                 {[[voyEnsemble.total,'Total voyages','var(--blue)','✈️'],[voyEnsemble.en_voyage,'En voyage','#ea580c','🚀'],
                   [voyEnsemble.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [voyEnsemble.top_voyageurs?.[0]?.nb||0,'Max/personne','#16a34a','🏆']
