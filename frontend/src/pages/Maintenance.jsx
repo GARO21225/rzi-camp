@@ -769,7 +769,7 @@ export default function Maintenance() {
         </div>
 
         {/* ── KPIs enrichis ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10, marginBottom:12 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
           {[
             ['📢','Déclarés',    stats.declare||0,   '#3b82f6','#eff6ff'],
             ['👷','Assignés',    stats.assigne||0,   '#f97316','#fff7ed'],
