@@ -354,6 +354,75 @@ def setup_db(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def backup_complet(request):
+    """Export complet de la base au format JSON (équivalent dumpdata --all),
+    téléchargeable directement — aucune dépendance à pg_dump (absent de cet
+    environnement, psycopg2-binary n'inclut pas les outils CLI PostgreSQL).
+    Restaurable sur n'importe quel backend Django via `loaddata`, donc portable
+    Render → autre cloud → serveur local sans changer de moteur de base.
+
+    SÉCURITÉ : réutilise SETUP_DB_SECRET (déjà utilisé par /api/setup-db/) —
+    un export complet de la base est au moins aussi sensible qu'une modification
+    de schéma, donc mérite la même protection fail-closed, sans introduire un
+    secret supplémentaire à gérer.
+    """
+    import os, io
+    from django.http import HttpResponse
+    from django.core.management import call_command
+    from django.core import serializers as dj_serializers
+
+    required_secret = os.environ.get('SETUP_DB_SECRET', '')
+    if not required_secret:
+        return Response({'error': 'Endpoint désactivé (SETUP_DB_SECRET non configuré côté serveur)'}, status=403)
+    provided = request.GET.get('secret', '') or request.META.get('HTTP_X_SETUP_SECRET', '')
+    if provided != required_secret:
+        return Response({'error': 'Secret invalide'}, status=403)
+
+    buf = io.StringIO()
+    try:
+        call_command(
+            'dumpdata',
+            exclude=['contenttypes', 'auth.permission', 'sessions.session', 'admin.logentry'],
+            natural_foreign=True, natural_primary=True,
+            indent=2, stdout=buf,
+        )
+    except Exception as e:
+        return Response({'error': f'Échec export: {e}'}, status=500)
+
+    from django.utils import timezone
+    filename = f"rzi_camp_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.json"
+    response = HttpResponse(buf.getvalue(), content_type='application/json')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def backup_status(request):
+    """Renseigne si la sauvegarde est configurée et donne un résumé léger
+    (nombre de lignes par table principale) sans exiger le secret — utile
+    pour vérifier rapidement que le mécanisme est opérationnel avant de
+    déclencher un vrai export, et pour un monitoring externe basique."""
+    import os
+    from django.db import connection
+    configured = bool(os.environ.get('SETUP_DB_SECRET', ''))
+    counts = {}
+    try:
+        with connection.cursor() as c:
+            for table in ['residences_personnel', 'residences_batiment', 'maintenance_incident',
+                          'restauration_consommationboutique', 'voyages_voyage']:
+                try:
+                    c.execute(f"SELECT COUNT(*) FROM {table}")
+                    counts[table] = c.fetchone()[0]
+                except Exception:
+                    counts[table] = None
+    except Exception:
+        pass
+    return Response({'backup_endpoint_configured': configured, 'row_counts': counts})
+
+
 def diagnostic(request):
     """Endpoint public de statut système — utilisé par StatusPage.jsx sans authentification
     (page de monitoring consultée avant même qu'un login soit possible si la DB est down).
