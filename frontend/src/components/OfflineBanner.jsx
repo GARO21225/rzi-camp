@@ -42,61 +42,10 @@ export function OfflineBanner() {
   )
 }
 
-// ── Bouton installation PWA ─────────────────────────────────
-export function PWAInstallButton() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [installed, setInstalled] = useState(false)
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem('pwa_dismissed') === '1')
-
-  useEffect(() => {
-    const handler = e => { e.preventDefault(); setDeferredPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => setInstalled(true))
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  const install = async () => {
-    if (!deferredPrompt) return
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') setInstalled(true)
-    setDeferredPrompt(null)
-  }
-
-  const dismiss = e => { e.stopPropagation(); setDismissed(true); localStorage.setItem('pwa_dismissed','1') }
-
-  if (!deferredPrompt || installed || dismissed) return null
-
-  return (
-    <div style={{
-      position:'fixed', bottom:80, right:16, zIndex:999,
-      background:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
-      color:'#fff', borderRadius:16, padding:'12px 16px',
-      boxShadow:'0 4px 20px rgba(30,58,138,.4)',
-      display:'flex', alignItems:'center', gap:12, maxWidth:280,
-    }}>
-      <div style={{fontSize:28}}>📲</div>
-      <div style={{flex:1}}>
-        <div style={{fontWeight:700,fontSize:13,marginBottom:3}}>Installer l'application</div>
-        <div style={{fontSize:11,color:'rgba(255,255,255,.8)',marginBottom:8}}>
-          Accès rapide, fonctionne hors réseau
-        </div>
-        <div style={{display:'flex',gap:6}}>
-          <button onClick={install}
-            style={{background:'#f0a500',color:'#000',border:'none',padding:'5px 14px',
-              borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700}}>
-            Installer
-          </button>
-          <button onClick={dismiss}
-            style={{background:'rgba(255,255,255,.15)',color:'#fff',border:'none',padding:'5px 10px',
-              borderRadius:99,cursor:'pointer',fontSize:12}}>
-            Plus tard
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// PWAInstallButton a été déplacé : la version maintenue est dans PWAInstall.jsx
+// (support iOS + Android, voir App.jsx). Celle qui était ici était dupliquée
+// et n'a jamais été branchée nulle part — supprimée pour éviter toute confusion
+// future sur laquelle des deux est la version active.
 
 // ── Hook: état réseau ───────────────────────────────────────
 export function useOnlineStatus() {
