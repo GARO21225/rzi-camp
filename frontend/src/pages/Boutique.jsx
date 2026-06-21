@@ -1505,7 +1505,7 @@ export default function Boutique() {
             const valeurTot = articles.reduce((s,a)=>s+(a.stock||0)*(a.prix||0),0)
             const totalConso = consos?.length || articles.reduce((s,a)=>s+(a.total_vendu||0),0)
             return (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(5, minmax(0, 1fr))',gap:12,marginBottom:20}}>
                 {[
                   {icon:'📦',label:'Articles',val:totalArticles,    color:'#1e3a8a',bg:'#eff6ff'},
                   {icon:'🔴',label:'En rupture',val:enRupture,      color:'#dc2626',bg:'#fef2f2'},
