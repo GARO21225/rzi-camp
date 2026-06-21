@@ -354,8 +354,6 @@ def setup_db(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@api_view(['GET'])
-@permission_classes([AllowAny])
 def backup_complet(request):
     """Export complet de la base au format JSON (équivalent dumpdata --all),
     téléchargeable directement — aucune dépendance à pg_dump (absent de cet
