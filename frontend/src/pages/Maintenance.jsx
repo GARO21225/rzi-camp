@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
 
@@ -8,6 +8,60 @@ function genererRapport(incidents, stats, periode={}) {
   const now = new Date()
   const dateStr = now.toLocaleDateString('fr-FR', {day:'numeric',month:'long',year:'numeric'})
   const timeStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
+
+  // Agrégats coûteux mémoïsés — étaient recalculés à CHAQUE render (recherche,
+  // filtre, n'importe quel changement d'état) avant ce fix, même sans rapport
+  // avec `incidents`. Ne dépendent que de `incidents`/`stats`, donc ne se
+  // recalculent plus que lorsque ces deux valeurs changent réellement.
+  const chartsData = useMemo(() => {
+    const COLORS_STATUT = { declare:'#2563EB', assigne:'#D4A017', en_cours:'#B87333', resolu:'#16A34A', cloture:'#5B6472' }
+    const LABELS_STATUT = { declare:'Déclarés', assigne:'Assignés', en_cours:'En cours', resolu:'Résolus', cloture:'Clôturés' }
+    const pieData = Object.entries(stats)
+      .filter(([k]) => COLORS_STATUT[k])
+      .map(([k, n]) => [LABELS_STATUT[k], n, COLORS_STATUT[k]])
+      .filter(([,n]) => n > 0)
+    const pieTotal = pieData.reduce((s,[,n]) => s + n, 0)
+
+    const byCatFull = {}
+    incidents.forEach(i => { if (i.categorie) byCatFull[i.categorie] = (byCatFull[i.categorie] || 0) + 1 })
+    const catData = Object.entries(byCatFull).sort((a,b) => b[1]-a[1]).slice(0, 8)
+    const maxCatVal = Math.max(...catData.map(([,n]) => n), 1)
+
+    const byMonthFull = {}
+    incidents.forEach(i => {
+      if (i.date_creation) {
+        const m = new Date(i.date_creation).toLocaleDateString('fr-FR', { month:'short', year:'2-digit' })
+        byMonthFull[m] = (byMonthFull[m] || 0) + 1
+      }
+    })
+    const monthData = Object.entries(byMonthFull).slice(-12)
+    const maxMonthVal = Math.max(...monthData.map(([,n]) => n), 1)
+
+    return { pieData, pieTotal, catData, maxCatVal, monthData, maxMonthVal }
+  }, [incidents, stats])
+
+  const kpisComplementaires = useMemo(() => {
+    const byPrioFull = { critique:0, haute:0, moyenne:0, basse:0 }
+    incidents.forEach(i => { if (i.priorite && byPrioFull[i.priorite] !== undefined) byPrioFull[i.priorite]++ })
+    const prioTotal = Object.values(byPrioFull).reduce((s,n) => s+n, 0)
+
+    const byTech = {}
+    incidents.forEach(i => {
+      const nom = i.assigne_a_nom || i.assigne_a_username || (i.assigne_a ? `Technicien #${i.assigne_a}` : null)
+      if (nom) byTech[nom] = (byTech[nom] || 0) + 1
+    })
+    const topTechs = Object.entries(byTech).sort((a,b) => b[1]-a[1]).slice(0,5)
+
+    const byResidence = {}
+    incidents.forEach(i => { if (i.residence) byResidence[i.residence] = (byResidence[i.residence] || 0) + 1 })
+    const topResidences = Object.entries(byResidence).sort((a,b) => b[1]-a[1]).slice(0,5)
+
+    const critResolus = incidents.filter(i => i.priorite==='critique' && ['resolu','cloture'].includes(i.statut))
+    const critTotal = incidents.filter(i => i.priorite==='critique')
+    const tauxCritResolu = critTotal.length ? Math.round(critResolus.length / critTotal.length * 100) : null
+
+    return { byPrioFull, prioTotal, topTechs, topResidences, tauxCritResolu }
+  }, [incidents])
 
   // Calculs KPIs
   const ouverts   = incidents.filter(i=>!['resolu','cloture','annule'].includes(i.statut))
@@ -794,25 +848,7 @@ export default function Maintenance() {
 
         {/* ── KPIs complémentaires : priorité, charge technicien, top résidences ── */}
         {incidents.length > 0 && (() => {
-          const byPrioFull = { critique:0, haute:0, moyenne:0, basse:0 }
-          incidents.forEach(i => { if (i.priorite && byPrioFull[i.priorite] !== undefined) byPrioFull[i.priorite]++ })
-          const prioTotal = Object.values(byPrioFull).reduce((s,n)=>s+n,0)
-
-          const byTech = {}
-          incidents.forEach(i => {
-            const nom = i.assigne_a_nom || i.assigne_a_username || (i.assigne_a ? `Technicien #${i.assigne_a}` : null)
-            if (nom) byTech[nom] = (byTech[nom] || 0) + 1
-          })
-          const topTechs = Object.entries(byTech).sort((a,b)=>b[1]-a[1]).slice(0,5)
-
-          const byResidence = {}
-          incidents.forEach(i => { if (i.residence) byResidence[i.residence] = (byResidence[i.residence] || 0) + 1 })
-          const topResidences = Object.entries(byResidence).sort((a,b)=>b[1]-a[1]).slice(0,5)
-
-          const critResolus = incidents.filter(i => i.priorite==='critique' && ['resolu','cloture'].includes(i.statut))
-          const critTotal = incidents.filter(i => i.priorite==='critique')
-          const tauxCritResolu = critTotal.length ? Math.round(critResolus.length / critTotal.length * 100) : null
-
+          const { byPrioFull, prioTotal, topTechs, topResidences, tauxCritResolu } = kpisComplementaires
           const PRIO_COLORS = { critique:'#DC2626', haute:'#D4A017', moyenne:'#2563EB', basse:'#16A34A' }
           const PRIO_LABELS = { critique:'Critique', haute:'Haute', moyenne:'Moyenne', basse:'Basse' }
 
@@ -882,28 +918,7 @@ export default function Maintenance() {
 
         {/* ── Graphiques visuels à l'écran (camembert, histogramme, courbe) ── */}
         {incidents.length > 0 && (() => {
-          const COLORS_STATUT = { declare:'#2563EB', assigne:'#D4A017', en_cours:'#B87333', resolu:'#16A34A', cloture:'#5B6472' }
-          const LABELS_STATUT = { declare:'Déclarés', assigne:'Assignés', en_cours:'En cours', resolu:'Résolus', cloture:'Clôturés' }
-          const pieData = Object.entries(stats)
-            .filter(([k]) => COLORS_STATUT[k])
-            .map(([k, n]) => [LABELS_STATUT[k], n, COLORS_STATUT[k]])
-            .filter(([,n]) => n > 0)
-          const pieTotal = pieData.reduce((s,[,n]) => s + n, 0)
-
-          const byCatFull = {}
-          incidents.forEach(i => { if (i.categorie) byCatFull[i.categorie] = (byCatFull[i.categorie] || 0) + 1 })
-          const catData = Object.entries(byCatFull).sort((a,b) => b[1]-a[1]).slice(0, 8)
-          const maxCatVal = Math.max(...catData.map(([,n]) => n), 1)
-
-          const byMonthFull = {}
-          incidents.forEach(i => {
-            if (i.date_creation) {
-              const m = new Date(i.date_creation).toLocaleDateString('fr-FR', { month:'short', year:'2-digit' })
-              byMonthFull[m] = (byMonthFull[m] || 0) + 1
-            }
-          })
-          const monthData = Object.entries(byMonthFull).slice(-12)
-          const maxMonthVal = Math.max(...monthData.map(([,n]) => n), 1)
+          const { pieData, pieTotal, catData, maxCatVal, monthData, maxMonthVal } = chartsData
 
           // ── Camembert SVG (statuts) ──
           let pieAngle = -Math.PI / 2
