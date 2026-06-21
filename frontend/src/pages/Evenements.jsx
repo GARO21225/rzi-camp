@@ -125,7 +125,7 @@ export default function Evenements() {
       )}
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
         {[
           [events.length,'Total','var(--blue)','📅'],
           [upcoming.length,'À venir','#16a34a','🗓️'],
