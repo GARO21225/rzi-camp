@@ -214,7 +214,7 @@ export default function Analytics() {
       </div>
 
       {/* KPIs globaux */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:12, marginBottom:24 }}>
         <StatBlock label="Bâtiments" value={bats?.total} icon="🏗️" color={C.blue} sub={`${bats?.taux?.toFixed(1)||0}% occupé`} />
         <StatBlock label="Libres" value={bats?.libres} icon="✅" color={C.green} sub={`${bats?.total?Math.round(bats.libres/bats.total*100):0}% du parc`} />
         <StatBlock label="Incidents" value={inc?.total||0} icon="🚨" color={C.red} sub={`${inc?.ouverts||0} ouverts`} />
@@ -320,7 +320,7 @@ export default function Analytics() {
 
       {/* ── Incidents ── */}
       {tab === 'incidents' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:14 }}>
           {[
             ['Total incidents',    inc?.total||0,    '📋', C.blue,   'Tous statuts confondus'],
             ['Ouverts',           inc?.ouverts||0,   '🔴', C.red,    'À traiter en priorité'],
@@ -334,7 +334,7 @@ export default function Analytics() {
 
       {/* ── Voyages ── */}
       {tab === 'voyages' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:14 }}>
           {[
             ['Total voyages',    voy?.total||0,    '✈️', C.blue,   'Tous statuts'],
             ['Planifiés',        voy?.planifies||0,'📅', C.gold,   'Départs à venir'],
