@@ -810,7 +810,7 @@ export default function Maintenance() {
           const tauxRes = incidents.length ? Math.round((resolved.length/incidents.length)*100) : 0
 
           return (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10, marginBottom:20 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:20 }}>
               <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
                 <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>⏱️ Durée moy. résolution</div>
                 <div style={{ fontSize:26, fontWeight:900, color:'#7c3aed' }}>{avgDays ? `${avgDays}j` : '—'}</div>
