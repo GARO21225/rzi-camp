@@ -174,7 +174,7 @@ export default function Voyages() {
       </div>
 
       {/* ── KPIs ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
         {[
           ['Total',     '📋', stats.total||data.length, '#2563eb'],
           ['Planifiés', '📅', stats.planifies||0,        '#f59e0b'],
