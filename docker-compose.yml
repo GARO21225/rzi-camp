@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   db:
-    image: postgis/postgis:15-3.3
+    image: postgres:15  # PostGIS retiré : jamais utilisé (pas de django.contrib.gis), allège l'image
     environment:
       POSTGRES_DB: rzi_camp
       POSTGRES_USER: rzi
