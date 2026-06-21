@@ -468,6 +468,8 @@ urlpatterns = [
     path('api/auth/me/', auth_me, name='auth_me'),
     path('favicon.ico', favicon),
     path('api/setup-db/', setup_db, name='setup_db'),
+    path('api/backup-complet/', backup_complet, name='backup_complet'),
+    path('api/backup-status/', backup_status, name='backup_status'),
     path('api/diagnostic/', diagnostic, name='diagnostic'),
     path('api/version/', version, name='version'),
     path('api/test-boutique/', test_boutique, name='test_boutique'),
