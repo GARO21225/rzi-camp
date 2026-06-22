@@ -328,15 +328,15 @@ export default function InductionCamp() {
       border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;
       font-family:'Space Grotesk',sans-serif;outline:none;width:100%;box-sizing:border-box; }
     .ic-input:focus { border-color:rgba(59,130,246,.6);background:rgba(255,255,255,.12); }
-    .ic-input option { background:#1e293b;color:#fff; }
-    select.ic-input option { background:#1e293b; }
+    .ic-input option { background:var(--rzc-navy);color:#fff; }
+    select.ic-input option { background:var(--rzc-navy); }
   `
 
   // ── Écran certificat final ────────────────────────────────────────
   if (etape===5 && validated) {
     return (
       <div className="ic-root" style={{minHeight:'100vh',
-        background:'linear-gradient(135deg,#0f172a,#1e3a8a,#0f172a)',
+        background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
         display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
         <style>{css}</style>
         <div style={{maxWidth:520,width:'100%',textAlign:'center',animation:'icFadeIn .8s ease'}}>
@@ -399,7 +399,7 @@ export default function InductionCamp() {
 
   // ── Écran chargement ─────────────────────────────────────────────
   if (loadingCheck) return (
-    <div style={{minHeight:'100vh',background:'#0f172a',display:'flex',
+    <div style={{minHeight:'100vh',background:'var(--rzc-navy)',display:'flex',
       alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',color:'#94a3b8'}}>
         <div style={{fontSize:40,marginBottom:12}}>⏳</div>
@@ -410,7 +410,7 @@ export default function InductionCamp() {
 
   // ── Vue Admin ─────────────────────────────────────────────────────
   if (isAdmin && adminView) return (
-    <div style={{minHeight:'100vh',background:'#0f172a',color:'#fff',padding:24}}>
+    <div style={{minHeight:'100vh',background:'var(--rzc-navy)',color:'#fff',padding:24}}>
       <div style={{maxWidth:900,margin:'0 auto'}}>
         <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
           <button onClick={()=>setAdminView(false)}
@@ -527,7 +527,7 @@ export default function InductionCamp() {
 
   // ── Déjà complété — afficher badge ───────────────────────────────
   if (dejaComplete) return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a,#1e3a8a,#0f172a)',
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
       display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{maxWidth:500,width:'100%',textAlign:'center'}}>
         <div style={{fontSize:72,marginBottom:12,animation:'icBounce 2s ease infinite'}}>🏅</div>
@@ -584,13 +584,16 @@ export default function InductionCamp() {
   )
 
   // ── Layout principal ─────────────────────────────────────────────
+  // Dégradés Roxgold (bleu marine, jamais noir pur) — un par étape, suffisamment
+  // foncés pour garder le texte blanc existant lisible sans avoir à le réauditer
+  // entièrement sur ce composant multi-étapes.
   const bgGradients = [
-    'linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#0f172a 100%)',  // Bienvenue
-    'linear-gradient(135deg,#0c1821 0%,#0f2942 50%,#0c1821 100%)',  // Infra
-    'linear-gradient(135deg,#0f172a 0%,#1a0a2e 50%,#0f172a 100%)',  // Règles
-    'linear-gradient(135deg,#0a1628 0%,#0f3460 50%,#0a1628 100%)',  // Quiz
-    'linear-gradient(135deg,#0f172a 0%,#132a1f 50%,#0f172a 100%)',  // Appareils
-    'linear-gradient(135deg,#0f172a 0%,#1a0f2a 50%,#0f172a 100%)',  // Signature
+    'linear-gradient(135deg,#0F2A5C 0%,#1E3A8A 50%,#0F2A5C 100%)',  // Bienvenue
+    'linear-gradient(135deg,#0C2340 0%,#1E3A8A 50%,#0C2340 100%)',  // Infra
+    'linear-gradient(135deg,#0F2A5C 0%,#2563EB 50%,#0F2A5C 100%)',  // Règles
+    'linear-gradient(135deg,#0C2340 0%,#1D4ED8 50%,#0C2340 100%)',  // Quiz
+    'linear-gradient(135deg,#0F2A5C 0%,#1E40AF 50%,#0F2A5C 100%)',  // Appareils
+    'linear-gradient(135deg,#0F2A5C 0%,#1E3A8A 50%,#0F2A5C 100%)',  // Signature
   ]
 
   return (
