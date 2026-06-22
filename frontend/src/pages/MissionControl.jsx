@@ -6,19 +6,23 @@ const hdrs = () => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'applica
 const api  = (path, opts) => fetch(`${BASE}${path}`, { headers: hdrs(), ...opts })
 
 // ── Palette & Config ────────────────────────────────────────────────
+// Palette Roxgold (bleu marine / blanc / gris industriel + touches or) —
+// remplace l'ancien thème "mission control" sombre quasi-noir. Toutes les
+// 200 références C.xxx du fichier basculent automatiquement via cet objet
+// unique, sans toucher au reste du code.
 const C = {
-  bg:     '#060d1f',
-  panel:  '#0b1628',
-  border: 'rgba(96,165,250,.14)',
-  glow:   'rgba(96,165,250,.35)',
-  text:   '#e2eaf6',
-  muted:  '#4b6080',
-  accent: '#60a5fa',
-  green:  '#34d399',
-  amber:  '#fbbf24',
-  red:    '#f87171',
-  purple: '#a78bfa',
-  cyan:   '#22d3ee',
+  bg:     '#F4F6F9',
+  panel:  '#FFFFFF',
+  border: 'rgba(15,26,46,.10)',
+  glow:   'rgba(37,99,235,.25)',
+  text:   '#0F1A2E',
+  muted:  '#5B6472',
+  accent: '#2563EB',
+  green:  '#16A34A',
+  amber:  '#D4A017',
+  red:    '#DC2626',
+  purple: '#7C3AED',
+  cyan:   '#0891B2',
 }
 
 const ST_CFG = {
