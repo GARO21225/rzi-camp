@@ -276,10 +276,10 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
 // ── Carte stats ────────────────────────────────────────────────────
 function StatsCard({ count, title, color, icon }) {
   return (
-    <div style={{ background: 'var(--surface)', border: `2px solid ${color}`, borderRadius: 14, padding: 16, textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--rzc-charcoal-l1)', border: `2px solid ${color}`, borderRadius: 14, padding: 16, textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 18, opacity: 0.3 }}>{icon}</div>
       <div style={{ fontFamily: 'monospace', fontSize: 36, fontWeight: 900, color, lineHeight: 1 }}>{count}</div>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{title}</div>
+      <div style={{ fontSize: 10, color: 'var(--rzc-text-3)', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{title}</div>
     </div>
   )
 }
@@ -292,7 +292,7 @@ function LastScanCard({ scan }) {
     <div style={{ background: 'rgba(22,163,74,.1)', border: '2px solid #16a34a', borderRadius: 14, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 10, color: '#16a34a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Dernier scan</div>
       <div style={{ fontWeight: 700, fontSize: 16, color: '#16a34a' }}>{scan.resident}</div>
-      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>{scan.societe}</div>
+      <div style={{ fontSize: 12, color: 'var(--rzc-text-3)', marginTop: 2 }}>{scan.societe}</div>
       <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c3aed', marginTop: 6 }}>
         {dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
       </div>
@@ -334,7 +334,7 @@ function HistoriqueList({ data, onRefresh, loading }) {
           placeholder="Rechercher..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
-          style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, background: 'var(--surface2)', color: 'var(--text)' }}
+          style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--rzc-border-light)', fontSize: 12, background: 'var(--rzc-charcoal-l2)', color: 'var(--rzc-text)' }}
         />
       </div>
 
@@ -345,26 +345,26 @@ function HistoriqueList({ data, onRefresh, loading }) {
           { key: 'hier', label: 'Hier' },
         ].map(f => (
           <button key={f.key} onClick={() => setFilterJour(f.key)}
-            style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: `1px solid ${filterJour === f.key ? '#7c3aed' : 'var(--border)'}`, background: filterJour === f.key ? 'rgba(124,58,237,.1)' : 'transparent', color: filterJour === f.key ? '#7c3aed' : 'var(--text-dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+            style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: `1px solid ${filterJour === f.key ? '#7c3aed' : 'var(--rzc-border-light)'}`, background: filterJour === f.key ? 'rgba(124,58,237,.1)' : 'transparent', color: filterJour === f.key ? '#7c3aed' : 'var(--rzc-text-3)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
             {f.label} ({f.key === 'today' ? countByDay.today : countByDay.hier})
           </button>
         ))}
       </div>
 
       {/* Liste */}
-      <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <div style={{ background: 'var(--rzc-charcoal-l1)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--rzc-border-light)' }}>
         <div style={{ padding: '12px 14px', background: '#7c3aed', color: '#fff', fontWeight: 600, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>👥 Personnel ({filteredData.length})</span>
 
         </div>
 
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-dim)' }}>
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--rzc-text-3)' }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
             <div>Chargement...</div>
           </div>
         ) : filteredData.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-dim)' }}>
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--rzc-text-3)' }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🍽️</div>
             <div style={{ fontSize: 13 }}>Aucun scan</div>
           </div>
@@ -377,20 +377,20 @@ function HistoriqueList({ data, onRefresh, loading }) {
               return (
                 <div key={r.id || i} style={{
                   padding: '10px 14px',
-                  borderBottom: '1px solid var(--border)',
+                  borderBottom: '1px solid var(--rzc-border-light)',
                   background: isNew ? 'rgba(124,58,237,.08)' : 'transparent',
                   borderLeft: isNew ? '3px solid #7c3aed' : '3px solid transparent'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--blue)' }}>{r.resident || '—'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{r.societe || ''}</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--rzc-navy)' }}>{r.resident || '—'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginTop: 2 }}>{r.societe || ''}</div>
                     </div>
                     <div style={{ textAlign: 'right', marginLeft: 8 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
                         {dt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) || '—'}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{itemDate === today ? 'Auj.' : itemDate === hier ? 'Hier' : ''}</div>
+                      <div style={{ fontSize: 10, color: 'var(--rzc-text-3)' }}>{itemDate === today ? 'Auj.' : itemDate === hier ? 'Hier' : ''}</div>
                     </div>
                   </div>
                 </div>
@@ -400,7 +400,7 @@ function HistoriqueList({ data, onRefresh, loading }) {
         )}
       </div>
 
-      <button onClick={onRefresh} disabled={loading} style={{ width: '100%', marginTop: 10, background: 'var(--surface2)', border: '1px solid var(--border)', color: loading ? 'var(--text-dim)' : 'var(--text)', padding: 10, borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 12 }}>
+      <button onClick={onRefresh} disabled={loading} style={{ width: '100%', marginTop: 10, background: 'var(--rzc-charcoal-l2)', border: '1px solid var(--rzc-border-light)', color: loading ? 'var(--rzc-text-3)' : 'var(--rzc-text)', padding: 10, borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 12 }}>
         {loading ? '⏳ Chargement...' : '🔄 Actualiser'}
       </button>
     </div>
@@ -458,23 +458,23 @@ export default function Restauration() {
   // ── Interface Restaurant (scan personnel) ──
   if (isResto) {
     return (
-      <div style={{ padding: 16 }}>
+      <div className="rzc-page-scope" style={{ padding: 16 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: '#7c3aed', margin: 0 }}>🍽️ Restaurant</h2>
-            <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginTop: 4 }}>
               {repas?.heure || 'Heures de service'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => { setTypeRepas('petit_dejeuner') }} style={{ background: typeRepas === 'petit_dejeuner' ? 'rgba(249,115,22,.1)' : 'var(--surface2)', border: `1px solid ${typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--border)'}`, color: typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--text-dim)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+            <button onClick={() => { setTypeRepas('petit_dejeuner') }} style={{ background: typeRepas === 'petit_dejeuner' ? 'rgba(249,115,22,.1)' : 'var(--rzc-charcoal-l2)', border: `1px solid ${typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-border-light)'}`, color: typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-text-3)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               🌅
             </button>
-            <button onClick={() => { setTypeRepas('dejeuner') }} style={{ background: typeRepas === 'dejeuner' ? 'rgba(37,99,235,.1)' : 'var(--surface2)', border: `1px solid ${typeRepas === 'dejeuner' ? '#2563eb' : 'var(--border)'}`, color: typeRepas === 'dejeuner' ? '#2563eb' : 'var(--text-dim)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+            <button onClick={() => { setTypeRepas('dejeuner') }} style={{ background: typeRepas === 'dejeuner' ? 'rgba(37,99,235,.1)' : 'var(--rzc-charcoal-l2)', border: `1px solid ${typeRepas === 'dejeuner' ? '#2563eb' : 'var(--rzc-border-light)'}`, color: typeRepas === 'dejeuner' ? '#2563eb' : 'var(--rzc-text-3)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               ☀️
             </button>
-            <button onClick={() => { setTypeRepas('diner') }} style={{ background: typeRepas === 'diner' ? 'rgba(124,58,237,.1)' : 'var(--surface2)', border: `1px solid ${typeRepas === 'diner' ? '#7c3aed' : 'var(--border)'}`, color: typeRepas === 'diner' ? '#7c3aed' : 'var(--text-dim)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+            <button onClick={() => { setTypeRepas('diner') }} style={{ background: typeRepas === 'diner' ? 'rgba(124,58,237,.1)' : 'var(--rzc-charcoal-l2)', border: `1px solid ${typeRepas === 'diner' ? '#7c3aed' : 'var(--rzc-border-light)'}`, color: typeRepas === 'diner' ? '#7c3aed' : 'var(--rzc-text-3)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               🌙
             </button>
           </div>
@@ -483,7 +483,7 @@ export default function Restauration() {
         {/* Stats redesign: TOTAL du jour + breakdown par type */}
         <div style={{ marginBottom: 16 }}>
           {/* Chiffre principal */}
-          <div style={{ background: 'linear-gradient(135deg, #1e3a8a, #2d4fa3)', borderRadius: 16, padding: '18px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ background: 'linear-gradient(135deg, var(--rzc-navy), #1E3A8A)', borderRadius: 16, padding: '18px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,.65)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>📅 Aujourd'hui — Total</div>
               <div style={{ fontFamily: 'monospace', fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{stats.today}</div>
@@ -608,11 +608,11 @@ export default function Restauration() {
 
   // ── Interface Agent (mon QR) ──
   return (
-    <div style={{ padding: 16 }}>
+    <div className="rzc-page-scope" style={{ padding: 16 }}>
       <div style={{ maxWidth: 360, margin: '0 auto' }}>
-        <div style={{ background: 'var(--surface)', border: '2px solid #7c3aed', borderRadius: 16, padding: 24, textAlign: 'center' }}>
+        <div style={{ background: 'var(--rzc-charcoal-l1)', border: '2px solid #7c3aed', borderRadius: 16, padding: 24, textAlign: 'center' }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: '#7c3aed', marginBottom: 6 }}>📱 Mon QR Restaurant</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16 }}>Présentez ce code au restaurant</div>
+          <div style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginBottom: 16 }}>Présentez ce code au restaurant</div>
 
           {myQR?.qr_code_data ? (
             <>
@@ -625,7 +625,7 @@ export default function Restauration() {
               </div>
             </>
           ) : (
-            <div style={{ padding: 32, color: 'var(--text-dim)' }}>
+            <div style={{ padding: 32, color: 'var(--rzc-text-3)' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📱</div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>QR non disponible</div>
               <div style={{ fontSize: 12, marginTop: 6 }}>Contactez l'administrateur</div>
@@ -634,15 +634,15 @@ export default function Restauration() {
         </div>
 
         {/* Horaires repas */}
-        <div style={{ marginTop: 16, background: 'var(--surface)', borderRadius: 12, padding: 14, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Horaires des repas</div>
+        <div style={{ marginTop: 16, background: 'var(--rzc-charcoal-l1)', borderRadius: 12, padding: 14, border: '1px solid var(--rzc-border-light)' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--rzc-text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Horaires des repas</div>
           {REPAS.map(r => (
-            <div key={r.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+            <div key={r.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--rzc-border-light)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>{r.emoji}</span>
                 <span style={{ fontSize: 13 }}>{r.label}</span>
               </div>
-              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{r.heure}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--rzc-text-3)' }}>{r.heure}</span>
             </div>
           ))}
         </div>
@@ -662,12 +662,12 @@ const TYPE_LABELS = { entree:'Entrée', plat:'Plat principal', dessert:'Dessert'
 
 function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, setMenuForm }) {
   return (
-    <div style={{marginTop:16,borderTop:'1px solid var(--border)',paddingTop:14}}>
+    <div style={{marginTop:16,borderTop:'1px solid var(--rzc-border-light)',paddingTop:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-        <div style={{fontWeight:700,fontSize:13,color:'var(--primary)'}}>🍽️ Menu du jour</div>
+        <div style={{fontWeight:700,fontSize:13,color:'var(--rzc-navy)'}}>🍽️ Menu du jour</div>
         <button onClick={()=>setMenuForm({nom:'',type_plat:'plat',repas:'midi',
           date_service:menuDate,description:'',disponible:true})}
-          style={{background:'var(--primary)',color:'#fff',border:'none',
+          style={{background:'var(--rzc-navy)',color:'#fff',border:'none',
             padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
           ➕ Plat
         </button>
@@ -678,12 +678,12 @@ function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, 
           try{const r=await menuAPI.list({date_service:e.target.value});setMenuItems(r.data.results||r.data||[])}
           catch{ setMenuItems([]) }
         }}
-        style={{border:'1px solid var(--border)',borderRadius:7,padding:'5px 8px',
+        style={{border:'1px solid var(--rzc-border-light)',borderRadius:7,padding:'5px 8px',
           fontSize:11,outline:'none',marginBottom:10,width:'100%',boxSizing:'border-box'}}/>
 
       {menuItems.length===0 ? (
-        <div style={{color:'var(--text-dim)',fontSize:11,textAlign:'center',padding:12,
-          background:'var(--surface)',borderRadius:8,border:'1px dashed var(--border)'}}>
+        <div style={{color:'var(--rzc-text-3)',fontSize:11,textAlign:'center',padding:12,
+          background:'var(--rzc-charcoal-l1)',borderRadius:8,border:'1px dashed var(--rzc-border-light)'}}>
           Aucun plat pour cette date
         </div>
       ) : (
@@ -712,17 +712,17 @@ function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, 
                   <div key={type}>
                     <div style={{padding:'4px 12px',background:'var(--surface-alt,#f8fafc)',
                       fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',
-                      letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>
+                      letterSpacing:'0.5px',borderBottom:'1px solid var(--rzc-border-light)'}}>
                       {TYPE_LABELS[type]||type}
                     </div>
                     {items.map(m => (
                       <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,
-                        padding:'8px 12px',borderBottom:'1px solid var(--border)',
+                        padding:'8px 12px',borderBottom:'1px solid var(--rzc-border-light)',
                         background:m.disponible?'transparent':'#fef9c3'}}>
                         <div style={{flex:1}}>
-                          <div style={{fontWeight:600,fontSize:12,color:'var(--text)'}}>{m.nom}</div>
+                          <div style={{fontWeight:600,fontSize:12,color:'var(--rzc-text)'}}>{m.nom}</div>
                           {m.description && (
-                            <div style={{fontSize:10,color:'var(--text-dim)',marginTop:1}}>{m.description}</div>
+                            <div style={{fontSize:10,color:'var(--rzc-text-3)',marginTop:1}}>{m.description}</div>
                           )}
                           {!m.disponible && (
                             <span style={{fontSize:9,color:'#d97706',fontWeight:700}}>⚠️ Indisponible</span>
@@ -757,9 +757,9 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',
       display:'flex',alignItems:'center',justifyContent:'center',zIndex:9000,padding:16}}
       onClick={e=>e.target===e.currentTarget&&setMenuForm(null)}>
-      <div style={{background:'var(--surface)',borderRadius:14,width:'100%',maxWidth:380,
+      <div style={{background:'var(--rzc-charcoal-l1)',borderRadius:14,width:'100%',maxWidth:380,
         overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
-        <div style={{background:'var(--primary)',color:'#fff',padding:'12px 16px',
+        <div style={{background:'var(--rzc-navy)',color:'#fff',padding:'12px 16px',
           display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <b style={{fontSize:14}}>{menuForm.id?'Modifier':'Nouveau plat'}</b>
           <button onClick={()=>setMenuForm(null)}
@@ -769,21 +769,21 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
         <div style={{padding:14,display:'flex',flexDirection:'column',gap:9}}>
           <input value={menuForm.nom||''} onChange={e=>setMenuForm(f=>({...f,nom:e.target.value}))}
             placeholder="Nom du plat *"
-            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+            style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
           <textarea value={menuForm.description||''} onChange={e=>setMenuForm(f=>({...f,description:e.target.value}))}
             placeholder="Description"
-            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+            style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:12,outline:'none',minHeight:50,resize:'vertical'}}/>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
             <select value={menuForm.repas||'midi'} onChange={e=>setMenuForm(f=>({...f,repas:e.target.value}))}
-              style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
+              style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
               <option value="matin">Petit-déj</option>
               <option value="midi">Déjeuner</option>
               <option value="soir">Dîner</option>
             </select>
             <select value={menuForm.type_plat||'plat'} onChange={e=>setMenuForm(f=>({...f,type_plat:e.target.value}))}
-              style={{border:'2px solid var(--border)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
+              style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
               <option value="entree">Entrée</option>
               <option value="plat">Plat</option>
               <option value="dessert">Dessert</option>
@@ -792,7 +792,7 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
           </div>
           <input type="date" value={menuForm.date_service||menuDate}
             onChange={e=>setMenuForm(f=>({...f,date_service:e.target.value}))}
-            style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',
+            style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
           <button onClick={async()=>{
             if(!menuForm.nom||!menuForm.date_service){alert('Nom et date requis');return}
@@ -802,7 +802,7 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
               setMenuItems(prev=>menuForm.id?prev.map(x=>x.id===u.id?u:x):(u.date_service===menuDate?[...prev,u]:prev))
               setMenuForm(null)
             }catch{alert('Erreur sauvegarde')}
-          }} style={{background:'var(--primary)',color:'#fff',border:'none',padding:11,
+          }} style={{background:'var(--rzc-navy)',color:'#fff',border:'none',padding:11,
             borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit',
             width:'100%'}}>
             💾 Enregistrer
