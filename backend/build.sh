@@ -125,7 +125,46 @@ try:
             c.execute("ALTER TABLE restauration_consommationboutique ADD COLUMN mode_paiement VARCHAR(20) NOT NULL DEFAULT 'especes'")
             print('Added mode_paiement column')
 
-        # 4. Fake-apply migrations
+        # 4. Colonnes Rotation manquantes sur voyages_voyage — ces 7 colonnes
+        # avaient été ajoutées au modèle Django (voir voyages/models.py) mais
+        # JAMAIS créées en base réelle : seule la migration 0002 était fake-
+        # appliquée plus bas (INSERT INTO django_migrations sans exécuter le
+        # vrai SQL), ce qui causait une erreur 500 brute (column does not
+        # exist) à chaque création/lecture de Voyage incluant ces champs.
+        for col_sql, col_name in [
+            ("ALTER TABLE voyages_voyage ADD COLUMN rotation_id VARCHAR(50)", "rotation_id"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN vehicule VARCHAR(50) NOT NULL DEFAULT ''", "vehicule"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN nb_places_total INTEGER DEFAULT 15", "nb_places_total"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN heure_depart TIME", "heure_depart"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN point_rdv VARCHAR(200) NOT NULL DEFAULT ''", "point_rdv"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN type_voyage VARCHAR(20) NOT NULL DEFAULT 'individuel'", "type_voyage"),
+            ("ALTER TABLE voyages_voyage ADD COLUMN notes_admin TEXT NOT NULL DEFAULT ''", "notes_admin"),
+        ]:
+            c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='voyages_voyage' AND column_name=%s)", [col_name])
+            if not c.fetchone()[0]:
+                c.execute(col_sql)
+                print(f'Added {col_name} to voyages_voyage')
+        c.execute("CREATE INDEX IF NOT EXISTS idx_voyage_rotation_id ON voyages_voyage(rotation_id)")
+
+        # Idem sur la table d'historique simple_history (HistoricalVoyage),
+        # qui suit la même structure de colonnes que voyages_voyage.
+        c.execute("SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_name='voyages_historicalvoyage')")
+        if c.fetchone()[0]:
+            for col_sql, col_name in [
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN rotation_id VARCHAR(50)", "rotation_id"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN vehicule VARCHAR(50) NOT NULL DEFAULT ''", "vehicule"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN nb_places_total INTEGER DEFAULT 15", "nb_places_total"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN heure_depart TIME", "heure_depart"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN point_rdv VARCHAR(200) NOT NULL DEFAULT ''", "point_rdv"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN type_voyage VARCHAR(20) NOT NULL DEFAULT 'individuel'", "type_voyage"),
+                ("ALTER TABLE voyages_historicalvoyage ADD COLUMN notes_admin TEXT NOT NULL DEFAULT ''", "notes_admin"),
+            ]:
+                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='voyages_historicalvoyage' AND column_name=%s)", [col_name])
+                if not c.fetchone()[0]:
+                    c.execute(col_sql)
+                    print(f'Added {col_name} to voyages_historicalvoyage')
+
+        # 5. Fake-apply migrations
         FULL_LIST = [
             ('accounts','0001_initial'),
             ('accounts','0002_alter_profile_role'),
