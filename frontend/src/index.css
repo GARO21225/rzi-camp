@@ -2,42 +2,76 @@
 
 /* RZI CAMP — Design System */
 :root {
-  --gold:    #FFD400;
-  --navy:    #1e3a8a;
-  --sb-bg:          #0f172a;
-  --sb-bg-hover:    #1e293b;
-  --sb-active:      #1e3a8a;
-  --sb-text:        #94a3b8;
-  --sb-text-active: #ffffff;
-  --sb-border:      #1e293b;
-  --bg:       #f8fafc;
-  --surface:  #ffffff;
-  --border:   #e2e8f0;
-  --text:     #0f172a;
-  --text-2:   #334155;
-  --text-3:   #64748b;
-  --text-4:   #94a3b8;
-  --green:   #16a34a; --green-l:  #dcfce7;
-  --red:     #dc2626; --red-l:    #fee2e2;
-  --orange:  #ea580c; --orange-l: #ffedd5;
-  --blue:    #2563eb; --blue-l:   #dbeafe;
-  --purple:  #7c3aed; --purple-l: #ede9fe;
-  --yellow:  #ca8a04; --yellow-l: #fef9c3;
-  --rzi-blue:  #1e3a8a;
-  --rzi-gold:  #FFD400;
-  --rzi-navy:  #0f172a;
-  --roxgold-noir: #0f172a;
-  --roxgold-jaune: #FFD400;
-  --roxgold-bleu: #1e3a8a;
-  --gris-1: #334155; --gris-2: #64748b;
-  --gris-3: #cbd5e1; --gris-4: #f8fafc;
-  --text-dim: #64748b;
-  --radius:    8px;
-  --radius-lg: 12px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
-  --shadow:    0 4px 16px rgba(0,0,0,.08);
-  --font:      'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* ══════════════════════════════════════════════════════════════
+     ROXGOLD SANGO — Design Token System v3
+     Source de vérité unique. Les alias ci-dessous font pointer
+     TOUTES les anciennes variables (--blue, --text-dim, --surface,
+     --primary, --border, --shadow, etc.) vers les tokens --rzc-*
+     officiels. Résultat : charte uniforme sur les 29 pages sans
+     modifier leur JSX un par un — le CSS fait le travail.
+     ══════════════════════════════════════════════════════════════
+
+     PALETTE ROXGOLD SANGO
+     Navy    #0F2A5C  — identité, headers, actions primaires
+     Or      #D4A017  — signature, KPIs, accents actifs
+     Blanc   #FFFFFF  — fond de carte, modal, tableau
+     Surface #F4F6F9  — fond de page, gris industriel très clair
+     Gris    #5B6472  — texte secondaire, labels, placeholders
+     ══════════════════════════════════════════════════════════════ */
+
+  /* ── Alias legacy → rzc (toutes les pages en héritent) ── */
+  --gold:          var(--rzc-ore-gold);
+  --navy:          var(--rzc-navy);
+  --bg:            var(--rzc-charcoal);
+  --surface:       var(--rzc-charcoal-l1);
+  --surface-alt:   var(--rzc-charcoal-l2);
+  --surface2:      var(--rzc-charcoal-l2);
+  --border:        var(--rzc-border-light);
+  --text:          var(--rzc-text);
+  --text-2:        var(--rzc-text-2);
+  --text-3:        var(--rzc-text-3);
+  --text-4:        var(--rzc-text-4);
+  --text-dim:      var(--rzc-text-3);
+  --blue:          var(--rzc-navy);
+  --blue-l:        var(--rzc-navy-l);
+  --green:         var(--rzc-green);
+  --green-l:       var(--rzc-green-l);
+  --red:           var(--rzc-red);
+  --red-l:         var(--rzc-red-l);
+  --orange:        var(--rzc-copper);
+  --orange-l:      rgba(184,115,51,.12);
+  --purple:        #7c3aed;
+  --purple-l:      rgba(124,58,237,.10);
+  --yellow:        var(--rzc-bright-gold);
+  --yellow-l:      var(--rzc-bright-gold-l);
+  --primary:       var(--rzc-navy);
+  --shadow-sm:     var(--rzc-shadow-sm);
+  --shadow:        var(--rzc-shadow);
+  --shadow-md:     var(--rzc-shadow-lg);
+  --radius:        var(--rzc-radius);
+  --radius-lg:     var(--rzc-radius-lg);
+  --font:          var(--rzc-font);
+  --font-mono:     var(--rzc-font-mono);
+
+  /* ── Sidebar ── bleu marine (plus noir quasi-pur) ── */
+  --sb-bg:          var(--rzc-navy);
+  --sb-bg-hover:    #1E3A8A;
+  --sb-active:      #2563EB;
+  --sb-text:        rgba(255,255,255,.70);
+  --sb-text-active: #FFFFFF;
+  --sb-border:      rgba(255,255,255,.10);
+
+  /* ── Variables rzi-* et roxgold-* (gardées pour compatibilité) ── */
+  --rzi-blue:      var(--rzc-navy);
+  --rzi-gold:      var(--rzc-ore-gold);
+  --rzi-navy:      var(--rzc-navy);
+  --roxgold-noir:  var(--rzc-navy);
+  --roxgold-jaune: var(--rzc-ore-gold);
+  --roxgold-bleu:  var(--rzc-blue);
+  --gris-1: var(--rzc-text-2);
+  --gris-2: var(--rzc-text-3);
+  --gris-3: var(--rzc-text-4);
+  --gris-4: var(--rzc-charcoal);
 }
 
 /* ── Reset complet ── */
