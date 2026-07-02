@@ -3,7 +3,7 @@ import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI
 import { useStore } from '../store'
 
 const TYPE_COLORS = {
-  reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'#2563eb', icon:'🏠', label:'Réservation résidence' },
+  reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
   voyage:{ bg:'rgba(234,88,12,.1)', color:'#ea580c', icon:'✈️', label:'Voyage' },
   maintenance:{ bg:'rgba(220,38,38,.1)', color:'#dc2626', icon:'🛠️', label:'Maintenance' },
 }
@@ -13,7 +13,7 @@ const STATUT_STYLES = {
   rejetee:{ bg:'rgba(220,38,38,.12)', color:'#dc2626', label:'❌ Rejetée' },
   proposition:{ bg:'rgba(124,58,237,.12)', color:'#7c3aed', label:'💬 Proposition admin' },
   acceptee:{ bg:'rgba(22,163,74,.12)', color:'#16a34a', label:'✅ Acceptée' },
-  annulee:{ bg:'rgba(100,116,139,.12)', color:'#64748b', label:'🚫 Annulée' },
+  annulee:{ bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'🚫 Annulée' },
 }
 
 const inp = { background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
@@ -113,7 +113,7 @@ export default function Demandes() {
         {!isAdmin && (
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={()=>setCreateModal('reservation_residence')}
-              style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.25)', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.25)', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
               🏠 Réserver résidence
             </button>
             <button onClick={()=>setCreateModal('voyage')}
@@ -134,7 +134,7 @@ export default function Demandes() {
             [stats.rejetees,'Rejetées','#dc2626','❌'],
             [stats.total,'Total','var(--blue)','📋'],
           ].map(([v,l,c,ic])=>(
-            <div key={l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
+            <div key={l} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
               <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:700, color:c }}>{v}</div>
               <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
             </div>
@@ -147,7 +147,7 @@ export default function Demandes() {
         {(isAdmin ? ADMIN_TABS : AGENT_TABS).map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{ flex:1, padding:'8px 4px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-              background:tab===k?'#fff':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
+              background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none' }}>
             {l}
           </button>
@@ -158,7 +158,7 @@ export default function Demandes() {
       {loading ? <div style={{padding:32,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div> : (
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           {filterData().length === 0 && (
-            <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
+            <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:10 }}>📋</div>
               <div style={{ fontSize:14 }}>{isAdmin ? "Aucune demande en attente" : "Aucune demande soumise"}</div>
               {!isAdmin && <div style={{ fontSize:12, marginTop:6 }}>Utilisez les boutons ci-dessus pour soumettre une demande</div>}
@@ -168,7 +168,7 @@ export default function Demandes() {
             const tc = TYPE_COLORS[d.type_demande] || TYPE_COLORS.maintenance
             const sc = STATUT_STYLES[d.statut] || STATUT_STYLES.en_attente
             return (
-              <div key={d.id} style={{ background:'#fff', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:16, boxShadow:'var(--shadow)', display:'flex', gap:14, alignItems:'flex-start' }}>
+              <div key={d.id} style={{ background:'var(--rzc-white)', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:16, boxShadow:'var(--shadow)', display:'flex', gap:14, alignItems:'flex-start' }}>
                 <div style={{ width:50, height:50, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
                   {tc.icon}
                 </div>
@@ -227,7 +227,7 @@ export default function Demandes() {
                   )}
                   {!isAdmin && d.statut === 'en_attente' && (
                     <button onClick={()=>doAgentAction(d,'annuler')}
-                      style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
+                      style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
                   )}
                   {isAdmin && (
                     <button onClick={()=>deleteDemande(d.id)}
@@ -243,10 +243,10 @@ export default function Demandes() {
       {/* ── CREATE MODAL ── */}
       {createModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:16, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ padding:'16px 20px', background:TYPE_COLORS[createModal]?.color||'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15 }}>{TYPE_COLORS[createModal]?.icon} {TYPE_COLORS[createModal]?.label}</h3>
-              <button onClick={()=>setCreateModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>{TYPE_COLORS[createModal]?.icon} {TYPE_COLORS[createModal]?.label}</h3>
+              <button onClick={()=>setCreateModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'18px 20px' }}>
               <div style={{ background:'rgba(37,99,235,.06)', border:'1px solid rgba(37,99,235,.15)', borderRadius:10, padding:'10px 14px', marginBottom:14, fontSize:12 }}>
@@ -289,7 +289,7 @@ export default function Demandes() {
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setCreateModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={()=>submitDemande(createModal)} style={{ background:TYPE_COLORS[createModal]?.color||'var(--blue)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              <button onClick={()=>submitDemande(createModal)} style={{ background:TYPE_COLORS[createModal]?.color||'var(--blue)', color:'var(--rzc-white)', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 📤 Soumettre la demande
               </button>
             </div>
@@ -300,12 +300,12 @@ export default function Demandes() {
       {/* ── ACTION MODAL (Admin) ── */}
       {actionModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:440, boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:14, width:'100%', maxWidth:440, boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
             <div style={{ padding:'16px 20px', background:actionModal.action==='valider'?'#16a34a':actionModal.action==='rejeter'?'#dc2626':'#7c3aed', borderRadius:'14px 14px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15 }}>
+              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>
                 {actionModal.action==='valider'?'✅ Valider':actionModal.action==='rejeter'?'❌ Rejeter':'💬 Contre-proposition'}
               </h3>
-              <button onClick={()=>setActionModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+              <button onClick={()=>setActionModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'18px 20px' }}>
               <div style={{ background:'var(--surface2)', borderRadius:10, padding:'10px 14px', marginBottom:14, fontSize:12 }}>
@@ -346,7 +346,7 @@ export default function Demandes() {
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setActionModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
               <button onClick={doAction}
-                style={{ background:actionModal.action==='valider'?'#16a34a':actionModal.action==='rejeter'?'#dc2626':'#7c3aed', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                style={{ background:actionModal.action==='valider'?'#16a34a':actionModal.action==='rejeter'?'#dc2626':'#7c3aed', color:'var(--rzc-white)', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 {actionModal.action==='valider'?'✅ Confirmer validation':actionModal.action==='rejeter'?'❌ Confirmer rejet':'💬 Envoyer proposition'}
               </button>
             </div>
