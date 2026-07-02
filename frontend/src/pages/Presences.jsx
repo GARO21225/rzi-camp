@@ -8,7 +8,7 @@ import { personnel as personnelAPI, voyages as voyAPI } from '../api'
 const STATUTS = {
   present:  { label:'Présent',   bg:'#f0fdf4', color:'#16a34a', dot:'#16a34a', icon:'✅' },
   voyage:   { label:'En voyage', bg:'#fff7ed', color:'#ea580c', dot:'#ea580c', icon:'✈️' },
-  conge:    { label:'En congé',  bg:'#eff6ff', color:'#2563eb', dot:'#2563eb', icon:'🏖️' },
+  conge:    { label:'En congé',  bg:'#eff6ff', color:'var(--rzc-blue)', dot:'var(--rzc-blue)', icon:'🏖️' },
   absent:   { label:'Absent',    bg:'#fef2f2', color:'#dc2626', dot:'#dc2626', icon:'❌' },
 }
 
@@ -59,8 +59,8 @@ export default function Presences() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>📋 Présences</h2>
-          <p style={{ fontSize:12, color:'#94a3b8', marginTop:4 }}>
+          <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>📋 Présences</h2>
+          <p style={{ fontSize:12, color:'var(--rzc-text-4)', marginTop:4 }}>
             {today.charAt(0).toUpperCase() + today.slice(1)} · Mise à jour en temps réel
           </p>
         </div>
@@ -71,7 +71,7 @@ export default function Presences() {
           const csv = [h,...rows].map(r => r.map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
           const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}))
           a.download = `presences_${new Date().toISOString().slice(0,10)}.csv`; a.click()
-        }} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+        }} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'9px 18px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
           ⬇ Exporter CSV
         </button>
       </div>
@@ -79,14 +79,14 @@ export default function Presences() {
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:12, marginBottom:20 }}>
         {[
-          { label:'Total Personnel', v:counts.total,   color:'#1e3a8a' },
+          { label:'Total Personnel', v:counts.total,   color:'var(--rzc-navy)' },
           { label:'Au Camp',         v:counts.present,  color:'#16a34a' },
           { label:'En Voyage',       v:counts.voyage,   color:'#ea580c' },
           { label:'Taux Présence',   v:`${counts.total?Math.round(counts.present/counts.total*100):0}%`, color:'#7c3aed' },
         ].map(k => (
-          <div key={k.label} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+          <div key={k.label} style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
             <div style={{ fontFamily:'monospace', fontSize:30, fontWeight:900, color:k.color }}>{k.v}</div>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:'#94a3b8', marginTop:4 }}>{k.label}</div>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:'var(--rzc-text-4)', marginTop:4 }}>{k.label}</div>
           </div>
         ))}
       </div>
@@ -94,14 +94,14 @@ export default function Presences() {
       {/* Filtres */}
       <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
         <div style={{ position:'relative', flex:1, minWidth:200 }}>
-          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'#94a3b8' }}>🔍</span>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--rzc-text-4)' }}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Nom, prénom, société..."
             style={{ width:'100%', paddingLeft:36, border:'1px solid #e2e8f0', borderRadius:9, padding:'9px 12px 9px 36px', fontSize:13, outline:'none', boxSizing:'border-box' }} />
         </div>
         {['','present','voyage'].map(s => (
           <button key={s} onClick={() => setFilter(s)}
-            style={{ padding:'8px 16px', border:`1px solid ${filter===s?'#1e3a8a':'#e2e8f0'}`, borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:600, background:filter===s?'#1e3a8a':'#fff', color:filter===s?'#fff':'#64748b' }}>
+            style={{ padding:'8px 16px', border:`1px solid ${filter===s?'var(--rzc-navy)':'var(--rzc-border-light)'}`, borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:600, background:filter===s?'var(--rzc-navy)':'var(--rzc-white)', color:filter===s?'var(--rzc-white)':'var(--rzc-text-3)' }}>
             {s===''?'Tous':STATUTS[s]?.icon+' '+STATUTS[s]?.label} ({s===''?data.length:data.filter(p=>p.statut===s).length})
           </button>
         ))}
@@ -112,7 +112,7 @@ export default function Presences() {
         {filtered.map(p => {
           const st = STATUTS[p.statut] || STATUTS.present
           return (
-            <div key={p.id} style={{ background:'#fff', border:`1px solid ${st.color}30`, borderRadius:14, padding:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', borderLeft:`4px solid ${st.color}` }}>
+            <div key={p.id} style={{ background:'var(--rzc-white)', border:`1px solid ${st.color}30`, borderRadius:14, padding:16, boxShadow:'0 1px 4px rgba(0,0,0,.06)', borderLeft:`4px solid ${st.color}` }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
                 <div style={{ width:40, height:40, borderRadius:12, background:`${st.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>
                   {st.icon}
@@ -122,15 +122,15 @@ export default function Presences() {
                 </span>
               </div>
               <div style={{ fontWeight:700, fontSize:14, color:'#0f172a' }}>{p.nom} {p.prenom}</div>
-              <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{p.societe || '—'}</div>
-              {p.numero && <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>📞 {p.numero}</div>}
+              <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:2 }}>{p.societe || '—'}</div>
+              {p.numero && <div style={{ fontSize:11, color:'var(--rzc-text-4)', marginTop:4 }}>📞 {p.numero}</div>}
             </div>
           )
         })}
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign:'center', padding:48, color:'#94a3b8' }}>
+        <div style={{ textAlign:'center', padding:48, color:'var(--rzc-text-4)' }}>
           <div style={{ fontSize:40 }}>👤</div>
           <div style={{ marginTop:10, fontSize:14, fontWeight:600 }}>Aucun résultat</div>
         </div>
