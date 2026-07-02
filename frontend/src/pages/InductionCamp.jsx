@@ -795,7 +795,10 @@ export default function InductionCamp() {
                   border:`1.5px solid ${inf.couleur}40`,borderRadius:16,
                   padding:20,marginBottom:16}}>
                   <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
-                    <div style={{fontSize:40,flexShrink:0}}>{inf.emoji}</div>
+                    {inf.photo_base64
+                      ? <img src={inf.photo_base64} alt={inf.titre}
+                          style={{width:72,height:72,borderRadius:12,objectFit:'cover',flexShrink:0}}/>
+                      : <span style={{fontSize:40,flexShrink:0}}>{inf.emoji}</span>}
                     <div style={{flex:1}}>
                       <h3 style={{fontSize:17,fontWeight:800,color:inf.couleur,margin:'0 0 8px'}}>
                         {inf.titre}
