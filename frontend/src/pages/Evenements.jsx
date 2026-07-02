@@ -3,19 +3,19 @@ import { evenements as evtAPI, alertes as alertesAPI } from '../api'
 import { useStore } from '../store'
 
 const TYPE_COLORS = {
-  reunion:{ bg:'rgba(37,99,235,.12)', color:'#2563eb', icon:'👥' },
+  reunion:{ bg:'rgba(37,99,235,.12)', color:'var(--rzc-blue)', icon:'👥' },
   securite:{ bg:'rgba(220,38,38,.12)', color:'#dc2626', icon:'🚨' },
   formation:{ bg:'rgba(124,58,237,.12)', color:'#7c3aed', icon:'📚' },
   social:{ bg:'rgba(22,163,74,.12)', color:'#16a34a', icon:'🎉' },
   sport:{ bg:'rgba(234,88,12,.12)', color:'#ea580c', icon:'⚽' },
   alerte:{ bg:'rgba(220,38,38,.18)', color:'#dc2626', icon:'⚠️' },
-  maintenance:{ bg:'rgba(100,116,139,.12)', color:'#64748b', icon:'🔧' },
+  maintenance:{ bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', icon:'🔧' },
   autre:{ bg:'rgba(240,165,0,.12)', color:'#d08800', icon:'📌' },
 }
 const STATUT_COLORS = {
-  planifie:{ bg:'rgba(37,99,235,.1)', color:'#2563eb', label:'Planifié' },
+  planifie:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', label:'Planifié' },
   en_cours:{ bg:'rgba(22,163,74,.1)', color:'#16a34a', label:'En cours' },
-  termine:{ bg:'rgba(100,116,139,.1)', color:'#64748b', label:'Terminé' },
+  termine:{ bg:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', label:'Terminé' },
   annule:{ bg:'rgba(220,38,38,.1)', color:'#dc2626', label:'Annulé' },
 }
 
@@ -81,7 +81,7 @@ export default function Evenements() {
   const upcoming = events.filter(e => new Date(e.date_debut) >= now && e.statut !== 'annule')
   const past = events.filter(e => new Date(e.date_debut) < now || e.statut === 'termine')
 
-  const ALERTE_COLORS = { info:'#2563eb', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
+  const ALERTE_COLORS = { info:'var(--rzc-blue)', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
 
   return (
     <div style={{ padding:'16px' }}>
@@ -94,7 +94,7 @@ export default function Evenements() {
             <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
               ⚠️ Alerte campus
             </button>
-            <button onClick={()=>setModal(true)} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+            <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
               + Créer événement
             </button>
           </div>
@@ -132,7 +132,7 @@ export default function Evenements() {
           [events.filter(e=>e.statut==='en_cours').length,'En cours','#ea580c','▶️'],
           [alertes.length,'Alertes actives','#dc2626','⚠️'],
         ].map(([v,l,c,ic])=>(
-          <div key={l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
+          <div key={l} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
             <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:700, color:c }}>{v}</div>
             <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
           </div>
@@ -144,7 +144,7 @@ export default function Evenements() {
         {[['agenda','📅 Agenda (à venir)'],['tous','📋 Tous les événements'],['passes','⏮ Passés']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-              background:tab===k?'#fff':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
+              background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none', transition:'.2s' }}>
             {l}
           </button>
@@ -158,7 +158,7 @@ export default function Evenements() {
             const tc = TYPE_COLORS[evt.type_event] || TYPE_COLORS.autre
             const sc = STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie
             return (
-              <div key={evt.id} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14 }}>
+              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14 }}>
                 {/* Type icon */}
                 <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
                   {tc.icon}
@@ -180,11 +180,11 @@ export default function Evenements() {
                 </div>
                 {isAdmin && (
                   <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
-                    <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'#2563eb', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                    <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                       🔔 Notifier
                     </button>
                     {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
-                    {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'#64748b', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
+                    {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
                     {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
                     style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
                   {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
@@ -194,7 +194,7 @@ export default function Evenements() {
             )
           })}
           {(tab==='agenda'?upcoming:tab==='passes'?past:events).length===0 && (
-            <div style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
+            <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
               <div style={{ fontSize:14 }}>{tab==='agenda'?"Aucun événement à venir":"Aucun événement"}</div>
             </div>
@@ -205,10 +205,10 @@ export default function Evenements() {
       {/* CREATE MODAL */}
       {modal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:520, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:16, width:'100%', maxWidth:520, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ padding:'16px 20px', background:'var(--blue)', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15 }}>📅 Créer un événement</h3>
-              <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>📅 Créer un événement</h3>
+              <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'18px 20px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               {[
@@ -243,7 +243,7 @@ export default function Evenements() {
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10 }}>
               <button onClick={()=>setModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={createEvt} style={{ background:'#1e3a8a', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>🚀 Créer & Notifier</button>
+              <button onClick={createEvt} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>🚀 Créer & Notifier</button>
             </div>
           </div>
         </div>
@@ -252,16 +252,16 @@ export default function Evenements() {
       {/* ALERTE MODAL */}
       {alerteModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:420, boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:14, width:'100%', maxWidth:420, boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ padding:'14px 18px', background:'#dc2626', borderRadius:'14px 14px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15 }}>⚠️ Alerte Campus</h3>
-              <button onClick={()=>setAlerteModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>⚠️ Alerte Campus</h3>
+              <button onClick={()=>setAlerteModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'18px 20px' }}>
               <div style={{ marginBottom:12 }}>
                 <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Type</label>
                 <div style={{ display:'flex', gap:8 }}>
-                  {[['info','ℹ️ Info','#2563eb'],['warning','⚠️ Attention','#d08800'],['danger','🚨 Urgent','#dc2626'],['success','✅ OK','#16a34a']].map(([v,l,c])=>(
+                  {[['info','ℹ️ Info','var(--rzc-blue)'],['warning','⚠️ Attention','#d08800'],['danger','🚨 Urgent','#dc2626'],['success','✅ OK','#16a34a']].map(([v,l,c])=>(
                     <button key={v} onClick={()=>setAlerteForm({...alerteForm,type_alerte:v})}
                       style={{ flex:1, padding:'7px 4px', borderRadius:8, border:`2px solid ${alerteForm.type_alerte===v?c:'var(--border)'}`, background:alerteForm.type_alerte===v?`${c}15`:'var(--surface2)', color:alerteForm.type_alerte===v?c:'var(--text-dim)', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                       {l}
@@ -277,7 +277,7 @@ export default function Evenements() {
             </div>
             <div style={{ padding:'12px 18px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setAlerteModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 14px', borderRadius:7, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={createAlerte} style={{ background:'#dc2626', color:'#fff', border:'none', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:700 }}>⚠️ Diffuser l'alerte</button>
+              <button onClick={createAlerte} style={{ background:'#dc2626', color:'var(--rzc-white)', border:'none', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:700 }}>⚠️ Diffuser l'alerte</button>
             </div>
           </div>
         </div>
