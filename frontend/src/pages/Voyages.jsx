@@ -129,7 +129,15 @@ export default function Voyages() {
       setModal(false)
       setForm({ personnel:'', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
       loadVoyages()
-    } catch(e) { alert(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur') }
+    } catch(e) {
+      const d = e.response?.data
+      const msg = d?.detail
+        || (Array.isArray(d?.non_field_errors) ? d.non_field_errors[0] : null)
+        || (typeof d === 'string' ? d : null)
+        || JSON.stringify(d)
+        || 'Erreur lors de la création du voyage'
+      alert(msg)
+    }
     finally { setSubmitting(false) }
   }
 
