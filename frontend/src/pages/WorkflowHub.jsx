@@ -12,7 +12,7 @@ const STATUS_COLORS = {
   assigne:   {c:'#f97316',label:'Assigné'},
   en_cours:  {c:'#eab308',label:'En cours'},
   resolu:    {c:'#16a34a',label:'Résolu'},
-  cloture:   {c:'#64748b',label:'Clôturé'},
+  cloture:   {c:'var(--rzc-text-3)',label:'Clôturé'},
   // Voyages
   planifie:  {c:'#8b5cf6',label:'Planifié'},
   en_voyage: {c:'#0891b2',label:'En voyage'},
@@ -26,9 +26,9 @@ function Dot({color}) {
 
 function WorkflowCard({icon,title,count,color,items,onViewAll,loading}) {
   return (
-    <div style={{background:'#fff',borderRadius:16,overflow:'hidden',
+    <div style={{background:'var(--rzc-white)',borderRadius:16,overflow:'hidden',
       boxShadow:'0 1px 6px rgba(0,0,0,.08)',flex:1,minWidth:280}}>
-      <div style={{background:color,color:'#fff',padding:'12px 16px',
+      <div style={{background:color,color:'var(--rzc-white)',padding:'12px 16px',
         display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <span style={{fontSize:20}}>{icon}</span>
@@ -38,30 +38,30 @@ function WorkflowCard({icon,title,count,color,items,onViewAll,loading}) {
           </div>
         </div>
         <button onClick={onViewAll}
-          style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+          style={{background:'rgba(255,255,255,.2)',border:'none',color:'var(--rzc-white)',
             padding:'4px 10px',borderRadius:99,cursor:'pointer',fontSize:11,fontWeight:700}}>
           Voir tout →
         </button>
       </div>
       <div style={{maxHeight:240,overflowY:'auto'}}>
         {loading ? (
-          <div style={{padding:20,textAlign:'center',color:'#94a3b8',fontSize:12}}>⏳ Chargement...</div>
+          <div style={{padding:20,textAlign:'center',color:'var(--rzc-text-4)',fontSize:12}}>⏳ Chargement...</div>
         ) : items.length===0 ? (
-          <div style={{padding:20,textAlign:'center',color:'#94a3b8',fontSize:12}}>
+          <div style={{padding:20,textAlign:'center',color:'var(--rzc-text-4)',fontSize:12}}>
             ✅ Aucun élément actif
           </div>
         ) : items.map((item,i)=>(
           <div key={i} style={{padding:'10px 16px',borderBottom:'1px solid #f1f5f9',
             display:'flex',alignItems:'center',gap:10}}>
-            <Dot color={STATUS_COLORS[item.status]?.c||'#64748b'}/>
+            <Dot color={STATUS_COLORS[item.status]?.c||'var(--rzc-text-3)'}/>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontWeight:600,fontSize:12,color:'#1e293b',
                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {item.title}
               </div>
-              <div style={{fontSize:10,color:'#94a3b8',marginTop:1}}>{item.subtitle}</div>
+              <div style={{fontSize:10,color:'var(--rzc-text-4)',marginTop:1}}>{item.subtitle}</div>
             </div>
-            <div style={{fontSize:10,fontWeight:700,color:STATUS_COLORS[item.status]?.c||'#64748b',
+            <div style={{fontSize:10,fontWeight:700,color:STATUS_COLORS[item.status]?.c||'var(--rzc-text-3)',
               flexShrink:0,textAlign:'right'}}>
               {STATUS_COLORS[item.status]?.label||item.status}
               {item.sla_depasse && (
@@ -151,19 +151,19 @@ export default function WorkflowHub() {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',
         marginBottom:24,flexWrap:'wrap',gap:12}}>
         <div>
-          <h1 style={{fontSize:24,fontWeight:900,color:'#0f2447',margin:0,
+          <h1 style={{fontSize:24,fontWeight:900,color:'var(--rzc-navy)',margin:0,
             display:'flex',alignItems:'center',gap:10}}>
             🎯 Centre de Commandement
           </h1>
-          <p style={{fontSize:12,color:'#64748b',margin:'4px 0 0'}}>
+          <p style={{fontSize:12,color:'var(--rzc-text-3)',margin:'4px 0 0'}}>
             Tous les workflows actifs en temps réel ·{'  '}
-            <span style={{color:'#94a3b8'}}>
+            <span style={{color:'var(--rzc-text-4)'}}>
               Actualisé à {lastRefresh.toLocaleTimeString('fr-FR')}
             </span>
           </p>
         </div>
         <button onClick={loadAll} disabled={loading}
-          style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'9px 18px',
+          style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:'9px 18px',
             borderRadius:10,cursor:'pointer',fontSize:12,fontWeight:700}}>
           {loading ? '⏳ Actualisation...' : '🔄 Actualiser'}
         </button>
@@ -171,7 +171,7 @@ export default function WorkflowHub() {
 
       {/* KPIs urgents */}
       {urgents > 0 && (
-        <div style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'#fff',
+        <div style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)',color:'var(--rzc-white)',
           borderRadius:14,padding:'14px 18px',marginBottom:20,
           display:'flex',alignItems:'center',gap:12}}>
           <span style={{fontSize:28}}>🚨</span>
@@ -185,7 +185,7 @@ export default function WorkflowHub() {
           </div>
           <button onClick={()=>navigate('/maintenance')}
             style={{marginLeft:'auto',background:'rgba(255,255,255,.2)',border:'none',
-              color:'#fff',padding:'7px 16px',borderRadius:9,cursor:'pointer',
+              color:'var(--rzc-white)',padding:'7px 16px',borderRadius:9,cursor:'pointer',
               fontSize:12,fontWeight:700}}>
             Traiter →
           </button>
@@ -202,10 +202,10 @@ export default function WorkflowHub() {
           ['✈️ Voyages actifs',      voyagesData.filter(v=>v.status==='en_voyage').length, '#8b5cf6'],
           ['🛒 Bons faibles',        boutiqueData.length, '#f59e0b'],
         ].map(([l,v,c])=>(
-          <div key={l} style={{background:'#fff',borderRadius:12,padding:'12px 14px',
+          <div key={l} style={{background:'var(--rzc-white)',borderRadius:12,padding:'12px 14px',
             borderTop:`3px solid ${c}`,boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
             <div style={{fontFamily:'monospace',fontSize:22,fontWeight:900,color:c}}>{v}</div>
-            <div style={{fontSize:10,color:'#94a3b8',marginTop:2}}>{l}</div>
+            <div style={{fontSize:10,color:'var(--rzc-text-4)',marginTop:2}}>{l}</div>
           </div>
         ))}
       </div>
