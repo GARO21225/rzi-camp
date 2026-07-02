@@ -8,8 +8,8 @@ const FLEET_KEY   = 'rzi_fleet_v1'
 // ── Catalogue initial (modifiable) ─────────────────────────────
 const DEFAULT_FLEET = {
   salles: [
-    { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'#1e3a8a', photo:'' },
-    { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'#2563eb', photo:'' },
+    { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'var(--rzc-navy)', photo:'' },
+    { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'var(--rzc-blue)', photo:'' },
   ],
   vehicules_4x4: [
     { id:'4x4_a', cat:'vehicules_4x4', label:'Land Cruiser A', capacite:7,  immat:'CI-1234-AB', km:45230, carburant:'Diesel', couleur:'#f97316', photo:'' },
@@ -71,9 +71,9 @@ function ResourceFiche({ item, onSave, onClose }) {
     <div onClick={e=>e.target===e.currentTarget&&onClose()}
       style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
         display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:20}}>
-      <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:480,
+      <div style={{background:'var(--rzc-white)',borderRadius:16,padding:24,width:'100%',maxWidth:480,
         boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
-        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:20}}>
+        <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy)',marginBottom:20}}>
           ✏️ Fiche — {data.label}
         </div>
 
@@ -83,12 +83,12 @@ function ResourceFiche({ item, onSave, onClose }) {
             <div style={{position:'relative',display:'inline-block'}}>
               <img src={data.photo} alt="" style={{width:'100%',maxHeight:200,objectFit:'cover',borderRadius:12}}/>
               <button onClick={()=>s({photo:''})}
-                style={{position:'absolute',top:8,right:8,background:'#dc2626',color:'#fff',border:'none',
+                style={{position:'absolute',top:8,right:8,background:'#dc2626',color:'var(--rzc-white)',border:'none',
                   borderRadius:8,width:28,height:28,cursor:'pointer',fontSize:14}}>✕</button>
             </div>
           ) : (
             <label style={{display:'block',border:'2px dashed #e2e8f0',borderRadius:12,
-              padding:24,cursor:'pointer',color:'#94a3b8',fontSize:13}}>
+              padding:24,cursor:'pointer',color:'var(--rzc-text-4)',fontSize:13}}>
               📷 Ajouter une photo
               <input type="file" accept="image/*" onChange={handlePhoto} style={{display:'none'}}/>
             </label>
@@ -97,48 +97,48 @@ function ResourceFiche({ item, onSave, onClose }) {
 
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
           <div>
-            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>NOM</label>
+            <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>NOM</label>
             <input value={data.label} onChange={e=>s({label:e.target.value})} style={inp}/>
           </div>
           <div>
-            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESCRIPTION / DÉTAILS</label>
+            <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DESCRIPTION / DÉTAILS</label>
             <input value={data.detail||''} onChange={e=>s({detail:e.target.value})} style={inp}/>
           </div>
           {(isVehicule) && (<>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>IMMATRICULATION</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>IMMATRICULATION</label>
                 <input value={data.immat||''} onChange={e=>s({immat:e.target.value})} placeholder="CI-XXXX-XX" style={inp}/>
               </div>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>KILOMÉTRAGE</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>KILOMÉTRAGE</label>
                 <input type="number" value={data.km||0} onChange={e=>s({km:parseInt(e.target.value)||0})} style={inp}/>
               </div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
                 <input type="number" value={data.capacite||0} onChange={e=>s({capacite:parseInt(e.target.value)||0})} style={inp}/>
               </div>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CARBURANT</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CARBURANT</label>
                 <select value={data.carburant||'Diesel'} onChange={e=>s({carburant:e.target.value})} style={inp}>
                   {['Diesel','Essence','Hybride','Électrique'].map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
             </div>
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>ASSURANCE (expiration)</label>
+              <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>ASSURANCE (expiration)</label>
               <input type="date" value={data.assurance||''} onChange={e=>s({assurance:e.target.value})} style={inp}/>
             </div>
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>PROCHAIN ENTRETIEN (km)</label>
+              <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>PROCHAIN ENTRETIEN (km)</label>
               <input type="number" value={data.entretien_km||''} onChange={e=>s({entretien_km:parseInt(e.target.value)||0})} style={inp}/>
             </div>
           </>)}
           {isMatériel && (
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>N° SÉRIE / MATRICULE</label>
+              <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>N° SÉRIE / MATRICULE</label>
               <input value={data.immat||''} onChange={e=>s({immat:e.target.value})} placeholder="SN-XXXX" style={inp}/>
             </div>
           )}
@@ -146,11 +146,11 @@ function ResourceFiche({ item, onSave, onClose }) {
 
         <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:20}}>
           <button onClick={onClose}
-            style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
+            style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
             Annuler
           </button>
           <button onClick={()=>{onSave(data);onClose()}}
-            style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+            style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,
               padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
             💾 Enregistrer
           </button>
@@ -164,8 +164,8 @@ function ResourceFiche({ item, onSave, onClose }) {
 function ResourceCard({ item, reservations, onReserver, onEdit }) {
   const occupied = reservations.some(r => r.ressource_id===item.id && r.date===today && r.statut!=='annulé')
   return (
-    <div style={{background:'#fff',borderRadius:14,overflow:'hidden',
-      border:`2px solid ${occupied?'#fecaca':'#e2e8f0'}`,
+    <div style={{background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',
+      border:`2px solid ${occupied?'#fecaca':'var(--rzc-border-light)'}`,
       boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
       {/* Photo */}
       {item.photo ? (
@@ -186,18 +186,18 @@ function ResourceCard({ item, reservations, onReserver, onEdit }) {
             {occupied?'🔴 Réservé':'✅ Libre'}
           </span>
         </div>
-        {item.immat && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>🪪 {item.immat}</div>}
-        {item.km > 0 && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>📍 {item.km.toLocaleString()} km</div>}
-        {item.capacite > 1 && <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>👥 {item.capacite} pers. max</div>}
-        {item.detail && <div style={{fontSize:10,color:'#94a3b8',marginBottom:10,lineHeight:1.4}}>{item.detail}</div>}
+        {item.immat && <div style={{fontSize:11,color:'var(--rzc-text-3)',marginBottom:2}}>🪪 {item.immat}</div>}
+        {item.km > 0 && <div style={{fontSize:11,color:'var(--rzc-text-3)',marginBottom:2}}>📍 {item.km.toLocaleString()} km</div>}
+        {item.capacite > 1 && <div style={{fontSize:11,color:'var(--rzc-text-3)',marginBottom:2}}>👥 {item.capacite} pers. max</div>}
+        {item.detail && <div style={{fontSize:10,color:'var(--rzc-text-4)',marginBottom:10,lineHeight:1.4}}>{item.detail}</div>}
         <div style={{display:'flex',gap:6}}>
           <button onClick={()=>onEdit(item)}
-            style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'7px 10px',
-              cursor:'pointer',fontSize:11,fontWeight:600,color:'#64748b'}}>
+            style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:8,padding:'7px 10px',
+              cursor:'pointer',fontSize:11,fontWeight:600,color:'var(--rzc-text-3)'}}>
             ✏️
           </button>
           <button onClick={()=>onReserver(item)}
-            style={{flex:1,background:item.couleur,color:'#fff',border:'none',borderRadius:8,
+            style={{flex:1,background:item.couleur,color:'var(--rzc-white)',border:'none',borderRadius:8,
               padding:'8px',cursor:'pointer',fontSize:12,fontWeight:700}}>
             + Réserver
           </button>
@@ -216,7 +216,7 @@ export default function ReservationsPage() {
   const [ficheEdit,    setFicheEdit]   = useState(null)
   const [qrModal,      setQrModal]      = useState(null)   // réservation dont afficher le QR
   const [showCatalogue,setShowCatalogue]= useState(false)
-  const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#1e3a8a',photo:'',id:''})
+  const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
   const [activeTab,    setActiveTab]   = useState('salles')
   const [filterDate,   setFilterDate]  = useState('')
   const [msg,          setMsg]         = useState(null)
@@ -315,14 +315,14 @@ export default function ReservationsPage() {
       {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:800,color:'#1e3a8a',margin:0}}>📅 Réservations de Ressources</h1>
-          <div style={{fontSize:13,color:'#64748b',marginTop:4}}>
+          <h1 style={{fontSize:22,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>📅 Réservations de Ressources</h1>
+          <div style={{fontSize:13,color:'var(--rzc-text-3)',marginTop:4}}>
             Salles · Véhicules · Matériels · {reservations.filter(r=>r.date===today&&r.statut!=='annulé').length} réservation(s) aujourd'hui
           </div>
         </div>
         <button onClick={()=>setShowCatalogue(true)}
-          style={{background:'#f1f5f9',border:'2px solid #e2e8f0',borderRadius:10,
-            padding:'9px 18px',cursor:'pointer',fontSize:13,fontWeight:700,color:'#1e3a8a'}}>
+          style={{background:'var(--rzc-charcoal)',border:'2px solid #e2e8f0',borderRadius:10,
+            padding:'9px 18px',cursor:'pointer',fontSize:13,fontWeight:700,color:'var(--rzc-navy)'}}>
           ⚙️ Gérer le catalogue
         </button>
       </div>
@@ -337,7 +337,7 @@ export default function ReservationsPage() {
         return (
           <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:12,marginBottom:20}}>
             {[
-              {l:"Aujourd'hui",  v:todayRes.length,  c:'#1e3a8a', bg:'#eff6ff', icon:'📅'},
+              {l:"Aujourd'hui",  v:todayRes.length,  c:'var(--rzc-navy)', bg:'#eff6ff', icon:'📅'},
               {l:'Cette semaine',v:weekRes.length,    c:'#7c3aed', bg:'#f5f3ff', icon:'📊'},
               {l:'Total',        v:reservations.filter(r=>r.statut!=='annulé').length, c:'#16a34a', bg:'#f0fdf4', icon:'✅'},
               {l:'Annulées',     v:cancelled,         c:'#dc2626', bg:'#fef2f2', icon:'❌'},
@@ -345,7 +345,7 @@ export default function ReservationsPage() {
               <div key={l} style={{background:bg,borderRadius:12,padding:'14px 16px',
                 borderLeft:`4px solid ${c}`,boxShadow:'0 1px 4px rgba(0,0,0,.05)'}}>
                 <div style={{fontSize:24,fontWeight:900,color:c}}>{icon} {v}</div>
-                <div style={{fontSize:11,color:'#64748b',fontWeight:600,marginTop:2}}>{l}</div>
+                <div style={{fontSize:11,color:'var(--rzc-text-3)',fontWeight:600,marginTop:2}}>{l}</div>
               </div>
             ))}
           </div>
@@ -357,8 +357,8 @@ export default function ReservationsPage() {
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)}
             style={{padding:'9px 20px',borderRadius:10,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,
-              background:activeTab===t.id?'#1e3a8a':'#f1f5f9',
-              color:activeTab===t.id?'#fff':'#64748b',transition:'all .15s'}}>
+              background:activeTab===t.id?'var(--rzc-navy)':'var(--rzc-charcoal)',
+              color:activeTab===t.id?'var(--rzc-white)':'var(--rzc-text-3)',transition:'all .15s'}}>
             {t.label}
           </button>
         ))}
@@ -376,7 +376,7 @@ export default function ReservationsPage() {
       ) : (
         Object.entries(groupedItems).map(([groupLabel, items])=>(
           <div key={groupLabel} style={{marginBottom:24}}>
-            <div style={{fontWeight:800,fontSize:14,color:'#1e3a8a',marginBottom:12,
+            <div style={{fontWeight:800,fontSize:14,color:'var(--rzc-navy)',marginBottom:12,
               display:'flex',alignItems:'center',gap:8}}>
               <span style={{background:'#eff6ff',padding:'4px 14px',borderRadius:20}}>{groupLabel}</span>
             </div>
@@ -392,41 +392,41 @@ export default function ReservationsPage() {
       )}
 
       {/* Planning */}
-      <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+      <div style={{background:'var(--rzc-white)',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-          <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a'}}>📋 Historique des réservations</div>
+          <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy)'}}>📋 Historique des réservations</div>
           <div style={{display:'flex',gap:8}}>
             <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{...inp,maxWidth:180}}/>
             {filterDate&&<button onClick={()=>setFilterDate('')}
-              style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'8px 12px',cursor:'pointer',color:'#64748b'}}>✕</button>}
+              style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:8,padding:'8px 12px',cursor:'pointer',color:'var(--rzc-text-3)'}}>✕</button>}
           </div>
         </div>
         {filtered.length===0 ? (
-          <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>
+          <div style={{textAlign:'center',padding:40,color:'var(--rzc-text-4)'}}>
             <div style={{fontSize:36,marginBottom:8}}>📅</div>Aucune réservation
           </div>
         ) : filtered.map(r=>{
-          const item = allItems.find(i=>i.id===r.ressource_id)||{couleur:'#64748b'}
+          const item = allItems.find(i=>i.id===r.ressource_id)||{couleur:'var(--rzc-text-3)'}
           return (
             <div key={r.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',
-              borderRadius:10,marginBottom:8,background:'#fff',
-              border:`1.5px solid ${r.statut==='annulé'?'#e2e8f0':item.couleur+'40'}`,
+              borderRadius:10,marginBottom:8,background:'var(--rzc-white)',
+              border:`1.5px solid ${r.statut==='annulé'?'var(--rzc-border-light)':item.couleur+'40'}`,
               opacity:r.statut==='annulé'?.5:1}}>
-              <div style={{width:5,height:44,borderRadius:99,background:r.statut==='annulé'?'#e2e8f0':item.couleur,flexShrink:0}}/>
+              <div style={{width:5,height:44,borderRadius:99,background:r.statut==='annulé'?'var(--rzc-border-light)':item.couleur,flexShrink:0}}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:700,fontSize:13}}>{r.ressource_label}{r.immat&&` · ${r.immat}`}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>📅 {r.date} · 🕐 {r.heure_debut}–{r.heure_fin} · 👤 {r.demandeur}</div>
-                {r.motif&&<div style={{fontSize:11,color:'#94a3b8'}}>{r.motif}</div>}
+                <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>📅 {r.date} · 🕐 {r.heure_debut}–{r.heure_fin} · 👤 {r.demandeur}</div>
+                {r.motif&&<div style={{fontSize:11,color:'var(--rzc-text-4)'}}>{r.motif}</div>}
               </div>
-              <span style={{background:r.statut==='annulé'?'#f1f5f9':'#dcfce7',
-                color:r.statut==='annulé'?'#94a3b8':'#16a34a',
+              <span style={{background:r.statut==='annulé'?'var(--rzc-charcoal)':'#dcfce7',
+                color:r.statut==='annulé'?'var(--rzc-text-4)':'#16a34a',
                 padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>
                 {r.statut}
               </span>
               {r.statut!=='annulé'&&(<>
                 {r.cat?.startsWith('vehicules') && (
                   <button onClick={()=>setQrModal(r)}
-                    style={{background:'#eff6ff',color:'#1e3a8a',border:'1px solid #bfdbfe',
+                    style={{background:'#eff6ff',color:'var(--rzc-navy)',border:'1px solid #bfdbfe',
                       borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
                     📱 QR
                   </button>
@@ -445,13 +445,13 @@ export default function ReservationsPage() {
         <div onClick={e=>e.target===e.currentTarget&&setModal(null)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:500,
+          <div style={{background:'var(--rzc-white)',borderRadius:16,padding:24,width:'100%',maxWidth:500,
             boxShadow:'0 20px 60px rgba(0,0,0,.3)',maxHeight:'90vh',overflowY:'auto'}}>
             {/* En-tête avec photo si dispo */}
             <div style={{background:`linear-gradient(135deg,${modal.couleur},${modal.couleur}cc)`,
               borderRadius:12,marginBottom:20,overflow:'hidden'}}>
               {modal.photo&&<img src={modal.photo} alt="" style={{width:'100%',height:120,objectFit:'cover',opacity:.7}}/>}
-              <div style={{padding:'14px 18px',color:'#fff'}}>
+              <div style={{padding:'14px 18px',color:'var(--rzc-white)'}}>
                 <div style={{fontWeight:800,fontSize:16}}>{modal.label}</div>
                 {modal.immat&&<div style={{fontSize:12,opacity:.9}}>🪪 {modal.immat}</div>}
                 {modal.km>0&&<div style={{fontSize:12,opacity:.9}}>📍 {modal.km?.toLocaleString()} km</div>}
@@ -469,7 +469,7 @@ export default function ReservationsPage() {
 
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DEMANDEUR *</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DEMANDEUR *</label>
                 <input
                   value={form.demandeur}
                   onChange={e=>setForm({...form,demandeur:e.target.value})}
@@ -483,32 +483,32 @@ export default function ReservationsPage() {
                 </datalist>
               </div>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DATE *</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DATE *</label>
                 <input type="date" value={form.date} min={today}
                   onChange={e=>setForm({...form,date:e.target.value})} style={inp}/>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DÉBUT *</label>
+                  <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DÉBUT *</label>
                   <input type="time" value={form.heure_debut} onChange={e=>setForm({...form,heure_debut:e.target.value})} style={inp}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>FIN *</label>
+                  <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>FIN *</label>
                   <input type="time" value={form.heure_fin} onChange={e=>setForm({...form,heure_fin:e.target.value})} style={inp}/>
                 </div>
               </div>
               <div>
-                <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>MOTIF / OBJET</label>
+                <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>MOTIF / OBJET</label>
                 <input value={form.motif} onChange={e=>setForm({...form,motif:e.target.value})}
                   placeholder="Réunion de chantier, transport équipe..." style={inp}/>
               </div>
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
                 <button onClick={()=>{setModal(null);setMsg(null)}}
-                  style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
+                  style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
                   Annuler
                 </button>
                 <button onClick={saveReservation}
-                  style={{background:modal.couleur,color:'#fff',border:'none',borderRadius:9,
+                  style={{background:modal.couleur,color:'var(--rzc-white)',border:'none',borderRadius:9,
                     padding:'10px 24px',cursor:'pointer',fontSize:13,fontWeight:700}}>
                   ✅ Confirmer
                 </button>
@@ -529,35 +529,35 @@ export default function ReservationsPage() {
         <div onClick={e=>e.target===e.currentTarget&&setShowCatalogue(false)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:2500,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:700,
+          <div style={{background:'var(--rzc-white)',borderRadius:16,width:'100%',maxWidth:700,
             maxHeight:'90vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
             <div style={{padding:'20px 24px',borderBottom:'2px solid #f1f5f9',display:'flex',
               justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontWeight:800,fontSize:17,color:'#1e3a8a'}}>⚙️ Catalogue des ressources</div>
+              <div style={{fontWeight:800,fontSize:17,color:'var(--rzc-navy)'}}>⚙️ Catalogue des ressources</div>
               <button onClick={()=>setShowCatalogue(false)}
-                style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+                style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
             </div>
             <div style={{padding:24}}>
               {/* Liste par catégorie */}
               {Object.entries(fleet).map(([cat, items])=>(
                 <div key={cat} style={{marginBottom:20}}>
-                  <div style={{fontWeight:700,fontSize:13,color:'#1e3a8a',marginBottom:8,
+                  <div style={{fontWeight:700,fontSize:13,color:'var(--rzc-navy)',marginBottom:8,
                     background:'#eff6ff',padding:'6px 12px',borderRadius:8}}>
                     {CAT_META[cat]?.label||cat}
                   </div>
                   <div style={{display:'flex',flexDirection:'column',gap:6}}>
                     {items.map(item=>(
                       <div key={item.id} style={{display:'flex',alignItems:'center',gap:12,
-                        padding:'8px 12px',background:'#f8fafc',borderRadius:8}}>
+                        padding:'8px 12px',background:'var(--rzc-charcoal)',borderRadius:8}}>
                         {item.photo && <img src={item.photo} style={{width:40,height:40,objectFit:'cover',borderRadius:6}}/>}
                         <div style={{flex:1}}>
                           <div style={{fontWeight:600,fontSize:13}}>{item.label}</div>
-                          <div style={{fontSize:11,color:'#64748b'}}>
+                          <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>
                             {item.immat&&`🪪 ${item.immat} · `}{item.km>0&&`📍 ${item.km?.toLocaleString()} km · `}{item.detail}
                           </div>
                         </div>
                         <button onClick={()=>setFicheEdit(item)}
-                          style={{background:'#eff6ff',color:'#1e3a8a',border:'none',borderRadius:7,
+                          style={{background:'#eff6ff',color:'var(--rzc-navy)',border:'none',borderRadius:7,
                             padding:'5px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
                           ✏️ Modifier
                         </button>
@@ -580,32 +580,32 @@ export default function ReservationsPage() {
                 <div style={{fontWeight:700,fontSize:14,color:'#16a34a',marginBottom:14}}>➕ Ajouter une ressource</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CATÉGORIE</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CATÉGORIE</label>
                     <select value={newResource.cat} onChange={e=>setNewResource(n=>({...n,cat:e.target.value}))} style={inp}>
                       {Object.entries(CAT_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>NOM *</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>NOM *</label>
                     <input value={newResource.label} onChange={e=>setNewResource(n=>({...n,label:e.target.value}))}
                       placeholder="Ex: Land Cruiser C" style={inp}/>
                   </div>
                   <div>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>IMMAT / N° SÉRIE</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>IMMAT / N° SÉRIE</label>
                     <input value={newResource.immat} onChange={e=>setNewResource(n=>({...n,immat:e.target.value}))}
                       placeholder="CI-XXXX-XX" style={inp}/>
                   </div>
                   <div>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
                     <input type="number" value={newResource.capacite} onChange={e=>setNewResource(n=>({...n,capacite:parseInt(e.target.value)||1}))} style={inp}/>
                   </div>
                   <div style={{gridColumn:'1/-1'}}>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>DESCRIPTION</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DESCRIPTION</label>
                     <input value={newResource.detail} onChange={e=>setNewResource(n=>({...n,detail:e.target.value}))}
                       placeholder="Caractéristiques..." style={inp}/>
                   </div>
                   <div style={{gridColumn:'1/-1'}}>
-                    <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>PHOTO</label>
+                    <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>PHOTO</label>
                     <label style={{display:'block',border:'2px dashed #bbf7d0',borderRadius:9,padding:12,cursor:'pointer',
                       color:'#16a34a',fontSize:12,textAlign:'center'}}>
                       {newResource.photo ? '✅ Photo ajoutée' : '📷 Cliquer pour ajouter une photo'}
@@ -622,11 +622,11 @@ export default function ReservationsPage() {
                 <button onClick={()=>{
                   if(!newResource.label) return
                   const id=`custom_${Date.now()}`
-                  const item={...newResource,id,couleur:newResource.couleur||'#1e3a8a'}
+                  const item={...newResource,id,couleur:newResource.couleur||'var(--rzc-navy)'}
                   const nf={...fleet,[newResource.cat]:[...(fleet[newResource.cat]||[]),item]}
                   saveFleet(nf)
-                  setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#1e3a8a',photo:'',id:''})
-                }} style={{width:'100%',background:'#16a34a',color:'#fff',border:'none',borderRadius:9,
+                  setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
+                }} style={{width:'100%',background:'#16a34a',color:'var(--rzc-white)',border:'none',borderRadius:9,
                   padding:'11px',cursor:'pointer',fontSize:13,fontWeight:700,marginTop:12}}>
                   ✅ Ajouter au catalogue
                 </button>
@@ -641,12 +641,12 @@ export default function ReservationsPage() {
         <div onClick={e=>e.target===e.currentTarget&&setQrModal(null)}
           style={{position:'fixed',inset:0,background:'rgba(15,36,71,.8)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:3500,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,padding:28,maxWidth:380,width:'100%',
+          <div style={{background:'var(--rzc-white)',borderRadius:16,padding:28,maxWidth:380,width:'100%',
             textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,.4)'}}>
-            <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:4}}>
+            <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy)',marginBottom:4}}>
               📱 QR Code — {qrModal.ressource_label}
             </div>
-            <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>
+            <div style={{fontSize:12,color:'var(--rzc-text-3)',marginBottom:16}}>
               {qrModal.date} · {qrModal.heure_debut}–{qrModal.heure_fin} · {qrModal.demandeur}
             </div>
             {/* QR généré via API publique */}
@@ -700,13 +700,13 @@ export default function ReservationsPage() {
                 setReservations(stored.map(r=>r.id===qrModal.id?{...r,statut:'clôturé',km_retour:km}:r))
                 alert(`✅ Kilométrage enregistré: ${km.toLocaleString()} km`)
                 setQrModal(null)
-              }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+              }} style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,
                 padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700}}>
                 ✅ Retour
               </button>
             </div>
             <button onClick={()=>setQrModal(null)}
-              style={{width:'100%',background:'#f1f5f9',border:'none',borderRadius:9,
+              style={{width:'100%',background:'var(--rzc-charcoal)',border:'none',borderRadius:9,
                 padding:'10px',cursor:'pointer',fontSize:13}}>
               Fermer
             </button>
