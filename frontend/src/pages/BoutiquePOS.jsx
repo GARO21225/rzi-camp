@@ -167,14 +167,14 @@ export default function BoutiquePOS() {
       {/* Debug log (visible sur mobile sans console) */}
       {debugLog.length > 0 && (
         <details style={{ background:'#0f172a', borderRadius:8, padding:'6px 10px', marginBottom:8, fontSize:10 }}>
-          <summary style={{ color:'#94a3b8', cursor:'pointer' }}>🔍 Debug ({debugLog.length})</summary>
-          {debugLog.map((l,i)=><div key={i} style={{color:'#e2e8f0',fontFamily:'monospace',marginTop:2}}>{l}</div>)}
-          <button onClick={()=>setDebugLog([])} style={{background:'#334155',color:'#fff',border:'none',borderRadius:4,padding:'2px 8px',cursor:'pointer',marginTop:4,fontSize:10}}>Effacer</button>
+          <summary style={{ color:'var(--rzc-text-4)', cursor:'pointer' }}>🔍 Debug ({debugLog.length})</summary>
+          {debugLog.map((l,i)=><div key={i} style={{color:'var(--rzc-border-light)',fontFamily:'monospace',marginTop:2}}>{l}</div>)}
+          <button onClick={()=>setDebugLog([])} style={{background:'var(--rzc-text-2)',color:'var(--rzc-white)',border:'none',borderRadius:4,padding:'2px 8px',cursor:'pointer',marginTop:4,fontSize:10}}>Effacer</button>
         </details>
       )}
       {/* Banner réveil serveur */}
       {waking && (
-        <div style={{ background:'#f59e0b', color:'#fff', padding:'8px 16px',
+        <div style={{ background:'#f59e0b', color:'var(--rzc-white)', padding:'8px 16px',
           borderRadius:10, marginBottom:12, fontSize:12, fontWeight:700,
           display:'flex', alignItems:'center', gap:8 }}>
           ⏳ Connexion au serveur en cours (peut prendre ~30s la 1ère fois)...
@@ -182,7 +182,7 @@ export default function BoutiquePOS() {
       )}
 
       {/* Header stats */}
-      <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 16, padding: '16px 20px', marginBottom: 16, color: '#fff' }}>
+      <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 16, padding: '16px 20px', marginBottom: 16, color: 'var(--rzc-white)' }}>
         <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>🛒 Bar & Boutique — Caisse</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
           {[
@@ -203,8 +203,8 @@ export default function BoutiquePOS() {
         {[['caisse', '🛒 Caisse'], ['historique', '📋 Historique']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             style={{ padding: '9px 20px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-              background: 'transparent', color: tab === k ? '#1e3a8a' : '#64748b',
-              borderBottom: `3px solid ${tab === k ? '#1e3a8a' : 'transparent'}`, marginBottom: -2 }}>
+              background: 'transparent', color: tab === k ? 'var(--rzc-navy)' : 'var(--rzc-text-3)',
+              borderBottom: `3px solid ${tab === k ? 'var(--rzc-navy)' : 'transparent'}`, marginBottom: -2 }}>
             {l}
           </button>
         ))}
@@ -222,13 +222,13 @@ export default function BoutiquePOS() {
                 style={{ ...inp, maxWidth: 180, width: 'auto', padding: '7px 12px', fontSize: 12 }} />
               <button onClick={() => setCatFilter('')}
                 style={{ padding: '6px 12px', borderRadius: 99, border: '2px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                  background: !catFilter ? '#1e3a8a' : '#fff', color: !catFilter ? '#fff' : '#475569',
-                  borderColor: !catFilter ? '#1e3a8a' : '#e2e8f0' }}>Tout</button>
+                  background: !catFilter ? 'var(--rzc-navy)' : 'var(--rzc-white)', color: !catFilter ? 'var(--rzc-white)' : 'var(--rzc-text-2)',
+                  borderColor: !catFilter ? 'var(--rzc-navy)' : 'var(--rzc-border-light)' }}>Tout</button>
               {cats.map(c => (
                 <button key={c} onClick={() => setCatFilter(catFilter === c ? '' : c)}
                   style={{ padding: '6px 12px', borderRadius: 99, border: '2px solid #e2e8f0', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 700, background: catFilter === c ? '#1e3a8a' : '#fff',
-                    color: catFilter === c ? '#fff' : '#475569', borderColor: catFilter === c ? '#1e3a8a' : '#e2e8f0' }}>
+                    fontSize: 12, fontWeight: 700, background: catFilter === c ? 'var(--rzc-navy)' : 'var(--rzc-white)',
+                    color: catFilter === c ? 'var(--rzc-white)' : 'var(--rzc-text-2)', borderColor: catFilter === c ? 'var(--rzc-navy)' : 'var(--rzc-border-light)' }}>
                   {c}
                 </button>
               ))}
@@ -242,21 +242,21 @@ export default function BoutiquePOS() {
                   const inCart = panier.find(x => x.a.id === a.id)
                   return (
                     <button key={a.id} onClick={() => addTo(a)}
-                      style={{ background: '#fff', border: `2px solid ${inCart ? '#1e3a8a' : '#e2e8f0'}`,
+                      style={{ background: 'var(--rzc-white)', border: `2px solid ${inCart ? 'var(--rzc-navy)' : 'var(--rzc-border-light)'}`,
                         borderRadius: 12, padding: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
                         position: 'relative', boxShadow: inCart ? '0 0 0 3px #1e3a8a30' : '0 1px 4px rgba(0,0,0,.06)' }}>
                       {inCart && (
-                        <div style={{ position: 'absolute', top: -7, right: -7, background: '#1e3a8a', color: '#fff',
+                        <div style={{ position: 'absolute', top: -7, right: -7, background: 'var(--rzc-navy)', color: 'var(--rzc-white)',
                           borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center',
                           justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>{inCart.q}</div>
                       )}
                       <div style={{ fontSize: 28, marginBottom: 6, textAlign: 'center' }}>🛒</div>
                       <div style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', overflow: 'hidden',
                         textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nom}</div>
-                      <div style={{ fontWeight: 900, color: '#1e3a8a', fontSize: 13, fontFamily: 'monospace' }}>
-                        {parseInt(a.prix).toLocaleString()} <span style={{ fontSize: 9, color: '#94a3b8' }}>FCFA</span>
+                      <div style={{ fontWeight: 900, color: 'var(--rzc-navy)', fontSize: 13, fontFamily: 'monospace' }}>
+                        {parseInt(a.prix).toLocaleString()} <span style={{ fontSize: 9, color: 'var(--rzc-text-4)' }}>FCFA</span>
                       </div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>Stock: {a.stock}</div>
+                      <div style={{ fontSize: 10, color: 'var(--rzc-text-4)' }}>Stock: {a.stock}</div>
                     </button>
                   )
                 })}
@@ -268,13 +268,13 @@ export default function BoutiquePOS() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Agent */}
-            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: '#fff', fontWeight: 700, fontSize: 12 }}>
+            <div style={{ background: 'var(--rzc-white)', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: 'var(--rzc-white)', fontWeight: 700, fontSize: 12 }}>
                 👤 Agent (optionnel)
               </div>
               <div style={{ padding: 12 }}>
                 <button onClick={scanning ? stopScan : startScan}
-                  style={{ width: '100%', background: scanning ? '#dc2626' : '#1e3a8a', color: '#fff', border: 'none',
+                  style={{ width: '100%', background: scanning ? '#dc2626' : 'var(--rzc-navy)', color: 'var(--rzc-white)', border: 'none',
                     padding: 9, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
                   {scanning ? '⏹ Arrêter' : '📷 Scanner QR'}
                 </button>
@@ -283,19 +283,19 @@ export default function BoutiquePOS() {
                   <input value={agentId} onChange={e => setAgentId(e.target.value)} placeholder="Login ou ID..."
                     style={{ ...inp, fontSize: 12, padding: '7px 10px' }} />
                   {agentId && <button onClick={() => { setAgentId(''); setAgentInfo(null); setBonAgent(null) }}
-                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>✕</button>}
+                    style={{ background: 'var(--rzc-charcoal)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>✕</button>}
                 </div>
                 {agentInfo && (
                   <div style={{ marginTop: 8, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '8px 12px' }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>{agentInfo.prenom} {agentInfo.nom}</div>
                     {bonAgent && (
                       <div style={{ marginTop: 6 }}>
-                        <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 3 }}>🎫 Bon de caisse</div>
-                        <div style={{ background: '#e2e8f0', borderRadius: 99, height: 5, overflow: 'hidden', marginBottom: 4 }}>
+                        <div style={{ fontSize: 10, color: 'var(--rzc-text-4)', marginBottom: 3 }}>🎫 Bon de caisse</div>
+                        <div style={{ background: 'var(--rzc-border-light)', borderRadius: 99, height: 5, overflow: 'hidden', marginBottom: 4 }}>
                           <div style={{ height: '100%', width: `${Math.max(2, 100 - bonAgent.pourcentage)}%`, borderRadius: 99,
                             background: bonAgent.credit_restant > 30000 ? '#16a34a' : bonAgent.credit_restant > 10000 ? '#f59e0b' : '#dc2626' }} />
                         </div>
-                        <div style={{ fontWeight: 900, fontSize: 14, color: '#1e3a8a', fontFamily: 'monospace' }}>
+                        <div style={{ fontWeight: 900, fontSize: 14, color: 'var(--rzc-navy)', fontFamily: 'monospace' }}>
                           {parseInt(bonAgent.credit_restant).toLocaleString()} FCFA
                         </div>
                       </div>
@@ -306,29 +306,29 @@ export default function BoutiquePOS() {
             </div>
 
             {/* Panier */}
-            <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: '#fff',
+            <div style={{ background: 'var(--rzc-white)', borderRadius: 14, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', color: 'var(--rzc-white)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 700, fontSize: 12 }}>🛒 Panier ({panier.length})</span>
                 {panier.length > 0 && <button onClick={() => setPanier([])}
-                  style={{ background: 'rgba(220,38,38,.4)', border: 'none', color: '#fff', padding: '2px 8px', borderRadius: 99, cursor: 'pointer', fontSize: 11 }}>Vider</button>}
+                  style={{ background: 'rgba(220,38,38,.4)', border: 'none', color: 'var(--rzc-white)', padding: '2px 8px', borderRadius: 99, cursor: 'pointer', fontSize: 11 }}>Vider</button>}
               </div>
               <div style={{ padding: 12 }}>
                 {panier.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, padding: '16px 0' }}>Cliquez sur un article</div>
+                  <div style={{ textAlign: 'center', color: 'var(--rzc-text-4)', fontSize: 12, padding: '16px 0' }}>Cliquez sur un article</div>
                 ) : (
                   <>
                     <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {panier.map(({ a, q }) => (
-                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', borderRadius: 8, padding: '5px 8px' }}>
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--rzc-charcoal)', borderRadius: 8, padding: '5px 8px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.nom}</div>
-                            <div style={{ fontSize: 10, color: '#94a3b8' }}>{parseInt(a.prix).toLocaleString()} × {q}</div>
+                            <div style={{ fontSize: 10, color: 'var(--rzc-text-4)' }}>{parseInt(a.prix).toLocaleString()} × {q}</div>
                           </div>
-                          <div style={{ fontWeight: 800, fontSize: 12, color: '#1e3a8a', flexShrink: 0 }}>{(a.prix * q).toLocaleString()}</div>
+                          <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--rzc-navy)', flexShrink: 0 }}>{(a.prix * q).toLocaleString()}</div>
                           <div style={{ display: 'flex', gap: 2 }}>
-                            <button onClick={() => decFrom(a.id)} style={{ width: 20, height: 20, borderRadius: 5, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>-</button>
-                            <button onClick={() => addTo(a)} style={{ width: 20, height: 20, borderRadius: 5, border: 'none', background: '#1e3a8a', color: '#fff', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>+</button>
+                            <button onClick={() => decFrom(a.id)} style={{ width: 20, height: 20, borderRadius: 5, border: '1px solid #e2e8f0', background: 'var(--rzc-white)', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>-</button>
+                            <button onClick={() => addTo(a)} style={{ width: 20, height: 20, borderRadius: 5, border: 'none', background: 'var(--rzc-navy)', color: 'var(--rzc-white)', cursor: 'pointer', fontWeight: 900, fontSize: 13 }}>+</button>
                           </div>
                         </div>
                       ))}
@@ -343,21 +343,21 @@ export default function BoutiquePOS() {
 
                     {/* Mode paiement */}
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 5 }}>Mode de paiement</div>
+                      <div style={{ fontSize: 10, color: 'var(--rzc-text-4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 5 }}>Mode de paiement</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                         <button onClick={() => setModePay('especes')}
-                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'especes' ? '#16a34a' : '#e2e8f0'}`,
-                            background: modePay === 'especes' ? '#f0fdf4' : '#fff', cursor: 'pointer',
-                            fontSize: 12, fontWeight: 700, color: modePay === 'especes' ? '#16a34a' : '#64748b' }}>
+                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'especes' ? '#16a34a' : 'var(--rzc-border-light)'}`,
+                            background: modePay === 'especes' ? '#f0fdf4' : 'var(--rzc-white)', cursor: 'pointer',
+                            fontSize: 12, fontWeight: 700, color: modePay === 'especes' ? '#16a34a' : 'var(--rzc-text-3)' }}>
                           💵 Espèces
                         </button>
                         <button onClick={() => agentInfo && setModePay('bon')}
                           disabled={!agentInfo}
                           title={!agentInfo ? 'Scanner un agent d\'abord' : 'Payer par bon de caisse'}
-                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'bon' ? '#2563eb' : '#e2e8f0'}`,
-                            background: modePay === 'bon' ? '#eff6ff' : !agentInfo ? '#f8fafc' : '#fff',
+                          style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'bon' ? 'var(--rzc-blue)' : 'var(--rzc-border-light)'}`,
+                            background: modePay === 'bon' ? '#eff6ff' : !agentInfo ? 'var(--rzc-charcoal)' : 'var(--rzc-white)',
                             cursor: agentInfo ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700,
-                            color: modePay === 'bon' ? '#2563eb' : !agentInfo ? '#cbd5e1' : '#64748b', opacity: !agentInfo ? .6 : 1 }}>
+                            color: modePay === 'bon' ? 'var(--rzc-blue)' : !agentInfo ? '#cbd5e1' : 'var(--rzc-text-3)', opacity: !agentInfo ? .6 : 1 }}>
                           🎫 Bon{bonAgent ? ` (${parseInt(bonAgent.credit_restant).toLocaleString()})` : ''}
                         </button>
                       </div>
@@ -369,8 +369,8 @@ export default function BoutiquePOS() {
                       border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : msg.type === 'info' ? '#bfdbfe' : '#fecaca'}` }}>{msg.text}</div>}
 
                     <button onClick={valider} disabled={submitting || !modePay}
-                      style={{ width: '100%', background: submitting || !modePay ? '#94a3b8' : modePay === 'bon' ? '#1d4ed8' : '#16a34a',
-                        color: '#fff', border: 'none', padding: 12, borderRadius: 9,
+                      style={{ width: '100%', background: submitting || !modePay ? 'var(--rzc-text-4)' : modePay === 'bon' ? '#1d4ed8' : '#16a34a',
+                        color: 'var(--rzc-white)', border: 'none', padding: 12, borderRadius: 9,
                         cursor: submitting || !modePay ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}>
                       {submitting ? '⏳...'
                         : !modePay ? 'Choisir un mode de paiement'
@@ -391,24 +391,24 @@ export default function BoutiquePOS() {
           {/* Stats résumé */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
             {[
-              ['🧾 Ventes aujourd\'hui', statsJour.total, '#1e3a8a'],
+              ['🧾 Ventes aujourd\'hui', statsJour.total, 'var(--rzc-navy)'],
               ['💰 CA du jour', `${statsJour.montant.toLocaleString()} FCFA`, '#16a34a'],
               ['🎫 Par bon', consos.filter(c => c.mode_paiement === 'bon').length, '#7c3aed'],
             ].map(([l, v, c]) => (
-              <div key={l} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', borderTop: `3px solid ${c}`, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+              <div key={l} style={{ background: 'var(--rzc-white)', borderRadius: 12, padding: '12px 16px', borderTop: `3px solid ${c}`, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 900, color: c }}>{v}</div>
-                <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginTop: 3 }}>{l}</div>
+                <div style={{ fontSize: 10, color: 'var(--rzc-text-4)', textTransform: 'uppercase', letterSpacing: 1, marginTop: 3 }}>{l}</div>
               </div>
             ))}
           </div>
 
           {consos.length === 0 ? (
-            <div style={{ padding: 56, textAlign: 'center', color: '#94a3b8' }}>
+            <div style={{ padding: 56, textAlign: 'center', color: 'var(--rzc-text-4)' }}>
               <div style={{ fontSize: 44, marginBottom: 10 }}>📋</div>
-              <div style={{ fontWeight: 700, color: '#64748b' }}>Aucune vente enregistrée</div>
+              <div style={{ fontWeight: 700, color: 'var(--rzc-text-3)' }}>Aucune vente enregistrée</div>
             </div>
           ) : (
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ background: 'var(--rzc-white)', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)' }}>
@@ -420,17 +420,17 @@ export default function BoutiquePOS() {
                 </thead>
                 <tbody>
                   {consos.map((c, i) => (
-                    <tr key={c.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 ? '#fafafa' : '#fff' }}>
-                      <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11, color: '#64748b' }}>
+                    <tr key={c.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 ? '#fafafa' : 'var(--rzc-white)' }}>
+                      <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11, color: 'var(--rzc-text-3)' }}>
                         {new Date(c.date_conso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{c.personnel_nom || 'Anonyme'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12 }}>🛒 {c.article_nom}</td>
                       <td style={{ padding: '10px 14px', fontFamily: 'monospace', textAlign: 'center' }}>{c.quantite}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 800, color: '#1e3a8a' }}>{parseInt(c.montant || 0).toLocaleString()} FCFA</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 800, color: 'var(--rzc-navy)' }}>{parseInt(c.montant || 0).toLocaleString()} FCFA</td>
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{ background: c.mode_paiement === 'bon' ? '#eff6ff' : '#f0fdf4',
-                          color: c.mode_paiement === 'bon' ? '#2563eb' : '#16a34a',
+                          color: c.mode_paiement === 'bon' ? 'var(--rzc-blue)' : '#16a34a',
                           border: `1px solid ${c.mode_paiement === 'bon' ? '#bfdbfe' : '#bbf7d0'}`,
                           borderRadius: 99, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
                           {c.mode_paiement === 'bon' ? '🎫 Bon' : '💵 Espèces'}
