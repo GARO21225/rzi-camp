@@ -313,7 +313,20 @@ export default function Voyages() {
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Personnel *</label>
                   <select value={form.personnel} onChange={e=>setForm({...form,personnel:e.target.value})} style={inp}>
                     <option value="">Sélectionner un agent…</option>
-                    {personnelList.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||''}</option>)}
+                    {personnelList.map(p => {
+                      // Vérifier si cet agent a déjà un voyage actif dans la liste chargée
+                      const enVoyage = data.find(v =>
+                        String(v.personnel) === String(p.id) &&
+                        ['planifie','en_voyage'].includes(v.statut)
+                      )
+                      return (
+                        <option key={p.id} value={p.id}
+                          style={enVoyage ? {color:'#DC2626',fontWeight:700} : {}}>
+                          {enVoyage ? '⚠️ ' : ''}{p.nom} {p.prenom} — {p.societe||''}
+                          {enVoyage ? ` (déjà en voyage: ${enVoyage.statut})` : ''}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               )}
