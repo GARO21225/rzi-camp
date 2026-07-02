@@ -9,17 +9,17 @@ import {
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from 'recharts'
 
-const C = { blue:'#1e3a8a', orange:'#f97316', green:'#16a34a', red:'#dc2626', purple:'#7c3aed', gold:'#f0a500', teal:'#0891b2' }
+const C = { blue:'var(--rzc-navy)', orange:'#f97316', green:'#16a34a', red:'#dc2626', purple:'#7c3aed', gold:'#f0a500', teal:'#0891b2' }
 
 function StatBlock({ label, value, sub, color, icon }) {
   return (
-    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px 18px', borderTop:`3px solid ${color}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+    <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:'16px 18px', borderTop:`3px solid ${color}`, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
         <div style={{ fontFamily:'monospace', fontSize:34, fontWeight:900, color }}>{value ?? '—'}</div>
         <span style={{ fontSize:24, opacity:.5 }}>{icon}</span>
       </div>
-      <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:1.2, marginTop:5, fontWeight:700 }}>{label}</div>
-      {sub && <div style={{ fontSize:11, color:'#64748b', marginTop:3 }}>{sub}</div>}
+      <div style={{ fontSize:10, color:'var(--rzc-text-4)', textTransform:'uppercase', letterSpacing:1.2, marginTop:5, fontWeight:700 }}>{label}</div>
+      {sub && <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:3 }}>{sub}</div>}
     </div>
   )
 }
@@ -93,31 +93,31 @@ function RapportHSESousTraitants() {
   const getScoreColor = s => s >= 80 ? '#16a34a' : s >= 50 ? '#d97706' : '#dc2626'
   const getScoreLabel = s => s >= 80 ? '✅ Conforme' : s >= 50 ? '⚠️ Partiel' : '❌ Non conforme'
 
-  if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
-  if (!data.length) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>Aucun sous-traitant enregistré</div>
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--rzc-text-4)'}}>⏳ Chargement...</div>
+  if (!data.length) return <div style={{textAlign:'center',padding:40,color:'var(--rzc-text-4)'}}>Aucun sous-traitant enregistré</div>
 
   return (
     <div>
       {lastUpdate && (
-        <div style={{fontSize:11,color:'#94a3b8',marginBottom:12}}>Mis à jour le {lastUpdate}</div>
+        <div style={{fontSize:11,color:'var(--rzc-text-4)',marginBottom:12}}>Mis à jour le {lastUpdate}</div>
       )}
       <div style={{overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
           <thead>
-            <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+            <tr style={{background:'var(--rzc-charcoal)',borderBottom:'2px solid #e2e8f0'}}>
               {['Société','Effectif','Induction %','Incidents','EPI','Score Global'].map(h=>(
-                <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#64748b'}}>{h}</th>
+                <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)'}}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.map((row,i) => (
-              <tr key={row.societe} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'#fff':'#fafafa'}}>
+              <tr key={row.societe} style={{borderBottom:'1px solid #f1f5f9',background:i%2===0?'var(--rzc-white)':'#fafafa'}}>
                 <td style={{padding:'10px 12px',fontWeight:700}}>{row.societe}</td>
-                <td style={{padding:'10px 12px',color:'#64748b'}}>{row.total}</td>
+                <td style={{padding:'10px 12px',color:'var(--rzc-text-3)'}}>{row.total}</td>
                 <td style={{padding:'10px 12px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{flex:1,background:'#f1f5f9',borderRadius:99,height:6,minWidth:60}}>
+                    <div style={{flex:1,background:'var(--rzc-charcoal)',borderRadius:99,height:6,minWidth:60}}>
                       <div style={{background:getScoreColor(row.pct_induction),width:`${row.pct_induction}%`,
                         height:'100%',borderRadius:99}}/>
                     </div>
@@ -131,7 +131,7 @@ function RapportHSESousTraitants() {
                     {row.incidents > 0 ? `⚠️ ${row.incidents}` : '✅ 0'}
                   </span>
                 </td>
-                <td style={{padding:'10px 12px',color:'#64748b'}}>{row.epi > 0 ? `🦺 ${row.epi}` : '—'}</td>
+                <td style={{padding:'10px 12px',color:'var(--rzc-text-3)'}}>{row.epi > 0 ? `🦺 ${row.epi}` : '—'}</td>
                 <td style={{padding:'10px 12px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{fontWeight:900,fontSize:16,color:getScoreColor(row.score)}}>{row.score}</div>
@@ -146,7 +146,7 @@ function RapportHSESousTraitants() {
           </tbody>
         </table>
       </div>
-      <div style={{fontSize:11,color:'#94a3b8',marginTop:12}}>
+      <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:12}}>
         Score = 60% induction + 30% absence d'incidents + 10% EPI réservés
       </div>
     </div>
@@ -207,8 +207,8 @@ export default function Analytics() {
   return (
     <div style={{ padding:16, flex:1 }}>
       <div style={{ marginBottom:20 }}>
-        <h2 style={{ fontSize:22, fontWeight:800, color:'#1e3a8a', margin:0 }}>📈 Analytics & Rapports</h2>
-        <p style={{ fontSize:12, color:'#64748b', margin:'4px 0 0' }}>
+        <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>📈 Analytics & Rapports</h2>
+        <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
           Tableau de bord intelligence métier · Camp Roxgold Sango
         </p>
       </div>
@@ -227,9 +227,9 @@ export default function Analytics() {
         {TABS.map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
             style={{ padding:'8px 16px', borderRadius:10, border:'1px solid', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit',
-              background: tab===k ? '#1e3a8a' : '#fff',
-              color:      tab===k ? '#fff'    : '#475569',
-              borderColor:tab===k ? '#1e3a8a' : '#e2e8f0' }}>
+              background: tab===k ? 'var(--rzc-navy)' : 'var(--rzc-white)',
+              color:      tab===k ? 'var(--rzc-white)'    : 'var(--rzc-text-2)',
+              borderColor:tab===k ? 'var(--rzc-navy)' : 'var(--rzc-border-light)' }}>
             {l}
           </button>
         ))}
@@ -239,8 +239,8 @@ export default function Analytics() {
       {tab === 'residence' && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
           {/* Donut */}
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>📊 Répartition occupation</div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>📊 Répartition occupation</div>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={occupancyPie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="v" paddingAngle={3}>
@@ -253,11 +253,11 @@ export default function Analytics() {
           </div>
 
           {/* Barres par bloc */}
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>🏗️ Chambres par bloc (top 10)</div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>🏗️ Chambres par bloc (top 10)</div>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={blocData} barSize={20}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--rzc-charcoal)" />
                 <XAxis dataKey="name" tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius:10, fontSize:12 }} />
@@ -267,15 +267,15 @@ export default function Analytics() {
           </div>
 
           {/* Barres de statut */}
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', gridColumn:'span 2' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>📈 Taux par statut</div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', gridColumn:'span 2' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>📈 Taux par statut</div>
             {occupancyPie.map(s => (
               <div key={s.name} style={{ marginBottom:12 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, fontSize:12 }}>
-                  <span style={{ fontWeight:600, color:'#334155' }}>{s.name}</span>
+                  <span style={{ fontWeight:600, color:'var(--rzc-text-2)' }}>{s.name}</span>
                   <span style={{ fontWeight:700, color:s.fill }}>{s.v} chambres · {bats?.total ? Math.round(s.v/bats.total*100) : 0}%</span>
                 </div>
-                <div style={{ height:8, background:'#f1f5f9', borderRadius:20, overflow:'hidden' }}>
+                <div style={{ height:8, background:'var(--rzc-charcoal)', borderRadius:20, overflow:'hidden' }}>
                   <div style={{ width:`${bats?.total ? Math.round(s.v/bats.total*100) : 0}%`, height:'100%', background:s.fill, borderRadius:20, transition:'width .5s ease' }} />
                 </div>
               </div>
@@ -287,8 +287,8 @@ export default function Analytics() {
       {/* ── Personnel ── */}
       {tab === 'personnel' && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>👥 Type de personnel</div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>👥 Type de personnel</div>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={typePersonnel} cx="50%" cy="50%" outerRadius={85} dataKey="v" paddingAngle={4}>
@@ -299,8 +299,8 @@ export default function Analytics() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:16 }}>🏢 Par société (top 5)</div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>🏢 Par société (top 5)</div>
             {Object.entries(
               perso.reduce((a,p) => { const s=p.societe||'N/A'; a[s]=(a[s]||0)+1; return a }, {})
             ).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([soc,cnt]) => (
@@ -309,7 +309,7 @@ export default function Analytics() {
                   <span style={{ fontWeight:600 }}>{soc}</span>
                   <span style={{ fontWeight:700, color:C.blue }}>{cnt}</span>
                 </div>
-                <div style={{ height:6, background:'#f1f5f9', borderRadius:20, overflow:'hidden' }}>
+                <div style={{ height:6, background:'var(--rzc-charcoal)', borderRadius:20, overflow:'hidden' }}>
                   <div style={{ width:`${Math.round(cnt/perso.length*100)}%`, height:'100%', background:C.blue, borderRadius:20 }} />
                 </div>
               </div>
@@ -348,12 +348,12 @@ export default function Analytics() {
       )}
 
       {/* Rapport HSE Sous-traitants */}
-      <div style={{background:'#fff',borderRadius:14,padding:20,marginTop:16,
+      <div style={{background:'var(--rzc-white)',borderRadius:14,padding:20,marginTop:16,
         boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
-        <div style={{fontWeight:800,fontSize:16,color:'#1e3a8a',marginBottom:4}}>
+        <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy)',marginBottom:4}}>
           🛡️ Conformité HSE par Société Sous-traitante
         </div>
-        <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>
+        <div style={{fontSize:12,color:'var(--rzc-text-3)',marginBottom:16}}>
           Induction · Incidents · EPI · Score global de conformité
         </div>
         <RapportHSESousTraitants/>
