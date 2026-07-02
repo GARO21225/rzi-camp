@@ -310,7 +310,7 @@ tr:last-child td{border-bottom:none}
     </div>
     <div class="card">
       <h4>Par priorité</h4>
-      ${[['critique','#dc2626'],['haute','#ea580c'],['moyenne','#f59e0b'],['basse','#64748b']].map(([p,c])=>`
+      ${[['critique','#dc2626'],['haute','#ea580c'],['moyenne','#f59e0b'],['basse','var(--rzc-text-3)']].map(([p,c])=>`
         <div class="bar-row">
           <div class="bar-label" style="text-transform:capitalize">${p}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${Math.round((byPrio[p]||0)/Math.max(incidents_list.length,1)*100)}%;background:${c}"></div></div>
@@ -498,19 +498,19 @@ export default function RapportsPage() {
   ]
 
   return (
-    <div style={{padding:24,background:'#f8fafc',minHeight:'100vh'}}>
+    <div style={{padding:24,background:'var(--rzc-charcoal)',minHeight:'100vh'}}>
       <div style={{maxWidth:800,margin:'0 auto'}}>
 
         {/* Header */}
         <div style={{marginBottom:28}}>
           <h1 style={{fontSize:22,fontWeight:900,color:'#0f172a',margin:0}}>📋 Rapports</h1>
-          <p style={{fontSize:13,color:'#64748b',margin:'6px 0 0'}}>
+          <p style={{fontSize:13,color:'var(--rzc-text-3)',margin:'6px 0 0'}}>
             Génération automatique de rapports détaillés sur tous les périmètres
           </p>
         </div>
 
         {/* Rapport global */}
-        <div style={{background:'#fff',borderRadius:16,border:'1px solid #e2e8f0',
+        <div style={{background:'var(--rzc-white)',borderRadius:16,border:'1px solid #e2e8f0',
           overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,.06)',marginBottom:16}}>
           
           {/* En-tête */}
@@ -519,7 +519,7 @@ export default function RapportsPage() {
               <div>
                 <div style={{color:'rgba(255,255,255,.6)',fontSize:10,textTransform:'uppercase',
                   letterSpacing:1,marginBottom:4}}>RAPPORT PRINCIPAL</div>
-                <h2 style={{color:'#fff',fontSize:18,fontWeight:900,margin:0}}>
+                <h2 style={{color:'var(--rzc-white)',fontSize:18,fontWeight:900,margin:0}}>
                   📋 Rapport Opérationnel Global
                 </h2>
                 <p style={{color:'rgba(255,255,255,.6)',fontSize:12,margin:'6px 0 0'}}>
@@ -540,9 +540,9 @@ export default function RapportsPage() {
                 <button key={l} onClick={()=>setPeriode(d)}
                   style={{padding:'6px 14px',borderRadius:8,border:'1.5px solid',cursor:'pointer',
                     fontSize:12,fontWeight:600,
-                    background: JSON.stringify(periode)===JSON.stringify(d)?'#1e3a8a':'#f8fafc',
-                    color:      JSON.stringify(periode)===JSON.stringify(d)?'#fff':'#374151',
-                    borderColor:JSON.stringify(periode)===JSON.stringify(d)?'#1e3a8a':'#e2e8f0'}}>
+                    background: JSON.stringify(periode)===JSON.stringify(d)?'var(--rzc-navy)':'var(--rzc-charcoal)',
+                    color:      JSON.stringify(periode)===JSON.stringify(d)?'var(--rzc-white)':'#374151',
+                    borderColor:JSON.stringify(periode)===JSON.stringify(d)?'var(--rzc-navy)':'var(--rzc-border-light)'}}>
                   {l}
                 </button>
               ))}
@@ -550,7 +550,7 @@ export default function RapportsPage() {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
               {[['Du','debut'],['Au','fin']].map(([l,k])=>(
                 <div key={k}>
-                  <label style={{fontSize:10,fontWeight:600,color:'#64748b',
+                  <label style={{fontSize:10,fontWeight:600,color:'var(--rzc-text-3)',
                     display:'block',marginBottom:4,textTransform:'uppercase',letterSpacing:.5}}>
                     {l}
                   </label>
@@ -565,13 +565,13 @@ export default function RapportsPage() {
 
           {/* Sections incluses */}
           <div style={{padding:'16px 28px',borderBottom:'1px solid #f1f5f9'}}>
-            <p style={{fontSize:11,fontWeight:600,color:'#64748b',marginBottom:10,
+            <p style={{fontSize:11,fontWeight:600,color:'var(--rzc-text-3)',marginBottom:10,
               textTransform:'uppercase',letterSpacing:.5}}>
               Sections incluses dans le rapport
             </p>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               {[
-                ['🏠','Hébergement','#eff6ff','#1e3a8a'],
+                ['🏠','Hébergement','#eff6ff','var(--rzc-navy)'],
                 ['👥','Personnel & Induction','#ede9fe','#7c3aed'],
                 ['🔧','Maintenance & Incidents','#fee2e2','#dc2626'],
                 ['✈️','Rotations & Voyages','#dbeafe','#3b82f6'],
@@ -590,19 +590,19 @@ export default function RapportsPage() {
             alignItems:'center'}}>
             <div>
               {lastGen && (
-                <p style={{fontSize:11,color:'#94a3b8'}}>
+                <p style={{fontSize:11,color:'var(--rzc-text-4)'}}>
                   Dernière génération : {lastGen.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
                 </p>
               )}
               {loading && progress && (
-                <p style={{fontSize:12,color:'#1e3a8a',fontWeight:600}}>
+                <p style={{fontSize:12,color:'var(--rzc-navy)',fontWeight:600}}>
                   ⏳ {progress}
                 </p>
               )}
             </div>
             <button onClick={generer} disabled={loading}
-              style={{background:loading?'#94a3b8':'linear-gradient(135deg,#1e3a8a,#2563eb)',
-                color:'#fff',border:'none',borderRadius:12,
+              style={{background:loading?'var(--rzc-text-4)':'linear-gradient(135deg,#1e3a8a,#2563eb)',
+                color:'var(--rzc-white)',border:'none',borderRadius:12,
                 padding:'14px 32px',fontSize:14,fontWeight:800,cursor:loading?'not-allowed':'pointer',
                 boxShadow:loading?'none':'0 4px 16px rgba(30,58,138,.35)',
                 display:'flex',alignItems:'center',gap:8,transition:'all .2s'}}>
