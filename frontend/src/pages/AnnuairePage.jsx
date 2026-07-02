@@ -25,7 +25,7 @@ export default function AnnuairePage() {
   }, [search, all])
 
   const getStatus = (p) => {
-    if (!p.actif) return { label:'Inactif', color:'#94a3b8', bg:'#f8fafc' }
+    if (!p.actif) return { label:'Inactif', color:'var(--rzc-text-4)', bg:'var(--rzc-charcoal)' }
     return { label:'Présent', color:'#16a34a', bg:'#f0fdf4' }
   }
 
@@ -37,8 +37,8 @@ export default function AnnuairePage() {
   return (
     <div style={{padding:16, maxWidth:900, margin:'0 auto'}}>
       <div style={{marginBottom:24}}>
-        <h1 style={{fontSize:24,fontWeight:800,color:'#1e3a8a',margin:0}}>📋 Annuaire du Site</h1>
-        <div style={{fontSize:13,color:'#64748b',marginTop:4}}>
+        <h1 style={{fontSize:24,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>📋 Annuaire du Site</h1>
+        <div style={{fontSize:13,color:'var(--rzc-text-3)',marginTop:4}}>
           Recherche instantanée · {all.length} personnes enregistrées
         </div>
       </div>
@@ -56,7 +56,7 @@ export default function AnnuairePage() {
         {search && (
           <button onClick={()=>{setSearch('');setResults([]);setSelected(null)}}
             style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',
-              background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>
+              background:'var(--rzc-charcoal)',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>
             ✕
           </button>
         )}
@@ -64,13 +64,13 @@ export default function AnnuairePage() {
 
       {/* Résultats */}
       {search && results.length === 0 && (
-        <div style={{textAlign:'center',padding:40,color:'#94a3b8',fontSize:15}}>
+        <div style={{textAlign:'center',padding:40,color:'var(--rzc-text-4)',fontSize:15}}>
           Aucun résultat pour "<b>{search}</b>"
         </div>
       )}
 
       {!search && (
-        <div style={{textAlign:'center',padding:60,color:'#94a3b8'}}>
+        <div style={{textAlign:'center',padding:60,color:'var(--rzc-text-4)'}}>
           <div style={{fontSize:48,marginBottom:12}}>🔍</div>
           <div style={{fontSize:16,fontWeight:600}}>Tapez un nom, une société, un matricule...</div>
         </div>
@@ -84,7 +84,7 @@ export default function AnnuairePage() {
               const st = getStatus(p)
               return (
                 <div key={p.id} onClick={()=>setSelected(p)}
-                  style={{background: selected?.id===p.id ? '#eff6ff' : '#fff',
+                  style={{background: selected?.id===p.id ? '#eff6ff' : 'var(--rzc-white)',
                     border: selected?.id===p.id ? '2px solid #1e3a8a' : '2px solid #f1f5f9',
                     borderRadius:12, padding:'14px 16px', cursor:'pointer',
                     display:'flex', alignItems:'center', gap:14,
@@ -93,14 +93,14 @@ export default function AnnuairePage() {
                   <div style={{width:44,height:44,borderRadius:12,
                     background:`linear-gradient(135deg,#1e3a8a,#2563eb)`,
                     display:'flex',alignItems:'center',justifyContent:'center',
-                    color:'#fff',fontWeight:800,fontSize:18,flexShrink:0}}>
+                    color:'var(--rzc-white)',fontWeight:800,fontSize:18,flexShrink:0}}>
                     {(p.nom||'?')[0]}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:700,fontSize:14,color:'#1e293b'}}>
                       {p.nom} {p.prenom}
                     </div>
-                    <div style={{fontSize:12,color:'#64748b'}}>
+                    <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>
                       {p.societe||'—'} · {p.type_personnel||'—'}
                     </div>
                   </div>
@@ -116,7 +116,7 @@ export default function AnnuairePage() {
 
         {/* Fiche détaillée */}
         {selected && (
-          <div style={{width:340, flexShrink:0, background:'#fff', borderRadius:16,
+          <div style={{width:340, flexShrink:0, background:'var(--rzc-white)', borderRadius:16,
             boxShadow:'0 4px 20px rgba(0,0,0,.08)', padding:24, alignSelf:'flex-start',
             position:'sticky', top:16}}>
             {/* En-tête */}
@@ -124,13 +124,13 @@ export default function AnnuairePage() {
               <div style={{width:72,height:72,borderRadius:20,
                 background:'linear-gradient(135deg,#1e3a8a,#2563eb)',
                 display:'flex',alignItems:'center',justifyContent:'center',
-                color:'#fff',fontWeight:900,fontSize:28,margin:'0 auto 12px'}}>
+                color:'var(--rzc-white)',fontWeight:900,fontSize:28,margin:'0 auto 12px'}}>
                 {(selected.nom||'?')[0]}
               </div>
               <div style={{fontWeight:800,fontSize:18,color:'#1e293b'}}>
                 {selected.nom} {selected.prenom}
               </div>
-              <div style={{fontSize:13,color:'#64748b'}}>{selected.societe||'—'}</div>
+              <div style={{fontSize:13,color:'var(--rzc-text-3)'}}>{selected.societe||'—'}</div>
               <span style={{background: selected.actif?'#dcfce7':'#fee2e2',
                 color: selected.actif?'#16a34a':'#dc2626',
                 padding:'4px 14px',borderRadius:99,fontSize:12,fontWeight:700,
@@ -154,7 +154,7 @@ export default function AnnuairePage() {
             ].map(([label, value]) => (
               <div key={label} style={{display:'flex',justifyContent:'space-between',
                 padding:'8px 0',borderBottom:'1px solid #f1f5f9',alignItems:'center'}}>
-                <span style={{fontSize:12,color:'#64748b',fontWeight:600}}>{label}</span>
+                <span style={{fontSize:12,color:'var(--rzc-text-3)',fontWeight:600}}>{label}</span>
                 <span style={{fontSize:12,color:'#1e293b',fontWeight:700,textAlign:'right',maxWidth:'55%'}}>{value}</span>
               </div>
             ))}
@@ -166,7 +166,7 @@ export default function AnnuairePage() {
                   <a href={`tel:${selected.numero}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
-                      fontSize:14,background:'#059669',color:'#fff',
+                      fontSize:14,background:'#059669',color:'var(--rzc-white)',
                       boxShadow:'0 2px 8px rgba(5,150,105,.3)'}}>
                     📞 Appeler
                   </a>
@@ -175,7 +175,7 @@ export default function AnnuairePage() {
                   <a href={`sms:${selected.numero}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
-                      fontSize:14,background:'#1d4ed8',color:'#fff',
+                      fontSize:14,background:'#1d4ed8',color:'var(--rzc-white)',
                       boxShadow:'0 2px 8px rgba(29,78,216,.3)'}}>
                     💬 Message
                   </a>
@@ -184,7 +184,7 @@ export default function AnnuairePage() {
                   <a href={`mailto:${selected.email}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
-                      fontSize:14,background:'#7c3aed',color:'#fff'}}>
+                      fontSize:14,background:'#7c3aed',color:'var(--rzc-white)'}}>
                     📧 Email
                   </a>
                 )}
