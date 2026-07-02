@@ -26,7 +26,7 @@ function VersionCheck() {
         {isLatest ? '✅ Backend à jour (v1779680747)' : `⚠️ Backend version ${ver.version || 'inconnue'} — redéployez sur Render`}
       </div>
       {ver.fixes && (
-        <div style={{fontSize: 11, color: '#64748b'}}>
+        <div style={{fontSize: 11, color: 'var(--rzc-text-3)'}}>
           Fixes: {ver.fixes?.join(' · ')}
         </div>
       )}
@@ -86,8 +86,8 @@ export default function StatusPage() {
 
   return (
     <div style={{ padding:24, maxWidth:680, margin:'0 auto' }}>
-      <h2 style={{ fontWeight:800, color:'#1e3a8a', marginBottom:6 }}>🔧 Diagnostic Système</h2>
-      <p style={{ fontSize:12, color:'#64748b', marginBottom:20 }}>État de la base de données · Initialisation des données</p>
+      <h2 style={{ fontWeight:800, color:'var(--rzc-navy)', marginBottom:6 }}>🔧 Diagnostic Système</h2>
+      <p style={{ fontSize:12, color:'var(--rzc-text-3)', marginBottom:20 }}>État de la base de données · Initialisation des données</p>
 
       {loading && <div style={{ textAlign:'center', padding:40, fontSize:32 }}>⏳</div>}
 
@@ -106,8 +106,8 @@ export default function StatusPage() {
           </div>
 
           {/* Tableau diagnostic */}
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden', marginBottom:16 }}>
-            <div style={{ padding:'11px 18px', borderBottom:'1px solid #e2e8f0', background:'#f8fafc', fontWeight:700, fontSize:13, color:'#1e3a8a' }}>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden', marginBottom:16 }}>
+            <div style={{ padding:'11px 18px', borderBottom:'1px solid #e2e8f0', background:'var(--rzc-charcoal)', fontWeight:700, fontSize:13, color:'var(--rzc-navy)' }}>
               État de la base de données
             </div>
             <div style={{ padding:16, display:'flex', flexDirection:'column', gap:8 }}>
@@ -120,10 +120,10 @@ export default function StatusPage() {
                 ['📋 Migrations',   diag.migrations, 30],
                 ['🗄️ Base',        diag.db_engine,  null],
               ].map(([label, value, min]) => (
-                <div key={label} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', padding:'10px 14px', borderRadius:8 }}>
-                  <span style={{ color:'#64748b', fontWeight:600, fontSize:13 }}>{label}</span>
+                <div key={label} style={{ display:'flex', justifyContent:'space-between', background:'var(--rzc-charcoal)', padding:'10px 14px', borderRadius:8 }}>
+                  <span style={{ color:'var(--rzc-text-3)', fontWeight:600, fontSize:13 }}>{label}</span>
                   <span style={{ fontWeight:800, fontSize:13,
-                    color: min && value < min ? '#dc2626' : '#1e3a8a' }}>
+                    color: min && value < min ? '#dc2626' : 'var(--rzc-navy)' }}>
                     {value}
                     {min && value < min && <span style={{ fontSize:10, color:'#dc2626', marginLeft:6 }}>⚠️ Insuffisant</span>}
                   </span>
@@ -133,16 +133,16 @@ export default function StatusPage() {
           </div>
 
           {/* Bouton reseed — TOUJOURS visible pour admin */}
-          <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'#1e3a8a', marginBottom:6 }}>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:6 }}>
               🌱 Initialisation des données
             </div>
-            <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
+            <div style={{ fontSize:12, color:'var(--rzc-text-3)', marginBottom:14 }}>
               Crée ou met à jour les utilisateurs de démonstration, le personnel et les articles boutique.
               Les données existantes ne sont PAS supprimées.
             </div>
             <button onClick={seed} disabled={seeding}
-              style={{ width:'100%', background:seeding?'#94a3b8':'#1e3a8a', color:'#fff', border:'none',
+              style={{ width:'100%', background:seeding?'var(--rzc-text-4)':'var(--rzc-navy)', color:'var(--rzc-white)', border:'none',
                 padding:'13px', borderRadius:10, cursor:seeding?'wait':'pointer', fontSize:14, fontWeight:700 }}>
               {seeding ? '⏳ Initialisation en cours...' : '🌱 Initialiser les données maintenant'}
             </button>
@@ -164,8 +164,8 @@ export default function StatusPage() {
             )}
           </div>
 
-          <div style={{ marginTop:14, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 14px', fontSize:11, color:'#94a3b8' }}>
-            Backend: <code style={{ color:'#2563eb' }}>{base}</code>
+          <div style={{ marginTop:14, background:'var(--rzc-charcoal)', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 14px', fontSize:11, color:'var(--rzc-text-4)' }}>
+            Backend: <code style={{ color:'var(--rzc-blue)' }}>{base}</code>
           </div>
         </>
       )}
