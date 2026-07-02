@@ -47,7 +47,7 @@ export default function QrAntiFraude() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         {/* QR Code */}
         <div style={{
-          background: 'white', borderRadius: 16, padding: 32,
+          background: 'var(--rzc-white)', borderRadius: 16, padding: 32,
           border: '1px solid var(--border,#e2e8f0)',
           boxShadow: '0 4px 20px rgba(0,0,0,.05)',
           textAlign: 'center',
@@ -57,7 +57,7 @@ export default function QrAntiFraude() {
           </div>
           <div style={{
             display: 'inline-block', padding: 16,
-            background: 'white', border: '1px solid #e2e8f0', borderRadius: 12,
+            background: 'var(--rzc-white)', border: '1px solid #e2e8f0', borderRadius: 12,
           }}>
             <img src={qrUrl} alt="QR Code" style={{ width: 240, height: 240, display: 'block' }} />
           </div>
@@ -74,7 +74,7 @@ export default function QrAntiFraude() {
 
         {/* Comment ça marche */}
         <div style={{
-          background: 'white', borderRadius: 16, padding: 28,
+          background: 'var(--rzc-white)', borderRadius: 16, padding: 28,
           border: '1px solid var(--border,#e2e8f0)',
           boxShadow: '0 4px 20px rgba(0,0,0,.05)',
         }}>
