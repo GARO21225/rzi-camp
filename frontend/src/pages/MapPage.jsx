@@ -19,7 +19,7 @@ const TILES = [
   { id:'sat', label:'🛰️ Satellite', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
 ]
 
-const sColor = s => ({ Libre:'#16a34a', 'Occupé':'#dc2626', 'Réservé':'#2563eb', Maintenance:'#ea580c' }[s]||'#888')
+const sColor = s => ({ Libre:'#16a34a', 'Occupé':'#dc2626', 'Réservé':'var(--rzc-blue)', Maintenance:'#ea580c' }[s]||'#888')
 
 function calcDist(a,b){return L.latLng(a).distanceTo(L.latLng(b))}
 function distStr(d){return d>1000?`${(d/1000).toFixed(2)} km`:`${Math.round(d)} m`}
@@ -66,7 +66,7 @@ function NavLayer({userPos, route, target, targetName}){
         <span style={{fontSize:'12px'}}>📏 {distStr(d)}<br/>🧭 Direction {bear}</span><br/>
         <a href={`https://www.google.com/maps/dir/?api=1&origin=${userPos[0]},${userPos[1]}&destination=${target[0]},${target[1]}`}
           target="_blank" rel="noreferrer"
-          style={{display:'inline-block',marginTop:6,background:'#4285f4',color:'#fff',padding:'5px 12px',borderRadius:6,textDecoration:'none',fontSize:12,fontWeight:600}}>
+          style={{display:'inline-block',marginTop:6,background:'#4285f4',color:'var(--rzc-white)',padding:'5px 12px',borderRadius:6,textDecoration:'none',fontSize:12,fontWeight:600}}>
           📍 Ouvrir dans Google Maps
         </a>
       </Popup></Marker>
@@ -195,7 +195,7 @@ export default function MapPage() {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - 54px)',overflow:'hidden',position:'relative'}}>
       {/* TOOLBAR */}
-      <div style={{background:'#fff',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
+      <div style={{background:'var(--rzc-white)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
         <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)}
           style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'4px 8px',borderRadius:6,fontSize:11,outline:'none'}}>
           <option value="">Tous statuts</option>
@@ -211,7 +211,7 @@ export default function MapPage() {
           {TILES.map(t=>(
             <button key={t.id} onClick={()=>setTileId(t.id)}
               style={{padding:'3px 7px',borderRadius:5,border:'none',fontSize:10,cursor:'pointer',transition:'.15s',
-                background:tileId===t.id?'var(--blue)':'transparent',color:tileId===t.id?'#fff':'var(--text-dim)'}}>
+                background:tileId===t.id?'var(--blue)':'transparent',color:tileId===t.id?'var(--rzc-white)':'var(--text-dim)'}}>
               {t.label}
             </button>
           ))}
@@ -226,7 +226,7 @@ export default function MapPage() {
         </button>
 
         <div style={{marginLeft:'auto',display:'flex',gap:8,fontSize:10,fontFamily:'monospace'}}>
-          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','#2563eb']].map(([l,c])=>(
+          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','var(--rzc-blue)']].map(([l,c])=>(
             <span key={l} style={{display:'flex',alignItems:'center',gap:3,color:'var(--text-dim)',cursor:'pointer'}}
               onClick={()=>setFilterStatut(filterStatut===l?'':l)}>
               <span style={{width:7,height:7,borderRadius:'50%',background:c,display:'inline-block'}}/>
@@ -246,11 +246,11 @@ export default function MapPage() {
             <>
               <span style={{fontWeight:600,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>→ {targetName}</span>
               {dist&&<span style={{background:'rgba(240,165,0,.2)',padding:'2px 10px',borderRadius:20,color:'#d08800',fontWeight:700,flexShrink:0}}>📏 {distStr(dist)}</span>}
-              {bear&&<span style={{background:'rgba(37,99,235,.1)',padding:'2px 10px',borderRadius:20,color:'#2563eb',fontWeight:700,flexShrink:0}}>🧭 {bear}</span>}
+              {bear&&<span style={{background:'rgba(37,99,235,.1)',padding:'2px 10px',borderRadius:20,color:'var(--rzc-blue)',fontWeight:700,flexShrink:0}}>🧭 {bear}</span>}
               {routeLoading&&<span style={{color:'var(--text-dim)',fontSize:11}}>Calcul itinéraire...</span>}
               <a href={`https://www.google.com/maps/dir/?api=1&destination=${target[0]},${target[1]}`}
                 target="_blank" rel="noreferrer"
-                style={{background:'#4285f4',color:'#fff',padding:'3px 12px',borderRadius:20,textDecoration:'none',fontSize:11,fontWeight:700,flexShrink:0}}>
+                style={{background:'#4285f4',color:'var(--rzc-white)',padding:'3px 12px',borderRadius:20,textDecoration:'none',fontSize:11,fontWeight:700,flexShrink:0}}>
                 Google Maps
               </a>
               <button onClick={()=>{setTarget(null);setTargetName('');setRoute(null)}}
@@ -278,7 +278,7 @@ export default function MapPage() {
       }} title="Exporter les données GIS"
         style={{
           position:'absolute', top:10, right:160, zIndex:1000,
-          background:'#fff', border:'none', borderRadius:8,
+          background:'var(--rzc-white)', border:'none', borderRadius:8,
           padding:'8px 14px', cursor:'pointer', fontSize:12, fontWeight:700,
           color:'#16a34a', boxShadow:'0 2px 8px rgba(0,0,0,.15)',
           display:'flex', alignItems:'center', gap:6
@@ -287,7 +287,7 @@ export default function MapPage() {
       </button>
 
       <button onClick={()=>setShowImport(true)}
-        style={{position:'absolute',top:54,right:12,zIndex:500,background:'#1e3a8a',color:'#fff',
+        style={{position:'absolute',top:54,right:12,zIndex:500,background:'var(--rzc-navy)',color:'var(--rzc-white)',
           border:'none',padding:'8px 14px',borderRadius:10,cursor:'pointer',fontSize:12,
           fontWeight:700,boxShadow:'0 2px 8px rgba(0,0,0,.2)',display:'flex',alignItems:'center',gap:6}}>
         📥 Importer données
@@ -332,7 +332,7 @@ export default function MapPage() {
         {/* Légende */}
         <div style={{position:'absolute',bottom:20,right:10,background:'rgba(255,255,255,.97)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',zIndex:900,fontSize:12,boxShadow:'var(--shadow-md)'}}>
           <div style={{fontFamily:'monospace',fontSize:9,color:'var(--text-dim)',letterSpacing:2,marginBottom:8,textTransform:'uppercase'}}>Légende</div>
-          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','#2563eb'],['Maintenance','#ea580c']].map(([l,c])=>(
+          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','var(--rzc-blue)'],['Maintenance','#ea580c']].map(([l,c])=>(
             <div key={l} style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0',cursor:'pointer'}}
               onClick={()=>setFilterStatut(filterStatut===l?'':l)}>
               <div style={{width:12,height:12,borderRadius:3,background:c,flexShrink:0,opacity:filterStatut&&filterStatut!==l?.4:1}}/>
@@ -348,11 +348,11 @@ export default function MapPage() {
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
           display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:20}}
           onClick={e=>e.target===e.currentTarget&&setShowImport(false)}>
-          <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:520,padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+          <div style={{background:'var(--rzc-white)',borderRadius:16,width:'100%',maxWidth:520,padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
               <div>
-                <div style={{fontSize:18,fontWeight:800,color:'#1e3a8a'}}>📥 Importer des données GIS</div>
-                <div style={{fontSize:11,color:'#64748b',marginTop:2}}>
+                <div style={{fontSize:18,fontWeight:800,color:'var(--rzc-navy)'}}>📥 Importer des données GIS</div>
+                <div style={{fontSize:11,color:'var(--rzc-text-3)',marginTop:2}}>
                   {(() => { try { return JSON.parse(localStorage.getItem('rzi_gis_imports')||'[]').reduce((s,i)=>s+(i.features?.length||0),0) } catch(e){return 0} })()} entité(s) en mémoire
                 </div>
               </div>
@@ -367,7 +367,7 @@ export default function MapPage() {
                 }} style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
                   🗑️ Vider
                 </button>
-                <button onClick={()=>setShowImport(false)} style={{background:'#f1f5f9',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
+                <button onClick={()=>setShowImport(false)} style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',fontSize:18}}>✕</button>
               </div>
             </div>
             {importMsg && (
@@ -377,7 +377,7 @@ export default function MapPage() {
               </div>
             )}
             <div style={{marginBottom:16}}>
-              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>TYPE DE COUCHE</label>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6}}>TYPE DE COUCHE</label>
               <select value={importLayer} onChange={e=>setImportLayer(e.target.value)}
                 style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none'}}>
                 <option value="residence">🏠 Résidences / Bâtiments</option>
@@ -389,7 +389,7 @@ export default function MapPage() {
               </select>
             </div>
             <div style={{marginBottom:16}}>
-              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>FICHIER (GeoJSON ou CSV)</label>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6}}>FICHIER (GeoJSON ou CSV)</label>
               <input type="file" accept=".geojson,.json,.csv"
                 style={{width:'100%',border:'2px dashed #e2e8f0',borderRadius:9,padding:'16px',fontSize:13,cursor:'pointer'}}
                 onChange={async e => {
@@ -450,16 +450,16 @@ export default function MapPage() {
                     setImportMsg({ok:false,text:`❌ Erreur: ${err.message}`})
                   }
                 }}/>
-              <div style={{fontSize:11,color:'#94a3b8',marginTop:6}}>Formats acceptés: GeoJSON (.geojson, .json) et CSV avec colonnes lat/lon</div>
+              <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:6}}>Formats acceptés: GeoJSON (.geojson, .json) et CSV avec colonnes lat/lon</div>
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
               <button onClick={()=>{setShowImport(false);setImportMsg(null)}}
-                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
+                style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
                 Fermer
               </button>
               <a href="data:text/csv;charset=utf-8,nom,latitude,longitude,type%0AResidence B1,6.3702,-5.2012,residence"
                 download="template_gis.csv"
-                style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+                style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
                 📋 Template CSV
               </a>
             </div>
@@ -472,16 +472,16 @@ export default function MapPage() {
         <div onClick={e=>e.target===e.currentTarget&&setEditBat(null)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(4px)',
             display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:20}}>
-          <div style={{background:'#fff',borderRadius:16,padding:24,width:'100%',maxWidth:400}}>
-            <div style={{fontWeight:800,fontSize:17,marginBottom:16,color:'#1e3a8a'}}>✏️ {editBat.residence}</div>
-            <label style={{fontSize:11,fontWeight:700,color:'#64748b',display:'block',marginBottom:4}}>STATUT</label>
+          <div style={{background:'var(--rzc-white)',borderRadius:16,padding:24,width:'100%',maxWidth:400}}>
+            <div style={{fontWeight:800,fontSize:17,marginBottom:16,color:'var(--rzc-navy)'}}>✏️ {editBat.residence}</div>
+            <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>STATUT</label>
             <select id="edit-bat-statut" defaultValue={editBat.statut}
               style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,marginBottom:16}}>
               {['Libre','Occupé','Réservé','Maintenance'].map(s=><option key={s}>{s}</option>)}
             </select>
             <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
               <button onClick={()=>setEditBat(null)}
-                style={{background:'#f1f5f9',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer'}}>Annuler</button>
+                style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer'}}>Annuler</button>
               <button onClick={async()=>{
                 const BASE=import.meta?.env?.VITE_API_URL||'https://rzi-camp-backend.onrender.com'
                 const token=localStorage.getItem('access_token')||''
@@ -492,7 +492,7 @@ export default function MapPage() {
                 }).catch(()=>{})
                 setEditBat(null)
                 window.location.reload()
-              }} style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+              }} style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,
                 padding:'10px 20px',cursor:'pointer',fontWeight:700}}>💾 Sauvegarder</button>
             </div>
           </div>
