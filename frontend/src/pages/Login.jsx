@@ -47,18 +47,18 @@ function ForgotModal({ onClose }) {
       <div style={{ background:'#0d1b2e', border:'1px solid rgba(240,165,0,.3)', borderRadius:20, width:'100%', maxWidth:420, overflow:'hidden', boxShadow:'0 32px 80px rgba(0,0,0,.6)' }}>
         <div style={{ background:'linear-gradient(135deg,#0f2447,#1a3560)', padding:'18px 22px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid rgba(240,165,0,.2)' }}>
           <span style={{ color:'#f0a500', fontWeight:800, fontSize:15, letterSpacing:'.5px' }}>🔐 RÉINITIALISATION</span>
-          <button onClick={onClose} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.15)', color:'#94a3b8', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+          <button onClick={onClose} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.15)', color:'var(--rzc-text-4)', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
         </div>
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14 }}>
           {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
           {step === 'request' ? <>
-            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
+            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
             {token && <div style={{ background:'rgba(240,165,0,.1)', border:'1px solid rgba(240,165,0,.3)', borderRadius:10, padding:'10px 14px' }}><div style={{ fontSize:11, color:'#f0a500', marginBottom:4, fontWeight:700 }}>TOKEN À TRANSMETTRE</div><div style={{ fontFamily:'monospace', fontSize:13, color:'#fef3c7', wordBreak:'break-all' }}>{token}</div></div>}
             <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Génération...':'Générer le token'}</button>
           </> : <>
-            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Coller le token ici" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
-            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'#fff', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'#fff', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
+            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Coller le token ici" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
+            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
+            <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'var(--rzc-white)', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
           </>}
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function Login() {
 
   const inp = {
     width:'100%', background:'rgba(255,255,255,.07)', border:'1.5px solid rgba(255,255,255,.14)',
-    borderRadius:12, padding:'13px 16px', fontSize:15, outline:'none', color:'#fff',
+    borderRadius:12, padding:'13px 16px', fontSize:15, outline:'none', color:'var(--rzc-white)',
     fontFamily:'inherit', boxSizing:'border-box', transition:'border-color .15s',
   }
 
@@ -131,12 +131,12 @@ export default function Login() {
         padding:'12px 20px', alignItems:'center', gap:12,
         borderBottom:'1px solid rgba(240,165,0,.2)',
       }}>
-        <div style={{width:36,height:36,background:'#fff',borderRadius:8,
+        <div style={{width:36,height:36,background:'var(--rzc-white)',borderRadius:8,
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
           <img src="/roxgold-logo.png" alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:3}}/>
         </div>
         <div>
-          <div style={{fontSize:12,fontWeight:800,color:'#fff',letterSpacing:1}}>RZI CAMP ERP</div>
+          <div style={{fontSize:12,fontWeight:800,color:'var(--rzc-white)',letterSpacing:1}}>RZI CAMP ERP</div>
           <div style={{fontSize:10,color:'#f0a500',fontWeight:600}}>ROXGOLD · SANGO</div>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function Login() {
           borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
         <div style={{ position:'relative', textAlign:'center', maxWidth:400 }}>
           <div style={{ height:90, margin:'0 auto 28px', borderRadius:18,
-            background:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+            background:'var(--rzc-white)', display:'flex', alignItems:'center', justifyContent:'center',
             boxShadow:'0 16px 48px rgba(240,165,0,.5)', border:'3px solid #f0a500', padding:8 }}>
             <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{height:'100%',objectFit:'contain'}}/>
           </div>
@@ -165,7 +165,7 @@ export default function Login() {
             textTransform:'uppercase', marginBottom:12 }}>
             ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
           </div>
-          <div style={{ fontSize:28, fontWeight:900, color:'#fff', lineHeight:1.2, marginBottom:16 }}>
+          <div style={{ fontSize:28, fontWeight:900, color:'var(--rzc-white)', lineHeight:1.2, marginBottom:16 }}>
             RZI Camp ERP
           </div>
           <div style={{ fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
@@ -193,7 +193,7 @@ export default function Login() {
       }}>
         <div style={{ width:'100%', maxWidth:400 }}>
           <div style={{ marginBottom:32, textAlign:'center' }}>
-            <div style={{ fontSize:22, fontWeight:800, color:'#fff', marginBottom:6 }}>
+            <div style={{ fontSize:22, fontWeight:800, color:'var(--rzc-white)', marginBottom:6 }}>
               Connexion
             </div>
             <div style={{ fontSize:13, color:'rgba(255,255,255,.45)' }}>
@@ -222,7 +222,7 @@ export default function Login() {
                 autoComplete="username"
                 style={{ width:'100%', background:'rgba(255,255,255,.06)',
                   border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
-                  padding:'13px 16px', fontSize:14, color:'#fff', outline:'none',
+                  padding:'13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                   boxSizing:'border-box', transition:'border-color .2s',
                 }}
                 onFocus={e=>e.target.style.borderColor='#f0a500'}
@@ -244,7 +244,7 @@ export default function Login() {
                   autoComplete="current-password"
                   style={{ width:'100%', background:'rgba(255,255,255,.06)',
                     border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
-                    padding:'13px 48px 13px 16px', fontSize:14, color:'#fff', outline:'none',
+                    padding:'13px 48px 13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                     boxSizing:'border-box', transition:'border-color .2s',
                   }}
                   onFocus={e=>e.target.style.borderColor='#f0a500'}
