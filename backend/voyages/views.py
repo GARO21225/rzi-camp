@@ -15,6 +15,20 @@ STATUT_MAP = {
     "annule":"Annulé",
 }
 
+
+def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=None):
+    """Retourne True si la personne est déjà sur un voyage actif
+    qui chevauche la période [date_depart, date_retour]."""
+    qs = Voyage.objects.filter(
+        personnel_id=personnel_id,
+        statut__in=("planifie", "en_voyage"),
+        date_depart__lte=date_retour or date_depart,
+        date_retour_prevue__gte=date_depart,
+    )
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
+    return qs.first()
+
 class VoyageViewSet(viewsets.ModelViewSet):
     queryset = Voyage.objects.select_related("personnel","batiment","enregistre_par").all()
     serializer_class = VoyageSerializer
@@ -154,6 +168,20 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not date_depart or not date_retour:
             return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
         created = []
+        conflicts = []
+        for pid in passagers_ids:
+            conflict = _check_voyage_conflit(pid, date_depart, date_retour)
+            if conflict:
+                try:
+                    from residences.models import Personnel
+                    p = Personnel.objects.get(pk=pid)
+                    nom = f"{p.nom} {p.prenom}"
+                except Exception:
+                    nom = f"Personne #{pid}"
+                conflicts.append(f"{nom} (déjà en voyage du {conflict.date_depart} au {conflict.date_retour_prevue})")
+        if conflicts:
+            return Response({"error": f"Impossible de créer la rotation : {len(conflicts)} conflit(s) détecté(s) — " + " | ".join(conflicts)}, status=400)
+
         for pid in passagers_ids:
             try:
                 v = Voyage.objects.create(
@@ -184,6 +212,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Rotation complète"},status=400)
         if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
             return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
+        # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
+        conflict = _check_voyage_conflit(
+            personnel_id, existing.date_depart, existing.date_retour_prevue
+        )
+        if conflict and conflict.rotation_id != rotation_id:
+            return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
         v = Voyage.objects.create(
             personnel_id=personnel_id, destination=existing.destination,
             date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
