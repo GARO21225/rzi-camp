@@ -16,9 +16,9 @@ class InductionErrorBoundary extends React.Component {
         <div style={{padding:40,textAlign:'center'}}>
           <div style={{fontSize:32,marginBottom:16}}>⚠️</div>
           <div style={{fontSize:18,fontWeight:700,color:'#dc2626',marginBottom:8}}>Erreur dans la page Induction</div>
-          <div style={{fontSize:13,color:'#64748b',marginBottom:20}}>{this.state.error.message}</div>
+          <div style={{fontSize:13,color:'var(--rzc-text-3)',marginBottom:20}}>{this.state.error.message}</div>
           <button onClick={()=>this.setState({error:null})}
-            style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,cursor:'pointer'}}>
+            style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:'10px 20px',borderRadius:8,cursor:'pointer'}}>
             🔄 Réessayer
           </button>
         </div>
@@ -85,7 +85,7 @@ const ETAPES = [
     icon: '👋',
     titre: 'Accueil & Enregistrement',
     desc: 'Informations personnelles complètes',
-    couleur: '#1e3a8a',
+    couleur: 'var(--rzc-navy)',
     type: 'form',
     champs: [
       { key:'photo', label:'Photo d\'identité', type:'photo', required:true },
@@ -212,7 +212,7 @@ class InductionBoundary extends React.Component {
         <div style={{fontSize:48}}>⚠️</div>
         <div style={{fontWeight:700,color:'#dc2626',marginBottom:8}}>{this.state.err}</div>
         <button onClick={()=>this.setState({err:null})}
-          style={{background:'#1e3a8a',color:'#fff',border:'none',padding:'10px 24px',borderRadius:10,cursor:'pointer'}}>
+          style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:'10px 24px',borderRadius:10,cursor:'pointer'}}>
           Réessayer
         </button>
       </div>
@@ -280,18 +280,18 @@ function EtapeFormation({ etape, wf, onValider }) {
         {etape.modules.map((m,i)=>(
           <button key={m.id} onClick={()=>setModuleActif(i)}
             style={{padding:'6px 14px',borderRadius:99,fontSize:11,fontWeight:700,border:'none',cursor:'pointer',
-              background: lus.includes(m.id) ? '#16a34a' : i===moduleActif ? etape.couleur : '#f1f5f9',
-              color: lus.includes(m.id)||i===moduleActif ? '#fff' : '#64748b',
+              background: lus.includes(m.id) ? '#16a34a' : i===moduleActif ? etape.couleur : 'var(--rzc-charcoal)',
+              color: lus.includes(m.id)||i===moduleActif ? 'var(--rzc-white)' : 'var(--rzc-text-3)',
               flexShrink:0}}>
             {lus.includes(m.id) ? '✓' : i+1}. {m.titre}
           </button>
         ))}
       </div>
 
-      <div style={{background:'#f8fafc',borderRadius:12,padding:'16px 20px',marginBottom:16}}>
+      <div style={{background:'var(--rzc-charcoal)',borderRadius:12,padding:'16px 20px',marginBottom:16}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
           <h3 style={{fontWeight:700,fontSize:15,color:etape.couleur,margin:0}}>{mod.titre}</h3>
-          <span style={{fontSize:11,color:'#94a3b8'}}>⏱️ {mod.duree}</span>
+          <span style={{fontSize:11,color:'var(--rzc-text-4)'}}>⏱️ {mod.duree}</span>
         </div>
         <pre style={{fontFamily:'inherit',fontSize:13,color:'#1e293b',whiteSpace:'pre-wrap',
           lineHeight:1.7,margin:0}}>{mod.contenu}</pre>
@@ -300,7 +300,7 @@ function EtapeFormation({ etape, wf, onValider }) {
       <button onClick={()=>marquerLu(mod.id)} disabled={lus.includes(mod.id)}
         style={{width:'100%',padding:12,borderRadius:10,border:'none',cursor:'pointer',fontFamily:'inherit',
           background: lus.includes(mod.id) ? '#f0fdf4' : etape.couleur,
-          color: lus.includes(mod.id) ? '#16a34a' : '#fff',
+          color: lus.includes(mod.id) ? '#16a34a' : 'var(--rzc-white)',
           fontWeight:700,fontSize:13,marginBottom:12}}>
         {lus.includes(mod.id) ? '✅ Module lu et confirmé' : '✓ Marquer comme lu et continuer'}
       </button>
@@ -308,7 +308,7 @@ function EtapeFormation({ etape, wf, onValider }) {
       {tousLus && (
         <button onClick={onValider}
           style={{width:'100%',padding:12,borderRadius:10,border:'none',cursor:'pointer',fontFamily:'inherit',
-            background:'#16a34a',color:'#fff',fontWeight:700,fontSize:14}}>
+            background:'#16a34a',color:'var(--rzc-white)',fontWeight:700,fontSize:14}}>
           🎓 Formation complétée — Continuer vers le Quiz
         </button>
       )}
@@ -361,7 +361,7 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
       <div style={{textAlign:'center',padding:20}}>
         <div style={{fontSize:48,marginBottom:12}}>🚫</div>
         <div style={{fontWeight:700,color:'#dc2626',fontSize:16}}>3 tentatives épuisées</div>
-        <div style={{color:'#64748b',marginTop:8}}>Contacter le responsable QHSE pour débloquer</div>
+        <div style={{color:'var(--rzc-text-3)',marginTop:8}}>Contacter le responsable QHSE pour débloquer</div>
       </div>
     )
   }
@@ -380,7 +380,7 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
         </div>
         {score < etape.score_min && tentatives < 3 && (
           <button onClick={()=>{setSubmitted(false);setAnswers({});setScore(null)}}
-            style={{marginTop:16,background:'#f59e0b',color:'#fff',border:'none',
+            style={{marginTop:16,background:'#f59e0b',color:'var(--rzc-white)',border:'none',
               padding:'10px 24px',borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700}}>
             🔄 Réessayer ({3-tentatives-1} tentative(s) restante(s))
           </button>
@@ -392,7 +392,7 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
-        <span style={{fontSize:12,color:'#64748b'}}>
+        <span style={{fontSize:12,color:'var(--rzc-text-3)'}}>
           {Object.keys(answers).length}/{questionsForPersonnel.length} réponses
         </span>
         <span style={{fontSize:12,color:'#f59e0b',fontWeight:700}}>
@@ -400,19 +400,19 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
         </span>
       </div>
       {questionsForPersonnel.map((q,qi)=>(
-        <div key={q.id} style={{marginBottom:16,background:'#f8fafc',borderRadius:12,padding:'14px 16px'}}>
+        <div key={q.id} style={{marginBottom:16,background:'var(--rzc-charcoal)',borderRadius:12,padding:'14px 16px'}}>
           <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:'#1e293b'}}>
             {qi+1}. {q.q}
           </div>
           {q.options.map((opt,oi)=>(
             <label key={oi} style={{display:'flex',alignItems:'center',gap:10,
               padding:'8px 12px',borderRadius:8,marginBottom:6,cursor:'pointer',
-              background: answers[q.id]===oi ? '#1e3a8a10' : '#fff',
-              border: `1.5px solid ${answers[q.id]===oi ? '#1e3a8a' : '#e2e8f0'}`}}>
+              background: answers[q.id]===oi ? '#1e3a8a10' : 'var(--rzc-white)',
+              border: `1.5px solid ${answers[q.id]===oi ? 'var(--rzc-navy)' : 'var(--rzc-border-light)'}`}}>
               <input type="radio" name={`q_${q.id}`} value={oi}
                 checked={answers[q.id]===oi}
                 onChange={()=>setAnswers(a=>({...a,[q.id]:oi}))}
-                style={{accentColor:'#1e3a8a'}}/>
+                style={{accentColor:'var(--rzc-navy)'}}/>
               <span style={{fontSize:13,color:'#1e293b'}}>{opt}</span>
             </label>
           ))}
@@ -422,8 +422,8 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
         disabled={Object.keys(answers).length < questionsForPersonnel.length}
         style={{width:'100%',padding:13,borderRadius:10,border:'none',cursor:'pointer',
           fontFamily:'inherit',fontWeight:700,fontSize:14,
-          background: Object.keys(answers).length < etape.questions.length ? '#94a3b8' : '#f59e0b',
-          color:'#fff'}}>
+          background: Object.keys(answers).length < etape.questions.length ? 'var(--rzc-text-4)' : '#f59e0b',
+          color:'var(--rzc-white)'}}>
         {Object.keys(answers).length < questionsForPersonnel.length
           ? `Répondre à toutes les questions (${questionsForPersonnel.length-Object.keys(answers).length} restantes)`
           : '📋 Soumettre le Quiz'}
@@ -847,7 +847,7 @@ function InductionPageInner() {
     <div style={{padding:20}}>
 
       {/* Header */}
-      <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
+      <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',
         borderRadius:16,padding:'18px 24px',marginBottom:20}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div>
@@ -897,7 +897,7 @@ function InductionPageInner() {
         return (
           <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
             {[
-              {l:'Total',v:total,c:'#1e3a8a',bg:'#eff6ff',i:'👥'},
+              {l:'Total',v:total,c:'var(--rzc-navy)',bg:'#eff6ff',i:'👥'},
               {l:'Induits',v:induits,c:'#16a34a',bg:'#f0fdf4',i:'✅'},
               {l:'En cours',v:enCours,c:'#d97706',bg:'#fffbeb',i:'⚙️'},
               {l:'À démarrer',v:aDemarrer,c:'#dc2626',bg:'#fef2f2',i:'⏳'},
@@ -909,7 +909,7 @@ function InductionPageInner() {
                 <span style={{fontSize:20}}>{k.i}</span>
                 <div>
                   <div style={{fontSize:22,fontWeight:900,color:k.c,lineHeight:1}}>{k.v}</div>
-                  <div style={{fontSize:10,color:'#64748b',fontWeight:600}}>{k.l}</div>
+                  <div style={{fontSize:10,color:'var(--rzc-text-3)',fontWeight:600}}>{k.l}</div>
                 </div>
               </div>
             ))}
@@ -938,12 +938,12 @@ function InductionPageInner() {
           style={{...inp,maxWidth:140}} title="Date début (de)"/>
         <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
           style={{...inp,maxWidth:140}} title="Date début (à)"/>
-        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#64748b',cursor:'pointer',userSelect:'none'}}>
+        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--rzc-text-3)',cursor:'pointer',userSelect:'none'}}>
           <input type="checkbox" checked={hideNoInduction} onChange={e=>setHideNoInduction(e.target.checked)}/>
           Masquer "pas d'induction"
         </label>
         <button onClick={()=>exportInductionCSV(personnel,dateFrom,dateTo)}
-          style={{background:'#16a34a',color:'#fff',border:'none',padding:'8px 14px',
+          style={{background:'#16a34a',color:'var(--rzc-white)',border:'none',padding:'8px 14px',
             borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
           📥 Export CSV
         </button>
@@ -956,14 +956,14 @@ function InductionPageInner() {
             const w = wf(p)
             return (
               <div key={p.id} onClick={()=>{setSelected(p);setEtapeActive(null);setSlideTab('etapes')}}
-                style={{background:'#fff',borderRadius:12,padding:'14px 16px',
+                style={{background:'var(--rzc-white)',borderRadius:12,padding:'14px 16px',
                   boxShadow:'0 1px 4px rgba(0,0,0,.07)',cursor:'pointer',
-                  borderLeft:`4px solid ${prog===100?'#16a34a':prog>0?'#f59e0b':'#e2e8f0'}`,
+                  borderLeft:`4px solid ${prog===100?'#16a34a':prog>0?'#f59e0b':'var(--rzc-border-light)'}`,
                   outline: selected?.id===p.id ? '2px solid #1e3a8a' : 'none'}}>
                 <div style={{display:'flex',alignItems:'center',gap:12}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:700,fontSize:14}}>{p.nom} {p.prenom}</div>
-                    <div style={{fontSize:11,color:'#64748b'}}>
+                    <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>
                       {TYPES.find(t=>t.v===p.type_personnel)?.l} · {p.societe||'—'}
                     </div>
                     {(() => {
@@ -978,7 +978,7 @@ function InductionPageInner() {
                       return (
                         <div style={{marginTop:4,display:'flex',flexWrap:'wrap',gap:4}}>
                           {assigns.map(a=>(
-                            <span key={a.icon} style={{fontSize:10,background:'#eff6ff',color:'#1e3a8a',
+                            <span key={a.icon} style={{fontSize:10,background:'#eff6ff',color:'var(--rzc-navy)',
                               padding:'2px 6px',borderRadius:99,fontWeight:600}}>
                               {a.icon} {a.val.split('·')[0].trim()}
                             </span>
@@ -989,18 +989,18 @@ function InductionPageInner() {
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,
-                      color:prog===100?'#16a34a':prog>0?'#f59e0b':'#94a3b8'}}>
+                      color:prog===100?'#16a34a':prog>0?'#f59e0b':'var(--rzc-text-4)'}}>
                       {prog}%
                     </div>
-                    <div style={{fontSize:10,color:'#94a3b8'}}>
+                    <div style={{fontSize:10,color:'var(--rzc-text-4)'}}>
                       {prog===100?'Induit ✅':prog>0?'En cours':'À démarrer'}
                     </div>
                   </div>
                   <button onClick={(ev)=>{ev.stopPropagation();telechargerDossier(p)}}
                     title="Télécharger le dossier complet"
-                    style={{background:'#f8fafc',border:'1px solid #e2e8f0',
+                    style={{background:'var(--rzc-charcoal)',border:'1px solid #e2e8f0',
                       borderRadius:8,padding:'6px 10px',cursor:'pointer',fontSize:14,
-                      color:'#1e3a8a',fontWeight:700}}>
+                      color:'var(--rzc-navy)',fontWeight:700}}>
                     📥
                   </button>
                   <button onClick={async(ev)=>{
@@ -1048,7 +1048,7 @@ function InductionPageInner() {
                     <div key={e.key}
                       title={e.titre}
                       style={{flex:1,height:6,borderRadius:99,
-                        background: w.etapes?.[e.key]?.done ? e.couleur : '#e2e8f0',
+                        background: w.etapes?.[e.key]?.done ? e.couleur : 'var(--rzc-border-light)',
                         transition:'background .3s'}}/>
                   ))}
                 </div>
@@ -1063,7 +1063,7 @@ function InductionPageInner() {
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
           display:'flex',alignItems:'center',justifyContent:'flex-end',zIndex:1000}}
           onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-          <div style={{background:'#fff',width:'100%',maxWidth:560,height:'100%',
+          <div style={{background:'var(--rzc-white)',width:'100%',maxWidth:560,height:'100%',
             overflow:'auto',boxShadow:'-4px 0 30px rgba(0,0,0,.2)'}}>
 
             {/* Célébration finale */}
@@ -1071,7 +1071,7 @@ function InductionPageInner() {
               <div style={{padding:40,textAlign:'center',background:'linear-gradient(135deg,#16a34a,#15803d)',
                 minHeight:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
                 <div style={{fontSize:80,marginBottom:20}}>🎉</div>
-                <div style={{color:'#fff',fontSize:28,fontWeight:900,marginBottom:12}}>
+                <div style={{color:'var(--rzc-white)',fontSize:28,fontWeight:900,marginBottom:12}}>
                   Bienvenue au Camp Minier<br/>de ROXGOLD Sango !
                 </div>
                 <div style={{color:'rgba(255,255,255,.9)',fontSize:16,marginBottom:30}}>
@@ -1079,13 +1079,13 @@ function InductionPageInner() {
                   Induction QHSE complétée avec succès
                 </div>
                 <div style={{background:'rgba(255,255,255,.2)',borderRadius:16,padding:'20px 30px',
-                  color:'#fff',fontSize:13,textAlign:'left',maxWidth:360}}>
+                  color:'var(--rzc-white)',fontSize:13,textAlign:'left',maxWidth:360}}>
                   <div style={{fontWeight:700,marginBottom:8}}>🎫 Badge d\'accès activé</div>
                   <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
                   <div>Valide 12 mois — Présentez votre QR à chaque accès</div>
                 </div>
                 <button onClick={()=>{setSelected(null);setEtapeActive(null)}}
-                  style={{marginTop:24,background:'#fff',color:'#16a34a',border:'none',
+                  style={{marginTop:24,background:'var(--rzc-white)',color:'#16a34a',border:'none',
                     padding:'12px 30px',borderRadius:12,cursor:'pointer',fontSize:15,fontWeight:700}}>
                   Fermer
                 </button>
@@ -1094,14 +1094,14 @@ function InductionPageInner() {
               <>
                 {/* Header */}
                 <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',
-                  color:'#fff',padding:'16px 20px',position:'sticky',top:0,zIndex:10}}>
+                  color:'var(--rzc-white)',padding:'16px 20px',position:'sticky',top:0,zIndex:10}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:16}}>{selected.nom} {selected.prenom}</div>
                       <div style={{fontSize:11,opacity:.8}}>{selected.societe}</div>
                     </div>
                     <button onClick={()=>setSelected(null)}
-                      style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
+                      style={{background:'rgba(255,255,255,.2)',border:'none',color:'var(--rzc-white)',
                         width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18}}>✕</button>
                   </div>
                   {savedMsg && (
@@ -1121,7 +1121,7 @@ function InductionPageInner() {
                           <div style={{display:'flex',flexDirection:'column',alignItems:'center',minWidth:50}}>
                             <div style={{width:26,height:26,borderRadius:'50%',
                               background: isDone?'rgba(255,255,255,.95)':isCurrent?'rgba(255,255,255,.5)':'rgba(255,255,255,.15)',
-                              color: isDone?'#16a34a':isCurrent?'#fff':'rgba(255,255,255,.3)',
+                              color: isDone?'#16a34a':isCurrent?'var(--rzc-white)':'rgba(255,255,255,.3)',
                               display:'flex',alignItems:'center',justifyContent:'center',
                               fontSize:12,fontWeight:700,
                               border: isCurrent?'2px solid rgba(255,255,255,.6)':'none'}}>
@@ -1148,8 +1148,8 @@ function InductionPageInner() {
                       <button key={t} onClick={()=>setSlideTab(t)}
                         style={{flex:1,padding:'12px 8px',border:'none',cursor:'pointer',
                           fontFamily:'inherit',fontSize:12,fontWeight:700,
-                          background:slideTab===t?'#fff':'#f8fafc',
-                          color:slideTab===t?'#1e3a8a':'#94a3b8',
+                          background:slideTab===t?'var(--rzc-white)':'var(--rzc-charcoal)',
+                          color:slideTab===t?'var(--rzc-navy)':'var(--rzc-text-4)',
                           borderBottom:slideTab===t?'2px solid #1e3a8a':'none'}}>
                         {t==='etapes'?'📋 Étapes':'📖 Parcours'}
                       </button>
@@ -1159,7 +1159,7 @@ function InductionPageInner() {
 
                 {!etapeActive && slideTab==='etapes' && (
                   <div style={{padding:20}}>
-                    <h3 style={{fontSize:14,fontWeight:700,color:'#1e3a8a',marginBottom:16}}>
+                    <h3 style={{fontSize:14,fontWeight:700,color:'var(--rzc-navy)',marginBottom:16}}>
                       Sélectionner une étape
                     </h3>
                     {ETAPES.map((e,i) => {
@@ -1169,24 +1169,24 @@ function InductionPageInner() {
                         <div key={e.key}
                           onClick={()=>debloque&&setEtapeActive(e.key)}
                           style={{
-                            background: done?'#f0fdf4':debloque?'#f8fafc':'#fafafa',
-                            border: `1.5px solid ${done?'#86efac':debloque?e.couleur+'40':'#e2e8f0'}`,
+                            background: done?'#f0fdf4':debloque?'var(--rzc-charcoal)':'#fafafa',
+                            border: `1.5px solid ${done?'#86efac':debloque?e.couleur+'40':'var(--rzc-border-light)'}`,
                             borderRadius:12,padding:'14px 16px',marginBottom:8,
                             cursor:debloque?'pointer':'not-allowed',
                             opacity:debloque?1:0.5,
                             display:'flex',alignItems:'center',gap:12}}>
                           <div style={{width:40,height:40,borderRadius:'50%',
-                            background:done?'#16a34a':debloque?e.couleur:'#94a3b8',
-                            color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
+                            background:done?'#16a34a':debloque?e.couleur:'var(--rzc-text-4)',
+                            color:'var(--rzc-white)',display:'flex',alignItems:'center',justifyContent:'center',
                             fontSize:18,flexShrink:0}}>
                             {done?'✓':e.icon}
                           </div>
                           <div style={{flex:1}}>
                             <div style={{fontWeight:700,fontSize:13,
-                              color:done?'#16a34a':debloque?'#1e293b':'#94a3b8'}}>
+                              color:done?'#16a34a':debloque?'#1e293b':'var(--rzc-text-4)'}}>
                               {i+1}. {e.titre}
                             </div>
-                            <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>
+                            <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:1}}>
                               {done?'✅ Complété':debloque?e.desc:'🔒 Compléter l\'étape précédente'}
                             </div>
                           </div>
@@ -1194,7 +1194,7 @@ function InductionPageInner() {
                             <div style={{display:'flex',gap:4}} onClick={ev=>ev.stopPropagation()}>
                               <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
                                 title="Modifier cette étape"
-                                style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',
+                                style={{background:'#eff6ff',color:'var(--rzc-blue)',border:'1px solid #bfdbfe',
                                   padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
                                 ✏️
                               </button>
@@ -1218,14 +1218,14 @@ function InductionPageInner() {
                 {/* ─ Onglet Parcours ─ */}
                 {!etapeActive && slideTab==='parcours' && (
                   <div style={{padding:16}}>
-                    <h3 style={{fontSize:13,fontWeight:700,color:'#1e3a8a',marginBottom:14}}>
+                    <h3 style={{fontSize:13,fontWeight:700,color:'var(--rzc-navy)',marginBottom:14}}>
                       📖 Parcours d'induction — {selected.nom} {selected.prenom}
                     </h3>
                     {(() => {
                       const w = wf(selected)
                       const completedEtapes = ETAPES.filter(e=>w.etapes?.[e.key]?.done)
                       if (completedEtapes.length===0) return (
-                        <div style={{textAlign:'center',padding:30,color:'#94a3b8'}}>
+                        <div style={{textAlign:'center',padding:30,color:'var(--rzc-text-4)'}}>
                           <div style={{fontSize:32,marginBottom:8}}>📋</div>
                           <div>Aucune étape validée pour le moment</div>
                           <div style={{fontSize:11,marginTop:4}}>Commencer par l'étape 1</div>
@@ -1241,7 +1241,7 @@ function InductionPageInner() {
                                 background:'#f0fdf4',border:'1.5px solid #86efac',
                                 borderRadius:12,overflow:'hidden'}}>
                                 {/* Header de l'étape */}
-                                <div style={{background:e.couleur,color:'#fff',
+                                <div style={{background:e.couleur,color:'var(--rzc-white)',
                                   padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
                                   <span style={{fontSize:20}}>{e.icon}</span>
                                   <div style={{flex:1}}>
@@ -1259,13 +1259,13 @@ function InductionPageInner() {
                                 <div style={{display:'flex',gap:4}}>
                                     <button onClick={ev=>{ev.stopPropagation();setEtapeActive(e.key)}}
                                       title="Modifier cette étape"
-                                      style={{background:'rgba(255,255,255,0.25)',color:'#fff',border:'none',
+                                      style={{background:'rgba(255,255,255,0.25)',color:'var(--rzc-white)',border:'none',
                                         padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
                                       ✏️ Modifier
                                     </button>
                                     <button onClick={ev=>{ev.stopPropagation();resetEtape(e.key)}}
                                       title="Supprimer / réinitialiser cette étape"
-                                      style={{background:'rgba(220,38,38,0.7)',color:'#fff',border:'none',
+                                      style={{background:'rgba(220,38,38,0.7)',color:'var(--rzc-white)',border:'none',
                                         padding:'4px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
                                       🗑️
                                     </button>
@@ -1278,7 +1278,7 @@ function InductionPageInner() {
                                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                                       {Object.entries(info.form||{}).filter(([k])=>k!=='photo').map(([k,v])=>(
                                         <div key={k} style={{fontSize:11}}>
-                                          <span style={{color:'#94a3b8',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
+                                          <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
                                           <span style={{color:'#1e293b'}}>{v}</span>
                                         </div>
                                       ))}
@@ -1290,7 +1290,7 @@ function InductionPageInner() {
                                       {/* Photo identité depuis l'étape accueil */}
                                       {(()=>{const photoSrc=w.etapes?.accueil?.form?.photo||info.form?.photo; return photoSrc&&(
                                         <div style={{marginBottom:10}}>
-                                          <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6}}>📸 Photo identité</div>
+                                          <div style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6}}>📸 Photo identité</div>
                                           <img src={photoSrc} alt="ID"
                                             style={{width:80,height:80,objectFit:'cover',borderRadius:8,border:'2px solid #e2e8f0'}}/>
                                         </div>
@@ -1303,7 +1303,7 @@ function InductionPageInner() {
                                         if (!entries.length) return null
                                         return (
                                           <div style={{marginBottom:12}}>
-                                            <div style={{fontSize:11,fontWeight:700,color:'#64748b',marginBottom:8}}>
+                                            <div style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:8}}>
                                               📎 Documents soumis ({entries.length})
                                             </div>
                                             <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
@@ -1329,7 +1329,7 @@ function InductionPageInner() {
                                                           alignItems:'center',justifyContent:'center',
                                                           cursor:'pointer',gap:4}}>
                                                           <span style={{fontSize:32}}>📄</span>
-                                                          <span style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>PDF</span>
+                                                          <span style={{fontSize:9,color:'var(--rzc-navy)',fontWeight:700}}>PDF</span>
                                                         </div>
                                                       </a>
                                                     ) : src ? (
@@ -1343,15 +1343,15 @@ function InductionPageInner() {
                                                         </div>
                                                       </a>
                                                     ) : (
-                                                      <div style={{width:90,height:90,background:'#f8fafc',
+                                                      <div style={{width:90,height:90,background:'var(--rzc-charcoal)',
                                                         borderRadius:10,border:'2px dashed #e2e8f0',
                                                         display:'flex',flexDirection:'column',
                                                         alignItems:'center',justifyContent:'center',gap:4}}>
                                                         <span style={{fontSize:24}}>🗂️</span>
-                                                        <span style={{fontSize:9,color:'#94a3b8'}}>Non chargé</span>
+                                                        <span style={{fontSize:9,color:'var(--rzc-text-4)'}}>Non chargé</span>
                                                       </div>
                                                     )}
-                                                    <div style={{fontSize:9,color:'#64748b',marginTop:4,
+                                                    <div style={{fontSize:9,color:'var(--rzc-text-3)',marginTop:4,
                                                       overflow:'hidden',textOverflow:'ellipsis',
                                                       whiteSpace:'nowrap',maxWidth:90}}>
                                                       {filename}
@@ -1368,7 +1368,7 @@ function InductionPageInner() {
                                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
                                           {Object.entries(info.form||{}).filter(([k,v])=>k!=='photo'&&v&&typeof v==='string'&&!v.startsWith('data:')).map(([k,v])=>(
                                             <div key={k} style={{fontSize:11}}>
-                                              <span style={{color:'#94a3b8',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
+                                              <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
                                               <span style={{color:'#1e293b'}}>{v}</span>
                                             </div>
                                           ))}
@@ -1381,7 +1381,7 @@ function InductionPageInner() {
                                     <div style={{display:'flex',alignItems:'center',gap:10}}>
                                       <div style={{fontFamily:'monospace',fontSize:24,fontWeight:900,
                                         color:'#16a34a'}}>{info.score||'—'}%</div>
-                                      <div style={{fontSize:12,color:'#64748b'}}>Score quiz QHSE</div>
+                                      <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>Score quiz QHSE</div>
                                     </div>
                                   )}
                                   {/* Médical */}
@@ -1389,7 +1389,7 @@ function InductionPageInner() {
                                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
                                       {Object.entries(info.medical||{}).map(([k,v])=>(
                                         <div key={k} style={{fontSize:11}}>
-                                          <span style={{color:'#94a3b8',fontWeight:600}}>{k}: </span>
+                                          <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k}: </span>
                                           <span style={{color:v==='Positif'?'#dc2626':'#1e293b',fontWeight:v==='Positif'?700:400}}>{v}</span>
                                         </div>
                                       ))}
@@ -1420,13 +1420,13 @@ function InductionPageInner() {
                             navigator.clipboard.writeText(txt).then(()=>alert('Parcours copié dans le presse-papier !'))
                           }}
                             style={{width:'100%',padding:10,borderRadius:9,border:'1px solid #e2e8f0',
-                              background:'#f8fafc',color:'#1e3a8a',cursor:'pointer',fontFamily:'inherit',
+                              background:'var(--rzc-charcoal)',color:'var(--rzc-navy)',cursor:'pointer',fontFamily:'inherit',
                               fontSize:12,fontWeight:700,marginTop:8}}>
                             📋 Copier le rapport
                           </button>
                           <button onClick={()=>telechargerDossier(selected)}
                             style={{width:'100%',padding:12,borderRadius:9,border:'none',
-                              background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'#fff',
+                              background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',
                               cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,marginTop:8}}>
                             📥 Télécharger le dossier complet (PDF)
                           </button>
@@ -1444,7 +1444,7 @@ function InductionPageInner() {
                     <div style={{padding:20}}>
                       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
                         <button onClick={()=>setEtapeActive(null)}
-                          style={{background:'#f8fafc',border:'1px solid #e2e8f0',
+                          style={{background:'var(--rzc-charcoal)',border:'1px solid #e2e8f0',
                             padding:'5px 10px',borderRadius:8,cursor:'pointer',fontSize:12}}>
                           ← Retour
                         </button>
@@ -1452,9 +1452,9 @@ function InductionPageInner() {
                           <div style={{fontWeight:700,fontSize:15,color:etape.couleur}}>
                             {etape.icon} {etape.titre}
                           </div>
-                          <div style={{fontSize:11,color:'#94a3b8'}}>{etape.desc}</div>
+                          <div style={{fontSize:11,color:'var(--rzc-text-4)'}}>{etape.desc}</div>
                           {etape.assignRole && formData[`assign_${etape.key}`] && (
-                            <div style={{fontSize:11,background:'#eff6ff',color:'#1e3a8a',
+                            <div style={{fontSize:11,background:'#eff6ff',color:'var(--rzc-navy)',
                               padding:'3px 10px',borderRadius:99,marginTop:4,display:'inline-flex',alignItems:'center',gap:4}}>
                               👤 <b>{formData[`assign_${etape.key}`]}</b>
                             </div>
@@ -1475,7 +1475,7 @@ function InductionPageInner() {
                             list={`staff-list-${etape.key}`}
                             placeholder="Saisir ou sélectionner..."
                             style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
-                              padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                              padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
                           <datalist id={`staff-list-${etape.key}`}>
                             {(staffMap[etape.assignRole]||[]).map(p=>(
                               <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
@@ -1504,7 +1504,7 @@ function InductionPageInner() {
                                 list={`staff-list-${etape.key}`}
                                 placeholder="Saisir ou sélectionner..."
                                 style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
-                                  padding:'8px 12px',fontSize:13,outline:'none',background:'#fff',boxSizing:'border-box'}}/>
+                                  padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
                               <datalist id={`staff-list-${etape.key}`}>
                                 {(staffMap[etape.assignRole]||[]).map(p=>(
                                   <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
@@ -1520,15 +1520,15 @@ function InductionPageInner() {
                           {etape.champs.map(c=>(
                             <div key={c.key} style={{marginBottom:12}}>
                               <label style={{display:'block',fontSize:11,fontWeight:700,
-                                color:'#64748b',marginBottom:4}}>
+                                color:'var(--rzc-text-3)',marginBottom:4}}>
                                 {c.label}{c.required&&' *'}
                               </label>
                               {c.type==='photo' ? (
                                 <label style={{display:'flex',alignItems:'center',gap:8,
-                                  padding:'10px 14px',background:formData[c.key]?'#f0fdf4':'#f8fafc',
-                                  border:`2px dashed ${formData[c.key]?'#16a34a':'#e2e8f0'}`,
+                                  padding:'10px 14px',background:formData[c.key]?'#f0fdf4':'var(--rzc-charcoal)',
+                                  border:`2px dashed ${formData[c.key]?'#16a34a':'var(--rzc-border-light)'}`,
                                   borderRadius:10,cursor:'pointer',fontSize:12,
-                                  color:formData[c.key]?'#16a34a':'#64748b'}}>
+                                  color:formData[c.key]?'#16a34a':'var(--rzc-text-3)'}}>
                                   <input type="file" accept="image/*" style={{display:'none'}}
                                     onChange={e=>{
                                       const file=e.target.files?.[0]
@@ -1576,7 +1576,7 @@ function InductionPageInner() {
                           <div style={{display:'flex',gap:8}}>
                             <button onClick={()=>saveDraft('form', formData)}
                               style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
-                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                background:'var(--rzc-white)',color:etape.couleur,fontWeight:700,
                                 fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
                               💾 Enregistrer
                             </button>
@@ -1590,7 +1590,7 @@ function InductionPageInner() {
                               validerEtape(etape.key, {form:formData, assign:formData[`assign_${etape.key}`]||''})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
-                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                background:etape.couleur,color:'var(--rzc-white)',fontWeight:700,
                                 fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
                               ✅ Valider et continuer
                             </button>
@@ -1602,9 +1602,9 @@ function InductionPageInner() {
                       {etape.type==='documents' && (
                         <div>
                           {etape.docs.map(d=>(
-                            <div key={d.key} style={{marginBottom:12,background:'#f8fafc',
+                            <div key={d.key} style={{marginBottom:12,background:'var(--rzc-charcoal)',
                               borderRadius:12,padding:'12px 14px',
-                              border:`1.5px solid ${docUploads[d.key]?'#86efac':'#e2e8f0'}`}}>
+                              border:`1.5px solid ${docUploads[d.key]?'#86efac':'var(--rzc-border-light)'}`}}>
                               <div style={{display:'flex',alignItems:'center',gap:10}}>
                                 <div style={{flex:1}}>
                                   <div style={{fontWeight:600,fontSize:13}}>
@@ -1617,8 +1617,8 @@ function InductionPageInner() {
                                     </div>
                                   )}
                                 </div>
-                                <label style={{background:docUploads[d.key]?'#f0fdf4':'#1e3a8a',
-                                  color:docUploads[d.key]?'#16a34a':'#fff',border:'none',
+                                <label style={{background:docUploads[d.key]?'#f0fdf4':'var(--rzc-navy)',
+                                  color:docUploads[d.key]?'#16a34a':'var(--rzc-white)',border:'none',
                                   padding:'6px 14px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
                                   <input type="file" style={{display:'none'}}
                                     onChange={e=>{
@@ -1648,7 +1648,7 @@ function InductionPageInner() {
                           <div style={{display:'flex',gap:8,marginTop:8}}>
                             <button onClick={()=>saveDraft('docs', {uploads: docUploads, data: docData})}
                               style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
-                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                background:'var(--rzc-white)',color:etape.couleur,fontWeight:700,
                                 fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
                               💾 Enregistrer
                             </button>
@@ -1658,7 +1658,7 @@ function InductionPageInner() {
                               validerEtape(etape.key, {docs:docUploads, docData:docData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
-                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                background:etape.couleur,color:'var(--rzc-white)',fontWeight:700,
                                 fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
                               📄 Documents soumis — Continuer
                             </button>
@@ -1687,7 +1687,7 @@ function InductionPageInner() {
                           {etape.champs.map(c=>(
                             <div key={c.key} style={{marginBottom:12}}>
                               <label style={{display:'block',fontSize:11,fontWeight:700,
-                                color:'#64748b',marginBottom:4}}>
+                                color:'var(--rzc-text-3)',marginBottom:4}}>
                                 {c.label}{c.required&&' *'}
                               </label>
                               {c.type==='select' ? (
@@ -1707,7 +1707,7 @@ function InductionPageInner() {
                           <div style={{display:'flex',gap:8}}>
                             <button onClick={()=>saveDraft('medical', medData)}
                               style={{flex:1,padding:12,borderRadius:10,border:'1.5px solid '+etape.couleur,
-                                background:'#fff',color:etape.couleur,fontWeight:700,
+                                background:'var(--rzc-white)',color:etape.couleur,fontWeight:700,
                                 fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
                               💾 Enregistrer
                             </button>
@@ -1719,7 +1719,7 @@ function InductionPageInner() {
                               validerEtape(etape.key,{medical:medData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
-                                background:etape.couleur,color:'#fff',fontWeight:700,
+                                background:etape.couleur,color:'var(--rzc-white)',fontWeight:700,
                                 fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>
                               🏥 Valider la visite médicale
                             </button>
@@ -1739,7 +1739,7 @@ function InductionPageInner() {
                             <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>
                               🏷️ Badge d\'accès — Roxgold Sango
                             </div>
-                            <div style={{fontSize:12,color:'#64748b',lineHeight:1.8}}>
+                            <div style={{fontSize:12,color:'var(--rzc-text-3)',lineHeight:1.8}}>
                               <div>👤 {selected.nom} {selected.prenom}</div>
                               <div>🏢 {selected.societe||'Roxgold'}</div>
                               <div>📅 Émis le {new Date().toLocaleDateString('fr-FR')}</div>
@@ -1751,7 +1751,7 @@ function InductionPageInner() {
                             setEtapeActive('celebration')
                           }}
                             style={{width:'100%',padding:13,borderRadius:10,border:'none',
-                              background:'#16a34a',color:'#fff',fontWeight:700,
+                              background:'#16a34a',color:'var(--rzc-white)',fontWeight:700,
                               fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
                             🎉 Émettre le badge et terminer l'induction
                           </button>
