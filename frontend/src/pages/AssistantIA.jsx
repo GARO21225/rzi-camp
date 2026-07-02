@@ -40,8 +40,8 @@ function MessageBubble({ msg }) {
       )}
       <div style={{
         maxWidth:'75%', padding:'10px 14px', borderRadius: isUser?'16px 16px 4px 16px':'16px 16px 16px 4px',
-        background: isUser ? 'linear-gradient(135deg,#1e3a8a,#2563eb)' : '#fff',
-        color: isUser ? '#fff' : '#1e293b',
+        background: isUser ? 'linear-gradient(135deg,#1e3a8a,#2563eb)' : 'var(--rzc-white)',
+        color: isUser ? 'var(--rzc-white)' : '#1e293b',
         fontSize:13, lineHeight:1.6,
         boxShadow: '0 2px 8px rgba(0,0,0,.08)',
         whiteSpace:'pre-wrap',
@@ -150,9 +150,9 @@ Format: texte clair avec emojis pour la lisibilité.`,
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 64px)', background:'#f8fafc' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 64px)', background:'var(--rzc-charcoal)' }}>
       {/* Header */}
-      <div style={{ background:'linear-gradient(135deg,#1e3a8a,#7c3aed)', color:'#fff',
+      <div style={{ background:'linear-gradient(135deg,#1e3a8a,#7c3aed)', color:'var(--rzc-white)',
         padding:'16px 20px', display:'flex', alignItems:'center', gap:12 }}>
         <div style={{ width:44, height:44, borderRadius:14, background:'rgba(255,255,255,.2)',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🤖</div>
@@ -164,7 +164,7 @@ Format: texte clair avec emojis pour la lisibilité.`,
         </div>
         <button onClick={()=>collectCampData().then(setCampData)}
           style={{ marginLeft:'auto', background:'rgba(255,255,255,.2)', border:'none',
-            borderRadius:8, padding:'6px 12px', color:'#fff', cursor:'pointer', fontSize:12 }}>
+            borderRadius:8, padding:'6px 12px', color:'var(--rzc-white)', cursor:'pointer', fontSize:12 }}>
           🔄 Sync
         </button>
       </div>
@@ -180,8 +180,8 @@ Format: texte clair avec emojis pour la lisibilité.`,
         <div style={{ padding:'0 20px 10px', display:'flex', gap:8, flexWrap:'wrap' }}>
           {SUGGESTIONS.map(s => (
             <button key={s} onClick={() => send(s)}
-              style={{ background:'#fff', border:'1.5px solid #e2e8f0', borderRadius:99,
-                padding:'6px 14px', cursor:'pointer', fontSize:11, color:'#1e3a8a',
+              style={{ background:'var(--rzc-white)', border:'1.5px solid #e2e8f0', borderRadius:99,
+                padding:'6px 14px', cursor:'pointer', fontSize:11, color:'var(--rzc-navy)',
                 fontWeight:600, transition:'all .15s' }}>
               {s}
             </button>
@@ -190,7 +190,7 @@ Format: texte clair avec emojis pour la lisibilité.`,
       )}
 
       {/* Input */}
-      <div style={{ padding:'12px 20px', background:'#fff', borderTop:'1px solid #e2e8f0',
+      <div style={{ padding:'12px 20px', background:'var(--rzc-white)', borderTop:'1px solid #e2e8f0',
         display:'flex', gap:10, alignItems:'flex-end' }}>
         <textarea
           ref={inputRef}
@@ -202,13 +202,13 @@ Format: texte clair avec emojis pour la lisibilité.`,
           style={{ flex:1, border:'2px solid #e2e8f0', borderRadius:12, padding:'10px 14px',
             fontSize:13, outline:'none', resize:'none', fontFamily:'inherit',
             transition:'border-color .2s' }}
-          onFocus={e => e.target.style.borderColor='#1e3a8a'}
-          onBlur={e => e.target.style.borderColor='#e2e8f0'}
+          onFocus={e => e.target.style.borderColor='var(--rzc-navy)'}
+          onBlur={e => e.target.style.borderColor='var(--rzc-border-light)'}
         />
         <button onClick={() => send()}
           disabled={!input.trim() || loading}
-          style={{ background: (!input.trim()||loading) ? '#e2e8f0' : 'linear-gradient(135deg,#1e3a8a,#7c3aed)',
-            color: (!input.trim()||loading) ? '#94a3b8' : '#fff',
+          style={{ background: (!input.trim()||loading) ? 'var(--rzc-border-light)' : 'linear-gradient(135deg,#1e3a8a,#7c3aed)',
+            color: (!input.trim()||loading) ? 'var(--rzc-text-4)' : 'var(--rzc-white)',
             border:'none', borderRadius:12, width:48, height:48,
             cursor: (!input.trim()||loading) ? 'not-allowed' : 'pointer',
             fontSize:20, display:'flex', alignItems:'center', justifyContent:'center',
