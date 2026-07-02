@@ -775,8 +775,12 @@ export default function InductionCamp() {
                       borderRadius:14,padding:'16px 12px',textAlign:'center',
                       boxShadow: sel ? `0 0 24px ${inf.couleur}40` : 'none',
                     }}>
-                    <div style={{fontSize:28,marginBottom:8,
-                      filter:!vue?'grayscale(0.5)':'none'}}>{inf.emoji}</div>
+                    <div style={{marginBottom:8,filter:!vue?'grayscale(0.5)':'none'}}>
+                      {inf.photo_base64
+                        ? <img src={inf.photo_base64} alt={inf.titre}
+                            style={{width:44,height:44,borderRadius:8,objectFit:'cover',display:'block',margin:'0 auto'}}/>
+                        : <span style={{fontSize:28}}>{inf.emoji}</span>}
+                    </div>
                     <div style={{fontSize:11,fontWeight:700,color:vue?inf.couleur:'#94a3b8'}}>
                       {inf.titre}
                     </div>
