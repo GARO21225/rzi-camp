@@ -1,14 +1,14 @@
 version: '3.9'
+
 services:
   db:
-    image: postgres:15  # PostGIS retiré : jamais utilisé (pas de django.contrib.gis), allège l'image
+    image: postgres:15
     environment:
       POSTGRES_DB: rzi_camp
       POSTGRES_USER: rzi
       POSTGRES_PASSWORD: rzi_secret
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports: ["5432:5432"]
 
   backend:
     build: ./backend
@@ -20,13 +20,17 @@ services:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
       SECRET_KEY: rzi-camp-docker-secret-2026
       DEBUG: "False"
-    ports: ["8000:8000"]
-    depends_on: [db]
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
-    ports: ["5173:80"]
-    depends_on: [backend]
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:
