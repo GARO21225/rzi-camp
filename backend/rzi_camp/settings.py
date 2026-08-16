@@ -99,7 +99,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Désactiver CSRF pour les API (JWT est utilisé)
 CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
-    'https://204-168-229-74.sslip.io',
+    'https://204.168.229.74:5173',
     'https://rzi-camp-frontend.onrender.com',
     'https://rzi-camp-backend.onrender.com',
     'http://localhost:5173',

@@ -28,9 +28,9 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://204.168.229.74:8001
+        VITE_API_URL: https://204.168.229.74:5173
     ports:
-      - "5173:80"
+      - "5173:443"
     depends_on:
       - backend
 
