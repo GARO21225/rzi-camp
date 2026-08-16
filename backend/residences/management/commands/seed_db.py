@@ -94,39 +94,131 @@ class Command(BaseCommand):
             p.save(update_fields=["role"])
             self.stdout.write(f"  {u['username']} / {u['password']} ({u['role']})")
 
-
         # Create demo Personnel with QR codes linked to Users
         self.stdout.write("Creation du personnel de demonstration...")
-        from residences.models import Personnel
-        demo_staff = [
-            {"nom":"ADAMA","prenom":"Kouyaté","societe":"ROXGOLD","numero":"0701234567","type":"roxgold","user_login":"agent"},
-            {"nom":"IGNACE","prenom":"Koné","societe":"ORICA CI","numero":"0709876543","type":"sous_traitant","user_login":None},
-            {"nom":"FATOU","prenom":"Diallo","societe":"ROXGOLD","numero":"0705551234","type":"roxgold","user_login":None},
-            {"nom":"KOUASSI","prenom":"Bamba","societe":"SAPH","numero":"0702223344","type":"visiteur","user_login":None},
-            {"nom":"MARIE","prenom":"Touré","societe":"ROXGOLD","numero":"0708887766","type":"roxgold","user_login":None},
-            {"nom":"IBRAHIM","prenom":"Sanogo","societe":"BRGM","numero":"0703334455","type":"sous_traitant","user_login":None},
-        ]
-        for data in demo_staff:
-            p, created = Personnel.objects.get_or_create(
-                nom=data["nom"], prenom=data["prenom"],
-                defaults={
-                    "societe":data["societe"],
-                    "numero":data["numero"],
-                    "type_personnel":data["type"],
-                }
-            )
-            if created:
-                p.generer_qr()
-                # Link to user if specified
-                if data.get("user_login"):
-                    u = User.objects.filter(username=data["user_login"]).first()
-                    if u:
-                        p.user = u
-                        p.login_genere = data["user_login"]
-                        p.save(update_fields=["user","login_genere"])
-                self.stdout.write(f"  Personnel créé: {p.nom} {p.prenom} | QR: {p.qr_code_string[:40]}...")
 
-        self.stdout.write(f"  Personnel total: {Personnel.objects.count()}")
+        demo_staff = [
+            {
+                "nom": "ADAMA",
+                "prenom": "Kouyaté",
+                "societe": "ROXGOLD",
+                "numero": "0701234567",
+                "type": "roxgold",
+                "user_login": "agent",
+            },
+            {
+                "nom": "IGNACE",
+                "prenom": "Koné",
+                "societe": "ORICA CI",
+                "numero": "0709876543",
+                "type": "sous_traitant",
+                "user_login": None,
+            },
+            {
+                "nom": "FATOU",
+                "prenom": "Diallo",
+                "societe": "ROXGOLD",
+                "numero": "0705551234",
+                "type": "roxgold",
+                "user_login": None,
+            },
+            {
+                "nom": "KOUASSI",
+                "prenom": "Bamba",
+                "societe": "SAPH",
+                "numero": "0702223344",
+                "type": "visiteur",
+                "user_login": None,
+            },
+            {
+                "nom": "MARIE",
+                "prenom": "Touré",
+                "societe": "ROXGOLD",
+                "numero": "0708887766",
+                "type": "roxgold",
+                "user_login": None,
+            },
+            {
+                "nom": "IBRAHIM",
+                "prenom": "Sanogo",
+                "societe": "BRGM",
+                "numero": "0703334455",
+                "type": "sous_traitant",
+                "user_login": None,
+            },
+        ]
+
+        for data in demo_staff:
+
+            user = None
+
+            # Si un utilisateur est prévu, on le récupère
+            if data.get("user_login"):
+                user = User.objects.filter(
+                    username=data["user_login"]
+                ).first()
+
+            # 1. Priorité : personnel déjà lié à cet utilisateur
+            if user:
+                p = Personnel.objects.filter(user=user).first()
+
+                if p:
+                    # Mise à jour des informations sans changer le user
+                    p.nom = data["nom"]
+                    p.prenom = data["prenom"]
+                    p.societe = data["societe"]
+                    p.numero = data["numero"]
+                    p.type_personnel = data["type"]
+
+                    if not p.qr_code_string:
+                        p.generer_qr()
+                    else:
+                        p.save()
+
+                    self.stdout.write(
+                        f"  Personnel existant réutilisé: "
+                        f"{p.nom} {p.prenom} | user={user.username}"
+                    )
+                    continue
+
+            # 2. Sinon chercher le personnel par nom/prénom
+            p, created = Personnel.objects.get_or_create(
+                nom=data["nom"],
+                prenom=data["prenom"],
+                defaults={
+                    "societe": data["societe"],
+                    "numero": data["numero"],
+                    "type_personnel": data["type"],
+                },
+            )
+
+            # Mise à jour des informations si le personnel existe déjà
+            p.societe = data["societe"]
+            p.numero = data["numero"]
+            p.type_personnel = data["type"]
+
+            # Génération du QR si nécessaire
+            if not p.qr_code_string:
+                p.generer_qr()
+            else:
+                p.save()
+
+            # 3. Liaison utilisateur uniquement si aucun autre personnel
+            # n'utilise déjà cet utilisateur
+            if user and not Personnel.objects.filter(user=user).exclude(pk=p.pk).exists():
+                p.user = user
+                p.login_genere = data["user_login"]
+                p.save(update_fields=["user", "login_genere"])
+
+            self.stdout.write(
+                f"  Personnel {'créé' if created else 'existant'}: "
+                f"{p.nom} {p.prenom}"
+            )
+
+        self.stdout.write(
+            f"  Personnel total: {Personnel.objects.count()}"
+        )
+
 
         # ── Bar & Boutique ──────────────────────────────────────
         self.stdout.write("Creation articles boutique...")
@@ -156,11 +248,16 @@ class Command(BaseCommand):
                 ('Savon','hygiene',300,80,'barre'),('Dentifrice','hygiene',700,50,'tube'),
                 ('Deodorant','hygiene',1500,40,'spray'),('Papier toilette','hygiene',500,60,'rouleau'),
             ]
-            for nom, cat, prix, stock, unite, img in articles:
+            for nom, cat, prix, stock, unite in articles:
                 obj, created = ArticleBoutique.objects.get_or_create(
-                    nom=nom, defaults={'categorie':cat,'prix':prix,'stock':stock,'unite':unite,'image_url':img}
+                    nom=nom, defaults={'categorie': cat, 'prix': prix, 'stock': stock, 'unite': unite}
                 )
-                if not created and not obj.image_url: obj.image_url=img; obj.save(update_fields=['image_url'])
+                if not created:
+                    obj.categorie = cat
+                    obj.prix = prix
+                    obj.stock = stock
+                    obj.unite = unite
+                    obj.save(update_fields=['categorie', 'prix', 'stock', 'unite'])
         except Exception as e:
             self.stdout.write(f"  Boutique skip: {e}")
 

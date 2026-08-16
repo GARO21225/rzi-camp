@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
 
-const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
 
 function generateToken() {
   // Token rotatif 30s (placeholder — la vraie génération est côté backend)

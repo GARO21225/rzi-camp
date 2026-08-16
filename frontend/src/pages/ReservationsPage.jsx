@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 
-const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
 const STORAGE_KEY = 'rzi_reservations_v3'
 const FLEET_KEY   = 'rzi_fleet_v1'

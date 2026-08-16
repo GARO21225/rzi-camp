@@ -487,7 +487,7 @@ export default function Maintenance() {
   }, [incidents])
 
   useEffect(() => {
-    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
     const token = localStorage.getItem('access_token') || ''
     fetch(`${BASE}/api/batiments/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
       .then(r=>r.json())

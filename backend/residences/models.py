@@ -35,6 +35,8 @@ class Personnel(models.Model):
     prenom = models.CharField(max_length=100)
     societe = models.CharField(max_length=100)
     numero = models.CharField(max_length=20, blank=True)
+    telephone = models.CharField(max_length=30, blank=True, default="")
+    numero_whatsapp = models.CharField(max_length=30, blank=True, default="")
     type_personnel = models.CharField(max_length=20, choices=TYPE_CHOICES, default="roxgold")
     email = models.EmailField(blank=True)
     qr_code_data = models.TextField(blank=True)

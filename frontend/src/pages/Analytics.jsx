@@ -30,7 +30,7 @@ function RapportHSESousTraitants() {
   const [data, setData] = React.useState([])
   const [loading, setLoading] = React.useState(true)
   const [lastUpdate, setLastUpdate] = React.useState(null)
-  const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+  const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
 
   React.useEffect(() => {
     const token = localStorage.getItem('access_token') || ''

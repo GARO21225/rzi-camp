@@ -4,13 +4,22 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import TokenInQueryOrHeader
-from .models import (InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
-    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion)
-from .serializers import (BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
-    DemandeSerializer, InductionRecordSerializer, InductionCampConfigSerializer,
-    InductionInfraSerializer, InductionRegleSerializer, InductionQuizQuestionSerializer,
-    InductionQuizQuestionPublicSerializer)
-import csv, datetime
+
+from .models import (
+    InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
+    InductionCampConfig, InductionInfra, InductionRegle,
+    InductionQuizQuestion
+)
+
+from .serializers import (
+    BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
+    DemandeSerializer, InductionRecordSerializer,
+    InductionCampConfigSerializer, InductionInfraSerializer,
+    InductionRegleSerializer, InductionQuizQuestionSerializer,
+    InductionQuizQuestionPublicSerializer
+)
+
+import csv, datetime, re
 from django.http import HttpResponse
 from natsort import natsorted
 
@@ -28,39 +37,162 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def import_csv_data(self, request):
-        """Import masse de personnel depuis données JSON"""
-        import traceback
-        from rest_framework.response import Response
+        """Import massif du personnel depuis les données CSV préparées par le frontend."""
         from django.db import connection
+
         rows = request.data.get('rows', [])
         ok = 0
         errors = []
+
+        def clean(value):
+            return str(value or '').strip()
+
+        def normalize_phone(value):
+            v = clean(value)
+
+            if not v:
+                return ''
+
+            # Supprimer espaces, points, tirets et parenthèses
+            v = re.sub(r'[\s().-]+', '', v)
+
+            # +225XXXXXXXXXX -> 0XXXXXXXXX
+            if v.startswith('+225'):
+                v = v[4:]
+
+            # 225XXXXXXXXXX -> 0XXXXXXXXX
+            elif v.startswith('225'):
+                v = v[3:]
+
+            # Les fichiers Excel peuvent supprimer le 0 initial.
+            # CI : 05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx
+            if re.fullmatch(r'[567]\d{8}', v):
+                v = '0' + v
+
+            return v
+
         for i, row in enumerate(rows):
-            nom = (row.get('nom') or '').strip().upper()
-            prenom = (row.get('prenom') or '').strip().upper()
-            societe = (row.get('societe') or 'N/A').strip().upper()
-            email = (row.get('email') or '').strip()
-            numero = (row.get('numero') or '').strip()
-            type_p = (row.get('type_personnel') or 'roxgold').strip()
+            nom = clean(row.get('nom')).upper()
+            prenom = clean(row.get('prenom')).upper()
+
             if not nom or not prenom:
-                errors.append(f"Ligne {i+2}: nom et prénom requis")
+                errors.append(f"Ligne {i + 2}: nom et prénom requis")
                 continue
+
+            # -------------------------
+            # SOCIETE
+            # -------------------------
+            societe = clean(row.get('societe'))
+
+            # -------------------------
+            # TYPE
+            # -------------------------
+            type_p = clean(row.get('type_personnel')).lower()
+
+            # Compatibilité avec les anciennes valeurs CSV
+            if type_p in (
+                'roxgold',
+                'agent roxgold',
+                'agent',
+                'employe',
+                'employé',
+                'employee'
+            ):
+                type_p = 'roxgold'
+
+                if not societe:
+                    societe = 'ROXGOLD'
+
+            elif type_p in (
+                'sous-traitant',
+                'sous_traitant',
+                'sous traitant'
+            ):
+                type_p = 'sous_traitant'
+
+            elif type_p in (
+                'visiteur',
+                'visiteur temporaire'
+            ):
+                type_p = 'visiteur'
+
+            else:
+                type_p = 'roxgold'
+
+                if not societe:
+                    societe = 'ROXGOLD'
+
+            societe = societe.upper() or 'ROXGOLD'
+
+            # -------------------------
+            # TELEPHONE
+            # -------------------------
+            telephone = normalize_phone(row.get('telephone'))
+
+            # WhatsApp = numéro WhatsApp si présent,
+            # sinon téléphone.
+            whatsapp = normalize_phone(
+                row.get('numero_whatsapp')
+                or row.get('whatsapp')
+            ) or telephone
+
+            # -------------------------
+            # MATRICULE
+            # -------------------------
+            # numero = matricule.
+            # Le téléphone reste dans telephone.
+            matricule = clean(
+                row.get('matricule')
+                or row.get('numero')
+            )
+
+            email = clean(row.get('email'))
+
             try:
-                # INSERT SQL direct pour éviter les triggers complexes
                 with connection.cursor() as c:
                     c.execute(
-                        """INSERT INTO residences_personnel
-                        (nom, prenom, societe, email, numero, type_personnel,
-                         actif, profil, qr_code_data, qr_code_string,
-                         login_genere, password_genere, date_creation)
-                        VALUES (%s,%s,%s,%s,%s,%s,TRUE,'agent','','',
-                                '',''::text, NOW())
-                        RETURNING id""",
-                        [nom, prenom, societe, email, numero, type_p]
+                        """
+                        INSERT INTO residences_personnel
+                        (
+                            nom,
+                            prenom,
+                            societe,
+                            email,
+                            numero,
+                            telephone,
+                            numero_whatsapp,
+                            type_personnel,
+                            actif,
+                            profil,
+                            qr_code_data,
+                            qr_code_string,
+                            login_genere,
+                            password_genere,
+                            date_creation
+                        )
+                        VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            TRUE, 'agent', '', '', '', '', NOW()
+                        )
+                        RETURNING id
+                        """,
+                        [
+                            nom,
+                            prenom,
+                            societe,
+                            email,
+                            matricule,
+                            telephone,
+                            whatsapp,
+                            type_p,
+                        ]
                     )
+
                     pid = c.fetchone()[0]
-                # Générer QR et user via le modèle
+
+                # Générer le QR
                 p = Personnel.objects.get(pk=pid)
+
                 try:
                     p.generer_qr()
                     Personnel.objects.filter(pk=pid).update(
@@ -69,14 +201,24 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                     )
                 except Exception:
                     pass
+
+                # Générer le compte utilisateur
                 try:
                     p.creer_utilisateur()
-                except Exception as e:
-                    pass  # Personnel créé même si user échoue
+                except Exception:
+                    pass
+
                 ok += 1
+
             except Exception as e:
-                errors.append(f"Ligne {i+2}: {str(e)[:100]}")
-        return Response({'imported': ok, 'errors': errors})
+                errors.append(
+                    f"Ligne {i + 2}: {str(e)[:200]}"
+                )
+
+        return Response({
+            'imported': ok,
+            'errors': errors
+        })
 
     def create(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
@@ -202,18 +344,6 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         except Exception:
             return False
 
-    def perform_create(self, serializer):
-        demande = serializer.save(demandeur=self.request.user)
-        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
-        try:
-            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
-            import threading
-            def send():
-                envoyer_email_bienvenue(p)
-                envoyer_sms_bienvenue(p)
-            threading.Thread(target=send, daemon=True).start()
-        except Exception:
-            pass
 
 
     def destroy(self, request, *args, **kwargs):

@@ -12,7 +12,7 @@ const BASE_URL = (() => {
   if (h.includes('onrender.com') && h.includes('frontend'))
     return 'https://' + h.replace('frontend', 'backend')
   if (h !== 'localhost' && h !== '127.0.0.1')
-    return 'https://rzi-camp-backend.onrender.com'
+    return 'http://204.168.229.74:8001'
   return 'http://localhost:8000'
 })()
 

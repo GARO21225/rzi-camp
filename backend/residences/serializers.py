@@ -58,7 +58,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Personnel
         fields = [
-            "id", "nom", "prenom", "societe", "numero", "type_personnel",
+            "id", "nom", "prenom", "societe", "numero", "telephone", "numero_whatsapp", "type_personnel",
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "password_genere", "profil", "profil_label",

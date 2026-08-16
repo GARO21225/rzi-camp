@@ -46,7 +46,7 @@ export default function Personnel() {
   const [masseResult,  setMasseResult]  = useState(null)
   const [masseLoading, setMasseLoading] = useState(false)
   const [form,         setForm]         = useState({
-    nom:'', prenom:'', email:'', telephone:'',
+    nom:'', prenom:'', email:'', telephone:'', numero_whatsapp:'',
     societe:'', type_personnel:'employe', numero:'', actif:true
   })
   const [saving,       setSaving]       = useState(false)
@@ -74,7 +74,7 @@ export default function Personnel() {
   // calcul n'est pas gratuit à répéter inutilement.
   const filtered = useMemo(() => data.filter(p => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.profil,p.matricule]
+    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.telephone,p.numero_whatsapp,p.profil,p.matricule]
       .some(v => (v||'').toLowerCase().includes(q))
     const matchType    = !typeFilter    || p.type_personnel === typeFilter
     const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
@@ -93,7 +93,7 @@ export default function Personnel() {
         await personnelAPI.create(form)
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',societe:'',type_personnel:'employe',numero:'',actif:true})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'',type_personnel:'employe',numero:'',actif:true})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -123,7 +123,7 @@ export default function Personnel() {
   }
 
   const massChangerRole = async (action) => {
-    const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+    const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
     const token = localStorage.getItem('access_token') || ''
     const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${token}`}
     
@@ -216,10 +216,10 @@ export default function Personnel() {
 ]
 
   const exportPersonnelCSV = (list) => {
-    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','Email','Résidence','Chambre','Statut','Date création']
+    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','WhatsApp','Email','Résidence','Chambre','Statut','Date création']
     const rows = list.map(p => [
       p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
-      p.poste||p.fonction||'', p.telephone||'', p.email||'',
+      p.poste||p.fonction||'', p.telephone||'', p.numero_whatsapp||'', p.email||'',
       p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif',
       p.date_creation?new Date(p.date_creation).toLocaleDateString('fr-FR'):''
     ])
@@ -232,10 +232,10 @@ export default function Personnel() {
   }
 
   const downloadPersonnelTemplate = () => {
-    const csv = 'nom;prenom;societe;email;numero;type_personnel\n' +
-      'KOUAME;Jean;CIC;jean.kouame@cic.com;MAT001;roxgold\n' +
-      'TRAORE;Marie;SODECI;marie.traore@sodeci.com;MAT002;sous_traitant\n' +
-      'DIALLO;Ibrahim;ROXGOLD;ibrahim.diallo@roxgold.com;MAT003;visiteur'
+    const csv = 'nom;prenom;telephone;numero_whatsapp;matricule;societe;type_personnel\n' +
+      'KOUAME;Jean;0701234567;0701234567;MAT001;Roxgold;employe\n' +
+      'TRAORE;Marie;0501234567;0501234567;MAT002;SODECI;sous_traitant\n' +
+      'DIALLO;Ibrahim;0102030405;0102030405;MAT003;Roxgold;employe'
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -245,55 +245,271 @@ export default function Personnel() {
 
   const importPersonnelCSV = () => {
     const input = document.createElement('input')
-    input.type = 'file'; input.accept = '.csv,.txt'
+    input.type = 'file'
+    input.accept = '.csv,.txt'
+
     input.onchange = async (e) => {
       const file = e.target.files?.[0]
       if (!file) return
-      const text = await file.text()
-      const lines = text.split('\n').filter(l=>l.trim())
-      if (lines.length < 2) { alert('CSV vide'); return }
-      const sep = lines[0].includes(';') ? ';' : ','
-      const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
-      const get = (row, names) => {
-        for (const n of names) {
-          const i = headers.findIndex(h=>h.includes(n))
-          if (i>=0) return (row[i]||'').replace(/^"|"$/g,'').trim()
-        }
-        return ''
-      }
-      // Préparer toutes les lignes
-      const rows = []
-      for (let i=1; i<lines.length; i++) {
-        const row = lines[i].split(sep)
-        const nom = get(row,['nom'])
-        const prenom = get(row,['prenom','prénom'])
-        if (!nom) continue
-        rows.push({
-          nom, prenom,
-          societe: get(row,['societe','société','entreprise','company']) || 'N/A',
-          email: get(row,['email','mail']) || '',
-          numero: get(row,['matricule','numero','numéro']) || '',
-          type_personnel: get(row,['type','type_personnel']) || 'roxgold',
-        })
-      }
-      // Envoyer tout en une seule requête
+
       try {
-        const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+        const text = (await file.text()).replace(/^\uFEFF/, '')
+        const lines = text
+          .split(/\r?\n/)
+          .filter(l => l.trim())
+
+        if (lines.length < 2) {
+          alert('CSV vide')
+          return
+        }
+
+        // Détection du séparateur
+        const sep = lines[0].includes(';') ? ';' : ','
+
+        // Parse CSV simple avec gestion des champs entre guillemets
+        const parseLine = (line) => {
+          const result = []
+          let current = ''
+          let quoted = false
+
+          for (let i = 0; i < line.length; i++) {
+            const c = line[i]
+
+            if (c === '"') {
+              if (quoted && line[i + 1] === '"') {
+                current += '"'
+                i++
+              } else {
+                quoted = !quoted
+              }
+            } else if (c === sep && !quoted) {
+              result.push(current.trim())
+              current = ''
+            } else {
+              current += c
+            }
+          }
+
+          result.push(current.trim())
+          return result
+        }
+
+        const cleanHeader = (h) =>
+          String(h || '')
+            .replace(/^["']|["']$/g, '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+
+        const headers = parseLine(lines[0]).map(cleanHeader)
+
+        const get = (row, names) => {
+          for (const name of names) {
+            const wanted = cleanHeader(name)
+            const i = headers.indexOf(wanted)
+
+            if (i >= 0 && row[i] != null) {
+              const value = String(row[i])
+                .replace(/^["']|["']$/g, '')
+                .trim()
+
+              if (value !== '') return value
+            }
+          }
+
+          return ''
+        }
+
+        // IMPORTANT :
+        // Tous les téléphones restent des chaînes.
+        // Si Excel a supprimé le 0 ivoirien, on le restaure.
+        const normalizePhone = (value) => {
+          if (!value) return ''
+
+          let v = String(value).trim()
+
+          // Excel peut convertir 0701234567 -> 701234567
+          if (/^7\d{8}$/.test(v)) {
+            v = '0' + v
+          }
+
+          // +225 07xxxxxxxx -> 07xxxxxxxx
+          if (/^\+2257\d{8}$/.test(v)) {
+            v = '0' + v.slice(4)
+          }
+
+          // 225 07xxxxxxxx -> 07xxxxxxxx
+          if (/^2257\d{8}$/.test(v)) {
+            v = '0' + v.slice(3)
+          }
+
+          return v
+        }
+
+        const rows = []
+
+        for (let i = 1; i < lines.length; i++) {
+          const row = parseLine(lines[i])
+
+          const nom = get(row, ['nom', 'name'])
+          const prenom = get(row, ['prenom', 'prénom', 'firstname'])
+
+          if (!nom) continue
+
+          /*
+           * SOCIÉTÉ
+           *
+           * Si le CSV contient "roxgold" dans la colonne type,
+           * on considère Roxgold comme la société.
+           */
+          let societe = get(row, [
+            'societe',
+            'société',
+            'entreprise',
+            'company'
+          ])
+
+          const typeRaw = get(row, [
+            'type_personnel',
+            'type',
+            'categorie',
+            'category'
+          ]).toLowerCase().trim()
+
+          if (!societe && typeRaw === 'roxgold') {
+            societe = 'Roxgold'
+          }
+
+          /*
+           * TYPE DE PERSONNEL
+           *
+           * Roxgold = société, PAS type.
+           * Le type par défaut est toujours employé.
+           */
+          let type_personnel = 'employe'
+
+          if (typeRaw === 'sous_traitant' || typeRaw === 'sous-traitant') {
+            type_personnel = 'sous_traitant'
+          } else if (typeRaw === 'visiteur') {
+            type_personnel = 'visiteur'
+          } else if (
+            typeRaw === 'employe' ||
+            typeRaw === 'employé' ||
+            typeRaw === 'employee' ||
+            typeRaw === 'agent'
+          ) {
+            type_personnel = 'employe'
+          } else if (typeRaw === 'roxgold') {
+            type_personnel = 'employe'
+          }
+
+          /*
+           * TÉLÉPHONE
+           */
+          const telephone = normalizePhone(get(row, [
+            'telephone',
+            'téléphone',
+            'tel',
+            'phone',
+            'numero_telephone',
+            'numero telephone',
+            'mobile'
+          ]))
+
+          /*
+           * WHATSAPP
+           * Si absent, on reprend automatiquement le téléphone.
+           */
+          const whatsapp = normalizePhone(get(row, [
+            'numero_whatsapp',
+            'whatsapp',
+            'telephone_whatsapp',
+            'tel_whatsapp'
+          ])) || telephone
+
+          /*
+           * MATRICULE
+           *
+           * TRÈS IMPORTANT :
+           * on ne prend QUE la colonne matricule.
+           * Jamais telephone, mobile ou numero.
+           */
+          const matricule = get(row, [
+            'matricule',
+            'matricule_personnel',
+            'id_personnel'
+          ])
+
+          rows.push({
+            nom,
+            prenom,
+            email: get(row, ['email', 'e-mail', 'mail']) || '',
+
+            telephone,
+            numero_whatsapp: whatsapp,
+
+            societe: societe || '',
+
+            // Le matricule est indépendant du téléphone.
+            matricule,
+            numero: matricule,
+
+            type_personnel,
+            actif: true
+          })
+        }
+
+        console.log('IMPORT PERSONNEL — payload:', rows)
+
+        const BASE = (
+          import.meta?.env?.VITE_API_URL ||
+          'http://204.168.229.74:8001'
+        ).replace(/\/+$/, '')
+
         const token = localStorage.getItem('access_token') || ''
+
         const r = await fetch(`${BASE}/api/personnel/import_csv_data/`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-          body: JSON.stringify({rows})
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include',
+          body: JSON.stringify({ rows })
         })
+
         const d = await r.json()
+
+        if (!r.ok) {
+          throw new Error(
+            d.detail ||
+            d.error ||
+            JSON.stringify(d) ||
+            `HTTP ${r.status}`
+          )
+        }
+
         const ok = d.imported || 0
         const errs = d.errors || []
-        alert(`✅ ${ok} personnel importé(s)${errs.length?'\n\n⚠️ Erreurs:\n'+errs.slice(0,5).join('\n'):''}`)
+
+        alert(
+          `✅ ${ok} personnel importé(s)` +
+          (
+            errs.length
+              ? '\n\n⚠️ Erreurs:\n' + errs.slice(0, 5).join('\n')
+              : ''
+          )
+        )
+
         load()
-      } catch(e) {
+
+      } catch (e) {
+        console.error('Erreur import personnel:', e)
         alert('Erreur import: ' + e.message)
       }
     }
+
     input.click()
   }
 
@@ -317,7 +533,7 @@ export default function Personnel() {
               👥 Sous-traitants masse
             </button>
             <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',societe:'',type_personnel:'employe',numero:'',actif:true})
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'',type_personnel:'employe',numero:'',actif:true})
               setErr(''); setModal('new')
             }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
               ➕ Nouveau membre
@@ -486,6 +702,9 @@ export default function Personnel() {
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       {p.telephone || '—'}
                     </td>
+                    <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
+                      {p.numero_whatsapp || '—'}
+                    </td>
                     <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-4)'}}>
                       {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
                     </td>
@@ -507,7 +726,7 @@ export default function Personnel() {
                           <button onClick={() => {
                             setForm({
                               nom:p.nom, prenom:p.prenom, email:p.email||'',
-                              telephone:p.telephone||'', societe:p.societe||'',
+                              telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
                               numero:p.numero||'', actif:p.actif
                             })
@@ -531,7 +750,7 @@ export default function Personnel() {
                             {p.actif ? '🔒' : '🔓'}
                           </button>
                           <button onClick={async()=>{
-                              const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+                              const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
                               const token = localStorage.getItem('access_token') || ''
                               // Toggle: false si actuellement true (ou undefined), true si false
                               const curVal = p.induction_requise !== false
@@ -614,15 +833,31 @@ export default function Personnel() {
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TÉLÉPHONE</label>
-                    <input value={form.telephone} onChange={e=>setForm({...form,telephone:e.target.value})} style={inp}/>
+                    <input
+                      type="tel"
+                      value={form.telephone}
+                      onChange={e=>setForm({...form,telephone:e.target.value})}
+                      style={inp}
+                      placeholder="0701234567"
+                    />
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TYPE</label>
-                    <select value={form.type_personnel} onChange={e=>setForm({...form,type_personnel:e.target.value})} style={inp}>
-                      {/* Type de personnel */}
-                {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
-                    </select>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>WHATSAPP</label>
+                    <input
+                      type="tel"
+                      value={form.numero_whatsapp}
+                      onChange={e=>setForm({...form,numero_whatsapp:e.target.value})}
+                      style={inp}
+                      placeholder="0701234567"
+                    />
                   </div>
+                </div>
+
+                <div>
+                  <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TYPE</label>
+                  <select value={form.type_personnel} onChange={e=>setForm({...form,type_personnel:e.target.value})} style={inp}>
+                    {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
+                  </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>

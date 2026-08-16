@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
 const h = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}` })
 
 function KpiCard({ icon, value, label, sub, color='var(--rzc-navy)', bg='#eff6ff', trend, onClick }) {

@@ -14,7 +14,6 @@ services:
     build: ./backend
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py seed_db &&
              daphne -b 0.0.0.0 -p 8000 rzi_camp.asgi:application"
     environment:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
@@ -26,7 +25,10 @@ services:
       - db
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://204.168.229.74:8001
     ports:
       - "5173:80"
     depends_on:

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const BASE = import.meta.env.VITE_API_URL || 'https://rzi-camp-backend.onrender.com'
+const BASE = import.meta.env.VITE_API_URL || 'http://204.168.229.74:8001'
 const tok  = () => localStorage.getItem('access_token') || ''
 const hdrs = () => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' })
 const api  = (path, opts) => fetch(`${BASE}${path}`, { headers: hdrs(), ...opts })
