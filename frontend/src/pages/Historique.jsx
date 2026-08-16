@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr } from '../api'
+import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI } from '../api'
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -45,6 +45,32 @@ export default function Historique() {
   const [repasDateDebut, setRepasDateDebut] = useState('')
   const [repasDateFin, setRepasDateFin]     = useState('')
   const [repasSearch, setRepasSearch]       = useState('')
+
+  // ── Maintenance clôturés ──
+  const [maintData, setMaintData] = useState([])
+  const [maintLoading, setMaintLoading] = useState(false)
+  const [maintSearch, setMaintSearch] = useState('')
+  const [maintDateDebut, setMaintDateDebut] = useState('')
+  const [maintDateFin, setMaintDateFin] = useState('')
+
+  const maintFiltered = React.useMemo(() => {
+    let f = maintData
+    if (maintSearch) {
+      const s = maintSearch.toLowerCase()
+      f = f.filter(i => [i.titre, i.residence, i.categorie].some(v => (v||'').toLowerCase().includes(s)))
+    }
+    if (maintDateDebut) f = f.filter(i => i.date_cloture && i.date_cloture.slice(0,10) >= maintDateDebut)
+    if (maintDateFin) f = f.filter(i => i.date_cloture && i.date_cloture.slice(0,10) <= maintDateFin)
+    return f
+  }, [maintData, maintSearch, maintDateDebut, maintDateFin])
+
+  const loadMaintenance = () => {
+    setMaintLoading(true)
+    incAPI.list({ statut: 'cloture', page_size: 2000 })
+      .then(r => setMaintData(r.data.results || r.data || []))
+      .catch(() => setMaintData([]))
+      .finally(() => setMaintLoading(false))
+  }
 
   // Données filtrées côté client
   const repasFiltered = React.useMemo(() => {
@@ -177,6 +203,7 @@ export default function Historique() {
     ['voyages_pers','✈️ Voyages personnel'],
     ['ensemble','🌍 Tous les voyages'],
     ['repas','🍽️ Restaurant'],
+    ['maintenance','🛠️ Maintenance (clôturés)'],
   ]
 
   return (
@@ -189,7 +216,7 @@ export default function Historique() {
       {/* TABS */}
       <div style={{display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
         {TABS.map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false)}}
+          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance()}}
             style={{flex:1,padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
               background:tab===k?'#fff':'transparent',color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none',transition:'.2s'}}>
@@ -498,6 +525,73 @@ export default function Historique() {
             </div>
           ) : (
             <EmptyState icon="🍽️" text="Aucun scan enregistré. Utilisez la page Restaurant pour scanner les repas."/>
+          )}
+        </div>
+      )}
+
+      {tab==='maintenance' && (
+        <div>
+          <SearchCard title="🛠️ Historique des dossiers de maintenance clôturés" color="#5B6472">
+            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
+              <input type="date" value={maintDateDebut||''} onChange={e=>setMaintDateDebut(e.target.value)}
+                placeholder="Date clôture début"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              <input type="date" value={maintDateFin||''} onChange={e=>setMaintDateFin(e.target.value)}
+                placeholder="Date clôture fin"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              <input type="text" value={maintSearch||''} onChange={e=>setMaintSearch(e.target.value)}
+                placeholder="🔍 Titre, résidence, catégorie..."
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
+
+              <button onClick={loadMaintenance} disabled={maintLoading}
+                style={{background:'#5B6472',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                {maintLoading?'⏳ Recherche...':'🔍 Actualiser'}
+              </button>
+
+              {(maintDateDebut||maintDateFin||maintSearch) && (
+                <button onClick={()=>{setMaintDateDebut('');setMaintDateFin('');setMaintSearch('')}}
+                  style={{background:'rgba(100,116,139,.1)',color:'#64748b',border:'1px solid rgba(100,116,139,.2)',padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600}}>
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+          </SearchCard>
+
+          {maintFiltered.length > 0 ? (
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+              <div style={{padding:'10px 16px',background:'#5B6472',color:'#fff',fontWeight:600,fontSize:13}}>
+                📋 {maintFiltered.length}/{maintData.length} dossier(s) clôturé(s)
+              </div>
+              <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr style={{background:'var(--surface2)'}}>
+                    {['Titre','Catégorie','Résidence','Priorité','Créé le','Clôturé le'].map(h=>(
+                      <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {maintFiltered.map((i,idx)=>{
+                      const dtC = i.date_creation ? new Date(i.date_creation) : null
+                      const dtF = i.date_cloture ? new Date(i.date_cloture) : null
+                      return (
+                        <tr key={i.id||idx} style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff'}}>
+                          <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{i.titre||'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{i.categorie||'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{i.residence||'—'}</td>
+                          <td style={{padding:'9px 12px'}}><span style={{background:'rgba(91,100,114,.12)',color:'#5B6472',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{i.priorite||'—'}</span></td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtC ? dtC.toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtF ? dtF.toLocaleDateString('fr-FR') : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon="🛠️" text={maintLoading ? "Chargement..." : "Aucun dossier de maintenance clôturé."}/>
           )}
         </div>
       )}

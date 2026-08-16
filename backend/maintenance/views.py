@@ -134,6 +134,10 @@ def list_incidents(request):
     statut    = params.get('statut', '')
     priorite  = params.get('priorite', '')
     categorie = params.get('categorie', '')
+    try:
+        limit = min(int(params.get('page_size', 200)), 5000)
+    except (TypeError, ValueError):
+        limit = 200
 
     where = ['1=1']
     args  = []
@@ -148,7 +152,8 @@ def list_incidents(request):
             c.execute(f"""
                 SELECT i.id, i.titre, i.description, i.categorie, i.priorite,
                        i.statut, i.residence, i.bloc,
-                       i.date_creation, i.sla_echeance, i.sla_depasse,
+                       i.date_creation, i.date_resolution, i.date_cloture,
+                       i.sla_echeance, i.sla_depasse,
                        i.commentaire_resolution, i.commentaire_cloture,
                        COALESCE(u.first_name || ' ' || u.last_name, u.username, '—') as auteur_nom,
                        COALESCE(a.first_name || ' ' || a.last_name, a.username, NULL) as assigne_nom,
@@ -158,8 +163,8 @@ def list_incidents(request):
                 LEFT JOIN auth_user a ON a.id = i.assigne_a_id
                 WHERE {where_sql}
                 ORDER BY i.date_creation DESC
-                LIMIT 200
-            """, args)
+                LIMIT %s
+            """, args + [limit])
             cols = [d[0] for d in c.description]
             rows = c.fetchall()
 
@@ -167,7 +172,7 @@ def list_incidents(request):
         for row in rows:
             d = dict(zip(cols, row))
             # Convertir datetimes en strings
-            for k in ['date_creation', 'sla_echeance']:
+            for k in ['date_creation', 'date_resolution', 'date_cloture', 'sla_echeance']:
                 if d.get(k):
                     d[k] = d[k].isoformat() if hasattr(d[k], 'isoformat') else str(d[k])
             d['commentaires']   = []

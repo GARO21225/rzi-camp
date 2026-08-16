@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
 
@@ -404,6 +405,7 @@ const WF = [
 ]
 
 export default function Maintenance() {
+  const navigate = useNavigate()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
   const [incidents, setIncidents] = useState([])
@@ -414,7 +416,6 @@ export default function Maintenance() {
   const [editInc,   setEditInc]   = useState(null)
   const [showEdit,  setShowEdit]  = useState(false)
   const [search,    setSearch]    = useState('')
-  const [ongletVue, setOngletVue] = useState('actifs') // 'actifs' | 'historique'
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
@@ -516,10 +517,9 @@ export default function Maintenance() {
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter(i => {
-    const estCloture = i.statut === 'cloture'
-    // Onglet Historique = uniquement les clôturés. Onglet Actifs = jamais les clôturés.
-    if (ongletVue === 'historique') { if (!estCloture) return false }
-    else { if (estCloture) return false }
+    // Les dossiers clôturés ne vivent plus dans Maintenance : ils sont
+    // consultables uniquement dans Historique > 🛠️ Maintenance (clôturés).
+    if (i.statut === 'cloture') return false
     if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
@@ -1020,23 +1020,6 @@ export default function Maintenance() {
           )
         })()}
 
-        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-          <button onClick={()=>setOngletVue('actifs')}
-            style={{ padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
-              fontSize:12, fontWeight:700,
-              background: ongletVue==='actifs' ? 'var(--rzc-navy)' : '#e2e8f0',
-              color: ongletVue==='actifs' ? '#fff' : '#475569' }}>
-            🛠️ Dossiers actifs
-          </button>
-          <button onClick={()=>setOngletVue('historique')}
-            style={{ padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
-              fontSize:12, fontWeight:700,
-              background: ongletVue==='historique' ? 'var(--rzc-navy)' : '#e2e8f0',
-              color: ongletVue==='historique' ? '#fff' : '#475569' }}>
-            🗂️ Historique (clôturés)
-          </button>
-        </div>
-
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
           <input type="checkbox"
@@ -1048,12 +1031,14 @@ export default function Maintenance() {
         <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
-          {ongletVue === 'actifs' && (
-            <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
-              <option value="">Tous statuts actifs</option>
-              {Object.entries(STATUTS).filter(([k]) => k !== 'cloture').map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
-            </select>
-          )}
+          <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
+            <option value="">Tous statuts actifs</option>
+            {Object.entries(STATUTS).filter(([k]) => k !== 'cloture').map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
+          </select>
+          <a onClick={(e)=>{e.preventDefault(); navigate('/historique')}} href="/historique" style={{ padding:'8px 14px', borderRadius:9, textDecoration:'none',
+              fontSize:12, fontWeight:700, background:'#e2e8f0', color:'#475569', display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+            🗂️ Voir les dossiers clôturés (Historique)
+          </a>
           <select value={prioFilter} onChange={e=>setPrioFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
             <option value="">Toutes priorités</option>
             {Object.entries(PRIOS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}

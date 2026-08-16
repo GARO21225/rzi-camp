@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const QUEUE_KEY = 'rzi_offline_queue'
 
@@ -6,18 +6,31 @@ export function useOffline() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [syncMsg, setSyncMsg] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const failCount = useRef(0)
 
   const checkBackend = useCallback(async () => {
-    if (!navigator.onLine) { setIsOffline(true); return }
+    if (!navigator.onLine) { failCount.current = 0; setIsOffline(true); return }
     try {
       const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
       // GET sur /api/batiments/?page_size=1 (le backend supporte GET, pas HEAD)
       const r = await fetch(`${BASE}/api/batiments/?page_size=1`, {
-        method: 'GET', signal: AbortSignal.timeout(5000)
+        method: 'GET', signal: AbortSignal.timeout(12000)
       }).catch(() => null)
-      setIsOffline(!r)
+      if (r) {
+        // Toute réponse HTTP (même 401/403) prouve que le réseau + le serveur
+        // sont joignables — seule une vraie panne réseau/serveur compte.
+        failCount.current = 0
+        setIsOffline(false)
+      } else {
+        // On exige 2 échecs consécutifs avant d'afficher "hors ligne", pour
+        // éviter les faux positifs dus à un aléa réseau ponctuel (ou, avec un
+        // certificat auto-signé, à un appareil qui ne l'a pas encore validé).
+        failCount.current += 1
+        if (failCount.current >= 2) setIsOffline(true)
+      }
     } catch {
-      setIsOffline(true)
+      failCount.current += 1
+      if (failCount.current >= 2) setIsOffline(true)
     }
   }, [])
 
