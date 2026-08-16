@@ -250,8 +250,9 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             with connection.cursor() as c:
                 c.execute(
-                    "SELECT type_repas, COUNT(*) FROM restauration_repaslog"
-                    " WHERE DATE(date_validation)=%s GROUP BY type_repas", [today])
+                    "SELECT q.type_repas, COUNT(*) FROM restauration_repaslog r"
+                    " JOIN restauration_qrtoken q ON r.qr_token_id = q.id"
+                    " WHERE DATE(r.date_validation)=%s GROUP BY q.type_repas", [today])
                 rows = dict(c.fetchall())
                 c.execute(
                     "SELECT COUNT(*) FROM restauration_repaslog"

@@ -414,6 +414,7 @@ export default function Maintenance() {
   const [editInc,   setEditInc]   = useState(null)
   const [showEdit,  setShowEdit]  = useState(false)
   const [search,    setSearch]    = useState('')
+  const [ongletVue, setOngletVue] = useState('actifs') // 'actifs' | 'historique'
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
@@ -515,8 +516,10 @@ export default function Maintenance() {
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter(i => {
-    // Masquer clôturés par défaut sauf si sélectionné explicitement
-    if (i.statut === 'cloture' && statFilter !== 'cloture') return false
+    const estCloture = i.statut === 'cloture'
+    // Onglet Historique = uniquement les clôturés. Onglet Actifs = jamais les clôturés.
+    if (ongletVue === 'historique') { if (!estCloture) return false }
+    else { if (estCloture) return false }
     if (search && ![i.titre,i.residence,i.categorie,i.auteur_nom].some(v=>(v||'').toLowerCase().includes(search.toLowerCase()))) return false
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
@@ -1017,6 +1020,23 @@ export default function Maintenance() {
           )
         })()}
 
+        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+          <button onClick={()=>setOngletVue('actifs')}
+            style={{ padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:700,
+              background: ongletVue==='actifs' ? 'var(--rzc-navy)' : '#e2e8f0',
+              color: ongletVue==='actifs' ? '#fff' : '#475569' }}>
+            🛠️ Dossiers actifs
+          </button>
+          <button onClick={()=>setOngletVue('historique')}
+            style={{ padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:700,
+              background: ongletVue==='historique' ? 'var(--rzc-navy)' : '#e2e8f0',
+              color: ongletVue==='historique' ? '#fff' : '#475569' }}>
+            🗂️ Historique (clôturés)
+          </button>
+        </div>
+
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
           <input type="checkbox"
@@ -1028,11 +1048,12 @@ export default function Maintenance() {
         <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
-          <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
-            <option value="">Actifs (hors clôturés)</option>
-            <option value="cloture">Clôturés</option>
-            {Object.entries(STATUTS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
-          </select>
+          {ongletVue === 'actifs' && (
+            <select value={statFilter} onChange={e=>setStatFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
+              <option value="">Tous statuts actifs</option>
+              {Object.entries(STATUTS).filter(([k]) => k !== 'cloture').map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
+            </select>
+          )}
           <select value={prioFilter} onChange={e=>setPrioFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
             <option value="">Toutes priorités</option>
             {Object.entries(PRIOS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
