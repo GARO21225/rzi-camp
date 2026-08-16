@@ -1,0 +1,40 @@
+version: '3.9'
+
+# Fichier additif : ne remplace pas docker-compose.yml, s'utilise avec -f en plus.
+#
+# Usage sur le serveur Hetzner :
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+#
+# Ouvre les ports 80 et 443 (obligatoire) sur le pare-feu Hetzner AVANT de lancer :
+#   ufw allow 80/tcp && ufw allow 443/tcp
+# (ou via la console Hetzner Cloud si tu utilises leur firewall managé)
+
+services:
+  frontend:
+    build:
+      args:
+        # Une fois HTTPS actif, tout passe par le même domaine :
+        # Caddy route /api/* vers le backend automatiquement.
+        VITE_API_URL: https://204-168-229-74.sslip.io
+    # Note : la fusion de "ports:" entre plusieurs fichiers docker-compose
+    # additionne les listes, elle ne les remplace pas. Pour ne plus exposer
+    # 5173/8001 directement (facultatif, pas bloquant), commente les lignes
+    # "ports:" correspondantes directement dans docker-compose.yml.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  caddy_data:
+  caddy_config:

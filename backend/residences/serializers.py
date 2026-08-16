@@ -8,6 +8,12 @@ class PersonnelSerializer(serializers.ModelSerializer):
     user_active     = serializers.SerializerMethodField()
     login_genere    = serializers.SerializerMethodField()
     password_genere = serializers.SerializerMethodField()
+    # Alias explicite : en base/API le champ s'appelle "numero" mais représente
+    # le matricule (cf. label "N° MATRICULE" côté frontend). Plusieurs pages
+    # (Annuaire, badges Induction, export Personnel) lisaient "matricule" qui
+    # n'a jamais existé dans l'API -> valeur toujours vide. On l'expose ici en
+    # lecture ET écriture, en miroir de "numero".
+    matricule       = serializers.CharField(source="numero", required=False, allow_blank=True)
 
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
@@ -58,7 +64,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Personnel
         fields = [
-            "id", "nom", "prenom", "societe", "numero", "telephone", "numero_whatsapp", "type_personnel",
+            "id", "nom", "prenom", "societe", "numero", "matricule", "telephone", "numero_whatsapp", "type_personnel",
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "password_genere", "profil", "profil_label",
