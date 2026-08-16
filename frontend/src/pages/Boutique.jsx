@@ -828,6 +828,7 @@ export default function Boutique() {
   const [submitting, setSubmitting] = useState(false)
   const [msg,        setMsg]        = useState(null)
   const [scanning,   setScanning]   = useState(false)
+  const [scanErr,    setScanErr]    = useState('')
   const [artModal,   setArtModal]   = useState(false)
   const [editArt,    setEditArt]    = useState(null)
   const [delConfirm, setDelConfirm] = useState(null)
@@ -885,13 +886,26 @@ export default function Boutique() {
   },[agentId,personnel])
 
   const startScan = async () => {
+    setScanErr('')
+    // getUserMedia exige un contexte sécurisé (HTTPS ou localhost).
+    // Après la migration vers Hetzner, si le site est servi en http://IP,
+    // le navigateur refuse silencieusement l'accès à la caméra.
+    if (!window.isSecureContext) {
+      setScanErr("La caméra nécessite une connexion sécurisée (HTTPS). Contactez l'administrateur pour activer HTTPS sur le serveur.")
+      return
+    }
     setScanning(true)
     try {
       const {Html5Qrcode} = await import('html5-qrcode')
       const sc = new Html5Qrcode('qr_b')
       scannerInst.current = sc
       await sc.start({facingMode:'environment'},{fps:10,qrbox:200},d=>{setAgentId(d);stopScan()},()=>{})
-    } catch{setScanning(false)}
+    } catch(e) {
+      setScanning(false)
+      setScanErr(e?.message?.toLowerCase().includes('permission')
+        ? "Accès caméra refusé. Autorisez la caméra dans les paramètres du navigateur pour ce site."
+        : "Caméra indisponible sur cet appareil.")
+    }
   }
   const stopScan = () => {
     try{scannerInst.current?.stop().then(()=>{scannerInst.current=null;setScanning(false)}).catch(()=>setScanning(false))}catch{setScanning(false)}
@@ -1187,6 +1201,7 @@ export default function Boutique() {
                   {scanning?'⏹ Arrêter':'📷 Scanner QR Agent'}
                 </button>
                 {scanning&&<div id="qr_b" style={{borderRadius:8,overflow:'hidden',marginBottom:8}}/>}
+                {scanErr&&<div style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:8,padding:'8px 10px',fontSize:11,marginBottom:8,lineHeight:1.4}}>⚠️ {scanErr}</div>}
                 <div style={{display:'flex',gap:6}}>
                   <input value={agentId} onChange={e=>setAgentId(e.target.value)} placeholder="Login ou ID..."
                     style={{...inp,fontSize:12,padding:'7px 10px'}}/>

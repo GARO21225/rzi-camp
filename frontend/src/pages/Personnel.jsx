@@ -47,7 +47,7 @@ export default function Personnel() {
   const [masseLoading, setMasseLoading] = useState(false)
   const [form,         setForm]         = useState({
     nom:'', prenom:'', email:'', telephone:'', numero_whatsapp:'',
-    societe:'', type_personnel:'employe', numero:'', actif:true
+    societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true
   })
   const [saving,       setSaving]       = useState(false)
   const [selected_ids, setSelectedIds]  = useState(new Set())  // IDs sélectionnés pour masse
@@ -93,7 +93,7 @@ export default function Personnel() {
         await personnelAPI.create(form)
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'',type_personnel:'employe',numero:'',actif:true})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -129,11 +129,12 @@ export default function Personnel() {
     
     if (action === 'export') {
       const sel = filtered.filter(p=>selected_ids.has(p.id))
+      const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
       const rows = [['NOM','PRENOM','TYPE','SOCIETE','EMAIL','TEL','PROFIL'],
-        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.email,p.numero,p.profil])]
-      const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n')
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.email,asText(p.numero),p.profil])]
+      const csv = rows.map(r=>r.map(v=>typeof v==='string'&&v.startsWith('="')?v:`"${v||''}"`).join(',')).join('\n')
       const a = document.createElement('a')
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+      a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
       a.download = 'personnel_selection.csv'
       a.click()
       return
@@ -197,8 +198,8 @@ export default function Personnel() {
   })
 
   const TYPES = [
-    {v:'roxgold',      l:'Roxgold'},
-    {v:'sous_traitant', l:'Sous-traitant'},
+    {v:'roxgold',      l:'Employé Roxgold'},
+    {v:'sous_traitant', l:'Employé non Roxgold (sous-traitant)'},
     {v:'visiteur',     l:'Visiteur'},
   ]
 
@@ -216,10 +217,13 @@ export default function Personnel() {
 ]
 
   const exportPersonnelCSV = (list) => {
+    // Excel convertit automatiquement une cellule "0701234567" en nombre 701234567,
+    // ce qui efface le 0 initial. La formule ="..." force Excel à garder le texte tel quel.
+    const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
     const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','WhatsApp','Email','Résidence','Chambre','Statut','Date création']
     const rows = list.map(p => [
-      p.matricule||'', p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
-      p.poste||p.fonction||'', p.telephone||'', p.numero_whatsapp||'', p.email||'',
+      asText(p.matricule), p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
+      p.poste||p.fonction||'', asText(p.telephone), asText(p.numero_whatsapp), p.email||'',
       p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif',
       p.date_creation?new Date(p.date_creation).toLocaleDateString('fr-FR'):''
     ])
@@ -247,9 +251,14 @@ export default function Personnel() {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.csv,.txt'
+    // Sur certains navigateurs (notamment mobile/tablette), un <input type=file>
+    // détaché du DOM ne déclenche pas toujours la sélection de fichier au .click().
+    input.style.display = 'none'
+    document.body.appendChild(input)
 
     input.onchange = async (e) => {
       const file = e.target.files?.[0]
+      input.remove()
       if (!file) return
 
       try {
@@ -327,21 +336,22 @@ export default function Personnel() {
         const normalizePhone = (value) => {
           if (!value) return ''
 
-          let v = String(value).trim()
+          let v = String(value).trim().replace(/[\s().-]+/g, '')
 
-          // Excel peut convertir 0701234567 -> 701234567
-          if (/^7\d{8}$/.test(v)) {
+          // +225XXXXXXXXXX -> 0XXXXXXXXX
+          if (/^\+225\d{9,10}$/.test(v)) {
+            v = v.slice(4)
+          }
+          // 225XXXXXXXXXX -> 0XXXXXXXXX
+          else if (/^225\d{9,10}$/.test(v)) {
+            v = v.slice(3)
+          }
+
+          // Excel supprime le 0 initial quel que soit le chiffre suivant
+          // (ex: 0701234567 -> 701234567, 0102030405 -> 102030405).
+          // Un numéro ivoirien complet fait 9 chiffres une fois le 0 retiré.
+          if (/^\d{9}$/.test(v) && !v.startsWith('0')) {
             v = '0' + v
-          }
-
-          // +225 07xxxxxxxx -> 07xxxxxxxx
-          if (/^\+2257\d{8}$/.test(v)) {
-            v = '0' + v.slice(4)
-          }
-
-          // 225 07xxxxxxxx -> 07xxxxxxxx
-          if (/^2257\d{8}$/.test(v)) {
-            v = '0' + v.slice(3)
           }
 
           return v
@@ -533,7 +543,7 @@ export default function Personnel() {
               👥 Sous-traitants masse
             </button>
             <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'',type_personnel:'employe',numero:'',actif:true})
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true})
               setErr(''); setModal('new')
             }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
               ➕ Nouveau membre
@@ -855,14 +865,20 @@ export default function Personnel() {
 
                 <div>
                   <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TYPE</label>
-                  <select value={form.type_personnel} onChange={e=>setForm({...form,type_personnel:e.target.value})} style={inp}>
+                  <select value={form.type_personnel} onChange={e=>{
+                    const v = e.target.value
+                    // Employé Roxgold → société auto-remplie et verrouillée sur ROXGOLD
+                    setForm({...form, type_personnel:v, societe: v==='roxgold' ? 'ROXGOLD' : (form.societe==='ROXGOLD' ? '' : form.societe)})
+                  }} style={inp}>
                     {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>SOCIÉTÉ</label>
-                    <input value={form.societe} onChange={e=>setForm({...form,societe:e.target.value})} style={inp}/>
+                    <input value={form.societe} disabled={form.type_personnel==='roxgold'}
+                      onChange={e=>setForm({...form,societe:e.target.value})}
+                      style={{...inp, ...(form.type_personnel==='roxgold' ? {opacity:.65, cursor:'not-allowed'} : {})}}/>
                   </div>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>N° MATRICULE</label>

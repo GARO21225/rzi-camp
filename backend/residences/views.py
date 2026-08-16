@@ -64,9 +64,9 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             elif v.startswith('225'):
                 v = v[3:]
 
-            # Les fichiers Excel peuvent supprimer le 0 initial.
-            # CI : 05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx
-            if re.fullmatch(r'[567]\d{8}', v):
+            # Les fichiers Excel peuvent supprimer le 0 initial, quel que
+            # soit le chiffre suivant (numéro ivoirien = 9 chiffres sans le 0).
+            if re.fullmatch(r'\d{9}', v) and not v.startswith('0'):
                 v = '0' + v
 
             return v
