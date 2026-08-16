@@ -5,9 +5,12 @@ version: '3.9'
 # Usage sur le serveur Hetzner :
 #   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
 #
-# Ouvre les ports 80 et 443 (obligatoire) sur le pare-feu Hetzner AVANT de lancer :
-#   ufw allow 80/tcp && ufw allow 443/tcp
-# (ou via la console Hetzner Cloud si tu utilises leur firewall managé)
+# Le port 80 est déjà utilisé par un autre stack sur ce serveur (vérifié avec
+# `sudo ss -tlnp`). On ne le touche pas : Caddy obtient le certificat Let's
+# Encrypt via le challenge TLS-ALPN-01, qui ne passe que par le port 443
+# (voir Caddyfile : "disable_ap" désactive volontairement le challenge HTTP-01).
+# Seul le port 443 doit être ouvert sur le pare-feu :
+#   ufw allow 443/tcp
 
 services:
   frontend:
@@ -25,8 +28,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "443:443"   # port 80 volontairement absent : déjà pris par un autre stack
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -38,3 +40,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+
