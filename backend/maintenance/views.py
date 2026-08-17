@@ -47,8 +47,9 @@ def detail_incident(request, pk):
         with connection.cursor() as c:
             c.execute(
                 "SELECT i.id,i.titre,i.description,i.categorie,i.priorite,i.statut,i.residence,i.bloc,"
-                "i.date_creation,i.sla_echeance,i.sla_depasse,i.commentaire_resolution,i.commentaire_cloture,"
+                "i.date_creation,i.date_resolution,i.date_cloture,i.sla_echeance,i.sla_depasse,i.commentaire_resolution,i.commentaire_cloture,"
                 "COALESCE(i.photo_base64,'') as photo_base64, COALESCE(i.photo_mime,'image/jpeg') as photo_mime,"
+                "COALESCE(i.photo_resolution_base64,'') as photo_resolution_base64,"
                 "COALESCE(u.first_name||' '||u.last_name,u.username,'—') as auteur_nom,"
                 "COALESCE(a.first_name||' '||a.last_name,a.username,NULL) as assigne_nom,"
                 "i.auteur_id,i.assigne_a_id "
@@ -62,7 +63,7 @@ def detail_incident(request, pk):
         if not row:
             return Response({'detail': 'Non trouvé'}, status=404)
         inc = dict(zip(cols, row))
-        for k in ['date_creation', 'sla_echeance']:
+        for k in ['date_creation', 'date_resolution', 'date_cloture', 'sla_echeance']:
             if inc.get(k) and hasattr(inc[k], 'isoformat'):
                 inc[k] = inc[k].isoformat()
         inc['statut_label'] = inc['statut']

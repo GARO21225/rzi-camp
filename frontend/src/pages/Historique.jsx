@@ -52,6 +52,18 @@ export default function Historique() {
   const [maintSearch, setMaintSearch] = useState('')
   const [maintDateDebut, setMaintDateDebut] = useState('')
   const [maintDateFin, setMaintDateFin] = useState('')
+  const [maintSelected, setMaintSelected] = useState(null)
+  const [maintSelLoading, setMaintSelLoading] = useState(false)
+
+  const ouvrirDossierMaintenance = async (inc) => {
+    setMaintSelected(inc)
+    setMaintSelLoading(true)
+    try {
+      const r = await incAPI.detail(inc.id)
+      setMaintSelected(r.data)
+    } catch(e) { console.error(e) }
+    finally { setMaintSelLoading(false) }
+  }
 
   const maintFiltered = React.useMemo(() => {
     let f = maintData
@@ -567,7 +579,7 @@ export default function Historique() {
               <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
                   <thead><tr style={{background:'var(--surface2)'}}>
-                    {['Titre','Catégorie','Résidence','Priorité','Créé le','Clôturé le'].map(h=>(
+                    {['Titre','Catégorie','Résidence','Priorité','Créé le','Clôturé le',''].map(h=>(
                       <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -576,13 +588,20 @@ export default function Historique() {
                       const dtC = i.date_creation ? new Date(i.date_creation) : null
                       const dtF = i.date_cloture ? new Date(i.date_cloture) : null
                       return (
-                        <tr key={i.id||idx} style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff'}}>
+                        <tr key={i.id||idx} onClick={()=>ouvrirDossierMaintenance(i)}
+                          style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff',cursor:'pointer'}}>
                           <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{i.titre||'—'}</td>
                           <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{i.categorie||'—'}</td>
                           <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{i.residence||'—'}</td>
                           <td style={{padding:'9px 12px'}}><span style={{background:'rgba(91,100,114,.12)',color:'#5B6472',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{i.priorite||'—'}</span></td>
                           <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtC ? dtC.toLocaleDateString('fr-FR') : '—'}</td>
                           <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtF ? dtF.toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px'}}>
+                            <button onClick={(e)=>{e.stopPropagation(); ouvrirDossierMaintenance(i)}}
+                              style={{background:'rgba(91,100,114,.1)',color:'#5B6472',border:'1px solid rgba(91,100,114,.25)',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>
+                              📄 Rapport
+                            </button>
+                          </td>
                         </tr>
                       )
                     })}
@@ -592,6 +611,72 @@ export default function Historique() {
             </div>
           ) : (
             <EmptyState icon="🛠️" text={maintLoading ? "Chargement..." : "Aucun dossier de maintenance clôturé."}/>
+          )}
+
+          {maintSelected && (
+            <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.5)', zIndex:900,
+              display:'flex', alignItems:'center', justifyContent:'flex-end' }}
+              onClick={e=>e.target===e.currentTarget && setMaintSelected(null)}>
+              <div style={{ background:'#fff', width:'100%', maxWidth:460, height:'100%', overflow:'auto', boxShadow:'-4px 0 30px rgba(0,0,0,.2)' }}>
+                <div style={{ background:'linear-gradient(135deg,#5B6472,#3a4048)', color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:15 }}>{maintSelected.titre}</div>
+                    <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{maintSelected.residence} · {maintSelected.categorie} · 🔒 Clôturé</div>
+                  </div>
+                  <button onClick={()=>setMaintSelected(null)}
+                    style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+                </div>
+
+                <div style={{ padding:16 }}>
+                  {maintSelLoading && <div style={{textAlign:'center',color:'var(--text-dim)',padding:20}}>⏳ Chargement du rapport...</div>}
+
+                  <div style={{ background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION DE L'INCIDENT</div>
+                    <div style={{ fontSize:13 }}>{maintSelected.description || '—'}</div>
+                  </div>
+
+                  {maintSelected.commentaire_resolution && (
+                    <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:10, padding:12, marginBottom:12 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#16a34a', marginBottom:4 }}>✅ RAPPORT D'INTERVENTION / RÉSOLUTION</div>
+                      <div style={{ fontSize:13 }}>{maintSelected.commentaire_resolution}</div>
+                      {maintSelected.date_resolution && <div style={{fontSize:11,color:'var(--text-dim)',marginTop:6}}>Résolu le {new Date(maintSelected.date_resolution).toLocaleString('fr-FR')}</div>}
+                    </div>
+                  )}
+
+                  {maintSelected.commentaire_cloture && (
+                    <div style={{ background:'rgba(91,100,114,.06)', border:'1px solid rgba(91,100,114,.2)', borderRadius:10, padding:12, marginBottom:12 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#5B6472', marginBottom:4 }}>🔒 COMMENTAIRE DE CLÔTURE</div>
+                      <div style={{ fontSize:13 }}>{maintSelected.commentaire_cloture}</div>
+                      {maintSelected.date_cloture && <div style={{fontSize:11,color:'var(--text-dim)',marginTop:6}}>Clôturé le {new Date(maintSelected.date_cloture).toLocaleString('fr-FR')}</div>}
+                    </div>
+                  )}
+
+                  {!maintSelLoading && !maintSelected.commentaire_resolution && !maintSelected.commentaire_cloture && (
+                    <div style={{fontSize:12,color:'var(--text-dim)',fontStyle:'italic',marginBottom:12}}>Aucun rapport d'intervention renseigné pour ce dossier.</div>
+                  )}
+
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:12 }}>
+                    <div><span style={{color:'var(--text-dim)'}}>Priorité :</span> <b>{maintSelected.priorite || '—'}</b></div>
+                    <div><span style={{color:'var(--text-dim)'}}>Créé le :</span> <b>{maintSelected.date_creation ? new Date(maintSelected.date_creation).toLocaleDateString('fr-FR') : '—'}</b></div>
+                    <div><span style={{color:'var(--text-dim)'}}>Déclaré par :</span> <b>{maintSelected.auteur_nom || '—'}</b></div>
+                    <div><span style={{color:'var(--text-dim)'}}>Assigné à :</span> <b>{maintSelected.assigne_nom || '—'}</b></div>
+                  </div>
+
+                  {maintSelected.commentaires?.length > 0 && (
+                    <div style={{ marginTop:16 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:8 }}>💬 HISTORIQUE DES COMMENTAIRES</div>
+                      {maintSelected.commentaires.map((c,i)=>(
+                        <div key={i} style={{ background:'#f8fafc', borderRadius:8, padding:10, marginBottom:6, fontSize:12 }}>
+                          <div style={{ fontWeight:600, marginBottom:2 }}>{c.auteur_nom || c.auteur || '—'}</div>
+                          <div>{c.texte || c.commentaire || c.contenu}</div>
+                          {c.date && <div style={{fontSize:10,color:'var(--text-dim)',marginTop:4}}>{new Date(c.date).toLocaleString('fr-FR')}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
