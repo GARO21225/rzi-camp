@@ -31,6 +31,7 @@ const InductionPage = lazy(() => import('./pages/InductionPage'))
 const InductionAdmin = lazy(() => import('./pages/InductionAdmin'))
 const WorkflowHub = lazy(() => import('./pages/WorkflowHub'))
 const BoutiquePOS = lazy(() => import('./pages/BoutiquePOS'))
+const Parametrage = lazy(() => import('./pages/Parametrage'))
 import Presences   from './pages/Presences'
 
 const Demandes = lazy(() => import('./pages/Demandes'))
@@ -194,6 +195,7 @@ export default function App() {
           <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
           <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Boutique /></Suspense>} />
           <Route path="mon-compte" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><MonCompte /></Suspense>} />
+          <Route path="parametrage" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Parametrage /></Suspense>} />
           <Route path="status"     element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><StatusPage /></Suspense>} />
           <Route path="presences"  element={<Presences />} />
           <Route path="rapports" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳</div>}><RapportsPage /></Suspense>} />

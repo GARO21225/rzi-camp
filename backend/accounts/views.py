@@ -4,6 +4,55 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 from .serializers import UserSerializer
+from .models import Parametre
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def liste_parametres(request):
+    """Liste tous les paramètres. Lecture ouverte à tout utilisateur connecté
+    (certains, comme la société par défaut, sont utilisés par des formulaires
+    non-admin) ; seule l'écriture est réservée aux administrateurs."""
+    defauts = {
+        'sla_critique_h': ('2',  'Délai SLA — priorité Critique (heures)'),
+        'sla_haute_h':    ('8',  'Délai SLA — priorité Haute (heures)'),
+        'sla_moyenne_h':  ('24', 'Délai SLA — priorité Moyenne (heures)'),
+        'sla_basse_h':    ('72', 'Délai SLA — priorité Basse (heures)'),
+        'societe_defaut': ('ROXGOLD', 'Société par défaut (personnel Employé Roxgold)'),
+        'nom_camp':       ('Roxgold Sango', 'Nom du camp affiché dans l\'application'),
+    }
+    existants = {p.cle: p for p in Parametre.objects.all()}
+    out = []
+    for cle, (defaut, desc) in defauts.items():
+        p = existants.get(cle)
+        out.append({
+            'cle': cle,
+            'valeur': p.valeur if p else defaut,
+            'description': p.description if p else desc,
+        })
+    # Inclure aussi tout paramètre custom non listé ci-dessus
+    for cle, p in existants.items():
+        if cle not in defauts:
+            out.append({'cle': p.cle, 'valeur': p.valeur, 'description': p.description})
+    return Response(out)
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def sauver_parametres(request):
+    """Sauvegarde en masse : {"parametres": [{"cle":..., "valeur":..., "description":...}, ...]}"""
+    items = request.data.get('parametres', [])
+    if not isinstance(items, list):
+        return Response({'error': 'Format invalide : "parametres" doit être une liste'}, status=400)
+    saved = 0
+    for it in items:
+        cle = (it.get('cle') or '').strip()
+        if not cle:
+            continue
+        Parametre.objects.update_or_create(
+            cle=cle,
+            defaults={'valeur': it.get('valeur', ''), 'description': it.get('description', '')}
+        )
+        saved += 1
+    return Response({'ok': True, 'message': f'{saved} paramètre(s) enregistré(s)'})
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

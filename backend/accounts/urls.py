@@ -14,6 +14,8 @@ urlpatterns = [
     path("admin/users/<int:user_id>/toggle-active/", toggle_user_active),
     path("admin/users/<int:user_id>/delete/", delete_user),
     path("admin/users/<int:user_id>/role/", assigner_role),
+    path("parametres/", views.liste_parametres, name="liste_parametres"),
+    path("parametres/sauver/", views.sauver_parametres, name="sauver_parametres"),
 ]
 
 urlpatterns += [path('ping/', ping, name='ping')]

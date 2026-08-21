@@ -70,7 +70,11 @@ export function useOffline() {
     window.addEventListener('offline', goOffline)
     window.addEventListener('online', goOnline)
 
-    // Vérifier toutes les 30 secondes
+    // Vérification immédiate au montage (ne pas attendre 30s et rester
+    // bloqué sur le "!navigator.onLine" initial, peu fiable sur ce réseau)
+    checkBackend()
+
+    // Puis vérifier toutes les 30 secondes
     const interval = setInterval(checkBackend, 30000)
 
     return () => {

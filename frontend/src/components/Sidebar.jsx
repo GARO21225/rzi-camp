@@ -73,6 +73,12 @@ const NAV_GROUPS = [
       { to: '/operations',  label: 'Centre Op.',  icon: '🖥️' },
     ],
   },
+  {
+    label: 'SYSTÈME',
+    items: [
+      { to: '/parametrage', label: 'Paramétrage', icon: '⚙️' },
+    ],
+  },
 ]
 
 // Palette ROXGOLD INDUSTRIAL — design v11

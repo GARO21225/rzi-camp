@@ -224,6 +224,12 @@ export const adminApi = {
   assignRole: (id, role) => api.post(`/api/admin/users/${id}/role/`, {role}),
 }
 
+// ── Paramétrage ──
+export const parametres = {
+  list: () => api.get('/api/parametres/'),
+  save: (parametres) => api.post('/api/parametres/sauver/', { parametres }),
+}
+
 // ── Mot de passe ──
 export const password = {
   change: (d) => api.post('/api/change-password/', d),

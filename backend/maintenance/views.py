@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
 from django.contrib.auth.models import User
-from .models import Incident, CommentaireIncident, SLA_HEURES
+from .models import Incident, CommentaireIncident, SLA_HEURES, get_sla_heures
 from .serializers import IncidentSerializer, CommentaireSerializer
 from django.db.models import Q, Count
 
@@ -212,7 +212,7 @@ def declarer_incident(request):
         return Response({'detail': 'Résidence requise'}, status=400)
 
     now = tz.now()
-    sla_map = {'critique': 2, 'haute': 8, 'moyenne': 24, 'basse': 72}
+    sla_map = get_sla_heures()
     priorite = data.get('priorite', 'moyenne')
     categorie = data.get('categorie', 'Autre')
     bloc = data.get('bloc', '')
@@ -367,7 +367,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
         # Toujours utiliser INSERT SQL direct pour éviter les erreurs ORM/historique
         now = tz.now()
-        sla_map = {'critique': 2, 'haute': 8, 'moyenne': 24, 'basse': 72}
+        sla_map = get_sla_heures()
         priorite = data.get('priorite', 'moyenne')
         sla_h = sla_map.get(priorite, 24)
         sla_echeance = now + tz.timedelta(hours=sla_h)
@@ -496,7 +496,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Déjà au niveau critique'}, status=400)
 
         incident.priorite     = nouvelle
-        heures                = SLA_HEURES[nouvelle]
+        heures                = get_sla_heures()[nouvelle]
         incident.sla_echeance = timezone.now() + timezone.timedelta(hours=heures)
         incident.save()
 

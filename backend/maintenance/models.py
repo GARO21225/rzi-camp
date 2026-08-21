@@ -4,13 +4,29 @@ from simple_history.models import HistoricalRecords
 from django.utils import timezone
 import base64
 
-# ── SLA par priorité (heures) ────────────────────────────────────
+# ── SLA par priorité (heures) — valeurs par défaut, surchageables
+# depuis la page Paramétrage (accounts.Parametre : sla_critique_h, etc.) ──
 SLA_HEURES = {
     'critique': 2,
     'haute':    8,
     'moyenne':  24,
     'basse':    72,
 }
+
+def get_sla_heures():
+    """Renvoie le dict SLA_HEURES, surchargé par les valeurs enregistrées
+    dans Paramétrage si présentes. Repli silencieux sur les défauts en cas
+    d'erreur (ex: table Parametre pas encore migrée)."""
+    try:
+        from accounts.models import Parametre
+        return {
+            'critique': Parametre.get_int('sla_critique_h', SLA_HEURES['critique']),
+            'haute':    Parametre.get_int('sla_haute_h',    SLA_HEURES['haute']),
+            'moyenne':  Parametre.get_int('sla_moyenne_h',  SLA_HEURES['moyenne']),
+            'basse':    Parametre.get_int('sla_basse_h',    SLA_HEURES['basse']),
+        }
+    except Exception:
+        return dict(SLA_HEURES)
 
 class Incident(models.Model):
     PRIORITE = [
@@ -90,7 +106,7 @@ class Incident(models.Model):
     def save(self, *args, **kwargs):
         # Calculer SLA à la création
         if not self.pk and not self.sla_echeance:
-            heures = SLA_HEURES.get(self.priorite, 24)
+            heures = get_sla_heures().get(self.priorite, 24)
             self.sla_echeance = timezone.now() + timezone.timedelta(hours=heures)
         # Vérifier dépassement SLA
         if self.sla_echeance and self.statut not in ('resolu', 'cloture', 'annule'):

@@ -294,8 +294,61 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Audit Trail unifié : la table AuditLog n'est alimentée par aucun code
+    (bug d'origine — page toujours vide). La vraie traçabilité existe déjà
+    via django-simple-history sur Personnel, Incidents, Résidences, Repas
+    et Événements : on agrège leurs historiques en un flux unique.
+    """
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
+
+    TYPE_LABEL = {'+': 'Création', '~': 'Modification', '-': 'Suppression'}
+
+    def _rows_for(self, model, module, display_fn):
+        rows = []
+        try:
+            qs = model.history.select_related('history_user').order_by('-history_date')[:300]
+            for h in qs:
+                user = h.history_user
+                rows.append({
+                    'id': f'{module}-{h.history_id}',
+                    'timestamp': h.history_date,
+                    'utilisateur_nom': (user.get_full_name() or user.username) if user else 'Système',
+                    'action': self.TYPE_LABEL.get(h.history_type, h.history_type),
+                    'module': module,
+                    'detail': display_fn(h),
+                    'ip': None,
+                })
+        except Exception:
+            pass
+        return rows
+
+    def list(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+        from residences.models import Personnel
+        from maintenance.models import Incident
+        from restauration.models import RepasLog
+        from evenements.models import Evenement
+
+        rows = []
+        rows += self._rows_for(Personnel, 'Personnel', lambda h: f'{h.nom} {h.prenom} ({h.societe})')
+        rows += self._rows_for(Incident, 'Maintenance', lambda h: f'{h.titre} — {h.statut}')
+        rows += self._rows_for(RepasLog, 'Restauration', lambda h: f'Repas #{h.id}')
+        rows += self._rows_for(Evenement, 'Événements', lambda h: getattr(h, 'titre', f'Événement #{h.id}'))
+
+        rows.sort(key=lambda r: r['timestamp'], reverse=True)
+
+        try:
+            page_size = min(int(request.query_params.get('page_size', 50)), 2000)
+        except (TypeError, ValueError):
+            page_size = 50
+
+        module = request.query_params.get('module')
+        if module:
+            rows = [r for r in rows if r['module'] == module]
+
+        return Response({'count': len(rows), 'results': rows[:page_size]})
 
 # ── Bar & Boutique ──────────────────────────────────────────────────
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse

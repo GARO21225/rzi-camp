@@ -65,6 +65,63 @@ export default function Historique() {
     finally { setMaintSelLoading(false) }
   }
 
+  const imprimerRapport = (inc) => {
+    if (!inc) return
+    const fmt = (d) => d ? new Date(d).toLocaleString('fr-FR') : '—'
+    const w = window.open('', '_blank', 'width=800,height=900')
+    if (!w) return
+    w.document.write(`
+      <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+      <title>Rapport intervention — ${inc.titre||''}</title>
+      <style>
+        body{font-family:Arial,sans-serif;color:#1e293b;padding:32px;max-width:700px;margin:0 auto}
+        h1{font-size:20px;margin-bottom:4px}
+        .meta{color:#64748b;font-size:13px;margin-bottom:20px}
+        .bloc{border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:14px}
+        .bloc h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin:0 0 8px}
+        .bloc.reso{background:#f0fdf4;border-color:#bbf7d0}
+        .bloc.cloture{background:#f8fafc}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-top:14px}
+        .grid div span{color:#64748b}
+        .footer{margin-top:30px;font-size:11px;color:#94a3b8;text-align:center}
+        @media print{body{padding:0}}
+      </style></head>
+      <body>
+        <h1>${inc.titre||'Dossier de maintenance'}</h1>
+        <div class="meta">${inc.residence||''} · ${inc.categorie||''} · Priorité : ${inc.priorite||'—'} · Statut : Clôturé</div>
+
+        <div class="bloc">
+          <h3>Description de l'incident</h3>
+          <div>${(inc.description||'—').replace(/</g,'&lt;')}</div>
+        </div>
+
+        ${inc.commentaire_resolution ? `
+        <div class="bloc reso">
+          <h3>✅ Rapport d'intervention / Résolution</h3>
+          <div>${inc.commentaire_resolution.replace(/</g,'&lt;')}</div>
+          <div class="meta" style="margin-top:8px;margin-bottom:0">Résolu le ${fmt(inc.date_resolution)}</div>
+        </div>` : ''}
+
+        ${inc.commentaire_cloture ? `
+        <div class="bloc cloture">
+          <h3>🔒 Commentaire de clôture</h3>
+          <div>${inc.commentaire_cloture.replace(/</g,'&lt;')}</div>
+          <div class="meta" style="margin-top:8px;margin-bottom:0">Clôturé le ${fmt(inc.date_cloture)}</div>
+        </div>` : ''}
+
+        <div class="grid">
+          <div><span>Créé le :</span> <b>${fmt(inc.date_creation)}</b></div>
+          <div><span>Déclaré par :</span> <b>${inc.auteur_nom||'—'}</b></div>
+          <div><span>Assigné à :</span> <b>${inc.assigne_nom||'—'}</b></div>
+        </div>
+
+        <div class="footer">RZI Camp — Roxgold Sango — Imprimé le ${fmt(new Date())}</div>
+      </body></html>
+    `)
+    w.document.close()
+    w.onload = () => { w.focus(); w.print() }
+  }
+
   const maintFiltered = React.useMemo(() => {
     let f = maintData
     if (maintSearch) {
@@ -623,8 +680,13 @@ export default function Historique() {
                     <div style={{ fontWeight:700, fontSize:15 }}>{maintSelected.titre}</div>
                     <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{maintSelected.residence} · {maintSelected.categorie} · 🔒 Clôturé</div>
                   </div>
-                  <button onClick={()=>setMaintSelected(null)}
-                    style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+                  <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
+                    <button onClick={()=>imprimerRapport(maintSelected)}
+                      title="Imprimer le rapport"
+                      style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:14 }}>🖨️</button>
+                    <button onClick={()=>setMaintSelected(null)}
+                      style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+                  </div>
                 </div>
 
                 <div style={{ padding:16 }}>
