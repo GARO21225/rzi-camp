@@ -4,6 +4,7 @@ export const useStore = create((set, get) => ({
   user:  null,
   role:  null,
   token: localStorage.getItem('access_token'),
+  logoUrl: null, // data URI du logo custom (Paramétrage), null = logo par défaut
 
   setUser: (user) => {
     // Extraire le rôle depuis plusieurs sources possibles
@@ -19,6 +20,8 @@ export const useStore = create((set, get) => ({
     localStorage.setItem('access_token', token)
     set({ token })
   },
+
+  setLogoUrl: (logoUrl) => set({ logoUrl }),
 
   logout: () => {
     localStorage.clear()

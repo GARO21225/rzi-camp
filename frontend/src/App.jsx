@@ -37,6 +37,7 @@ import Presences   from './pages/Presences'
 const Demandes = lazy(() => import('./pages/Demandes'))
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
+import { useTheme } from './hooks/useTheme'
 
 // ── Enregistrement Service Worker (offline mode) ──────────────
 if ('serviceWorker' in navigator) {
@@ -161,6 +162,7 @@ function useKeepAlive() {
 
 export default function App() {
   const { token, setUser, logout } = useStore()
+  useTheme()
   useEffect(() => {
     if (token) {
       auth.me().then(r => {

@@ -161,7 +161,7 @@ function WelcomeToast({ user, onClose }) {
 
 export default function Layout() {
   useSessionGuard()
-  const { user, logout } = useStore()
+  const { user, logout, logoUrl } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [showWelcome, setShowWelcome] = useState(sessionStorage.getItem("just_logged_in") === "1")
@@ -244,7 +244,7 @@ export default function Layout() {
         </button>
 
         <div style={{ background: '#fff', borderRadius: 6, padding: '5px 10px', flexShrink: 0, height: 36, display: 'flex', alignItems: 'center' }}>
-          <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
+          <img src={logoUrl || "/roxgold-logo.png"} alt="Logo" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#A3A3A3', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
