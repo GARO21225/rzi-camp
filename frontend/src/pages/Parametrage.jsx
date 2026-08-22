@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { parametres as paramAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
+import InductionAdmin from './InductionAdmin'
 
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
@@ -17,7 +18,6 @@ const CHAMPS = [
 ]
 
 const LIENS_RAPIDES = [
-  { to: '/induction-admin', label: 'Contenu Induction QHSE', icon: '🎓', desc: 'Modules, quiz, séquence d\'accueil' },
   { to: '/boutique',        label: 'Menu du jour & Boutique', icon: '🍽️', desc: 'Articles, prix, stock' },
   { to: '/mon-compte',      label: 'Mon compte', icon: '👤', desc: 'Mot de passe, informations personnelles' },
 ]
@@ -26,6 +26,7 @@ const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
+  ['induction',  '🎓 Induction QHSE'],
 ]
 
 const inputStyle = (isAdmin) => ({
@@ -127,6 +128,12 @@ export default function Parametrage() {
 
       {tab === 'badges' && (
         <BadgesTab valeurs={valeurs} />
+      )}
+
+      {tab === 'induction' && (
+        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
+          <InductionAdmin />
+        </div>
       )}
     </div>
   )

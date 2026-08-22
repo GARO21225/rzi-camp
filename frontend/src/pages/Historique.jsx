@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI } from '../api'
+import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI } from '../api'
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -86,6 +86,9 @@ export default function Historique() {
         .photos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
         .photos img{width:100%;border-radius:8px;border:1px solid #e2e8f0}
         .photos div span{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px}
+        .commentaire{background:#f8fafc;border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;page-break-inside:avoid}
+        .com-head{font-size:11px;color:#64748b;margin-bottom:4px}
+        .com-photo{width:100%;max-width:220px;border-radius:6px;border:1px solid #e2e8f0;display:block;margin-top:6px}
         .footer{margin-top:30px;font-size:11px;color:#94a3b8;text-align:center}
         @media print{body{padding:0}}
       </style></head>
@@ -124,6 +127,18 @@ export default function Historique() {
           <div><span>Assigné à :</span> <b>${inc.assigne_nom||'—'}</b></div>
         </div>
 
+        ${(inc.commentaires && inc.commentaires.length > 0) ? `
+        <div class="bloc" style="margin-top:14px">
+          <h3>💬 Historique des commentaires</h3>
+          ${inc.commentaires.map(c => `
+            <div class="commentaire">
+              <div class="com-head"><b>${(c.auteur_nom||c.auteur||'—').toString().replace(/</g,'&lt;')}</b>${(c.date_creation||c.date) ? ` — ${fmt(c.date_creation||c.date)}` : ''}</div>
+              <div>${(c.contenu||c.texte||c.commentaire||'').toString().replace(/</g,'&lt;')}</div>
+              ${c.photo_base64 ? `<img class="com-photo" src="data:image/jpeg;base64,${c.photo_base64}"/>` : ''}
+            </div>
+          `).join('')}
+        </div>` : ''}
+
         <div class="footer">RZI Camp — Roxgold Sango — Imprimé le ${fmt(new Date())}</div>
       </body></html>
     `)
@@ -148,6 +163,33 @@ export default function Historique() {
       .then(r => setMaintData(r.data.results || r.data || []))
       .catch(() => setMaintData([]))
       .finally(() => setMaintLoading(false))
+  }
+
+  // ── Induction QHSE ──
+  const [inductionData, setInductionData] = useState([])
+  const [inductionLoading, setInductionLoading] = useState(false)
+  const [inductionSearch, setInductionSearch] = useState('')
+  const [inductionStatFilter, setInductionStatFilter] = useState('')
+
+  const inductionFiltered = React.useMemo(() => {
+    let f = inductionData
+    if (inductionSearch) {
+      const s = inductionSearch.toLowerCase()
+      f = f.filter(r => {
+        const p = r.personnel_detail || {}
+        return [p.nom, p.prenom, p.societe].some(v => (v||'').toLowerCase().includes(s))
+      })
+    }
+    if (inductionStatFilter) f = f.filter(r => r.statut === inductionStatFilter)
+    return f
+  }, [inductionData, inductionSearch, inductionStatFilter])
+
+  const loadInduction = () => {
+    setInductionLoading(true)
+    inductionAPI.list({ page_size: 2000 })
+      .then(r => setInductionData(r.data.results || r.data || []))
+      .catch(() => setInductionData([]))
+      .finally(() => setInductionLoading(false))
   }
 
   // Données filtrées côté client
@@ -282,6 +324,7 @@ export default function Historique() {
     ['ensemble','🌍 Tous les voyages'],
     ['repas','🍽️ Restaurant'],
     ['maintenance','🛠️ Maintenance (clôturés)'],
+    ['induction','🎓 Induction QHSE'],
   ]
 
   return (
@@ -294,7 +337,7 @@ export default function Historique() {
       {/* TABS */}
       <div style={{display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
         {TABS.map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance()}}
+          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='induction') loadInduction()}}
             style={{flex:1,padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
               background:tab===k?'#fff':'transparent',color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none',transition:'.2s'}}>
@@ -774,6 +817,74 @@ export default function Historique() {
                 </div>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab==='induction' && (
+        <div>
+          <SearchCard title="🎓 Historique des inductions QHSE" color="#0F2A5C">
+            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
+              <select value={inductionStatFilter} onChange={e=>setInductionStatFilter(e.target.value)}
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}}>
+                <option value="">Tous statuts</option>
+                <option value="en_cours">En cours</option>
+                <option value="valide">Validé — Induit</option>
+                <option value="refuse">Refusé</option>
+                <option value="expire">Expiré</option>
+              </select>
+
+              <input type="text" value={inductionSearch||''} onChange={e=>setInductionSearch(e.target.value)}
+                placeholder="🔍 Nom, société..."
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
+
+              <button onClick={loadInduction} disabled={inductionLoading}
+                style={{background:'#0F2A5C',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                {inductionLoading?'⏳ Recherche...':'🔍 Actualiser'}
+              </button>
+            </div>
+          </SearchCard>
+
+          {inductionFiltered.length > 0 ? (
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+              <div style={{padding:'10px 16px',background:'#0F2A5C',color:'#fff',fontWeight:600,fontSize:13}}>
+                🎓 {inductionFiltered.length}/{inductionData.length} induction(s)
+              </div>
+              <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr style={{background:'var(--surface2)'}}>
+                    {['Nom','Société','Statut','Progression','Score quiz','Débuté le','Terminé le','Badge'].map(h=>(
+                      <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {inductionFiltered.map((r,idx)=>{
+                      const p = r.personnel_detail || {}
+                      const statutStyle = {
+                        en_cours: {bg:'rgba(217,119,6,.12)',color:'#d97706',label:'En cours'},
+                        valide:   {bg:'rgba(22,163,74,.12)',color:'#16a34a',label:'Validé — Induit'},
+                        refuse:   {bg:'rgba(220,38,38,.12)',color:'#dc2626',label:'Refusé'},
+                        expire:   {bg:'rgba(100,116,139,.12)',color:'#64748b',label:'Expiré'},
+                      }[r.statut] || {bg:'rgba(100,116,139,.12)',color:'#64748b',label:r.statut}
+                      return (
+                        <tr key={r.id||idx} style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff'}}>
+                          <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{p.nom} {p.prenom}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{p.societe||'—'}</td>
+                          <td style={{padding:'9px 12px'}}><span style={{background:statutStyle.bg,color:statutStyle.color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700}}>{statutStyle.label}</span></td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:12}}>{r.progression ?? 0}%</td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:12}}>{r.quiz_score != null ? `${r.quiz_score}%` : '—'}</td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{r.date_debut ? new Date(r.date_debut).toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{r.date_fin ? new Date(r.date_fin).toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12}}>{r.badge_emis ? '✅' : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon="🎓" text={inductionLoading ? "Chargement..." : "Aucune induction enregistrée."}/>
           )}
         </div>
       )}
