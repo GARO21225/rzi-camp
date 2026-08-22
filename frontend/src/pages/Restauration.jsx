@@ -64,7 +64,7 @@ async function apiGetHistorique(type_repas, jours = 7) {
 async function apiGetStats() {
   try {
     // Appel direct API avec filtre date côté backend
-    const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
     const token = localStorage.getItem('access_token') || ''
     const today = new Date().toISOString().slice(0, 10)
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-6)

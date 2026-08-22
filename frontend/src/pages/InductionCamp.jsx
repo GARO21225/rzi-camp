@@ -71,7 +71,7 @@ function Particle({ x, y, color, size, delay }) {
 // ─────────────────────────────────────────────
 export default function InductionCamp() {
   const { user } = useStore()
-  const BASE = import.meta.env.VITE_API_URL || 'http://204.168.229.74:8001'
+  const BASE = import.meta.env.VITE_API_URL || window.location.origin
   const tok  = () => localStorage.getItem('access_token') || ''
 
   // Vérification induction existante

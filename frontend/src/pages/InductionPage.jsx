@@ -481,7 +481,7 @@ function InductionPageInner() {
 
   // Charger le personnel par profil pour les assignations
   useEffect(() => {
-    const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
     const token = localStorage.getItem('access_token') || ''
     fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
       .then(r=>r.json()).then(d=>{
@@ -1007,7 +1007,7 @@ function InductionPageInner() {
                     ev.stopPropagation()
                     if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
-                      const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+                      const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
                       const token = localStorage.getItem('access_token') || ''
                       const recId = p.inductionrecord?.id || p.induction_record_id
 

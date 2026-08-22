@@ -44,6 +44,9 @@ const ROLE_NAV = {
     { to:'/audit', label:'🔍 Audit' },
     { to:'/assistant', label:'🤖 Assistant IA' },
     { to:'/status', label:'🔧 Diagnostic' },
+    // ── Système
+    { group:'Système' },
+    { to:'/parametrage', label:'⚙️ Paramétrage' },
   ],
   agent: [
     { to:'/mon-compte', label:'👤 Mon compte' },

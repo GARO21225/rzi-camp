@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://204.168.229.74:8001'
+const BASE = import.meta.env.VITE_API_URL || window.location.origin
 const hdrs = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}` })
 const j = r => r.json()
 

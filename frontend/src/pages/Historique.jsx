@@ -83,12 +83,21 @@ export default function Historique() {
         .bloc.cloture{background:#f8fafc}
         .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-top:14px}
         .grid div span{color:#64748b}
+        .photos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+        .photos img{width:100%;border-radius:8px;border:1px solid #e2e8f0}
+        .photos div span{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px}
         .footer{margin-top:30px;font-size:11px;color:#94a3b8;text-align:center}
         @media print{body{padding:0}}
       </style></head>
       <body>
         <h1>${inc.titre||'Dossier de maintenance'}</h1>
         <div class="meta">${inc.residence||''} · ${inc.categorie||''} · Priorité : ${inc.priorite||'—'} · Statut : Clôturé</div>
+
+        ${(inc.photo_base64 || inc.photo_resolution_base64) ? `
+        <div class="photos">
+          ${inc.photo_base64 ? `<div><span>📷 Photo avant</span><img src="data:${inc.photo_mime||'image/jpeg'};base64,${inc.photo_base64}"/></div>` : ''}
+          ${inc.photo_resolution_base64 ? `<div><span>📷 Photo après</span><img src="data:image/jpeg;base64,${inc.photo_resolution_base64}"/></div>` : ''}
+        </div>` : ''}
 
         <div class="bloc">
           <h3>Description de l'incident</h3>
@@ -697,6 +706,27 @@ export default function Historique() {
                     <div style={{ fontSize:13 }}>{maintSelected.description || '—'}</div>
                   </div>
 
+                  {(maintSelected.photo_base64 || maintSelected.photo_resolution_base64) && (
+                    <div style={{ display:'grid', gridTemplateColumns: (maintSelected.photo_base64 && maintSelected.photo_resolution_base64) ? '1fr 1fr' : '1fr', gap:10, marginBottom:12 }}>
+                      {maintSelected.photo_base64 && (
+                        <div>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#64748b', marginBottom:4 }}>📷 PHOTO AVANT</div>
+                          <img src={`data:${maintSelected.photo_mime||'image/jpeg'};base64,${maintSelected.photo_base64}`}
+                            style={{ width:'100%', borderRadius:8, border:'1px solid #e2e8f0', display:'block' }}
+                            alt="Photo avant intervention" />
+                        </div>
+                      )}
+                      {maintSelected.photo_resolution_base64 && (
+                        <div>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#16a34a', marginBottom:4 }}>📷 PHOTO APRÈS</div>
+                          <img src={`data:image/jpeg;base64,${maintSelected.photo_resolution_base64}`}
+                            style={{ width:'100%', borderRadius:8, border:'1px solid #bbf7d0', display:'block' }}
+                            alt="Photo après intervention" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {maintSelected.commentaire_resolution && (
                     <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:10, padding:12, marginBottom:12 }}>
                       <div style={{ fontSize:11, fontWeight:700, color:'#16a34a', marginBottom:4 }}>✅ RAPPORT D'INTERVENTION / RÉSOLUTION</div>
@@ -730,8 +760,13 @@ export default function Historique() {
                       {maintSelected.commentaires.map((c,i)=>(
                         <div key={i} style={{ background:'#f8fafc', borderRadius:8, padding:10, marginBottom:6, fontSize:12 }}>
                           <div style={{ fontWeight:600, marginBottom:2 }}>{c.auteur_nom || c.auteur || '—'}</div>
-                          <div>{c.texte || c.commentaire || c.contenu}</div>
-                          {c.date && <div style={{fontSize:10,color:'var(--text-dim)',marginTop:4}}>{new Date(c.date).toLocaleString('fr-FR')}</div>}
+                          <div>{c.contenu || c.texte || c.commentaire}</div>
+                          {c.photo_base64 && (
+                            <img src={`data:image/jpeg;base64,${c.photo_base64}`}
+                              style={{ width:'100%', maxWidth:200, borderRadius:6, border:'1px solid #e2e8f0', display:'block', marginTop:6 }}
+                              alt="Photo jointe au commentaire" />
+                          )}
+                          {(c.date_creation || c.date) && <div style={{fontSize:10,color:'var(--text-dim)',marginTop:4}}>{new Date(c.date_creation || c.date).toLocaleString('fr-FR')}</div>}
                         </div>
                       ))}
                     </div>

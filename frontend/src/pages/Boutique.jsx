@@ -942,7 +942,7 @@ export default function Boutique() {
     setSubmitting(true)
     setMsg({type:'info',text:'⏳ Traitement...'})
     setShowPayModal(false)
-    const BASE = (import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001')
+    const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin)
     const token = localStorage.getItem('access_token')||''
     let allOk = true, lastError = ''
     const doPost = (body) => new Promise((resolve, reject) => {
@@ -1622,7 +1622,7 @@ export default function Boutique() {
                     if(!cols[idxNom]) continue
                     try {
                       const tok = localStorage.getItem('access_token')||''
-                      const BASE2 = import.meta.env.VITE_API_URL||'http://204.168.229.74:8001'
+                      const BASE2 = import.meta.env.VITE_API_URL || window.location.origin
                       await fetch(`${BASE2}/api/boutique/articles/`,{
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':`Bearer ${tok}`},

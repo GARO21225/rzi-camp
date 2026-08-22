@@ -123,7 +123,7 @@ export default function Personnel() {
   }
 
   const massChangerRole = async (action) => {
-    const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
     const token = localStorage.getItem('access_token') || ''
     const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${token}`}
     
@@ -473,8 +473,7 @@ export default function Personnel() {
         console.log('IMPORT PERSONNEL — payload:', rows)
 
         const BASE = (
-          import.meta?.env?.VITE_API_URL ||
-          'http://204.168.229.74:8001'
+          import.meta?.env?.VITE_API_URL || window.location.origin
         ).replace(/\/+$/, '')
 
         const token = localStorage.getItem('access_token') || ''
@@ -760,7 +759,7 @@ export default function Personnel() {
                             {p.actif ? '🔒' : '🔓'}
                           </button>
                           <button onClick={async()=>{
-                              const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+                              const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
                               const token = localStorage.getItem('access_token') || ''
                               // Toggle: false si actuellement true (ou undefined), true si false
                               const curVal = p.induction_requise !== false

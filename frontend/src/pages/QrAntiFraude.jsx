@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
 
-const BASE = import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001'
+const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 
 function generateToken() {
   // Token rotatif 30s (placeholder — la vraie génération est côté backend)

@@ -102,7 +102,7 @@ export default function BoutiquePOS() {
     setSubmitting(true)
     setMsg({ type: 'info', text: '⏳ Traitement...' })
     
-    const BASE = (import.meta?.env?.VITE_API_URL || 'http://204.168.229.74:8001')
+    const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin)
     const token = localStorage.getItem('access_token') || ''
     
     let allOk = true
