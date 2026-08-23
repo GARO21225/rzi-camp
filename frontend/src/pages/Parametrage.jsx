@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { parametres as paramAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
+import Boutique from './Boutique'
 
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
@@ -27,6 +28,7 @@ const TABS = [
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
   ['induction',  '🎓 Induction QHSE'],
+  ['catalogue',  '📦 Catalogue Boutique'],
 ]
 
 const inputStyle = (isAdmin) => ({
@@ -133,6 +135,12 @@ export default function Parametrage() {
       {tab === 'induction' && (
         <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
           <InductionAdmin />
+        </div>
+      )}
+
+      {tab === 'catalogue' && (
+        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
+          <Boutique embedded />
         </div>
       )}
     </div>

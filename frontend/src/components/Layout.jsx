@@ -173,7 +173,7 @@ export default function Layout() {
   }, [showWelcome])
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
-  const { isOffline, syncMsg } = useOffline()
+  const { isOffline, syncMsg, retry } = useOffline()
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
@@ -208,8 +208,12 @@ export default function Layout() {
       {isOffline && (
         <div style={{background:'#f59e0b',color:'#1c1917',padding:'8px 16px',
           textAlign:'center',fontSize:13,fontWeight:700,zIndex:9999,
-          display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
           📵 Vous êtes hors ligne — Les modifications seront synchronisées au retour de la connexion
+          <button onClick={retry} style={{background:'rgba(0,0,0,.15)',border:'none',color:'#1c1917',
+            padding:'3px 10px',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:700}}>
+            🔄 Réessayer
+          </button>
         </div>
       )}
       {syncMsg && !isOffline && (
@@ -231,9 +235,10 @@ export default function Layout() {
         background: '#0A0A0A',
         borderBottom: '3px solid #FFD400',
         display: 'flex', alignItems: 'center',
-        padding: '0 16px', gap: 12,
+        padding: '0 16px', gap: isMobile ? 6 : 12,
         flexShrink: 0, zIndex: 500,
         boxShadow: '0 1px 0 rgba(255,212,0,.15)',
+        overflow: 'hidden', maxWidth: '100vw',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
           style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
@@ -246,12 +251,15 @@ export default function Layout() {
           <img src={logoUrl || "/roxgold-logo.png"} alt="Logo" style={{ height: 26, objectFit: "contain", display: 'block' }}/>
         </div>
 
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#A3A3A3', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        {!isMobile && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#A3A3A3', letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
           RÉSIDENCE <span style={{ color: '#FFD400' }}>ROXGOLD SANGO</span>
         </div>
+        )}
 
         {/* ── Recherche globale ── */}
         {!isMobile && <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}><GlobalSearch /></div>}
+        {isMobile && <div style={{ flex: 1 }} />}
 
         {alertes.length > 0 && !isMobile && (
           <div style={{ background: 'rgba(220,38,38,.18)', border: '1px solid rgba(220,38,38,.35)', borderRadius: 6, padding: '5px 10px', fontSize: 11, color: '#fca5a5', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
@@ -286,12 +294,14 @@ export default function Layout() {
       {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
         </div>
 
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '3px 10px 3px 3px', background: 'rgba(255,255,255,.06)', borderRadius: 99, cursor: 'pointer', transition: 'all 150ms' }}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: isMobile ? 3 : '3px 10px 3px 3px', background: 'rgba(255,255,255,.06)', borderRadius: 99, cursor: 'pointer', transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.12)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}>
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}
+          title={`${user?.first_name||''} ${user?.last_name||''} — ${ROLE_LABELS[role] || role}`}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FFD400', color: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>
             {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
           </div>
+          {!isMobile && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ color: '#111827', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(user?.first_name && user?.last_name) ? `${user.first_name}` : user?.username || ''}
@@ -300,13 +310,15 @@ export default function Layout() {
               {ROLE_LABELS[role] || role}
             </span>
           </div>
+          )}
         </div>
 
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#1a1a1a', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#1a1a1a', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}>
-          ⎋ Déconnexion
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
+          title="Déconnexion">
+          {isMobile ? '⎋' : '⎋ Déconnexion'}
         </button>
 
       </header>

@@ -299,6 +299,50 @@ export default function Historique() {
     URL.revokeObjectURL(url)
   }
 
+  const telechargerCSV = (headers, rows, filename) => {
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportMaintenanceCSV = () => {
+    if (!maintFiltered.length) return
+    telechargerCSV(
+      ['Titre','Catégorie','Résidence','Priorité','Créé le','Clôturé le'],
+      maintFiltered.map(i => [
+        i.titre || '', i.categorie || '', i.residence || '', i.priorite || '',
+        i.date_creation ? new Date(i.date_creation).toLocaleDateString('fr-FR') : '',
+        i.date_cloture ? new Date(i.date_cloture).toLocaleDateString('fr-FR') : '',
+      ]),
+      `maintenance_clotures_${new Date().toISOString().slice(0,10)}.csv`
+    )
+  }
+
+  const exportInductionCSV = () => {
+    if (!inductionFiltered.length) return
+    const STATUT_LABEL = { en_cours:'En cours', valide:'Validé — Induit', refuse:'Refusé', expire:'Expiré' }
+    telechargerCSV(
+      ['Nom','Société','Statut','Progression (%)','Score quiz (%)','Débuté le','Terminé le','Badge émis'],
+      inductionFiltered.map(r => {
+        const p = r.personnel_detail || {}
+        return [
+          `${p.nom||''} ${p.prenom||''}`.trim(), p.societe || '',
+          STATUT_LABEL[r.statut] || r.statut || '',
+          r.progression ?? 0, r.quiz_score ?? '',
+          r.date_debut ? new Date(r.date_debut).toLocaleDateString('fr-FR') : '',
+          r.date_fin ? new Date(r.date_fin).toLocaleDateString('fr-FR') : '',
+          r.badge_emis ? 'Oui' : 'Non',
+        ]
+      }),
+      `induction_qhse_${new Date().toISOString().slice(0,10)}.csv`
+    )
+  }
+
   const loadRepas = async () => {
     setRepasLoading(true)
     try {
@@ -677,6 +721,13 @@ export default function Historique() {
                   ✕ Reset
                 </button>
               )}
+
+              {maintFiltered.length > 0 && (
+                <button onClick={exportMaintenanceCSV}
+                  style={{background:'rgba(22,163,74,.1)',color:'#16a34a',border:'1px solid rgba(22,163,74,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  ⬇ Export CSV ({maintFiltered.length})
+                </button>
+              )}
             </div>
           </SearchCard>
 
@@ -842,6 +893,13 @@ export default function Historique() {
                 style={{background:'#0F2A5C',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
                 {inductionLoading?'⏳ Recherche...':'🔍 Actualiser'}
               </button>
+
+              {inductionFiltered.length > 0 && (
+                <button onClick={exportInductionCSV}
+                  style={{background:'rgba(22,163,74,.1)',color:'#16a34a',border:'1px solid rgba(22,163,74,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  ⬇ Export CSV ({inductionFiltered.length})
+                </button>
+              )}
             </div>
           </SearchCard>
 

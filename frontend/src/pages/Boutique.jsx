@@ -794,7 +794,7 @@ function ArticleCard({ a, qty, onAdd }) {
 }
 
 // ════════════════════════════════════════════════════════════
-export default function Boutique() {
+export default function Boutique({ embedded = false } = {}) {
   const {user} = useStore()
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [stockFilter,           setStockFilter]          = useState('')
@@ -819,7 +819,7 @@ export default function Boutique() {
   const [personnel,  setPersonnel]  = useState([])
   const [statsJour,  setStatsJour]  = useState(null)
   const [loading,    setLoading]    = useState(true)
-  const [tab,        setTab]        = useState('caisse')
+  const [tab,        setTab]        = useState(embedded ? 'catalogue' : 'caisse')
   const [catFilter,  setCatFilter]  = useState('')
   const [search,     setSearch]     = useState('')
   const [agentId,    setAgentId]    = useState('')
@@ -1030,6 +1030,7 @@ export default function Boutique() {
     <div style={{padding:20,background:'var(--rzc-charcoal)',minHeight:'100dvh'}}>
 
       {/* HEADER */}
+      {!embedded && (
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:10}}>
         <div>
           <h2 style={{fontSize:22,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>🛒 Bar & Boutique</h2>
@@ -1052,9 +1053,25 @@ export default function Boutique() {
           </div>
         )}
       </div>
+      )}
+
+      {embedded && isAdmin && (
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginBottom:14}}>
+          <button onClick={()=>setReorganize(!reorganize)}
+            style={{background:reorganize?'#7c3aed':'#f5f3ff',color:reorganize?'var(--rzc-white)':'#7c3aed',
+              border:`2px solid ${reorganize?'#7c3aed':'#c4b5fd'}`,padding:'9px 16px',borderRadius:10,
+              cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+            {reorganize ? '✅ Terminer' : '↔️ Réorganiser'}
+          </button>
+          <button onClick={()=>{setEditArt(null);setArtModal(true)}}
+            style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:'10px 20px',borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+            ➕ Nouvel article
+          </button>
+        </div>
+      )}
 
       {/* STATS */}
-      {statsJour&&statsJour.total>0&&(
+      {!embedded && statsJour&&statsJour.total>0&&(
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
           {[['🛒 Ventes',statsJour.total,'var(--rzc-navy)'],
             ['💰 CA',`${(statsJour.montant||0).toLocaleString()} FCFA`,'#16a34a'],
@@ -1086,11 +1103,11 @@ export default function Boutique() {
       )}
 
       {/* TABS */}
+      {!embedded && (
       <div style={{display:'flex',borderBottom:'2px solid #e2e8f0',marginBottom:16,flexWrap:'wrap'}}>
         {[
           ['caisse','🛒 Caisse'],
           ['historique','📋 Historique'],
-          ['catalogue','📦 Catalogue'],
           ...(isAdmin ? [['stock','📊 Gestion Stock'],['analyses','📈 Analyses'],['bons','🎫 Bons de Caisse']] : [])
         ].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
@@ -1101,6 +1118,7 @@ export default function Boutique() {
           </button>
         ))}
       </div>
+      )}
 
       {/* ══ CAISSE ══ */}
       {tab==='caisse'&&(
