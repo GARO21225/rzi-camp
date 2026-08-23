@@ -68,11 +68,16 @@ export default function Historique() {
   const imprimerRapport = (inc) => {
     if (!inc) return
     const fmt = (d) => d ? new Date(d).toLocaleString('fr-FR') : '—'
+    // SECURITE : tout champ texte injecté dans ce HTML doit être échappé —
+    // un titre/commentaire d'incident est saisi par n'importe quel employé,
+    // pas seulement des admins. Sans ça, un "<script>" dans un champ
+    // s'exécuterait dans la fenêtre d'impression.
+    const esc = (v) => (v ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     const w = window.open('', '_blank', 'width=800,height=900')
     if (!w) return
     w.document.write(`
       <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-      <title>Rapport intervention — ${inc.titre||''}</title>
+      <title>Rapport intervention — ${esc(inc.titre)}</title>
       <style>
         body{font-family:Arial,sans-serif;color:#1e293b;padding:32px;max-width:700px;margin:0 auto}
         h1{font-size:20px;margin-bottom:4px}
@@ -93,38 +98,38 @@ export default function Historique() {
         @media print{body{padding:0}}
       </style></head>
       <body>
-        <h1>${inc.titre||'Dossier de maintenance'}</h1>
-        <div class="meta">${inc.residence||''} · ${inc.categorie||''} · Priorité : ${inc.priorite||'—'} · Statut : Clôturé</div>
+        <h1>${esc(inc.titre) || 'Dossier de maintenance'}</h1>
+        <div class="meta">${esc(inc.residence)} · ${esc(inc.categorie)} · Priorité : ${esc(inc.priorite) || '—'} · Statut : Clôturé</div>
 
         ${(inc.photo_base64 || inc.photo_resolution_base64) ? `
         <div class="photos">
-          ${inc.photo_base64 ? `<div><span>📷 Photo avant</span><img src="data:${inc.photo_mime||'image/jpeg'};base64,${inc.photo_base64}"/></div>` : ''}
+          ${inc.photo_base64 ? `<div><span>📷 Photo avant</span><img src="data:${esc(inc.photo_mime)||'image/jpeg'};base64,${inc.photo_base64}"/></div>` : ''}
           ${inc.photo_resolution_base64 ? `<div><span>📷 Photo après</span><img src="data:image/jpeg;base64,${inc.photo_resolution_base64}"/></div>` : ''}
         </div>` : ''}
 
         <div class="bloc">
           <h3>Description de l'incident</h3>
-          <div>${(inc.description||'—').replace(/</g,'&lt;')}</div>
+          <div>${esc(inc.description) || '—'}</div>
         </div>
 
         ${inc.commentaire_resolution ? `
         <div class="bloc reso">
           <h3>✅ Rapport d'intervention / Résolution</h3>
-          <div>${inc.commentaire_resolution.replace(/</g,'&lt;')}</div>
+          <div>${esc(inc.commentaire_resolution)}</div>
           <div class="meta" style="margin-top:8px;margin-bottom:0">Résolu le ${fmt(inc.date_resolution)}</div>
         </div>` : ''}
 
         ${inc.commentaire_cloture ? `
         <div class="bloc cloture">
           <h3>🔒 Commentaire de clôture</h3>
-          <div>${inc.commentaire_cloture.replace(/</g,'&lt;')}</div>
+          <div>${esc(inc.commentaire_cloture)}</div>
           <div class="meta" style="margin-top:8px;margin-bottom:0">Clôturé le ${fmt(inc.date_cloture)}</div>
         </div>` : ''}
 
         <div class="grid">
           <div><span>Créé le :</span> <b>${fmt(inc.date_creation)}</b></div>
-          <div><span>Déclaré par :</span> <b>${inc.auteur_nom||'—'}</b></div>
-          <div><span>Assigné à :</span> <b>${inc.assigne_nom||'—'}</b></div>
+          <div><span>Déclaré par :</span> <b>${esc(inc.auteur_nom) || '—'}</b></div>
+          <div><span>Assigné à :</span> <b>${esc(inc.assigne_nom) || '—'}</b></div>
         </div>
 
         ${(inc.commentaires && inc.commentaires.length > 0) ? `
@@ -132,8 +137,8 @@ export default function Historique() {
           <h3>💬 Historique des commentaires</h3>
           ${inc.commentaires.map(c => `
             <div class="commentaire">
-              <div class="com-head"><b>${(c.auteur_nom||c.auteur||'—').toString().replace(/</g,'&lt;')}</b>${(c.date_creation||c.date) ? ` — ${fmt(c.date_creation||c.date)}` : ''}</div>
-              <div>${(c.contenu||c.texte||c.commentaire||'').toString().replace(/</g,'&lt;')}</div>
+              <div class="com-head"><b>${esc(c.auteur_nom||c.auteur) || '—'}</b>${(c.date_creation||c.date) ? ` — ${fmt(c.date_creation||c.date)}` : ''}</div>
+              <div>${esc(c.contenu||c.texte||c.commentaire)}</div>
               ${c.photo_base64 ? `<img class="com-photo" src="data:image/jpeg;base64,${c.photo_base64}"/>` : ''}
             </div>
           `).join('')}

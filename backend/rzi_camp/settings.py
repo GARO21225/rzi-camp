@@ -4,10 +4,14 @@ import dj_database_url
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# SECRET_KEY DOIT être définie comme variable d'env sur Render
-# Render Dashboard → Backend service → Environment → SECRET_KEY → valeur fixe (pas "Generate")
-SECRET_KEY = os.environ.get("SECRET_KEY", "rzi-camp-roxgold-sango-2026-secret-key-stable-$5kF9p")
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+# SECURITE : jamais de valeur en dur ici — ce fichier est sur un dépôt GitHub
+# public. Si SECRET_KEY n'est pas définie côté serveur, on en génère une
+# aléatoire au démarrage plutôt que d'utiliser un secret prévisible et
+# visible par n'importe qui : ça invalide juste les sessions/tokens
+# existants au lieu d'ouvrir une brèche.
+import secrets as _secrets
+SECRET_KEY = os.environ.get("SECRET_KEY") or _secrets.token_urlsafe(50)
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
@@ -54,6 +58,12 @@ if DATABASE_URL:
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
 LANGUAGE_CODE = "fr-fr"
 TIME_ZONE = "Africa/Abidjan"
 USE_I18N = True
@@ -78,8 +88,16 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
-# ── CORS Configuration complète ─────────────────────────────────────
-CORS_ALLOW_ALL_ORIGINS = True
+# ── CORS Configuration ──────────────────────────────────────────────
+# SECURITE : CORS_ALLOW_ALL_ORIGINS acceptait des requêtes credentialisées
+# depuis N'IMPORTE QUEL site web. Restreint à la liste explicite ci-dessous
+# (ajouter un domaine ici si l'app change d'adresse).
+CORS_ALLOWED_ORIGINS = [
+    o for o in os.environ.get(
+        'CORS_ALLOWED_ORIGINS',
+        'https://204.168.229.74:5173,http://localhost:5173,http://localhost:3000'
+    ).split(',') if o
+]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT',

@@ -369,7 +369,11 @@ function BadgesTab({ valeurs }) {
     const accent    = valeurs.theme_accent   || '#C9972B'
     const logoSrc = valeurs.logo_base64 ? `data:${valeurs.logo_mime||'image/png'};base64,${valeurs.logo_base64}` : '/roxgold-logo.png'
 
-    const badgeHtml = (p) => `
+    const badgeHtml = (p) => {
+      // SECURITE : mêmes règles que le rapport d'intervention — un champ
+      // personnel n'est pas garanti inoffensif, on échappe avant injection HTML.
+      const esc = (v) => (v ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      return `
       <div class="badge">
         <div class="head" style="background:${primaire}">
           <img src="${logoSrc}" class="logo"/>
@@ -378,15 +382,15 @@ function BadgesTab({ valeurs }) {
         <div class="corps">
           <div class="qr"><img src="data:image/png;base64,${p.qr_code_data||''}"/></div>
           <div class="infos">
-            <div class="nom">${(p.prenom||'').toUpperCase()}</div>
-            <div class="prenom">${(p.nom||'').toUpperCase()}</div>
-            <div class="societe" style="color:${accent}">${p.societe||'—'}</div>
-            <div class="type">${p.type_label || p.type_personnel || ''}</div>
-            <div class="matricule">N° ${p.numero || p.matricule || '—'}</div>
+            <div class="nom">${esc(p.prenom).toUpperCase()}</div>
+            <div class="prenom">${esc(p.nom).toUpperCase()}</div>
+            <div class="societe" style="color:${accent}">${esc(p.societe) || '—'}</div>
+            <div class="type">${esc(p.type_label || p.type_personnel)}</div>
+            <div class="matricule">N° ${esc(p.numero || p.matricule) || '—'}</div>
           </div>
         </div>
       </div>
-    `
+    `}
 
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) return

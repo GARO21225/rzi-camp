@@ -18,7 +18,7 @@ class QRTokenViewSet(viewsets.ViewSet):
     """
     permission_classes = [IsAuthenticated]
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def scan(self, request):
         """Scan QR personnel — version ultra-simplifiée sans risque 500"""
         try:
@@ -125,12 +125,12 @@ class QRTokenViewSet(viewsets.ViewSet):
                 "erreur": f"Erreur serveur: {str(e)[:100]}"
             }, status=400)
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def scanner_personnel(self, request):
         """Alias de scan pour compatibilité"""
         return self.scan(request)
 
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def valider_par_personnel(self, request):
         """Valide un repas via ID personnel direct"""
         try:

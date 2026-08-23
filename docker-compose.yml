@@ -17,7 +17,9 @@ services:
              daphne -b 0.0.0.0 -p 8000 rzi_camp.asgi:application"
     environment:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
-      SECRET_KEY: rzi-camp-docker-secret-2026
+      # SECURITE : plus de valeur en dur ici (ce fichier est sur GitHub public).
+      # La vraie valeur vient de .env (jamais commité, voir .env.example).
+      SECRET_KEY: ${SECRET_KEY}
       DEBUG: "False"
     ports:
       - "8001:8000"
