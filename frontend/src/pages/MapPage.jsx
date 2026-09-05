@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { batiments, pointsInteret as poiAPI } from '../api'
+import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI } from '../api'
 import { useStore } from '../store'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -39,6 +39,20 @@ const POI_CATEGORIES = [
   ['restaurant','🍽️ Restaurant'],['bar','🍺 Bar & Boutique'],['sport','🏋️ Salle de sport'],
   ['rampe','🚁 Rampe / Héliport'],['securite','🛡️ Sécurité'],['infirmerie','⚕️ Infirmerie'],
   ['parking','🅿️ Parking'],['bureau','🏢 Bureau / Administration'],['loisirs','🎮 Loisirs'],['autre','📍 Autre'],
+]
+
+// ── Réseau de circulation piéton : style par type ──
+const CHEMIN_STYLE = {
+  rampe:    { color:'#0ea5e9', dash:null,      label:'🛤️ Rampe' },
+  galerie:  { color:'#7c3aed', dash:'10,6',    label:'🏛️ Galerie couverte' },
+  dallette: { color:'#64748b', dash:'2,6',     label:'🧱 Dallettes' },
+  escalier: { color:'#dc2626', dash:'4,4',     label:'🪜 Escalier' },
+  chemin:   { color:'#16a34a', dash:null,      label:'🚶 Chemin' },
+  autre:    { color:'#94a3b8', dash:'6,4',     label:'➰ Autre' },
+}
+const CHEMIN_TYPES = [
+  ['rampe','🛤️ Rampe'],['galerie','🏛️ Galerie couverte'],['dallette','🧱 Dallettes / passerelle'],
+  ['escalier','🪜 Escalier'],['chemin','🚶 Chemin praticable'],['autre','➰ Autre'],
 ]
 
 function calcDist(a,b){return L.latLng(a).distanceTo(L.latLng(b))}
@@ -142,6 +156,31 @@ export default function MapPage() {
   }, [])
   useEffect(() => { loadPois() }, [loadPois])
 
+  // ── Réseau de circulation piéton (tracé admin) ──
+  const [chemins, setChemins] = useState([])
+  const [drawingChemin, setDrawingChemin] = useState(false)
+  const [cheminPoints, setCheminPoints] = useState([])
+  const [cheminForm, setCheminForm] = useState({ nom:'', type_chemin:'chemin' })
+
+  const loadChemins = useCallback(() => {
+    cheminAPI.list().then(r => setChemins(r.data.results || r.data || [])).catch(() => setChemins([]))
+  }, [])
+  useEffect(() => { loadChemins() }, [loadChemins])
+
+  const finirTraceChemin = async () => {
+    if (cheminPoints.length < 2) { alert('Tracez au moins 2 points.'); return }
+    try {
+      await cheminAPI.create({ nom: cheminForm.nom, type_chemin: cheminForm.type_chemin, points: cheminPoints })
+      setCheminPoints([]); setDrawingChemin(false); setCheminForm({ nom:'', type_chemin:'chemin' })
+      loadChemins()
+    } catch { alert("Erreur lors de l'enregistrement du chemin") }
+  }
+
+  const supprimerChemin = async (id) => {
+    if (!window.confirm('Supprimer ce chemin ?')) return
+    try { await cheminAPI.delete(id); loadChemins() } catch { alert('Erreur suppression') }
+  }
+
   const savePoi = async () => {
     if (!poiDraft || !poiForm.nom.trim()) return
     try {
@@ -234,7 +273,20 @@ export default function MapPage() {
   const getRoute=async(from,to)=>{
     setRouteLoading(true)
     try{
-      // Try OSRM public API for real routing
+      // 1. Priorité au réseau de circulation réel du camp (rampes, galeries,
+      // dallettes) — le seul qui reflète le terrain réel ; OSRM public n'a
+      // aucune donnée sur un camp minier privé et ne servirait à rien ici.
+      try{
+        const rc = await cheminAPI.itineraire(from, to)
+        if (rc.data?.trouve && rc.data.points?.length) {
+          setRoute(rc.data.points)
+          setRouteLoading(false)
+          return
+        }
+      }catch{}
+
+      // 2. Repli OSRM (chemin praticable en zone urbaine cartographiée — peu
+      // probable ici, mais gratuit à tenter)
       const url=`https://router.project-osrm.org/route/v1/foot/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
       const r=await fetch(url,{signal:AbortSignal.timeout(5000)})
       const d=await r.json()
@@ -243,7 +295,7 @@ export default function MapPage() {
         setRoute(pts)
       } else setRoute(null)
     }catch{
-      setRoute(null) // fallback: straight line
+      setRoute(null) // fallback: ligne droite
     }finally{setRouteLoading(false)}
   }
 
@@ -306,6 +358,19 @@ export default function MapPage() {
               background:addingPoi?'rgba(124,58,237,.15)':'var(--surface2)',
               color:addingPoi?'#7c3aed':'var(--text-dim)',cursor:'pointer',fontSize:11,fontWeight:700,transition:'.2s'}}>
             {addingPoi?'📍 Cliquez sur la carte...':'➕ Point d\'intérêt'}
+          </button>
+        )}
+
+        {isAdmin && (
+          <button onClick={()=>{
+            if (drawingChemin) { setDrawingChemin(false); setCheminPoints([]) }
+            else { setDrawingChemin(true); setAddingPoi(false); setPoiDraft(null) }
+          }}
+            title="Cliquez ensuite sur la carte, point par point, pour tracer le chemin"
+            style={{padding:'5px 12px',borderRadius:8,border:`2px solid ${drawingChemin?'#0ea5e9':'var(--border)'}`,
+              background:drawingChemin?'rgba(14,165,233,.15)':'var(--surface2)',
+              color:drawingChemin?'#0ea5e9':'var(--text-dim)',cursor:'pointer',fontSize:11,fontWeight:700,transition:'.2s'}}>
+            {drawingChemin?`🛤️ ${cheminPoints.length} point(s) — cliquez pour continuer`:'🛤️ Tracer un chemin'}
           </button>
         )}
 
@@ -452,7 +517,76 @@ export default function MapPage() {
           )}
 
           <MapClickCapture active={addingPoi && !poiDraft} onPick={(pos)=>setPoiDraft(pos)}/>
+          <MapClickCapture active={drawingChemin} onPick={(pos)=>setCheminPoints(pts=>[...pts,[pos.lat,pos.lng]])}/>
+
+          {/* Réseau de circulation existant */}
+          {chemins.map(c => {
+            const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
+            return (
+              <Polyline key={`chemin-${c.id}`} positions={c.points} color={st.color} weight={4}
+                dashArray={st.dash} opacity={0.85}>
+                <Popup>
+                  <div style={{fontFamily:'sans-serif'}}>
+                    <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
+                    {isAdmin && (
+                      <div style={{marginTop:6}}>
+                        <button onClick={()=>supprimerChemin(c.id)}
+                          style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          🗑️ Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Polyline>
+            )
+          })}
+
+          {/* Tracé en cours */}
+          {cheminPoints.length > 0 && (
+            <>
+              <Polyline positions={cheminPoints} color="#0ea5e9" weight={4} dashArray="6,6" opacity={0.9}/>
+              {cheminPoints.map((p,i) => (
+                <Marker key={`draft-${i}`} position={p}
+                  icon={L.divIcon({html:`<div style="width:10px;height:10px;background:#0ea5e9;border-radius:50%;border:2px solid #fff"></div>`,className:'',iconSize:[10,10],iconAnchor:[5,5]})}/>
+              ))}
+            </>
+          )}
         </MapContainer>
+
+        {/* Panneau flottant de contrôle du tracé en cours */}
+        {drawingChemin && (
+          <div style={{position:'absolute',bottom:20,left:10,background:'#fff',border:'1px solid var(--border)',
+            borderRadius:12,padding:14,zIndex:900,boxShadow:'var(--shadow-md)',width:260}}>
+            <div style={{fontWeight:700,fontSize:13,color:'#0ea5e9',marginBottom:8}}>
+              🛤️ Tracé en cours ({cheminPoints.length} point{cheminPoints.length>1?'s':''})
+            </div>
+            <input value={cheminForm.nom} onChange={e=>setCheminForm(f=>({...f,nom:e.target.value}))}
+              placeholder="Nom (optionnel, ex: Galerie bloc A)"
+              style={{width:'100%',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,outline:'none',boxSizing:'border-box',marginBottom:6}}/>
+            <select value={cheminForm.type_chemin} onChange={e=>setCheminForm(f=>({...f,type_chemin:e.target.value}))}
+              style={{width:'100%',border:'1px solid var(--border)',borderRadius:8,padding:'6px 10px',fontSize:12,outline:'none',marginBottom:8}}>
+              {CHEMIN_TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select>
+            <div style={{fontSize:10,color:'var(--text-dim)',marginBottom:8}}>
+              Cliquez sur la carte pour ajouter des points, dans l'ordre du trajet réel.
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>setCheminPoints(pts=>pts.slice(0,-1))} disabled={!cheminPoints.length}
+                style={{flex:1,background:'#f1f5f9',color:'#64748b',border:'none',padding:'7px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                ↩️ Annuler pt.
+              </button>
+              <button onClick={()=>{setDrawingChemin(false);setCheminPoints([])}}
+                style={{flex:1,background:'#fee2e2',color:'#dc2626',border:'none',padding:'7px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                ✕ Annuler
+              </button>
+              <button onClick={finirTraceChemin} disabled={cheminPoints.length<2}
+                style={{flex:1,background:cheminPoints.length>=2?'#0ea5e9':'#cbd5e1',color:'#fff',border:'none',padding:'7px',borderRadius:8,cursor:cheminPoints.length>=2?'pointer':'not-allowed',fontSize:11,fontWeight:700}}>
+                ✅ Terminer
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Formulaire de placement d'un nouveau point d'intérêt */}
         {poiDraft && (

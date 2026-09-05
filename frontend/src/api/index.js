@@ -76,6 +76,14 @@ export const pointsInteret = {
   update: (id, d) => api.patch(`/api/points-interet/${id}/`, d),
   delete: (id)    => api.delete(`/api/points-interet/${id}/`),
 }
+
+// ── Réseau de circulation piéton (rampes, galeries, dallettes) ──────
+export const cheminsCirculation = {
+  list:   ()      => api.get('/api/chemins-circulation/'),
+  create: (d)     => api.post('/api/chemins-circulation/', d),
+  delete: (id)    => api.delete(`/api/chemins-circulation/${id}/`),
+  itineraire: (depart, arrivee) => api.post('/api/chemins-circulation/itineraire/', {depart, arrivee}),
+}
 // ── Contenu éditable Induction Camp ──────────────────────────────────
 export const inductionConfig = {
   actuelle: () => api.get('/api/induction-config/actuelle/'),

@@ -204,6 +204,38 @@ class PointInteret(models.Model):
         return f"{self.get_categorie_display()} — {self.nom}"
 
 
+class CheminCirculation(models.Model):
+    """
+    Réseau de circulation piéton réel du camp : rampes, galeries couvertes,
+    dallettes fixées au sol, escaliers, chemins praticables. Les points sont
+    tracés à la main sur la carte par un admin (aucune coordonnée réelle
+    n'est connue depuis le code). Sert de base au calcul d'itinéraire à pied
+    (le trajet suit ces tronçons plutôt qu'une ligne droite qui ignorerait
+    le terrain réel).
+    """
+    TYPES = [
+        ("rampe",    "🛤️ Rampe"),
+        ("galerie",  "🏛️ Galerie couverte"),
+        ("dallette", "🧱 Dallettes / passerelle au sol"),
+        ("escalier", "🪜 Escalier"),
+        ("chemin",   "🚶 Chemin praticable"),
+        ("autre",    "➰ Autre"),
+    ]
+    nom          = models.CharField(max_length=100, blank=True, default="")
+    type_chemin  = models.CharField(max_length=20, choices=TYPES, default="chemin")
+    points       = models.JSONField()  # liste de [lat, lng], au moins 2 points
+    actif        = models.BooleanField(default=True)
+    cree_par     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_creation= models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["type_chemin", "nom"]
+        verbose_name = "Chemin de circulation"
+
+    def __str__(self):
+        return f"{self.get_type_chemin_display()} — {self.nom or self.id}"
+
+
 class OccupationHistory(models.Model):
     batiment = models.ForeignKey(Batiment, on_delete=models.CASCADE, related_name="historique")
     personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="historique_residence")

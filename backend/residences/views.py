@@ -8,7 +8,7 @@ from accounts.permissions import TokenInQueryOrHeader
 from .models import (
     InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
     InductionCampConfig, InductionInfra, InductionRegle,
-    InductionQuizQuestion, PointInteret
+    InductionQuizQuestion, PointInteret, CheminCirculation
 )
 
 from .serializers import (
@@ -16,7 +16,7 @@ from .serializers import (
     DemandeSerializer, InductionRecordSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
-    InductionQuizQuestionPublicSerializer, PointInteretSerializer
+    InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer
 )
 
 import csv, datetime, re
@@ -657,6 +657,124 @@ from rest_framework.permissions import BasePermission
 class _IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and (request.user.is_staff or request.user.is_superuser))
+
+
+class CheminCirculationViewSet(viewsets.ModelViewSet):
+    """
+    Réseau de circulation piéton (rampes, galeries, dallettes...). Lecture
+    ouverte à tout connecté, tracé réservé aux administrateurs.
+    """
+    queryset = CheminCirculation.objects.filter(actif=True)
+    serializer_class = CheminCirculationSerializer
+
+    def get_permissions(self):
+        if self.request.method not in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated(), _IsAdmin()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
+
+    @action(detail=False, methods=['post'])
+    def itineraire(self, request):
+        """
+        Calcule un itinéraire à pied en suivant le réseau tracé (rampes,
+        galeries, dallettes) plutôt qu'une ligne droite qui traverserait le
+        terrain n'importe comment. Renvoie trouve=False si aucun réseau
+        n'est disponible à proximité — le frontend doit alors retomber sur
+        une ligne droite / OSRM.
+        """
+        import heapq, math
+
+        depart  = request.data.get('depart')
+        arrivee = request.data.get('arrivee')
+        if not depart or not arrivee:
+            return Response({'error': 'depart et arrivee requis (chacun [lat,lng])'}, status=400)
+
+        def haversine(a, b):
+            R = 6371000
+            lat1, lon1, lat2, lon2 = map(math.radians, [a[0], a[1], b[0], b[1]])
+            dlat, dlon = lat2 - lat1, lon2 - lon1
+            h = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+            return 2 * R * math.asin(math.sqrt(h))
+
+        chemins = list(CheminCirculation.objects.filter(actif=True).values_list('points', flat=True))
+        if not chemins:
+            return Response({'trouve': False, 'raison': 'Aucun chemin de circulation tracé pour le moment.'})
+
+        # 1. Construire les noeuds (fusion des points proches, tolérance 2m)
+        nodes = []
+        def get_or_add_node(pt, tol_m=2.0):
+            for i, n in enumerate(nodes):
+                if haversine(n, pt) <= tol_m:
+                    return i
+            nodes.append(pt)
+            return len(nodes) - 1
+
+        edges = {}
+        def add_edge(i, j, d):
+            edges.setdefault(i, []).append((j, d))
+            edges.setdefault(j, []).append((i, d))
+
+        for pts in chemins:
+            if not pts or len(pts) < 2:
+                continue
+            idxs = [get_or_add_node(p) for p in pts]
+            for a, b in zip(idxs, idxs[1:]):
+                if a != b:
+                    add_edge(a, b, haversine(nodes[a], nodes[b]))
+
+        if not nodes:
+            return Response({'trouve': False, 'raison': 'Réseau de circulation vide.'})
+
+        # 2. Rattacher départ/arrivée au noeud du réseau le plus proche
+        MAX_SNAP_M = 250  # au-delà, on considère qu'il n'y a pas de reseau pertinent ici
+        def plus_proche(pt):
+            best_i, best_d = None, None
+            for i, n in enumerate(nodes):
+                d = haversine(pt, n)
+                if best_d is None or d < best_d:
+                    best_i, best_d = i, d
+            return best_i, best_d
+
+        i_dep, d_dep = plus_proche(depart)
+        i_arr, d_arr = plus_proche(arrivee)
+        if d_dep > MAX_SNAP_M or d_arr > MAX_SNAP_M:
+            return Response({'trouve': False, 'raison': 'Pas de chemin tracé à proximité.'})
+
+        # 3. Dijkstra
+        dist = {i_dep: 0.0}
+        prev = {}
+        visited = set()
+        heap = [(0.0, i_dep)]
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u in visited: continue
+            visited.add(u)
+            if u == i_arr: break
+            for v, w in edges.get(u, []):
+                nd = d + w
+                if v not in dist or nd < dist[v]:
+                    dist[v] = nd
+                    prev[v] = u
+                    heapq.heappush(heap, (nd, v))
+
+        if i_arr not in dist:
+            return Response({'trouve': False, 'raison': 'Aucun chemin continu entre ces deux points.'})
+
+        chemin_noeuds = [i_arr]
+        while chemin_noeuds[-1] != i_dep:
+            chemin_noeuds.append(prev[chemin_noeuds[-1]])
+        chemin_noeuds.reverse()
+
+        points_route = [depart] + [nodes[i] for i in chemin_noeuds] + [arrivee]
+        distance_totale = d_dep + dist[i_arr] + d_arr
+
+        return Response({
+            'trouve': True,
+            'points': points_route,
+            'distance_m': round(distance_totale, 1),
+        })
 
 
 class BatimentViewSet(viewsets.ModelViewSet):
