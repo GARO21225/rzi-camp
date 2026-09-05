@@ -13,7 +13,6 @@ const ROLE_NAV = {
     // ── Vue principale
     { to:'/', label:'📊 Dashboard', exact:true },
     { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/operations', label:'🖥️ Centre Opérationnel' },
     // ── Personnel & Conformité
     { group:'Personnel & Conformité' },
     { to:'/personnel', label:'👤 Personnel' },

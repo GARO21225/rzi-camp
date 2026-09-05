@@ -179,6 +179,7 @@ export default function Dashboard() {
   const [dbBats, setDbBats] = useState([])
   const [loading, setLoading] = useState(true)
   const [sync, setSync]     = useState(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -222,7 +223,11 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => { load(); loadMap() }, [load, loadMap])
-  useEffect(() => { const iv = setInterval(load, 60000); return () => clearInterval(iv) }, [load])
+  useEffect(() => {
+    if (!autoRefresh) return
+    const iv = setInterval(load, 60000)
+    return () => clearInterval(iv)
+  }, [load, autoRefresh])
 
   // ── Calculs dérivés depuis les vrais champs API ──
   const ps      = d.bat?.par_statut || {}
@@ -248,6 +253,14 @@ export default function Dashboard() {
   const induits = perso.filter(p => p.inductionrecord?.statut === 'valide').length
   const enCours = perso.filter(p => p.inductionrecord?.statut === 'en_cours').length
   const tauxInd = total ? Math.round(induits / total * 100) : 0
+
+  // ── Alertes actives — fusionné depuis l'ancienne page Centre Opérationnel
+  // (mêmes données déjà chargées ci-dessus, aucun nouvel appel réseau) ──
+  const alertes = []
+  if (critiques > 0) alertes.push({ type:'incident', titre:`${critiques} incident(s) critique(s)`, desc:'Nécessite intervention immédiate', temps:'Maintenant', urgent:true })
+  if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
+  if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
+  if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
 
   const bySoc = {}
   perso.forEach(p => {
@@ -309,11 +322,46 @@ export default function Dashboard() {
               display: 'inline-block', boxShadow: '0 0 6px rgba(22,163,74,.5)' }} />
             Opérations en direct
           </div>
+          <button onClick={()=>setAutoRefresh(a=>!a)}
+            style={{ background: autoRefresh?'var(--rzc-green-l)':'var(--rzc-red-l)',
+              border: `1px solid ${autoRefresh?'rgba(74,222,128,.25)':'rgba(220,38,38,.25)'}`,
+              color: autoRefresh?'#15803D':'#DC2626',
+              borderRadius: 99, padding: '5px 13px', cursor:'pointer', fontSize: 11, fontWeight: 700 }}>
+            {autoRefresh ? '⏸️ Pause auto' : '▶️ Reprendre'}
+          </button>
           <button className="rzc-btn rzc-btn-primary" onClick={load} disabled={loading}>
             {loading ? '⏳' : '🔄'} Actualiser
           </button>
         </div>
       </div>
+
+      {/* ── ALERTES ACTIVES ── fusionné depuis Centre Opérationnel */}
+      {alertes.length > 0 && (
+        <div style={{ background:'var(--rzc-charcoal-l1)', borderRadius:14, padding:16, marginBottom:18,
+          border:'1px solid var(--rzc-border)' }}>
+          <div style={{ fontWeight:800, fontSize:13, marginBottom:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            🚨 Alertes actives
+            <span style={{ background:'var(--rzc-red-l)', color:'var(--rzc-red)', fontSize:11, padding:'2px 8px',
+              borderRadius:99, fontWeight:700 }}>
+              {alertes.filter(a=>a.urgent).length} urgente(s)
+            </span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:8 }}>
+            {alertes.map((a,i) => (
+              <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
+                background: a.urgent ? 'var(--rzc-red-l)' : 'var(--rzc-charcoal-l2)',
+                border:`1.5px solid ${a.urgent ? 'rgba(220,38,38,.25)' : 'var(--rzc-border-light)'}` }}>
+                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'✈️'}[a.type]||'📋'}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:12, color: a.urgent ? 'var(--rzc-red)' : 'var(--rzc-text)' }}>{a.titre}</div>
+                  <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1 }}>{a.desc}</div>
+                </div>
+                <div style={{ fontSize:10, color:'var(--rzc-text-4)', flexShrink:0 }}>{a.temps}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── KPIs PRINCIPAUX ── */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
