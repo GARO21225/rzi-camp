@@ -4,6 +4,7 @@
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { personnel as personnelAPI } from '../api'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ── Error Boundary ───────────────────────────────────────
 class PersonnelBoundary extends React.Component {
@@ -31,6 +32,7 @@ class PersonnelBoundary extends React.Component {
 
 // ── Composant principal ──────────────────────────────────
 export default function Personnel() {
+  const isMobile = useIsMobile()
   const [data,         setData]         = useState([])
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
@@ -825,7 +827,7 @@ export default function Personnel() {
                     ❌ {err}
                   </div>
                 )}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>NOM *</label>
                     <input value={form.nom} onChange={e=>setForm({...form,nom:e.target.value})} style={inp}/>
@@ -839,7 +841,7 @@ export default function Personnel() {
                   <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>EMAIL</label>
                   <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} style={inp}/>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TÉLÉPHONE</label>
                     <input
@@ -872,7 +874,7 @@ export default function Personnel() {
                     {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>SOCIÉTÉ</label>
                     <input value={form.societe} disabled={form.type_personnel==='roxgold'}
@@ -979,7 +981,7 @@ export default function Personnel() {
                         placeholder="Ex: SGBCI Mining, SAPH..."
                         style={inp}/>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                    <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                       <div>
                         <label style={{display:'block',fontSize:11,fontWeight:700,
                           color:'var(--rzc-text-3)',marginBottom:5}}>NOMBRE</label>
@@ -1130,7 +1132,7 @@ export default function Personnel() {
                   {TYPES.find(t=>t.v===roleModal.type_personnel)?.l || roleModal.type_personnel}
                 </span>
               </p>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+              <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:10,marginBottom:12}}>
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
                     Type personnel

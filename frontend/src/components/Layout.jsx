@@ -347,6 +347,8 @@ export default function Layout() {
               bottom: 0,
               zIndex: 95,
               boxShadow: '4px 0 20px rgba(0,0,0,.25)',
+              transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+              pointerEvents: sidebarOpen ? 'auto' : 'none',
             } : {}),
           }}>
             <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>

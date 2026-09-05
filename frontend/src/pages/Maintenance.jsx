@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 
 // ── Générateur de rapport maintenance ──────────────────────────
@@ -406,6 +407,7 @@ const WF = [
 
 export default function Maintenance() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
   const [incidents, setIncidents] = useState([])
@@ -772,7 +774,7 @@ export default function Maintenance() {
         </div>
 
         {/* ── KPIs enrichis ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
           {[
             ['📢','Déclarés',    stats.declare||0,   '#3b82f6','#eff6ff'],
             ['👷','Assignés',    stats.assigne||0,   '#f97316','#fff7ed'],
@@ -813,7 +815,7 @@ export default function Maintenance() {
           const tauxRes = incidents.length ? Math.round((resolved.length/incidents.length)*100) : 0
 
           return (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:20 }}>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:20 }}>
               <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
                 <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>⏱️ Durée moy. résolution</div>
                 <div style={{ fontSize:26, fontWeight:900, color:'#7c3aed' }}>{avgDays ? `${avgDays}j` : '—'}</div>
@@ -855,7 +857,7 @@ export default function Maintenance() {
           const PRIO_LABELS = { critique:'Critique', haute:'Haute', moyenne:'Moyenne', basse:'Basse' }
 
           return (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:14, marginBottom:20 }}>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap:14, marginBottom:20 }}>
 
               {/* Répartition par priorité */}
               <div className="rzc-card" style={{ padding:'16px 18px' }}>
@@ -939,7 +941,7 @@ export default function Maintenance() {
           const ROXGOLD_BARS = ['#0F2A5C','#2563EB','#D4A017','#B87333','#16A34A','#DC2626','#5B6472','#7C3AED']
 
           return (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
               gap:14, marginBottom:20 }}>
 
               {/* Camembert statuts */}
@@ -1199,7 +1201,7 @@ export default function Maintenance() {
                   <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})}
                     placeholder="Décrivez le problème..." rows={3} style={{ ...inp, resize:'vertical' }}/>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>CATÉGORIE</label>
                     <select value={form.categorie} onChange={e=>setForm({...form,categorie:e.target.value})} style={inp}>
@@ -1213,7 +1215,7 @@ export default function Maintenance() {
                     </select>
                   </div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
                     <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
@@ -1324,7 +1326,7 @@ export default function Maintenance() {
                   )}
                 </div>
 
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:8, marginBottom:14 }}>
                   {/* Timeline parcours */}
                   <div style={{ marginBottom:14 }}>
                     <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Parcours</div>
@@ -1515,7 +1517,7 @@ export default function Maintenance() {
                   <textarea value={editInc.description} onChange={e=>setEditInc({...editInc,description:e.target.value})}
                     rows={3} style={{ ...inp, resize:'vertical' }}/>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>CATÉGORIE</label>
                     <select value={editInc.categorie} onChange={e=>setEditInc({...editInc,categorie:e.target.value})} style={inp}>
@@ -1529,7 +1531,7 @@ export default function Maintenance() {
                     </select>
                   </div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
                     <input value={editInc.residence} onChange={e=>setEditInc({...editInc,residence:e.target.value})} style={inp}/>
@@ -1627,7 +1629,7 @@ export default function Maintenance() {
                   {l}
                 </button>
               ))}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:8}}>
                 {[['Du',  'debut'],['Au','fin']].map(([l,k])=>(
                   <div key={k}>
                     <label style={{fontSize:10,fontWeight:600,color:'#64748b',display:'block',marginBottom:3}}>{l}</label>

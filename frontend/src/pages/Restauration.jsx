@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { qr as qrAPI, menu as menuAPI } from '../api'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ── Configuration repas ───────────────────────────────────────────
 const REPAS = [
@@ -409,6 +410,7 @@ function HistoriqueList({ data, onRefresh, loading }) {
 
 // ── PAGE PRINCIPALE ────────────────────────────────────────────────
 export default function Restauration() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
@@ -507,7 +509,7 @@ export default function Restauration() {
                 fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
                 colorScheme:'dark' }}/>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, minmax(0,1fr))' : 'repeat(3, 1fr)', gap: 8 }}>
             {[
               { key:'petit_dejeuner', menuKey:'matin',  icon:'🌅', label:'Petit-déj.', color:'#f97316', bg:'rgba(249,115,22,.1)', border:'rgba(249,115,22,.25)' },
               { key:'dejeuner',       menuKey:'midi',   icon:'☀️',  label:'Déjeuner',  color:'#2563eb', bg:'rgba(37,99,235,.1)',  border:'rgba(37,99,235,.25)' },
@@ -578,7 +580,7 @@ export default function Restauration() {
         <LastScanCard scan={stats.lastScan} />
 
         {/* Layout : Scanner + Historique */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, alignItems: 'start' }}>
           {/* Scanner */}
           <div>
             <QRScanner
@@ -775,7 +777,7 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
             placeholder="Description"
             style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:12,outline:'none',minHeight:50,resize:'vertical'}}/>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:8}}>
             <select value={menuForm.repas||'midi'} onChange={e=>setMenuForm(f=>({...f,repas:e.target.value}))}
               style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'7px 8px',fontSize:12,outline:'none'}}>
               <option value="matin">Petit-déj</option>

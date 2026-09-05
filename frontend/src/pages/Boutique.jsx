@@ -169,7 +169,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
       {data && !loading && (
         <>
           {/* KPIs */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(4,1fr)',gap:12,marginBottom:20}}>
             {[
               ['💰 CA FCFA',`${data.total_ca.toLocaleString()} FCFA`,'var(--rzc-navy)'],
               ['📦 Quantités',data.total_qte,'#16a34a'],
@@ -184,7 +184,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
           </div>
 
           {/* Top articles + Top agents */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16,marginBottom:20}}>
             {/* Top articles */}
             <div style={{background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0'}}>
               <div style={{padding:'12px 16px',background:'var(--rzc-charcoal)',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:13,color:'var(--rzc-navy)'}}>
@@ -367,7 +367,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
 
       <div style={{padding:20}}>
         {/* Stats globales */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(3,1fr)':'repeat(3,1fr)',gap:10,marginBottom:20}}>
           {[
             ['🎫 Bons actifs',bons.length,'var(--rzc-navy)'],
             ['💰 Crédits restants',`${totalRestant.toLocaleString()} FCFA`,'#16a34a'],
@@ -393,7 +393,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
         <div style={{background:'var(--rzc-charcoal)',borderRadius:12,padding:16,marginBottom:20}}>
           <div style={{fontWeight:700,fontSize:13,color:'var(--rzc-navy)',marginBottom:12}}>⚙️ Actions</div>
           
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16}}>
             {/* Crédit tous */}
             <div>
               <div style={{fontSize:12,fontWeight:600,color:'var(--rzc-text-3)',marginBottom:8}}>Créditer tous les personnels actifs</div>
@@ -679,7 +679,7 @@ function ArticleModal({ article, categories, onSave, onClose }) {
           </div>
 
           {/* Prix + Stock */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'1fr 1fr 1fr',gap:10}}>
             <div>
               <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>Prix FCFA *</label>
               <input type="number" value={form.prix} onChange={e=>setForm({...form,prix:e.target.value})} style={inp}/>
@@ -1072,7 +1072,7 @@ export default function Boutique({ embedded = false } = {}) {
 
       {/* STATS */}
       {!embedded && statsJour&&statsJour.total>0&&(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)',gap:10,marginBottom:16}}>
           {[['🛒 Ventes',statsJour.total,'var(--rzc-navy)'],
             ['💰 CA',`${(statsJour.montant||0).toLocaleString()} FCFA`,'#16a34a'],
             ['📦 Articles',articles.length,'#7c3aed']].map(([l,v,c])=>(
@@ -1329,7 +1329,7 @@ export default function Boutique({ embedded = false } = {}) {
                     <div style={{marginBottom:8}}>
                       <div style={{fontSize:10,color:'var(--rzc-text-4)',fontWeight:700,textTransform:'uppercase',
                         letterSpacing:.8,marginBottom:6}}>Mode de paiement</div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:6}}>
                         <button onClick={()=>setModePaiement('especes')}
                           style={{padding:'10px 6px',borderRadius:9,border:`2px solid ${modePaiement==='especes'?'#16a34a':'var(--rzc-border-light)'}`,
                             background:modePaiement==='especes'?'#f0fdf4':'var(--rzc-white)',
@@ -1538,7 +1538,7 @@ export default function Boutique({ embedded = false } = {}) {
             const valeurTot = articles.reduce((s,a)=>s+(a.stock||0)*(a.prix||0),0)
             const totalConso = consos?.length || articles.reduce((s,a)=>s+(a.total_vendu||0),0)
             return (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(5, minmax(0, 1fr))',gap:12,marginBottom:20}}>
+              <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2, minmax(0, 1fr))':'repeat(5, minmax(0, 1fr))',gap:12,marginBottom:20}}>
                 {[
                   {icon:'📦',label:'Articles',val:totalArticles,    color:'var(--rzc-navy)',bg:'#eff6ff'},
                   {icon:'🔴',label:'En rupture',val:enRupture,      color:'#dc2626',bg:'#fef2f2'},
@@ -2066,7 +2066,7 @@ export default function Boutique({ embedded = false } = {}) {
                   {getCatCfg(quickCatArt.categorie).icon} {getCatCfg(quickCatArt.categorie).label}
                 </span>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:8}}>
                 {catOrder.map(k => {
                   const cfg = getCatCfg(k)
                   const isCurrent = k === quickCatArt.categorie

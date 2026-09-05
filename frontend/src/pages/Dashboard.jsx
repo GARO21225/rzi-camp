@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ─────────────────────────────────────────────────────────────────
 //  CARTE DIGITAL TWIN — évolution de la carte Leaflet existante
@@ -172,6 +173,7 @@ const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer
 
 export default function Dashboard() {
   const nav = useNavigate()
+  const isMobile = useIsMobile()
   const [d, setD]           = useState({})
   const [perso, setPerso]   = useState([])
   const [dbBats, setDbBats] = useState([])
@@ -314,7 +316,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPIs PRINCIPAUX ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
         <Kpi loading={loading && !sync} icon="🏠" label="Occupation camp" accent="gold"
           value={taux !== null ? `${taux}%` : '—'}
           sub={`${occupes} occupées · ${libres} libres`} />
@@ -342,7 +344,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── DIGITAL TWIN + ALERTES ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.7fr) minmax(280px,1fr)', gap: 14, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1.7fr) minmax(280px,1fr)', gap: 14, marginBottom: 18 }}>
 
         <Panel title="🗺️ Carte du camp — Digital Twin"
           action={
@@ -390,7 +392,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── CONFORMITÉ + ACTIVITÉ + MODULES ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(260px,1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr) minmax(260px,1fr)', gap: 14 }}>
 
         <Panel title="🎓 Conformité induction QHSE">
           {conf.length === 0
@@ -432,7 +434,7 @@ export default function Dashboard() {
         </Panel>
 
         <Panel title="⚡ Accès rapides">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
             {MODULES.map(({ icon, label, path }) => (
               <div key={path} onClick={() => nav(path)}
                 className="rzc-card-hover"
