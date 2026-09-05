@@ -3,6 +3,7 @@
  * Statistiques avancées pour la direction du camp
  */
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { batiments, incidents, voyages as voyAPI, personnel as personnelAPI } from '../api'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -154,6 +155,7 @@ function RapportHSESousTraitants() {
 }
 
 export default function Analytics() {
+  const navigate = useNavigate()
   const [bats,  setBats]  = useState(null)
   const [inc,   setInc]   = useState(null)
   const [voy,   setVoy]   = useState(null)
@@ -206,11 +208,19 @@ export default function Analytics() {
 
   return (
     <div style={{ padding:16, flex:1 }}>
-      <div style={{ marginBottom:20 }}>
-        <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>📈 Analytics & Rapports</h2>
-        <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
-          Tableau de bord intelligence métier · Camp Roxgold Sango
-        </p>
+      <div style={{ marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10 }}>
+        <div>
+          <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>📈 Analytics</h2>
+          <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
+            Tableau de bord intelligence métier · Camp Roxgold Sango
+          </p>
+        </div>
+        <a href="/rapports" onClick={e=>{e.preventDefault(); navigate('/rapports')}}
+          title="Pour un document imprimable/PDF, direction Rapports"
+          style={{ display:'flex', alignItems:'center', gap:6, background:'var(--rzc-navy)', color:'#fff',
+            textDecoration:'none', padding:'8px 14px', borderRadius:9, fontSize:12, fontWeight:700 }}>
+          📄 Générer un rapport PDF
+        </a>
       </div>
 
       {/* KPIs globaux */}

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
 const hdrs = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}` })
@@ -436,6 +437,7 @@ tr:last-child td{border-bottom:none}
 
 // ── Composant principal ────────────────────────────────────────────────
 export default function RapportsPage() {
+  const navigate = useNavigate()
   const [loading,  setLoading]  = useState(false)
   const [progress, setProgress] = useState('')
   const [periode,  setPeriode]  = useState({debut:'',fin:''})
@@ -502,11 +504,18 @@ export default function RapportsPage() {
       <div style={{maxWidth:800,margin:'0 auto'}}>
 
         {/* Header */}
-        <div style={{marginBottom:28}}>
-          <h1 style={{fontSize:22,fontWeight:900,color:'#0f172a',margin:0}}>📋 Rapports</h1>
-          <p style={{fontSize:13,color:'var(--rzc-text-3)',margin:'6px 0 0'}}>
-            Génération automatique de rapports détaillés sur tous les périmètres
-          </p>
+        <div style={{marginBottom:28, display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10}}>
+          <div>
+            <h1 style={{fontSize:22,fontWeight:900,color:'#0f172a',margin:0}}>📋 Rapports</h1>
+            <p style={{fontSize:13,color:'var(--rzc-text-3)',margin:'6px 0 0'}}>
+              Génération automatique de rapports détaillés sur tous les périmètres
+            </p>
+          </div>
+          <button onClick={()=>navigate('/analytics')}
+            style={{ display:'flex', alignItems:'center', gap:6, background:'var(--rzc-navy)', color:'#fff',
+              border:'none', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            📈 Voir les graphiques (Analytics)
+          </button>
         </div>
 
         {/* Rapport global */}
