@@ -550,6 +550,7 @@ export default function MapPage() {
                 <option value="eau_usee">🚿 Eau usée</option>
                 <option value="fibre">🔌 Fibre optique</option>
                 <option value="genie_civil">🏗️ Génie civil</option>
+                <option value="points_interet">📍 Points d'intérêt (restaurant, sport, rampe...)</option>
               </select>
             </div>
             <div style={{marginBottom:16}}>
@@ -579,6 +580,24 @@ export default function MapPage() {
                       data = JSON.parse(text)
                     }
                     const count = data.features?.length || 0
+
+                    // Points d'intérêt : import réel en base (contrairement aux
+                    // autres couches ci-dessous, qui ne font qu'un affichage
+                    // temporaire côté navigateur — /api/gis/import/ n'existe pas
+                    // côté serveur). Ici, les points créés apparaissent comme de
+                    // vrais marqueurs navigables, au même titre que ceux placés
+                    // manuellement.
+                    if (importLayer === 'points_interet') {
+                      try {
+                        const r = await poiAPI.importMasse(data)
+                        setImportMsg({ok:true,text:`✅ ${r.data.crees} point(s) d'intérêt importé(s) et enregistré(s)${r.data.erreurs?.length?` (${r.data.erreurs.length} erreur(s), ex: ${r.data.erreurs[0]})`:''}`})
+                        loadPois()
+                      } catch (err) {
+                        setImportMsg({ok:false,text:`❌ Erreur import: ${err?.response?.data?.error || err.message}`})
+                      }
+                      e.target.value = ''
+                      return
+                    }
 
                     // Afficher immédiatement sur la carte
                     setGeojson(prev => {

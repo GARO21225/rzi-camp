@@ -72,6 +72,7 @@ export const batiments = {
 export const pointsInteret = {
   list:   ()      => api.get('/api/points-interet/'),
   create: (d)     => api.post('/api/points-interet/', d),
+  importMasse: (geojsonOrList) => api.post('/api/points-interet/import_masse/', geojsonOrList),
   update: (id, d) => api.patch(`/api/points-interet/${id}/`, d),
   delete: (id)    => api.delete(`/api/points-interet/${id}/`),
 }

@@ -572,6 +572,86 @@ class PointInteretViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(cree_par=self.request.user)
 
+    @action(detail=False, methods=['post'])
+    def import_masse(self, request):
+        """
+        Import en masse depuis un GeoJSON (FeatureCollection de Points) ou
+        une liste d'objets {nom, categorie, latitude, longitude, description}.
+        Chaque feature/objet doit fournir un nom et des coordonnées ; la
+        catégorie est déduite du texte (nom/description) si absente, avec
+        repli sur 'autre'.
+        """
+        if not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': "Réservé aux administrateurs."}, status=403)
+
+        data = request.data
+        raw_items = []
+
+        if isinstance(data, dict) and data.get('type') == 'FeatureCollection':
+            for f in data.get('features', []):
+                geom = f.get('geometry') or {}
+                coords = geom.get('coordinates') or []
+                if geom.get('type') != 'Point' or len(coords) < 2:
+                    continue
+                props = f.get('properties') or {}
+                raw_items.append({
+                    'nom': props.get('nom') or props.get('name') or props.get('nom_point') or 'Sans nom',
+                    'categorie': (props.get('categorie') or props.get('category') or '').lower(),
+                    'description': props.get('description') or '',
+                    'latitude': coords[1], 'longitude': coords[0],
+                })
+        elif isinstance(data, list):
+            for it in data:
+                raw_items.append({
+                    'nom': it.get('nom') or it.get('name') or 'Sans nom',
+                    'categorie': (it.get('categorie') or '').lower(),
+                    'description': it.get('description') or '',
+                    'latitude': it.get('latitude') or it.get('lat'),
+                    'longitude': it.get('longitude') or it.get('lng') or it.get('lon'),
+                })
+        else:
+            return Response({'error': 'Format non reconnu (GeoJSON FeatureCollection ou liste attendue).'}, status=400)
+
+        valid_cats = {c[0] for c in PointInteret.CATEGORIES}
+        MOTS_CLES = {
+            'restaurant': 'restaurant', 'cantine': 'restaurant', 'refectoire': 'restaurant',
+            'bar': 'bar', 'boutique': 'bar',
+            'sport': 'sport', 'gym': 'sport', 'salle de sport': 'sport',
+            'rampe': 'rampe', 'helipor': 'rampe', 'heliport': 'rampe',
+            'securite': 'securite', 'sécurité': 'securite', 'garde': 'securite',
+            'infirmerie': 'infirmerie', 'clinique': 'infirmerie', 'medical': 'infirmerie',
+            'parking': 'parking',
+            'bureau': 'bureau', 'administration': 'bureau',
+            'loisir': 'loisirs',
+        }
+
+        crees, erreurs = 0, []
+        objs = []
+        for i, it in enumerate(raw_items):
+            try:
+                lat, lng = float(it['latitude']), float(it['longitude'])
+            except (TypeError, ValueError, KeyError):
+                erreurs.append(f"Ligne {i+1}: coordonnées invalides")
+                continue
+            cat = it['categorie'] if it['categorie'] in valid_cats else None
+            if not cat:
+                texte = f"{it['nom']} {it['description']}".lower()
+                for mot, c in MOTS_CLES.items():
+                    if mot in texte:
+                        cat = c
+                        break
+                cat = cat or 'autre'
+            objs.append(PointInteret(
+                nom=it['nom'][:100], categorie=cat, description=it['description'],
+                latitude=lat, longitude=lng, cree_par=request.user,
+            ))
+
+        if objs:
+            PointInteret.objects.bulk_create(objs)
+            crees = len(objs)
+
+        return Response({'crees': crees, 'erreurs': erreurs, 'total_recu': len(raw_items)})
+
 
 from rest_framework.permissions import BasePermission
 class _IsAdmin(BasePermission):

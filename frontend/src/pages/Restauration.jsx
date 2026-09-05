@@ -675,7 +675,15 @@ export default function Restauration() {
                 setShowAvis(true)
               }}
             />
-            {showAvis && <AvisRapide typeRepas={typeRepas} onDone={()=>setShowAvis(false)}/>}
+            {showAvis ? (
+              <AvisRapide typeRepas={typeRepas} onDone={()=>setShowAvis(false)}/>
+            ) : (
+              <button onClick={()=>setShowAvis(true)}
+                style={{width:'100%',marginTop:10,background:'#fffbeb',border:'1px solid #fde68a',color:'#92400e',
+                  padding:'8px 12px',borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                💬 Donner un avis sur un repas
+              </button>
+            )}
           </div>
 
           {/* Historique */}
