@@ -378,6 +378,8 @@ def backup_status(request):
     return Response({'backup_endpoint_configured': configured, 'row_counts': counts})
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def diagnostic(request):
     """Endpoint public de statut système — utilisé par StatusPage.jsx sans authentification
     (page de monitoring consultée avant même qu'un login soit possible si la DB est down).

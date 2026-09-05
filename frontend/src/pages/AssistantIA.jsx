@@ -7,14 +7,15 @@ import React, { useState, useEffect, useRef } from 'react'
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({ 'Content-Type':'application/json', 'Authorization':`Bearer ${localStorage.getItem('access_token')||''}` })
 
-// Collecte les données du camp pour le contexte IA
+// Collecte les données du camp — statistiques complètes (pas des
+// échantillons partiels) pour que les réponses soient exactes, pas
+// approximatives sur les 5-10 premiers enregistrements seulement.
 async function collectCampData() {
   const endpoints = [
-    ['/api/batiments/stats/', 'stats_residences'],
-    ['/api/personnel/?page_size=10', 'personnel_sample'],
-    ['/api/maintenance/incidents/?statut=declare&page_size=5', 'incidents_ouverts'],
-    ['/api/voyages/?statut=en_voyage&page_size=5', 'rotations_actives'],
-    ['/api/batiments/?page_size=5', 'residences_sample'],
+    ['/api/batiments/stats/', 'residences'],
+    ['/api/incidents/stats-sql/', 'incidents'],
+    ['/api/voyages/stats/', 'voyages'],
+    ['/api/personnel/?page_size=1000', 'personnel'],
   ]
   const data = {}
   await Promise.allSettled(
@@ -51,6 +52,72 @@ function MessageBubble({ msg }) {
       </div>
     </div>
   )
+}
+
+// ── Moteur de réponses — règles + données réelles, sans API externe ──
+// Pas de clé/abonnement IA payant nécessaire : reconnaît l'intention par
+// mots-clés et formule la réponse à partir des vraies données du camp déjà
+// chargées. Couvre les questions courantes ; pour le reste, oriente vers
+// la bonne page de l'app plutôt que d'inventer une réponse.
+function repondre(question, data) {
+  const q = question.toLowerCase()
+  const res = data?.residences || {}
+  const inc = data?.incidents || {}
+  const voy = data?.voyages || {}
+  const perso = data?.personnel?.results || data?.personnel || []
+
+  const contient = (...mots) => mots.some(m => q.includes(m))
+
+  if (contient('occupation', 'taux', 'plein', 'occupé')) {
+    return `🏠 Taux d'occupation actuel : **${res.taux_occupation ?? '—'}%**\n`
+      + `• ${res.par_statut?.['Occupé'] ?? 0} résidence(s) occupée(s)\n`
+      + `• ${res.par_statut?.['Libre'] ?? 0} libre(s)\n`
+      + `• ${res.par_statut?.['Réservé'] ?? 0} réservée(s)\n`
+      + `• ${res.par_statut?.['Maintenance'] ?? 0} en maintenance`
+  }
+
+  if (contient('résidence', 'chambre', 'dispo', 'libre')) {
+    const libres = res.par_statut?.['Libre'] ?? 0
+    return libres > 0
+      ? `🟢 ${libres} résidence(s) libre(s) actuellement. Voir la liste complète dans Résidences.`
+      : `🔴 Aucune résidence libre en ce moment.`
+  }
+
+  if (contient('voyage', 'déplacement', 'rotation', 'transit')) {
+    return `✈️ ${voy.en_voyage ?? 0} personne(s) actuellement en déplacement.\n`
+      + `${voy.planifies ? `📅 ${voy.planifies} voyage(s) planifié(s) à venir.` : ''}`
+  }
+
+  if (contient('incident', 'maintenance', 'panne', 'sla')) {
+    const ouverts = (inc.declare||0) + (inc.assigne||0) + (inc.en_cours||0)
+    return `🛠️ ${ouverts} incident(s) de maintenance ouvert(s)\n`
+      + `• ${inc.critique ?? 0} critique(s)\n`
+      + `• ${inc.sla_depasse ?? 0} SLA dépassé(s)\n`
+      + `Détails dans Maintenance.`
+  }
+
+  if (contient('induction', 'qhse', 'formé', 'formation')) {
+    const total = perso.length
+    const induits = perso.filter(p => p.inductionrecord?.statut === 'valide').length
+    const enCours = perso.filter(p => p.inductionrecord?.statut === 'en_cours').length
+    const nonFait = total - induits - enCours
+    return total
+      ? `🎓 Sur ${total} membre(s) du personnel :\n• ${induits} induit(s) (validé)\n• ${enCours} en cours\n• ${nonFait} pas encore commencé`
+      : `Données personnel indisponibles pour le moment.`
+  }
+
+  if (contient('résumé', 'situation', 'aujourd\'hui', 'aujourdhui', 'global')) {
+    const ouverts = (inc.declare||0) + (inc.assigne||0) + (inc.en_cours||0)
+    return `📊 **Situation du camp**\n\n`
+      + `🏠 Occupation : ${res.taux_occupation ?? '—'}% (${res.par_statut?.['Libre'] ?? 0} libre(s))\n`
+      + `✈️ ${voy.en_voyage ?? 0} en déplacement\n`
+      + `🛠️ ${ouverts} incident(s) ouvert(s)${inc.critique ? ` dont ${inc.critique} critique(s)` : ''}\n`
+      + `👥 ${perso.length || '—'} membre(s) du personnel suivi(s)`
+  }
+
+  return `Je peux répondre sur : l'occupation des résidences, les incidents de maintenance, `
+    + `les voyages/rotations, l'induction QHSE, ou un résumé global du camp. `
+    + `Reformulez votre question avec l'un de ces sujets, ou utilisez les pages dédiées dans le menu.`
 }
 
 const SUGGESTIONS = [
@@ -92,38 +159,10 @@ export default function AssistantIA() {
     setMessages(prev => [...prev, userMsg, assistantMsg])
 
     try {
-      // Contexte camp
-      const context = campData ? `
-DONNÉES RÉELLES DU CAMP ROXGOLD SANGO (temps réel):
-${JSON.stringify(campData, null, 2)}
-      ` : 'Données du camp non disponibles.'
-
-      const history = messages.slice(-6).map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `Tu es l'assistant IA du camp minier Roxgold Sango en Côte d'Ivoire.
-Tu as accès aux données réelles du camp via ce contexte:
-${context}
-
-Réponds en français. Sois précis, concis et utile.
-Utilise les données fournies pour répondre aux questions.
-Si une donnée n'est pas disponible, dis-le clairement.
-Format: texte clair avec emojis pour la lisibilité.`,
-          messages: [...history, { role:'user', content: q }]
-        })
-      })
-
-      if (!resp.ok) throw new Error(`API Error ${resp.status}`)
-      const data = await resp.json()
-      const answer = data.content?.[0]?.text || 'Désolé, je n\'ai pas pu traiter votre demande.'
+      // Petite latence volontaire pour garder l'effet "réflexion" — l'app
+      // reste réactive et gratuite, pas d'appel réseau externe nécessaire.
+      await new Promise(r => setTimeout(r, 350))
+      const answer = repondre(q, campData)
 
       setMessages(prev => {
         const updated = [...prev]
@@ -139,7 +178,7 @@ Format: texte clair avec emojis pour la lisibilité.`,
         const updated = [...prev]
         updated[updated.length-1] = {
           role:'assistant',
-          content: '⚠️ Connexion à l\'IA temporairement indisponible. Vérifiez votre connexion internet.',
+          content: '⚠️ Une erreur est survenue. Réessayez.',
           loading:false
         }
         return updated
