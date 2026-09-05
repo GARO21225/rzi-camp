@@ -713,9 +713,6 @@ export default function Personnel() {
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       {p.telephone || '—'}
                     </td>
-                    <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
-                      {p.numero_whatsapp || '—'}
-                    </td>
                     <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-4)'}}>
                       {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
                     </td>

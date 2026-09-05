@@ -303,6 +303,7 @@ input, select, textarea {
      Tout le contenu (pages, cards, KPI, modals) est désormais en fond CLAIR
      pour une lisibilité maximale — c'est le changement demandé. */
   --rzc-navy:          #0F2A5C;  /* Bleu marine Roxgold — identité, headers, actions */
+  --rzc-navy-dark:     #081B3D;  /* Navy plus profond — header & sidebar (même famille que --rzc-navy, pas un noir/slate générique déconnecté) */
   --rzc-navy-l:        rgba(15,42,92,.08);
   --rzc-navy-l2:       rgba(15,42,92,.14);
   --rzc-ore-gold:      #C9972B;  /* Or minerai — accents, bordures actives */

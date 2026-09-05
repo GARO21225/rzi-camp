@@ -91,11 +91,11 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
     }}>
       <div style={{ padding: '14px 16px', background: '#1e3a8a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#ffffff', fontWeight: 700, fontSize: 15 }}>
-          🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#111827', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
+          🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#ffffff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {count > 0 && <button onClick={onMarkAll} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#111827', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11 }}>✓ Tout lire</button>}
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#111827', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          {count > 0 && <button onClick={onMarkAll} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#ffffff', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11 }}>✓ Tout lire</button>}
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#ffffff', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
       </div>
       <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
@@ -120,7 +120,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: '#1e3a8a', color: '#111827', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: '#1e3a8a', color: '#ffffff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -232,8 +232,8 @@ export default function Layout() {
 
       <header style={{
         height: 56,
-        background: '#0A0A0A',
-        borderBottom: '3px solid #FFD400',
+        background: 'var(--rzc-navy-dark)',
+        borderBottom: '3px solid var(--rzc-ore-gold)',
         display: 'flex', alignItems: 'center',
         padding: '0 16px', gap: isMobile ? 6 : 12,
         flexShrink: 0, zIndex: 500,
@@ -253,7 +253,7 @@ export default function Layout() {
 
         {!isMobile && (
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, color: '#A3A3A3', letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
-          RÉSIDENCE <span style={{ color: '#FFD400' }}>ROXGOLD SANGO</span>
+          RÉSIDENCE <span style={{ color: 'var(--rzc-bright-gold)' }}>ROXGOLD SANGO</span>
         </div>
         )}
 
@@ -285,7 +285,7 @@ export default function Layout() {
             onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' } }}>
             🔔
             {notifCount > 0 && (
-              <span style={{ position: 'absolute', top: 4, right: 4, background: '#FFD400', color: '#0A0A0A', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0A0A0A' }}>
+              <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
                 {notifCount > 9 ? '9+' : notifCount}
               </span>
             )}
@@ -298,15 +298,15 @@ export default function Layout() {
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.12)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}
           title={`${user?.first_name||''} ${user?.last_name||''} — ${ROLE_LABELS[role] || role}`}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FFD400', color: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>
             {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
           </div>
           {!isMobile && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ color: '#111827', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#F1F5F9', fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(user?.first_name && user?.last_name) ? `${user.first_name}` : user?.username || ''}
             </span>
-            <span style={{ color: '#FFD400', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <span style={{ color: 'var(--rzc-bright-gold)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {ROLE_LABELS[role] || role}
             </span>
           </div>
@@ -314,7 +314,7 @@ export default function Layout() {
         </div>
 
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#1a1a1a', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
           title="Déconnexion">
@@ -332,7 +332,7 @@ export default function Layout() {
 
         <nav style={{
             width: 240,
-            background: '#0f172a',
+            background: 'var(--rzc-navy-dark)',
             borderRight: 'none',
             overflowY: 'auto',
             overflowX: 'hidden',

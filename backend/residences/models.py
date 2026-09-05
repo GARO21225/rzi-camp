@@ -95,11 +95,24 @@ class Personnel(models.Model):
         return username, password
 
     def generer_qr(self):
-        """QR numérique pur: juste le PK en 4 chiffres.
-        Chiffres seuls = mode numérique QR = cases 3x plus grosses = scan fiable depuis écran."""
+        """QR signé : le PK seul serait un identifiant séquentiel (0001, 0002...)
+        trivialement devinable/forgeable — n'importe qui aurait pu écrire un
+        chiffre à la main et se faire passer pour un autre employé au
+        restaurant. On signe désormais l'identifiant avec la clé secrète du
+        serveur (HMAC-SHA256, tronqué) : impossible à forger sans connaître
+        cette clé, mais reste court en restant dans l'alphabet alphanumérique
+        du QR (chiffres + A-F + point) pour garder des cases larges et un
+        scan fiable depuis un écran, comme avant.
+        """
         import qrcode.constants
-        # Format: "0001", "0042", "1234" — QR en mode numérique pur
-        qr_string = f"{self.pk:04d}"
+        import hmac, hashlib
+        from django.conf import settings
+
+        qr_id = f"{self.pk:06d}"
+        signature = hmac.new(
+            settings.SECRET_KEY.encode(), qr_id.encode(), hashlib.sha256
+        ).hexdigest()[:10].upper()
+        qr_string = f"{qr_id}.{signature}"
         self.qr_code_string = qr_string
         # Génération haute qualité
         qr_obj = qrcode.QRCode(

@@ -33,8 +33,14 @@ services:
         VITE_API_URL: https://204.168.229.74:5173
     ports:
       - "5173:443"
+    volumes:
+      # Certificat SSL généré une seule fois, persiste entre les rebuilds
+      # (voir docker-entrypoint-ssl.sh) — évite d'invalider l'exception de
+      # sécurité du navigateur à chaque redéploiement.
+      - ssl_data:/etc/nginx/ssl
     depends_on:
       - backend
 
 volumes:
   pgdata:
+  ssl_data:
