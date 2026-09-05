@@ -426,7 +426,7 @@ export default function InductionCamp() {
         </div>
 
         {/* KPIs */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
           {[
             {l:'Total',v:allInductions.length,c:'#60a5fa'},
             {l:'Validés',v:allInductions.filter(r=>r.statut==='valide').length,c:'#34d399'},
@@ -699,7 +699,7 @@ export default function InductionCamp() {
             </div>
 
             {/* Stats camp */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:28}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:28}}>
               {[
                 {ic:'👥',val:CAMP.capacite,lbl:'Résidents'},
                 {ic:'📐',val:CAMP.superficie,lbl:'Superficie'},
@@ -723,7 +723,7 @@ export default function InductionCamp() {
               <div style={{fontSize:13,fontWeight:700,color:'#93c5fd',marginBottom:12}}>
                 📋 Votre parcours d'induction — ~15 minutes
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:8}}>
                 {[
                   {emoji:'🏗️',label:'Découvrir les 8 infrastructures'},
                   {emoji:'📜',label:'Lire les 8 règles de vie'},
@@ -762,7 +762,7 @@ export default function InductionCamp() {
               </p>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:16}}>
               {INFRAS.map(inf=>{
                 const vue = infrasVues.has(inf.id)
                 const sel = infraSel === inf.id
@@ -961,7 +961,7 @@ export default function InductionCamp() {
                             fontSize:11}}>{qi+1}/{QUIZ.length} </span>
                           {q.q}
                         </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:6}}>
                           {q.opts.map((opt,oi)=>{
                             const chosen = rep===oi
                             // bonne_reponse vient du résultat serveur (quizResult), jamais affiché avant validation
@@ -1077,7 +1077,7 @@ export default function InductionCamp() {
                 <div style={{fontSize:14,fontWeight:700,color:'#93c5fd',marginBottom:14}}>
                   Nouvel appareil
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                   <div style={{gridColumn:'span 2'}}>
                     <label style={{fontSize:10,fontWeight:700,color:'#64748b',
                       textTransform:'uppercase',letterSpacing:.5,display:'block',marginBottom:4}}>

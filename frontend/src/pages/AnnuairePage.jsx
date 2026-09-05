@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')||''}` })
 
 export default function AnnuairePage() {
+  const isMobile = useIsMobile()
   const [search,    setSearch]    = useState('')
   const [results,   setResults]   = useState([])
   const [loading,   setLoading]   = useState(false)
@@ -76,7 +78,7 @@ export default function AnnuairePage() {
         </div>
       )}
 
-      <div style={{display:'flex',gap:16}}>
+      <div style={{display:'flex',gap:16,flexDirection: isMobile ? 'column' : 'row'}}>
         {/* Liste résultats */}
         {results.length > 0 && (
           <div style={{flex:1, display:'flex', flexDirection:'column', gap:8}}>
@@ -116,9 +118,9 @@ export default function AnnuairePage() {
 
         {/* Fiche détaillée */}
         {selected && (
-          <div style={{width:340, flexShrink:0, background:'var(--rzc-white)', borderRadius:16,
+          <div style={{width: isMobile ? '100%' : 340, flexShrink:0, background:'var(--rzc-white)', borderRadius:16,
             boxShadow:'0 4px 20px rgba(0,0,0,.08)', padding:24, alignSelf:'flex-start',
-            position:'sticky', top:16}}>
+            position: isMobile ? 'static' : 'sticky', top:16}}>
             {/* En-tête */}
             <div style={{textAlign:'center',marginBottom:20}}>
               <div style={{width:72,height:72,borderRadius:20,

@@ -77,7 +77,7 @@ export default function Presences() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:12, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:20 }}>
         {[
           { label:'Total Personnel', v:counts.total,   color:'var(--rzc-navy)' },
           { label:'Au Camp',         v:counts.present,  color:'#16a34a' },

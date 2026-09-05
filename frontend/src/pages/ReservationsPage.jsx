@@ -105,7 +105,7 @@ function ResourceFiche({ item, onSave, onClose }) {
             <input value={data.detail||''} onChange={e=>s({detail:e.target.value})} style={inp}/>
           </div>
           {(isVehicule) && (<>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>IMMATRICULATION</label>
                 <input value={data.immat||''} onChange={e=>s({immat:e.target.value})} placeholder="CI-XXXX-XX" style={inp}/>
@@ -115,7 +115,7 @@ function ResourceFiche({ item, onSave, onClose }) {
                 <input type="number" value={data.km||0} onChange={e=>s({km:parseInt(e.target.value)||0})} style={inp}/>
               </div>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CAPACITÉ (pers.)</label>
                 <input type="number" value={data.capacite||0} onChange={e=>s({capacite:parseInt(e.target.value)||0})} style={inp}/>
@@ -335,7 +335,7 @@ export default function ReservationsPage() {
         const weekRes   = reservations.filter(r=>r.date>=weekStr&&r.statut!=='annulé')
         const cancelled = reservations.filter(r=>r.statut==='annulé').length
         return (
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:12,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:20}}>
             {[
               {l:"Aujourd'hui",  v:todayRes.length,  c:'var(--rzc-navy)', bg:'#eff6ff', icon:'📅'},
               {l:'Cette semaine',v:weekRes.length,    c:'#7c3aed', bg:'#f5f3ff', icon:'📊'},
@@ -487,7 +487,7 @@ export default function ReservationsPage() {
                 <input type="date" value={form.date} min={today}
                   onChange={e=>setForm({...form,date:e.target.value})} style={inp}/>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
                 <div>
                   <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DÉBUT *</label>
                   <input type="time" value={form.heure_debut} onChange={e=>setForm({...form,heure_debut:e.target.value})} style={inp}/>
@@ -578,7 +578,7 @@ export default function ReservationsPage() {
               {/* Formulaire ajout */}
               <div style={{background:'#f0fdf4',border:'2px solid #bbf7d0',borderRadius:12,padding:18,marginTop:12}}>
                 <div style={{fontWeight:700,fontSize:14,color:'#16a34a',marginBottom:14}}>➕ Ajouter une ressource</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                   <div>
                     <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>CATÉGORIE</label>
                     <select value={newResource.cat} onChange={e=>setNewResource(n=>({...n,cat:e.target.value}))} style={inp}>

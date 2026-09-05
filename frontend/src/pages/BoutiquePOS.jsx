@@ -184,7 +184,7 @@ export default function BoutiquePOS() {
       {/* Header stats */}
       <div style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)', borderRadius: 16, padding: '16px 20px', marginBottom: 16, color: 'var(--rzc-white)' }}>
         <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>🛒 Bar & Boutique — Caisse</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
           {[
             ['🧾 Ventes aujourd\'hui', statsJour.total, '#f0a500'],
             ['💰 CA du jour', `${statsJour.montant.toLocaleString()} FCFA`, '#4ade80'],
@@ -344,7 +344,7 @@ export default function BoutiquePOS() {
                     {/* Mode paiement */}
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ fontSize: 10, color: 'var(--rzc-text-4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 5 }}>Mode de paiement</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 6 }}>
                         <button onClick={() => setModePay('especes')}
                           style={{ padding: '9px 4px', borderRadius: 8, border: `2px solid ${modePay === 'especes' ? '#16a34a' : 'var(--rzc-border-light)'}`,
                             background: modePay === 'especes' ? '#f0fdf4' : 'var(--rzc-white)', cursor: 'pointer',
@@ -389,7 +389,7 @@ export default function BoutiquePOS() {
       {tab === 'historique' && (
         <div>
           {/* Stats résumé */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginBottom: 16 }}>
             {[
               ['🧾 Ventes aujourd\'hui', statsJour.total, 'var(--rzc-navy)'],
               ['💰 CA du jour', `${statsJour.montant.toLocaleString()} FCFA`, '#16a34a'],

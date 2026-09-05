@@ -1275,7 +1275,7 @@ function InductionPageInner() {
                                 <div style={{padding:'10px 14px'}}>
                                   {/* Accueil */}
                                   {e.key==='accueil' && info.form && (
-                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:6}}>
                                       {Object.entries(info.form||{}).filter(([k])=>k!=='photo').map(([k,v])=>(
                                         <div key={k} style={{fontSize:11}}>
                                           <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
@@ -1365,7 +1365,7 @@ function InductionPageInner() {
                                       })()}
                                       {/* Champs saisis */}
                                       {info.form && (
-                                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:8}}>
+                                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:6,marginTop:8}}>
                                           {Object.entries(info.form||{}).filter(([k,v])=>k!=='photo'&&v&&typeof v==='string'&&!v.startsWith('data:')).map(([k,v])=>(
                                             <div key={k} style={{fontSize:11}}>
                                               <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k.replace(/_/g,' ')}: </span>
@@ -1386,7 +1386,7 @@ function InductionPageInner() {
                                   )}
                                   {/* Médical */}
                                   {e.key==='medical' && info.medical && (
-                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:4}}>
                                       {Object.entries(info.medical||{}).map(([k,v])=>(
                                         <div key={k} style={{fontSize:11}}>
                                           <span style={{color:'var(--rzc-text-4)',fontWeight:600}}>{k}: </span>

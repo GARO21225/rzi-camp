@@ -125,7 +125,7 @@ export default function Evenements() {
       )}
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
         {[
           [events.length,'Total','var(--blue)','📅'],
           [upcoming.length,'À venir','#16a34a','🗓️'],
@@ -210,7 +210,7 @@ export default function Evenements() {
               <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>📅 Créer un événement</h3>
               <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
-            <div style={{ padding:'18px 20px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ padding:'18px 20px', display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:12 }}>
               {[
                 ['Titre *','titre','text','span 2'],
                 ['Type','type_event','select-type',''],

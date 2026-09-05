@@ -399,7 +399,7 @@ export default function Historique() {
       {tab==='chambre' && (
         <div>
           <SearchCard title="🏠 Occupation des chambres — Tous filtres optionnels" color="var(--blue)">
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10,marginBottom:12}}>
               <Fld label="Résidence (liste)">
                 <select value={chambreQ.batiment} onChange={e=>setChambreQ({...chambreQ,batiment:e.target.value,batiment_saisie:''})} style={inp}>
                   <option value="">— Toutes les résidences —</option>
@@ -505,7 +505,7 @@ export default function Historique() {
 
           {voyData && (
             <div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:10,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:14}}>
                 {[[voyData.total_voyages,'Total','var(--blue)','✈️'],[voyData.en_voyage||0,'En voyage','#ea580c','🚀'],
                   [voyData.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [(voyData.voyages||[]).filter(v=>v.statut==='retour'||v.statut?.includes('Retour')).length,'Retours','#16a34a','🏠']
@@ -547,7 +547,7 @@ export default function Historique() {
         <div>
           {voyEnsemble?(
             <div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4, minmax(0, 1fr))',gap:10,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:14}}>
                 {[[voyEnsemble.total,'Total voyages','var(--blue)','✈️'],[voyEnsemble.en_voyage,'En voyage','#ea580c','🚀'],
                   [voyEnsemble.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [voyEnsemble.top_voyageurs?.[0]?.nb||0,'Max/personne','#16a34a','🏆']
@@ -559,7 +559,7 @@ export default function Historique() {
                 ))}
               </div>
 
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:14}}>
                 {/* Top voyageurs */}
                 <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
                   <div style={{padding:'10px 14px',background:'var(--blue)',color:'#fff',fontWeight:600,fontSize:13}}>🏆 Top voyageurs</div>
@@ -846,7 +846,7 @@ export default function Historique() {
                     <div style={{fontSize:12,color:'var(--text-dim)',fontStyle:'italic',marginBottom:12}}>Aucun rapport d'intervention renseigné pour ce dossier.</div>
                   )}
 
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:12 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:8, fontSize:12 }}>
                     <div><span style={{color:'var(--text-dim)'}}>Priorité :</span> <b>{maintSelected.priorite || '—'}</b></div>
                     <div><span style={{color:'var(--text-dim)'}}>Créé le :</span> <b>{maintSelected.date_creation ? new Date(maintSelected.date_creation).toLocaleDateString('fr-FR') : '—'}</b></div>
                     <div><span style={{color:'var(--text-dim)'}}>Déclaré par :</span> <b>{maintSelected.auteur_nom || '—'}</b></div>

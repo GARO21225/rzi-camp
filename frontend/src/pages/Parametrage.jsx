@@ -153,7 +153,7 @@ function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navig
       {CHAMPS.map(sec => (
         <div key={sec.section} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18, marginBottom:16 }}>
           <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:14 }}>{sec.section}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:14 }}>
             {sec.items.map(champ => (
               <div key={champ.cle}>
                 <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>
@@ -261,7 +261,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
         <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
           S'applique immédiatement à toutes les pages (headers, boutons, accents actifs).
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:20 }}>
           <div>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>COULEUR PRIMAIRE</label>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>

@@ -44,7 +44,7 @@ export default function QrAntiFraude() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 20 }}>
         {/* QR Code */}
         <div style={{
           background: 'var(--rzc-white)', borderRadius: 16, padding: 32,

@@ -646,7 +646,7 @@ export default function MissionControl() {
               </Panel>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
 
               {/* Absents du camp */}
               <Panel style={{padding:'14px 16px'}}>
@@ -828,7 +828,7 @@ export default function MissionControl() {
                     {/* DÉTAIL ROTATION */}
                     {isOpen && (
                       <div style={{padding:'0 18px 16px',borderTop:`0.5px solid ${C.border}`}}>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginTop:14}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginTop:14}}>
 
                           {/* Plan de cabine */}
                           <div>
@@ -1052,7 +1052,7 @@ export default function MissionControl() {
         {/* ══ VUE MANIFEST ══════════════════════════════════════= */}
         {view==='manifest' && (
           <div className="mc-fade">
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12}}>
               {[
                 {titre:`🛫 Départs aujourd'hui`,list:departs,c:C.accent},
                 {titre:`🛬 Retours prévus`,list:retours,c:C.green},
@@ -1165,7 +1165,7 @@ export default function MissionControl() {
 
               {showCreate==='rotation' && (
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                     {/* Destination */}
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Destination *</label>
@@ -1180,7 +1180,7 @@ export default function MissionControl() {
                     </div>
                     {/* Mode de déplacement + Véhicule — 2 sélecteurs */}
                     <div style={{gridColumn:'span 2',display:'grid',
-                      gridTemplateColumns:'1fr 1fr',gap:10}}>
+                      gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                       {/* Sélecteur mode */}
                       <div>
                         <label style={labelStyle}>Mode de déplacement</label>

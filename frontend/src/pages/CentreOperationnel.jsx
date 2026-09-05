@@ -137,7 +137,7 @@ export default function CentreOperationnel() {
       </div>
 
       {/* KPIs principaux */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:12, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12, marginBottom:20 }}>
         <KpiCard icon="🏠" value={bat.libres??'—'} label="Résidences libres" color="#16a34a" bg="#f0fdf4"/>
         <KpiCard icon="👥" value={bat.occupes??'—'} label="Résidences occupées" color="var(--rzc-navy)" bg="#eff6ff"/>
         <KpiCard icon="📊" value={bat.taux_occupation!=null?`${bat.taux_occupation}%`:'—'} label="Taux occupation" color="#7c3aed" bg="#f5f3ff"/>
@@ -148,7 +148,7 @@ export default function CentreOperationnel() {
         <KpiCard icon="🏗️" value={bat.maintenance??'—'} label="Résidences maintenance" color="var(--rzc-text-3)" bg="var(--rzc-charcoal)"/>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
         {/* Alertes temps réel */}
         <div style={{ background:'var(--rzc-white)', borderRadius:14, padding:18, boxShadow:'0 2px 8px rgba(0,0,0,.06)' }}>
           <div style={{ fontWeight:800, fontSize:14, color:'var(--rzc-navy)', marginBottom:14, display:'flex', justifyContent:'space-between' }}>

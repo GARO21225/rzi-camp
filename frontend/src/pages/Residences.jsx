@@ -273,7 +273,7 @@ export default function Residences() {
               </div>
 
               {!form.personnel && (
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10, marginBottom:14 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, color:'var(--rzc-text-3)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Occupant</label>
                     <input value={form.occupant} onChange={e=>setForm({...form,occupant:e.target.value})} style={inp} placeholder="Nom occupant"/>
@@ -285,7 +285,7 @@ export default function Residences() {
                 </div>
               )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10 }}>
                 {[["Date d'arrivée",'date_arrivee'],["Date de départ",'date_depart']].map(([l,k])=>(
                   <div key={k}>
                     <label style={{ display:'block', fontSize:11, color:'var(--rzc-text-3)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{l}</label>
@@ -316,7 +316,7 @@ export default function Residences() {
               {/* Résumé */}
               <div style={{ background:'var(--rzc-charcoal-l2)', borderRadius:10, padding:'14px 16px', marginBottom:16 }}>
                 <div style={{ fontSize:12, color:'var(--rzc-text-3)', fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Récapitulatif</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, fontSize:13 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10, fontSize:13 }}>
                   {[
                     ['Résidence', confirmModal.batiment.residence],
                     ['Nouveau statut', confirmModal.resume.statut],

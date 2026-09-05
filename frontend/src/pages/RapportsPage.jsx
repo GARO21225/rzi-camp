@@ -547,7 +547,7 @@ export default function RapportsPage() {
                 </button>
               ))}
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
               {[['Du','debut'],['Au','fin']].map(([l,k])=>(
                 <div key={k}>
                   <label style={{fontSize:10,fontWeight:600,color:'var(--rzc-text-3)',

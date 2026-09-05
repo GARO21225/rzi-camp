@@ -182,7 +182,7 @@ export default function Voyages() {
       </div>
 
       {/* ── KPIs ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
         {[
           ['Total',     '📋', stats.total||data.length, '#2563eb'],
           ['Planifiés', '📅', stats.planifies||0,        '#f59e0b'],
@@ -330,7 +330,7 @@ export default function Voyages() {
                   </select>
                 </div>
               )}
-              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12 }}>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Destination *</label>
                   <select value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} style={inp}>
@@ -347,7 +347,7 @@ export default function Voyages() {
                   </select>
                 </div>
               </div>
-              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12 }}>
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12 }}>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Date départ *</label>
                   <input type="date" value={form.date_depart} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>

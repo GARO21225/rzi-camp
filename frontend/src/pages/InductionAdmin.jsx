@@ -299,7 +299,7 @@ export default function InductionAdmin() {
       {/* ── Tab Configuration ── */}
       {tab === 'config' && configForm && (
         <Section title="Configuration générale du camp">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
             <div>
               <label style={label}>NOM DU CAMP</label>
               <input style={inp} value={configForm.nom || ''} onChange={e => setConfigForm({ ...configForm, nom: e.target.value })} />
@@ -409,7 +409,7 @@ export default function InductionAdmin() {
       {modal?.type === 'infra' && (
         <FormModal title={modal.item === 'new' ? '➕ Nouvelle infrastructure' : '✏️ Modifier infrastructure'}
           onClose={closeModal} onSave={saveItem} saving={saving}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
             <div>
               <label style={label}>TITRE *</label>
               <input style={inp} value={form.titre || ''} onChange={e => setForm({ ...form, titre: e.target.value })} />
@@ -444,7 +444,7 @@ export default function InductionAdmin() {
               </div>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
             <div>
               <label style={label}>ORDRE D'AFFICHAGE</label>
               <input type="number" style={inp} value={form.ordre || 0} onChange={e => setForm({ ...form, ordre: parseInt(e.target.value) || 0 })} />
@@ -482,7 +482,7 @@ export default function InductionAdmin() {
             <textarea style={{ ...inp, minHeight: 90, resize: 'vertical' }} value={form.texte || ''}
               onChange={e => setForm({ ...form, texte: e.target.value })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
             <div>
               <label style={label}>ORDRE D'AFFICHAGE</label>
               <input type="number" style={inp} value={form.ordre || 0} onChange={e => setForm({ ...form, ordre: parseInt(e.target.value) || 0 })} />
@@ -542,7 +542,7 @@ export default function InductionAdmin() {
             <textarea style={{ ...inp, minHeight: 60, resize: 'vertical' }} value={form.explication || ''}
               onChange={e => setForm({ ...form, explication: e.target.value })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
             <div>
               <label style={label}>ORDRE D'AFFICHAGE</label>
               <input type="number" style={inp} value={form.ordre || 0} onChange={e => setForm({ ...form, ordre: parseInt(e.target.value) || 0 })} />

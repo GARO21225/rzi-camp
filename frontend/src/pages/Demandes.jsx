@@ -126,7 +126,7 @@ export default function Demandes() {
 
       {/* Admin KPIs */}
       {isAdmin && stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:10, marginBottom:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
           {[
             [stats.en_attente,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
@@ -270,7 +270,7 @@ export default function Demandes() {
                 </div>
               )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10, marginBottom:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Date départ':'Date arrivée'}</label>
                   <input type="date" value={form.date_debut_souhaitee} min={today} onChange={e=>setForm({...form,date_debut_souhaitee:e.target.value})} style={inp}/>
