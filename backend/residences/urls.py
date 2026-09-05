@@ -2,10 +2,12 @@
 from rest_framework.routers import DefaultRouter
 from .views import (InductionRecordViewSet, declarer_soustraitants_masse, BatimentViewSet,
     PersonnelViewSet, OccupationHistoryViewSet, OccupationHistoryAdminViewSet, DemandeViewSet,
-    InductionCampConfigViewSet, InductionInfraViewSet, InductionRegleViewSet, InductionQuizQuestionViewSet)
+    InductionCampConfigViewSet, InductionInfraViewSet, InductionRegleViewSet, InductionQuizQuestionViewSet,
+    PointInteretViewSet)
 router = DefaultRouter()
 router.register(r'induction-records', InductionRecordViewSet, basename='induction-record')
 router.register("batiments", BatimentViewSet)
+router.register("points-interet", PointInteretViewSet, basename="points-interet")
 router.register("personnel", PersonnelViewSet)
 router.register("occupation-history", OccupationHistoryViewSet)
 router.register("occupation-history-admin", OccupationHistoryAdminViewSet, basename="occupation-history-admin")

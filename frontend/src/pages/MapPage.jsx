@@ -3,7 +3,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { batiments } from '../api'
+import { batiments, pointsInteret as poiAPI } from '../api'
+import { useStore } from '../store'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -21,6 +22,25 @@ const TILES = [
 
 const sColor = s => ({ Libre:'#16a34a', 'Occupé':'#dc2626', 'Réservé':'var(--rzc-blue)', Maintenance:'#ea580c' }[s]||'#888')
 
+// ── Points d'intérêt : icône + couleur par catégorie ──
+const POI_STYLE = {
+  restaurant: { icon:'🍽️', color:'#ea580c' },
+  bar:        { icon:'🍺', color:'#d97706' },
+  sport:      { icon:'🏋️', color:'#16a34a' },
+  rampe:      { icon:'🚁', color:'#0ea5e9' },
+  securite:   { icon:'🛡️', color:'#dc2626' },
+  infirmerie: { icon:'⚕️', color:'#e11d48' },
+  parking:    { icon:'🅿️', color:'#475569' },
+  bureau:     { icon:'🏢', color:'#0f2a5c' },
+  loisirs:    { icon:'🎮', color:'#7c3aed' },
+  autre:      { icon:'📍', color:'#64748b' },
+}
+const POI_CATEGORIES = [
+  ['restaurant','🍽️ Restaurant'],['bar','🍺 Bar & Boutique'],['sport','🏋️ Salle de sport'],
+  ['rampe','🚁 Rampe / Héliport'],['securite','🛡️ Sécurité'],['infirmerie','⚕️ Infirmerie'],
+  ['parking','🅿️ Parking'],['bureau','🏢 Bureau / Administration'],['loisirs','🎮 Loisirs'],['autre','📍 Autre'],
+]
+
 function calcDist(a,b){return L.latLng(a).distanceTo(L.latLng(b))}
 function distStr(d){return d>1000?`${(d/1000).toFixed(2)} km`:`${Math.round(d)} m`}
 function calcBearing(p1,p2){
@@ -30,6 +50,13 @@ function calcBearing(p1,p2){
   const x=Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(lo2-lo1)
   const b=(Math.atan2(y,x)*180/Math.PI+360)%360
   return ['Nord','Nord-Est','Est','Sud-Est','Sud','Sud-Ouest','Ouest','Nord-Ouest'][Math.round(b/45)%8]
+}
+
+function MapClickCapture({ active, onPick }) {
+  useMapEvents({
+    click(e) { if (active) onPick({ lat: e.latlng.lat, lng: e.latlng.lng }) }
+  })
+  return null
 }
 
 function FitBounds({geojson}){
@@ -54,7 +81,7 @@ function NavLayer({userPos, route, target, targetName}){
     className:'',iconSize:[18,18],iconAnchor:[9,9]
   })
   const destIcon=L.divIcon({
-    html:`<div style="background:#dc2626;color:#fff;border-radius:10px 10px 10px 2px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏠 ${targetName}</div>`,
+    html:`<div style="background:#dc2626;color:#fff;border-radius:10px 10px 10px 2px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3)">📍 ${targetName}</div>`,
     className:'',iconAnchor:[0,28]
   })
 
@@ -62,7 +89,7 @@ function NavLayer({userPos, route, target, targetName}){
     <>
       <Marker position={userPos} icon={meIcon}><Popup><b>📍 Vous êtes ici</b><br/><span style={{fontSize:'12px'}}>→ {targetName}<br/>📏 {distStr(d)} · 🧭 {bear}</span></Popup></Marker>
       <Marker position={target} icon={destIcon}><Popup>
-        <b style={{color:'#dc2626'}}>🏠 {targetName}</b><br/>
+        <b style={{color:'#dc2626'}}>📍 {targetName}</b><br/>
         <span style={{fontSize:'12px'}}>📏 {distStr(d)}<br/>🧭 Direction {bear}</span><br/>
         <a href={`https://www.google.com/maps/dir/?api=1&origin=${userPos[0]},${userPos[1]}&destination=${target[0]},${target[1]}`}
           target="_blank" rel="noreferrer"
@@ -101,6 +128,34 @@ export default function MapPage() {
   const [gpsErr,setGpsErr]=useState('')
   const [routeLoading,setRouteLoading]=useState(false)
   const watchId=useRef(null)
+  const { user } = useStore()
+  const isAdmin = !!(user?.is_staff || user?.is_superuser)
+
+  // ── Points d'intérêt ──
+  const [pois, setPois] = useState([])
+  const [addingPoi, setAddingPoi] = useState(false)   // mode "clic sur la carte pour placer"
+  const [poiDraft, setPoiDraft] = useState(null)       // {lat,lng} en attente de formulaire
+  const [poiForm, setPoiForm] = useState({ nom:'', categorie:'autre', description:'' })
+
+  const loadPois = useCallback(() => {
+    poiAPI.list().then(r => setPois(r.data.results || r.data || [])).catch(() => setPois([]))
+  }, [])
+  useEffect(() => { loadPois() }, [loadPois])
+
+  const savePoi = async () => {
+    if (!poiDraft || !poiForm.nom.trim()) return
+    try {
+      await poiAPI.create({ nom: poiForm.nom.trim(), categorie: poiForm.categorie,
+        description: poiForm.description, latitude: poiDraft.lat, longitude: poiDraft.lng })
+      setPoiDraft(null); setAddingPoi(false); setPoiForm({ nom:'', categorie:'autre', description:'' })
+      loadPois()
+    } catch { alert("Erreur lors de l'enregistrement du point d'intérêt") }
+  }
+
+  const deletePoi = async (id) => {
+    if (!window.confirm('Supprimer ce point d\'intérêt ?')) return
+    try { await poiAPI.delete(id); loadPois() } catch { alert('Erreur suppression') }
+  }
 
   const tile=TILES.find(t=>t.id===tileId)||TILES[0]
 
@@ -146,6 +201,25 @@ export default function MapPage() {
   }, [])
 
   useEffect(()=>{load()},[load])
+
+  // Le bouton "🧭 Naviguer ici" des popups (résidences et points d'intérêt)
+  // envoie cet évènement — jusqu'ici personne ne l'écoutait, le bouton ne
+  // faisait rien. Il active désormais la navigation directement, sans avoir
+  // à activer le mode Navigation au préalable.
+  useEffect(() => {
+    const onNavRequest = (e) => {
+      const { lat, lng, name } = e.detail || {}
+      if (lat == null || lng == null) return
+      if (!navMode) { setNavMode(true); startGPS() }
+      setTarget([lat, lng]); setTargetName(name || '')
+    }
+    window.addEventListener('nav-request', onNavRequest)
+    return () => window.removeEventListener('nav-request', onNavRequest)
+  }, [navMode])
+
+  useEffect(() => {
+    if (target && userPos) getRoute(userPos, target)
+  }, [target])
 
   const startGPS=()=>{
     setGpsLoading(true);setGpsErr('')
@@ -224,6 +298,16 @@ export default function MapPage() {
             color:navMode?'#d08800':'var(--text-dim)',cursor:'pointer',fontSize:11,fontWeight:700,transition:'.2s'}}>
           {gpsLoading?'📡 GPS...' : navMode?'🧭 NAV ON':'🧭 Navigation'}
         </button>
+
+        {isAdmin && (
+          <button onClick={()=>{setAddingPoi(a=>!a); setPoiDraft(null)}}
+            title="Cliquez ensuite sur la carte pour placer le point"
+            style={{padding:'5px 12px',borderRadius:8,border:`2px solid ${addingPoi?'#7c3aed':'var(--border)'}`,
+              background:addingPoi?'rgba(124,58,237,.15)':'var(--surface2)',
+              color:addingPoi?'#7c3aed':'var(--text-dim)',cursor:'pointer',fontSize:11,fontWeight:700,transition:'.2s'}}>
+            {addingPoi?'📍 Cliquez sur la carte...':'➕ Point d\'intérêt'}
+          </button>
+        )}
 
         <div style={{marginLeft:'auto',display:'flex',gap:8,fontSize:10,fontFamily:'monospace'}}>
           {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','var(--rzc-blue)']].map(([l,c])=>(
@@ -327,7 +411,87 @@ export default function MapPage() {
             </>
           )}
           <NavLayer userPos={userPos} route={route} target={target} targetName={targetName}/>
+
+          {/* Points d'intérêt (restaurant, sport, rampe, etc.) */}
+          {pois.map(poi => {
+            const st = POI_STYLE[poi.categorie] || POI_STYLE.autre
+            const icon = L.divIcon({
+              html:`<div style="width:30px;height:30px;background:${st.color};border-radius:50% 50% 50% 0;
+                transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
+                box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">
+                <span style="transform:rotate(45deg);font-size:15px;line-height:1">${st.icon}</span></div>`,
+              className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30]
+            })
+            return (
+              <Marker key={`poi-${poi.id}`} position={[poi.latitude, poi.longitude]} icon={icon}>
+                <Popup>
+                  <div style={{fontFamily:'sans-serif',minWidth:180}}>
+                    <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{st.icon} {poi.nom}</div>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{poi.categorie_label}</div>
+                    {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
+                    <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
+                      style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isAdmin?6:0}}>
+                      🧭 Aller à ce point
+                    </button>
+                    {isAdmin && (
+                      <button onClick={()=>deletePoi(poi.id)}
+                        style={{width:'100%',background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                        🗑️ Supprimer
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+          {/* Marqueur temporaire pendant le placement d'un nouveau point */}
+          {poiDraft && (
+            <Marker position={[poiDraft.lat, poiDraft.lng]}
+              icon={L.divIcon({html:'<div style="font-size:26px">📍</div>',className:'',iconSize:[26,26],iconAnchor:[13,26]})} />
+          )}
+
+          <MapClickCapture active={addingPoi && !poiDraft} onPick={(pos)=>setPoiDraft(pos)}/>
         </MapContainer>
+
+        {/* Formulaire de placement d'un nouveau point d'intérêt */}
+        {poiDraft && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:2000,
+            display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+            onClick={e=>e.target===e.currentTarget && setPoiDraft(null)}>
+            <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:340,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+              <div style={{background:'#7c3aed',color:'#fff',padding:'12px 16px',fontWeight:700,fontSize:14}}>
+                📍 Nouveau point d'intérêt
+              </div>
+              <div style={{padding:14,display:'flex',flexDirection:'column',gap:9}}>
+                <input value={poiForm.nom} onChange={e=>setPoiForm(f=>({...f,nom:e.target.value}))}
+                  placeholder="Nom (ex: Restaurant Principal) *"
+                  style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+                <select value={poiForm.categorie} onChange={e=>setPoiForm(f=>({...f,categorie:e.target.value}))}
+                  style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:13,outline:'none'}}>
+                  {POI_CATEGORIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                </select>
+                <textarea value={poiForm.description} onChange={e=>setPoiForm(f=>({...f,description:e.target.value}))}
+                  placeholder="Description (optionnel)"
+                  style={{border:'2px solid var(--border)',borderRadius:8,padding:'8px 10px',fontSize:12,outline:'none',minHeight:50,resize:'vertical'}}/>
+                <div style={{fontSize:10,color:'#94a3b8',fontFamily:'monospace'}}>
+                  {poiDraft.lat.toFixed(6)}, {poiDraft.lng.toFixed(6)}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>setPoiDraft(null)}
+                    style={{flex:1,background:'#f1f5f9',color:'#64748b',border:'none',padding:10,borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                    Annuler
+                  </button>
+                  <button onClick={savePoi} disabled={!poiForm.nom.trim()}
+                    style={{flex:1,background:poiForm.nom.trim()?'#7c3aed':'#cbd5e1',color:'#fff',border:'none',padding:10,borderRadius:9,
+                      cursor:poiForm.nom.trim()?'pointer':'not-allowed',fontSize:13,fontWeight:700}}>
+                    💾 Enregistrer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Légende */}
         <div style={{position:'absolute',bottom:20,right:10,background:'rgba(255,255,255,.97)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',zIndex:900,fontSize:12,boxShadow:'var(--shadow-md)'}}>

@@ -167,6 +167,43 @@ class Batiment(models.Model):
         return f"{self.residence} ({self.statut})"
 
 
+class PointInteret(models.Model):
+    """
+    Points d'intérêt sur la carte (hors résidences) : restaurant, salle de
+    sport, rampe/héliport, sécurité, infirmerie, parking, etc. Placés
+    manuellement par un admin (clic sur la carte) car les coordonnées GPS
+    réelles du camp ne sont connues que sur place — impossible à deviner
+    depuis le code.
+    """
+    CATEGORIES = [
+        ("restaurant", "🍽️ Restaurant"),
+        ("bar",        "🍺 Bar & Boutique"),
+        ("sport",      "🏋️ Salle de sport"),
+        ("rampe",      "🚁 Rampe / Héliport"),
+        ("securite",   "🛡️ Sécurité"),
+        ("infirmerie", "⚕️ Infirmerie"),
+        ("parking",    "🅿️ Parking"),
+        ("bureau",     "🏢 Bureau / Administration"),
+        ("loisirs",    "🎮 Loisirs"),
+        ("autre",      "📍 Autre"),
+    ]
+    nom          = models.CharField(max_length=100)
+    categorie    = models.CharField(max_length=20, choices=CATEGORIES, default="autre")
+    latitude     = models.FloatField()
+    longitude    = models.FloatField()
+    description  = models.TextField(blank=True, default="")
+    actif        = models.BooleanField(default=True)
+    cree_par     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_creation= models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["categorie", "nom"]
+        verbose_name = "Point d'intérêt"
+
+    def __str__(self):
+        return f"{self.get_categorie_display()} — {self.nom}"
+
+
 class OccupationHistory(models.Model):
     batiment = models.ForeignKey(Batiment, on_delete=models.CASCADE, related_name="historique")
     personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="historique_residence")

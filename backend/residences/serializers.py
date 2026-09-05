@@ -1,6 +1,15 @@
 from rest_framework import serializers
 from .models import (Batiment, Personnel, OccupationHistory, InductionRecord,
-    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion)
+    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret)
+
+class PointInteretSerializer(serializers.ModelSerializer):
+    categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
+
+    class Meta:
+        model = PointInteret
+        fields = ["id","nom","categorie","categorie_label","latitude","longitude",
+                  "description","actif","date_creation"]
+        read_only_fields = ["date_creation"]
 
 class PersonnelSerializer(serializers.ModelSerializer):
     type_label      = serializers.SerializerMethodField()

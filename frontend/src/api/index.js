@@ -67,6 +67,14 @@ export const batiments = {
   exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
 }
+
+// ── Points d'intérêt carte (restaurant, sport, rampe, etc.) ──────────
+export const pointsInteret = {
+  list:   ()      => api.get('/api/points-interet/'),
+  create: (d)     => api.post('/api/points-interet/', d),
+  update: (id, d) => api.patch(`/api/points-interet/${id}/`, d),
+  delete: (id)    => api.delete(`/api/points-interet/${id}/`),
+}
 // ── Contenu éditable Induction Camp ──────────────────────────────────
 export const inductionConfig = {
   actuelle: () => api.get('/api/induction-config/actuelle/'),

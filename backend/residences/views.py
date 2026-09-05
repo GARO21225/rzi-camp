@@ -8,7 +8,7 @@ from accounts.permissions import TokenInQueryOrHeader
 from .models import (
     InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
     InductionCampConfig, InductionInfra, InductionRegle,
-    InductionQuizQuestion
+    InductionQuizQuestion, PointInteret
 )
 
 from .serializers import (
@@ -16,7 +16,7 @@ from .serializers import (
     DemandeSerializer, InductionRecordSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
-    InductionQuizQuestionPublicSerializer
+    InductionQuizQuestionPublicSerializer, PointInteretSerializer
 )
 
 import csv, datetime, re
@@ -553,6 +553,30 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=500)
 
+
+
+class PointInteretViewSet(viewsets.ModelViewSet):
+    """
+    Points d'intérêt sur la carte (restaurant, sport, rampe, etc.).
+    Lecture ouverte à tout utilisateur connecté (utile pour la navigation),
+    écriture réservée aux administrateurs (création/déplacement des points).
+    """
+    queryset = PointInteret.objects.filter(actif=True)
+    serializer_class = PointInteretSerializer
+
+    def get_permissions(self):
+        if self.request.method not in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated(), _IsAdmin()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
+
+
+from rest_framework.permissions import BasePermission
+class _IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and (request.user.is_staff or request.user.is_superuser))
 
 
 class BatimentViewSet(viewsets.ModelViewSet):
