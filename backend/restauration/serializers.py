@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import QRToken, RepasLog, AuditLog
+from .models import QRToken, RepasLog, AuditLog, AvisRestauration
 
 class QRTokenSerializer(serializers.ModelSerializer):
     type_repas_label = serializers.CharField(source="get_type_repas_display", read_only=True)
@@ -72,3 +72,17 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model  = AuditLog
         fields = "__all__"
+
+class AvisRestaurationSerializer(serializers.ModelSerializer):
+    repas_label     = serializers.CharField(source="get_repas_display", read_only=True)
+    personnel_nom   = serializers.SerializerMethodField()
+
+    def get_personnel_nom(self, obj):
+        if obj.personnel: return f"{obj.personnel.nom} {obj.personnel.prenom}"
+        return "Anonyme"
+
+    class Meta:
+        model  = AvisRestauration
+        fields = ["id","personnel","personnel_nom","repas","repas_label",
+                  "note","commentaire","date_avis","date_creation"]
+        read_only_fields = ["date_avis","date_creation"]

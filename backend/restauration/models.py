@@ -164,3 +164,28 @@ class MenuJour(models.Model):
 
     def __str__(self):
         return f"{self.date_service} — {self.get_repas_display()} — {self.nom}"
+
+
+class AvisRestauration(models.Model):
+    """
+    Avis du personnel sur les repas — démarche d'amélioration continue.
+    Anonyme optionnel : le personnel peut donner son avis sans se
+    connecter à un compte lié (le scan repas n'implique pas de session
+    utilisateur pour l'agent lui-même, seulement pour le staff qui scanne).
+    """
+    REPAS_CHOICES = [
+        ('matin','Petit déjeuner'), ('midi','Déjeuner'), ('soir','Dîner'),
+    ]
+    personnel    = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
+    repas        = models.CharField(max_length=20, choices=REPAS_CHOICES, default='midi')
+    note         = models.PositiveSmallIntegerField(default=5)  # 1 à 5
+    commentaire  = models.TextField(blank=True, default='')
+    date_avis    = models.DateField(auto_now_add=True)
+    date_creation= models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_creation']
+        verbose_name = "Avis restauration"
+
+    def __str__(self):
+        return f"{self.date_avis} — {self.get_repas_display()} — {self.note}/5"

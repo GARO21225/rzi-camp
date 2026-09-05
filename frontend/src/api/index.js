@@ -166,6 +166,13 @@ export const qr = {
   repas: (p) => api.get('/api/repas/', {params:p}),
   historiqueScans: (p) => api.get('/api/repas/', {params:p}),
 }
+
+// ── Avis restauration — amélioration continue ──
+export const avisRestauration = {
+  create: (d) => api.post('/api/avis/', d),
+  list:   (p) => api.get('/api/avis/', {params:p}),
+  stats:  (periode) => api.get('/api/avis/stats/', {params:{periode}}),
+}
 export const occupationHistoryAdmin = {
   delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
   update: (id,d) => api.patch(`/api/occupation-history-admin/${id}/`, d),

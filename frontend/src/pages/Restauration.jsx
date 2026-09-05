@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
-import { qr as qrAPI, menu as menuAPI } from '../api'
+import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 // ── Configuration repas ───────────────────────────────────────────
@@ -118,6 +118,57 @@ async function apiViderHistorique(type_repas) {
 }
 
 // ── Scanner QR ─────────────────────────────────────────────────────
+// ── Mini-sondage post-scan : amélioration continue ──
+// Affiché brièvement après chaque repas validé — l'agent qui vient de
+// scanner peut demander à la personne comment était son repas (submission
+// anonyme, l'app ne demande pas à chaque employé d'avoir son propre compte).
+function AvisRapide({ typeRepas, onDone }) {
+  const [note, setNote] = useState(0)
+  const [commentaire, setCommentaire] = useState('')
+  const [envoye, setEnvoye] = useState(false)
+
+  const envoyer = async (n) => {
+    setNote(n)
+    try { await avisAPI.create({ repas: typeRepas, note: n, commentaire }) } catch {}
+    setEnvoye(true)
+    setTimeout(onDone, 1200)
+  }
+
+  if (envoye) {
+    return (
+      <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:12,padding:14,textAlign:'center',marginTop:10}}>
+        <div style={{fontSize:22}}>🙏</div>
+        <div style={{fontSize:12,color:'#166534',fontWeight:700}}>Merci pour votre avis !</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:12,padding:14,marginTop:10}}>
+      <div style={{fontSize:12,fontWeight:700,color:'#92400e',marginBottom:8,textAlign:'center'}}>
+        🍽️ Comment était le repas ?
+      </div>
+      <div style={{display:'flex',justifyContent:'center',gap:6,marginBottom:8}}>
+        {[1,2,3,4,5].map(n => (
+          <button key={n} onClick={()=>envoyer(n)}
+            style={{background:'none',border:'none',cursor:'pointer',fontSize:28,padding:2,
+              filter: n<=note ? 'none' : 'grayscale(1) opacity(.4)'}}>
+            ⭐
+          </button>
+        ))}
+      </div>
+      <input value={commentaire} onChange={e=>setCommentaire(e.target.value)}
+        placeholder="Un commentaire ? (optionnel)"
+        style={{width:'100%',border:'1px solid #fde68a',borderRadius:8,padding:'6px 10px',
+          fontSize:12,outline:'none',boxSizing:'border-box',marginBottom:8}}/>
+      <button onClick={onDone}
+        style={{width:'100%',background:'none',border:'none',color:'#92400e',fontSize:11,cursor:'pointer',textDecoration:'underline'}}>
+        Passer
+      </button>
+    </div>
+  )
+}
+
 function QRScanner({ typeRepas, onSuccess, onError }) {
   const [phase, setPhase] = useState('init')
   const [message, setMsg] = useState('')
@@ -416,6 +467,8 @@ export default function Restauration() {
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
 
   const [typeRepas, setTypeRepas] = useState('dejeuner')
+  const [showAvis, setShowAvis] = useState(false)
+  const [avisStats, setAvisStats] = useState(null)
   const [menuItems,   setMenuItems]   = useState([])
   const [menuForm,    setMenuForm]    = useState(null)
   const [menuDate,    setMenuDate]    = useState(new Date().toISOString().slice(0,10))
@@ -447,6 +500,7 @@ export default function Restauration() {
       menuAPI.list({date_service: new Date().toISOString().slice(0,10)})
         .then(r => setMenuItems(r.data.results || r.data || []))
         .catch(() => {})
+      avisAPI.stats('30j').then(r => setAvisStats(r.data)).catch(() => {})
     } else {
       import('../api').then(({ personnel: personnelAPI }) => {
         personnelAPI.monProfil()
@@ -579,6 +633,36 @@ export default function Restauration() {
         {/* Dernier scan */}
         <LastScanCard scan={stats.lastScan} />
 
+        {/* Amélioration continue — avis du personnel sur les repas */}
+        {avisStats && avisStats.count > 0 && (
+          <div style={{background:'#fff',border:'1px solid var(--rzc-border-light)',borderRadius:12,padding:14,marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#7c3aed'}}>📊 Amélioration continue — 30 derniers jours</div>
+              <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{avisStats.count} avis</div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                <span style={{fontSize:28,fontWeight:900,color:'#7c3aed',fontFamily:'monospace'}}>{avisStats.moyenne}</span>
+                <span style={{fontSize:12,color:'var(--rzc-text-3)'}}>/5 ⭐</span>
+              </div>
+              <div style={{display:'flex',gap:10,fontSize:11,color:'var(--rzc-text-3)'}}>
+                {Object.entries(avisStats.par_repas||{}).map(([repas,d])=>(
+                  <div key={repas}>
+                    {{matin:'🌅',midi:'☀️',soir:'🌙'}[repas]||''} {d.moyenne}/5 <span style={{color:'var(--rzc-text-4)'}}>({d.count})</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                {[5,4,3,2,1].map(n=>(
+                  <div key={n} title={`${avisStats.repartition?.[n]||0} avis à ${n}⭐`}
+                    style={{width:8,height:Math.max(6,(avisStats.repartition?.[n]||0)*4),
+                      background:n>=4?'#16a34a':n===3?'#eab308':'#dc2626',borderRadius:2,alignSelf:'flex-end'}}/>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Layout : Scanner + Historique */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, alignItems: 'start' }}>
           {/* Scanner */}
@@ -588,8 +672,10 @@ export default function Restauration() {
               typeRepas={typeRepas}
               onSuccess={() => {
                 setTimeout(() => loadHistorique(), 1500)
+                setShowAvis(true)
               }}
             />
+            {showAvis && <AvisRapide typeRepas={typeRepas} onDone={()=>setShowAvis(false)}/>}
           </div>
 
           {/* Historique */}

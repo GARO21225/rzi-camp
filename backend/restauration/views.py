@@ -7,8 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import serializers as drf_serializers
 from django.utils import timezone
 from django.db import connection
-from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
-from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer
+from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration
+from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer, AvisRestaurationSerializer
 
 class QRTokenViewSet(viewsets.ViewSet):
     """ViewSet pour QR Token avec scan POST.
@@ -291,6 +291,80 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(qr_token__type_repas=type_repas)
 
         return qs
+
+
+class AvisRestaurationViewSet(viewsets.ModelViewSet):
+    """
+    Avis du personnel sur les repas — démarche d'amélioration continue.
+    Tout utilisateur connecté peut donner un avis (création) ; la liste
+    complète et les statistiques sont réservées à l'équipe Restauration/admin
+    pour éviter d'exposer les commentaires individuels à tout le monde.
+    """
+    queryset = AvisRestauration.objects.all()
+    serializer_class = AvisRestaurationSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), _IsRestoOuAdmin()]
+
+    def perform_create(self, serializer):
+        # Rattache automatiquement l'avis au personnel de l'utilisateur
+        # connecté s'il existe un lien (profil -> personnel), sinon anonyme.
+        personnel = None
+        try:
+            from residences.models import Personnel
+            personnel = Personnel.objects.filter(user=self.request.user).first()
+        except Exception:
+            pass
+        serializer.save(personnel=personnel)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Note moyenne et répartition — pour le suivi qualité continue."""
+        from django.db import connection
+        from django.utils import timezone as tz
+        from datetime import timedelta
+
+        periode = request.query_params.get('periode', '30j')
+        today = tz.now().date()
+        if periode == '7j':   date_from = today - timedelta(days=6)
+        elif periode == '90j': date_from = today - timedelta(days=89)
+        else: date_from = today - timedelta(days=29)
+
+        try:
+            with connection.cursor() as c:
+                c.execute("""
+                    SELECT COUNT(*), COALESCE(AVG(note),0)
+                    FROM restauration_avisrestauration WHERE date_avis >= %s
+                """, [date_from])
+                count, moyenne = c.fetchone()
+                c.execute("""
+                    SELECT note, COUNT(*) FROM restauration_avisrestauration
+                    WHERE date_avis >= %s GROUP BY note ORDER BY note
+                """, [date_from])
+                repartition = {str(r[0]): r[1] for r in c.fetchall()}
+                c.execute("""
+                    SELECT repas, COUNT(*), COALESCE(AVG(note),0) FROM restauration_avisrestauration
+                    WHERE date_avis >= %s GROUP BY repas
+                """, [date_from])
+                par_repas = {r[0]: {'count': r[1], 'moyenne': round(float(r[2]), 1)} for r in c.fetchall()}
+            return Response({
+                'count': count, 'moyenne': round(float(moyenne), 1),
+                'repartition': repartition, 'par_repas': par_repas, 'periode': periode,
+            })
+        except Exception as e:
+            return Response({'count':0,'moyenne':0,'repartition':{},'par_repas':{},'error':str(e)})
+
+
+from rest_framework.permissions import BasePermission
+class _IsRestoOuAdmin(BasePermission):
+    def has_permission(self, request, view):
+        u = request.user
+        if not u or not u.is_authenticated: return False
+        if u.is_staff or u.is_superuser: return True
+        role = getattr(getattr(u, 'profile', None), 'role', None)
+        return role == 'restauration'
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
