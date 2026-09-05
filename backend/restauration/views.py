@@ -638,12 +638,12 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
 
                 # Top agents
                 c.execute("""
-                    SELECT COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme') as nom,
+                    SELECT COALESCE(p.nom||' '||p.prenom, 'Anonyme') as nom,
                            COUNT(*), SUM(cb.montant)
                     FROM restauration_consommationboutique cb
                     LEFT JOIN residences_personnel p ON p.id=cb.personnel_id
                     WHERE DATE(cb.date_conso) >= %s
-                    GROUP BY COALESCE(p.nom||' '||p.prenom, cb.agent_nom_cache, 'Anonyme'), p.prenom ORDER BY SUM(cb.montant) DESC LIMIT 10
+                    GROUP BY COALESCE(p.nom||' '||p.prenom, 'Anonyme') ORDER BY SUM(cb.montant) DESC LIMIT 10
                 """, [date_from])
                 top_agents = [{'nom':r[0],'nb':int(r[1]),'ca':float(r[2])} for r in c.fetchall()]
 
@@ -658,14 +658,25 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
                 """, [date_from])
                 evolution = [{'jour':str(r[0]),'bon':float(r[1] or 0),'especes':float(r[2] or 0),'ca':float((r[1] or 0)+(r[2] or 0))} for r in c.fetchall()]
 
+                # Récapitulatif de caisse par mode de paiement (espèces, bons, et
+                # les 4 opérateurs mobile money) — pour la réconciliation de caisse.
+                c.execute("""
+                    SELECT COALESCE(mode_paiement,'especes'), COUNT(*), COALESCE(SUM(montant),0)
+                    FROM restauration_consommationboutique
+                    WHERE DATE(date_conso) >= %s
+                    GROUP BY mode_paiement
+                """, [date_from])
+                par_mode_paiement = {r[0]: {'count': r[1], 'total': float(r[2])} for r in c.fetchall()}
+
             return Response({
                 'periode': periode, 'total_ca': float(total_ca), 'nb_transactions': nb_tx,
                 'total_qte': int(total_qte), 'top_articles': top_articles,
                 'par_categorie': par_cat, 'top_agents': top_agents, 'evolution': evolution,
+                'par_mode_paiement': par_mode_paiement,
             })
         except Exception as e:
             return Response({'detail': str(e), 'total_ca':0,'nb_transactions':0,'total_qte':0,
-                'top_articles':[],'par_categorie':[],'top_agents':[],'evolution':[]}, status=500)
+                'top_articles':[],'par_categorie':[],'top_agents':[],'evolution':[],'par_mode_paiement':{}}, status=500)
 
     @action(detail=False, methods=['get'])
     def stats_jour(self, request):
@@ -673,15 +684,22 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from django.utils import timezone as tz
         from rest_framework.response import Response
         today = tz.now().date()
+        # Période optionnelle : sinon, journée du jour uniquement (comportement inchangé)
+        date_debut = request.query_params.get('date_debut', today)
+        date_fin   = request.query_params.get('date_fin', today)
         try:
             with connection.cursor() as c:
-                c.execute("SELECT COUNT(*), COALESCE(SUM(montant),0) FROM restauration_consommationboutique WHERE DATE(date_conso)=%s", [today])
+                c.execute("SELECT COUNT(*), COALESCE(SUM(montant),0) FROM restauration_consommationboutique WHERE DATE(date_conso) BETWEEN %s AND %s", [date_debut, date_fin])
                 count, total = c.fetchone()
-                c.execute("SELECT a.categorie, COUNT(*), COALESCE(SUM(cb.montant),0) FROM restauration_consommationboutique cb JOIN restauration_articleboutique a ON a.id=cb.article_id WHERE DATE(cb.date_conso)=%s GROUP BY a.categorie", [today])
+                c.execute("SELECT a.categorie, COUNT(*), COALESCE(SUM(cb.montant),0) FROM restauration_consommationboutique cb JOIN restauration_articleboutique a ON a.id=cb.article_id WHERE DATE(cb.date_conso) BETWEEN %s AND %s GROUP BY a.categorie", [date_debut, date_fin])
                 par_cat = [{'categorie':r[0],'count':r[1],'total':float(r[2])} for r in c.fetchall()]
-            return Response({'count':count,'total':float(total),'par_categorie':par_cat,'date':str(today)})
+                # Récapitulatif de caisse par mode de paiement — pour la réconciliation
+                # de fin de service (espèces, bons, et les 4 opérateurs mobile money).
+                c.execute("SELECT COALESCE(mode_paiement,'especes'), COUNT(*), COALESCE(SUM(montant),0) FROM restauration_consommationboutique WHERE DATE(date_conso) BETWEEN %s AND %s GROUP BY mode_paiement", [date_debut, date_fin])
+                par_mode = {r[0]: {'count':r[1],'total':float(r[2])} for r in c.fetchall()}
+            return Response({'count':count,'total':float(total),'par_categorie':par_cat,'par_mode_paiement':par_mode,'date':str(today)})
         except Exception as e:
-            return Response({'count':0,'total':0,'par_categorie':[],'date':str(today),'error':str(e)})
+            return Response({'count':0,'total':0,'par_categorie':[],'par_mode_paiement':{},'date':str(today),'error':str(e)})
 
 
 

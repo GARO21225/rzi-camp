@@ -170,6 +170,34 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
 
       {data && !loading && (
         <>
+          {/* Récapitulatif caisse par mode de paiement — réconciliation fin de service */}
+          {data.par_mode_paiement && Object.keys(data.par_mode_paiement).length > 0 && (
+            <div style={{background:'var(--rzc-white)',border:'1px solid var(--rzc-border)',borderRadius:14,padding:16,marginBottom:20}}>
+              <div style={{fontWeight:700,fontSize:13,color:'var(--rzc-navy)',marginBottom:12}}>💰 Récapitulatif caisse par mode de paiement</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>
+                {[
+                  ['especes','💵','Espèces','#16a34a'],
+                  ['bon','🎫','Bons de caisse','#2563eb'],
+                  ['credit','📇','Crédit','#64748b'],
+                  ['om','🟠','Orange Money','#f97316'],
+                  ['wave','🔵','Wave','#0ea5e9'],
+                  ['mtn','🟡','MTN Money','#eab308'],
+                  ['moov','🟢','Moov Money','#16a34a'],
+                ].map(([key,icon,label,color])=>{
+                  const m = data.par_mode_paiement[key]
+                  if (!m) return null
+                  return (
+                    <div key={key} style={{background:'var(--rzc-charcoal)',borderRadius:10,padding:'10px 12px',borderLeft:`3px solid ${color}`}}>
+                      <div style={{fontSize:11,color:'var(--rzc-text-3)',fontWeight:600,marginBottom:4}}>{icon} {label}</div>
+                      <div style={{fontFamily:'monospace',fontSize:16,fontWeight:800,color:'var(--rzc-text)'}}>{m.total.toLocaleString()} <span style={{fontSize:10,fontWeight:600}}>FCFA</span></div>
+                      <div style={{fontSize:10,color:'var(--rzc-text-4)'}}>{m.count} transaction{m.count>1?'s':''}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* KPIs */}
           <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(4,1fr)',gap:12,marginBottom:20}}>
             {[
@@ -1352,6 +1380,17 @@ export default function Boutique({ embedded = false } = {}) {
                           🎫 Bon{bonAgent?` (${parseInt(bonAgent.credit_restant).toLocaleString()})` :''}
                         </button>
                       </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(85px,1fr))',gap:6,marginTop:6}}>
+                        {[['om','🟠','Orange Money'],['wave','🔵','Wave'],['mtn','🟡','MTN Money'],['moov','🟢','Moov Money']].map(([v,icon,label])=>(
+                          <button key={v} onClick={()=>setModePaiement(v)}
+                            style={{padding:'8px 4px',borderRadius:9,border:`2px solid ${modePaiement===v?'#f0a500':'var(--rzc-border-light)'}`,
+                              background:modePaiement===v?'#fffbeb':'var(--rzc-white)',
+                              cursor:'pointer',fontSize:10.5,fontWeight:700,lineHeight:1.3,
+                              color:modePaiement===v?'#b45309':'var(--rzc-text-3)'}}>
+                            {icon} {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <button onClick={()=>valider(modePaiement)} disabled={submitting||!modePaiement}
@@ -1387,6 +1426,11 @@ export default function Boutique({ embedded = false } = {}) {
               <option value="">Tous modes</option>
               <option value="especes">💵 Espèces</option>
               <option value="bon">🎫 Bon</option>
+              <option value="credit">📇 Crédit</option>
+              <option value="om">🟠 Orange Money</option>
+              <option value="wave">🔵 Wave</option>
+              <option value="mtn">🟡 MTN Money</option>
+              <option value="moov">🟢 Moov Money</option>
             </select>
             <button onClick={()=>{setHistSearch('');setHistDate('');setHistMode('')}}
               style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,cursor:'pointer'}}>

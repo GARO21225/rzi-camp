@@ -68,7 +68,15 @@ class ArticleBoutique(models.Model):
 
 class ConsommationBoutique(models.Model):
     from residences.models import Personnel
-    MODE_PAIEMENT = [('especes','Espèces'),('bon','Bon de caisse'),('credit','Crédit')]
+    MODE_PAIEMENT = [
+        ('especes','Espèces'),
+        ('bon','Bon de caisse'),
+        ('credit','Crédit'),
+        ('om','Orange Money'),
+        ('wave','Wave'),
+        ('mtn','MTN Money'),
+        ('moov','Moov Money'),
+    ]
     personnel    = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
     article      = models.ForeignKey(ArticleBoutique, on_delete=models.CASCADE)
     quantite     = models.IntegerField(default=1)
