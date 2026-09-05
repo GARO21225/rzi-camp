@@ -754,6 +754,7 @@ function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, 
 }
 
 function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
+  const isMobile = useIsMobile()
   if (!menuForm) return null
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',

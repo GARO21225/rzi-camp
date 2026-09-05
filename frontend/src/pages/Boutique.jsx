@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import api from '../api'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ── Images par défaut (fallback si pas d'image en DB) ──────
 const DEFAULT_PHOTOS = {
@@ -116,6 +117,7 @@ function getEmoji(nom) {
 
 // ── Panneau Analyses Consommations ─────────────────────────
 function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
+  const isMobile = useIsMobile()
   React.useEffect(() => { onLoad(periode) }, [periode])
 
   const CAT_COLORS = {
@@ -301,6 +303,7 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
 
 // ── Panneau Gestion des Bons de Caisse ─────────────────────
 function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
+  const isMobile = useIsMobile()
   // États locaux pour la modification de bon
   const [editBon,      setEditBon]     = useState(null)
   const [editMontant,  setEditMontant] = useState(100000)
@@ -553,6 +556,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
 
 // ── Modal Article (Créer / Modifier) ─────────────────────── (Créer / Modifier) ───────────────────────
 function ArticleModal({ article, categories, onSave, onClose }) {
+  const isMobile = useIsMobile()
   const isEdit = !!article?.id
   const [form, setForm] = useState(article || {
     nom:'', categorie:'gazeuse', prix:0, stock:100, unite:'33cl', image_url:'', actif:true
