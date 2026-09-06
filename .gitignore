@@ -59,3 +59,7 @@ htmlcov/
 *.bak
 *.tmp
 *.orig
+
+# Sauvegardes de base de donnees - JAMAIS sur un depot public (donnees personnel/sante)
+backups/
+*.dump
