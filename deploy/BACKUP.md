@@ -60,13 +60,34 @@ En cas de panne physique du serveur lui-même, elles disparaissent avec le
 reste. Pour s'en protéger, copier périodiquement le dossier `backups/` vers
 un autre emplacement — au choix, selon ce qui est disponible :
 
-- Un **Hetzner Storage Box** (souvent le plus simple si déjà chez Hetzner) via `rclone` ou `rsync`.
-- Un simple `scp` régulier vers un autre serveur/ordinateur.
-- Un stockage cloud (S3, Backblaze...) via `rclone`.
+### Option A — Un serveur/ordinateur local (déjà prêt : `deploy/backup-sync-local.sh`)
 
-Cette étape n'a pas été automatisée ici car elle dépend d'un compte/service
-externe que seul l'exploitant du serveur peut choisir et configurer — dites
-lequel est disponible et le script d'envoi peut être ajouté ensuite.
+Si un autre serveur ou ordinateur est disponible (au camp, au bureau...),
+utilisez le script fourni :
+```bash
+# Une fois : générer une clé SSH dédiée et l'autoriser sur la machine cible
+ssh-keygen -t ed25519 -f ~/.ssh/rzi_backup_key -N ""
+ssh-copy-id -i ~/.ssh/rzi_backup_key.pub USER@ADRESSE_SERVEUR_LOCAL
+
+# Modifier deploy/backup-sync-local.sh : renseigner SERVEUR_CIBLE et DOSSIER_CIBLE
+
+# Tester manuellement
+./deploy/backup-sync-local.sh
+
+# Automatiser (juste après backup.sh, à 2h30 pour laisser le temps au dump de finir)
+crontab -e
+# ajouter :
+30 2 * * * cd /opt/stacks/rzi-camp && ./deploy/backup-sync-local.sh >> /var/log/rzi-camp-backup.log 2>&1
+```
+
+### Option B — Un service cloud (Hetzner Storage Box, S3, Backblaze...)
+
+Via `rclone`, non fourni ici (dépend du service choisi et de ses identifiants).
+
+Cette étape n'a pas été automatisée par défaut pour l'option B car elle
+dépend d'un compte/service externe que seul l'exploitant du serveur peut
+choisir et configurer — dites lequel est disponible et le script d'envoi
+peut être ajouté ensuite.
 
 ## Export manuel ponctuel (secondaire)
 
