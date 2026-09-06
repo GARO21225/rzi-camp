@@ -12,5 +12,7 @@ psycopg2-binary>=2.9
 qrcode[pil]>=7.4
 natsort>=8.4
 channels>=4.0
+channels_redis>=4.2
+uvicorn>=0.23
 daphne>=4.0
 openpyxl

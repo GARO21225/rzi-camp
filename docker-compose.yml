@@ -9,14 +9,31 @@ services:
       POSTGRES_PASSWORD: rzi_secret
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Sous charge (plusieurs workers backend), la config Postgres par
+    # défaut (max_connections=100) devient vite limitante. Marge de
+    # sécurité pour ~4 workers backend + usage normal.
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
+
+  redis:
+    image: redis:7-alpine
+    # Indispensable dès plusieurs workers backend : sans lui, les
+    # notifications temps réel (WebSocket) ne circuleraient pas d'un
+    # processus worker à l'autre (voir CHANNEL_LAYERS dans settings.py).
+    restart: unless-stopped
 
   backend:
     build: ./backend
     command: >
       sh -c "python manage.py migrate &&
-             daphne -b 0.0.0.0 -p 8000 rzi_camp.asgi:application"
+             gunicorn rzi_camp.asgi:application
+             -k uvicorn.workers.UvicornWorker
+             -w 4
+             -b 0.0.0.0:8000
+             --timeout 60
+             --max-requests 1000 --max-requests-jitter 100"
     environment:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
+      REDIS_URL: redis://redis:6379/0
       # SECURITE : plus de valeur en dur ici (ce fichier est sur GitHub public).
       # La vraie valeur vient de .env (jamais commité, voir .env.example).
       SECRET_KEY: ${SECRET_KEY}
@@ -25,6 +42,7 @@ services:
       - "8001:8000"
     depends_on:
       - db
+      - redis
 
   frontend:
     build:

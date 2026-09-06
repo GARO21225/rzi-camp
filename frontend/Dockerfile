@@ -13,4 +13,13 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker-entrypoint-ssl.sh /docker-entrypoint.d/40-ssl-cert.sh
 RUN chmod +x /docker-entrypoint.d/40-ssl-cert.sh
+# Valide la config nginx au moment du BUILD plutôt que de le découvrir en
+# prod : certificat jetable généré juste pour ce test (le vrai certificat
+# de /etc/nginx/ssl est monté en volume au démarrage du conteneur, donc
+# écrasera ces fichiers de toute façon — voir docker-compose.yml).
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+      -keyout /etc/nginx/ssl/selfsigned.key -out /etc/nginx/ssl/selfsigned.crt \
+      -subj "/CN=build-test" && \
+    nginx -t
 EXPOSE 80 443

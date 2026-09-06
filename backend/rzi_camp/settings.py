@@ -129,15 +129,18 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20MB
 FILE_UPLOAD_MAX_MEMORY_SIZE  = 20 * 1024 * 1024   # 20MB
 
 # ── CHANNELS (WebSocket) ──
+# Redis (pas InMemory) : indispensable dès qu'on tourne avec plusieurs
+# processus worker (voir docker-compose.yml) — chaque processus aurait
+# sinon sa propre mémoire isolée, et les notifications ne traverseraient
+# pas d'un worker à l'autre selon celui qui reçoit la connexion WebSocket.
 ASGI_APPLICATION = "rzi_camp.asgi.application"
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [REDIS_URL]},
     }
 }
-
-ASGI_APPLICATION="rzi_camp.asgi.application"
-CHANNEL_LAYERS={"default":{"BACKEND":"channels.layers.InMemoryChannelLayer"}}
 
 # ── Database connection pooling ──
 import dj_database_url as _dj_db_url
