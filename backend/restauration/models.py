@@ -137,6 +137,34 @@ class BonCaisse(models.Model):
         return self.credit_restant
 
 
+class RemboursementBon(models.Model):
+    """
+    Restitution du solde restant d'un bon de caisse à l'agent, par mobile
+    money — typiquement en fin d'année ou au départ définitif de l'employé,
+    quand il reste un crédit non consommé sur son bon.
+    """
+    MODE_PAIEMENT = [
+        ('om',   'Orange Money'),
+        ('wave', 'Wave'),
+        ('mtn',  'MTN Money'),
+        ('moov', 'Moov Money'),
+    ]
+    bon              = models.ForeignKey(BonCaisse, on_delete=models.CASCADE, related_name='remboursements')
+    montant          = models.DecimalField(max_digits=10, decimal_places=0)
+    mode_paiement    = models.CharField(max_length=10, choices=MODE_PAIEMENT)
+    numero_telephone = models.CharField(max_length=20, blank=True, default='')
+    effectue_par     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes            = models.TextField(blank=True, default='')
+    date_creation    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_creation']
+        verbose_name = "Remboursement de bon"
+
+    def __str__(self):
+        return f"{self.bon.personnel} — {self.montant} FCFA via {self.get_mode_paiement_display()}"
+
+
 class MenuJour(models.Model):
     """Menu du jour/semaine pour la restauration."""
     TYPES = [

@@ -1028,6 +1028,56 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
             'annee':  annee, 'total': actifs.count()
         })
 
+    @action(detail=True, methods=['post'], url_path='rembourser')
+    def rembourser(self, request, pk=None):
+        """
+        Restitue le solde restant (ou un montant partiel) d'un bon à l'agent,
+        via mobile money — typiquement en fin d'année ou à son départ définitif.
+        """
+        from .models import RemboursementBon
+        bon = self.get_object()
+
+        try:
+            montant = int(request.data.get('montant', bon.credit_restant))
+        except (TypeError, ValueError):
+            return Response({'error': 'Montant invalide'}, status=400)
+
+        mode = request.data.get('mode_paiement')
+        if mode not in dict(RemboursementBon.MODE_PAIEMENT):
+            return Response({'error': "mode_paiement requis (om, wave, mtn, moov)"}, status=400)
+        if montant <= 0:
+            return Response({'error': 'Le montant doit être positif'}, status=400)
+        if montant > bon.credit_restant:
+            return Response({'error': f'Montant supérieur au solde restant ({int(bon.credit_restant):,} FCFA)'}, status=400)
+
+        remb = RemboursementBon.objects.create(
+            bon=bon, montant=montant, mode_paiement=mode,
+            numero_telephone=request.data.get('numero_telephone', '') or bon.personnel.numero_whatsapp or bon.personnel.telephone,
+            effectue_par=request.user, notes=request.data.get('notes', ''),
+        )
+        bon.credit_restant = bon.credit_restant - montant
+        bon.save(update_fields=['credit_restant', 'mis_a_jour'])
+
+        return Response({
+            'ok': True,
+            'message': f"{montant:,} FCFA restitué(s) à {bon.personnel.nom} {bon.personnel.prenom} via {remb.get_mode_paiement_display()}",
+            'bon': BonCaisseSerializer(bon).data,
+        })
+
+    @action(detail=True, methods=['get'], url_path='remboursements')
+    def remboursements(self, request, pk=None):
+        """Historique des restitutions effectuées sur ce bon."""
+        from .models import RemboursementBon
+        bon = self.get_object()
+        rembs = bon.remboursements.all()
+        return Response([{
+            'id': r.id, 'montant': int(r.montant), 'mode_paiement': r.mode_paiement,
+            'mode_paiement_label': r.get_mode_paiement_display(),
+            'numero_telephone': r.numero_telephone,
+            'effectue_par_nom': r.effectue_par.get_full_name() or r.effectue_par.username if r.effectue_par else '—',
+            'date_creation': r.date_creation, 'notes': r.notes,
+        } for r in rembs])
+
     @action(detail=False, methods=['get'], url_path='solde_personnel')
     def solde_personnel(self, request):
         """Obtenir le solde du bon d'un personnel pour l'année courante"""

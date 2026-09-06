@@ -281,6 +281,8 @@ export const boutique = {
   soldePersonnel:  (pid)      => api.get('/api/boutique/bons/solde_personnel/', {params:{personnel_id:pid}}),
   crediterPersonnel:(d)       => api.post('/api/boutique/bons/crediter/', d),
   crediterTous:    (d)        => api.post('/api/boutique/bons/crediter_tous/', d),
+  rembourserBon:   (id, d)    => api.post(`/api/boutique/bons/${id}/rembourser/`, d),
+  historiqueRemboursements: (id) => api.get(`/api/boutique/bons/${id}/remboursements/`),
   // Stock management
   updateStock:     (id,d)     => api.post(`/api/boutique/articles/${id}/ajuster_stock/`, d),
   alertesStock:    (p)        => api.get('/api/boutique/articles/alertes_stock/', {params:p}),

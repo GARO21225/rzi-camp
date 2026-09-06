@@ -341,6 +341,31 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   const [selPerso,   setSelPerso]  = useState('')
   const [search,     setSearch]    = useState('')
   const [searchSociete, setSearchSociete] = useState('')
+  const [rembBon, setRembBon] = useState(null)
+  const [rembForm, setRembForm] = useState({ montant:0, mode_paiement:'om', numero_telephone:'' })
+  const [rembLoading, setRembLoading] = useState(false)
+
+  const ouvrirRemboursement = (bon) => {
+    setRembBon(bon)
+    setRembForm({
+      montant: bon.credit_restant,
+      mode_paiement: 'om',
+      numero_telephone: bon.personnel_info?.numero_whatsapp || bon.personnel_info?.telephone || '',
+    })
+  }
+
+  const confirmerRemboursement = async () => {
+    if (!rembBon) return
+    setRembLoading(true)
+    try {
+      const r = await boutiqueAPI.rembourserBon(rembBon.id, rembForm)
+      setMsg({ type:'success', text: r.data.message })
+      setRembBon(null)
+      onRefresh()
+    } catch(e) {
+      setMsg({ type:'error', text: e.response?.data?.error || 'Erreur lors du remboursement' })
+    } finally { setRembLoading(false) }
+  }
 
   const crediterTous = async () => {
     if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
@@ -497,6 +522,13 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
                     {parseInt(b.credit_utilise).toLocaleString()} FCFA utilisés ({b.pourcentage}%)
                   </span>
                   <div style={{display:'flex',gap:4}}>
+                    {b.credit_restant > 0 && (
+                      <button onClick={()=>ouvrirRemboursement(b)}
+                        style={{background:'#fffbeb',color:'#b45309',border:'1px solid #fde68a',
+                          padding:'2px 8px',borderRadius:6,cursor:'pointer',fontSize:10,fontWeight:700}}>
+                        💸 Rembourser
+                      </button>
+                    )}
                     <button onClick={()=>{setEditBon(b);setEditMontant(parseInt(b.credit_initial))}}
                       style={{background:'#eff6ff',color:'var(--rzc-blue)',border:'1px solid #bfdbfe',
                         padding:'2px 8px',borderRadius:6,cursor:'pointer',fontSize:10,fontWeight:700}}>
@@ -520,6 +552,66 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
           })}
         </div>
       </div>
+
+      {/* ─ Modal remboursement bon ─ */}
+      {rembBon && (
+        <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',zIndex:2100,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+          onClick={e=>e.target===e.currentTarget&&setRembBon(null)}>
+          <div style={{background:'var(--rzc-white)',borderRadius:16,width:'100%',maxWidth:380,
+            overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{background:'#b45309',color:'#fff',padding:'14px 18px'}}>
+              <div style={{fontWeight:800,fontSize:15}}>💸 Restituer le solde</div>
+              <div style={{fontSize:11,opacity:.8}}>{rembBon.personnel_nom}</div>
+            </div>
+            <div style={{padding:18,display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>
+                Solde disponible : <b style={{color:'#b45309'}}>{parseInt(rembBon.credit_restant).toLocaleString()} FCFA</b>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>MONTANT À RESTITUER</label>
+                <input type="number" value={rembForm.montant} max={rembBon.credit_restant} min={1}
+                  onChange={e=>setRembForm(f=>({...f,montant:Number(e.target.value)}))}
+                  style={{width:'100%',border:'1px solid var(--rzc-border-light)',borderRadius:9,padding:'9px 12px',fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:'monospace'}}/>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6}}>MOYEN DE PAIEMENT</label>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6}}>
+                  {[['om','🟠','Orange Money'],['wave','🔵','Wave'],['mtn','🟡','MTN Money'],['moov','🟢','Moov Money']].map(([v,icon,label])=>(
+                    <button key={v} onClick={()=>setRembForm(f=>({...f,mode_paiement:v}))}
+                      style={{padding:'8px 6px',borderRadius:9,border:`2px solid ${rembForm.mode_paiement===v?'#b45309':'var(--rzc-border-light)'}`,
+                        background:rembForm.mode_paiement===v?'#fffbeb':'var(--rzc-white)',
+                        cursor:'pointer',fontSize:11,fontWeight:700,
+                        color:rembForm.mode_paiement===v?'#b45309':'var(--rzc-text-3)'}}>
+                      {icon} {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>NUMÉRO DE RÉCEPTION</label>
+                <input value={rembForm.numero_telephone}
+                  onChange={e=>setRembForm(f=>({...f,numero_telephone:e.target.value}))}
+                  placeholder="Ex: 0701234567"
+                  style={{width:'100%',border:'1px solid var(--rzc-border-light)',borderRadius:9,padding:'9px 12px',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+              </div>
+              <div style={{display:'flex',gap:8,marginTop:6}}>
+                <button onClick={()=>setRembBon(null)}
+                  style={{flex:1,background:'#f1f5f9',color:'#64748b',border:'none',padding:10,borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  Annuler
+                </button>
+                <button onClick={confirmerRemboursement}
+                  disabled={rembLoading || rembForm.montant<=0 || rembForm.montant>rembBon.credit_restant}
+                  style={{flex:1,background:(rembLoading||rembForm.montant<=0||rembForm.montant>rembBon.credit_restant)?'#cbd5e1':'#b45309',
+                    color:'#fff',border:'none',padding:10,borderRadius:9,
+                    cursor:(rembLoading||rembForm.montant<=0||rembForm.montant>rembBon.credit_restant)?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
+                  {rembLoading?'⏳...':'✅ Confirmer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─ Modal modifier montant bon ─ */}
       {editBon && (
