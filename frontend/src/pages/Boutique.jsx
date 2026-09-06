@@ -5,9 +5,10 @@
  */
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import api from '../api'
-import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
+import { boutique as boutiqueAPI, personnel as personnelAPI, parametres as parametresAPI } from '../api'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { MobileMoneyBadge, MOBILE_MONEY_LABELS } from '../components/MobileMoneyIcons'
 
 // ── Images par défaut (fallback si pas d'image en DB) ──────
 const DEFAULT_PHOTOS = {
@@ -188,7 +189,9 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
                   if (!m) return null
                   return (
                     <div key={key} style={{background:'var(--rzc-charcoal)',borderRadius:10,padding:'10px 12px',borderLeft:`3px solid ${color}`}}>
-                      <div style={{fontSize:11,color:'var(--rzc-text-3)',fontWeight:600,marginBottom:4}}>{icon} {label}</div>
+                      <div style={{fontSize:11,color:'var(--rzc-text-3)',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                        {['om','wave','mtn','moov'].includes(key) ? <MobileMoneyBadge operateur={key} size={18} showLabel={false}/> : icon} {label}
+                      </div>
                       <div style={{fontFamily:'monospace',fontSize:16,fontWeight:800,color:'var(--rzc-text)'}}>{m.total.toLocaleString()} <span style={{fontSize:10,fontWeight:600}}>FCFA</span></div>
                       <div style={{fontSize:10,color:'var(--rzc-text-4)'}}>{m.count} transaction{m.count>1?'s':''}</div>
                     </div>
@@ -577,13 +580,14 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
               <div>
                 <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6}}>MOYEN DE PAIEMENT</label>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:6}}>
-                  {[['om','🟠','Orange Money'],['wave','🔵','Wave'],['mtn','🟡','MTN Money'],['moov','🟢','Moov Money']].map(([v,icon,label])=>(
+                  {['om','wave','mtn','moov'].map(v=>(
                     <button key={v} onClick={()=>setRembForm(f=>({...f,mode_paiement:v}))}
                       style={{padding:'8px 6px',borderRadius:9,border:`2px solid ${rembForm.mode_paiement===v?'#b45309':'var(--rzc-border-light)'}`,
                         background:rembForm.mode_paiement===v?'#fffbeb':'var(--rzc-white)',
-                        cursor:'pointer',fontSize:11,fontWeight:700,
+                        cursor:'pointer',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:6,
                         color:rembForm.mode_paiement===v?'#b45309':'var(--rzc-text-3)'}}>
-                      {icon} {label}
+                      <MobileMoneyBadge operateur={v} size={18} showLabel={false}/>
+                      {MOBILE_MONEY_LABELS[v]}
                     </button>
                   ))}
                 </div>
@@ -972,6 +976,14 @@ export default function Boutique({ embedded = false } = {}) {
   const [bonsAll,      setBonsAll]      = useState([])     // tous les bons (admin)
   const [showGererBons,setShowGererBons]= useState(false)
   const [modePaiement, setModePaiement] = useState(null)   // 'especes' | 'bon'
+  const [numerosMarchands, setNumerosMarchands] = useState({})
+  useEffect(() => {
+    parametresAPI.list().then(r => {
+      const m = {}
+      for (const p of r.data) if (p.cle.startsWith('mm_numero_')) m[p.cle.replace('mm_numero_','')] = p.valeur
+      setNumerosMarchands(m)
+    }).catch(() => {})
+  }, [])
   const [showPayModal, setShowPayModal] = useState(false)
   const scannerInst = useRef(null)
 
@@ -1473,16 +1485,29 @@ export default function Boutique({ embedded = false } = {}) {
                         </button>
                       </div>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(85px,1fr))',gap:6,marginTop:6}}>
-                        {[['om','🟠','Orange Money'],['wave','🔵','Wave'],['mtn','🟡','MTN Money'],['moov','🟢','Moov Money']].map(([v,icon,label])=>(
+                        {['om','wave','mtn','moov'].map(v=>(
                           <button key={v} onClick={()=>setModePaiement(v)}
                             style={{padding:'8px 4px',borderRadius:9,border:`2px solid ${modePaiement===v?'#f0a500':'var(--rzc-border-light)'}`,
                               background:modePaiement===v?'#fffbeb':'var(--rzc-white)',
                               cursor:'pointer',fontSize:10.5,fontWeight:700,lineHeight:1.3,
+                              display:'flex',flexDirection:'column',alignItems:'center',gap:3,
                               color:modePaiement===v?'#b45309':'var(--rzc-text-3)'}}>
-                            {icon} {label}
+                            <MobileMoneyBadge operateur={v} size={20} showLabel={false}/>
+                            {MOBILE_MONEY_LABELS[v]}
                           </button>
                         ))}
                       </div>
+                      {['om','wave','mtn','moov'].includes(modePaiement) && (
+                        <div style={{marginTop:8,background:'#fffbeb',border:'1px solid #fde68a',borderRadius:8,padding:'8px 10px',
+                          display:'flex',alignItems:'center',gap:8,fontSize:12}}>
+                          <MobileMoneyBadge operateur={modePaiement} size={20} showLabel={false}/>
+                          {numerosMarchands[modePaiement] ? (
+                            <span>Envoyer à : <b style={{fontFamily:'monospace'}}>{numerosMarchands[modePaiement]}</b></span>
+                          ) : (
+                            <span style={{color:'#b45309'}}>Numéro marchand non configuré — Paramétrage &gt; Mobile Money</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <button onClick={()=>valider(modePaiement)} disabled={submitting||!modePaiement}

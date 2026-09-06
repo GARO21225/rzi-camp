@@ -19,6 +19,10 @@ def liste_parametres(request):
         'sla_basse_h':    ('72', 'Délai SLA — priorité Basse (heures)'),
         'societe_defaut': ('ROXGOLD', 'Société par défaut (personnel Employé Roxgold)'),
         'nom_camp':       ('Roxgold Sango', 'Nom du camp affiché dans l\'application'),
+        'mm_numero_om':   ('', 'Orange Money — numéro marchand du camp'),
+        'mm_numero_wave': ('', 'Wave — numéro marchand du camp'),
+        'mm_numero_mtn':  ('', 'MTN Mobile Money — numéro marchand du camp'),
+        'mm_numero_moov': ('', 'Moov Money — numéro marchand du camp'),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []

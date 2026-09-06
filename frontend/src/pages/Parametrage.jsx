@@ -16,6 +16,12 @@ const CHAMPS = [
     { cle: 'societe_defaut', label: 'Société par défaut', suffix: '', type: 'text', hint: 'Utilisée pour l\'auto-remplissage "Employé Roxgold" dans Personnel' },
     { cle: 'nom_camp',       label: 'Nom du camp',        suffix: '', type: 'text' },
   ]},
+  { section: '📱 Mobile Money — Numéros marchands du camp', items: [
+    { cle: 'mm_numero_om',   label: 'Orange Money', suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Orange Money' },
+    { cle: 'mm_numero_wave', label: 'Wave',         suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Wave' },
+    { cle: 'mm_numero_mtn',  label: 'MTN Mobile Money', suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements MTN Money' },
+    { cle: 'mm_numero_moov', label: 'Moov Money',  suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Moov Money' },
+  ]},
 ]
 
 const LIENS_RAPIDES = [
