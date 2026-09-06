@@ -38,6 +38,10 @@ class Voyage(models.Model):
                                   ('urgence','Urgence'),('medical','Médical')])
     notes_admin       = models.TextField(blank=True,
                          help_text="Notes internes admin")
+    # Restaurée : présente dans les migrations historiques (0001/0002) mais
+    # avait disparu du modèle sans jamais avoir été retirée proprement —
+    # Django voulait supprimer purement et simplement la table d'historique.
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ["-date_depart"]
