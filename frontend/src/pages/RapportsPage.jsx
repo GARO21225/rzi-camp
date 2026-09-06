@@ -500,7 +500,7 @@ export default function RapportsPage() {
   ]
 
   return (
-    <div style={{padding:24,background:'var(--rzc-charcoal)',minHeight:'100vh'}}>
+    <div style={{padding:24,background:'var(--rzc-charcoal)',minHeight:'100%'}}>
       <div style={{maxWidth:800,margin:'0 auto'}}>
 
         {/* Header */}

@@ -335,7 +335,7 @@ export default function InductionCamp() {
   // ── Écran certificat final ────────────────────────────────────────
   if (etape===5 && validated) {
     return (
-      <div className="ic-root" style={{minHeight:'100vh',
+      <div className="ic-root" style={{minHeight:'100%',
         background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
         display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
         <style>{css}</style>
@@ -399,7 +399,7 @@ export default function InductionCamp() {
 
   // ── Écran chargement ─────────────────────────────────────────────
   if (loadingCheck) return (
-    <div style={{minHeight:'100vh',background:'var(--rzc-navy)',display:'flex',
+    <div style={{minHeight:'100%',background:'var(--rzc-navy)',display:'flex',
       alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',color:'#94a3b8'}}>
         <div style={{fontSize:40,marginBottom:12}}>⏳</div>
@@ -410,7 +410,7 @@ export default function InductionCamp() {
 
   // ── Vue Admin ─────────────────────────────────────────────────────
   if (isAdmin && adminView) return (
-    <div style={{minHeight:'100vh',background:'var(--rzc-navy)',color:'#fff',padding:24}}>
+    <div style={{minHeight:'100%',background:'var(--rzc-navy)',color:'#fff',padding:24}}>
       <div style={{maxWidth:900,margin:'0 auto'}}>
         <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
           <button onClick={()=>setAdminView(false)}
@@ -527,7 +527,7 @@ export default function InductionCamp() {
 
   // ── Déjà complété — afficher badge ───────────────────────────────
   if (dejaComplete) return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
+    <div style={{minHeight:'100%',background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
       display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{maxWidth:500,width:'100%',textAlign:'center'}}>
         <div style={{fontSize:72,marginBottom:12,animation:'icBounce 2s ease infinite'}}>🏅</div>
@@ -571,8 +571,8 @@ export default function InductionCamp() {
             </button>
             {isAdmin && (
               <button onClick={()=>setAdminView(true)}
-                style={{background:'rgba(167,139,250,.2)',color:'#a78bfa',
-                  border:'1px solid rgba(167,139,250,.3)',borderRadius:10,
+                style={{background:'rgba(212,160,23,.18)',color:'#D4A017',
+                  border:'1px solid rgba(212,160,23,.35)',borderRadius:10,
                   padding:'12px 24px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
                 Vue Admin 👁️
               </button>
@@ -597,7 +597,7 @@ export default function InductionCamp() {
   ]
 
   return (
-    <div className="ic-root" style={{minHeight:'100vh',
+    <div className="ic-root" style={{minHeight:'100%',
       background:bgGradients[etape],color:'#fff',
       transition:'background 0.6s ease'}}>
       <style>{css}</style>
@@ -630,8 +630,8 @@ export default function InductionCamp() {
             <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
               {isAdmin && (
                 <button onClick={()=>setAdminView(true)}
-                  style={{background:'rgba(167,139,250,.2)',color:'#a78bfa',
-                    border:'1px solid rgba(167,139,250,.3)',borderRadius:8,
+                  style={{background:'rgba(212,160,23,.18)',color:'#D4A017',
+                    border:'1px solid rgba(212,160,23,.35)',borderRadius:8,
                     padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>
                   👁️ Admin
                 </button>
@@ -857,7 +857,7 @@ export default function InductionCamp() {
               <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
                 Cliquez sur chaque règle pour la lire — un quiz suivra
                 <span style={{marginLeft:8,background:'rgba(139,92,246,.2)',padding:'2px 8px',
-                  borderRadius:99,fontSize:11,color:'#c4b5fd'}}>
+                  borderRadius:99,fontSize:11,color:'#E8C468'}}>
                   {reglesVues.size}/{REGLES.length} lues
                 </span>
               </p>

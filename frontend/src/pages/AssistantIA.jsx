@@ -189,7 +189,7 @@ export default function AssistantIA() {
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 64px)', background:'var(--rzc-charcoal)' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'var(--rzc-charcoal)' }}>
       {/* Header */}
       <div style={{ background:'linear-gradient(135deg,#1e3a8a,#7c3aed)', color:'var(--rzc-white)',
         padding:'16px 20px', display:'flex', alignItems:'center', gap:12 }}>
