@@ -360,21 +360,24 @@ export default function MissionControl() {
     passagers:[],
   })
   const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'' })
+  const [rappels, setRappels] = useState([])
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true').then(r=>r.json()),
         api('/api/voyages/rotations/').then(r=>r.json()),
+        api('/api/voyages/rappels_rotation/').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
       if (rp.status==='fulfilled') setPersonnel(rp.value?.results||rp.value||[])
       if (rr.status==='fulfilled') setRotations(rr.value?.rotations||[])
+      if (rrap.status==='fulfilled') setRappels(Array.isArray(rrap.value) ? rrap.value : [])
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -574,6 +577,31 @@ export default function MissionControl() {
             </button>
           </div>
         </div>
+
+        {/* ── Rappels de fin de rotation ── */}
+        {rappels.length > 0 && (
+          <div style={{background:'rgba(248,113,113,.06)',border:`1px solid ${C.red}30`,
+            borderRadius:12,padding:'12px 16px',marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:12,color:C.red,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+              🔔 Rappels de fin de rotation
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {rappels.map(r => (
+                <div key={r.id} style={{display:'flex',alignItems:'center',gap:8,
+                  background: r.en_retard ? 'rgba(248,113,113,.12)' : 'rgba(240,165,0,.1)',
+                  border:`1px solid ${r.en_retard?C.red:C.amber}40`,
+                  borderRadius:9,padding:'6px 12px',fontSize:11}}>
+                  <span>{r.en_retard ? '⛔' : '⏰'}</span>
+                  <b>{r.personnel_nom}</b>
+                  <span style={{color:'var(--text-dim)'}}>{r.societe}</span>
+                  <span style={{color: r.en_retard?C.red:C.amber, fontWeight:700}}>
+                    {r.en_retard ? `Retour prévu il y a ${Math.abs(r.jours_restants)}j` : `Retour dans ${r.jours_restants}j`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ══ VUE COMMAND CENTER ══════════════════════════════════ */}
         {view==='command' && (

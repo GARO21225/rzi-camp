@@ -115,14 +115,46 @@ class VoyageViewSet(viewsets.ModelViewSet):
     # ── Stats ──────────────────────────────────────────────────────
     @action(detail=False, methods=["get"])
     def stats(self, request):
+        from django.utils import timezone
+        from datetime import timedelta
         qs = Voyage.objects.all()
+        today = timezone.now().date()
+        # Rappels de fin de rotation : personnes en voyage dont le retour
+        # prévu approche (3 jours) ou est déjà dépassé sans avoir été
+        # enregistré comme "retour" — anticipe les oublis de relève.
+        en_cours = qs.filter(statut="en_voyage")
+        retours_proches   = en_cours.filter(date_retour_prevue__gte=today, date_retour_prevue__lte=today+timedelta(days=3)).count()
+        retours_en_retard = en_cours.filter(date_retour_prevue__lt=today).count()
         return Response({
             "total":    qs.count(),
             "planifies":qs.filter(statut="planifie").count(),
             "en_voyage":qs.filter(statut="en_voyage").count(),
             "retours":  qs.filter(statut="retour").count(),
             "annules":  qs.filter(statut="annule").count(),
+            "retours_proches":   retours_proches,
+            "retours_en_retard": retours_en_retard,
         })
+
+    @action(detail=False, methods=["get"])
+    def rappels_rotation(self, request):
+        """Liste détaillée des retours de rotation proches ou en retard —
+        pour affichage direct (nom, société, date de retour prévue)."""
+        from django.utils import timezone
+        from datetime import timedelta
+        today = timezone.now().date()
+        en_cours = (Voyage.objects.filter(statut="en_voyage")
+            .select_related("personnel")
+            .filter(date_retour_prevue__lte=today+timedelta(days=3))
+            .order_by("date_retour_prevue"))
+        return Response([{
+            "id": v.id,
+            "personnel_nom": f"{v.personnel.nom} {v.personnel.prenom}",
+            "societe": v.personnel.societe,
+            "destination": v.destination,
+            "date_retour_prevue": v.date_retour_prevue,
+            "en_retard": v.date_retour_prevue < today,
+            "jours_restants": (v.date_retour_prevue - today).days,
+        } for v in en_cours])
 
     # ── Rotations groupe ───────────────────────────────────────────
     @action(detail=False, methods=["get"])

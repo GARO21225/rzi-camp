@@ -29,6 +29,8 @@ const AuditPage = lazy(() => import('./pages/AuditPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
 const InductionPage = lazy(() => import('./pages/InductionPage'))
 const InductionAdmin = lazy(() => import('./pages/InductionAdmin'))
+const EquipementsEPI = lazy(() => import('./pages/EquipementsEPI'))
+const SalleControle = lazy(() => import('./pages/SalleControle'))
 const WorkflowHub = lazy(() => import('./pages/WorkflowHub'))
 const BoutiquePOS = lazy(() => import('./pages/BoutiquePOS'))
 const Parametrage = lazy(() => import('./pages/Parametrage'))
@@ -182,6 +184,7 @@ export default function App() {
       <PWAInstallButton />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/salle-controle" element={<PrivateRoute><Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><SalleControle /></Suspense></PrivateRoute>} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<RoleHome />} />
           <Route path="carte" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><MapPage /></Suspense>} />
@@ -204,6 +207,7 @@ export default function App() {
           <Route path="workflows" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><WorkflowHub /></Suspense>} />
           <Route path="induction-camp" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionCamp /></Suspense>} />
           <Route path="induction-admin" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionAdmin /></Suspense>} />
+          <Route path="epi" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><EquipementsEPI /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><BoutiquePOS /></Suspense>} />
           <Route path="rotations" element={<Suspense fallback={<div style={{background:'#060d1f',minHeight:'100vh'}}/>}><MissionControl /></Suspense>} />

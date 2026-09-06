@@ -187,13 +187,14 @@ export default function Dashboard() {
       // Endpoints d'agrégats légers — jamais l'historique complet au chargement.
       // /personnel/ reste nécessaire en liste pour le calcul de conformité par société
       // (pas d'endpoint d'agrégat dédié côté backend actuellement) mais reste borné à 500.
-      const [rB, rI, rV, rN, rRepas, rStock] = await Promise.allSettled([
+      const [rB, rI, rV, rN, rRepas, rStock, rEpi] = await Promise.allSettled([
         fetch(`${BASE}/api/batiments/stats/`,           { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/incidents/stats-sql/`,       { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/voyages/stats/`,             { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/notifications/compteur/`,    { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/repas/stats_jour/`,          { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/boutique/articles/alertes_stock/?seuil=20`, { headers: hdrs() }).then(r => r.json()),
+        fetch(`${BASE}/api/epi/alertes/`,               { headers: hdrs() }).then(r => r.json()),
       ])
       const merged = {}
       if (rB.status === 'fulfilled')     merged.bat    = rB.value
@@ -202,6 +203,7 @@ export default function Dashboard() {
       if (rN.status === 'fulfilled')     merged.notifs = rN.value?.notifications || []
       if (rRepas.status === 'fulfilled') merged.repas  = rRepas.value
       if (rStock.status === 'fulfilled') merged.stock  = Array.isArray(rStock.value) ? rStock.value : []
+      if (rEpi.status === 'fulfilled')   merged.epi    = rEpi.value
       setD(merged)
 
       // Personnel : champ minimal nécessaire seulement (pas de page_size énorme à l'avenir
@@ -261,6 +263,10 @@ export default function Dashboard() {
   if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
   if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
   if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
+  if (d.epi?.expires > 0) alertes.push({ type:'epi', titre:`${d.epi.expires} EPI expiré(s)`, desc:'Renouvellement urgent — conformité QHSE', temps:'Maintenant', urgent:true })
+  if (d.epi?.bientot > 0) alertes.push({ type:'epi', titre:`${d.epi.bientot} EPI à renouveler`, desc:'Expiration sous 30 jours', temps:'30 jours', urgent:false })
+  if (d.voy?.retours_en_retard > 0) alertes.push({ type:'voyage', titre:`${d.voy.retours_en_retard} retour(s) de rotation en retard`, desc:'Retour prévu dépassé, non enregistré', temps:'En retard', urgent:true })
+  if (d.voy?.retours_proches > 0) alertes.push({ type:'voyage', titre:`${d.voy.retours_proches} retour(s) de rotation sous 3 jours`, desc:'Anticiper la relève', temps:'3 jours', urgent:false })
 
   const bySoc = {}
   perso.forEach(p => {
@@ -332,6 +338,12 @@ export default function Dashboard() {
           <button className="rzc-btn rzc-btn-primary" onClick={load} disabled={loading}>
             {loading ? '⏳' : '🔄'} Actualiser
           </button>
+          <button onClick={()=>window.open('/salle-controle', '_blank')}
+            title="Ouvrir en plein écran pour un affichage mural (salle des opérations)"
+            style={{ background:'#0f172a', color:'#fff', border:'none', borderRadius:99,
+              padding:'6px 14px', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+            🖥️ Salle de contrôle
+          </button>
         </div>
       </div>
 
@@ -351,7 +363,7 @@ export default function Dashboard() {
               <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
                 background: a.urgent ? 'var(--rzc-red-l)' : 'var(--rzc-charcoal-l2)',
                 border:`1.5px solid ${a.urgent ? 'rgba(220,38,38,.25)' : 'var(--rzc-border-light)'}` }}>
-                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'✈️'}[a.type]||'📋'}</span>
+                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'✈️',epi:'🦺'}[a.type]||'📋'}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:12, color: a.urgent ? 'var(--rzc-red)' : 'var(--rzc-text)' }}>{a.titre}</div>
                   <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1 }}>{a.desc}</div>

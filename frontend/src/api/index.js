@@ -132,6 +132,15 @@ export const inductionAPI = {
   updateEtape:  (d)    => api.post('/api/induction-records/update_etape/', d),
 }
 
+// ── Équipements EPI ──
+export const epiAPI = {
+  list:    (p) => api.get('/api/epi/', {params:p}),
+  create:  (d) => api.post('/api/epi/', d),
+  update:  (id,d) => api.patch(`/api/epi/${id}/`, d),
+  delete:  (id) => api.delete(`/api/epi/${id}/`),
+  alertes: ()  => api.get('/api/epi/alertes/'),
+}
+
 // ── Menu Restaurant  ─────────────────────────────────────
 export const menu = {
   list:   (p) => api.get('/api/menu/', {params:p}),
@@ -198,6 +207,7 @@ export const voyages = {
   partir: (id) => api.post(`/api/voyages/${id}/partir/`),
   revenir: (id,d) => api.post(`/api/voyages/${id}/revenir/`, d),
   stats: () => api.get('/api/voyages/stats/'),
+  rappelsRotation: () => api.get('/api/voyages/rappels_rotation/'),
   vueEnsemble: (p) => api.get('/api/voyages/vue_ensemble/', {params:p}),
   exportCsv: (p) => withToken(`${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`),
   annuler: (id) => api.post(`/api/voyages/${id}/annuler/`),

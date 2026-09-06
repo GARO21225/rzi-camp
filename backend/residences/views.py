@@ -8,7 +8,7 @@ from accounts.permissions import TokenInQueryOrHeader
 from .models import (
     InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
     InductionCampConfig, InductionInfra, InductionRegle,
-    InductionQuizQuestion, PointInteret, CheminCirculation
+    InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI
 )
 
 from .serializers import (
@@ -16,7 +16,8 @@ from .serializers import (
     DemandeSerializer, InductionRecordSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
-    InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer
+    InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer,
+    EquipementEPISerializer
 )
 
 import csv, datetime, re
@@ -775,6 +776,50 @@ class CheminCirculationViewSet(viewsets.ModelViewSet):
             'points': points_route,
             'distance_m': round(distance_totale, 1),
         })
+
+
+class EquipementEPIViewSet(viewsets.ModelViewSet):
+    """
+    Suivi des EPI (casques, chaussures, gilets...) par employé. Lecture
+    ouverte à tout connecté, gestion réservée aux administrateurs.
+    """
+    queryset = EquipementEPI.objects.select_related("personnel").all()
+    serializer_class = EquipementEPISerializer
+    filter_backends = []
+
+    def get_queryset(self):
+        qs = EquipementEPI.objects.select_related("personnel").all()
+        pid = self.request.query_params.get("personnel")
+        if pid:
+            qs = qs.filter(personnel_id=pid)
+        statut = self.request.query_params.get("statut_peremption")
+        if statut:
+            from django.utils import timezone
+            from datetime import timedelta
+            today = timezone.now().date()
+            if statut == "expire":
+                qs = qs.filter(date_expiration__lt=today)
+            elif statut == "bientot":
+                qs = qs.filter(date_expiration__gte=today, date_expiration__lte=today+timedelta(days=30))
+            elif statut == "ok":
+                qs = qs.filter(date_expiration__gt=today+timedelta(days=30))
+        return qs
+
+    def get_permissions(self):
+        if self.request.method not in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated(), _IsAdmin()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def alertes(self, request):
+        """Nombre d'EPI expirés / bientôt expirés — pour le tableau de bord."""
+        tous = EquipementEPI.objects.exclude(date_expiration__isnull=True)
+        expires  = sum(1 for e in tous if e.statut_peremption == "expire")
+        bientot  = sum(1 for e in tous if e.statut_peremption == "bientot")
+        return Response({'expires': expires, 'bientot': bientot, 'total_suivis': tous.count()})
 
 
 class BatimentViewSet(viewsets.ModelViewSet):

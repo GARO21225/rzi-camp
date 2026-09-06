@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (Batiment, Personnel, OccupationHistory, InductionRecord,
-    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation)
+    InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI)
 
 class PointInteretSerializer(serializers.ModelSerializer):
     categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
@@ -17,6 +17,21 @@ class CheminCirculationSerializer(serializers.ModelSerializer):
     class Meta:
         model = CheminCirculation
         fields = ["id","nom","type_chemin","type_chemin_label","points","actif","date_creation"]
+        read_only_fields = ["date_creation"]
+
+class EquipementEPISerializer(serializers.ModelSerializer):
+    type_epi_label   = serializers.CharField(source="get_type_epi_display", read_only=True)
+    etat_label       = serializers.CharField(source="get_etat_display", read_only=True)
+    statut_peremption= serializers.ReadOnlyField()
+    personnel_nom    = serializers.SerializerMethodField()
+
+    def get_personnel_nom(self, obj):
+        return f"{obj.personnel.nom} {obj.personnel.prenom}"
+
+    class Meta:
+        model = EquipementEPI
+        fields = ["id","personnel","personnel_nom","type_epi","type_epi_label","date_remise",
+                  "date_expiration","etat","etat_label","statut_peremption","notes","date_creation"]
         read_only_fields = ["date_creation"]
 
 class PersonnelSerializer(serializers.ModelSerializer):
