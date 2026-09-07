@@ -11,8 +11,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     # Sous charge (plusieurs workers backend), la config Postgres par
     # défaut (max_connections=100) devient vite limitante. Marge de
-    # sécurité pour ~4 workers backend + usage normal.
-    command: postgres -c max_connections=200 -c shared_buffers=256MB
+    # sécurité pour ~2 workers backend + usage normal (serveur a 3.7 Go RAM
+    # total, shared_buffers reduit en consequence pour laisser de la place
+    # aux workers Python/Django, plus gourmands en memoire que Postgres ici).
+    command: postgres -c max_connections=150 -c shared_buffers=128MB
+    mem_limit: 500m
 
   redis:
     image: redis:7-alpine
@@ -20,6 +23,7 @@ services:
     # notifications temps réel (WebSocket) ne circuleraient pas d'un
     # processus worker à l'autre (voir CHANNEL_LAYERS dans settings.py).
     restart: unless-stopped
+    mem_limit: 100m
 
   backend:
     build: ./backend
@@ -27,7 +31,7 @@ services:
       sh -c "python manage.py migrate &&
              gunicorn rzi_camp.asgi:application
              -k uvicorn.workers.UvicornWorker
-             -w 4
+             -w 2
              -b 0.0.0.0:8000
              --timeout 60
              --max-requests 1000 --max-requests-jitter 100"
@@ -43,6 +47,7 @@ services:
     depends_on:
       - db
       - redis
+    mem_limit: 1200m
 
   frontend:
     build:
@@ -58,6 +63,7 @@ services:
       - ssl_data:/etc/nginx/ssl
     depends_on:
       - backend
+    mem_limit: 100m
 
 volumes:
   pgdata:
