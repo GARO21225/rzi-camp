@@ -29,6 +29,7 @@ def liste_parametres(request):
         'theme_danger':    ('#DC2626', 'Couleur danger — statuts "occupé/erreur/critique"'),
         'theme_info':      ('#2563EB', 'Couleur info — statuts "réservé/information"'),
         'theme_police':    ('IBM Plex Sans', "Police de caractères de toute l'application"),
+        'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []

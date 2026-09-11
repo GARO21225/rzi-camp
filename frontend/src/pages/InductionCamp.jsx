@@ -336,7 +336,7 @@ export default function InductionCamp() {
   if (etape===5 && validated) {
     return (
       <div className="ic-root" style={{minHeight:'100%',
-        background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
+        background:'linear-gradient(135deg,var(--rzc-fond-induction,#0F2A5C),color-mix(in srgb, var(--rzc-fond-induction,#0F2A5C) 65%, white),var(--rzc-fond-induction,#0F2A5C))',
         display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
         <style>{css}</style>
         <div style={{maxWidth:520,width:'100%',textAlign:'center',animation:'icFadeIn .8s ease'}}>
@@ -399,7 +399,7 @@ export default function InductionCamp() {
 
   // ── Écran chargement ─────────────────────────────────────────────
   if (loadingCheck) return (
-    <div style={{minHeight:'100%',background:'var(--rzc-navy)',display:'flex',
+    <div style={{minHeight:'100%',background:'var(--rzc-fond-induction,#0F2A5C)',display:'flex',
       alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',color:'#94a3b8'}}>
         <div style={{fontSize:40,marginBottom:12}}>⏳</div>
@@ -410,7 +410,7 @@ export default function InductionCamp() {
 
   // ── Vue Admin ─────────────────────────────────────────────────────
   if (isAdmin && adminView) return (
-    <div style={{minHeight:'100%',background:'var(--rzc-navy)',color:'#fff',padding:24}}>
+    <div style={{minHeight:'100%',background:'var(--rzc-fond-induction,#0F2A5C)',color:'#fff',padding:24}}>
       <div style={{maxWidth:900,margin:'0 auto'}}>
         <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
           <button onClick={()=>setAdminView(false)}
@@ -527,7 +527,7 @@ export default function InductionCamp() {
 
   // ── Déjà complété — afficher badge ───────────────────────────────
   if (dejaComplete) return (
-    <div style={{minHeight:'100%',background:'linear-gradient(135deg,#0F2A5C,#1E3A8A,#0F2A5C)',
+    <div style={{minHeight:'100%',background:'linear-gradient(135deg,var(--rzc-fond-induction,#0F2A5C),color-mix(in srgb, var(--rzc-fond-induction,#0F2A5C) 65%, white),var(--rzc-fond-induction,#0F2A5C))',
       display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{maxWidth:500,width:'100%',textAlign:'center'}}>
         <div style={{fontSize:72,marginBottom:12,animation:'icBounce 2s ease infinite'}}>🏅</div>
@@ -587,13 +587,21 @@ export default function InductionCamp() {
   // Dégradés Roxgold (bleu marine, jamais noir pur) — un par étape, suffisamment
   // foncés pour garder le texte blanc existant lisible sans avoir à le réauditer
   // entièrement sur ce composant multi-étapes.
+  // Dégradés dérivés d'UNE SEULE couleur personnalisable (Paramétrage >
+  // Apparence > "Fond des pages Induction"), via color-mix() — se met à
+  // jour automatiquement si l'admin change la couleur, sans recalcul JS.
+  // Conserve une légère variation par étape (plus clair/plus sombre) pour
+  // garder un peu de vie visuelle au fil du parcours.
+  const bg = 'var(--rzc-fond-induction, #0F2A5C)'
+  const clair  = `color-mix(in srgb, ${bg} 65%, white)`
+  const fonce  = `color-mix(in srgb, ${bg} 80%, black)`
   const bgGradients = [
-    'linear-gradient(135deg,#0F2A5C 0%,#1E3A8A 50%,#0F2A5C 100%)',  // Bienvenue
-    'linear-gradient(135deg,#0C2340 0%,#1E3A8A 50%,#0C2340 100%)',  // Infra
-    'linear-gradient(135deg,#0F2A5C 0%,#2563EB 50%,#0F2A5C 100%)',  // Règles
-    'linear-gradient(135deg,#0C2340 0%,#1D4ED8 50%,#0C2340 100%)',  // Quiz
-    'linear-gradient(135deg,#0F2A5C 0%,#1E40AF 50%,#0F2A5C 100%)',  // Appareils
-    'linear-gradient(135deg,#0F2A5C 0%,#1E3A8A 50%,#0F2A5C 100%)',  // Signature
+    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Bienvenue
+    `linear-gradient(135deg,${fonce} 0%,${clair} 50%,${fonce} 100%)`, // Infra
+    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Règles
+    `linear-gradient(135deg,${fonce} 0%,${clair} 50%,${fonce} 100%)`, // Quiz
+    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Appareils
+    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Signature
   ]
 
   return (

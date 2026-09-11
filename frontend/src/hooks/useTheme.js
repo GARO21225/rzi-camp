@@ -24,6 +24,7 @@ export function useTheme() {
         if (byKey.theme_danger)   root.setProperty('--rzc-red', byKey.theme_danger)
         if (byKey.theme_info)     root.setProperty('--rzc-blue', byKey.theme_info)
         if (byKey.theme_police)   root.setProperty('--rzc-font', `'${byKey.theme_police}', system-ui, sans-serif`)
+        if (byKey.theme_fond_induction) root.setProperty('--rzc-fond-induction', byKey.theme_fond_induction)
         if (byKey.logo_base64) {
           setLogoUrl(`data:${byKey.logo_mime || 'image/png'};base64,${byKey.logo_base64}`)
         }
