@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
-import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI } from '../api'
+import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 // ── Configuration repas ───────────────────────────────────────────
@@ -123,13 +123,50 @@ async function apiViderHistorique(type_repas) {
 // scanner peut demander à la personne comment était son repas (submission
 // anonyme, l'app ne demande pas à chaque employé d'avoir son propre compte).
 function AvisRapide({ typeRepas, onDone }) {
-  const [note, setNote] = useState(0)
-  const [commentaire, setCommentaire] = useState('')
+  const [questions, setQuestions] = useState(null)   // null = chargement, [] = aucune configurée
+  const [reponses, setReponses] = useState({})        // { questionId: valeur }
+  const [commentaireGlobal, setCommentaireGlobal] = useState('')
+  const [noteGlobale, setNoteGlobale] = useState(0)    // repli si aucune question configurée
   const [envoye, setEnvoye] = useState(false)
+  const [envoi, setEnvoi] = useState(false)
 
-  const envoyer = async (n) => {
-    setNote(n)
-    try { await avisAPI.create({ repas: typeRepas, note: n, commentaire }) } catch {}
+  useEffect(() => {
+    questionsAvisAPI.list(true).then(r => setQuestions(r.data.results || r.data || []))
+      .catch(() => setQuestions([]))
+  }, [])
+
+  const setReponse = (qid, val) => setReponses(r => ({ ...r, [qid]: val }))
+
+  const peutEnvoyer = () => {
+    if (!questions || questions.length === 0) return noteGlobale > 0
+    return questions.filter(q => q.obligatoire).every(q => {
+      const v = reponses[q.id]
+      return v !== undefined && v !== null && v !== ''
+    })
+  }
+
+  const envoyer = async () => {
+    setEnvoi(true)
+    try {
+      if (!questions || questions.length === 0) {
+        // Repli : aucune question personnalisée configurée, note globale simple
+        await avisAPI.create({ repas: typeRepas, note: noteGlobale, commentaire: commentaireGlobal })
+      } else {
+        const reponsesPayload = questions.map(q => {
+          const v = reponses[q.id]
+          const base = { question: q.id }
+          if (q.type_question === 'etoiles') base.valeur_etoiles = v || null
+          else if (q.type_question === 'oui_non') base.valeur_oui_non = v ?? null
+          else if (q.type_question === 'choix') base.valeur_choix = v || ''
+          else if (q.type_question === 'texte') base.valeur_texte = v || ''
+          return base
+        }).filter(r => {
+          const hasVal = r.valeur_etoiles || r.valeur_oui_non !== null || r.valeur_choix || r.valeur_texte
+          return hasVal
+        })
+        await avisAPI.create({ repas: typeRepas, reponses: reponsesPayload })
+      }
+    } catch {}
     setEnvoye(true)
     setTimeout(onDone, 1200)
   }
@@ -143,28 +180,114 @@ function AvisRapide({ typeRepas, onDone }) {
     )
   }
 
+  if (questions === null) {
+    return <div style={{textAlign:'center',padding:14,color:'#94a3b8',fontSize:12}}>⏳ Chargement du sondage...</div>
+  }
+
+  // ── Aucune question configurée : repli sur une note globale simple ──
+  if (questions.length === 0) {
+    return (
+      <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:12,padding:14,marginTop:10}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#92400e',marginBottom:8,textAlign:'center'}}>
+          🍽️ Comment était le repas ?
+        </div>
+        <div style={{display:'flex',justifyContent:'center',gap:6,marginBottom:8}}>
+          {[1,2,3,4,5].map(n => (
+            <button key={n} onClick={()=>setNoteGlobale(n)}
+              style={{background:'none',border:'none',cursor:'pointer',fontSize:28,padding:2,
+                filter: n<=noteGlobale ? 'none' : 'grayscale(1) opacity(.4)'}}>
+              ⭐
+            </button>
+          ))}
+        </div>
+        <input value={commentaireGlobal} onChange={e=>setCommentaireGlobal(e.target.value)}
+          placeholder="Un commentaire ? (optionnel)"
+          style={{width:'100%',border:'1px solid #fde68a',borderRadius:8,padding:'6px 10px',
+            fontSize:12,outline:'none',boxSizing:'border-box',marginBottom:8}}/>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={onDone}
+            style={{flex:1,background:'none',border:'none',color:'#92400e',fontSize:11,cursor:'pointer',textDecoration:'underline'}}>
+            Passer
+          </button>
+          <button onClick={envoyer} disabled={!peutEnvoyer()||envoi}
+            style={{flex:2,background:peutEnvoyer()?'#f0a500':'#e2d8c3',color:'#000',border:'none',padding:'8px',
+              borderRadius:8,cursor:peutEnvoyer()?'pointer':'not-allowed',fontSize:12,fontWeight:700}}>
+            {envoi?'⏳...':'Envoyer'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Questions personnalisées configurées dans Paramétrage ──
   return (
     <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:12,padding:14,marginTop:10}}>
-      <div style={{fontSize:12,fontWeight:700,color:'#92400e',marginBottom:8,textAlign:'center'}}>
-        🍽️ Comment était le repas ?
+      <div style={{fontSize:12,fontWeight:700,color:'#92400e',marginBottom:10,textAlign:'center'}}>
+        🍽️ Donnez votre avis sur le repas
       </div>
-      <div style={{display:'flex',justifyContent:'center',gap:6,marginBottom:8}}>
-        {[1,2,3,4,5].map(n => (
-          <button key={n} onClick={()=>envoyer(n)}
-            style={{background:'none',border:'none',cursor:'pointer',fontSize:28,padding:2,
-              filter: n<=note ? 'none' : 'grayscale(1) opacity(.4)'}}>
-            ⭐
-          </button>
+      <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:10}}>
+        {questions.map(q => (
+          <div key={q.id}>
+            <div style={{fontSize:12,fontWeight:600,color:'#78350f',marginBottom:5}}>
+              {q.label}{q.obligatoire && <span style={{color:'#dc2626'}}> *</span>}
+            </div>
+            {q.type_question === 'etoiles' && (
+              <div style={{display:'flex',gap:4}}>
+                {[1,2,3,4,5].map(n => (
+                  <button key={n} onClick={()=>setReponse(q.id,n)}
+                    style={{background:'none',border:'none',cursor:'pointer',fontSize:24,padding:1,
+                      filter: n<=(reponses[q.id]||0) ? 'none' : 'grayscale(1) opacity(.4)'}}>
+                    ⭐
+                  </button>
+                ))}
+              </div>
+            )}
+            {q.type_question === 'oui_non' && (
+              <div style={{display:'flex',gap:8}}>
+                {[['Oui',true],['Non',false]].map(([label,val]) => (
+                  <button key={label} onClick={()=>setReponse(q.id,val)}
+                    style={{flex:1,padding:'7px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,
+                      border:`2px solid ${reponses[q.id]===val?'#f0a500':'#fde68a'}`,
+                      background:reponses[q.id]===val?'#fef3c7':'#fff',
+                      color:reponses[q.id]===val?'#92400e':'#78350f'}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {q.type_question === 'choix' && (
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {(q.options||[]).map(opt => (
+                  <button key={opt} onClick={()=>setReponse(q.id,opt)}
+                    style={{padding:'6px 12px',borderRadius:20,cursor:'pointer',fontSize:11,fontWeight:600,
+                      border:`2px solid ${reponses[q.id]===opt?'#f0a500':'#fde68a'}`,
+                      background:reponses[q.id]===opt?'#fef3c7':'#fff',
+                      color:reponses[q.id]===opt?'#92400e':'#78350f'}}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+            {q.type_question === 'texte' && (
+              <input value={reponses[q.id]||''} onChange={e=>setReponse(q.id,e.target.value)}
+                placeholder="Votre réponse..."
+                style={{width:'100%',border:'1px solid #fde68a',borderRadius:8,padding:'6px 10px',
+                  fontSize:12,outline:'none',boxSizing:'border-box'}}/>
+            )}
+          </div>
         ))}
       </div>
-      <input value={commentaire} onChange={e=>setCommentaire(e.target.value)}
-        placeholder="Un commentaire ? (optionnel)"
-        style={{width:'100%',border:'1px solid #fde68a',borderRadius:8,padding:'6px 10px',
-          fontSize:12,outline:'none',boxSizing:'border-box',marginBottom:8}}/>
-      <button onClick={onDone}
-        style={{width:'100%',background:'none',border:'none',color:'#92400e',fontSize:11,cursor:'pointer',textDecoration:'underline'}}>
-        Passer
-      </button>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={onDone}
+          style={{flex:1,background:'none',border:'none',color:'#92400e',fontSize:11,cursor:'pointer',textDecoration:'underline'}}>
+          Passer
+        </button>
+        <button onClick={envoyer} disabled={!peutEnvoyer()||envoi}
+          style={{flex:2,background:peutEnvoyer()?'#f0a500':'#e2d8c3',color:'#000',border:'none',padding:'8px',
+            borderRadius:8,cursor:peutEnvoyer()?'pointer':'not-allowed',fontSize:12,fontWeight:700}}>
+          {envoi?'⏳...':'Envoyer'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -640,26 +763,54 @@ export default function Restauration() {
               <div style={{fontSize:13,fontWeight:700,color:'#7c3aed'}}>📊 Amélioration continue — 30 derniers jours</div>
               <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{avisStats.count} avis</div>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-              <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-                <span style={{fontSize:28,fontWeight:900,color:'#7c3aed',fontFamily:'monospace'}}>{avisStats.moyenne}</span>
-                <span style={{fontSize:12,color:'var(--rzc-text-3)'}}>/5 ⭐</span>
-              </div>
-              <div style={{display:'flex',gap:10,fontSize:11,color:'var(--rzc-text-3)'}}>
-                {Object.entries(avisStats.par_repas||{}).map(([repas,d])=>(
-                  <div key={repas}>
-                    {{matin:'🌅',midi:'☀️',soir:'🌙'}[repas]||''} {d.moyenne}/5 <span style={{color:'var(--rzc-text-4)'}}>({d.count})</span>
+
+            {/* Détail par question personnalisée (Paramétrage > Avis Restauration) */}
+            {avisStats.par_question && avisStats.par_question.length > 0 ? (
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {avisStats.par_question.map(q => (
+                  <div key={q.id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--rzc-text-2)',minWidth:160}}>{q.label}</span>
+                    {q.type === 'etoiles' && q.moyenne != null && (
+                      <span style={{fontSize:13,fontWeight:800,color:'#7c3aed',fontFamily:'monospace'}}>{q.moyenne}/5 ⭐</span>
+                    )}
+                    {q.type === 'oui_non' && (
+                      <span style={{fontSize:12,color:'var(--rzc-text-3)'}}>
+                        ✅ {q.oui||0} <span style={{color:'var(--rzc-text-4)'}}>/</span> ❌ {q.non||0}
+                      </span>
+                    )}
+                    {q.type === 'choix' && (
+                      <span style={{fontSize:11,color:'var(--rzc-text-3)'}}>
+                        {Object.entries(q.repartition||{}).map(([opt,c])=>`${opt} (${c})`).join(' · ')}
+                      </span>
+                    )}
+                    {q.type === 'texte' && (
+                      <span style={{fontSize:11,color:'var(--rzc-text-4)'}}>{q.count} réponse(s) texte</span>
+                    )}
                   </div>
                 ))}
               </div>
-              <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
-                {[5,4,3,2,1].map(n=>(
-                  <div key={n} title={`${avisStats.repartition?.[n]||0} avis à ${n}⭐`}
-                    style={{width:8,height:Math.max(6,(avisStats.repartition?.[n]||0)*4),
-                      background:n>=4?'#16a34a':n===3?'#eab308':'#dc2626',borderRadius:2,alignSelf:'flex-end'}}/>
-                ))}
+            ) : (
+              <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                  <span style={{fontSize:28,fontWeight:900,color:'#7c3aed',fontFamily:'monospace'}}>{avisStats.moyenne}</span>
+                  <span style={{fontSize:12,color:'var(--rzc-text-3)'}}>/5 ⭐</span>
+                </div>
+                <div style={{display:'flex',gap:10,fontSize:11,color:'var(--rzc-text-3)'}}>
+                  {Object.entries(avisStats.par_repas||{}).map(([repas,d])=>(
+                    <div key={repas}>
+                      {{matin:'🌅',midi:'☀️',soir:'🌙'}[repas]||''} {d.moyenne}/5 <span style={{color:'var(--rzc-text-4)'}}>({d.count})</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:3,marginLeft:'auto'}}>
+                  {[5,4,3,2,1].map(n=>(
+                    <div key={n} title={`${avisStats.repartition?.[n]||0} avis à ${n}⭐`}
+                      style={{width:8,height:Math.max(6,(avisStats.repartition?.[n]||0)*4),
+                        background:n>=4?'#16a34a':n===3?'#eab308':'#dc2626',borderRadius:2,alignSelf:'flex-end'}}/>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

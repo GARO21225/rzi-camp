@@ -206,7 +206,7 @@ class AvisRestauration(models.Model):
     ]
     personnel    = models.ForeignKey('residences.Personnel', on_delete=models.SET_NULL, null=True, blank=True)
     repas        = models.CharField(max_length=20, choices=REPAS_CHOICES, default='midi')
-    note         = models.PositiveSmallIntegerField(default=5)  # 1 à 5
+    note         = models.PositiveSmallIntegerField(default=5)  # 1 à 5 — conservé pour compat, question "globale" par défaut
     commentaire  = models.TextField(blank=True, default='')
     date_avis    = models.DateField(auto_now_add=True)
     date_creation= models.DateTimeField(auto_now_add=True)
@@ -217,3 +217,44 @@ class AvisRestauration(models.Model):
 
     def __str__(self):
         return f"{self.date_avis} — {self.get_repas_display()} — {self.note}/5"
+
+
+class QuestionAvis(models.Model):
+    """
+    Question personnalisable posée dans le sondage repas — configurable
+    depuis Paramétrage. Sans question active configurée, le formulaire
+    retombe sur une note globale 1-5 étoiles simple.
+    """
+    TYPES = [
+        ("etoiles",  "⭐ Note en étoiles (1-5)"),
+        ("texte",    "💬 Texte libre"),
+        ("oui_non",  "✅ Oui / Non"),
+        ("choix",    "🔘 Choix parmi une liste"),
+    ]
+    label        = models.CharField(max_length=200)
+    type_question= models.CharField(max_length=20, choices=TYPES, default="etoiles")
+    options      = models.JSONField(blank=True, default=list)  # utilisé seulement si type_question='choix'
+    ordre        = models.PositiveIntegerField(default=0)
+    actif        = models.BooleanField(default=True)
+    obligatoire  = models.BooleanField(default=False)
+    date_creation= models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+        verbose_name = "Question d'avis"
+
+    def __str__(self):
+        return self.label
+
+
+class ReponseAvis(models.Model):
+    """Réponse à une QuestionAvis, rattachée à un AvisRestauration."""
+    avis          = models.ForeignKey(AvisRestauration, on_delete=models.CASCADE, related_name="reponses")
+    question      = models.ForeignKey(QuestionAvis, on_delete=models.CASCADE, related_name="reponses")
+    valeur_etoiles= models.PositiveSmallIntegerField(null=True, blank=True)
+    valeur_texte  = models.TextField(blank=True, default="")
+    valeur_choix  = models.CharField(max_length=200, blank=True, default="")
+    valeur_oui_non= models.BooleanField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Réponse d'avis"

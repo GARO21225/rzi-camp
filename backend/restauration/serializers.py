@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import QRToken, RepasLog, AuditLog, AvisRestauration
+from .models import QRToken, RepasLog, AuditLog, AvisRestauration, QuestionAvis, ReponseAvis
 
 class QRTokenSerializer(serializers.ModelSerializer):
     type_repas_label = serializers.CharField(source="get_type_repas_display", read_only=True)
@@ -73,9 +73,25 @@ class AuditLogSerializer(serializers.ModelSerializer):
         model  = AuditLog
         fields = "__all__"
 
+class QuestionAvisSerializer(serializers.ModelSerializer):
+    type_question_label = serializers.CharField(source="get_type_question_display", read_only=True)
+
+    class Meta:
+        model = QuestionAvis
+        fields = ["id","label","type_question","type_question_label","options","ordre","actif","obligatoire"]
+
+class ReponseAvisSerializer(serializers.ModelSerializer):
+    question_label = serializers.CharField(source="question.label", read_only=True)
+    question_type  = serializers.CharField(source="question.type_question", read_only=True)
+
+    class Meta:
+        model  = ReponseAvis
+        fields = ["question","question_label","question_type","valeur_etoiles","valeur_texte","valeur_choix","valeur_oui_non"]
+
 class AvisRestaurationSerializer(serializers.ModelSerializer):
     repas_label     = serializers.CharField(source="get_repas_display", read_only=True)
     personnel_nom   = serializers.SerializerMethodField()
+    reponses        = ReponseAvisSerializer(many=True, read_only=True)
 
     def get_personnel_nom(self, obj):
         if obj.personnel: return f"{obj.personnel.nom} {obj.personnel.prenom}"
@@ -84,5 +100,5 @@ class AvisRestaurationSerializer(serializers.ModelSerializer):
     class Meta:
         model  = AvisRestauration
         fields = ["id","personnel","personnel_nom","repas","repas_label",
-                  "note","commentaire","date_avis","date_creation"]
+                  "note","commentaire","reponses","date_avis","date_creation"]
         read_only_fields = ["date_avis","date_creation"]

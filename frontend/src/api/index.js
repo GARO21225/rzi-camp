@@ -191,6 +191,12 @@ export const avisRestauration = {
   list:   (p) => api.get('/api/avis/', {params:p}),
   stats:  (periode) => api.get('/api/avis/stats/', {params:{periode}}),
 }
+export const questionsAvis = {
+  list:        (actifSeulement) => api.get('/api/questions-avis/', {params: actifSeulement ? {actif_seulement:'1'} : {}}),
+  create:      (d)     => api.post('/api/questions-avis/', d),
+  update:      (id, d) => api.patch(`/api/questions-avis/${id}/`, d),
+  delete:      (id)    => api.delete(`/api/questions-avis/${id}/`),
+}
 export const occupationHistoryAdmin = {
   delete: (id) => api.delete(`/api/occupation-history-admin/${id}/`),
   update: (id,d) => api.patch(`/api/occupation-history-admin/${id}/`, d),

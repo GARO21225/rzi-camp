@@ -7,8 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import serializers as drf_serializers
 from django.utils import timezone
 from django.db import connection
-from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration
-from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer, AvisRestaurationSerializer
+from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration, QuestionAvis, ReponseAvis
+from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer, AvisRestaurationSerializer, QuestionAvisSerializer
 
 class QRTokenViewSet(viewsets.ViewSet):
     """ViewSet pour QR Token avec scan POST.
@@ -293,6 +293,28 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
+class QuestionAvisViewSet(viewsets.ModelViewSet):
+    """
+    Questions du sondage repas, entièrement personnalisables (étoiles, texte
+    libre, oui/non, choix multiple). Lecture ouverte (le formulaire d'avis
+    doit pouvoir charger les questions actives sans droits admin), écriture
+    réservée admin/resto — c'est un contenu éditorial, pas juste un réglage.
+    """
+    queryset = QuestionAvis.objects.all()
+    serializer_class = QuestionAvisSerializer
+
+    def get_queryset(self):
+        qs = QuestionAvis.objects.all()
+        if self.request.query_params.get('actif_seulement') == '1':
+            qs = qs.filter(actif=True)
+        return qs
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), _IsRestoOuAdmin()]
+
+
 class AvisRestaurationViewSet(viewsets.ModelViewSet):
     """
     Avis du personnel sur les repas — démarche d'amélioration continue.
@@ -308,20 +330,46 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsAuthenticated(), _IsRestoOuAdmin()]
 
-    def perform_create(self, serializer):
-        # Rattache automatiquement l'avis au personnel de l'utilisateur
-        # connecté s'il existe un lien (profil -> personnel), sinon anonyme.
-        personnel = None
-        try:
-            from residences.models import Personnel
-            personnel = Personnel.objects.filter(user=self.request.user).first()
-        except Exception:
-            pass
-        serializer.save(personnel=personnel)
+    def create(self, request, *args, **kwargs):
+        """
+        Accepte soit l'ancien format simple ({repas, note, commentaire}),
+        soit le nouveau format avec réponses multiples aux questions
+        personnalisées ({repas, reponses: [{question, valeur_etoiles/...}]}).
+        """
+        from residences.models import Personnel
+        personnel = Personnel.objects.filter(user=request.user).first()
+
+        data = request.data
+        reponses_data = data.get('reponses') or []
+
+        avis = AvisRestauration.objects.create(
+            personnel=personnel,
+            repas=data.get('repas', 'midi'),
+            note=data.get('note', 5),
+            commentaire=data.get('commentaire', ''),
+        )
+
+        for r in reponses_data:
+            qid = r.get('question')
+            if not qid:
+                continue
+            try:
+                question = QuestionAvis.objects.get(pk=qid)
+            except QuestionAvis.DoesNotExist:
+                continue
+            ReponseAvis.objects.create(
+                avis=avis, question=question,
+                valeur_etoiles=r.get('valeur_etoiles'),
+                valeur_texte=r.get('valeur_texte', ''),
+                valeur_choix=r.get('valeur_choix', ''),
+                valeur_oui_non=r.get('valeur_oui_non'),
+            )
+
+        return Response(AvisRestaurationSerializer(avis).data, status=201)
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Note moyenne et répartition — pour le suivi qualité continue."""
+        """Note moyenne globale + détail par question personnalisée."""
         from django.db import connection
         from django.utils import timezone as tz
         from datetime import timedelta
@@ -349,12 +397,37 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
                     WHERE date_avis >= %s GROUP BY repas
                 """, [date_from])
                 par_repas = {r[0]: {'count': r[1], 'moyenne': round(float(r[2]), 1)} for r in c.fetchall()}
+
+                # Détail par question personnalisée
+                par_question = []
+                for q in QuestionAvis.objects.filter(actif=True):
+                    reps = ReponseAvis.objects.filter(
+                        question=q, avis__date_avis__gte=date_from
+                    )
+                    entry = {'id': q.id, 'label': q.label, 'type': q.type_question, 'count': reps.count()}
+                    if q.type_question == 'etoiles':
+                        vals = list(reps.exclude(valeur_etoiles__isnull=True).values_list('valeur_etoiles', flat=True))
+                        entry['moyenne'] = round(sum(vals)/len(vals), 1) if vals else None
+                    elif q.type_question == 'oui_non':
+                        oui = reps.filter(valeur_oui_non=True).count()
+                        non = reps.filter(valeur_oui_non=False).count()
+                        entry['oui'] = oui; entry['non'] = non
+                    elif q.type_question == 'choix':
+                        rep_par_choix = {}
+                        for v in reps.exclude(valeur_choix='').values_list('valeur_choix', flat=True):
+                            rep_par_choix[v] = rep_par_choix.get(v, 0) + 1
+                        entry['repartition'] = rep_par_choix
+                    elif q.type_question == 'texte':
+                        entry['reponses'] = list(reps.exclude(valeur_texte='').values_list('valeur_texte', flat=True)[:20])
+                    par_question.append(entry)
+
             return Response({
                 'count': count, 'moyenne': round(float(moyenne), 1),
                 'repartition': repartition, 'par_repas': par_repas, 'periode': periode,
+                'par_question': par_question,
             })
         except Exception as e:
-            return Response({'count':0,'moyenne':0,'repartition':{},'par_repas':{},'error':str(e)})
+            return Response({'count':0,'moyenne':0,'repartition':{},'par_repas':{},'par_question':[],'error':str(e)})
 
 
 from rest_framework.permissions import BasePermission

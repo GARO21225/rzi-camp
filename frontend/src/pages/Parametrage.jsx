@@ -4,6 +4,7 @@ import { parametres as paramAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
+import { questionsAvis as questionsAvisAPI } from '../api'
 
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
@@ -35,6 +36,7 @@ const TABS = [
   ['badges',     '🪪 Badges QR — Personnel'],
   ['induction',  '🎓 Induction QHSE'],
   ['catalogue',  '📦 Catalogue Boutique'],
+  ['avis',       '⭐ Questions Avis Restauration'],
 ]
 
 const inputStyle = (isAdmin) => ({
@@ -147,6 +149,176 @@ export default function Parametrage() {
       {tab === 'catalogue' && (
         <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
           <Boutique embedded />
+        </div>
+      )}
+
+      {tab === 'avis' && <QuestionsAvisTab />}
+    </div>
+  )
+}
+
+const TYPES_QUESTION = [
+  ['etoiles', '⭐ Note en étoiles (1-5)'],
+  ['texte',   '💬 Texte libre'],
+  ['oui_non', '✅ Oui / Non'],
+  ['choix',   '🔘 Choix parmi une liste'],
+]
+
+function QuestionsAvisTab() {
+  const [questions, setQuestions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ label:'', type_question:'etoiles', options:[], ordre:0, actif:true, obligatoire:false })
+  const [optionsText, setOptionsText] = useState('')
+
+  const charger = () => {
+    setLoading(true)
+    questionsAvisAPI.list(false).then(r => setQuestions(r.data.results || r.data || [])).catch(() => setQuestions([])).finally(() => setLoading(false))
+  }
+  useEffect(charger, [])
+
+  const ouvrirNouvelle = () => {
+    setEditing(null)
+    setForm({ label:'', type_question:'etoiles', options:[], ordre:questions.length+1, actif:true, obligatoire:false })
+    setOptionsText('')
+    setShowForm(true)
+  }
+
+  const ouvrirEdition = (q) => {
+    setEditing(q)
+    setForm({ label:q.label, type_question:q.type_question, options:q.options||[], ordre:q.ordre, actif:q.actif, obligatoire:q.obligatoire })
+    setOptionsText((q.options||[]).join('\n'))
+    setShowForm(true)
+  }
+
+  const enregistrer = async () => {
+    if (!form.label.trim()) { alert('Le libellé de la question est requis.'); return }
+    const payload = {
+      ...form,
+      options: form.type_question === 'choix' ? optionsText.split('\n').map(s=>s.trim()).filter(Boolean) : [],
+    }
+    try {
+      if (editing) await questionsAvisAPI.update(editing.id, payload)
+      else await questionsAvisAPI.create(payload)
+      setShowForm(false)
+      charger()
+    } catch { alert("Erreur lors de l'enregistrement") }
+  }
+
+  const supprimer = async (id) => {
+    if (!window.confirm('Supprimer cette question ? Les réponses déjà données seront conservées mais la question ne sera plus posée.')) return
+    try { await questionsAvisAPI.delete(id); charger() } catch { alert('Erreur suppression') }
+  }
+
+  const toggleActif = async (q) => {
+    try { await questionsAvisAPI.update(q.id, { actif: !q.actif }); charger() } catch { alert('Erreur') }
+  }
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>⭐ Questions du sondage repas</div>
+          <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
+            Personnalisez entièrement le questionnaire affiché après un scan de repas — étoiles, texte libre, oui/non, ou choix multiple.
+          </div>
+        </div>
+        <button onClick={ouvrirNouvelle}
+          style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700, flexShrink:0 }}>
+          ➕ Nouvelle question
+        </button>
+      </div>
+
+      {questions.length === 0 ? (
+        <div style={{ textAlign:'center', padding:30, color:'#94a3b8', fontSize:13 }}>
+          Aucune question configurée — le formulaire retombe sur une note globale simple à 5 étoiles.
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {questions.sort((a,b)=>a.ordre-b.ordre).map(q => (
+            <div key={q.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+              background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:9, opacity: q.actif?1:0.5 }}>
+              <span style={{ fontSize:11, color:'#94a3b8', fontFamily:'monospace', width:20 }}>#{q.ordre}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{q.label}{q.obligatoire && <span style={{color:'#dc2626'}}> *</span>}</div>
+                <div style={{ fontSize:11, color:'#64748b' }}>{q.type_question_label}{q.type_question==='choix' && q.options?.length ? ` — ${q.options.join(', ')}` : ''}</div>
+              </div>
+              <button onClick={()=>toggleActif(q)}
+                style={{ background: q.actif?'#dcfce7':'#f1f5f9', color: q.actif?'#16a34a':'#94a3b8', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                {q.actif ? 'Actif' : 'Inactif'}
+              </button>
+              <button onClick={()=>ouvrirEdition(q)}
+                style={{ background:'#eff6ff', color:'#2563eb', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                ✏️
+              </button>
+              <button onClick={()=>supprimer(q.id)}
+                style={{ background:'#fee2e2', color:'#dc2626', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                🗑️
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setShowForm(false)}>
+          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:420, overflow:'hidden' }}>
+            <div style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', padding:'12px 16px', fontWeight:700 }}>
+              {editing ? '✏️ Modifier la question' : '➕ Nouvelle question'}
+            </div>
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>LIBELLÉ DE LA QUESTION</label>
+                <input value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))}
+                  placeholder="Ex: Que pensez-vous de la propreté des tables ?"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>TYPE DE RÉPONSE</label>
+                <select value={form.type_question} onChange={e=>setForm(f=>({...f,type_question:e.target.value}))}
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginTop:4 }}>
+                  {TYPES_QUESTION.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              {form.type_question === 'choix' && (
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>OPTIONS (une par ligne)</label>
+                  <textarea value={optionsText} onChange={e=>setOptionsText(e.target.value)}
+                    placeholder={"Excellent\nBon\nMoyen\nMauvais"}
+                    style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4, minHeight:80 }}/>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:16 }}>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, cursor:'pointer' }}>
+                  <input type="checkbox" checked={form.obligatoire} onChange={e=>setForm(f=>({...f,obligatoire:e.target.checked}))}/>
+                  Réponse obligatoire
+                </label>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, cursor:'pointer' }}>
+                  <input type="checkbox" checked={form.actif} onChange={e=>setForm(f=>({...f,actif:e.target.checked}))}/>
+                  Question active
+                </label>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>ORDRE D'AFFICHAGE</label>
+                <input type="number" value={form.ordre} onChange={e=>setForm(f=>({...f,ordre:Number(e.target.value)}))}
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                <button onClick={()=>setShowForm(false)}
+                  style={{ flex:1, background:'#f1f5f9', color:'#64748b', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  Annuler
+                </button>
+                <button onClick={enregistrer}
+                  style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  💾 Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
