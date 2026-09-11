@@ -4,14 +4,29 @@ import dj_database_url
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# SECURITE : jamais de valeur en dur ici — ce fichier est sur un dépôt GitHub
-# public. Si SECRET_KEY n'est pas définie côté serveur, on en génère une
-# aléatoire au démarrage plutôt que d'utiliser un secret prévisible et
-# visible par n'importe qui : ça invalide juste les sessions/tokens
-# existants au lieu d'ouvrir une brèche.
-import secrets as _secrets
-SECRET_KEY = os.environ.get("SECRET_KEY") or _secrets.token_urlsafe(50)
 DEBUG = os.environ.get("DEBUG", "False") == "True"
+
+# SECURITE : jamais de valeur en dur ici — ce fichier est sur un dépôt GitHub
+# public. En production (DEBUG=False), une SECRET_KEY manquante fait
+# maintenant planter le démarrage avec un message clair, plutôt que de
+# générer silencieusement une clé aléatoire différente à chaque worker/
+# redémarrage — ce repli silencieux a causé des deconnexions aleatoires
+# a repetition (2 workers = 2 cles differentes = jetons valides pour l'un,
+# rejetes par l'autre), tres difficile a diagnostiquer sans ce garde-fou.
+# En local (DEBUG=True), une cle aleatoire reste generee par confort.
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        import secrets as _secrets
+        SECRET_KEY = _secrets.token_urlsafe(50)
+    else:
+        raise RuntimeError(
+            "SECRET_KEY manquante ou vide en production ! "
+            "Verifiez .env et docker-compose.yml (env_file), et qu'aucune "
+            "variable shell SECRET_KEY vide n'ecrase le fichier .env "
+            "(diagnostic: echo \"[$SECRET_KEY]\" doit afficher [] SANS que "
+            "la variable soit definie — sinon: unset SECRET_KEY)."
+        )
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [

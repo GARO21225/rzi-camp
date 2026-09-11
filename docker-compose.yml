@@ -29,12 +29,17 @@ services:
     build: ./backend
     command: >
       sh -c "python manage.py migrate && gunicorn rzi_camp.asgi:application -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000 --timeout 60 --max-requests 1000 --max-requests-jitter 100"
+    # env_file (pas environment: SECRET_KEY: ${SECRET_KEY}) : lit .env
+    # DIRECTEMENT sans passer par la substitution de variables shell de
+    # Docker Compose, qui donne toujours la priorité a une variable shell
+    # (meme vide) sur le contenu de .env. Ce piège a cause des deconnexions
+    # aleatoires a repetition (cle secrete vide -> regeneree au hasard a
+    # chaque process) malgre un .env pourtant correct.
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
       REDIS_URL: redis://redis:6379/0
-      # SECURITE : plus de valeur en dur ici (ce fichier est sur GitHub public).
-      # La vraie valeur vient de .env (jamais commité, voir .env.example).
-      SECRET_KEY: ${SECRET_KEY}
       DEBUG: "False"
     ports:
       - "8001:8000"
