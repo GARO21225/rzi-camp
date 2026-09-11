@@ -23,6 +23,12 @@ def liste_parametres(request):
         'mm_numero_wave': ('', 'Wave — numéro marchand du camp'),
         'mm_numero_mtn':  ('', 'MTN Mobile Money — numéro marchand du camp'),
         'mm_numero_moov': ('', 'Moov Money — numéro marchand du camp'),
+        'theme_primaire':  ('#0F2A5C', 'Couleur primaire — headers, boutons principaux'),
+        'theme_accent':    ('#C9972B', 'Couleur accent — mise en avant, alertes secondaires'),
+        'theme_succes':    ('#16A34A', 'Couleur succès — statuts "libre/OK/validé"'),
+        'theme_danger':    ('#DC2626', 'Couleur danger — statuts "occupé/erreur/critique"'),
+        'theme_info':      ('#2563EB', 'Couleur info — statuts "réservé/information"'),
+        'theme_police':    ('IBM Plex Sans', "Police de caractères de toute l'application"),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []

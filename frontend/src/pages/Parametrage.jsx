@@ -392,6 +392,10 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
   const setLogoUrl = useStore(s => s.setLogoUrl)
   const [primaire, setPrimaire] = useState(valeurs.theme_primaire || '#0F2A5C')
   const [accent,   setAccent]   = useState(valeurs.theme_accent   || '#C9972B')
+  const [succes,   setSucces]   = useState(valeurs.theme_succes   || '#16A34A')
+  const [danger,   setDanger]   = useState(valeurs.theme_danger   || '#DC2626')
+  const [info,     setInfo]     = useState(valeurs.theme_info     || '#2563EB')
+  const [police,   setPolice]   = useState(valeurs.theme_police   || 'IBM Plex Sans')
   const [logoPreview, setLogoPreview] = useState(
     valeurs.logo_base64 ? `data:${valeurs.logo_mime||'image/png'};base64,${valeurs.logo_base64}` : null
   )
@@ -418,7 +422,19 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
   }
 
   const appliquerCouleurs = async () => {
-    await sauvegarder({ theme_primaire: primaire, theme_accent: accent })
+    await sauvegarder({
+      theme_primaire: primaire, theme_accent: accent,
+      theme_succes: succes, theme_danger: danger, theme_info: info,
+      theme_police: police,
+    })
+    // Application immédiate (pas besoin de recharger la page pour voir le résultat)
+    const root = document.documentElement.style
+    root.setProperty('--rzc-navy', primaire)
+    root.setProperty('--rzc-ore-gold', accent)
+    root.setProperty('--rzc-green', succes)
+    root.setProperty('--rzc-red', danger)
+    root.setProperty('--rzc-blue', info)
+    root.setProperty('--rzc-font', `'${police}', system-ui, sans-serif`)
   }
 
   const appliquerLogo = async () => {
@@ -460,11 +476,59 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
                 onChange={e=>setAccent(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
             </div>
           </div>
+
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>COULEUR SUCCÈS (statuts libre / OK)</label>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <input type="color" value={succes} disabled={!isAdmin}
+                onChange={e=>setSucces(e.target.value)}
+                style={{ width:44, height:36, border:'1px solid #e2e8f0', borderRadius:8, cursor: isAdmin?'pointer':'default', padding:2 }}/>
+              <input type="text" value={succes} disabled={!isAdmin}
+                onChange={e=>setSucces(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>COULEUR DANGER (statuts occupé / critique)</label>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <input type="color" value={danger} disabled={!isAdmin}
+                onChange={e=>setDanger(e.target.value)}
+                style={{ width:44, height:36, border:'1px solid #e2e8f0', borderRadius:8, cursor: isAdmin?'pointer':'default', padding:2 }}/>
+              <input type="text" value={danger} disabled={!isAdmin}
+                onChange={e=>setDanger(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>COULEUR INFO (statuts réservé)</label>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <input type="color" value={info} disabled={!isAdmin}
+                onChange={e=>setInfo(e.target.value)}
+                style={{ width:44, height:36, border:'1px solid #e2e8f0', borderRadius:8, cursor: isAdmin?'pointer':'default', padding:2 }}/>
+              <input type="text" value={info} disabled={!isAdmin}
+                onChange={e=>setInfo(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>POLICE DE CARACTÈRES</label>
+            <select value={police} disabled={!isAdmin} onChange={e=>setPolice(e.target.value)}
+              style={{...inputStyle(isAdmin), fontFamily:police}}>
+              <option value="IBM Plex Sans">IBM Plex Sans (par défaut)</option>
+              <option value="Inter">Inter</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Poppins">Poppins</option>
+              <option value="system-ui">Système (par défaut de l'appareil)</option>
+            </select>
+          </div>
         </div>
 
-        <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center', flexWrap:'wrap' }}>
           <div style={{ padding:'10px 16px', borderRadius:9, background:primaire, color:'#fff', fontSize:12, fontWeight:700 }}>Aperçu primaire</div>
           <div style={{ padding:'10px 16px', borderRadius:9, background:accent, color:'#fff', fontSize:12, fontWeight:700 }}>Aperçu accent</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:succes, color:'#fff', fontSize:12, fontWeight:700 }}>Succès</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:danger, color:'#fff', fontSize:12, fontWeight:700 }}>Danger</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:info, color:'#fff', fontSize:12, fontWeight:700 }}>Info</div>
         </div>
 
         {isAdmin && (

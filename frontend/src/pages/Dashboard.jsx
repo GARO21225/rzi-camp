@@ -45,7 +45,7 @@ function DigitalTwinMap({ bats, onClick }) {
     const L = window.L
     if (!L) return
     const STATUS_COLOR = {
-      'Libre':'#16A34A', 'Occupé':'#C9972B', 'Réservé':'#2563EB', 'Maintenance':'#DC2626'
+      'Libre':'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', 'Maintenance':'var(--rzc-ore-gold)'
     }
     // Nettoyer les anciens markers avant d'en remettre (évite l'accumulation au refresh)
     mapInstanceRef.current.eachLayer(layer => {

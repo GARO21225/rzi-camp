@@ -17,12 +17,13 @@ export function useTheme() {
       .then(r => {
         const byKey = {}
         for (const p of (r.data || [])) byKey[p.cle] = p.valeur
-        if (byKey.theme_primaire) {
-          document.documentElement.style.setProperty('--rzc-navy', byKey.theme_primaire)
-        }
-        if (byKey.theme_accent) {
-          document.documentElement.style.setProperty('--rzc-ore-gold', byKey.theme_accent)
-        }
+        const root = document.documentElement.style
+        if (byKey.theme_primaire) root.setProperty('--rzc-navy', byKey.theme_primaire)
+        if (byKey.theme_accent)   root.setProperty('--rzc-ore-gold', byKey.theme_accent)
+        if (byKey.theme_succes)   root.setProperty('--rzc-green', byKey.theme_succes)
+        if (byKey.theme_danger)   root.setProperty('--rzc-red', byKey.theme_danger)
+        if (byKey.theme_info)     root.setProperty('--rzc-blue', byKey.theme_info)
+        if (byKey.theme_police)   root.setProperty('--rzc-font', `'${byKey.theme_police}', system-ui, sans-serif`)
         if (byKey.logo_base64) {
           setLogoUrl(`data:${byKey.logo_mime || 'image/png'};base64,${byKey.logo_base64}`)
         }

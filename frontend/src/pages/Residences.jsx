@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin } from '../api'
 import { useStore } from '../store'
 
-const bcolor = { Libre:'#16A34A', 'Occupé':'#DC2626', 'Réservé':'#2563EB', Maintenance:'#D4A017' }
+const bcolor = { Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', Maintenance:'var(--rzc-ore-gold)' }
 const today = new Date().toISOString().slice(0,10)
 
 export default function Residences() {

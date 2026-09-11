@@ -20,7 +20,7 @@ const TILES = [
   { id:'sat', label:'🛰️ Satellite', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
 ]
 
-const sColor = s => ({ Libre:'#16a34a', 'Occupé':'#dc2626', 'Réservé':'var(--rzc-blue)', Maintenance:'#ea580c' }[s]||'#888')
+const sColor = s => ({ Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', Maintenance:'var(--rzc-ore-gold)' }[s]||'#888')
 
 // ── Points d'intérêt : icône + couleur par catégorie ──
 const POI_STYLE = {
@@ -375,7 +375,7 @@ export default function MapPage() {
         )}
 
         <div style={{marginLeft:'auto',display:'flex',gap:8,fontSize:10,fontFamily:'monospace'}}>
-          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','var(--rzc-blue)']].map(([l,c])=>(
+          {[['Libre','var(--rzc-green)'],['Occupé','var(--rzc-red)'],['Réservé','var(--rzc-blue)']].map(([l,c])=>(
             <span key={l} style={{display:'flex',alignItems:'center',gap:3,color:'var(--text-dim)',cursor:'pointer'}}
               onClick={()=>setFilterStatut(filterStatut===l?'':l)}>
               <span style={{width:7,height:7,borderRadius:'50%',background:c,display:'inline-block'}}/>
@@ -630,7 +630,7 @@ export default function MapPage() {
         {/* Légende */}
         <div style={{position:'absolute',bottom:20,right:10,background:'rgba(255,255,255,.97)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',zIndex:900,fontSize:12,boxShadow:'var(--shadow-md)'}}>
           <div style={{fontFamily:'monospace',fontSize:9,color:'var(--text-dim)',letterSpacing:2,marginBottom:8,textTransform:'uppercase'}}>Légende</div>
-          {[['Libre','#16a34a'],['Occupé','#dc2626'],['Réservé','var(--rzc-blue)'],['Maintenance','#ea580c']].map(([l,c])=>(
+          {[['Libre','var(--rzc-green)'],['Occupé','var(--rzc-red)'],['Réservé','var(--rzc-blue)'],['Maintenance','var(--rzc-ore-gold)']].map(([l,c])=>(
             <div key={l} style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0',cursor:'pointer'}}
               onClick={()=>setFilterStatut(filterStatut===l?'':l)}>
               <div style={{width:12,height:12,borderRadius:3,background:c,flexShrink:0,opacity:filterStatut&&filterStatut!==l?.4:1}}/>
