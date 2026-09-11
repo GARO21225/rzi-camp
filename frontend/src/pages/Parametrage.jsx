@@ -98,7 +98,7 @@ export default function Parametrage() {
   if (loading) return <div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement...</div>
 
   return (
-    <div style={{ padding:20, maxWidth:820 }}>
+    <div style={{ padding:20 }}>
       <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>⚙️ Paramétrage</h2>
       <p style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>
         Réglages centraux de l'application. {!isAdmin && "Lecture seule — réservé aux administrateurs pour la modification."}

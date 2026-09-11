@@ -592,6 +592,8 @@ export default function Restauration() {
   const [typeRepas, setTypeRepas] = useState('dejeuner')
   const [showAvis, setShowAvis] = useState(false)
   const [avisStats, setAvisStats] = useState(null)
+  const [avisListe, setAvisListe] = useState([])
+  const [showAvisListe, setShowAvisListe] = useState(false)
   const [menuItems,   setMenuItems]   = useState([])
   const [menuForm,    setMenuForm]    = useState(null)
   const [menuDate,    setMenuDate]    = useState(new Date().toISOString().slice(0,10))
@@ -624,6 +626,7 @@ export default function Restauration() {
         .then(r => setMenuItems(r.data.results || r.data || []))
         .catch(() => {})
       avisAPI.stats('30j').then(r => setAvisStats(r.data)).catch(() => {})
+      avisAPI.list({page_size: 100}).then(r => setAvisListe(r.data.results || r.data || [])).catch(() => {})
     } else {
       import('../api').then(({ personnel: personnelAPI }) => {
         personnelAPI.monProfil()
@@ -809,6 +812,43 @@ export default function Restauration() {
                         background:n>=4?'#16a34a':n===3?'#eab308':'#dc2626',borderRadius:2,alignSelf:'flex-end'}}/>
                   ))}
                 </div>
+              </div>
+            )}
+
+            <button onClick={()=>setShowAvisListe(v=>!v)}
+              style={{marginTop:12,background:'none',border:'none',color:'#7c3aed',fontSize:11,fontWeight:700,cursor:'pointer',textDecoration:'underline'}}>
+              {showAvisListe ? '▲ Masquer' : `▼ Voir le détail (${avisListe.length} avis)`}
+            </button>
+
+            {showAvisListe && (
+              <div style={{marginTop:10,maxHeight:400,overflowY:'auto',display:'flex',flexDirection:'column',gap:8}}>
+                {avisListe.length === 0 ? (
+                  <div style={{fontSize:12,color:'var(--rzc-text-4)',textAlign:'center',padding:10}}>Aucun avis pour le moment.</div>
+                ) : avisListe.map(a => (
+                  <div key={a.id} style={{background:'var(--rzc-charcoal)',borderRadius:9,padding:'10px 12px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--rzc-text-3)',marginBottom:6}}>
+                      <span>{{matin:'🌅',midi:'☀️',soir:'🌙'}[a.repas]||''} {a.repas_label} — {a.personnel_nom}</span>
+                      <span>{new Date(a.date_creation).toLocaleDateString('fr-FR')} {new Date(a.date_creation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+                    </div>
+                    {a.reponses && a.reponses.length > 0 ? (
+                      <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                        {a.reponses.map((r,i) => (
+                          <div key={i} style={{fontSize:12,display:'flex',gap:6}}>
+                            <span style={{color:'var(--rzc-text-3)',minWidth:140}}>{r.question_label} :</span>
+                            <span style={{fontWeight:600,color:'var(--rzc-text)'}}>
+                              {r.question_type==='etoiles' && r.valeur_etoiles && '⭐'.repeat(r.valeur_etoiles)}
+                              {r.question_type==='oui_non' && (r.valeur_oui_non ? '✅ Oui' : '❌ Non')}
+                              {r.question_type==='choix' && r.valeur_choix}
+                              {r.question_type==='texte' && (r.valeur_texte || '—')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{fontSize:12,fontWeight:600}}>{'⭐'.repeat(a.note)} {a.commentaire && `— ${a.commentaire}`}</div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
