@@ -31,7 +31,7 @@ export default function LeafletMap({ geojson, center = [8.111, -6.822], zoom = 1
           data={geojson}
           pointToLayer={(feature, latlng) => {
             const statut = feature.properties?.statut || 'Libre'
-            const color  = STATUS_COLOR[statut] || '#1e3a8a'
+            const color  = STATUS_COLOR[statut] || 'var(--rzc-navy)'
             return L.circleMarker(latlng, {
               radius: 9,
               fillColor: color,

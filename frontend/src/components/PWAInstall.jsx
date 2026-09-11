@@ -66,7 +66,7 @@ export function PWAInstallButton() {
       animation: 'slideUp .4s ease'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#1e3a8a' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--rzc-navy)' }}>
           📱 Installer l'application sur iPhone
         </div>
         <button onClick={dismiss}
@@ -74,15 +74,15 @@ export function PWAInstallButton() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#1e3a8a', flexShrink: 0 }}>1</div>
+          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--rzc-navy)', flexShrink: 0 }}>1</div>
           <span>Appuyez sur <b style={{ color: '#007AFF' }}>Partager</b> <span style={{ fontSize: 16 }}>⬆️</span> en bas de Safari</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#1e3a8a', flexShrink: 0 }}>2</div>
+          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--rzc-navy)', flexShrink: 0 }}>2</div>
           <span>Faites défiler et tapez <b>"Sur l'écran d'accueil"</b> <span style={{ fontSize: 16 }}>➕</span></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#1e3a8a', flexShrink: 0 }}>3</div>
+          <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--rzc-navy)', flexShrink: 0 }}>3</div>
           <span>Appuyez sur <b>"Ajouter"</b> en haut à droite ✅</span>
         </div>
       </div>

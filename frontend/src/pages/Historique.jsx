@@ -895,7 +895,7 @@ export default function Historique() {
                 style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
 
               <button onClick={loadInduction} disabled={inductionLoading}
-                style={{background:'#0F2A5C',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                style={{background:'var(--rzc-navy)',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
                 {inductionLoading?'⏳ Recherche...':'🔍 Actualiser'}
               </button>
 
@@ -910,7 +910,7 @@ export default function Historique() {
 
           {inductionFiltered.length > 0 ? (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
-              <div style={{padding:'10px 16px',background:'#0F2A5C',color:'#fff',fontWeight:600,fontSize:13}}>
+              <div style={{padding:'10px 16px',background:'var(--rzc-navy)',color:'#fff',fontWeight:600,fontSize:13}}>
                 🎓 {inductionFiltered.length}/{inductionData.length} induction(s)
               </div>
               <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>

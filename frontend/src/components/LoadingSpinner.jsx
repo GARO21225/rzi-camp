@@ -34,7 +34,7 @@ export function ErrorState({ error, onRetry }) {
       <div style={{fontSize:12, color:'#94a3b8', marginBottom:16}}>{error}</div>
       {onRetry && (
         <button onClick={onRetry}
-          style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:9,
+          style={{background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:9,
             padding:'8px 20px',cursor:'pointer',fontSize:13,fontWeight:700}}>
           🔄 Réessayer
         </button>
@@ -52,7 +52,7 @@ export function StatusBadge({ label, status = 'neutral', size = 'sm' }) {
     ok:      { bg:'#dcfce7', color:'#16a34a' },
     warning: { bg:'#fef3c7', color:'#92400e' },
     error:   { bg:'#fee2e2', color:'#dc2626' },
-    info:    { bg:'#eff6ff', color:'#1e3a8a' },
+    info:    { bg:'#eff6ff', color:'var(--rzc-navy)' },
     neutral: { bg:'#f1f5f9', color:'#64748b' },
     purple:  { bg:'#f5f3ff', color:'#7c3aed' },
   }

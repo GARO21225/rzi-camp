@@ -89,7 +89,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
       background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
     }}>
-      <div style={{ padding: '14px 16px', background: '#1e3a8a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 16px', background: 'var(--rzc-navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: '#ffffff', fontWeight: 700, fontSize: 15 }}>
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#ffffff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
@@ -109,18 +109,18 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
               onMouseLeave={e => e.currentTarget.style.background = n.lu ? '#ffffff' : 'rgba(37,99,235,.04)'}>
               <div style={{ fontSize: 22, flexShrink: 0 }}>📅</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: '#1e3a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
+                <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: 'var(--rzc-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: '#525252', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: '#525252' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
-              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#1e3a8a', flexShrink: 0, marginTop: 4 }} />}
+              {!n.lu && <div style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--rzc-navy)', flexShrink: 0, marginTop: 4 }} />}
             </div>
           ))
         }
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
-          style={{ width: '100%', background: '#1e3a8a', color: '#ffffff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          style={{ width: '100%', background: 'var(--rzc-navy)', color: '#ffffff', border: 'none', padding: '9px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           Voir tous les événements →
         </button>
       </div>
@@ -146,7 +146,7 @@ function WelcomeToast({ user, onClose }) {
     }}>
       <div style={{ fontSize: 32 }}>{ROLE_ICONS[role] || '👤'}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, color: '#1e3a8a', fontSize: 14, marginBottom: 2 }}>
+        <div style={{ fontWeight: 700, color: 'var(--rzc-navy)', fontSize: 14, marginBottom: 2 }}>
           Bienvenue, {name} 👋
         </div>
         <div style={{ fontSize: 11, color: '#64748b' }}>

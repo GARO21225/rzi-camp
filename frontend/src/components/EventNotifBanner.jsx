@@ -57,7 +57,7 @@ export default function EventNotifBanner() {
     securite: { bg: '#ea580c', accent: '#fed7aa', icon: '🛡️' },
     info:     { bg: '#0891b2', accent: '#cffafe', icon: 'ℹ️' },
   }
-  const style = typeColors[evt.type_evenement] || { bg: '#1e3a8a', accent: '#bfdbfe', icon: '📢' }
+  const style = typeColors[evt.type_evenement] || { bg: 'var(--rzc-navy)', accent: '#bfdbfe', icon: '📢' }
 
   return (
     <div

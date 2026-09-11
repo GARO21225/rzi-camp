@@ -379,10 +379,10 @@ export default function InductionCamp() {
 
             <div style={{background:'linear-gradient(135deg,#ffd400,#f59e0b)',
               borderRadius:12,padding:'14px 20px',marginBottom:24}}>
-              <p style={{fontSize:14,fontWeight:800,color:'#1e3a8a',margin:0}}>
+              <p style={{fontSize:14,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>
                 🎉 Bienvenue au Camp Roxgold Sango !
               </p>
-              <p style={{fontSize:12,color:'#1e3a8a',margin:'4px 0 0',fontWeight:500}}>
+              <p style={{fontSize:12,color:'var(--rzc-navy)',margin:'4px 0 0',fontWeight:500}}>
                 Votre induction est complète. Bonne mission !
               </p>
             </div>
@@ -558,7 +558,7 @@ export default function InductionCamp() {
           </div>
           <div style={{background:'linear-gradient(135deg,#ffd400,#f59e0b)',
             borderRadius:10,padding:'10px 16px',marginBottom:20}}>
-            <p style={{fontSize:13,fontWeight:800,color:'#1e3a8a',margin:0}}>
+            <p style={{fontSize:13,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>
               🎉 Bienvenue — Induction validée !
             </p>
           </div>
@@ -571,7 +571,7 @@ export default function InductionCamp() {
             </button>
             {isAdmin && (
               <button onClick={()=>setAdminView(true)}
-                style={{background:'rgba(212,160,23,.18)',color:'#D4A017',
+                style={{background:'rgba(212,160,23,.18)',color:'var(--rzc-bright-gold)',
                   border:'1px solid rgba(212,160,23,.35)',borderRadius:10,
                   padding:'12px 24px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
                 Vue Admin 👁️
@@ -630,7 +630,7 @@ export default function InductionCamp() {
             <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
               {isAdmin && (
                 <button onClick={()=>setAdminView(true)}
-                  style={{background:'rgba(212,160,23,.18)',color:'#D4A017',
+                  style={{background:'rgba(212,160,23,.18)',color:'var(--rzc-bright-gold)',
                     border:'1px solid rgba(212,160,23,.35)',borderRadius:8,
                     padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>
                   👁️ Admin
