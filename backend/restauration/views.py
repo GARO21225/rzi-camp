@@ -7,6 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import serializers as drf_serializers
 from django.utils import timezone
 from django.db import connection
+from django.contrib.auth.models import User
+from evenements.models import SimpleNotification
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration, QuestionAvis, ReponseAvis
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer, AvisRestaurationSerializer, QuestionAvisSerializer
 
@@ -349,6 +351,7 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
             commentaire=data.get('commentaire', ''),
         )
 
+        notes_etoiles = []
         for r in reponses_data:
             qid = r.get('question')
             if not qid:
@@ -364,8 +367,114 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
                 valeur_choix=r.get('valeur_choix', ''),
                 valeur_oui_non=r.get('valeur_oui_non'),
             )
+            if r.get('valeur_etoiles'):
+                notes_etoiles.append(r.get('valeur_etoiles'))
+
+        # ── Alerte automatique sur mauvaise note (<=2/5) ──
+        # Nouveau format (questions) : seules les reponses 'etoiles' comptent
+        # (le champ 'note' reste a sa valeur par defaut 5, sans signification
+        # dans ce cas). Ancien format simple : 'note' est la vraie valeur.
+        if reponses_data:
+            note_min = min(notes_etoiles) if notes_etoiles else None
+        else:
+            note_min = data.get('note')
+        try:
+            note_min = int(note_min) if note_min is not None else None
+        except (TypeError, ValueError):
+            note_min = None
+        if note_min is not None and note_min <= 2:
+            self._alerter_mauvaise_note(avis, note_min)
 
         return Response(AvisRestaurationSerializer(avis).data, status=201)
+
+    def _alerter_mauvaise_note(self, avis, note):
+        """Notifie l'équipe Restauration/admin en cas de note basse (<=2/5)."""
+        try:
+            from django.db.models import Q
+            destinataires = User.objects.filter(
+                Q(is_staff=True) | Q(is_superuser=True) | Q(profile__role='restauration')
+            ).distinct()
+            nom = f"{avis.personnel.nom} {avis.personnel.prenom}" if avis.personnel else "Anonyme"
+            titre = f"⚠️ Avis négatif ({note}/5) — {avis.get_repas_display()}"
+            message = f"{nom} a laissé une note de {note}/5."
+            if avis.commentaire:
+                message += f" Commentaire : « {avis.commentaire} »"
+            for user in destinataires:
+                SimpleNotification.objects.create(
+                    user=user, titre=titre, message=message, type_notif='alerte',
+                )
+        except Exception:
+            pass
+
+    @action(detail=False, methods=['get'])
+    def export_csv(self, request):
+        """Export CSV complet des avis (avec reponses aux questions et menu du jour lie)."""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone as tz
+        from datetime import timedelta
+
+        periode = request.query_params.get('periode', '30j')
+        today = tz.now().date()
+        if periode == '7j':   date_from = today - timedelta(days=6)
+        elif periode == '90j':date_from = today - timedelta(days=89)
+        elif periode == 'tout': date_from = None
+        else: date_from = today - timedelta(days=29)
+
+        qs = AvisRestauration.objects.select_related('personnel').prefetch_related('reponses__question').order_by('-date_creation')
+        if date_from:
+            qs = qs.filter(date_avis__gte=date_from)
+
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="avis_restauration_{today}.csv"'
+        response.write('\ufeff')  # BOM pour Excel
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow(['Date', 'Repas', 'Personnel', 'Note (ancien format)', 'Commentaire', 'Menu du jour', 'Question', 'Réponse'])
+
+        for avis in qs:
+            menu = ', '.join(MenuJour.objects.filter(date_service=avis.date_avis, repas=avis.repas).values_list('nom', flat=True))
+            nom = f"{avis.personnel.nom} {avis.personnel.prenom}" if avis.personnel else "Anonyme"
+            reponses = list(avis.reponses.all())
+            if not reponses:
+                writer.writerow([avis.date_avis, avis.get_repas_display(), nom, avis.note, avis.commentaire, menu, '', ''])
+            else:
+                for i, r in enumerate(reponses):
+                    if r.question.type_question == 'etoiles': val = r.valeur_etoiles
+                    elif r.question.type_question == 'oui_non': val = 'Oui' if r.valeur_oui_non else ('Non' if r.valeur_oui_non is False else '')
+                    elif r.question.type_question == 'choix': val = r.valeur_choix
+                    else: val = r.valeur_texte
+                    writer.writerow([
+                        avis.date_avis if i == 0 else '', avis.get_repas_display() if i == 0 else '',
+                        nom if i == 0 else '', '' , avis.commentaire if i == 0 else '',
+                        menu if i == 0 else '', r.question.label, val,
+                    ])
+        return response
+
+    @action(detail=False, methods=['get'])
+    def evolution(self, request):
+        """Évolution de la note moyenne jour par jour — pour un graphique de tendance."""
+        from django.utils import timezone as tz
+        from datetime import timedelta
+
+        periode = request.query_params.get('periode', '90j')
+        today = tz.now().date()
+        nb_jours = {'30j': 29, '90j': 89, '180j': 179}.get(periode, 89)
+        date_from = today - timedelta(days=nb_jours)
+
+        with connection.cursor() as c:
+            c.execute("""
+                SELECT a.date_avis,
+                       AVG(COALESCE(r.valeur_etoiles, a.note)) as moyenne,
+                       COUNT(DISTINCT a.id) as nb
+                FROM restauration_avisrestauration a
+                LEFT JOIN restauration_reponseavis r ON r.avis_id = a.id AND r.valeur_etoiles IS NOT NULL
+                WHERE a.date_avis >= %s
+                GROUP BY a.date_avis
+                ORDER BY a.date_avis
+            """, [date_from])
+            points = [{'date': str(r[0]), 'moyenne': round(float(r[1]), 2), 'nb': r[2]} for r in c.fetchall()]
+
+        return Response({'periode': periode, 'points': points})
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -421,13 +530,37 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
                         entry['reponses'] = list(reps.exclude(valeur_texte='').values_list('valeur_texte', flat=True)[:20])
                     par_question.append(entry)
 
+                # ── Note moyenne par plat servi (lien avec le menu du jour) ──
+                # Un avis n'est pas rattache a un plat precis (note globale du
+                # repas), donc on associe chaque plat servi a la moyenne de
+                # TOUS les avis du meme jour+repas — une premiere indication,
+                # pas une causalite certaine, mais utile pour reperer les
+                # plats qui reviennent souvent sur des journees mal notees.
+                par_menu = []
+                c.execute("""
+                    SELECT mj.nom, AVG(sub.note_moy), COUNT(DISTINCT sub.avis_id)
+                    FROM restauration_menujour mj
+                    JOIN (
+                        SELECT a.id as avis_id, a.date_avis, a.repas,
+                               COALESCE(AVG(r.valeur_etoiles), a.note) as note_moy
+                        FROM restauration_avisrestauration a
+                        LEFT JOIN restauration_reponseavis r ON r.avis_id = a.id AND r.valeur_etoiles IS NOT NULL
+                        WHERE a.date_avis >= %s
+                        GROUP BY a.id, a.date_avis, a.repas, a.note
+                    ) sub ON sub.date_avis = mj.date_service AND sub.repas = mj.repas
+                    WHERE mj.date_service >= %s
+                    GROUP BY mj.nom
+                    ORDER BY AVG(sub.note_moy) ASC
+                """, [date_from, date_from])
+                par_menu = [{'plat': r[0], 'moyenne': round(float(r[1]), 1) if r[1] is not None else None, 'nb_avis': r[2]} for r in c.fetchall()]
+
             return Response({
                 'count': count, 'moyenne': round(float(moyenne), 1),
                 'repartition': repartition, 'par_repas': par_repas, 'periode': periode,
-                'par_question': par_question,
+                'par_question': par_question, 'par_menu': par_menu,
             })
         except Exception as e:
-            return Response({'count':0,'moyenne':0,'repartition':{},'par_repas':{},'par_question':[],'error':str(e)})
+            return Response({'count':0,'moyenne':0,'repartition':{},'par_repas':{},'par_question':[],'par_menu':[],'error':str(e)})
 
 
 from rest_framework.permissions import BasePermission

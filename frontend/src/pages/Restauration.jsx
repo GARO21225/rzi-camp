@@ -3,6 +3,7 @@
  * Interface complète pour le restaurant : scan QR + historique + statistiques
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useStore } from '../store'
 import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -592,6 +593,7 @@ export default function Restauration() {
   const [typeRepas, setTypeRepas] = useState('dejeuner')
   const [showAvis, setShowAvis] = useState(false)
   const [avisStats, setAvisStats] = useState(null)
+  const [avisEvolution, setAvisEvolution] = useState([])
   const [avisListe, setAvisListe] = useState([])
   const [showAvisListe, setShowAvisListe] = useState(false)
   const [menuItems,   setMenuItems]   = useState([])
@@ -626,6 +628,7 @@ export default function Restauration() {
         .then(r => setMenuItems(r.data.results || r.data || []))
         .catch(() => {})
       avisAPI.stats('30j').then(r => setAvisStats(r.data)).catch(() => {})
+      avisAPI.evolution('90j').then(r => setAvisEvolution(r.data.points || [])).catch(() => {})
       avisAPI.list({page_size: 100}).then(r => setAvisListe(r.data.results || r.data || [])).catch(() => {})
     } else {
       import('../api').then(({ personnel: personnelAPI }) => {
@@ -764,8 +767,29 @@ export default function Restauration() {
           <div style={{background:'#fff',border:'1px solid var(--rzc-border-light)',borderRadius:12,padding:14,marginBottom:14}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
               <div style={{fontSize:13,fontWeight:700,color:'#7c3aed'}}>📊 Amélioration continue — 30 derniers jours</div>
-              <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{avisStats.count} avis</div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{avisStats.count} avis</div>
+                <a href={avisAPI.exportCsv('30j')} target="_blank" rel="noreferrer"
+                  style={{fontSize:11,color:'#7c3aed',fontWeight:700,textDecoration:'none',border:'1px solid #ddd6fe',
+                    padding:'4px 10px',borderRadius:20,background:'#f5f3ff'}}>
+                  ⬇️ Export CSV
+                </a>
+              </div>
             </div>
+
+            {/* Graphique de tendance — 90 derniers jours */}
+            {avisEvolution.length > 1 && (
+              <div style={{height:130,marginBottom:14}}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={avisEvolution}>
+                    <XAxis dataKey="date" tick={{fontSize:9}} tickFormatter={d=>d.slice(5)} />
+                    <YAxis domain={[0,5]} tick={{fontSize:9}} width={22}/>
+                    <Tooltip formatter={(v)=>[`${v}/5`,'Moyenne']} labelFormatter={l=>new Date(l).toLocaleDateString('fr-FR')}/>
+                    <Line type="monotone" dataKey="moyenne" stroke="#7c3aed" strokeWidth={2} dot={false}/>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             {/* Détail par question personnalisée (Paramétrage > Avis Restauration) */}
             {avisStats.par_question && avisStats.par_question.length > 0 ? (
@@ -815,6 +839,30 @@ export default function Restauration() {
               </div>
             )}
 
+            {/* Note moyenne par plat servi (lien avec le menu du jour) */}
+            {avisStats.par_menu && avisStats.par_menu.length > 0 && (
+              <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--rzc-border-light)'}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase'}}>
+                  🍽️ Note moyenne par plat servi
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  {avisStats.par_menu.slice(0,8).map(m => (
+                    <div key={m.plat} style={{display:'flex',alignItems:'center',gap:8,fontSize:12}}>
+                      <span style={{flex:1,color:'var(--rzc-text-2)'}}>{m.plat}</span>
+                      <span style={{fontWeight:800,fontFamily:'monospace',
+                        color: m.moyenne>=4?'#16a34a':m.moyenne>=3?'#eab308':'#dc2626'}}>
+                        {m.moyenne!=null ? `${m.moyenne}/5` : '—'}
+                      </span>
+                      <span style={{fontSize:10,color:'var(--rzc-text-4)',minWidth:60,textAlign:'right'}}>({m.nb_avis} avis)</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontSize:9,color:'var(--rzc-text-4)',marginTop:6,fontStyle:'italic'}}>
+                  Indicatif : moyenne des avis du jour où ce plat était servi, pas une note du plat en particulier.
+                </div>
+              </div>
+            )}
+
             <button onClick={()=>setShowAvisListe(v=>!v)}
               style={{marginTop:12,background:'none',border:'none',color:'#7c3aed',fontSize:11,fontWeight:700,cursor:'pointer',textDecoration:'underline'}}>
               {showAvisListe ? '▲ Masquer' : `▼ Voir le détail (${avisListe.length} avis)`}
@@ -830,6 +878,11 @@ export default function Restauration() {
                       <span>{{matin:'🌅',midi:'☀️',soir:'🌙'}[a.repas]||''} {a.repas_label} — {a.personnel_nom}</span>
                       <span>{new Date(a.date_creation).toLocaleDateString('fr-FR')} {new Date(a.date_creation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
                     </div>
+                    {a.menu_jour && a.menu_jour.length > 0 && (
+                      <div style={{fontSize:10,color:'var(--rzc-text-4)',marginBottom:6,fontStyle:'italic'}}>
+                        🍽️ Servi ce jour-là : {a.menu_jour.join(', ')}
+                      </div>
+                    )}
                     {a.reponses && a.reponses.length > 0 ? (
                       <div style={{display:'flex',flexDirection:'column',gap:3}}>
                         {a.reponses.map((r,i) => (

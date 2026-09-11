@@ -190,6 +190,8 @@ export const avisRestauration = {
   create: (d) => api.post('/api/avis/', d),
   list:   (p) => api.get('/api/avis/', {params:p}),
   stats:  (periode) => api.get('/api/avis/stats/', {params:{periode}}),
+  evolution: (periode) => api.get('/api/avis/evolution/', {params:{periode}}),
+  exportCsv: (periode) => withToken(`${BASE}/api/avis/export_csv/?periode=${periode||'30j'}`),
 }
 export const questionsAvis = {
   list:        (actifSeulement) => api.get('/api/questions-avis/', {params: actifSeulement ? {actif_seulement:'1'} : {}}),

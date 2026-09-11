@@ -92,13 +92,18 @@ class AvisRestaurationSerializer(serializers.ModelSerializer):
     repas_label     = serializers.CharField(source="get_repas_display", read_only=True)
     personnel_nom   = serializers.SerializerMethodField()
     reponses        = ReponseAvisSerializer(many=True, read_only=True)
+    menu_jour       = serializers.SerializerMethodField()
 
     def get_personnel_nom(self, obj):
         if obj.personnel: return f"{obj.personnel.nom} {obj.personnel.prenom}"
         return "Anonyme"
 
+    def get_menu_jour(self, obj):
+        from .models import MenuJour
+        return list(MenuJour.objects.filter(date_service=obj.date_avis, repas=obj.repas).values_list('nom', flat=True))
+
     class Meta:
         model  = AvisRestauration
         fields = ["id","personnel","personnel_nom","repas","repas_label",
-                  "note","commentaire","reponses","date_avis","date_creation"]
+                  "note","commentaire","reponses","menu_jour","date_avis","date_creation"]
         read_only_fields = ["date_avis","date_creation"]
