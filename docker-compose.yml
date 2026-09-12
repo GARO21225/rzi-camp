@@ -41,8 +41,13 @@ services:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
       REDIS_URL: redis://redis:6379/0
       DEBUG: "False"
-    ports:
-      - "8001:8000"
+    # PAS de "ports:" ici volontairement : le frontend proxie deja /api/ et
+    # /ws/ vers ce conteneur EN INTERNE via le reseau Docker (voir
+    # nginx.conf, proxy_pass http://backend:8000). Publier "8001:8000" sur
+    # l'IP publique exposait le backend en HTTP NON CHIFFRE, contournant
+    # entierement le SSL/WebSocket/compression de nginx - une vraie porte
+    # d'entree non securisee, sans aucune utilite pour le fonctionnement
+    # reel de l'application.
     depends_on:
       - db
       - redis
