@@ -100,17 +100,25 @@ const DESTINATIONS = [
   'Abidjan', 'Yamoussoukro', 'Bouaké', 'San Pedro', 'Korhogo', 'Man',
   'Daloa', 'Gagnoa', 'Abengourou', 'Bondoukou', 'Odienné', 'Touba',
   'Divo', 'Agboville', 'Dimbokro', 'Séguéla', 'Mankono', 'Ferkessédougou',
-  'Bouna', 'Tabou',
-  // Aéroports / Hubs
+  'Bouna', 'Tabou', 'Katiola', 'Boundiali', 'Sinématiali', 'Niakaramandougou',
+  // Aéroports / Hubs domestiques
   'Aéroport FÉLIX HOUPHOUËT-BOIGNY (ABJ)',
-  'Aéroport BOUAKÉ',
+  'Aéroport BOUAKÉ', 'Aéroport SAN PEDRO', 'Aéroport KORHOGO',
   // Burkina Faso (site minier proche)
-  'Ouagadougou', 'Bobo-Dioulasso', 'Dédougou', 'Koudougou',
-  // International
+  'Ouagadougou', 'Bobo-Dioulasso', 'Dédougou', 'Koudougou', 'Banfora',
+  // Afrique de l'Ouest / régional
   'Accra (Ghana)', 'Bamako (Mali)', 'Dakar (Sénégal)', 'Lomé (Togo)',
-  'Paris (France)', 'Bruxelles (Belgique)',
+  'Cotonou (Bénin)', 'Conakry (Guinée)', 'Niamey (Niger)', 'Freetown (Sierra Leone)',
+  'Monrovia (Libéria)', 'Lagos (Nigéria)',
+  // Hubs miniers / corporate internationaux
+  'Johannesburg (Afrique du Sud)', 'Perth (Australie)', 'Toronto (Canada)',
+  'Vancouver (Canada)', 'Londres (Royaume-Uni)', 'Dubaï (Émirats Arabes Unis)',
+  // Europe (siège, formations, congés)
+  'Paris (France)', 'Bruxelles (Belgique)', 'Genève (Suisse)',
+  // Évacuation médicale
+  'Clinique internationale d\'Abidjan', 'Centre médical (évacuation Afrique du Sud)',
   // Destinations mines / terrain
-  'Sango Mine Site', 'Camp de base', 'Site d\'exploration',
+  'Sango Mine Site', 'Camp de base', 'Site d\'exploration', 'Autre site minier',
 ]
 
 export default function Voyages() {
@@ -127,7 +135,7 @@ export default function Voyages() {
   const [personnelList, setPersonnelList] = useState([])
   const [batsList,      setBatsList]      = useState([])
   const [myPersonnel,   setMyPersonnel]   = useState(null)
-  const [form, setForm] = useState({ personnel:'', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
+  const [form, setForm] = useState({ personnel:'', origine:'Camp Roxgold Sango', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
   const [etapesForm, setEtapesForm] = useState([])
   const [submitting, setSubmitting] = useState(false)
 
@@ -209,7 +217,7 @@ export default function Voyages() {
         } catch { toast.warning(`Voyage créé, mais une étape n'a pas pu être enregistrée`) }
       }
       setModal(false)
-      setForm({ personnel:'', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
+      setForm({ personnel:'', origine:'Camp Roxgold Sango', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
       setEtapesForm([])
       loadVoyages()
     } catch(e) {
@@ -352,6 +360,9 @@ export default function Voyages() {
                           {p ? `${p.nom} ${p.prenom}` : v.destination || '—'}
                         </div>
                         {p?.societe && <div style={{ fontSize:10.5, color:'var(--rzc-text-4)', marginTop:1 }}>{p.societe}</div>}
+                        <div style={{ fontSize:10, color:'var(--rzc-text-4)', marginTop:2 }}>
+                          {(v.origine||'Camp')} → {v.destination||'—'}
+                        </div>
                       </td>
                       <td style={{ padding:'11px 13px', fontSize:12, color:'var(--rzc-text-2)' }}>
                         <span style={{ background:'var(--rzc-charcoal)', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600 }}>
@@ -471,6 +482,16 @@ export default function Voyages() {
                 </div>
               )}
               <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12 }}>
+                <div>
+                  <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>
+                    Point de départ <span style={{fontWeight:400,textTransform:'none',color:'var(--rzc-text-4)'}}>(pas forcément le camp — ex: 1er voyage d'un nouvel arrivant)</span>
+                  </label>
+                  <input list="origines-list" value={form.origine} onChange={e=>setForm({...form,origine:e.target.value})}
+                    placeholder="Camp Roxgold Sango" style={inp}/>
+                  <datalist id="origines-list">
+                    {DESTINATIONS.map(d=><option key={d} value={d}/>)}
+                  </datalist>
+                </div>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Destination *</label>
                   <select value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} style={inp}>

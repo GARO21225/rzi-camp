@@ -465,10 +465,12 @@ def _generer_billet_html(voyage):
       <table style="margin-bottom:24px">
         <tr><td style="padding:6px 0;color:#64748b;width:160px">Voyageur</td><td style="font-weight:700">{p.nom if p else ''} {p.prenom if p else ''}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Société</td><td>{p.societe if p else '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Point de départ</td><td>{voyage.origine or 'Camp Roxgold Sango'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Destination</td><td style="font-weight:700">{voyage.destination or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Motif</td><td>{voyage.motif or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Véhicule / Convoi</td><td>{voyage.vehicule or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
+        {f'<tr><td style="padding:6px 0;color:#64748b">Validé par</td><td>{voyage.valide_par.get_full_name() or voyage.valide_par.username} le {voyage.date_validation.strftime("%d/%m/%Y à %H:%M")}</td></tr>' if voyage.valide_par and voyage.date_validation else ''}
       </table>
       <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire</h2>
       <table>

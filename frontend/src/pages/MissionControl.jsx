@@ -422,6 +422,8 @@ export default function MissionControl() {
   const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'' })
   const [rappels, setRappels] = useState([])
   const [moisCal, setMoisCal] = useState(new Date())
+  const [detailVoyage, setDetailVoyage] = useState(null)
+  const [etapesDetail, setEtapesDetail] = useState([])
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -498,6 +500,15 @@ export default function MissionControl() {
       flash(`Statut mis à jour`)
       load()
     } catch(e) { flash('Erreur',false) }
+  }
+
+  const ouvrirDetail = async (v) => {
+    setDetailVoyage(v)
+    setEtapesDetail(v.etapes || [])
+    try {
+      const r = await api(`/api/etapes-voyage/?voyage=${v.id}`).then(r=>r.json())
+      setEtapesDetail(r.results || r || [])
+    } catch {}
   }
 
   const partirRotation = async (rotId) => {
@@ -770,7 +781,10 @@ export default function MissionControl() {
                         </div>
                       </div>
                       <button className="mc-btn mc-btn-success" style={{padding:'4px 10px',fontSize:10}}
-                        onClick={()=>changerStatut(v.id,'revenir')}>⬇ Retour</button>
+                        onClick={async()=>{
+                          const ok = await confirmDialog(`Confirmer le retour de ${v.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(v.date_retour_prevue)}.`)
+                          if(ok) changerStatut(v.id,'revenir')
+                        }}>⬇ Retour</button>
                     </div>
                   ))}
                   {absents.length===0&&(
@@ -1132,16 +1146,25 @@ export default function MissionControl() {
                   <div style={{marginTop:10,display:'flex',gap:6}}>
                     {selVoyage.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
                       style={{flex:1,fontSize:11}}
-                      onClick={()=>{changerStatut(selVoyage.id,'partir');setSelVoyage(null)}}>
+                      onClick={async()=>{
+                        const ok = await confirmDialog(`Confirmer le départ de ${selVoyage.personnel_nom} aujourd'hui ?`)
+                        if(ok){ changerStatut(selVoyage.id,'partir'); setSelVoyage(null) }
+                      }}>
                       ✈️ Partir
                     </button>}
                     {selVoyage.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                       style={{flex:1,fontSize:11}}
-                      onClick={()=>{changerStatut(selVoyage.id,'revenir');setSelVoyage(null)}}>
+                      onClick={async()=>{
+                        const ok = await confirmDialog(`Confirmer le retour de ${selVoyage.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(selVoyage.date_retour_prevue)}.`)
+                        if(ok){ changerStatut(selVoyage.id,'revenir'); setSelVoyage(null) }
+                      }}>
                       🏠 Retour
                     </button>}
                     <button className="mc-btn mc-btn-danger" style={{fontSize:11}}
-                      onClick={()=>{changerStatut(selVoyage.id,'annuler');setSelVoyage(null)}}>
+                      onClick={async()=>{
+                        const ok = await confirmDialog(`Annuler le voyage de ${selVoyage.personnel_nom} vers ${selVoyage.destination} ?`)
+                        if(ok){ changerStatut(selVoyage.id,'annuler'); setSelVoyage(null) }
+                      }}>
                       Annuler
                     </button>
                   </div>
@@ -1242,7 +1265,7 @@ export default function MissionControl() {
         {/* ══ VUE CALENDRIER ═══════════════════════════════════════ */}
         {view==='calendrier' && (
           <div className="mc-fade">
-            <VueCalendrierMC voyages={voyages} mois={moisCal} setMois={setMoisCal} onSelect={setSelVoyage}/>
+            <VueCalendrierMC voyages={voyages} mois={moisCal} setMois={setMoisCal} onSelect={ouvrirDetail}/>
           </div>
         )}
 
@@ -1329,7 +1352,7 @@ export default function MissionControl() {
                       <div style={{width:150,padding:16,display:'flex',flexDirection:'column',gap:6,justifyContent:'center',background:`${C.accent}06`}}>
                         <a href={`${BASE}/api/voyages/${v.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                           className="mc-btn mc-btn-primary" style={{fontSize:11,textDecoration:'none',justifyContent:'center'}}>🎫 Billet</a>
-                        <button className="mc-btn" style={{fontSize:11,background:C.border,color:C.text}} onClick={()=>setSelVoyage(v)}>Détails</button>
+                        <button className="mc-btn" style={{fontSize:11,background:C.border,color:C.text}} onClick={()=>ouvrirDetail(v)}>Détails</button>
                       </div>
                     </div>
                   </Panel>
@@ -1340,6 +1363,98 @@ export default function MissionControl() {
         )}
 
       </div>
+
+      {/* ══ MODAL DÉTAIL COMPLET — qui a validé, quand, véhicule, itinéraire ══ */}
+      {detailVoyage && (
+        <div style={{position:'fixed',inset:0,background:'rgba(6,13,31,.85)',zIndex:2000,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+          onClick={e=>e.target===e.currentTarget&&setDetailVoyage(null)}>
+          <div style={{background:C.panel,borderRadius:16,width:'100%',maxWidth:520,maxHeight:'88vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.5)'}}>
+            <div style={{background:`linear-gradient(135deg,${C.accent},#93c5fd)`,padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:900,fontSize:16,color:'#0f172a'}}>{detailVoyage.personnel_nom}</div>
+                <div style={{fontSize:11,color:'#0f172a99'}}>{detailVoyage.personnel_societe} · Voyage #{detailVoyage.id}</div>
+              </div>
+              <button onClick={()=>setDetailVoyage(null)} style={{background:'rgba(0,0,0,.15)',border:'none',color:'#0f172a',width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
+            </div>
+            <div style={{padding:20}}>
+              {/* Trajet */}
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,fontFamily:'JetBrains Mono,monospace',fontSize:14,color:C.text}}>
+                <span style={{fontWeight:700}}>{(detailVoyage.origine||'Camp Roxgold Sango').toUpperCase()}</span>
+                <span style={{flex:1,borderTop:`1px dashed ${C.border}`,position:'relative'}}>
+                  <span style={{position:'absolute',right:'50%',top:-9,fontSize:12}}>✈️</span>
+                </span>
+                <span style={{fontWeight:700,color:C.accent}}>{(detailVoyage.destination||'—').toUpperCase()}</span>
+              </div>
+
+              {/* Statut de validation — qui, quand */}
+              <div style={{background:
+                  detailVoyage.statut_validation==='valide' ? `${C.green}12` :
+                  detailVoyage.statut_validation==='refuse' ? `${C.red}12` : '#f0a50012',
+                border:`1px solid ${detailVoyage.statut_validation==='valide'?C.green:detailVoyage.statut_validation==='refuse'?C.red:'#f0a500'}30`,
+                borderRadius:10,padding:12,marginBottom:16}}>
+                <div style={{fontWeight:700,fontSize:12,
+                  color:detailVoyage.statut_validation==='valide'?C.green:detailVoyage.statut_validation==='refuse'?C.red:'#f0a500'}}>
+                  {detailVoyage.statut_validation==='valide' && '✅ Validé'}
+                  {detailVoyage.statut_validation==='refuse' && '❌ Refusé'}
+                  {detailVoyage.statut_validation==='en_attente' && '⏳ En attente de validation'}
+                </div>
+                {detailVoyage.valide_par_nom && (
+                  <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+                    Par <b style={{color:C.text}}>{detailVoyage.valide_par_nom}</b>
+                    {detailVoyage.date_validation && ` le ${new Date(detailVoyage.date_validation).toLocaleDateString('fr-FR')} à ${new Date(detailVoyage.date_validation).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`}
+                  </div>
+                )}
+                {detailVoyage.motif_refus && <div style={{fontSize:11,color:C.red,marginTop:4}}>Motif : {detailVoyage.motif_refus}</div>}
+              </div>
+
+              {/* Grille d'infos complètes */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                {[
+                  ['📅 Date de départ', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
+                  ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
+                  ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
+                  ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
+                  ['🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
+                  ['📍 Point de RDV', detailVoyage.point_rdv||'—'],
+                  ['🎫 Motif', detailVoyage.motif||'—'],
+                  ['📊 Statut opérationnel', ST_CFG[detailVoyage.statut]?.l || detailVoyage.statut],
+                ].map(([l,v])=>(
+                  <div key={l} style={{background:C.bg,borderRadius:8,padding:'8px 10px'}}>
+                    <div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:2}}>{l}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:C.text}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {detailVoyage.notes_admin && (
+                <div style={{fontSize:11,color:C.muted,marginBottom:16,fontStyle:'italic'}}>📝 {detailVoyage.notes_admin}</div>
+              )}
+
+              {/* Itinéraire détaillé */}
+              {etapesDetail.length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:8}}>🗺️ Itinéraire détaillé</div>
+                  {etapesDetail.map(e=>(
+                    <div key={e.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:C.bg,borderRadius:8,marginBottom:6,fontSize:11}}>
+                      <span style={{background:C.accent,color:'#0f172a',borderRadius:99,width:18,height:18,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:10,flexShrink:0}}>{e.ordre}</span>
+                      <span>{e.mode_transport_label}</span>
+                      <span style={{color:C.muted}}>{e.origine} → {e.destination}</span>
+                      <span style={{marginLeft:'auto',color:C.muted}}>{fmt(e.date_etape)}{e.heure_depart?` ${e.heure_depart}`:''}</span>
+                      {e.reference && <span style={{fontFamily:'monospace',color:C.accent}}>{e.reference}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <a href={`${BASE}/api/voyages/${detailVoyage.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
+                className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',textDecoration:'none',boxSizing:'border-box'}}>
+                🎫 Voir / imprimer le billet complet
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ MODAL CRÉATION ROTATION ════════════════════════════════ */}
       {showCreate && (

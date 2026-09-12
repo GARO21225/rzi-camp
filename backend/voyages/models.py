@@ -14,6 +14,8 @@ class Voyage(models.Model):
     personnel = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name="voyages")
     batiment = models.ForeignKey(Batiment, on_delete=models.SET_NULL, null=True, blank=True, related_name="voyages")
     destination = models.CharField(max_length=200, blank=True)
+    origine     = models.CharField(max_length=200, blank=True, default="Camp Roxgold Sango",
+                   help_text="Point de départ réel — pas toujours le camp (ex: premier voyage d'un nouvel employé, qui part de chez lui VERS le camp)")
     motif = models.TextField(blank=True)
     date_depart = models.DateField()
     date_retour_prevue = models.DateField()
