@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast, confirmDialog } from '../toast'
+import CarteItineraire from '../components/CarteItineraire'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
 const tok  = () => localStorage.getItem('access_token') || ''
@@ -1455,6 +1456,12 @@ export default function MissionControl() {
                   ))}
                 </div>
               )}
+
+              {/* Carte de l'itinéraire */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:8}}>🗺️ Trajet sur la carte</div>
+                <CarteItineraire origine={detailVoyage.origine} destination={detailVoyage.destination} etapes={etapesDetail}/>
+              </div>
 
               <a href={`${BASE}/api/voyages/${detailVoyage.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                 className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',textDecoration:'none',boxSizing:'border-box'}}>

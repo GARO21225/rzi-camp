@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import CarteItineraire from '../components/CarteItineraire'
 
 const STATUT_STYLES = {
   planifie:  { bg:'rgba(37,99,235,.12)',  color:'#1d4ed8',  label:'Planifié'    },
@@ -689,6 +690,7 @@ export default function Voyages() {
             </div>
             <div style={{ padding:20,display:'flex',flexDirection:'column',gap:14 }}>
               {[
+                ['Origine','origine','text','Camp Roxgold Sango'],
                 ['Destination','destination','text','Abidjan…'],
                 ['Date départ','date_depart','date',''],
                 ['Heure départ','heure_depart','time',''],
@@ -700,6 +702,10 @@ export default function Voyages() {
                     onChange={e=>setEditModal({...editModal,[field]:e.target.value})} style={inp}/>
                 </div>
               ))}
+              <div>
+                <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>🗺️ Trajet</label>
+                <CarteItineraire origine={editModal.origine} destination={editModal.destination}/>
+              </div>
               <div style={{ display:'flex',gap:10 }}>
                 <button onClick={()=>setEditModal(null)} style={{ flex:1,background:'#f8fafc',color:'var(--rzc-text-3)',border:'1px solid #e2e8f0',padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>Annuler</button>
                 <button onClick={saveEdit} disabled={submitting}
