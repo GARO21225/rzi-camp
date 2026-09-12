@@ -310,6 +310,7 @@ input, select, textarea {
   --rzc-ore-gold-l:    rgba(201,151,43,.12);
   --rzc-bright-gold:   #D4A017;  /* Or — KPI, valeurs mises en avant (assombri pour contraste sur blanc) */
   --rzc-fond-induction: #0F2A5C;  /* Fond des pages Induction — personnalisable depuis Paramétrage > Apparence */
+  --rzc-fond-app: #f1f5f9;  /* Fond de toutes les autres pages — personnalisable depuis Paramétrage > Apparence */
   --rzc-bright-gold-l: rgba(212,160,23,.14);
   --rzc-copper:        #B87333;  /* Cuivre — accents secondaires */
   --rzc-white:         #FFFFFF;

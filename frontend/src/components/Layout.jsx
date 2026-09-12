@@ -203,7 +203,7 @@ export default function Layout() {
     const isMobile = window.innerWidth < 768
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', overflowX: 'hidden', maxWidth: '100vw', background: '#f1f5f9', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', overflowX: 'hidden', maxWidth: '100vw', background: 'var(--rzc-fond-app, #f1f5f9)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
       {/* Bannière offline */}
       {isOffline && (
         <div style={{background:'#f59e0b',color:'#1c1917',padding:'8px 16px',
@@ -393,7 +393,7 @@ export default function Layout() {
             </div>
           </nav>
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: '#f1f5f9', overflowY:'auto' }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto' }}>
             <Outlet />
           </main>
       </div>

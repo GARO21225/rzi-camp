@@ -397,6 +397,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
   const [info,     setInfo]     = useState(valeurs.theme_info     || '#2563EB')
   const [police,   setPolice]   = useState(valeurs.theme_police   || 'IBM Plex Sans')
   const [fondInduction, setFondInduction] = useState(valeurs.theme_fond_induction || '#0F2A5C')
+  const [fondApp, setFondApp] = useState(valeurs.theme_fond_app || '#f1f5f9')
   const [logoPreview, setLogoPreview] = useState(
     valeurs.logo_base64 ? `data:${valeurs.logo_mime||'image/png'};base64,${valeurs.logo_base64}` : null
   )
@@ -426,7 +427,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
     await sauvegarder({
       theme_primaire: primaire, theme_accent: accent,
       theme_succes: succes, theme_danger: danger, theme_info: info,
-      theme_police: police, theme_fond_induction: fondInduction,
+      theme_police: police, theme_fond_induction: fondInduction, theme_fond_app: fondApp,
     })
     // Application immédiate (pas besoin de recharger la page pour voir le résultat)
     const root = document.documentElement.style
@@ -437,6 +438,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
     root.setProperty('--rzc-blue', info)
     root.setProperty('--rzc-font', `'${police}', system-ui, sans-serif`)
     root.setProperty('--rzc-fond-induction', fondInduction)
+    root.setProperty('--rzc-fond-app', fondApp)
   }
 
   const appliquerLogo = async () => {
@@ -534,6 +536,17 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
                 onChange={e=>setFondInduction(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
             </div>
           </div>
+
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6 }}>FOND DE TOUTES LES AUTRES PAGES</label>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <input type="color" value={fondApp} disabled={!isAdmin}
+                onChange={e=>setFondApp(e.target.value)}
+                style={{ width:44, height:36, border:'1px solid #e2e8f0', borderRadius:8, cursor: isAdmin?'pointer':'default', padding:2 }}/>
+              <input type="text" value={fondApp} disabled={!isAdmin}
+                onChange={e=>setFondApp(e.target.value)} style={{...inputStyle(isAdmin), fontFamily:'monospace'}}/>
+            </div>
+          </div>
         </div>
 
         <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center', flexWrap:'wrap' }}>
@@ -543,6 +556,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
           <div style={{ padding:'10px 16px', borderRadius:9, background:danger, color:'#fff', fontSize:12, fontWeight:700 }}>Danger</div>
           <div style={{ padding:'10px 16px', borderRadius:9, background:info, color:'#fff', fontSize:12, fontWeight:700 }}>Info</div>
           <div style={{ padding:'10px 16px', borderRadius:9, background:`linear-gradient(135deg,${fondInduction},color-mix(in srgb, ${fondInduction} 65%, white))`, color:'#fff', fontSize:12, fontWeight:700 }}>Fond Induction</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:fondApp, color:'#334155', border:'1px solid #e2e8f0', fontSize:12, fontWeight:700 }}>Fond des pages</div>
         </div>
 
         {isAdmin && (
