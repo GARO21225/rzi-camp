@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:15
@@ -16,6 +14,7 @@ services:
     # aux workers Python/Django, plus gourmands en memoire que Postgres ici).
     command: postgres -c max_connections=150 -c shared_buffers=128MB
     mem_limit: 500m
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -52,6 +51,7 @@ services:
       - db
       - redis
     mem_limit: 1200m
+    restart: unless-stopped
 
   frontend:
     build:
@@ -68,6 +68,7 @@ services:
     depends_on:
       - backend
     mem_limit: 100m
+    restart: unless-stopped
 
 volumes:
   pgdata:
