@@ -3,7 +3,7 @@
  * Chargement instantané + delete visible + nouvelles actions
  */
 import React, { useEffect, useState, useCallback } from 'react'
-import { voyages, personnel as personnelAPI, batiments as batsAPI } from '../api'
+import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -14,6 +14,78 @@ const STATUT_STYLES = {
   annule:    { bg:'rgba(100,116,139,.1)', color:'var(--rzc-text-2)',  label:'Annulé'      },
 }
 const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
+
+// ── Vue calendrier — départs/retours du mois affichés jour par jour ──
+function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
+  const annee = mois.getFullYear(), moisIdx = mois.getMonth()
+  const premierJour = new Date(annee, moisIdx, 1)
+  const nbJours = new Date(annee, moisIdx + 1, 0).getDate()
+  const decalage = (premierJour.getDay() + 6) % 7 // lundi = 0
+
+  const parJour = {}
+  data.forEach(v => {
+    if (v.date_depart) {
+      const d = v.date_depart
+      parJour[d] = parJour[d] || { departs: [], retours: [] }
+      parJour[d].departs.push(v)
+    }
+    if (v.date_retour_prevue) {
+      const d = v.date_retour_prevue
+      parJour[d] = parJour[d] || { departs: [], retours: [] }
+      parJour[d].retours.push(v)
+    }
+  })
+
+  const cases = []
+  for (let i = 0; i < decalage; i++) cases.push(null)
+  for (let j = 1; j <= nbJours; j++) cases.push(j)
+
+  const fmt = (j) => `${annee}-${String(moisIdx+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`
+
+  return (
+    <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:16, boxShadow:'0 2px 12px rgba(30,58,138,.07)' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <button onClick={()=>setMois(new Date(annee, moisIdx-1, 1))} style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontWeight:700}}>←</button>
+        <div style={{fontWeight:800,fontSize:15,color:'var(--rzc-navy)',textTransform:'capitalize'}}>
+          {mois.toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}
+        </div>
+        <button onClick={()=>setMois(new Date(annee, moisIdx+1, 1))} style={{background:'#f1f5f9',border:'none',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontWeight:700}}>→</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,fontSize:10,fontWeight:700,color:'var(--rzc-text-4)',textTransform:'uppercase',marginBottom:6}}>
+        {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=><div key={j} style={{textAlign:'center'}}>{j}</div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+        {cases.map((j,i) => {
+          if (!j) return <div key={i}/>
+          const dateStr = fmt(j)
+          const info = parJour[dateStr]
+          const isToday = dateStr === new Date().toISOString().slice(0,10)
+          return (
+            <div key={i} style={{minHeight:64,border:`1px solid ${isToday?'#C9972B':'#f1f5f9'}`,borderRadius:8,padding:4,fontSize:10,background:isToday?'#fffbeb':'#fff'}}>
+              <div style={{fontWeight:700,color:isToday?'#C9972B':'var(--rzc-text-3)',marginBottom:2}}>{j}</div>
+              {info?.departs.slice(0,2).map(v=>(
+                <div key={'d'+v.id} onClick={()=>onSelectVoyage(v)} title={`Départ — ${v.personnel_detail?.nom||''}`}
+                  style={{background:'#fff7ed',color:'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  ✈️ {v.personnel_detail?.nom||v.destination}
+                </div>
+              ))}
+              {info?.retours.slice(0,2).map(v=>(
+                <div key={'r'+v.id} onClick={()=>onSelectVoyage(v)} title={`Retour — ${v.personnel_detail?.nom||''}`}
+                  style={{background:'#f0fdf4',color:'#15803d',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  🏠 {v.personnel_detail?.nom||v.destination}
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+      <div style={{display:'flex',gap:14,marginTop:10,fontSize:11,color:'var(--rzc-text-3)'}}>
+        <span>✈️ <span style={{color:'#c2410c'}}>Départ</span></span>
+        <span>🏠 <span style={{color:'#15803d'}}>Retour prévu</span></span>
+      </div>
+    </div>
+  )
+}
 
 const S_BTN = (bg, color, border) => ({
   background: bg, color, border: `1.5px solid ${border}`,
@@ -56,6 +128,7 @@ export default function Voyages() {
   const [batsList,      setBatsList]      = useState([])
   const [myPersonnel,   setMyPersonnel]   = useState(null)
   const [form, setForm] = useState({ personnel:'', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
+  const [etapesForm, setEtapesForm] = useState([])
   const [submitting, setSubmitting] = useState(false)
 
   // Charger voyages IMMÉDIATEMENT
@@ -126,9 +199,18 @@ export default function Voyages() {
     if (!form.personnel || !form.destination || !form.date_depart) return toast.success('Personnel, destination et date de départ requis')
     setSubmitting(true)
     try {
-      await voyages.create(form)
+      const r = await voyages.create(form)
+      const nouveauVoyageId = r.data.id
+      // Créer les étapes d'itinéraire détaillées, si renseignées
+      for (const etape of etapesForm) {
+        if (!etape.origine || !etape.destination) continue
+        try {
+          await etapesVoyage.create({ ...etape, voyage: nouveauVoyageId })
+        } catch { toast.warning(`Voyage créé, mais une étape n'a pas pu être enregistrée`) }
+      }
       setModal(false)
       setForm({ personnel:'', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
+      setEtapesForm([])
       loadVoyages()
     } catch(e) {
       const d = e.response?.data
@@ -141,6 +223,13 @@ export default function Voyages() {
     }
     finally { setSubmitting(false) }
   }
+
+  const ajouterEtape = () => setEtapesForm(prev => [...prev, {
+    ordre: prev.length + 1, origine: prev.length ? prev[prev.length-1].destination : '', destination: '',
+    mode_transport: 'bus', date_etape: form.date_depart || '', heure_depart: '', point_rdv: '', reference: '',
+  }])
+  const majEtape = (idx, champ, val) => setEtapesForm(prev => prev.map((e,i) => i===idx ? {...e, [champ]: val} : e))
+  const supprimerEtapeForm = (idx) => setEtapesForm(prev => prev.filter((_,i) => i!==idx).map((e,i) => ({...e, ordre: i+1})))
 
   const openEdit = (v) => setEditModal(v)
   const saveEdit = async () => {
@@ -156,6 +245,8 @@ export default function Voyages() {
 
   const [refusModal, setRefusModal] = useState(null)
   const [motifRefus, setMotifRefus] = useState('')
+  const [vue, setVue] = useState('liste') // 'liste' | 'calendrier'
+  const [moisCalendrier, setMoisCalendrier] = useState(new Date())
 
   const validerVoyage = async (v) => {
     try { await voyages.valider(v.id); toast.success('Voyage validé'); loadVoyages() }
@@ -211,15 +302,23 @@ export default function Voyages() {
       </div>
 
       {/* ── Filtres ── */}
-      <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
         {filterBtns.map(([val, label, count]) => (
           <button key={val} onClick={() => setFilterStatut(val)}
             style={{ ...S_BTN(filterStatut===val?'var(--rzc-navy)':'var(--rzc-white)', filterStatut===val?'var(--rzc-white)':'var(--rzc-text-2)', filterStatut===val?'var(--rzc-navy)':'var(--rzc-border-light)'), fontSize:12 }}>
             {label} <span style={{ background: filterStatut===val?'rgba(255,255,255,.25)':'var(--rzc-charcoal)', borderRadius:99, padding:'1px 7px', marginLeft:4, fontSize:11, fontWeight:700 }}>{count}</span>
           </button>
         ))}
+        <div style={{marginLeft:'auto',display:'flex',gap:4,background:'#f1f5f9',borderRadius:9,padding:3}}>
+          <button onClick={()=>setVue('liste')} style={{background:vue==='liste'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='liste'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='liste'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📋 Liste</button>
+          <button onClick={()=>setVue('calendrier')} style={{background:vue==='calendrier'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='calendrier'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='calendrier'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📅 Calendrier</button>
+        </div>
       </div>
 
+      {vue === 'calendrier' ? (
+        <VueCalendrier voyages={filtered} mois={moisCalendrier} setMois={setMoisCalendrier} onSelectVoyage={openEdit} />
+      ) : (
+      <>
       {/* ── Tableau ── */}
       <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(30,58,138,.07)' }}>
         {loading ? (
@@ -336,6 +435,8 @@ export default function Voyages() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* ═══ MODAL CRÉER ═══ */}
       {modal && (
@@ -400,6 +501,39 @@ export default function Voyages() {
                   <input type="date" value={form.date_retour_prevue} onChange={e=>setForm({...form,date_retour_prevue:e.target.value})} style={inp}/>
                 </div>
               </div>
+
+              {/* ── Itinéraire détaillé (optionnel, comme une agence de voyage) ── */}
+              <div style={{border:'1px dashed #cbd5e1',borderRadius:10,padding:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:etapesForm.length?10:0}}>
+                  <span style={{fontSize:12,fontWeight:700,color:'var(--rzc-navy)'}}>🗺️ Itinéraire détaillé (optionnel)</span>
+                  <button type="button" onClick={ajouterEtape}
+                    style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                    ➕ Ajouter une étape
+                  </button>
+                </div>
+                {etapesForm.map((e, idx) => (
+                  <div key={idx} style={{background:'#f8fafc',borderRadius:9,padding:10,marginBottom:8}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                      <span style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)'}}>Étape {idx+1}</span>
+                      <button type="button" onClick={()=>supprimerEtapeForm(idx)} style={{background:'none',border:'none',color:'#dc2626',cursor:'pointer',fontSize:11}}>🗑️ Retirer</button>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
+                      <input value={e.origine} onChange={ev=>majEtape(idx,'origine',ev.target.value)} placeholder="Origine" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                      <input value={e.destination} onChange={ev=>majEtape(idx,'destination',ev.target.value)} placeholder="Destination" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                      <select value={e.mode_transport} onChange={ev=>majEtape(idx,'mode_transport',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
+                        {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6}}>
+                      <input type="date" value={e.date_etape} onChange={ev=>majEtape(idx,'date_etape',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                      <input type="time" value={e.heure_depart} onChange={ev=>majEtape(idx,'heure_depart',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                      <input value={e.point_rdv} onChange={ev=>majEtape(idx,'point_rdv',ev.target.value)} placeholder="Point de RDV" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                      <input value={e.reference} onChange={ev=>majEtape(idx,'reference',ev.target.value)} placeholder="Réf. (vol, plaque...)" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div>
                 <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Notes (optionnel)</label>
                 <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Informations complémentaires…" rows={3} style={{...inp,resize:'vertical'}}/>
