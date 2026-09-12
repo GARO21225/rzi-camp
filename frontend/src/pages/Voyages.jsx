@@ -154,6 +154,19 @@ export default function Voyages() {
     finally { setSubmitting(false) }
   }
 
+  const [refusModal, setRefusModal] = useState(null)
+  const [motifRefus, setMotifRefus] = useState('')
+
+  const validerVoyage = async (v) => {
+    try { await voyages.valider(v.id); toast.success('Voyage validé'); loadVoyages() }
+    catch(e) { toast.error(e.response?.data?.error||'Erreur') }
+  }
+  const confirmerRefus = async () => {
+    if (!refusModal) return
+    try { await voyages.refuser(refusModal.id, motifRefus); toast.success('Voyage refusé'); setRefusModal(null); setMotifRefus(''); loadVoyages() }
+    catch(e) { toast.error(e.response?.data?.error||'Erreur') }
+  }
+
   const filtered = data.filter(v => !filterStatut || v.statut === filterStatut)
 
   // Styles
@@ -222,7 +235,7 @@ export default function Voyages() {
             <table style={{ width:'100%', borderCollapse:'collapse', minWidth:700 }}>
               <thead>
                 <tr style={{ background:'linear-gradient(135deg, #0f2447, #1e3a8a)' }}>
-                  {['Personnel','Motif','Départ','Heure','Retour prévu','Statut','Actions'].map(h => (
+                  {['Personnel','Motif','Départ','Heure','Retour prévu','Statut','Validation','Actions'].map(h => (
                     <th key={h} style={{ padding:'11px 13px', textAlign:'left', fontSize:10.5, fontWeight:700, letterSpacing:.8, textTransform:'uppercase', color:'rgba(255,255,255,.85)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -255,7 +268,32 @@ export default function Voyages() {
                         </span>
                       </td>
                       <td style={{ padding:'11px 13px' }}>
+                        {v.statut_validation === 'en_attente' && (
+                          <span style={{background:'#fef3c7',color:'#92400e',padding:'4px 10px',borderRadius:20,fontSize:10.5,fontWeight:700,whiteSpace:'nowrap'}}>⏳ En attente</span>
+                        )}
+                        {v.statut_validation === 'valide' && (
+                          <span style={{background:'#dcfce7',color:'#166534',padding:'4px 10px',borderRadius:20,fontSize:10.5,fontWeight:700,whiteSpace:'nowrap'}}>✅ Validé</span>
+                        )}
+                        {v.statut_validation === 'refuse' && (
+                          <span style={{background:'#fee2e2',color:'#991b1b',padding:'4px 10px',borderRadius:20,fontSize:10.5,fontWeight:700,whiteSpace:'nowrap'}} title={v.motif_refus}>❌ Refusé</span>
+                        )}
+                      </td>
+                      <td style={{ padding:'11px 13px' }}>
                         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                          {/* Billet imprimable — accessible à tous */}
+                          <a href={voyages.billetUrl(v.id)} target="_blank" rel="noreferrer"
+                            style={{...S_BTN('#f5f3ff','#7c3aed','#ddd6fe'), textDecoration:'none', display:'inline-flex', alignItems:'center'}} title="Billet imprimable">
+                            🎫
+                          </a>
+                          {/* Valider / Refuser — admin uniquement, tant qu'en attente */}
+                          {isAdmin && v.statut_validation === 'en_attente' && (
+                            <>
+                              <button onClick={()=>validerVoyage(v)}
+                                style={S_BTN('#f0fdf4','#16a34a','#86efac')} title="Valider">✅</button>
+                              <button onClick={()=>setRefusModal(v)}
+                                style={S_BTN('#fef2f2','#dc2626','#fca5a5')} title="Refuser">❌</button>
+                            </>
+                          )}
                           {/* Modifier */}
                           <button onClick={()=>openEdit(v)}
                             style={S_BTN('#eff6ff','#2563eb','#bfdbfe')} title="Modifier">
@@ -406,6 +444,29 @@ export default function Voyages() {
                   style={{ flex:2,background:submitting?'var(--rzc-text-4)':'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700 }}>
                   {submitting?'⏳…':'💾 Enregistrer'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL REFUS ═══ */}
+      {refusModal && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(15,36,71,.65)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setRefusModal(null)}>
+          <div style={{ background:'var(--rzc-white)',width:'100%',maxWidth:380,borderRadius:16,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'#dc2626',color:'#fff',padding:'14px 20px' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>❌ Refuser ce voyage</span>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:12 }}>
+              <p style={{fontSize:13,color:'var(--rzc-text-2)',margin:0}}>
+                Voyage de <b>{refusModal.personnel_detail?.nom} {refusModal.personnel_detail?.prenom}</b> vers {refusModal.destination}.
+              </p>
+              <textarea value={motifRefus} onChange={e=>setMotifRefus(e.target.value)}
+                placeholder="Motif du refus (optionnel)…" rows={3} style={{...inp,resize:'vertical'}}/>
+              <div style={{ display:'flex',gap:10 }}>
+                <button onClick={()=>{setRefusModal(null);setMotifRefus('')}} style={{ flex:1,background:'#f8fafc',color:'var(--rzc-text-3)',border:'1px solid #e2e8f0',padding:11,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600 }}>Annuler</button>
+                <button onClick={confirmerRefus} style={{ flex:2,background:'#dc2626',color:'#fff',border:'none',padding:11,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700 }}>Confirmer le refus</button>
               </div>
             </div>
           </div>

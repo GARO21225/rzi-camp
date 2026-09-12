@@ -220,6 +220,15 @@ export const voyages = {
   exportCsv: (p) => withToken(`${BASE}/api/voyages/export_csv/?${new URLSearchParams(p||{})}`),
   annuler: (id) => api.post(`/api/voyages/${id}/annuler/`),
   supprimer: (id) => api.delete(`/api/voyages/${id}/supprimer_planifie/`),
+  valider: (id) => api.post(`/api/voyages/${id}/valider/`),
+  refuser: (id, motif) => api.post(`/api/voyages/${id}/refuser/`, {motif}),
+  billetUrl: (id) => withToken(`${BASE}/api/voyages/${id}/billet/`),
+}
+export const etapesVoyage = {
+  list: (voyageId) => api.get('/api/etapes-voyage/', {params:{voyage:voyageId}}),
+  create: (d) => api.post('/api/etapes-voyage/', d),
+  update: (id, d) => api.patch(`/api/etapes-voyage/${id}/`, d),
+  delete: (id) => api.delete(`/api/etapes-voyage/${id}/`),
 }
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
