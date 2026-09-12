@@ -1129,11 +1129,15 @@ export default function Boutique({ embedded = false } = {}) {
     const artId = parseInt(e.dataTransfer.getData('text/plain'))
     setDraggingId(null); setDragOverCat(null)
     if (!artId || !targetCat) return
+    await deplacerArticle(artId, targetCat)
+  }
+  const deplacerArticle = async (artId, targetCat) => {
     const art = articles.find(a => a.id === artId)
     if (!art || art.categorie === targetCat) return
     try {
       await boutiqueAPI.updateArticle(artId, { categorie: targetCat })
       setArticles(prev => prev.map(a => a.id===artId ? {...a, categorie:targetCat} : a))
+      toast.success(`Déplacé vers ${targetCat}`)
     } catch(e) { toast.error('Erreur lors du déplacement') }
   }
   const handleQuickCat = async (artId, newCat) => {
@@ -1322,17 +1326,26 @@ export default function Boutique({ embedded = false } = {}) {
                       <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(148px,1fr))',gap:12}}>
                         {items.map(a=>(
                           <div key={a.id}
-                            draggable={reorganize}
-                            onDragStart={reorganize ? e=>handleDragStart(e,a.id) : undefined}
+                            draggable={reorganize && !isMobile}
+                            onDragStart={reorganize && !isMobile ? e=>handleDragStart(e,a.id) : undefined}
                             onDragEnd={handleDragEnd}
                             style={{
                               opacity: draggingId===a.id ? .45 : 1,
                               transform: draggingId===a.id ? 'scale(.95)' : '',
                               transition:'all .15s',
-                              cursor: reorganize ? 'grab' : 'default',
+                              cursor: reorganize && !isMobile ? 'grab' : 'default',
                             }}>
                             <ArticleCard a={a} qty={qty(a)} onAdd={reorganize ? ()=>{} : addTo}
 />
+                            {/* Glisser-déposer ne fonctionne pas au doigt sur mobile —
+                                équivalent tactile : choisir la catégorie directement */}
+                            {reorganize && isMobile && (
+                              <select value={a.categorie} onChange={e=>deplacerArticle(a.id, e.target.value)}
+                                style={{width:'100%',marginTop:4,fontSize:11,padding:'5px 6px',borderRadius:7,
+                                  border:'1px solid var(--rzc-border-light)',background:'#fff'}}>
+                                {catOrder.map(c=><option key={c} value={c}>{getCatCfg(c).icon} {getCatCfg(c).label}</option>)}
+                              </select>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1646,17 +1659,24 @@ export default function Boutique({ embedded = false } = {}) {
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>
                     {items.map(a=>(
                       <div key={a.id}
-                        draggable={reorganize}
-                        onDragStart={reorganize ? e=>handleDragStart(e,a.id) : undefined}
+                        draggable={reorganize && !isMobile}
+                        onDragStart={reorganize && !isMobile ? e=>handleDragStart(e,a.id) : undefined}
                         onDragEnd={handleDragEnd}
                         style={{
                           opacity: draggingId===a.id ? .45 : 1,
                           transform: draggingId===a.id ? 'scale(.95)rotate(2deg)' : '',
                           transition:'all .15s',
-                          cursor: reorganize ? 'grab' : 'default',
+                          cursor: reorganize && !isMobile ? 'grab' : 'default',
                         }}>
                         <ArticleCard a={a} qty={qty(a)}
                           onAdd={()=>{ if(!reorganize){setTab('caisse');addTo(a)} }}/>
+                        {reorganize && isMobile && (
+                          <select value={a.categorie} onChange={e=>deplacerArticle(a.id, e.target.value)}
+                            style={{width:'100%',marginTop:4,fontSize:11,padding:'5px 6px',borderRadius:7,
+                              border:'1px solid var(--rzc-border-light)',background:'#fff'}}>
+                            {catOrder.map(c=><option key={c} value={c}>{getCatCfg(c).icon} {getCatCfg(c).label}</option>)}
+                          </select>
+                        )}
                         {/* ── Boutons admin : CATALOGUE UNIQUEMENT ── */}
                         {isAdmin && !reorganize && (
                           <div style={{display:'flex',gap:6,padding:'8px 4px 0'}}>

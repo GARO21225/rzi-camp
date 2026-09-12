@@ -277,6 +277,15 @@ input, select, textarea {
   h1 { font-size: 1.4rem !important; }
   h2 { font-size: 1.2rem !important; }
   .kpi-val { font-size: 1.6rem !important; }
+
+  /* Zone tactile minimale pour les boutons d'action denses (tableaux :
+     modifier/verrouiller/supprimer...) — n'agrandit QUE les boutons plus
+     petits que ce minimum (min-height/min-width n'affectent jamais un
+     bouton déjà plus grand), donc sans risque pour le reste de l'app. */
+  button {
+    min-height: 34px;
+    min-width: 34px;
+  }
 }
 
 /* ── Safe area pour mobiles (notch) ── */
