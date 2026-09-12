@@ -324,13 +324,26 @@ class AvisRestaurationViewSet(viewsets.ModelViewSet):
     complète et les statistiques sont réservées à l'équipe Restauration/admin
     pour éviter d'exposer les commentaires individuels à tout le monde.
     """
-    queryset = AvisRestauration.objects.all()
+    queryset = AvisRestauration.objects.select_related('personnel').prefetch_related('reponses__question').all()
     serializer_class = AvisRestaurationSerializer
 
     def get_permissions(self):
         if self.request.method == 'POST':
             return [IsAuthenticated()]
         return [IsAuthenticated(), _IsRestoOuAdmin()]
+
+    def get_serializer_context(self):
+        """
+        Précharge TOUS les menus (date, repas) -> [plats] en UNE requête,
+        plutôt qu'une requête MenuJour par avis dans la liste (N+1 —
+        insignifiant sur 5 avis, mais 100 avis = 100 requêtes en plus).
+        """
+        context = super().get_serializer_context()
+        menu_map = {}
+        for m in MenuJour.objects.all().only('date_service', 'repas', 'nom'):
+            menu_map.setdefault((m.date_service, m.repas), []).append(m.nom)
+        context['menu_map'] = menu_map
+        return context
 
     def create(self, request, *args, **kwargs):
         """

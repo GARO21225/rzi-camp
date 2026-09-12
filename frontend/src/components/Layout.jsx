@@ -191,6 +191,29 @@ export default function Layout() {
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const nav = ROLE_NAV[isAdmin ? 'admin' : role] || ROLE_NAV.agent
 
+  // Groupes de menu réductibles — mémorisés localement, avec ouverture
+  // automatique du groupe contenant la page active pour ne jamais perdre
+  // de vue où l'on se trouve.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rzc_collapsed_groups') || '{}') } catch { return {} }
+  })
+  useEffect(() => {
+    localStorage.setItem('rzc_collapsed_groups', JSON.stringify(collapsedGroups))
+  }, [collapsedGroups])
+  const toggleGroup = (name) => setCollapsedGroups(prev => ({ ...prev, [name]: !prev[name] }))
+
+  // Groupe contenant la page active — toujours visible même s'il était replié
+  const activeGroup = (() => {
+    let current = null
+    for (const item of nav) {
+      if (item.group) { current = item.group; continue }
+      if (item.to === location.pathname || (item.exact ? item.to === location.pathname : location.pathname.startsWith(item.to) && item.to !== '/')) {
+        return current
+      }
+    }
+    return null
+  })()
+
   useEffect(() => {
     if (window.innerWidth < 768) setSidebarOpen(false)
     setNotifOpen(false)
@@ -359,39 +382,54 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {nav.map((item, i) => item.group ? (
-                <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
-                  <div style={{
-                    fontSize:10, fontWeight:800, letterSpacing:1.5,
-                    textTransform:'uppercase', color:'#64748b',
-                    padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
-                    borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
-                  }}>
-                    <span style={{display:'inline-block',width:3,height:10,
-                      background:'#f0a500',borderRadius:99}}/>
-                    {item.group}
-                  </div>
-                </div>
-              ) : (
-                <NavLink key={item.to} to={item.to} end={item.exact}
-                  style={({ isActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '9px 12px 9px 16px',
-                    margin: '1px 8px',
-                    borderRadius: 9,
-                    textDecoration: 'none',
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 400,
-                    background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                    color: isActive ? '#ffffff' : '#94a3b8',
-                    borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
-                    transition: 'all .15s',
-                  })}>
-                  {item.label}
-                </NavLink>
-              ))}
+              {(() => {
+                let currentGroup = null
+                return nav.map((item, i) => {
+                  if (item.group) {
+                    currentGroup = item.group
+                    const isCollapsed = !!collapsedGroups[item.group] && item.group !== activeGroup
+                    return (
+                      <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
+                        <div onClick={() => toggleGroup(item.group)} style={{
+                          fontSize:10, fontWeight:800, letterSpacing:1.5,
+                          textTransform:'uppercase', color:'#64748b', cursor:'pointer',
+                          padding:'4px 10px', display:'flex', alignItems:'center', gap:6, justifyContent:'space-between',
+                          borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
+                        }}>
+                          <span style={{display:'flex', alignItems:'center', gap:6}}>
+                            <span style={{display:'inline-block',width:3,height:10,
+                              background:'#f0a500',borderRadius:99}}/>
+                            {item.group}
+                          </span>
+                          <span style={{fontSize:9, transition:'transform .15s', transform: isCollapsed ? 'rotate(-90deg)' : 'none'}}>▼</span>
+                        </div>
+                      </div>
+                    )
+                  }
+                  const isCollapsed = !!collapsedGroups[currentGroup] && currentGroup !== activeGroup
+                  if (isCollapsed) return null
+                  return (
+                    <NavLink key={item.to} to={item.to} end={item.exact}
+                      style={({ isActive }) => ({
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '9px 12px 9px 16px',
+                        margin: '1px 8px',
+                        borderRadius: 9,
+                        textDecoration: 'none',
+                        fontSize: 13,
+                        fontWeight: isActive ? 700 : 400,
+                        background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
+                        color: isActive ? '#ffffff' : '#94a3b8',
+                        borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
+                        transition: 'all .15s',
+                      })}>
+                      {item.label}
+                    </NavLink>
+                  )
+                })
+              })()}
             </div>
           </nav>
 

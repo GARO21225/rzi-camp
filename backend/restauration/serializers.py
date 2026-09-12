@@ -99,6 +99,10 @@ class AvisRestaurationSerializer(serializers.ModelSerializer):
         return "Anonyme"
 
     def get_menu_jour(self, obj):
+        menu_map = self.context.get('menu_map')
+        if menu_map is not None:
+            return menu_map.get((obj.date_avis, obj.repas), [])
+        # Repli (ex: serialization hors contexte de liste) — requête directe
         from .models import MenuJour
         return list(MenuJour.objects.filter(date_service=obj.date_avis, repas=obj.repas).values_list('nom', flat=True))
 
