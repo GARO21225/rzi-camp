@@ -337,7 +337,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         existing = Voyage.objects.filter(rotation_id=rotation_id).first()
         if not existing:
             return Response({"error":"Rotation introuvable"},status=404)
-        prises = Voyage.objects.filter(rotation_id=rotation_id).count()
+        prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
         if prises >= (existing.nb_places_total or 15):
             return Response({"error":"Rotation complète"},status=400)
         if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():

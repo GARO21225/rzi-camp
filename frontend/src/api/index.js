@@ -223,6 +223,8 @@ export const voyages = {
   valider: (id) => api.post(`/api/voyages/${id}/valider/`),
   refuser: (id, motif) => api.post(`/api/voyages/${id}/refuser/`, {motif}),
   billetUrl: (id) => withToken(`${BASE}/api/voyages/${id}/billet/`),
+  rotationsDisponibles: () => api.get('/api/voyages/rotations/'),
+  rejoindreRotation: (rotation_id, personnel_id) => api.post('/api/voyages/rejoindre_rotation/', {rotation_id, personnel_id}),
 }
 export const etapesVoyage = {
   list: (voyageId) => api.get('/api/etapes-voyage/', {params:{voyage:voyageId}}),

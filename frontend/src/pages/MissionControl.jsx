@@ -424,6 +424,7 @@ export default function MissionControl() {
   const [moisCal, setMoisCal] = useState(new Date())
   const [detailVoyage, setDetailVoyage] = useState(null)
   const [etapesDetail, setEtapesDetail] = useState([])
+  const [rechercheListe, setRechercheListe] = useState('')
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -1317,8 +1318,16 @@ export default function MissionControl() {
         {/* ══ VUE LISTE COMPLÈTE — façon billet d'agence de voyage ═══ */}
         {view==='liste' && (
           <div className="mc-fade">
+            <input value={rechercheListe} onChange={e=>setRechercheListe(e.target.value)}
+              placeholder="🔍 Rechercher un nom, une destination…"
+              style={{width:'100%',maxWidth:320,marginBottom:14,padding:'9px 14px',borderRadius:9,
+                border:`1px solid ${C.border}`,background:C.panel,color:C.text,fontSize:13,outline:'none',boxSizing:'border-box'}}/>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {voyages.map(v=>{
+              {voyages.filter(v=>{
+                if (!rechercheListe) return true
+                const s = rechercheListe.toLowerCase()
+                return (v.personnel_nom||'').toLowerCase().includes(s) || (v.destination||'').toLowerCase().includes(s) || (v.origine||'').toLowerCase().includes(s)
+              }).map(v=>{
                 const valCfg = {
                   en_attente: {bg:'#fef3c722',color:'#f0a500',label:'⏳ En attente'},
                   valide:     {bg:`${C.green}18`,color:C.green,label:'✅ Validé'},

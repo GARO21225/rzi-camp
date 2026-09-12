@@ -14,6 +14,7 @@ const STATUT_STYLES = {
   annule:    { bg:'rgba(100,116,139,.1)', color:'var(--rzc-text-2)',  label:'Annulé'      },
 }
 const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
+const fmtFR = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'
 
 // ── Vue calendrier — départs/retours du mois affichés jour par jour ──
 function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
@@ -130,6 +131,10 @@ export default function Voyages() {
   const [stats,         setStats]         = useState({total:0,planifies:0,en_voyage:0,retours:0,annules:0})
   const [loading,       setLoading]       = useState(true)
   const [filterStatut,  setFilterStatut]  = useState('')
+  const [search,        setSearch]        = useState('')       // nom personnel / destination
+  const [filterSociete, setFilterSociete] = useState('')
+  const [dateDebut,     setDateDebut]     = useState('')
+  const [dateFin,       setDateFin]       = useState('')
   const [modal,         setModal]         = useState(false)
   const [editModal,     setEditModal]     = useState(null)
   const [personnelList, setPersonnelList] = useState([])
@@ -255,6 +260,26 @@ export default function Voyages() {
   const [motifRefus, setMotifRefus] = useState('')
   const [vue, setVue] = useState('liste') // 'liste' | 'calendrier'
   const [moisCalendrier, setMoisCalendrier] = useState(new Date())
+  const [rotationsDispo, setRotationsDispo] = useState([])
+  const [showRotations, setShowRotations] = useState(false)
+
+  const chargerRotationsDispo = useCallback(() => {
+    voyages.rotationsDisponibles().then(r => {
+      const today = new Date().toISOString().slice(0,10)
+      setRotationsDispo((r.data.rotations||[]).filter(rot => rot.date_depart >= today && rot.places_libres > 0))
+    }).catch(() => {})
+  }, [])
+  useEffect(() => { chargerRotationsDispo() }, [chargerRotationsDispo])
+
+  const rejoindre = async (rotationId) => {
+    const persoId = isAdmin ? null : myPersonnel?.id
+    if (!persoId) return toast.error('Profil personnel introuvable pour rejoindre automatiquement')
+    try {
+      await voyages.rejoindreRotation(rotationId, persoId)
+      toast.success('Vous avez rejoint la rotation !')
+      loadVoyages(); chargerRotationsDispo()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
 
   const validerVoyage = async (v) => {
     try { await voyages.valider(v.id); toast.success('Voyage validé'); loadVoyages() }
@@ -266,7 +291,22 @@ export default function Voyages() {
     catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
 
-  const filtered = data.filter(v => !filterStatut || v.statut === filterStatut)
+  const filtered = data.filter(v => {
+    if (filterStatut && v.statut !== filterStatut) return false
+    if (filterSociete && v.personnel_detail?.societe !== filterSociete) return false
+    if (dateDebut && v.date_depart < dateDebut) return false
+    if (dateFin && v.date_depart > dateFin) return false
+    if (search) {
+      const s = search.toLowerCase()
+      const nom = `${v.personnel_detail?.nom||''} ${v.personnel_detail?.prenom||''}`.toLowerCase()
+      const dest = (v.destination||'').toLowerCase()
+      const orig = (v.origine||'').toLowerCase()
+      if (!nom.includes(s) && !dest.includes(s) && !orig.includes(s)) return false
+    }
+    return true
+  })
+  const societesDisponibles = [...new Set(data.map(v=>v.personnel_detail?.societe).filter(Boolean))].sort()
+  const filtresActifs = !!(filterSociete || dateDebut || dateFin || search)
 
   // Styles
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9, padding:'9px 12px', fontSize:14, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
@@ -288,11 +328,54 @@ export default function Voyages() {
             {isAdmin ? 'Tous les voyages · Modification · Suivi' : `Mes voyages${myPersonnel?' — '+myPersonnel.nom+' '+myPersonnel.prenom:''}`}
           </p>
         </div>
-        <button onClick={() => setModal(true)}
-          style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700 }}>
-          + {isAdmin ? 'Nouveau voyage' : 'Déclarer mon voyage'}
-        </button>
+        <div style={{display:'flex',gap:8}}>
+          {rotationsDispo.length > 0 && (
+            <button onClick={() => setShowRotations(v=>!v)}
+              style={{ background:showRotations?'#f0a500':'#fffbeb', color:showRotations?'#000':'#92400e', border:'1.5px solid #fde68a', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              🚌 {rotationsDispo.length} rotation(s) disponible(s)
+            </button>
+          )}
+          <button onClick={() => setModal(true)}
+            style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700 }}>
+            + {isAdmin ? 'Nouveau voyage' : 'Déclarer mon voyage'}
+          </button>
+        </div>
       </div>
+
+      {/* ── Rotations disponibles à rejoindre — places visibles, façon agence ── */}
+      {showRotations && rotationsDispo.length > 0 && (
+        <div style={{marginBottom:18,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
+          {rotationsDispo.map(rot => {
+            const total = rot.nb_places_total || 15
+            const pct = Math.round((total - rot.places_libres) / total * 100)
+            return (
+              <div key={rot.rotation_id} style={{background:'#fff',border:'1px solid #fde68a',borderRadius:12,padding:14,boxShadow:'0 2px 8px rgba(0,0,0,.05)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:14,color:'var(--rzc-navy)'}}>✈️ {rot.destination}</div>
+                    <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{rot.vehicule} · Convoi {rot.rotation_id}</div>
+                  </div>
+                  <span style={{background:'#fffbeb',color:'#92400e',padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700}}>
+                    {rot.places_libres} place(s) libre(s)
+                  </span>
+                </div>
+                <div style={{fontSize:11,color:'var(--rzc-text-3)',marginBottom:8}}>
+                  Départ {fmtFR(rot.date_depart)}{rot.heure_depart?` à ${rot.heure_depart}`:''} · Retour prévu {fmtFR(rot.date_retour_prevue)}
+                </div>
+                <div style={{height:6,background:'#f1f5f9',borderRadius:99,overflow:'hidden',marginBottom:10}}>
+                  <div style={{height:'100%',width:`${pct}%`,background:pct>=90?'#dc2626':pct>=70?'#f0a500':'#16a34a',borderRadius:99}}/>
+                </div>
+                {!isAdmin && (
+                  <button onClick={()=>rejoindre(rot.rotation_id)}
+                    style={{width:'100%',background:'var(--rzc-navy)',color:'#fff',border:'none',padding:9,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                    Rejoindre cette rotation
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── KPIs ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
@@ -321,6 +404,30 @@ export default function Voyages() {
           <button onClick={()=>setVue('liste')} style={{background:vue==='liste'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='liste'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='liste'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📋 Liste</button>
           <button onClick={()=>setVue('calendrier')} style={{background:vue==='calendrier'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='calendrier'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='calendrier'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📅 Calendrier</button>
         </div>
+      </div>
+
+      {/* ── Recherche + filtres avancés ── */}
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="🔍 Rechercher un nom, une destination…"
+          style={{...inp, maxWidth:260, padding:'8px 12px', fontSize:13}}/>
+        <select value={filterSociete} onChange={e=>setFilterSociete(e.target.value)}
+          style={{...inp, maxWidth:170, padding:'8px 12px', fontSize:13}}>
+          <option value="">Toutes sociétés</option>
+          {societesDisponibles.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)} title="Départ à partir du" style={{...inp,maxWidth:145,padding:'8px 10px',fontSize:12}}/>
+          <span style={{fontSize:11,color:'var(--rzc-text-4)'}}>→</span>
+          <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)} title="Départ jusqu'au" style={{...inp,maxWidth:145,padding:'8px 10px',fontSize:12}}/>
+        </div>
+        {filtresActifs && (
+          <button onClick={()=>{setSearch('');setFilterSociete('');setDateDebut('');setDateFin('')}}
+            style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:8,padding:'8px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>
+            ✕ Effacer les filtres
+          </button>
+        )}
+        <span style={{fontSize:11,color:'var(--rzc-text-4)',marginLeft:'auto'}}>{filtered.length} résultat(s)</span>
       </div>
 
       {vue === 'calendrier' ? (
