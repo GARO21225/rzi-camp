@@ -110,7 +110,11 @@ class VoyageViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         voyage.date_validation = timezone.now()
         voyage.motif_refus = request.data.get("motif", "")
-        voyage.save(update_fields=["statut_validation","valide_par","date_validation","motif_refus"])
+        # Un voyage refuse doit liberer sa place dans le convoi et disparaitre
+        # du manifeste - sinon il reste compte comme "en transit" alors
+        # qu'il ne partira jamais.
+        voyage.statut = "annule"
+        voyage.save(update_fields=["statut_validation","valide_par","date_validation","motif_refus","statut"])
         try:
             from evenements.models import SimpleNotification
             demandeur = voyage.enregistre_par
@@ -234,21 +238,41 @@ class VoyageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def rotations(self, request):
         from django.db.models import Count
+        # IMPORTANT : ne PAS inclure "statut" dans le regroupement — sinon
+        # des que UN SEUL passager change de statut (ex: rentre alors que
+        # les autres sont encore en transit), Django scinde la meme rotation
+        # en plusieurs groupes distincts au lieu d'une seule rotation avec
+        # des statuts individuels mixtes. Le statut agrege de la rotation se
+        # calcule a part, a partir des statuts individuels des passagers.
         groupes = (Voyage.objects
             .exclude(rotation_id__isnull=True).exclude(rotation_id="")
             .values("rotation_id","destination","date_depart","date_retour_prevue",
                     "vehicule","nb_places_total","heure_depart","point_rdv",
-                    "type_voyage","statut","motif")
+                    "type_voyage","motif")
             .annotate(nb_passagers=Count("id"))
             .order_by("-date_depart"))
         result = []
         for g in groupes:
             passagers = list(Voyage.objects.filter(rotation_id=g["rotation_id"])
+                .exclude(statut="annule")
                 .select_related("personnel")
                 .values("id","personnel__nom","personnel__prenom",
                         "personnel__societe","statut"))
+            if not passagers:
+                continue  # tout le monde annule/refuse -> rotation vide, ne pas afficher
+            statuts_presents = {p["statut"] for p in passagers}
+            if statuts_presents == {"retour"}:
+                statut_rotation = "retour"
+            elif "en_voyage" in statuts_presents:
+                statut_rotation = "en_voyage"
+            elif "planifie" in statuts_presents:
+                statut_rotation = "planifie"
+            else:
+                statut_rotation = next(iter(statuts_presents), "planifie")
+            g["statut"] = statut_rotation
             g["passagers"] = passagers
-            g["places_libres"] = max(0,(g["nb_places_total"] or 15)-g["nb_passagers"])
+            g["nb_passagers"] = len(passagers)
+            g["places_libres"] = max(0,(g["nb_places_total"] or 15)-len(passagers))
             result.append(g)
         indiv = list(Voyage.objects
             .filter(rotation_id__isnull=True)

@@ -68,7 +68,7 @@ class VoyageSerializer(serializers.ModelSerializer):
     def get_places_prises(self, obj):
         o = self._obj(obj)
         if not o or not o.rotation_id: return 1
-        try: return Voyage.objects.filter(rotation_id=o.rotation_id).count()
+        try: return Voyage.objects.filter(rotation_id=o.rotation_id).exclude(statut="annule").count()
         except: return 1
 
     def get_places_libres(self, obj):
