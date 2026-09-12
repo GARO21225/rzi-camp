@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast, confirmDialog } from '../toast'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
 const tok  = () => localStorage.getItem('access_token') || ''
@@ -163,6 +164,65 @@ function Clock() {
     tick(); const iv = setInterval(tick,1000); return ()=>clearInterval(iv)
   },[])
   return <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,color:C.text,letterSpacing:1}}>{t}</span>
+}
+
+// ── Vue calendrier — départs/retours du mois, façon agence de voyage ──
+function VueCalendrierMC({ voyages, mois, setMois, onSelect }) {
+  const annee = mois.getFullYear(), moisIdx = mois.getMonth()
+  const premierJour = new Date(annee, moisIdx, 1)
+  const nbJours = new Date(annee, moisIdx + 1, 0).getDate()
+  const decalage = (premierJour.getDay() + 6) % 7
+
+  const parJour = {}
+  voyages.forEach(v => {
+    if (v.date_depart) { parJour[v.date_depart] = parJour[v.date_depart] || { departs: [], retours: [] }; parJour[v.date_depart].departs.push(v) }
+    if (v.date_retour_prevue) { parJour[v.date_retour_prevue] = parJour[v.date_retour_prevue] || { departs: [], retours: [] }; parJour[v.date_retour_prevue].retours.push(v) }
+  })
+
+  const cases = []
+  for (let i = 0; i < decalage; i++) cases.push(null)
+  for (let j = 1; j <= nbJours; j++) cases.push(j)
+  const fmtDate = (j) => `${annee}-${String(moisIdx+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`
+
+  return (
+    <Panel style={{padding:18}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <button className="mc-btn" onClick={()=>setMois(new Date(annee,moisIdx-1,1))}>←</button>
+        <div style={{fontFamily:'JetBrains Mono,monospace',fontWeight:700,fontSize:14,color:C.accent,textTransform:'capitalize'}}>
+          {mois.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}
+        </div>
+        <button className="mc-btn" onClick={()=>setMois(new Date(annee,moisIdx+1,1))}>→</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,fontSize:10,fontWeight:700,color:C.muted,textTransform:'uppercase',marginBottom:6}}>
+        {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=><div key={j} style={{textAlign:'center'}}>{j}</div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+        {cases.map((j,i) => {
+          if (!j) return <div key={i}/>
+          const dateStr = fmtDate(j)
+          const info = parJour[dateStr]
+          const isToday = dateStr === toISO(new Date())
+          return (
+            <div key={i} style={{minHeight:68,border:`1px solid ${isToday?C.accent:C.border}`,borderRadius:8,padding:4,fontSize:10,background:isToday?`${C.accent}0a`:C.panel}}>
+              <div style={{fontWeight:700,color:isToday?C.accent:C.muted,marginBottom:2}}>{j}</div>
+              {info?.departs.slice(0,2).map(v=>(
+                <div key={'d'+v.id} onClick={()=>onSelect(v)} title={`Départ — ${v.personnel_nom||''}`}
+                  style={{background:`${C.orange||'#f97316'}18`,color:C.orange||'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  ✈️ {v.personnel_nom||v.destination}
+                </div>
+              ))}
+              {info?.retours.slice(0,2).map(v=>(
+                <div key={'r'+v.id} onClick={()=>onSelect(v)} title={`Retour — ${v.personnel_nom||''}`}
+                  style={{background:`${C.green}18`,color:C.green,borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                  🏠 {v.personnel_nom||v.destination}
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </Panel>
+  )
 }
 
 // ── Flow SVG animé ──────────────────────────────────────────────────
@@ -361,6 +421,7 @@ export default function MissionControl() {
   })
   const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'' })
   const [rappels, setRappels] = useState([])
+  const [moisCal, setMoisCal] = useState(new Date())
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -544,26 +605,39 @@ export default function MissionControl() {
             <div>
               <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,fontWeight:600,
                 letterSpacing:2,textTransform:'uppercase',color:C.accent}}>
-                Mission Control · RZI Camp
+                Centre de Mobilité · RZI Camp
               </div>
               <div style={{fontSize:10,color:C.muted,letterSpacing:.5,marginTop:1}}>
-                Rotations · Voyages · Fleet Operations
+                Rotations · Voyages · Itinéraires · Validations
               </div>
             </div>
           </div>
 
           {/* Tabs */}
           <div style={{display:'flex',gap:4,background:`rgba(96,165,250,.05)`,
-            borderRadius:10,padding:4}}>
+            borderRadius:10,padding:4,flexWrap:'wrap'}}>
             {[
               ['command','🛰️ Command'],
               ['rotations','🚀 Rotations'],
               ['gantt','📅 Gantt'],
               ['manifest','📋 Manifest'],
-            ].map(([v,l])=>(
-              <button key={v} className={`mc-tab ${view===v?'active':''}`}
-                onClick={()=>setView(v)}>{l}</button>
-            ))}
+              ['calendrier','🗓️ Calendrier'],
+              ['validations','✅ Validations'],
+              ['liste','🎫 Tous les voyages'],
+            ].map(([v,l])=>{
+              const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : 0
+              return (
+                <button key={v} className={`mc-tab ${view===v?'active':''}`}
+                  onClick={()=>setView(v)} style={{position:'relative'}}>
+                  {l}
+                  {nbPending > 0 && (
+                    <span style={{position:'absolute',top:-6,right:-6,background:C.red,color:'#fff',
+                      borderRadius:99,fontSize:9,fontWeight:800,minWidth:16,height:16,display:'flex',
+                      alignItems:'center',justifyContent:'center',padding:'0 3px'}}>{nbPending}</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
           <div style={{display:'flex',alignItems:'center',gap:14}}>
@@ -1162,6 +1236,106 @@ export default function MissionControl() {
                 </table>
               </div>
             </Panel>
+          </div>
+        )}
+
+        {/* ══ VUE CALENDRIER ═══════════════════════════════════════ */}
+        {view==='calendrier' && (
+          <div className="mc-fade">
+            <VueCalendrierMC voyages={voyages} mois={moisCal} setMois={setMoisCal} onSelect={setSelVoyage}/>
+          </div>
+        )}
+
+        {/* ══ VUE VALIDATIONS EN ATTENTE ═══════════════════════════ */}
+        {view==='validations' && (
+          <div className="mc-fade">
+            {(() => {
+              const enAttente = voyages.filter(v=>v.statut_validation==='en_attente')
+              return enAttente.length===0 ? (
+                <Panel style={{padding:40,textAlign:'center'}}>
+                  <div style={{fontSize:40,marginBottom:10}}>✅</div>
+                  <div style={{color:C.muted,fontSize:13}}>Aucune demande en attente de validation.</div>
+                </Panel>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {enAttente.map(v=>(
+                    <Panel key={v.id} style={{padding:16}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:14,color:C.text}}>{v.personnel_nom}</div>
+                          <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                            {v.personnel_societe} · ✈️ {v.destination} · {fmt(v.date_depart)} → {fmt(v.date_retour_prevue)}
+                          </div>
+                          {v.motif && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {v.motif}</div>}
+                        </div>
+                        <div style={{display:'flex',gap:8}}>
+                          <button className="mc-btn" style={{background:C.green,color:'#fff'}}
+                            onClick={async()=>{
+                              try{ await api(`/api/voyages/${v.id}/valider/`,{method:'POST'}); toast.success('Voyage validé'); load() }
+                              catch{ toast.error('Erreur') }
+                            }}>✅ Valider</button>
+                          <button className="mc-btn" style={{background:C.red,color:'#fff'}}
+                            onClick={async()=>{
+                              const ok = await confirmDialog(`Refuser le voyage de ${v.personnel_nom} vers ${v.destination} ?`)
+                              if(!ok) return
+                              try{ await api(`/api/voyages/${v.id}/refuser/`,{method:'POST',body:JSON.stringify({motif:''})}); toast.success('Voyage refusé'); load() }
+                              catch{ toast.error('Erreur') }
+                            }}>❌ Refuser</button>
+                        </div>
+                      </div>
+                    </Panel>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
+        {/* ══ VUE LISTE COMPLÈTE — façon billet d'agence de voyage ═══ */}
+        {view==='liste' && (
+          <div className="mc-fade">
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {voyages.map(v=>{
+                const valCfg = {
+                  en_attente: {bg:'#fef3c722',color:'#f0a500',label:'⏳ En attente'},
+                  valide:     {bg:`${C.green}18`,color:C.green,label:'✅ Validé'},
+                  refuse:     {bg:`${C.red}18`,color:C.red,label:'❌ Refusé'},
+                }[v.statut_validation] || {bg:C.border,color:C.muted,label:v.statut_validation}
+                return (
+                  <Panel key={v.id} style={{padding:0,overflow:'hidden'}}>
+                    {/* Bandeau façon billet — talon perforé stylisé */}
+                    <div style={{display:'flex',alignItems:'stretch'}}>
+                      <div style={{flex:1,padding:16,borderRight:`1.5px dashed ${C.border}`}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                          <div>
+                            <div style={{fontWeight:800,fontSize:15,color:C.text}}>{v.personnel_nom}</div>
+                            <div style={{fontSize:11,color:C.muted}}>{v.personnel_societe}</div>
+                          </div>
+                          <span style={{background:valCfg.bg,color:valCfg.color,padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:700}}>{valCfg.label}</span>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:12,fontFamily:'JetBrains Mono,monospace',fontSize:13,color:C.text}}>
+                          <span>🏕️ CAMP</span>
+                          <span style={{flex:1,borderTop:`1px dashed ${C.border}`,position:'relative'}}>
+                            <span style={{position:'absolute',right:0,top:-9,fontSize:12}}>✈️</span>
+                          </span>
+                          <span>{(v.destination||'—').toUpperCase()}</span>
+                        </div>
+                        <div style={{display:'flex',gap:16,marginTop:8,fontSize:11,color:C.muted}}>
+                          <span>Départ : <b style={{color:C.text}}>{fmt(v.date_depart)}</b>{v.heure_depart?` à ${v.heure_depart}`:''}</span>
+                          <span>Retour prévu : <b style={{color:C.text}}>{fmt(v.date_retour_prevue)}</b></span>
+                          {v.rotation_id && <span>Convoi : <b style={{color:C.accent}}>{v.rotation_id}</b></span>}
+                        </div>
+                      </div>
+                      <div style={{width:150,padding:16,display:'flex',flexDirection:'column',gap:6,justifyContent:'center',background:`${C.accent}06`}}>
+                        <a href={`${BASE}/api/voyages/${v.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
+                          className="mc-btn mc-btn-primary" style={{fontSize:11,textDecoration:'none',justifyContent:'center'}}>🎫 Billet</a>
+                        <button className="mc-btn" style={{fontSize:11,background:C.border,color:C.text}} onClick={()=>setSelVoyage(v)}>Détails</button>
+                      </div>
+                    </div>
+                  </Panel>
+                )
+              })}
+            </div>
           </div>
         )}
 

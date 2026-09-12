@@ -46,15 +46,26 @@ class VoyageViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        voyage = serializer.save(enregistre_par=self.request.user)
+        u = self.request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        # Un admin qui cree directement un voyage EST la validation (il n'y
+        # a personne d'autre a attendre) - seul un agent qui declare son
+        # propre voyage passe par le workflow "en attente".
+        extra = {"enregistre_par": u}
+        if is_admin:
+            from django.utils import timezone
+            extra.update(statut_validation="valide", valide_par=u, date_validation=timezone.now())
+        voyage = serializer.save(**extra)
         try:
             from evenements.models import SimpleNotification
             from django.contrib.auth.models import User
+            if is_admin:
+                return  # pas besoin de notifier "a valider", deja valide
             for admin in User.objects.filter(is_staff=True)[:5]:
                 SimpleNotification.objects.create(
                     user=admin,
-                    titre="✈️ Nouveau voyage déclaré",
-                    message=f"Départ vers {voyage.destination} le {voyage.date_depart}",
+                    titre="✈️ Voyage en attente de validation",
+                    message=f"{voyage.personnel.nom} {voyage.personnel.prenom} demande un voyage vers {voyage.destination} le {voyage.date_depart}",
                     type_notif="voyage", lu=False
                 )
         except Exception:
