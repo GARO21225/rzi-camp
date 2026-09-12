@@ -60,6 +60,69 @@ class VoyageViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
 
+    @action(detail=True, methods=['post'])
+    def valider(self, request, pk=None):
+        """Valide une demande de voyage (workflow agence : demande -> validation)."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        voyage = self.get_object()
+        voyage.statut_validation = "valide"
+        voyage.valide_par = u
+        from django.utils import timezone
+        voyage.date_validation = timezone.now()
+        voyage.save(update_fields=["statut_validation","valide_par","date_validation"])
+        try:
+            from evenements.models import SimpleNotification
+            demandeur = voyage.enregistre_par
+            if demandeur:
+                SimpleNotification.objects.create(
+                    user=demandeur, titre="✅ Voyage validé",
+                    message=f"Le voyage de {voyage.personnel.nom} {voyage.personnel.prenom} vers {voyage.destination} a été validé.",
+                    type_notif="voyage",
+                )
+        except Exception:
+            pass
+        return Response(VoyageSerializer(voyage).data)
+
+    @action(detail=True, methods=['post'])
+    def refuser(self, request, pk=None):
+        """Refuse une demande de voyage, avec motif."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        voyage = self.get_object()
+        voyage.statut_validation = "refuse"
+        voyage.valide_par = u
+        from django.utils import timezone
+        voyage.date_validation = timezone.now()
+        voyage.motif_refus = request.data.get("motif", "")
+        voyage.save(update_fields=["statut_validation","valide_par","date_validation","motif_refus"])
+        try:
+            from evenements.models import SimpleNotification
+            demandeur = voyage.enregistre_par
+            if demandeur:
+                SimpleNotification.objects.create(
+                    user=demandeur, titre="❌ Voyage refusé",
+                    message=f"Le voyage de {voyage.personnel.nom} {voyage.personnel.prenom} vers {voyage.destination} a été refusé."
+                        + (f" Motif : {voyage.motif_refus}" if voyage.motif_refus else ""),
+                    type_notif="voyage",
+                )
+        except Exception:
+            pass
+        return Response(VoyageSerializer(voyage).data)
+
+    @action(detail=True, methods=['get'], permission_classes=[TokenInQueryOrHeader])
+    def billet(self, request, pk=None):
+        """Document imprimable de l'itinéraire complet — comme un billet
+        d'agence de voyage. Ouvrable directement dans un nouvel onglet."""
+        from django.http import HttpResponse
+        voyage = self.get_object()
+        html = _generer_billet_html(voyage)
+        return HttpResponse(html, content_type="text/html; charset=utf-8")
+
     def destroy(self, request, *args, **kwargs):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -330,3 +393,78 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 STATUT_MAP.get(v.statut,v.statut),
             ])
         return response
+
+
+from .models import EtapeVoyage
+from .serializers import EtapeVoyageSerializer
+
+class EtapeVoyageViewSet(viewsets.ModelViewSet):
+    """Étapes d'itinéraire (tronçons) d'un voyage — comme une vraie agence :
+    plusieurs étapes possibles (ex: Camp -> Aéroport en bus, puis vol)."""
+    queryset = EtapeVoyage.objects.select_related("voyage").all()
+    serializer_class = EtapeVoyageSerializer
+    filter_backends = [filters.SearchFilter]
+
+    def get_queryset(self):
+        qs = EtapeVoyage.objects.select_related("voyage").all()
+        voyage_id = self.request.query_params.get("voyage")
+        if voyage_id:
+            qs = qs.filter(voyage_id=voyage_id)
+        return qs
+
+
+def _generer_billet_html(voyage):
+    """Document imprimable façon billet d'agence de voyage — toutes les
+    étapes de l'itinéraire, point de RDV, référence, à imprimer ou garder
+    en PDF via le navigateur (Ctrl+P -> Enregistrer en PDF)."""
+    p = voyage.personnel
+    etapes = voyage.etapes.all().order_by("ordre")
+    etapes_html = "".join([f"""
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0F2A5C">{e.ordre}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.get_mode_transport_display()}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.origine} → {e.destination}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.date_etape.strftime('%d/%m/%Y')}{' à ' + e.heure_depart.strftime('%H:%M') if e.heure_depart else ''}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.point_rdv or '—'}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace">{e.reference or '—'}</td>
+        </tr>
+    """ for e in etapes]) or '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
+
+    return f"""
+    <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <title>Billet de voyage — {p.nom if p else ''} {p.prenom if p else ''}</title>
+    <style>
+      body {{ font-family: 'IBM Plex Sans', system-ui, sans-serif; margin:0; padding:32px; color:#1e293b; }}
+      .header {{ display:flex; justify-content:space-between; align-items:center; border-bottom:4px solid #C9972B; padding-bottom:16px; margin-bottom:24px; }}
+      .badge {{ display:inline-block; padding:4px 14px; border-radius:20px; font-size:12px; font-weight:700; }}
+      table {{ width:100%; border-collapse:collapse; margin-top:16px; }}
+      th {{ text-align:left; padding:10px; background:#0F2A5C; color:#fff; font-size:11px; text-transform:uppercase; }}
+      .btn-print {{ background:#C9972B; color:#000; border:none; padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer; }}
+      @media print {{ .no-print {{ display:none; }} }}
+    </style></head>
+    <body>
+      <button class="no-print btn-print" onclick="window.print()" style="margin-bottom:20px">🖨️ Imprimer / Enregistrer en PDF</button>
+      <div class="header">
+        <div>
+          <h1 style="margin:0;color:#0F2A5C">✈️ Billet de voyage</h1>
+          <p style="margin:4px 0 0;color:#64748b">RZI Camp — Roxgold Sango</p>
+        </div>
+        <span class="badge" style="background:#0F2A5C22;color:#0F2A5C">Rotation {voyage.rotation_id or '—'}</span>
+      </div>
+      <table style="margin-bottom:24px">
+        <tr><td style="padding:6px 0;color:#64748b;width:160px">Voyageur</td><td style="font-weight:700">{p.nom if p else ''} {p.prenom if p else ''}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Société</td><td>{p.societe if p else '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Destination</td><td style="font-weight:700">{voyage.destination or '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Motif</td><td>{voyage.motif or '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Véhicule / Convoi</td><td>{voyage.vehicule or '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
+      </table>
+      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire</h2>
+      <table>
+        <thead><tr><th>Étape</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Point de RDV</th><th>Référence</th></tr></thead>
+        <tbody>{etapes_html}</tbody>
+      </table>
+      <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — RZI Camp ERP · Usage interne uniquement</p>
+    </body></html>
+    """
+

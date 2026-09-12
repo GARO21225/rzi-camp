@@ -1,10 +1,18 @@
 from rest_framework import serializers
-from .models import Voyage
+from .models import Voyage, EtapeVoyage
 
 STATUT_MAP = {
     "planifie":"Planifié","en_voyage":"En voyage",
     "retour":"Retour au camp","annule":"Annulé",
 }
+
+class EtapeVoyageSerializer(serializers.ModelSerializer):
+    mode_transport_label = serializers.CharField(source="get_mode_transport_display", read_only=True)
+
+    class Meta:
+        model = EtapeVoyage
+        fields = ["id","voyage","ordre","origine","destination","mode_transport","mode_transport_label",
+                  "date_etape","heure_depart","heure_arrivee_prevue","point_rdv","reference","notes"]
 
 class VoyageSerializer(serializers.ModelSerializer):
     personnel_nom      = serializers.SerializerMethodField()
@@ -12,6 +20,9 @@ class VoyageSerializer(serializers.ModelSerializer):
     personnel_profil   = serializers.SerializerMethodField()
     batiment_nom       = serializers.SerializerMethodField()
     statut_label       = serializers.SerializerMethodField()
+    statut_validation_label = serializers.CharField(source="get_statut_validation_display", read_only=True)
+    valide_par_nom     = serializers.SerializerMethodField()
+    etapes             = EtapeVoyageSerializer(many=True, read_only=True)
     # Infos rotation groupe
     places_prises      = serializers.SerializerMethodField()
     places_libres      = serializers.SerializerMethodField()
@@ -19,7 +30,12 @@ class VoyageSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Voyage
         fields = "__all__"
-        read_only_fields = ["enregistre_par","date_retour_effective"]
+        read_only_fields = ["enregistre_par","date_retour_effective","statut_validation","valide_par","date_validation"]
+
+    def get_valide_par_nom(self, obj):
+        o = self._obj(obj)
+        try: return o.valide_par.get_full_name() or o.valide_par.username if o and o.valide_par else ""
+        except: return ""
 
     def _obj(self, obj):
         return obj if isinstance(obj, Voyage) else None

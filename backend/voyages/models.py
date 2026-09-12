@@ -38,6 +38,18 @@ class Voyage(models.Model):
                                   ('urgence','Urgence'),('medical','Médical')])
     notes_admin       = models.TextField(blank=True,
                          help_text="Notes internes admin")
+
+    # ── Workflow de validation (comme une vraie agence : demande -> validation) ──
+    VALIDATION_CHOIX = [
+        ("en_attente", "En attente de validation"),
+        ("valide",     "Validé"),
+        ("refuse",     "Refusé"),
+    ]
+    statut_validation = models.CharField(max_length=15, choices=VALIDATION_CHOIX, default="en_attente")
+    valide_par        = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="voyages_valides")
+    date_validation   = models.DateTimeField(null=True, blank=True)
+    motif_refus       = models.TextField(blank=True, default="")
+
     # Restaurée : présente dans les migrations historiques (0001/0002) mais
     # avait disparu du modèle sans jamais avoir été retirée proprement —
     # Django voulait supprimer purement et simplement la table d'historique.
@@ -93,3 +105,38 @@ class Voyage(models.Model):
                     societe=self.personnel.societe, date_arrivee=today,
                     enregistre_par_id=None
                 )
+
+
+class EtapeVoyage(models.Model):
+    """
+    Un tronçon d'itinéraire (comme une vraie agence de voyage : plusieurs
+    étapes possibles pour un même voyage — ex: Camp -> Aéroport en bus,
+    puis Aéroport -> Abidjan en vol).
+    """
+    MODES = [
+        ("bus",     "🚌 Bus"),
+        ("4x4",     "🚙 4x4 / Véhicule tout-terrain"),
+        ("avion",   "✈️ Avion"),
+        ("bateau",  "⛴️ Bateau"),
+        ("a_pied",  "🚶 À pied"),
+        ("autre",   "🚐 Autre"),
+    ]
+    voyage        = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="etapes")
+    ordre         = models.PositiveIntegerField(default=1)
+    origine       = models.CharField(max_length=200)
+    destination   = models.CharField(max_length=200)
+    mode_transport= models.CharField(max_length=15, choices=MODES, default="bus")
+    date_etape    = models.DateField()
+    heure_depart  = models.TimeField(null=True, blank=True)
+    heure_arrivee_prevue = models.TimeField(null=True, blank=True)
+    point_rdv     = models.CharField(max_length=200, blank=True, default="")
+    reference     = models.CharField(max_length=100, blank=True, default="",
+                     help_text="Numéro de vol, plaque du véhicule, référence de réservation...")
+    notes         = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["voyage", "ordre"]
+        verbose_name = "Étape de voyage"
+
+    def __str__(self):
+        return f"Étape {self.ordre} — {self.origine} → {self.destination}"
