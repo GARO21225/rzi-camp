@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin } from '../api'
 import { useStore } from '../store'
+import { toast, confirmDialog } from '../toast'
 
 const bcolor = { Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', Maintenance:'var(--rzc-ore-gold)' }
 const today = new Date().toISOString().slice(0,10)
@@ -104,7 +105,7 @@ export default function Residences() {
       setConfirmModal(null)
       load()
     } catch(e) {
-      alert('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
+      toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
     }
   }
 
@@ -115,7 +116,7 @@ export default function Residences() {
       setConfirmModal(null)
       load()
     } catch(e) {
-      alert('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
+      toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
     }
   }
 
@@ -131,13 +132,13 @@ export default function Residences() {
   }
 
   const deleteHistoryEntry = async (id) => {
-    if (!window.confirm('Supprimer cette entrée d\'historique ?\nLa chambre ne sera pas modifiée.')) return
+    if (!await confirmDialog('Supprimer cette entrée d\'historique ?\nLa chambre ne sera pas modifiée.')) return
     try {
       await occupationHistoryAdmin.delete(id)
       // Refresh history
       const r = await occupationHistory.recherche({ batiment: histModal.residence })
       setHistory(r.data.results||r.data||[])
-    } catch(e) { alert(e.response?.data?.error || 'Erreur') }
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
   const inp = { background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }

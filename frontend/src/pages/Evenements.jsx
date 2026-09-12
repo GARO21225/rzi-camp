@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { evenements as evtAPI, alertes as alertesAPI } from '../api'
 import { useStore } from '../store'
+import { toast, confirmDialog } from '../toast'
 
 const TYPE_COLORS = {
   reunion:{ bg:'rgba(37,99,235,.12)', color:'var(--rzc-blue)', icon:'👥' },
@@ -48,31 +49,31 @@ export default function Evenements() {
   useEffect(()=>{ load() },[])
 
   const createEvt = async () => {
-    if (!form.titre||!form.date_debut) return alert('Titre et date obligatoires')
+    if (!form.titre||!form.date_debut) return toast.success('Titre et date obligatoires')
     const payload = { ...form, notifier_residents: true }
     try {
       const r = await evtAPI.create(payload)
       setModal(false)
       setNotifResult(r.data.residents_notifies)
       load()
-    } catch(e) { alert(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) { toast.success(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
   const notifier = async (id, titre) => {
     const r = await evtAPI.notifier(id)
-    alert(`✅ ${r.data.residents_notifies} résident(s) notifié(s) pour "${titre}"`)
+    toast.success(`✅ ${r.data.residents_notifies} résident(s) notifié(s) pour "${titre}"`)
   }
 
   const deleteEvt = async (id, titre) => {
-    if (!window.confirm(`Supprimer "${titre}" ?`)) return
-    try { await evtAPI.delete(id); load() } catch(e) { alert(e.response?.data?.error||e.message) }
+    if (!await confirmDialog(`Supprimer "${titre}" ?`)) return
+    try { await evtAPI.delete(id); load() } catch(e) { toast.success(e.response?.data?.error||e.message) }
   }
   const changerStatut = async (id, statut) => {
     await evtAPI.changerStatut(id, statut); load()
   }
 
   const createAlerte = async () => {
-    if (!alerteForm.message) return alert('Message obligatoire')
+    if (!alerteForm.message) return toast.success('Message obligatoire')
     await alertesAPI.create(alerteForm)
     setAlerteModal(false); setAlerteForm({ message:'', type_alerte:'info' }); load()
   }

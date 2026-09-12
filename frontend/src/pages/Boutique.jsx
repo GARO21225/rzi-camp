@@ -9,6 +9,7 @@ import { boutique as boutiqueAPI, personnel as personnelAPI, parametres as param
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { MobileMoneyBadge, MOBILE_MONEY_LABELS } from '../components/MobileMoneyIcons'
+import { toast, confirmDialog } from '../toast'
 
 // ── Images par défaut (fallback si pas d'image en DB) ──────
 const DEFAULT_PHOTOS = {
@@ -371,7 +372,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   }
 
   const crediterTous = async () => {
-    if (!window.confirm(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
+    if (!await confirmDialog(`Créditer TOUS les personnels actifs de ${montant.toLocaleString()} FCFA pour ${annee} ?`)) return
     setLoading(true)
     try {
       const r = await boutiqueAPI.crediterTous({ montant, annee })
@@ -382,7 +383,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
   }
 
   const crediterUn = async () => {
-    if (!selPerso) return alert('Sélectionner un personnel')
+    if (!selPerso) return toast.success('Sélectionner un personnel')
     setLoading(true)
     try {
       const r = await boutiqueAPI.crediterPersonnel({ personnel_id: selPerso, montant, annee })
@@ -538,11 +539,11 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
                       ✏️ Modifier
                     </button>
                     <button onClick={async()=>{
-                      if(!window.confirm(`Supprimer le bon de ${b.personnel_nom} ?`)) return
+                      if(!await confirmDialog(`Supprimer le bon de ${b.personnel_nom} ?`)) return
                       try {
                         await api.delete(`/api/boutique/bons/${b.id}/`)
                         onRefresh()
-                      } catch(e) { alert(e.response?.data?.error||'Erreur suppression') }
+                      } catch(e) { toast.error(e.response?.data?.error||'Erreur suppression') }
                     }}
                       style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fca5a5',
                         padding:'2px 8px',borderRadius:6,cursor:'pointer',fontSize:10,fontWeight:700}}>
@@ -663,8 +664,8 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
                     body:JSON.stringify({personnel_id:editBon.personnel,montant:editMontant,annee:new Date().getFullYear()})
                   })
                   if(r.ok){setEditBon(null);onRefresh()}
-                  else {const d=await r.json();alert(d.error||'Erreur')}
-                }catch(e){alert('Erreur: '+e.message)}
+                  else {const d=await r.json();toast.error(d.error||'Erreur')}
+                }catch(e){toast.error('Erreur: '+e.message)}
               }}
                 style={{width:'100%',marginTop:14,background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',
                   padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
@@ -693,12 +694,12 @@ function ArticleModal({ article, categories, onSave, onClose }) {
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
 
   const handleSave = async () => {
-    if (!form.nom.trim()) return alert('Nom requis')
+    if (!form.nom.trim()) return toast.success('Nom requis')
     setSaving(true)
     try {
       await onSave({...form, prix:Number(form.prix)||0, stock:Number(form.stock)||0, image_url: imgPreview})
       onClose()
-    } catch(e) { alert(e.response?.data?.detail||JSON.stringify(e.response?.data)||'Erreur') }
+    } catch(e) { toast.error(e.response?.data?.detail||JSON.stringify(e.response?.data)||'Erreur') }
     finally { setSaving(false) }
   }
 
@@ -748,7 +749,7 @@ function ArticleModal({ article, categories, onSave, onClose }) {
                     onChange={async e => {
                       const file = e.target.files?.[0]
                       if (!file) return
-                      if (file.size > 2 * 1024 * 1024) { alert('Image trop grande (max 2 Mo)'); return }
+                      if (file.size > 2 * 1024 * 1024) { toast.success('Image trop grande (max 2 Mo)'); return }
                       const reader = new FileReader()
                       reader.onload = ev => setImgPreview(ev.target.result)
                       reader.readAsDataURL(file)
@@ -1061,7 +1062,7 @@ export default function Boutique({ embedded = false } = {}) {
     try {
       await boutiqueAPI.deleteArticle(a.id)
       load()
-    } catch(e) { alert(e.response?.data?.detail||'Impossible de supprimer') }
+    } catch(e) { toast.error(e.response?.data?.detail||'Impossible de supprimer') }
   }
 
   const addTo   = a => {setMsg(null);setPanier(p=>{const ex=p.find(x=>x.a.id===a.id);return ex?p.map(x=>x.a.id===a.id?{...x,q:x.q+1}:x):[...p,{a,q:1}]})}
@@ -1133,7 +1134,7 @@ export default function Boutique({ embedded = false } = {}) {
     try {
       await boutiqueAPI.updateArticle(artId, { categorie: targetCat })
       setArticles(prev => prev.map(a => a.id===artId ? {...a, categorie:targetCat} : a))
-    } catch(e) { alert('Erreur lors du déplacement') }
+    } catch(e) { toast.error('Erreur lors du déplacement') }
   }
   const handleQuickCat = async (artId, newCat) => {
     setQuickCatArt(null)
@@ -1142,7 +1143,7 @@ export default function Boutique({ embedded = false } = {}) {
     try {
       await boutiqueAPI.updateArticle(artId, { categorie: newCat })
       setArticles(prev => prev.map(a => a.id===artId ? {...a, categorie:newCat} : a))
-    } catch(e) { alert('Erreur') }
+    } catch(e) { toast.error('Erreur') }
   }
 
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
@@ -1821,7 +1822,7 @@ export default function Boutique({ embedded = false } = {}) {
                       ok++
                     } catch { err++ }
                   }
-                  alert(`Import terminé: ${ok} article(s) créé(s)${err?`, ${err} erreur(s)`:''}`)
+                  toast.error(`Import terminé: ${ok} article(s) créé(s)${err?`, ${err} erreur(s)`:''}`)
                   e.target.value = ''
                   // Recharger les articles
                   window.location.reload()
@@ -2196,7 +2197,7 @@ export default function Boutique({ embedded = false } = {}) {
                   setStockModal(null)
                   // Rafraîchir les articles
                   boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
-                } catch(e) { alert(e.response?.data?.error||'Erreur stock') }
+                } catch(e) { toast.error(e.response?.data?.error||'Erreur stock') }
               }}
                 style={{background:'#16a34a',color:'var(--rzc-white)',border:'none',padding:12,
                   borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>

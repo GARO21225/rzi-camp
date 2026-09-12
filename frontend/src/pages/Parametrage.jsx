@@ -5,6 +5,7 @@ import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
 import { questionsAvis as questionsAvisAPI } from '../api'
+import { toast, confirmDialog } from '../toast'
 
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
@@ -193,7 +194,7 @@ function QuestionsAvisTab() {
   }
 
   const enregistrer = async () => {
-    if (!form.label.trim()) { alert('Le libellé de la question est requis.'); return }
+    if (!form.label.trim()) { toast.success('Le libellé de la question est requis.'); return }
     const payload = {
       ...form,
       options: form.type_question === 'choix' ? optionsText.split('\n').map(s=>s.trim()).filter(Boolean) : [],
@@ -203,16 +204,16 @@ function QuestionsAvisTab() {
       else await questionsAvisAPI.create(payload)
       setShowForm(false)
       charger()
-    } catch { alert("Erreur lors de l'enregistrement") }
+    } catch { toast.error("Erreur lors de l'enregistrement") }
   }
 
   const supprimer = async (id) => {
-    if (!window.confirm('Supprimer cette question ? Les réponses déjà données seront conservées mais la question ne sera plus posée.')) return
-    try { await questionsAvisAPI.delete(id); charger() } catch { alert('Erreur suppression') }
+    if (!await confirmDialog('Supprimer cette question ? Les réponses déjà données seront conservées mais la question ne sera plus posée.')) return
+    try { await questionsAvisAPI.delete(id); charger() } catch { toast.error('Erreur suppression') }
   }
 
   const toggleActif = async (q) => {
-    try { await questionsAvisAPI.update(q.id, { actif: !q.actif }); charger() } catch { alert('Erreur') }
+    try { await questionsAvisAPI.update(q.id, { actif: !q.actif }); charger() } catch { toast.error('Erreur') }
   }
 
   if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
@@ -409,7 +410,7 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 1.5 * 1024 * 1024) {
-      alert('Le logo doit faire moins de 1,5 Mo. Compressez l\'image avant de l\'importer.')
+      toast.success('Le logo doit faire moins de 1,5 Mo. Compressez l\'image avant de l\'importer.')
       return
     }
     const reader = new FileReader()

@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI } from '../api'
 import { useStore } from '../store'
+import { toast, confirmDialog } from '../toast'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -168,17 +169,17 @@ export default function MapPage() {
   useEffect(() => { loadChemins() }, [loadChemins])
 
   const finirTraceChemin = async () => {
-    if (cheminPoints.length < 2) { alert('Tracez au moins 2 points.'); return }
+    if (cheminPoints.length < 2) { toast.success('Tracez au moins 2 points.'); return }
     try {
       await cheminAPI.create({ nom: cheminForm.nom, type_chemin: cheminForm.type_chemin, points: cheminPoints })
       setCheminPoints([]); setDrawingChemin(false); setCheminForm({ nom:'', type_chemin:'chemin' })
       loadChemins()
-    } catch { alert("Erreur lors de l'enregistrement du chemin") }
+    } catch { toast.error("Erreur lors de l'enregistrement du chemin") }
   }
 
   const supprimerChemin = async (id) => {
-    if (!window.confirm('Supprimer ce chemin ?')) return
-    try { await cheminAPI.delete(id); loadChemins() } catch { alert('Erreur suppression') }
+    if (!await confirmDialog('Supprimer ce chemin ?')) return
+    try { await cheminAPI.delete(id); loadChemins() } catch { toast.error('Erreur suppression') }
   }
 
   const savePoi = async () => {
@@ -188,12 +189,12 @@ export default function MapPage() {
         description: poiForm.description, latitude: poiDraft.lat, longitude: poiDraft.lng })
       setPoiDraft(null); setAddingPoi(false); setPoiForm({ nom:'', categorie:'autre', description:'' })
       loadPois()
-    } catch { alert("Erreur lors de l'enregistrement du point d'intérêt") }
+    } catch { toast.error("Erreur lors de l'enregistrement du point d'intérêt") }
   }
 
   const deletePoi = async (id) => {
-    if (!window.confirm('Supprimer ce point d\'intérêt ?')) return
-    try { await poiAPI.delete(id); loadPois() } catch { alert('Erreur suppression') }
+    if (!await confirmDialog('Supprimer ce point d\'intérêt ?')) return
+    try { await poiAPI.delete(id); loadPois() } catch { toast.error('Erreur suppression') }
   }
 
   const tile=TILES.find(t=>t.id===tileId)||TILES[0]
@@ -230,7 +231,7 @@ export default function MapPage() {
     const token = localStorage.getItem('access_token') || ''
     window._mapEdit = (id, residence, statut) => setEditBat({id, residence, statut})
     window._mapDelete = async (id, residence) => {
-      if (!window.confirm('Supprimer ' + residence + ' ?')) return
+      if (!await confirmDialog('Supprimer ' + residence + ' ?')) return
       await fetch(`${BASE}/api/batiments/${id}/`, {
         method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
       }).catch(()=>{})

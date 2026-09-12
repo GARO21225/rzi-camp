@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { personnel as personnelAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { toast, confirmDialog } from '../toast'
 
 // ── Error Boundary ───────────────────────────────────────
 class PersonnelBoundary extends React.Component {
@@ -117,7 +118,7 @@ export default function Personnel() {
   }
 
   const massSupprimerSelected = async () => {
-    if (!window.confirm(`Supprimer ${selected_ids.size} membre(s) ?`)) return
+    if (!await confirmDialog(`Supprimer ${selected_ids.size} membre(s) ?`)) return
     for (const id of selected_ids) {
       try { await personnelAPI.delete(id) } catch(e) {}
     }
@@ -163,14 +164,14 @@ export default function Personnel() {
       await personnelAPI.delete(p.id)
       setConfirmDel(null)
       load()
-    } catch(e) { alert(e.response?.data?.detail || 'Erreur suppression') }
+    } catch(e) { toast.error(e.response?.data?.detail || 'Erreur suppression') }
   }
 
   const handleToggleActif = async (p) => {
     try {
       await personnelAPI.update(p.id, { actif: !p.actif })
       load()
-    } catch(e) { alert('Erreur') }
+    } catch(e) { toast.error('Erreur') }
   }
 
   const handleChangeRole = async () => {
@@ -184,7 +185,7 @@ export default function Personnel() {
       setRoleModal(null); setNewProfil(''); load()
     } catch(e) {
       const msg = e.response?.data ? JSON.stringify(e.response.data) : 'Erreur réseau'
-      alert('Erreur: ' + msg)
+      toast.error('Erreur: ' + msg)
     }
   }
 
@@ -270,7 +271,7 @@ export default function Personnel() {
           .filter(l => l.trim())
 
         if (lines.length < 2) {
-          alert('CSV vide')
+          toast.success('CSV vide')
           return
         }
 
@@ -504,7 +505,7 @@ export default function Personnel() {
         const ok = d.imported || 0
         const errs = d.errors || []
 
-        alert(
+        (errs.length ? toast.warning : toast.success)(
           `✅ ${ok} personnel importé(s)` +
           (
             errs.length
@@ -517,7 +518,7 @@ export default function Personnel() {
 
       } catch (e) {
         console.error('Erreur import personnel:', e)
-        alert('Erreur import: ' + e.message)
+        toast.error('Erreur import: ' + e.message)
       }
     }
 
@@ -1002,14 +1003,14 @@ export default function Personnel() {
                     </div>
                     <button disabled={masseLoading}
                       onClick={async () => {
-                        if (!masseForm.societe.trim()) { alert('Société requise'); return }
+                        if (!masseForm.societe.trim()) { toast.success('Société requise'); return }
                         setMasseLoading(true)
                         try {
                           const r = await personnelAPI.declarerMasse(masseForm)
                           setMasseResult(r.data)
                           load()
                         } catch(e) {
-                          alert(e.response?.data?.error || 'Erreur serveur')
+                          toast.error(e.response?.data?.error || 'Erreur serveur')
                         } finally {
                           setMasseLoading(false)
                         }
@@ -1055,7 +1056,7 @@ export default function Personnel() {
                     <div style={{display:'flex',gap:10,marginTop:14}}>
                       <button onClick={()=>{
                         const txt = (masseResult.agents||[]).map(a=>a.login+' / '+a.pwd).join('\n')
-                        navigator.clipboard.writeText(txt).then(()=>alert('Copié !'))
+                        navigator.clipboard.writeText(txt).then(()=>toast.success('Copié !'))
                       }} style={{flex:1,background:'var(--rzc-ore-gold)',color:'#1A1206',border:'none',
                         padding:11,borderRadius:9,cursor:'pointer',fontWeight:700,fontFamily:'inherit',fontSize:12}}>
                         📋 Copier

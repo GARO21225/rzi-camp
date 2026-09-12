@@ -34,13 +34,12 @@ export function useAsync(asyncFn, deps = []) {
 }
 
 /**
- * useConfirm — centralise window.confirm (10 pages)
- * Retourne une fonction async qui affiche une confirmation
+ * useConfirm — centralise la confirmation (10 pages)
+ * Retourne une fonction async qui affiche une confirmation stylée
+ * (voir confirmDialog dans ../toast — pas window.confirm natif, non stylé
+ * et bloquant, remplacé partout ailleurs dans l'app pour la même raison)
  */
+import { confirmDialog } from '../toast'
 export function useConfirm() {
-  return useCallback((message) => {
-    return new Promise(resolve => {
-      resolve(window.confirm(message))
-    })
-  }, [])
+  return useCallback((message) => confirmDialog(message), [])
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI } from '../api'
+import { toast } from '../toast'
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -248,12 +249,12 @@ export default function Historique() {
       // If no filter at all, still search (show all)
       const r = await occupationHistory.recherche(p)
       setResults(r.data.results||r.data||[])
-    } catch(e) { alert('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
+    } catch(e) { toast.error('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
     finally { setLoading(false) }
   }
 
   const searchPersonne = async () => {
-    if (!personneQ.personnel) return alert('Sélectionner un membre du personnel')
+    if (!personneQ.personnel) return toast.success('Sélectionner un membre du personnel')
     setLoading(true); setResults([]); setSearched(true)
     try {
       const r = await occupationHistory.recherche({
@@ -262,17 +263,17 @@ export default function Historique() {
         date_fin: personneQ.date_fin,
       })
       setResults(r.data.results||r.data||[])
-    } catch(e) { alert('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
+    } catch(e) { toast.error('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
     finally { setLoading(false) }
   }
 
   const searchVoyages = async () => {
-    if (!selPers) return alert('Sélectionner un membre')
+    if (!selPers) return toast.success('Sélectionner un membre')
     setVoyLoading(true); setVoyData(null)
     try {
       const r = await personnelAPI.historiqueVoyages(selPers)
       setVoyData(r.data)
-    } catch(e) { alert('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
+    } catch(e) { toast.error('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
     finally { setVoyLoading(false) }
   }
 

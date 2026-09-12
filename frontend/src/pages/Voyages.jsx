@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { voyages, personnel as personnelAPI, batiments as batsAPI } from '../api'
 import { useStore } from '../store'
+import { toast, confirmDialog } from '../toast'
 
 const STATUT_STYLES = {
   planifie:  { bg:'rgba(37,99,235,.12)',  color:'#1d4ed8',  label:'Planifié'    },
@@ -104,25 +105,25 @@ export default function Voyages() {
   // Actions
   const partir = async (id) => {
     try { await voyages.partir(id); loadVoyages() }
-    catch(e) { alert(e.response?.data?.error||'Erreur') }
+    catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
   const revenir = async (v) => {
     try { await voyages.revenir(v.id); loadVoyages() }
-    catch(e) { alert(e.response?.data?.error||'Erreur') }
+    catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
   const annulerVoyage = async (v) => {
-    if (!window.confirm(`Annuler le voyage de ${v.personnel_detail?.nom||''} ?`)) return
+    if (!await confirmDialog(`Annuler le voyage de ${v.personnel_detail?.nom||''} ?`)) return
     try { await voyages.annuler(v.id); loadVoyages() }
-    catch(e) { alert(e.response?.data?.error||'Erreur') }
+    catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
   const supprimerVoyage = async (v) => {
-    if (!window.confirm(`🗑️ Supprimer définitivement le voyage de ${v.personnel_detail?.nom||'?'} vers ${v.destination||'?'} ?\n\nCette action est irréversible.`)) return
+    if (!await confirmDialog(`🗑️ Supprimer définitivement le voyage de ${v.personnel_detail?.nom||'?'} vers ${v.destination||'?'} ?\n\nCette action est irréversible.`)) return
     try { await voyages.supprimer(v.id); loadVoyages() }
-    catch(e) { alert(e.response?.data?.error || 'Impossible de supprimer ce voyage') }
+    catch(e) { toast.error(e.response?.data?.error || 'Impossible de supprimer ce voyage') }
   }
 
   const createVoyage = async () => {
-    if (!form.personnel || !form.destination || !form.date_depart) return alert('Personnel, destination et date de départ requis')
+    if (!form.personnel || !form.destination || !form.date_depart) return toast.success('Personnel, destination et date de départ requis')
     setSubmitting(true)
     try {
       await voyages.create(form)
@@ -136,7 +137,7 @@ export default function Voyages() {
         || (typeof d === 'string' ? d : null)
         || JSON.stringify(d)
         || 'Erreur lors de la création du voyage'
-      alert(msg)
+      toast.success(msg)
     }
     finally { setSubmitting(false) }
   }
@@ -149,7 +150,7 @@ export default function Voyages() {
       await voyages.update(editModal.id, editModal)
       setEditModal(null)
       loadVoyages()
-    } catch(e) { alert(e.response?.data?.detail || 'Erreur') }
+    } catch(e) { toast.error(e.response?.data?.detail || 'Erreur') }
     finally { setSubmitting(false) }
   }
 

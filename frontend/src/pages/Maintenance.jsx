@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { toast, confirmDialog } from '../toast'
 
 
 // ── Générateur de rapport maintenance ──────────────────────────
@@ -566,7 +567,7 @@ export default function Maintenance() {
       const updated = await incAPI.list({ page_size:100 })
       const items = updated.data.results || updated.data || []
       setSelected(items.find(i => i.id === selected.id) || null)
-    } catch(e) { alert(e.response?.data?.detail || 'Erreur action') }
+    } catch(e) { toast.error(e.response?.data?.detail || 'Erreur action') }
     finally { setSubmitting(false) }
   }
 
@@ -601,7 +602,7 @@ export default function Maintenance() {
     input.onchange = async (e) => {
       const file = e.target.files?.[0]
       if (!file) return
-      if (file.size > 10*1024*1024) { alert('Max 10Mo'); return }
+      if (file.size > 10*1024*1024) { toast.success('Max 10Mo'); return }
       try {
         const b64 = await compressImage(file, 800)
         const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
@@ -613,7 +614,7 @@ export default function Maintenance() {
         })
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}))
-          alert('Erreur upload: ' + (err.detail || err.error || `HTTP ${resp.status}`))
+          toast.error('Erreur upload: ' + (err.detail || err.error || `HTTP ${resp.status}`))
           return
         }
         await load()
@@ -625,7 +626,7 @@ export default function Maintenance() {
           const items = updated.data.results || updated.data || []
           setSelected(items.find(i => i.id === selected.id) || null)
         }
-      } catch(err2) { alert('Erreur upload: ' + (err2.message || String(err2))) }
+      } catch(err2) { toast.error('Erreur upload: ' + (err2.message || String(err2))) }
     }
     input.click()
   }
@@ -680,7 +681,7 @@ export default function Maintenance() {
       if (!file) return
       const text = await file.text()
       const lines = text.split('\n').filter(l=>l.trim())
-      if (lines.length < 2) { alert('CSV vide ou invalide'); return }
+      if (lines.length < 2) { toast.error('CSV vide ou invalide'); return }
       // Détecter séparateur
       const sep = lines[0].includes(';') ? ';' : ','
       const headers = lines[0].split(sep).map(h=>h.trim().replace(/["﻿]/g,'').toLowerCase())
@@ -707,7 +708,7 @@ export default function Maintenance() {
           errors.push(`Ligne ${i+1}: ${err.response?.data?.detail||err.message}`)
         }
       }
-      alert(`✅ ${imported} incident(s) importé(s)${errors.length ? '\n\n⚠️ Erreurs:\n'+errors.slice(0,5).join('\n') : ''}`)
+      toast.error(`✅ ${imported} incident(s) importé(s)${errors.length ? '\n\n⚠️ Erreurs:\n'+errors.slice(0,5).join('\n') : ''}`)
       load()
     }
     input.click()
@@ -1137,9 +1138,9 @@ export default function Maintenance() {
                               padding:'3px 8px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700 }}>
                             ✏️
                           </button>
-                          <button onClick={e=>{e.stopPropagation();
-                            if(window.confirm(`Supprimer l'incident "${inc.titre}" ?`))
-                              incAPI.supprimer(inc.id).then(()=>load()).catch(e=>alert('Erreur suppression: '+(e.response?.data?.detail||e.message||'inconnue')))
+                          <button onClick={async e=>{e.stopPropagation();
+                            if(await confirmDialog(`Supprimer l'incident "${inc.titre}" ?`))
+                              incAPI.supprimer(inc.id).then(()=>load()).catch(e=>toast.error('Erreur suppression: '+(e.response?.data?.detail||e.message||'inconnue')))
                           }}
                             title="Supprimer l'incident"
                             style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',
@@ -1241,7 +1242,7 @@ export default function Maintenance() {
                     onChange={e=>{
                       const file=e.target.files?.[0]
                       if(!file) return
-                      if(file.size>3*1024*1024){alert('Max 3Mo');return}
+                      if(file.size>3*1024*1024){toast.success('Max 3Mo');return}
                       const r=new FileReader()
                       r.onload=ev=>setForm(f=>({...f,photo_b64:ev.target.result}))
                       r.readAsDataURL(file)
@@ -1550,7 +1551,7 @@ export default function Maintenance() {
                         residence: editInc.residence, bloc: editInc.bloc||''
                       })
                       setShowEdit(false); load()
-                    } catch(e) { alert(e.response?.data?.detail||'Erreur modification') }
+                    } catch(e) { toast.error(e.response?.data?.detail||'Erreur modification') }
                   }}
                     style={{ flex:1, background:'var(--rzc-navy)', color:'#fff', border:'none',
                       padding:12, borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>

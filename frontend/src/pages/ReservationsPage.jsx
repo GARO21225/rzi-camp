@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { toast } from '../toast'
 
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
@@ -683,7 +684,7 @@ export default function ReservationsPage() {
               />
               <button onClick={()=>{
                 const km = parseInt(document.getElementById('km-retour-input')?.value)
-                if (!km || km < 1) { alert('Entrez le kilométrage'); return }
+                if (!km || km < 1) { toast.success('Entrez le kilométrage'); return }
                 // Mettre à jour le fleet
                 const saved = JSON.parse(localStorage.getItem('rzi_fleet_v1')||'{}')
                 Object.keys(saved).forEach(cat => {
@@ -698,7 +699,7 @@ export default function ReservationsPage() {
                   stored.map(r=>r.id===qrModal.id?{...r,statut:'clôturé',km_retour:km}:r)
                 ))
                 setReservations(stored.map(r=>r.id===qrModal.id?{...r,statut:'clôturé',km_retour:km}:r))
-                alert(`✅ Kilométrage enregistré: ${km.toLocaleString()} km`)
+                toast.success(`✅ Kilométrage enregistré: ${km.toLocaleString()} km`)
                 setQrModal(null)
               }} style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,
                 padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700}}>

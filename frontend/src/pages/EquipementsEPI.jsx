@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { epiAPI, personnel as personnelAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { toast, confirmDialog } from '../toast'
 
 const TYPES = [
   ['casque','⛑️ Casque'],['chaussures','🥾 Chaussures de sécurité'],['gilet','🦺 Gilet haute visibilité'],
@@ -46,18 +47,18 @@ export default function EquipementsEPI() {
   })
 
   const enregistrer = async () => {
-    if (!form.personnel || !form.date_remise) { alert('Personnel et date de remise requis.'); return }
+    if (!form.personnel || !form.date_remise) { toast.success('Personnel et date de remise requis.'); return }
     try {
       await epiAPI.create(form)
       setShowForm(false)
       setForm({ personnel:'', type_epi:'casque', date_remise:new Date().toISOString().slice(0,10), date_expiration:'', etat:'bon', notes:'' })
       charger()
-    } catch { alert("Erreur lors de l'enregistrement") }
+    } catch { toast.error("Erreur lors de l'enregistrement") }
   }
 
   const supprimer = async (id) => {
-    if (!window.confirm('Supprimer cet équipement ?')) return
-    try { await epiAPI.delete(id); charger() } catch { alert('Erreur suppression') }
+    if (!await confirmDialog('Supprimer cet équipement ?')) return
+    try { await epiAPI.delete(id); charger() } catch { toast.error('Erreur suppression') }
   }
 
   return (

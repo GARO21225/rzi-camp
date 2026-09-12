@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
+import ToastContainer from './ToastContainer'
+import ConfirmDialogContainer from './ConfirmDialogContainer'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -397,6 +399,8 @@ export default function Layout() {
             <Outlet />
           </main>
       </div>
+      <ToastContainer />
+      <ConfirmDialogContainer />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { inductionConfig, inductionInfras, inductionRegles, inductionQuiz } from '../api'
+import { toast, confirmDialog } from '../toast'
 
 // ─────────────────────────────────────────────────────────────────
 //  Helpers
@@ -232,14 +233,14 @@ export default function InductionAdmin() {
   }
 
   const deleteItem = async (type, item) => {
-    if (!window.confirm(`Supprimer « ${item.titre || item.question?.slice(0,40)} » ?`)) return
+    if (!await confirmDialog(`Supprimer « ${item.titre || item.question?.slice(0,40)} » ?`)) return
     const api = { infra: inductionInfras, regle: inductionRegles, quiz: inductionQuiz }[type]
-    try { await api.delete(item.id); load() } catch (e) { alert('Erreur suppression') }
+    try { await api.delete(item.id); load() } catch (e) { toast.error('Erreur suppression') }
   }
 
   const toggleActif = async (type, item) => {
     const api = { infra: inductionInfras, regle: inductionRegles, quiz: inductionQuiz }[type]
-    try { await api.update(item.id, { actif: !item.actif }); load() } catch (e) { alert('Erreur') }
+    try { await api.update(item.id, { actif: !item.actif }); load() } catch (e) { toast.error('Erreur') }
   }
 
   const TABS = [

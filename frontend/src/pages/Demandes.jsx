@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
+import { toast, confirmDialog } from '../toast'
 
 const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
@@ -62,7 +63,7 @@ export default function Demandes() {
       setCreateModal(null)
       setForm({ message_demandeur:'', residence_souhaitee:'', date_debut_souhaitee:today, date_fin_souhaitee:'', donnees:{} })
       load()
-    } catch(e) { alert(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) { toast.success(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
   const doAction = async () => {
@@ -75,7 +76,7 @@ export default function Demandes() {
       setActionForm({ commentaire:'', proposition:{} })
       setDetailModal(null)
       load()
-    } catch(e) { alert(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) { toast.success(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
   const doAgentAction = async (demande, action) => {
@@ -84,11 +85,11 @@ export default function Demandes() {
       else if (action === 'refuser') await demandesAPI.refuserProposition(demande.id)
       else if (action === 'annuler') await demandesAPI.annuler(demande.id)
       load()
-    } catch(e) { alert(e.response?.data?.error||e.message) }
+    } catch(e) { toast.success(e.response?.data?.error||e.message) }
   }
 
   const deleteDemande = async (id) => {
-    if (!window.confirm('Supprimer définitivement cette demande ?')) return
+    if (!await confirmDialog('Supprimer définitivement cette demande ?')) return
     await demandesAPI.delete(id); load()
   }
 

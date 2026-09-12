@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
+import { toast, confirmDialog } from '../toast'
 
 class InductionErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null } }
@@ -716,7 +717,7 @@ function InductionPageInner() {
   // Réinitialiser une étape (modifier ou supprimer)
   const resetEtape = async (key) => {
     if (!selected) return
-    if (!window.confirm(`Réinitialiser l'étape "${ETAPES.find(e=>e.key===key)?.titre}" ? Les données seront effacées.`)) return
+    if (!await confirmDialog(`Réinitialiser l'étape "${ETAPES.find(e=>e.key===key)?.titre}" ? Les données seront effacées.`)) return
     const curr = getWF(selected.id)
     const newEtapes = { ...(curr.etapes||{}) }
     delete newEtapes[key]
@@ -1005,7 +1006,7 @@ function InductionPageInner() {
                   </button>
                   <button onClick={async(ev)=>{
                     ev.stopPropagation()
-                    if(!window.confirm(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
+                    if(!await confirmDialog(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
                       const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
                       const token = localStorage.getItem('access_token') || ''
@@ -1417,7 +1418,7 @@ function InductionPageInner() {
                               return `${i+1}. ${e.titre}: ${info?.done?'✅ Validé le '+new Date(info.date).toLocaleDateString('fr-FR'):'⏳ En attente'}`
                             })
                             const txt = `PARCOURS INDUCTION QHSE\n${selected.nom} ${selected.prenom}\n${'='.repeat(40)}\n${lignes.join('\n')}`
-                            navigator.clipboard.writeText(txt).then(()=>alert('Parcours copié dans le presse-papier !'))
+                            navigator.clipboard.writeText(txt).then(()=>toast.success('Parcours copié dans le presse-papier !'))
                           }}
                             style={{width:'100%',padding:10,borderRadius:9,border:'1px solid #e2e8f0',
                               background:'var(--rzc-charcoal)',color:'var(--rzc-navy)',cursor:'pointer',fontFamily:'inherit',
@@ -1582,9 +1583,9 @@ function InductionPageInner() {
                             </button>
                             <button onClick={()=>{
                               const missing = etape.champs.filter(c=>c.required&&!formData[c.key])
-                              if(missing.length) { alert('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
+                              if(missing.length) { toast.success('Champs requis: '+missing.map(c=>c.label).join(', ')); return }
                               if(etape.assignRole && !formData[`assign_${etape.key}`]?.trim()) {
-                                alert(`Assignation requise: ${etape.assignLabel}`)
+                                toast.success(`Assignation requise: ${etape.assignLabel}`)
                                 return
                               }
                               validerEtape(etape.key, {form:formData, assign:formData[`assign_${etape.key}`]||''})
@@ -1654,7 +1655,7 @@ function InductionPageInner() {
                             </button>
                             <button onClick={()=>{
                               const manquants = etape.docs.filter(d=>d.required&&!docUploads[d.key])
-                              if(manquants.length){alert('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
+                              if(manquants.length){toast.success('Documents requis: '+manquants.map(d=>d.label).join(', '));return}
                               validerEtape(etape.key, {docs:docUploads, docData:docData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',
@@ -1713,9 +1714,9 @@ function InductionPageInner() {
                             </button>
                             <button onClick={()=>{
                               const missing=etape.champs.filter(c=>c.required&&!medData[c.key])
-                              if(missing.length){alert('Champs requis: '+missing.map(c=>c.label).join(', '));return}
-                              if(medData.alcool==='Positif'||medData.drogues==='Positif'){alert('⛔ Tests positifs — Accès refusé. Contacter le médecin.');return}
-                              if(!medData.resultat?.startsWith('FIT')){alert('⛔ Résultat médecin non FIT — Accès refusé.');return}
+                              if(missing.length){toast.success('Champs requis: '+missing.map(c=>c.label).join(', '));return}
+                              if(medData.alcool==='Positif'||medData.drogues==='Positif'){toast.error('⛔ Tests positifs — Accès refusé. Contacter le médecin.');return}
+                              if(!medData.resultat?.startsWith('FIT')){toast.error('⛔ Résultat médecin non FIT — Accès refusé.');return}
                               validerEtape(etape.key,{medical:medData})
                             }}
                               style={{flex:2,padding:12,borderRadius:10,border:'none',

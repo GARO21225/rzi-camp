@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { useStore } from '../store'
 import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { toast, confirmDialog } from '../toast'
 
 // ── Configuration repas ───────────────────────────────────────────
 const REPAS = [
@@ -730,9 +731,9 @@ export default function Restauration() {
                                   <button onClick={()=>setMenuForm(m)} title="Modifier"
                                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, padding:'1px 2px' }}>✏️</button>
                                   <button onClick={async()=>{
-                                    if(!window.confirm('Supprimer ?'))return
+                                    if(!await confirmDialog('Supprimer ?'))return
                                     try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}
-                                    catch{alert('Erreur suppression')}
+                                    catch{toast.error('Erreur suppression')}
                                   }} title="Supprimer"
                                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, padding:'1px 2px' }}>🗑️</button>
                                 </div>
@@ -1072,9 +1073,9 @@ function MenuDuJour({ menuItems, setMenuItems, menuDate, setMenuDate, menuForm, 
                           style={{background:'#eff6ff',color:'#2563eb',border:'none',
                             padding:'3px 7px',borderRadius:5,cursor:'pointer',fontSize:11}}>✏️</button>
                         <button onClick={async()=>{
-                          if(!window.confirm('Supprimer ce plat ?'))return
+                          if(!await confirmDialog('Supprimer ce plat ?'))return
                           try{await menuAPI.delete(m.id);setMenuItems(p=>p.filter(x=>x.id!==m.id))}
-                          catch{alert('Erreur suppression')}
+                          catch{toast.error('Erreur suppression')}
                         }} title="Supprimer"
                           style={{background:'#fef2f2',color:'#dc2626',border:'none',
                             padding:'3px 7px',borderRadius:5,cursor:'pointer',fontSize:11}}>🗑️</button>
@@ -1136,13 +1137,13 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
             style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
           <button onClick={async()=>{
-            if(!menuForm.nom||!menuForm.date_service){alert('Nom et date requis');return}
+            if(!menuForm.nom||!menuForm.date_service){toast.success('Nom et date requis');return}
             try{
               const res=await(menuForm.id?menuAPI.update(menuForm.id,menuForm):menuAPI.create(menuForm))
               const u=res.data
               setMenuItems(prev=>menuForm.id?prev.map(x=>x.id===u.id?u:x):(u.date_service===menuDate?[...prev,u]:prev))
               setMenuForm(null)
-            }catch{alert('Erreur sauvegarde')}
+            }catch{toast.error('Erreur sauvegarde')}
           }} style={{background:'var(--rzc-navy)',color:'#fff',border:'none',padding:11,
             borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit',
             width:'100%'}}>
