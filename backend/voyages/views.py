@@ -323,15 +323,30 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
-        if voyage.statut != "planifie":
-            return Response({"error":"Seuls les voyages planifiés peuvent être supprimés"}, status=400)
         voyage.delete()
         return Response({"ok": True})
 
     @action(detail=False, methods=["post"])
+    def supprimer_masse(self, request):
+        """Supprime plusieurs voyages d'un coup — pour les actions en masse
+        depuis 'Tous les voyages'. Autorise quel que soit le statut."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        ids = request.data.get("ids", [])
+        if not ids:
+            return Response({"error":"ids requis"}, status=400)
+        qs = Voyage.objects.filter(pk__in=ids)
+        nb = qs.count()
+        qs.delete()
+        return Response({"ok": True, "supprimes": nb})
+
+    @action(detail=False, methods=["post"])
     def supprimer_rotation(self, request):
-        """Supprime un convoi ENTIER (tous ses passagers d'un coup) - reserve
-        aux convois pas encore partis, comme la suppression individuelle."""
+        """Supprime un convoi ENTIER (tous ses passagers d'un coup) -
+        autorise meme si le convoi a deja ete effectue (en transit/revenu),
+        pour permettre le nettoyage/correction de donnees par un admin."""
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         if not is_admin:
@@ -342,9 +357,6 @@ class VoyageViewSet(viewsets.ModelViewSet):
         membres = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule")
         if not membres.exists():
             return Response({"error":"Convoi introuvable ou déjà vide"}, status=404)
-        actifs_partis = membres.exclude(statut="planifie")
-        if actifs_partis.exists():
-            return Response({"error":"Ce convoi a déjà des passagers partis ou revenus — impossible de le supprimer entièrement. Retirez-les individuellement si besoin."}, status=400)
         nb = membres.count()
         membres.delete()
         return Response({"ok": True, "supprimes": nb})

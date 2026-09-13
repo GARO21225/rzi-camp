@@ -445,6 +445,7 @@ export default function MissionControl() {
   const [detailVoyage, setDetailVoyage] = useState(null)
   const [etapesDetail, setEtapesDetail] = useState([])
   const [rechercheListe, setRechercheListe] = useState('')
+  const [selectionListe, setSelectionListe] = useState(new Set())
   const [flotte, setFlotte] = useState([])
   const [retoursAnticipes, setRetoursAnticipes] = useState([])
   const [nouvelleEtape, setNouvelleEtape] = useState(null)
@@ -1080,12 +1081,13 @@ export default function MissionControl() {
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
                           🏠 Retour
                         </button>}
-                        {r.statut==='planifie'&&<button className="mc-btn"
+                        <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
                           title="Supprimer tout le convoi"
                           onClick={async e=>{
                             e.stopPropagation()
-                            const ok = await confirmDialog(`Supprimer entièrement le convoi ${r.vehicule||r.rotation_id} et ses ${r.nb_passagers} passager(s) ? Cette action est irréversible.`)
+                            const avert = r.statut!=='planifie' ? '\n\n⚠️ Ce convoi a déjà été effectué (en transit ou revenu) — les données de voyage seront perdues définitivement.' : ''
+                            const ok = await confirmDialog(`Supprimer entièrement le convoi ${r.vehicule||r.rotation_id} et ses ${r.nb_passagers} passager(s) ?${avert}\n\nCette action est irréversible.`)
                             if (!ok) return
                             try {
                               const res = await api('/api/voyages/supprimer_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id})})
@@ -1095,7 +1097,7 @@ export default function MissionControl() {
                             } catch { toast.error('Erreur réseau') }
                           }}>
                           🗑️
-                        </button>}
+                        </button>
                         <button className="mc-btn mc-btn-ghost"
                           style={{padding:'6px 10px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();setSelRot(isOpen?null:r)}}>
@@ -1503,10 +1505,31 @@ export default function MissionControl() {
         {/* ══ VUE LISTE COMPLÈTE — façon billet d'agence de voyage ═══ */}
         {view==='liste' && (
           <div className="mc-fade">
-            <input value={rechercheListe} onChange={e=>setRechercheListe(e.target.value)}
-              placeholder="🔍 Rechercher un nom, une destination…"
-              style={{width:'100%',maxWidth:320,marginBottom:14,padding:'9px 14px',borderRadius:9,
-                border:`1px solid ${C.border}`,background:C.panel,color:C.text,fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14,flexWrap:'wrap'}}>
+              <input value={rechercheListe} onChange={e=>setRechercheListe(e.target.value)}
+                placeholder="🔍 Rechercher un nom, une destination…"
+                style={{flex:1,minWidth:220,maxWidth:320,padding:'9px 14px',borderRadius:9,
+                  border:`1px solid ${C.border}`,background:C.panel,color:C.text,fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+              {selectionListe.size > 0 && (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:`${C.red}12`,borderRadius:9,border:`1px solid ${C.red}30`}}>
+                  <span style={{fontSize:12,color:C.text,fontWeight:700}}>{selectionListe.size} sélectionné(s)</span>
+                  <button className="mc-btn" style={{fontSize:11,background:C.red,color:'#fff',padding:'5px 10px'}}
+                    onClick={async ()=>{
+                      const ok = await confirmDialog(`Supprimer définitivement ${selectionListe.size} voyage(s) sélectionné(s) ? Cette action est irréversible, quel que soit leur statut.`)
+                      if (!ok) return
+                      try {
+                        const res = await api('/api/voyages/supprimer_masse/', {method:'POST', body: JSON.stringify({ids:[...selectionListe]})})
+                        const d = await res.json()
+                        if (res.ok) { toast.success(`${d.supprimes} voyage(s) supprimé(s)`); setSelectionListe(new Set()); load() }
+                        else toast.error(d.error||'Erreur')
+                      } catch { toast.error('Erreur réseau') }
+                    }}>
+                    🗑️ Supprimer la sélection
+                  </button>
+                  <button className="mc-btn" style={{fontSize:11,background:C.border}} onClick={()=>setSelectionListe(new Set())}>Annuler</button>
+                </div>
+              )}
+            </div>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {voyages.filter(v=>{
                 if (!rechercheListe) return true
@@ -1518,10 +1541,20 @@ export default function MissionControl() {
                   valide:     {bg:`${C.green}18`,color:C.green,label:'✅ Validé'},
                   refuse:     {bg:`${C.red}18`,color:C.red,label:'❌ Refusé'},
                 }[v.statut_validation] || {bg:C.border,color:C.muted,label:v.statut_validation}
+                const estSelectionne = selectionListe.has(v.id)
                 return (
-                  <Panel key={v.id} style={{padding:0,overflow:'hidden'}}>
+                  <Panel key={v.id} style={{padding:0,overflow:'hidden',outline:estSelectionne?`2px solid ${C.red}`:'none'}}>
                     {/* Bandeau façon billet — talon perforé stylisé */}
                     <div style={{display:'flex',alignItems:'stretch'}}>
+                      <div style={{display:'flex',alignItems:'center',padding:'0 4px 0 12px'}}>
+                        <input type="checkbox" checked={estSelectionne}
+                          onChange={()=>setSelectionListe(prev=>{
+                            const next = new Set(prev)
+                            if (next.has(v.id)) next.delete(v.id); else next.add(v.id)
+                            return next
+                          })}
+                          style={{width:16,height:16,cursor:'pointer'}}/>
+                      </div>
                       <div style={{flex:1,padding:16,borderRight:`1.5px dashed ${C.border}`}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                           <div>
@@ -1547,6 +1580,18 @@ export default function MissionControl() {
                         <a href={`${BASE}/api/voyages/${v.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                           className="mc-btn mc-btn-primary" style={{fontSize:11,textDecoration:'none',justifyContent:'center'}}>🎫 Billet</a>
                         <button className="mc-btn" style={{fontSize:11,background:C.border,color:C.text}} onClick={()=>ouvrirDetail(v)}>Détails</button>
+                        <button className="mc-btn" style={{fontSize:11,background:`${C.red}18`,color:C.red}}
+                          onClick={async ()=>{
+                            const ok = await confirmDialog(`Supprimer définitivement le voyage de ${v.personnel_nom} vers ${v.destination} ? Cette action est irréversible.`)
+                            if (!ok) return
+                            try {
+                              const res = await api(`/api/voyages/${v.id}/supprimer_planifie/`, {method:'DELETE'})
+                              if (res.ok) { toast.success('Voyage supprimé'); load() }
+                              else { const d = await res.json(); toast.error(d.error||'Erreur') }
+                            } catch { toast.error('Erreur réseau') }
+                          }}>
+                          🗑️ Supprimer
+                        </button>
                       </div>
                     </div>
                   </Panel>
