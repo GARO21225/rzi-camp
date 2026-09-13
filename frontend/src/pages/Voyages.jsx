@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage, vehiculesFlotte } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 
 const STATUT_STYLES = {
@@ -138,6 +139,7 @@ const filtrerFlotteParMode = (flotte, mode) => {
 }
 
 export default function Voyages() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_staff ? 'admin' : 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
@@ -347,20 +349,20 @@ export default function Voyages() {
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>✈️ Gestion des Voyages</h2>
+          <h2 style={{ fontSize:isMobile?18:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>✈️ Gestion des Voyages</h2>
           <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
             {isAdmin ? 'Tous les voyages · Modification · Suivi' : `Mes voyages${myPersonnel?' — '+myPersonnel.nom+' '+myPersonnel.prenom:''}`}
           </p>
         </div>
-        <div style={{display:'flex',gap:8}}>
+        <div style={{display:'flex',gap:8,width:isMobile?'100%':'auto',flexDirection:isMobile?'column':'row'}}>
           {rotationsDispo.length > 0 && (
             <button onClick={() => setShowRotations(v=>!v)}
-              style={{ background:showRotations?'#f0a500':'#fffbeb', color:showRotations?'#000':'#92400e', border:'1.5px solid #fde68a', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+              style={{ background:showRotations?'#f0a500':'#fffbeb', color:showRotations?'#000':'#92400e', border:'1.5px solid #fde68a', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, width:isMobile?'100%':'auto' }}>
               🚌 {rotationsDispo.length} rotation(s) disponible(s)
             </button>
           )}
           <button onClick={() => setModal(true)}
-            style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700 }}>
+            style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, width:isMobile?'100%':'auto' }}>
             + {isAdmin ? 'Nouveau voyage' : 'Déclarer mon voyage'}
           </button>
         </div>
@@ -473,7 +475,7 @@ export default function Voyages() {
       <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="🔍 Rechercher un nom, une destination…"
-          style={{...inp, maxWidth:260, padding:'8px 12px', fontSize:13}}/>
+          style={{...inp, maxWidth:isMobile?'100%':260, width:isMobile?'100%':'auto', padding:'8px 12px', fontSize:13}}/>
         <select value={filterSociete} onChange={e=>setFilterSociete(e.target.value)}
           style={{...inp, maxWidth:170, padding:'8px 12px', fontSize:13}}>
           <option value="">Toutes sociétés</option>
