@@ -502,6 +502,9 @@ export default function MissionControl() {
       const data = await res.json()
       if (res.ok) {
         flash(`Rotation ${data.rotation_id} créée · ${data.voyages_crees} passager(s)`)
+        if (data.exclus && data.exclus.length > 0) {
+          setTimeout(() => toast.warning(`⚠️ ${data.exclus.length} personne(s) retirée(s) automatiquement (déjà en voyage) : ${data.exclus.join(' | ')}`, 8000), 400)
+        }
         setShowCreate(null)
         setFormRot({destination:'Abidjan',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
@@ -528,7 +531,10 @@ export default function MissionControl() {
         method:'POST',
         body: JSON.stringify({
           ...formIndiv,
-          nb_places_total: 1,
+          // Capacite du vrai vehicule si choisi, sinon 4 par defaut (pas 1) -
+          // laisse la place a des passagers express qui se presentent au
+          // depart, sans devoir tout re-creer.
+          nb_places_total: formIndiv.nb_places_total || 4,
           type_voyage: 'individuel',
           passagers: [formIndiv.personnel_id],
         })
@@ -2101,7 +2107,7 @@ export default function MissionControl() {
                           const id = e.target.value
                           const v = flotte.find(f=>String(f.id)===id)
                           if (v) setFormIndiv(p=>({...p, vehicule_flotte_id:id, vehicule:v.nom,
-                            vehicule_matricule:v.matricule, vehicule_photo:v.photo}))
+                            vehicule_matricule:v.matricule, vehicule_photo:v.photo, nb_places_total:v.capacite}))
                           else setFormIndiv(p=>({...p, vehicule_flotte_id:''}))
                         }} style={inputStyle}>
                         <option value="">— Sélectionner un véhicule du parc —</option>

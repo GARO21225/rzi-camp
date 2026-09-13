@@ -530,7 +530,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 return Response({"error": f"{conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
 
         created = []
-        conflicts = []
+        exclus = []
+        passagers_valides = []
         for pid in passagers_ids:
             conflict = _check_voyage_conflit(pid, date_depart, date_retour)
             if conflict:
@@ -540,9 +541,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     nom = f"{p.nom} {p.prenom}"
                 except Exception:
                     nom = f"Personne #{pid}"
-                conflicts.append(f"{nom} (déjà en voyage du {conflict.date_depart} au {conflict.date_retour_prevue})")
-        if conflicts:
-            return Response({"error": f"Impossible de créer la rotation : {len(conflicts)} conflit(s) détecté(s) — " + " | ".join(conflicts)}, status=400)
+                exclus.append(f"{nom} (déjà en voyage du {conflict.date_depart} au {conflict.date_retour_prevue})")
+            else:
+                passagers_valides.append(pid)
+        passagers_ids = passagers_valides
+        if not passagers_ids and exclus:
+            return Response({"error": f"Aucun passager valide — tous en conflit : " + " | ".join(exclus)}, status=400)
 
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -571,7 +575,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 created.append(v.id)
             except Exception:
                 pass
-        return Response({"rotation_id":rotation_id,"voyages_crees":len(created),"ids":created},status=201)
+        return Response({"rotation_id":rotation_id,"voyages_crees":len(created),"ids":created,"exclus":exclus},status=201)
 
     @action(detail=False, methods=["post"])
     def rejoindre_rotation(self, request):
