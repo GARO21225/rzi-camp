@@ -41,10 +41,17 @@ export default function Presences() {
 
   // Règle : Présences ne concerne que le personnel qui a effectivement droit
   // à une chambre — pas toute la liste (il y a des visiteurs de passage sans
-  // hébergement). On se base sur qui occupe REELLEMENT une chambre en ce
-  // moment, plutôt que le type de personnel seul.
+  // hébergement). On accepte le lien personnel (FK) OU une correspondance
+  // par nom sur le champ occupant (au cas où une chambre aurait été
+  // renseignée sans passer par le selecteur personnel).
   const idsLoges = new Set(batiments.filter(b=>b.personnel).map(b=>b.personnel))
-  const personnelLoge = personnel.filter(p => idsLoges.has(p.id))
+  const nomsLoges = new Set(
+    batiments.filter(b=>b.statut==='Occupé' && b.occupant)
+      .map(b=>b.occupant.trim().toLowerCase())
+  )
+  const personnelLoge = personnel.filter(p =>
+    idsLoges.has(p.id) || nomsLoges.has(`${p.nom} ${p.prenom}`.trim().toLowerCase())
+  )
 
   // Enrichir chaque personne avec son statut voyage ET l'id du voyage (pour l'action retour)
   const voyageParPersonnel = new Map(voyagesActifs.map(v => [v.personnel, v]))
@@ -164,6 +171,14 @@ export default function Presences() {
         <div style={{ textAlign:'center', padding:48, color:'var(--rzc-text-4)' }}>
           <div style={{ fontSize:40 }}>👤</div>
           <div style={{ marginTop:10, fontSize:14, fontWeight:600 }}>Aucun résultat</div>
+          {personnel.length > 0 && personnelLoge.length === 0 && !search && !filter && (
+            <div style={{ marginTop:6, fontSize:12, maxWidth:420, marginLeft:'auto', marginRight:'auto' }}>
+              Aucune chambre n'est actuellement liée à une personne dans Résidences.
+              Cette page ne montre que le personnel qui occupe réellement une chambre —
+              vérifie qu'une assignation de résidence sélectionne bien la personne dans le champ « Personnel »,
+              pas seulement le nom en texte libre.
+            </div>
+          )}
         </div>
       )}
     </div>

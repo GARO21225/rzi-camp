@@ -891,6 +891,31 @@ class BatimentViewSet(viewsets.ModelViewSet):
         else:
             data["personnel"] = None
 
+        # Règle : un personnel ne peut pas occuper 2 chambres en même temps.
+        # S'il occupe deja une autre chambre, on bloque sauf si la
+        # reaffectation est explicitement confirmee (auquel cas l'ancienne
+        # chambre est liberee automatiquement).
+        if personnel_obj and str(data.get("statut", instance.statut)) == "Occupé":
+            autre_chambre = Batiment.objects.filter(
+                personnel=personnel_obj, statut="Occupé"
+            ).exclude(pk=instance.pk).first()
+            if autre_chambre:
+                reaffectation = str(request.data.get("reaffectation", "false")).lower() in ("true","1","yes")
+                if not reaffectation:
+                    return Response({
+                        "error": f"{personnel_obj.nom} {personnel_obj.prenom} occupe déjà la chambre {autre_chambre.residence}.",
+                        "reaffectation_requise": True,
+                        "ancienne_chambre": autre_chambre.residence,
+                    }, status=409)
+                # Reaffectation confirmee : liberer l'ancienne chambre
+                OccupationHistory.objects.filter(
+                    batiment=autre_chambre, personnel=personnel_obj, date_depart__isnull=True
+                ).update(date_depart=datetime.date.today(), motif_depart="Réaffectation")
+                Batiment.objects.filter(pk=autre_chambre.pk).update(
+                    personnel=None, occupant=None, societe=None,
+                    date_arrivee=None, date_depart=None, statut="Libre"
+                )
+
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         obj = serializer.save()

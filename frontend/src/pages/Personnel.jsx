@@ -898,8 +898,19 @@ export default function Personnel() {
                   {form.est_expatrie && (
                     <div>
                       <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>PAYS D'ORIGINE</label>
-                      <input value={form.pays_origine||''} onChange={e=>setForm({...form,pays_origine:e.target.value})}
+                      <input list="pays-liste" value={form.pays_origine||''} onChange={e=>setForm({...form,pays_origine:e.target.value})}
+                        onBlur={e=>{
+                          const v = e.target.value.trim()
+                          if (v) setForm(f=>({...f, pays_origine: v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()}))
+                        }}
                         placeholder="ex: Canada, France..." style={inp}/>
+                      <datalist id="pays-liste">
+                        {['Canada','France','Belgique','Suisse','Royaume-Uni','Australie','Afrique du Sud',
+                          "Côte d'Ivoire",'Burkina Faso','Ghana','Mali','Sénégal','Togo','Bénin','Guinée',
+                          'Niger','Nigéria','Sierra Leone','Libéria','États-Unis','Chine','Inde','Liban',
+                          'Maroc','Tunisie','Allemagne','Pays-Bas','Espagne','Italie','Portugal'
+                        ].map(c=><option key={c} value={c}/>)}
+                      </datalist>
                     </div>
                   )}
                 </div>

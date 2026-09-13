@@ -435,6 +435,7 @@ export default function MissionControl() {
   const [rechercheListe, setRechercheListe] = useState('')
   const [flotte, setFlotte] = useState([])
   const [retoursAnticipes, setRetoursAnticipes] = useState([])
+  const [nouvelleEtape, setNouvelleEtape] = useState(null)
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -545,10 +546,39 @@ export default function MissionControl() {
   const ouvrirDetail = async (v) => {
     setDetailVoyage(v)
     setEtapesDetail(v.etapes || [])
+    setNouvelleEtape(null)
     try {
       const r = await api(`/api/etapes-voyage/?voyage=${v.id}`).then(r=>r.json())
       setEtapesDetail(r.results || r || [])
     } catch {}
+  }
+
+  const initNouvelleEtape = (sens) => setNouvelleEtape({
+    sens, origine: sens==='retour' ? (detailVoyage?.destination||'') : (detailVoyage?.origine||'Camp Roxgold Sango'),
+    destination: sens==='retour' ? (detailVoyage?.origine||'Camp Roxgold Sango') : (detailVoyage?.destination||''),
+    mode_transport:'bus', vehicule_flotte:'', conducteur:'',
+    date_etape: sens==='retour' ? (detailVoyage?.date_retour_prevue||'') : (detailVoyage?.date_depart||''),
+    heure_depart:'', point_rdv:'', reference:'',
+  })
+
+  const soumettreEtape = async () => {
+    if (!nouvelleEtape || !detailVoyage) return
+    try {
+      const res = await api('/api/etapes-voyage/', {
+        method:'POST',
+        body: JSON.stringify({ ...nouvelleEtape, voyage: detailVoyage.id, ordre: etapesDetail.length + 1 })
+      })
+      if (res.ok) {
+        const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
+        setEtapesDetail(r.results || r || [])
+        setNouvelleEtape(null)
+        toast.success('Étape ajoutée')
+        load()
+      } else {
+        const d = await res.json()
+        toast.error(d.error || d.detail || 'Erreur')
+      }
+    } catch { toast.error('Erreur réseau') }
   }
 
   const partirRotation = async (rotId) => {
@@ -1049,9 +1079,15 @@ export default function MissionControl() {
                             </div>
                             <div style={{maxHeight:180,overflowY:'auto'}}>
                               {(r.passagers||[]).map((p,i)=>(
-                                <div key={p.id||i} style={{display:'flex',gap:8,
-                                  padding:'6px 0',borderBottom:`0.5px solid rgba(255,255,255,.04)`,
-                                  alignItems:'center'}}>
+                                <div key={p.id||i} onClick={()=>{
+                                    const voyageComplet = voyages.find(v=>v.id===p.id)
+                                    if (voyageComplet) ouvrirDetail(voyageComplet)
+                                  }}
+                                  style={{display:'flex',gap:8,
+                                  padding:'6px 4px',borderBottom:`0.5px solid rgba(255,255,255,.04)`,
+                                  alignItems:'center',cursor:'pointer',borderRadius:6,transition:'background .15s'}}
+                                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}
+                                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                                   <div style={{width:24,height:24,borderRadius:'50%',
                                     background:`${C.accent}20`,
                                     display:'flex',alignItems:'center',justifyContent:'center',
@@ -1067,6 +1103,7 @@ export default function MissionControl() {
                                     </div>
                                   </div>
                                   <StatusBadge statut={p.statut}/>
+                                  <span style={{fontSize:10,color:C.muted}}>⚙️</span>
                                 </div>
                               ))}
                               {(r.passagers||[]).length===0&&(
@@ -1537,9 +1574,53 @@ export default function MissionControl() {
 
               {/* Carte de l'itinéraire */}
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:8}}>🗺️ Trajet sur la carte</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.accent}}>🗺️ Trajet sur la carte</div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape aller</button>
+                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('retour')}>⬅️ + Étape retour</button>
+                  </div>
+                </div>
                 <CarteItineraire origine={detailVoyage.origine} destination={detailVoyage.destination} etapes={etapesDetail}/>
               </div>
+
+              {nouvelleEtape && (
+                <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16,border:`1px solid ${nouvelleEtape.sens==='retour'?C.green:C.accent}40`}}>
+                  <div style={{fontSize:11,fontWeight:700,color:nouvelleEtape.sens==='retour'?C.green:C.accent,marginBottom:8}}>
+                    {nouvelleEtape.sens==='retour'?'⬅️ Nouvelle étape RETOUR':'➡️ Nouvelle étape ALLER'}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
+                    <input value={nouvelleEtape.origine} onChange={e=>setNouvelleEtape(p=>({...p,origine:e.target.value}))} placeholder="Origine" style={inputStyle}/>
+                    <input value={nouvelleEtape.destination} onChange={e=>setNouvelleEtape(p=>({...p,destination:e.target.value}))} placeholder="Destination" style={inputStyle}/>
+                    <select value={nouvelleEtape.mode_transport} onChange={e=>setNouvelleEtape(p=>({...p,mode_transport:e.target.value}))} style={inputStyle}>
+                      {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
+                    <select value={nouvelleEtape.vehicule_flotte} onChange={e=>setNouvelleEtape(p=>({...p,vehicule_flotte:e.target.value}))} style={inputStyle}>
+                      <option value="">— Véhicule du parc —</option>
+                      {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                    </select>
+                    <select value={nouvelleEtape.conducteur} onChange={e=>setNouvelleEtape(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
+                      <option value="">— Conducteur —</option>
+                      {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6,marginBottom:8}}>
+                    <input type="date" value={nouvelleEtape.date_etape} onChange={e=>setNouvelleEtape(p=>({...p,date_etape:e.target.value}))} style={inputStyle}/>
+                    <input type="time" value={nouvelleEtape.heure_depart} onChange={e=>setNouvelleEtape(p=>({...p,heure_depart:e.target.value}))} style={inputStyle}/>
+                    <input value={nouvelleEtape.point_rdv} onChange={e=>setNouvelleEtape(p=>({...p,point_rdv:e.target.value}))} placeholder="Point de RDV" style={inputStyle}/>
+                    <input value={nouvelleEtape.reference} onChange={e=>setNouvelleEtape(p=>({...p,reference:e.target.value}))} placeholder="Référence" style={inputStyle}/>
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <button className="mc-btn" style={{flex:1,background:C.border}} onClick={()=>setNouvelleEtape(null)}>Annuler</button>
+                    <button className="mc-btn mc-btn-primary" style={{flex:2}} onClick={soumettreEtape}
+                      disabled={!nouvelleEtape.origine||!nouvelleEtape.destination||!nouvelleEtape.date_etape}>
+                      ✓ Ajouter l'étape
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <a href={`${BASE}/api/voyages/${detailVoyage.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                 className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',textDecoration:'none',boxSizing:'border-box'}}>

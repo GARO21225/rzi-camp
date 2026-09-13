@@ -105,6 +105,18 @@ export default function Residences() {
       setConfirmModal(null)
       load()
     } catch(e) {
+      if (e.response?.status === 409 && e.response?.data?.reaffectation_requise) {
+        const ok = await confirmDialog(`${e.response.data.error}\n\nRéaffecter cette personne à la nouvelle chambre ? L'ancienne (${e.response.data.ancienne_chambre}) sera automatiquement libérée.`)
+        if (ok) {
+          try {
+            await batiments.update(confirmModal.batiment.id, {...confirmModal.payload, reaffectation:true}, createHistory)
+            setConfirmModal(null)
+            load()
+            return
+          } catch(e2) { toast.error('Erreur: ' + (e2.response?.data ? JSON.stringify(e2.response.data) : e2.message)) }
+        }
+        return
+      }
       toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
     }
   }
