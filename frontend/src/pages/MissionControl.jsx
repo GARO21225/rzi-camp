@@ -448,6 +448,8 @@ export default function MissionControl() {
   const [flotte, setFlotte] = useState([])
   const [retoursAnticipes, setRetoursAnticipes] = useState([])
   const [nouvelleEtape, setNouvelleEtape] = useState(null)
+  const [changerVehiculeForm, setChangerVehiculeForm] = useState(null)
+  const [changerConvoiForm, setChangerConvoiForm] = useState(null)
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -559,6 +561,8 @@ export default function MissionControl() {
     setDetailVoyage(v)
     setEtapesDetail(v.etapes || [])
     setNouvelleEtape(null)
+    setChangerVehiculeForm(null)
+    setChangerConvoiForm(null)
     try {
       const r = await api(`/api/etapes-voyage/?voyage=${v.id}`).then(r=>r.json())
       setEtapesDetail(r.results || r || [])
@@ -590,6 +594,40 @@ export default function MissionControl() {
         const d = await res.json()
         toast.error(d.error || d.detail || 'Erreur')
       }
+    } catch { toast.error('Erreur réseau') }
+  }
+
+  const soumettreChangerVehicule = async () => {
+    if (!changerVehiculeForm || !detailVoyage) return
+    try {
+      const res = await api(`/api/voyages/${detailVoyage.id}/changer_vehicule/`, {
+        method:'POST', body: JSON.stringify(changerVehiculeForm)
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setDetailVoyage(d)
+        setChangerVehiculeForm(null)
+        toast.success('Véhicule changé')
+        load()
+      } else toast.error(d.error || 'Erreur')
+    } catch { toast.error('Erreur réseau') }
+  }
+
+  const soumettreChangerConvoi = async (rotationId) => {
+    if (!detailVoyage) return
+    const ok = await confirmDialog(`Déplacer ${detailVoyage.personnel_nom} vers le convoi ${rotationId} ? Le véhicule, les dates et la destination seront ceux du nouveau convoi.`)
+    if (!ok) return
+    try {
+      const res = await api(`/api/voyages/${detailVoyage.id}/changer_convoi/`, {
+        method:'POST', body: JSON.stringify({ rotation_id: rotationId })
+      })
+      const d = await res.json()
+      if (res.ok) {
+        setDetailVoyage(d)
+        setChangerConvoiForm(null)
+        toast.success('Convoi changé')
+        load()
+      } else toast.error(d.error || 'Erreur')
     } catch { toast.error('Erreur réseau') }
   }
 
@@ -1581,6 +1619,68 @@ export default function MissionControl() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Actions : changer de véhicule ou de convoi */}
+              {detailVoyage.statut !== 'retour' && (
+                <div style={{display:'flex',gap:8,marginBottom:16}}>
+                  <button className="mc-btn" style={{flex:1,fontSize:11,background:C.bg}}
+                    onClick={()=>setChangerVehiculeForm({vehicule:detailVoyage.vehicule||'', vehicule_matricule:detailVoyage.vehicule_matricule||'', vehicule_photo:detailVoyage.vehicule_photo||'', conducteur:detailVoyage.conducteur||'', vehicule_flotte_id:''})}>
+                    🔄 Changer de véhicule
+                  </button>
+                  <button className="mc-btn" style={{flex:1,fontSize:11,background:C.bg}}
+                    onClick={()=>setChangerConvoiForm(true)}>
+                    🔀 Changer de convoi
+                  </button>
+                </div>
+              )}
+
+              {changerVehiculeForm && (
+                <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16,border:`1px solid ${C.accent}40`}}>
+                  <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:8}}>🔄 Nouveau véhicule pour ce voyage</div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:6,marginBottom:8}}>
+                    <select value={changerVehiculeForm.vehicule_flotte_id} onChange={e=>{
+                        const id = e.target.value
+                        const v = flotte.find(f=>String(f.id)===id)
+                        if (v) setChangerVehiculeForm(p=>({...p, vehicule_flotte_id:id, vehicule:v.nom, vehicule_matricule:v.matricule, vehicule_photo:v.photo}))
+                        else setChangerVehiculeForm(p=>({...p, vehicule_flotte_id:''}))
+                      }} style={inputStyle}>
+                      <option value="">— Véhicule du parc —</option>
+                      {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                    </select>
+                    <select value={changerVehiculeForm.conducteur} onChange={e=>setChangerVehiculeForm(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
+                      <option value="">— Conducteur —</option>
+                      {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
+                    </select>
+                  </div>
+                  {!changerVehiculeForm.vehicule_flotte_id && (
+                    <input value={changerVehiculeForm.vehicule} onChange={e=>setChangerVehiculeForm(p=>({...p,vehicule:e.target.value}))}
+                      placeholder="Ou nom libre" style={{...inputStyle,marginBottom:8}}/>
+                  )}
+                  <div style={{display:'flex',gap:8}}>
+                    <button className="mc-btn" style={{flex:1,background:C.border}} onClick={()=>setChangerVehiculeForm(null)}>Annuler</button>
+                    <button className="mc-btn mc-btn-primary" style={{flex:2}} onClick={soumettreChangerVehicule} disabled={!changerVehiculeForm.vehicule}>✓ Valider</button>
+                  </div>
+                </div>
+              )}
+
+              {changerConvoiForm && (
+                <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16,border:`1px solid ${C.green}40`}}>
+                  <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8}}>🔀 Déplacer vers un autre convoi</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:200,overflowY:'auto'}}>
+                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0).length===0 && (
+                      <div style={{fontSize:11,color:C.muted}}>Aucun autre convoi avec des places libres.</div>
+                    )}
+                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0).map(r=>(
+                      <div key={r.rotation_id} onClick={()=>soumettreChangerConvoi(r.rotation_id)}
+                        style={{padding:'8px 10px',background:C.panel,borderRadius:8,cursor:'pointer',fontSize:11,display:'flex',justifyContent:'space-between'}}>
+                        <span><b style={{color:C.text}}>{r.vehicule}</b> · {r.destination} · {fmt(r.date_depart)}</span>
+                        <span style={{color:C.green}}>{r.places_libres} libre(s)</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="mc-btn" style={{width:'100%',background:C.border,marginTop:8}} onClick={()=>setChangerConvoiForm(null)}>Annuler</button>
                 </div>
               )}
 

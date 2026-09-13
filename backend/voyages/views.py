@@ -159,6 +159,80 @@ class VoyageViewSet(viewsets.ModelViewSet):
         html = _generer_billet_html(voyage)
         return HttpResponse(html, content_type="text/html; charset=utf-8")
 
+    @action(detail=True, methods=['post'])
+    def changer_vehicule(self, request, pk=None):
+        """Change le véhicule/conducteur d'un voyage SANS changer de convoi
+        (ex: le véhicule initialement prévu tombe en panne, ou le véhicule
+        du retour doit différer de celui de l'aller)."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        voyage = self.get_object()
+        vehicule = request.data.get("vehicule", "")
+        if not vehicule:
+            return Response({"error":"Véhicule requis"}, status=400)
+        voyage.vehicule = vehicule
+        voyage.vehicule_matricule = request.data.get("vehicule_matricule", "")
+        voyage.vehicule_photo = request.data.get("vehicule_photo", "")
+        voyage.conducteur = request.data.get("conducteur", "")
+        voyage.save(update_fields=["vehicule","vehicule_matricule","vehicule_photo","conducteur"])
+        return Response(VoyageSerializer(voyage).data)
+
+    @action(detail=True, methods=['post'])
+    def changer_convoi(self, request, pk=None):
+        """
+        Deplace un voyage EXISTANT vers un AUTRE convoi (rotation_id
+        different) - herite des champs partages du convoi cible (vehicule,
+        dates, destination...). Verifie les places disponibles et les
+        conflits de dates, comme rejoindre_rotation.
+        """
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        voyage = self.get_object()
+        nouveau_rotation_id = request.data.get("rotation_id")
+        if not nouveau_rotation_id:
+            return Response({"error":"rotation_id requis"}, status=400)
+        cible = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").first()
+        if not cible:
+            return Response({"error":"Convoi cible introuvable ou vide"}, status=404)
+        prises = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").count()
+        if prises >= (cible.nb_places_total or 15):
+            return Response({"error":"Convoi cible complet"}, status=400)
+        conflict = _check_voyage_conflit(
+            voyage.personnel_id, cible.date_depart, cible.date_retour_prevue, exclude_pk=voyage.pk
+        )
+        if conflict:
+            return Response({"error": f"Conflit avec un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
+        ancien_rotation_id = voyage.rotation_id
+        voyage.rotation_id = nouveau_rotation_id
+        voyage.destination = cible.destination
+        voyage.date_depart = cible.date_depart
+        voyage.date_retour_prevue = cible.date_retour_prevue
+        voyage.vehicule = cible.vehicule
+        voyage.vehicule_matricule = cible.vehicule_matricule
+        voyage.vehicule_photo = cible.vehicule_photo
+        voyage.conducteur = cible.conducteur
+        voyage.nb_places_total = cible.nb_places_total
+        voyage.heure_depart = cible.heure_depart
+        voyage.point_rdv = cible.point_rdv
+        voyage.statut = "planifie"
+        voyage.save()
+        try:
+            from evenements.models import SimpleNotification
+            if voyage.enregistre_par:
+                SimpleNotification.objects.create(
+                    user=voyage.enregistre_par,
+                    titre="🔀 Convoi changé",
+                    message=f"{voyage.personnel.nom} {voyage.personnel.prenom} a été déplacé du convoi {ancien_rotation_id or '—'} vers {nouveau_rotation_id}.",
+                    type_notif="voyage",
+                )
+        except Exception:
+            pass
+        return Response(VoyageSerializer(voyage).data)
+
     def destroy(self, request, *args, **kwargs):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
