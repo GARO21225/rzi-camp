@@ -509,8 +509,11 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        # Un voyage individuel doit TOUJOURS passer par une vraie validation
+        # manuelle, meme cree par un admin - contrairement a une rotation
+        # groupee ou l'admin qui l'organise EST de fait la validation.
         extra_validation = {}
-        if is_admin:
+        if is_admin and type_voyage != "individuel":
             from django.utils import timezone as tz2
             extra_validation = {"statut_validation":"valide", "valide_par":u, "date_validation":tz2.now()}
 
@@ -539,9 +542,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
         personnel_id = request.data.get("personnel_id")
         if not rotation_id or not personnel_id:
             return Response({"error":"rotation_id et personnel_id requis"},status=400)
-        existing = Voyage.objects.filter(rotation_id=rotation_id).first()
+        existing = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").first()
         if not existing:
             return Response({"error":"Rotation introuvable"},status=404)
+        if existing.statut != "planifie":
+            libelle = {"en_voyage":"déjà en transit","retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
+            return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un. Utilisez un convoi pas encore parti, ou créez un voyage individuel."}, status=400)
         prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
         if prises >= (existing.nb_places_total or 15):
             return Response({"error":"Rotation complète"},status=400)
