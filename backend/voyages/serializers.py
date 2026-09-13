@@ -8,10 +8,15 @@ STATUT_MAP = {
 
 class EtapeVoyageSerializer(serializers.ModelSerializer):
     mode_transport_label = serializers.CharField(source="get_mode_transport_display", read_only=True)
+    sens_label            = serializers.CharField(source="get_sens_display", read_only=True)
+    vehicule_matricule    = serializers.CharField(source="vehicule_flotte.matricule", read_only=True, default="")
+    vehicule_photo        = serializers.CharField(source="vehicule_flotte.photo", read_only=True, default="")
+    vehicule_nom          = serializers.CharField(source="vehicule_flotte.nom", read_only=True, default="")
 
     class Meta:
         model = EtapeVoyage
-        fields = ["id","voyage","ordre","origine","destination","mode_transport","mode_transport_label",
+        fields = ["id","voyage","ordre","sens","sens_label","origine","destination","mode_transport","mode_transport_label",
+                  "vehicule_flotte","vehicule_nom","vehicule_matricule","vehicule_photo","conducteur",
                   "date_etape","heure_depart","heure_arrivee_prevue","point_rdv","reference","notes",
                   "billet_fichier","billet_cout"]
 

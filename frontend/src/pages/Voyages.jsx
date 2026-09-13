@@ -3,7 +3,7 @@
  * Chargement instantané + delete visible + nouvelles actions
  */
 import React, { useEffect, useState, useCallback } from 'react'
-import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage } from '../api'
+import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage, vehiculesFlotte } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import CarteItineraire from '../components/CarteItineraire'
@@ -139,6 +139,8 @@ export default function Voyages() {
   const [modal,         setModal]         = useState(false)
   const [editModal,     setEditModal]     = useState(null)
   const [personnelList, setPersonnelList] = useState([])
+  const [flotte, setFlotte] = useState([])
+  useEffect(() => { vehiculesFlotte.list().then(r => setFlotte(r.data.results||r.data||[])).catch(()=>{}) }, [])
   const [batsList,      setBatsList]      = useState([])
   const [myPersonnel,   setMyPersonnel]   = useState(null)
   const [form, setForm] = useState({ personnel:'', origine:'Camp Roxgold Sango', destination:'', date_depart:'', date_retour_prevue:'', motif:'repos', heure_depart:'', notes:'' })
@@ -167,7 +169,7 @@ export default function Voyages() {
     loadVoyages()
     // Charger personnel/bâtiments en parallèle sans bloquer
     Promise.all([
-      personnelAPI.list({ page_size:200 }),
+      personnelAPI.list({ page_size:200, droit_mobilite:true }),
       batsAPI.list({ page_size:200 })
     ]).then(([rp, rb]) => {
       const items = rp.data.results || rp.data || []
@@ -238,9 +240,13 @@ export default function Voyages() {
     finally { setSubmitting(false) }
   }
 
-  const ajouterEtape = () => setEtapesForm(prev => [...prev, {
-    ordre: prev.length + 1, origine: prev.length ? prev[prev.length-1].destination : '', destination: '',
-    mode_transport: 'bus', date_etape: form.date_depart || '', heure_depart: '', point_rdv: '', reference: '',
+  const ajouterEtape = (sens='aller') => setEtapesForm(prev => [...prev, {
+    ordre: prev.length + 1, sens,
+    origine: sens==='retour' ? (prev.find(e=>e.sens==='aller')?.destination || form.destination || '') : (prev.length ? prev[prev.length-1].destination : (form.origine||'')),
+    destination: sens==='retour' ? (form.origine||'Camp Roxgold Sango') : (form.destination||''),
+    mode_transport: 'bus', vehicule_flotte:'', conducteur:'',
+    date_etape: sens==='retour' ? (form.date_retour_prevue||'') : (form.date_depart||''),
+    heure_depart: '', point_rdv: '', reference: '',
   }])
   const majEtape = (idx, champ, val) => setEtapesForm(prev => prev.map((e,i) => i===idx ? {...e, [champ]: val} : e))
   const supprimerEtapeForm = (idx) => setEtapesForm(prev => prev.filter((_,i) => i!==idx).map((e,i) => ({...e, ordre: i+1})))
@@ -675,17 +681,25 @@ export default function Voyages() {
 
               {/* ── Itinéraire détaillé (optionnel, comme une agence de voyage) ── */}
               <div style={{border:'1px dashed #cbd5e1',borderRadius:10,padding:12}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:etapesForm.length?10:0}}>
-                  <span style={{fontSize:12,fontWeight:700,color:'var(--rzc-navy)'}}>🗺️ Itinéraire détaillé (optionnel)</span>
-                  <button type="button" onClick={ajouterEtape}
-                    style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
-                    ➕ Ajouter une étape
-                  </button>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:etapesForm.length?10:0,flexWrap:'wrap',gap:8}}>
+                  <span style={{fontSize:12,fontWeight:700,color:'var(--rzc-navy)'}}>🗺️ Itinéraire détaillé (optionnel) — véhicule/conducteur peuvent différer aller/retour</span>
+                  <div style={{display:'flex',gap:6}}>
+                    <button type="button" onClick={()=>ajouterEtape('aller')}
+                      style={{background:'#eff6ff',color:'#2563eb',border:'1px solid #bfdbfe',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                      ➡️ Étape ALLER
+                    </button>
+                    <button type="button" onClick={()=>ajouterEtape('retour')}
+                      style={{background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                      ⬅️ Étape RETOUR
+                    </button>
+                  </div>
                 </div>
                 {etapesForm.map((e, idx) => (
-                  <div key={idx} style={{background:'#f8fafc',borderRadius:9,padding:10,marginBottom:8}}>
+                  <div key={idx} style={{background:e.sens==='retour'?'#f0fdf4':'#f8fafc',borderRadius:9,padding:10,marginBottom:8,border:e.sens==='retour'?'1px solid #bbf7d0':'none'}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                      <span style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)'}}>Étape {idx+1}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:e.sens==='retour'?'#16a34a':'var(--rzc-text-3)'}}>
+                        {e.sens==='retour'?'⬅️':'➡️'} Étape {idx+1} — {e.sens==='retour'?'RETOUR':'ALLER'}
+                      </span>
                       <button type="button" onClick={()=>supprimerEtapeForm(idx)} style={{background:'none',border:'none',color:'#dc2626',cursor:'pointer',fontSize:11}}>🗑️ Retirer</button>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
@@ -693,6 +707,16 @@ export default function Voyages() {
                       <input value={e.destination} onChange={ev=>majEtape(idx,'destination',ev.target.value)} placeholder="Destination" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
                       <select value={e.mode_transport} onChange={ev=>majEtape(idx,'mode_transport',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
                         {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
+                      <select value={e.vehicule_flotte||''} onChange={ev=>majEtape(idx,'vehicule_flotte',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
+                        <option value="">— Véhicule du parc —</option>
+                        {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                      </select>
+                      <select value={e.conducteur||''} onChange={ev=>majEtape(idx,'conducteur',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
+                        <option value="">— Conducteur —</option>
+                        {personnelList.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
                       </select>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6}}>

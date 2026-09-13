@@ -51,7 +51,7 @@ export default function Personnel() {
   const [form,         setForm]         = useState({
     nom:'', prenom:'', email:'', telephone:'', numero_whatsapp:'',
     societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true,
-    est_expatrie:false, pays_origine:''
+    est_expatrie:false, pays_origine:'', eligible_mobilite:false
   })
   const [saving,       setSaving]       = useState(false)
   const [selected_ids, setSelectedIds]  = useState(new Set())  // IDs sélectionnés pour masse
@@ -97,7 +97,7 @@ export default function Personnel() {
         await personnelAPI.create(form)
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:''})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -546,7 +546,7 @@ export default function Personnel() {
               👥 Sous-traitants masse
             </button>
             <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:''})
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
               setErr(''); setModal('new')
             }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
               ➕ Nouveau membre
@@ -739,7 +739,7 @@ export default function Personnel() {
                               telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
                               numero:p.numero||'', actif:p.actif,
-                              est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||''
+                              est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite
                             })
                             setErr(''); setModal(p)
                           }} style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
@@ -903,6 +903,16 @@ export default function Personnel() {
                     </div>
                   )}
                 </div>
+                {form.type_personnel === 'visiteur' && (
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,padding:10,background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a'}}>
+                    <input type="checkbox" id="eligible_mobilite" checked={!!form.eligible_mobilite}
+                      onChange={e=>setForm({...form,eligible_mobilite:e.target.checked})}
+                      style={{width:16,height:16,cursor:'pointer'}}/>
+                    <label htmlFor="eligible_mobilite" style={{fontSize:12,fontWeight:600,color:'#92400e',cursor:'pointer'}}>
+                      🧭 Déclarer éligible au Centre de Mobilité <span style={{fontWeight:400}}>(un visiteur peut être logé sans avoir accès aux voyages — à cocher explicitement si besoin)</span>
+                    </label>
+                  </div>
+                )}
                 <div style={{display:'flex',gap:10,marginTop:4}}>
                   <button onClick={()=>setModal(null)}
                     style={{flex:1,background:'rgba(15,26,46,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',

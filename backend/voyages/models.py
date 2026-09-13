@@ -140,6 +140,17 @@ class EtapeVoyage(models.Model):
     ]
     voyage        = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="etapes")
     ordre         = models.PositiveIntegerField(default=1)
+    SENS_CHOIX = [
+        ("aller",  "➡️ Aller"),
+        ("retour", "⬅️ Retour"),
+        ("interne","🔁 Trajet interne"),
+    ]
+    sens          = models.CharField(max_length=10, choices=SENS_CHOIX, default="aller",
+                     help_text="Aller ou retour — vehicule/conducteur/equipage peuvent differer entre les deux")
+    vehicule_flotte = models.ForeignKey("VehiculeFlotte", on_delete=models.SET_NULL, null=True, blank=True,
+                     related_name="etapes", help_text="Vehicule du catalogue partage - matricule/photo herites automatiquement")
+    conducteur    = models.CharField(max_length=100, blank=True, default="",
+                     help_text="Conducteur assigne pour cette etape specifique")
     origine       = models.CharField(max_length=200)
     destination   = models.CharField(max_length=200)
     mode_transport= models.CharField(max_length=15, choices=MODES, default="bus")

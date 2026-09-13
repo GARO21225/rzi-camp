@@ -48,6 +48,8 @@ class Personnel(models.Model):
                        help_text="Personnel expatrié — nécessite des billets d'avion pour les rotations pays d'origine <-> mine")
     pays_origine     = models.CharField(max_length=100, blank=True, default="",
                        help_text="Pays d'origine — point de départ des billets d'avion pour le personnel expatrié")
+    eligible_mobilite = models.BooleanField(default=False,
+                       help_text="Droit d'utiliser le Centre de Mobilité (voyages/rotations) — automatique pour Roxgold et sous-traitants, doit être déclaré explicitement pour un visiteur même logé")
 
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")
@@ -61,6 +63,17 @@ class Personnel(models.Model):
 
     def __str__(self):
         return f"{self.nom} {self.prenom} - {self.societe}"
+
+    @property
+    def a_droit_mobilite(self):
+        """
+        Regle d'or : Roxgold et sous-traitants ont acces au Centre de
+        Mobilite par defaut. Un visiteur (meme loge) n'y a PAS droit tant
+        qu'un responsable ne l'a pas explicitement declare eligible.
+        """
+        if self.type_personnel in ("roxgold", "sous_traitant"):
+            return True
+        return bool(self.eligible_mobilite)
 
     def generer_login_password(self):
         prefix = self.TYPE_PREFIX.get(self.type_personnel, "u")

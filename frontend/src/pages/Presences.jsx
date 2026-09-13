@@ -3,7 +3,7 @@
  * Qui est au camp / en voyage / absent ce jour
  */
 import React, { useState, useEffect } from 'react'
-import { personnel as personnelAPI, voyages as voyAPI } from '../api'
+import { personnel as personnelAPI, voyages as voyAPI, batiments as batsAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 
@@ -19,6 +19,7 @@ export default function Presences() {
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
   const [personnel, setPersonnel] = useState([])
   const [voyagesActifs, setVoyagesActifs] = useState([])
+  const [batiments, setBatiments] = useState([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -29,17 +30,26 @@ export default function Presences() {
     Promise.all([
       personnelAPI.list({ page_size:500 }),
       voyAPI.list({ statut:'en_voyage', page_size:500 }),
-    ]).then(([rp, rv]) => {
+      batsAPI.list({ page_size:1000 }),
+    ]).then(([rp, rv, rb]) => {
       setPersonnel(rp.data.results || rp.data || [])
       setVoyagesActifs(rv.data.results || rv.data || [])
+      setBatiments(rb.data.results || rb.data || [])
     }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 
+  // Règle : Présences ne concerne que le personnel qui a effectivement droit
+  // à une chambre — pas toute la liste (il y a des visiteurs de passage sans
+  // hébergement). On se base sur qui occupe REELLEMENT une chambre en ce
+  // moment, plutôt que le type de personnel seul.
+  const idsLoges = new Set(batiments.filter(b=>b.personnel).map(b=>b.personnel))
+  const personnelLoge = personnel.filter(p => idsLoges.has(p.id))
+
   // Enrichir chaque personne avec son statut voyage ET l'id du voyage (pour l'action retour)
   const voyageParPersonnel = new Map(voyagesActifs.map(v => [v.personnel, v]))
 
-  const data = personnel.map(p => ({
+  const data = personnelLoge.map(p => ({
     ...p,
     statut: voyageParPersonnel.has(p.id) ? 'voyage' : 'present',
     voyage: voyageParPersonnel.get(p.id),

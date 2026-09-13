@@ -443,7 +443,7 @@ export default function MissionControl() {
       const [rv, rs, rp, rr, rrap, rvf, rra] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
-        api('/api/personnel/?page_size=500&actif=true').then(r=>r.json()),
+        api('/api/personnel/?page_size=500&actif=true&droit_mobilite=true').then(r=>r.json()),
         api('/api/voyages/rotations/').then(r=>r.json()),
         api('/api/voyages/rappels_rotation/').then(r=>r.json()),
         api('/api/vehicules-flotte/').then(r=>r.json()),

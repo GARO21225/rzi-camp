@@ -40,6 +40,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     user_active     = serializers.SerializerMethodField()
     login_genere    = serializers.SerializerMethodField()
     password_genere = serializers.SerializerMethodField()
+    a_droit_mobilite = serializers.BooleanField(read_only=True)
     # Alias explicite : en base/API le champ s'appelle "numero" mais représente
     # le matricule (cf. label "N° MATRICULE" côté frontend). Plusieurs pages
     # (Annuaire, badges Induction, export Personnel) lisaient "matricule" qui
@@ -100,6 +101,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "password_genere", "profil", "profil_label", "est_expatrie", "pays_origine",
+            "eligible_mobilite", "a_droit_mobilite",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 

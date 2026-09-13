@@ -233,6 +233,9 @@ export const etapesVoyage = {
   update: (id, d) => api.patch(`/api/etapes-voyage/${id}/`, d),
   delete: (id) => api.delete(`/api/etapes-voyage/${id}/`),
 }
+export const vehiculesFlotte = {
+  list: () => api.get('/api/vehicules-flotte/'),
+}
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
 }

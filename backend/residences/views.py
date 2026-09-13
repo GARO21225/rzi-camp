@@ -34,6 +34,12 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         qs = Personnel.objects.all()
         t = self.request.query_params.get("type_personnel")
         if t: qs = qs.filter(type_personnel=t)
+        actif = self.request.query_params.get("actif")
+        if actif is not None: qs = qs.filter(actif=(actif.lower() == "true"))
+        droit_mobilite = self.request.query_params.get("droit_mobilite")
+        if droit_mobilite and droit_mobilite.lower() == "true":
+            from django.db.models import Q
+            qs = qs.filter(Q(type_personnel__in=["roxgold","sous_traitant"]) | Q(eligible_mobilite=True))
         return qs
 
     @action(detail=False, methods=['post'])
