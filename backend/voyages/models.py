@@ -29,6 +29,10 @@ class Voyage(models.Model):
                          help_text="ID partagé entre tous les voyageurs du même convoi")
     vehicule          = models.CharField(max_length=50, blank=True,
                          help_text="BUS-01, 4WD-02, VOL-AIR...")
+    vehicule_matricule = models.CharField(max_length=30, blank=True, default="",
+                         help_text="Plaque d'immatriculation — aide l'agent à repérer le bon véhicule au parking")
+    vehicule_photo    = models.TextField(blank=True, default="",
+                         help_text="Photo du véhicule en base64 — usage exceptionnel, pour reconnaissance visuelle rapide au parking")
     nb_places_total   = models.PositiveIntegerField(default=15, blank=True, null=True,
                          help_text="Capacité totale du véhicule pour ce convoi")
     heure_depart      = models.TimeField(null=True, blank=True,

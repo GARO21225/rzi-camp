@@ -263,6 +263,9 @@ export default function Voyages() {
   const [moisCalendrier, setMoisCalendrier] = useState(new Date())
   const [rotationsDispo, setRotationsDispo] = useState([])
   const [showRotations, setShowRotations] = useState(false)
+  const [retoursAnticipes, setRetoursAnticipes] = useState([])
+
+  useEffect(() => { voyages.retoursAnticipes().then(r => setRetoursAnticipes(r.data||[])).catch(()=>{}) }, [])
 
   const chargerRotationsDispo = useCallback(() => {
     voyages.rotationsDisponibles().then(r => {
@@ -343,12 +346,36 @@ export default function Voyages() {
         </div>
       </div>
 
+      {/* ── Retours anticipés — signalés pour information (places potentiellement liberees plus tot) ── */}
+      {retoursAnticipes.length > 0 && (
+        <div style={{marginBottom:14,background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,padding:'10px 14px'}}>
+          <div style={{fontSize:12,fontWeight:700,color:'#166534',marginBottom:4}}>
+            ⚡ {retoursAnticipes.length} personne(s) rentrée(s) plus tôt que prévu récemment
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {retoursAnticipes.slice(0,6).map(r=>(
+              <span key={r.id} style={{fontSize:11,color:'#166534',background:'#dcfce7',padding:'3px 9px',borderRadius:20}}>
+                {r.personnel_nom} — {r.jours_avance}j d'avance ({r.destination})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Rotations disponibles à rejoindre — places visibles, façon agence ── */}
       {showRotations && rotationsDispo.length > 0 && (
         <div style={{marginBottom:18,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:12}}>
           {rotationsDispo.map(rot => {
             const total = rot.nb_places_total || 15
-            const pct = Math.round((total - rot.places_libres) / total * 100)
+            const occ = rot.places_occupees || 0
+            const res = rot.places_reservees || 0
+            const lib = rot.places_libres || 0
+            // Grille de sieges : ● occupe (confirme) — ◐ reserve (en attente) — ○ disponible
+            const sieges = [
+              ...Array(occ).fill('occupe'),
+              ...Array(res).fill('reserve'),
+              ...Array(lib).fill('dispo'),
+            ]
             return (
               <div key={rot.rotation_id} style={{background:'#fff',border:'1px solid #fde68a',borderRadius:12,padding:14,boxShadow:'0 2px 8px rgba(0,0,0,.05)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
@@ -357,14 +384,29 @@ export default function Voyages() {
                     <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{rot.vehicule} · Convoi {rot.rotation_id}</div>
                   </div>
                   <span style={{background:'#fffbeb',color:'#92400e',padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700}}>
-                    {rot.places_libres} place(s) libre(s)
+                    {lib} place(s) libre(s)
                   </span>
                 </div>
                 <div style={{fontSize:11,color:'var(--rzc-text-3)',marginBottom:8}}>
                   Départ {fmtFR(rot.date_depart)}{rot.heure_depart?` à ${rot.heure_depart}`:''} · Retour prévu {fmtFR(rot.date_retour_prevue)}
                 </div>
-                <div style={{height:6,background:'#f1f5f9',borderRadius:99,overflow:'hidden',marginBottom:10}}>
-                  <div style={{height:'100%',width:`${pct}%`,background:pct>=90?'#dc2626':pct>=70?'#f0a500':'#16a34a',borderRadius:99}}/>
+                <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
+                  {sieges.map((s,i)=>(
+                    <span key={i} title={s==='occupe'?'Occupé (confirmé)':s==='reserve'?'Réservé (en attente de validation)':'Disponible'}
+                      style={{
+                        width:16,height:16,borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,
+                        background: s==='occupe'?'var(--rzc-navy)':s==='reserve'?'#fef3c7':'#f0fdf4',
+                        color: s==='occupe'?'#fff':s==='reserve'?'#92400e':'#16a34a',
+                        border: s==='dispo'?'1px dashed #86efac':'none',
+                      }}>
+                      {s==='occupe'?'●':s==='reserve'?'◐':'○'}
+                    </span>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:10,fontSize:10,color:'var(--rzc-text-4)',marginBottom:10}}>
+                  <span>● {occ} occupé{occ>1?'s':''}</span>
+                  <span>◐ {res} réservé{res>1?'s':''}</span>
+                  <span>○ {lib} libre{lib>1?'s':''}</span>
                 </div>
                 {!isAdmin && (
                   <button onClick={()=>rejoindre(rot.rotation_id)}

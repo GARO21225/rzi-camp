@@ -25,6 +25,8 @@ class VoyageSerializer(serializers.ModelSerializer):
     etapes             = EtapeVoyageSerializer(many=True, read_only=True)
     # Infos rotation groupe
     places_prises      = serializers.SerializerMethodField()
+    places_occupees    = serializers.SerializerMethodField()
+    places_reservees   = serializers.SerializerMethodField()
     places_libres      = serializers.SerializerMethodField()
 
     class Meta:
@@ -70,6 +72,20 @@ class VoyageSerializer(serializers.ModelSerializer):
         if not o or not o.rotation_id: return 1
         try: return Voyage.objects.filter(rotation_id=o.rotation_id).exclude(statut="annule").count()
         except: return 1
+
+    def get_places_occupees(self, obj):
+        """Sieges CONFIRMES (valides) - vraiment pris."""
+        o = self._obj(obj)
+        if not o or not o.rotation_id: return 0
+        try: return Voyage.objects.filter(rotation_id=o.rotation_id, statut_validation="valide").exclude(statut="annule").count()
+        except: return 0
+
+    def get_places_reservees(self, obj):
+        """Sieges DEMANDES mais pas encore valides - reserves, pas garantis."""
+        o = self._obj(obj)
+        if not o or not o.rotation_id: return 0
+        try: return Voyage.objects.filter(rotation_id=o.rotation_id, statut_validation="en_attente").exclude(statut="annule").count()
+        except: return 0
 
     def get_places_libres(self, obj):
         o = self._obj(obj)

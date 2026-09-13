@@ -213,6 +213,35 @@ class VoyageViewSet(viewsets.ModelViewSet):
             "retours_en_retard": retours_en_retard,
         })
 
+    @action(detail=False, methods=['get'])
+    def retours_anticipes(self, request):
+        """
+        Personnes rentrées AVANT la date prévue — met en évidence des places
+        potentiellement libérées plus tot que prevu (ex: quelqu'un revenu par
+        un autre moyen), pour qu'un responsable voyage ou un agent qui
+        consulte les rotations disponibles en ait connaissance.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import F
+        depuis = timezone.now().date() - timedelta(days=14)
+        qs = (Voyage.objects
+            .filter(statut="retour", date_retour_effective__isnull=False,
+                    date_retour_effective__gte=depuis,
+                    date_retour_effective__lt=F("date_retour_prevue"))
+            .select_related("personnel")
+            .order_by("-date_retour_effective"))
+        data = [{
+            "id": v.id,
+            "personnel_nom": f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else "—",
+            "destination": v.destination,
+            "date_retour_prevue": v.date_retour_prevue,
+            "date_retour_effective": v.date_retour_effective,
+            "jours_avance": (v.date_retour_prevue - v.date_retour_effective).days,
+            "rotation_id": v.rotation_id,
+        } for v in qs]
+        return Response(data)
+
     @action(detail=False, methods=["get"])
     def rappels_rotation(self, request):
         """Liste détaillée des retours de rotation proches ou en retard —
@@ -247,7 +276,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         groupes = (Voyage.objects
             .exclude(rotation_id__isnull=True).exclude(rotation_id="")
             .values("rotation_id","destination","date_depart","date_retour_prevue",
-                    "vehicule","nb_places_total","heure_depart","point_rdv",
+                    "vehicule","vehicule_matricule","vehicule_photo","nb_places_total","heure_depart","point_rdv",
                     "type_voyage","motif")
             .annotate(nb_passagers=Count("id"))
             .order_by("-date_depart"))
@@ -257,7 +286,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 .exclude(statut="annule")
                 .select_related("personnel")
                 .values("id","personnel__nom","personnel__prenom",
-                        "personnel__societe","statut"))
+                        "personnel__societe","statut","statut_validation"))
             if not passagers:
                 continue  # tout le monde annule/refuse -> rotation vide, ne pas afficher
             statuts_presents = {p["statut"] for p in passagers}
@@ -272,6 +301,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
             g["statut"] = statut_rotation
             g["passagers"] = passagers
             g["nb_passagers"] = len(passagers)
+            occupees = sum(1 for p in passagers if p["statut_validation"]=="valide")
+            reservees = sum(1 for p in passagers if p["statut_validation"]=="en_attente")
+            g["places_occupees"] = occupees
+            g["places_reservees"] = reservees
             g["places_libres"] = max(0,(g["nb_places_total"] or 15)-len(passagers))
             result.append(g)
         indiv = list(Voyage.objects
@@ -289,6 +322,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         date_depart     = data.get("date_depart")
         date_retour     = data.get("date_retour_prevue")
         vehicule        = data.get("vehicule","")
+        vehicule_matricule = data.get("vehicule_matricule","")
+        vehicule_photo  = data.get("vehicule_photo","")
         nb_places       = int(data.get("nb_places_total",15))
         heure_depart    = data.get("heure_depart") or None
         point_rdv       = data.get("point_rdv","")
@@ -318,6 +353,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     personnel_id=pid, destination=destination,
                     date_depart=date_depart, date_retour_prevue=date_retour,
                     vehicule=vehicule, nb_places_total=nb_places,
+                    vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
                     heure_depart=heure_depart, point_rdv=point_rdv,
                     motif=motif, type_voyage=type_voyage,
                     rotation_id=rotation_id, statut="planifie",
@@ -352,6 +388,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
             personnel_id=personnel_id, destination=existing.destination,
             date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
             vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
+            vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,
             heure_depart=existing.heure_depart, point_rdv=existing.point_rdv,
             motif=existing.motif, type_voyage=existing.type_voyage,
             rotation_id=rotation_id, statut="planifie",
@@ -492,7 +529,7 @@ def _generer_billet_html(voyage):
         <tr><td style="padding:6px 0;color:#64748b">Point de départ</td><td>{voyage.origine or 'Camp Roxgold Sango'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Destination</td><td style="font-weight:700">{voyage.destination or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Motif</td><td>{voyage.motif or '—'}</td></tr>
-        <tr><td style="padding:6px 0;color:#64748b">Véhicule / Convoi</td><td>{voyage.vehicule or '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Véhicule / Convoi</td><td>{voyage.vehicule or '—'}{f' — {voyage.vehicule_matricule}' if voyage.vehicule_matricule else ''}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
         {f'<tr><td style="padding:6px 0;color:#64748b">Validé par</td><td>{voyage.valide_par.get_full_name() or voyage.valide_par.username} le {voyage.date_validation.strftime("%d/%m/%Y à %H:%M")}</td></tr>' if voyage.valide_par and voyage.date_validation else ''}
       </table>

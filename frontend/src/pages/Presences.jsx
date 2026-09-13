@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect } from 'react'
 import { personnel as personnelAPI, voyages as voyAPI } from '../api'
+import { toast, confirmDialog } from '../toast'
 
 const STATUTS = {
   present:  { label:'Présent',   bg:'#f0fdf4', color:'#16a34a', dot:'#16a34a', icon:'✅' },
@@ -20,7 +21,8 @@ export default function Presences() {
   const [loading, setLoading] = useState(true)
   const today = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
     Promise.all([
       personnelAPI.list({ page_size:500 }),
       voyAPI.list({ statut:'en_voyage', page_size:500 }),
@@ -28,15 +30,25 @@ export default function Presences() {
       setPersonnel(rp.data.results || rp.data || [])
       setVoyagesActifs(rv.data.results || rv.data || [])
     }).finally(() => setLoading(false))
-  }, [])
+  }
+  useEffect(() => { load() }, [])
 
-  // Enrichir chaque personne avec son statut voyage
-  const enVoyageIds = new Set(voyagesActifs.map(v => v.personnel))
+  // Enrichir chaque personne avec son statut voyage ET l'id du voyage (pour l'action retour)
+  const voyageParPersonnel = new Map(voyagesActifs.map(v => [v.personnel, v]))
 
   const data = personnel.map(p => ({
     ...p,
-    statut: enVoyageIds.has(p.id) ? 'voyage' : 'present',
+    statut: voyageParPersonnel.has(p.id) ? 'voyage' : 'present',
+    voyage: voyageParPersonnel.get(p.id),
   }))
+
+  const declarerRetour = async (p) => {
+    if (!p.voyage) return
+    const ok = await confirmDialog(`Confirmer le retour de ${p.nom} ${p.prenom} aujourd'hui ?\n\nRetour prévu initialement : ${p.voyage.date_retour_prevue ? new Date(p.voyage.date_retour_prevue).toLocaleDateString('fr-FR') : '—'}.`)
+    if (!ok) return
+    try { await voyAPI.revenir(p.voyage.id); toast.success(`${p.nom} ${p.prenom} marqué de retour`); load() }
+    catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
 
   const filtered = data.filter(p => {
     const q = search.toLowerCase()
@@ -124,6 +136,12 @@ export default function Presences() {
               <div style={{ fontWeight:700, fontSize:14, color:'#0f172a' }}>{p.nom} {p.prenom}</div>
               <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:2 }}>{p.societe || '—'}</div>
               {p.numero && <div style={{ fontSize:11, color:'var(--rzc-text-4)', marginTop:4 }}>📞 {p.numero}</div>}
+              {p.statut === 'voyage' && p.voyage && (
+                <button onClick={()=>declarerRetour(p)}
+                  style={{marginTop:10,width:'100%',background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',padding:'6px 10px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                  🏠 Déclarer de retour
+                </button>
+              )}
             </div>
           )
         })}

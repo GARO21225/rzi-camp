@@ -415,6 +415,7 @@ export default function MissionControl() {
   // Formulaires
   const [formRot, setFormRot] = useState({
     destination:'Abidjan', vehicule:'BUS', numero_veh:'01',
+    vehicule_matricule:'', vehicule_photo:'',
     modeDeplacement:'terrestre',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
@@ -473,6 +474,7 @@ export default function MissionControl() {
         flash(`Rotation ${data.rotation_id} créée · ${data.voyages_crees} passager(s)`)
         setShowCreate(null)
         setFormRot({destination:'Abidjan',vehicule:'BUS',numero_veh:'01',
+          vehicule_matricule:'',vehicule_photo:'',
           date_depart:'',date_retour_prevue:'',nb_places_total:15,
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
         load()
@@ -1426,6 +1428,7 @@ export default function MissionControl() {
                   ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
+                  ['🔖 Matricule', detailVoyage.vehicule_matricule||'—'],
                   ['📍 Point de RDV', detailVoyage.point_rdv||'—'],
                   ['🎫 Motif', detailVoyage.motif||'—'],
                   ['📊 Statut opérationnel', ST_CFG[detailVoyage.statut]?.l || detailVoyage.statut],
@@ -1436,6 +1439,13 @@ export default function MissionControl() {
                   </div>
                 ))}
               </div>
+
+              {detailVoyage.vehicule_photo && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:4}}>📸 Photo du véhicule</div>
+                  <img src={detailVoyage.vehicule_photo} alt="Véhicule" style={{width:'100%',maxHeight:160,objectFit:'cover',borderRadius:10}}/>
+                </div>
+              )}
 
               {detailVoyage.notes_admin && (
                 <div style={{fontSize:11,color:C.muted,marginBottom:16,fontStyle:'italic'}}>📝 {detailVoyage.notes_admin}</div>
@@ -1554,6 +1564,29 @@ export default function MissionControl() {
                             style={inputStyle}/>
                         </div>
                       )}
+                      <div>
+                        <label style={labelStyle}>Matricule / plaque</label>
+                        <input value={formRot.vehicule_matricule}
+                          onChange={e=>setFormRot(p=>({...p,vehicule_matricule:e.target.value}))}
+                          placeholder="ex: CI-1234-AB"
+                          style={inputStyle}/>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Photo du véhicule <span style={{fontWeight:400,color:C.muted}}>(exceptionnel)</span></label>
+                        <input type="file" accept="image/*"
+                          onChange={e=>{
+                            const f = e.target.files?.[0]
+                            if (!f) return
+                            if (f.size > 2*1024*1024) return toast.error('Image trop lourde (max 2 Mo)')
+                            const reader = new FileReader()
+                            reader.onload = () => setFormRot(p=>({...p,vehicule_photo:reader.result}))
+                            reader.readAsDataURL(f)
+                          }}
+                          style={{...inputStyle, padding:6}}/>
+                        {formRot.vehicule_photo && (
+                          <img src={formRot.vehicule_photo} alt="Véhicule" style={{marginTop:6,height:60,borderRadius:8,objectFit:'cover'}}/>
+                        )}
+                      </div>
                     </div>
                     {/* Capacité */}
                     <div>
