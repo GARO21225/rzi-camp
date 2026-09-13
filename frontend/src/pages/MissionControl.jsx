@@ -919,7 +919,8 @@ export default function MissionControl() {
                 const libres  = r.places_libres
                 const occ     = r.places_occupees ?? prises
                 const res     = r.places_reservees ?? 0
-                const pct     = Math.round(prises/total*100)
+                const actifs  = occ + res  // exclut les "retour" - eux ne bloquent plus de place
+                const pct     = Math.round(actifs/total*100)
                 const cfg     = ST_CFG[r.statut]||ST_CFG.planifie
                 const isOpen  = selRot?.rotation_id===r.rotation_id
 
@@ -965,7 +966,7 @@ export default function MissionControl() {
                       {/* Jauge remplissage — 3 etats : occupe (confirme) / reserve (en attente) / libre */}
                       <div style={{width:130,flexShrink:0}}>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                          <span style={{fontSize:11,color:C.muted}}>{prises}/{total}</span>
+                          <span style={{fontSize:11,color:C.muted}}>{actifs}/{total}</span>
                           <span style={{fontSize:11,fontWeight:700,
                             color:pct>=90?C.red:pct>=70?C.amber:C.green}}>{pct}%</span>
                         </div>
@@ -1525,6 +1526,10 @@ export default function MissionControl() {
                       <span style={{color:C.muted}}>{e.origine} → {e.destination}</span>
                       <span style={{marginLeft:'auto',color:C.muted}}>{fmt(e.date_etape)}{e.heure_depart?` ${e.heure_depart}`:''}</span>
                       {e.reference && <span style={{fontFamily:'monospace',color:C.accent}}>{e.reference}</span>}
+                      {e.billet_fichier && (
+                        <a href={e.billet_fichier} download={`billet-${e.reference||e.id}.pdf`} onClick={ev=>ev.stopPropagation()}
+                          style={{color:C.green,fontSize:10,textDecoration:'underline'}}>🎫 Billet</a>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1638,47 +1643,24 @@ export default function MissionControl() {
                               nb_places_total:v.capacite}))
                             else setFormRot(p=>({...p, vehicule_flotte_id:''}))
                           }} style={inputStyle}>
-                          <option value="">— Aucun (saisie manuelle) —</option>
+                          <option value="">— Sélectionner un véhicule du parc —</option>
                           {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                         </select>
+                        {formRot.vehicule_flotte_id && (
+                          <div style={{marginTop:6,display:'flex',alignItems:'center',gap:8,fontSize:11,color:C.muted}}>
+                            {formRot.vehicule_photo && <img src={formRot.vehicule_photo} alt="Véhicule" style={{height:36,width:52,objectFit:'cover',borderRadius:6}}/>}
+                            <span>Matricule : <b style={{color:C.text}}>{formRot.vehicule_matricule||'—'}</b></span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label style={labelStyle}>Conducteur assigné</label>
-                        <input value={formRot.conducteur}
+                        <select value={formRot.conducteur}
                           onChange={e=>setFormRot(p=>({...p,conducteur:e.target.value}))}
-                          placeholder="Nom du conducteur"
-                          style={inputStyle}/>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Matricule / plaque</label>
-                        <input value={formRot.vehicule_matricule} disabled={!!formRot.vehicule_flotte_id}
-                          onChange={e=>setFormRot(p=>({...p,vehicule_matricule:e.target.value}))}
-                          placeholder="ex: CI-1234-AB"
-                          style={{...inputStyle, background:formRot.vehicule_flotte_id?C.bg:inputStyle.background}}/>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Photo du véhicule <span style={{fontWeight:400,color:C.muted}}>(exceptionnel)</span></label>
-                        {formRot.vehicule_flotte_id ? (
-                          formRot.vehicule_photo
-                            ? <img src={formRot.vehicule_photo} alt="Véhicule" style={{height:60,borderRadius:8,objectFit:'cover'}}/>
-                            : <div style={{fontSize:11,color:C.muted}}>Aucune photo pour ce véhicule du parc</div>
-                        ) : (
-                          <>
-                            <input type="file" accept="image/*"
-                              onChange={e=>{
-                                const f = e.target.files?.[0]
-                                if (!f) return
-                                if (f.size > 2*1024*1024) return toast.error('Image trop lourde (max 2 Mo)')
-                                const reader = new FileReader()
-                                reader.onload = () => setFormRot(p=>({...p,vehicule_photo:reader.result}))
-                                reader.readAsDataURL(f)
-                              }}
-                              style={{...inputStyle, padding:6}}/>
-                            {formRot.vehicule_photo && (
-                              <img src={formRot.vehicule_photo} alt="Véhicule" style={{marginTop:6,height:60,borderRadius:8,objectFit:'cover'}}/>
-                            )}
-                          </>
-                        )}
+                          style={inputStyle}>
+                          <option value="">— Sélectionner dans le personnel —</option>
+                          {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                        </select>
                       </div>
                     </div>
                     {/* Capacité */}
@@ -1832,7 +1814,7 @@ export default function MissionControl() {
                         onChange={e=>setFormIndiv(p=>({...p,point_rdv:e.target.value}))} style={inputStyle}/>
                     </div>
                     <div>
-                      <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
+                      <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(matricule/photo auto-remplis)</span></label>
                       <select value={formIndiv.vehicule_flotte_id||''}
                         onChange={e=>{
                           const id = e.target.value
@@ -1841,15 +1823,17 @@ export default function MissionControl() {
                             vehicule_matricule:v.matricule, vehicule_photo:v.photo}))
                           else setFormIndiv(p=>({...p, vehicule_flotte_id:''}))
                         }} style={inputStyle}>
-                        <option value="">— Aucun (saisie manuelle) —</option>
+                        <option value="">— Sélectionner un véhicule du parc —</option>
                         {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
                       </select>
                     </div>
                     <div>
                       <label style={labelStyle}>Conducteur</label>
-                      <input value={formIndiv.conducteur}
-                        onChange={e=>setFormIndiv(p=>({...p,conducteur:e.target.value}))}
-                        placeholder="Nom du conducteur" style={inputStyle}/>
+                      <select value={formIndiv.conducteur}
+                        onChange={e=>setFormIndiv(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
+                        <option value="">— Sélectionner dans le personnel —</option>
+                        {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                      </select>
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Motif</label>

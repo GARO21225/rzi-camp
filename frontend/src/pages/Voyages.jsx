@@ -701,6 +701,29 @@ export default function Voyages() {
                       <input value={e.point_rdv} onChange={ev=>majEtape(idx,'point_rdv',ev.target.value)} placeholder="Point de RDV" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
                       <input value={e.reference} onChange={ev=>majEtape(idx,'reference',ev.target.value)} placeholder="Réf. (vol, plaque...)" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
                     </div>
+                    {e.mode_transport==='avion' && (
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginTop:6,padding:8,background:'#eff6ff',borderRadius:8}}>
+                        <div>
+                          <label style={{display:'block',fontSize:10,color:'var(--rzc-text-3)',marginBottom:3}}>🎫 Billet d'avion (justificatif)</label>
+                          <input type="file" accept="image/*,.pdf"
+                            onChange={ev=>{
+                              const f = ev.target.files?.[0]
+                              if (!f) return
+                              if (f.size > 3*1024*1024) return toast.error("Fichier trop lourd (max 3 Mo)")
+                              const reader = new FileReader()
+                              reader.onload = () => majEtape(idx,'billet_fichier',reader.result)
+                              reader.readAsDataURL(f)
+                            }}
+                            style={{...inp,fontSize:11,padding:'5px 6px'}}/>
+                          {e.billet_fichier && <div style={{fontSize:10,color:'#16a34a',marginTop:3}}>✅ Fichier joint</div>}
+                        </div>
+                        <div>
+                          <label style={{display:'block',fontSize:10,color:'var(--rzc-text-3)',marginBottom:3}}>Coût du billet (optionnel)</label>
+                          <input type="number" value={e.billet_cout||''} onChange={ev=>majEtape(idx,'billet_cout',ev.target.value)}
+                            placeholder="ex: 850000" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

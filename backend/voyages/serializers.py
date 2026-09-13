@@ -12,7 +12,8 @@ class EtapeVoyageSerializer(serializers.ModelSerializer):
     class Meta:
         model = EtapeVoyage
         fields = ["id","voyage","ordre","origine","destination","mode_transport","mode_transport_label",
-                  "date_etape","heure_depart","heure_arrivee_prevue","point_rdv","reference","notes"]
+                  "date_etape","heure_depart","heure_arrivee_prevue","point_rdv","reference","notes",
+                  "billet_fichier","billet_cout"]
 
 class VoyageSerializer(serializers.ModelSerializer):
     personnel_nom      = serializers.SerializerMethodField()

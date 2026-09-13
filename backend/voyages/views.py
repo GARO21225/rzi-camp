@@ -45,6 +45,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if rotation: qs = qs.filter(rotation_id=rotation)
         return qs
 
+    def create(self, request, *args, **kwargs):
+        # Règle d'or : un agent ne peut pas être sur 2 voyages actifs qui se
+        # chevauchent dans le temps - deja applique pour les rotations
+        # groupees (creer_rotation/rejoindre_rotation), mais manquait ici
+        # pour la creation directe (voyage individuel).
+        personnel_id = request.data.get("personnel")
+        date_depart = request.data.get("date_depart")
+        date_retour = request.data.get("date_retour_prevue")
+        if personnel_id and date_depart and date_retour:
+            conflict = _check_voyage_conflit(personnel_id, date_depart, date_retour)
+            if conflict:
+                return Response({
+                    "error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue} (règle : pas de voyages qui se chevauchent)."
+                }, status=400)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         u = self.request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -322,11 +338,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
             g["statut"] = statut_rotation
             g["passagers"] = passagers
             g["nb_passagers"] = len(passagers)
-            occupees = sum(1 for p in passagers if p["statut_validation"]=="valide")
-            reservees = sum(1 for p in passagers if p["statut_validation"]=="en_attente")
+            # Occupees/reservees EXCLUENT le statut "retour" - une personne
+            # deja rentree a termine son aller-retour, elle ne doit plus
+            # bloquer une place pour de nouvelles demandes (sinon le convoi
+            # reste "COMPLET" indefiniment meme quand tout le monde est revenu).
+            actifs = [p for p in passagers if p["statut"] != "retour"]
+            occupees = sum(1 for p in actifs if p["statut_validation"]=="valide")
+            reservees = sum(1 for p in actifs if p["statut_validation"]=="en_attente")
             g["places_occupees"] = occupees
             g["places_reservees"] = reservees
-            g["places_libres"] = max(0,(g["nb_places_total"] or 15)-len(passagers))
+            g["places_libres"] = max(0,(g["nb_places_total"] or 15)-len(actifs))
             result.append(g)
         indiv = list(Voyage.objects
             .filter(rotation_id__isnull=True)
@@ -523,8 +544,9 @@ def _generer_billet_html(voyage):
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.date_etape.strftime('%d/%m/%Y')}{' à ' + e.heure_depart.strftime('%H:%M') if e.heure_depart else ''}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.point_rdv or '—'}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace">{e.reference or '—'}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{f'{e.billet_cout:,.0f} FCFA' if e.billet_cout else '—'}</td>
         </tr>
-    """ for e in etapes]) or '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
+    """ for e in etapes]) or '<tr><td colspan="7" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
 
     return f"""
     <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -560,7 +582,7 @@ def _generer_billet_html(voyage):
       </table>
       <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire</h2>
       <table>
-        <thead><tr><th>Étape</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Point de RDV</th><th>Référence</th></tr></thead>
+        <thead><tr><th>Étape</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Point de RDV</th><th>Référence</th><th>Coût</th></tr></thead>
         <tbody>{etapes_html}</tbody>
       </table>
       <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — RZI Camp ERP · Usage interne uniquement</p>

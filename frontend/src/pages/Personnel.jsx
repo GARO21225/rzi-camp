@@ -50,7 +50,8 @@ export default function Personnel() {
   const [masseLoading, setMasseLoading] = useState(false)
   const [form,         setForm]         = useState({
     nom:'', prenom:'', email:'', telephone:'', numero_whatsapp:'',
-    societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true
+    societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true,
+    est_expatrie:false, pays_origine:''
   })
   const [saving,       setSaving]       = useState(false)
   const [selected_ids, setSelectedIds]  = useState(new Set())  // IDs sélectionnés pour masse
@@ -96,7 +97,7 @@ export default function Personnel() {
         await personnelAPI.create(form)
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:''})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -545,7 +546,7 @@ export default function Personnel() {
               👥 Sous-traitants masse
             </button>
             <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true})
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:''})
               setErr(''); setModal('new')
             }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
               ➕ Nouveau membre
@@ -737,7 +738,8 @@ export default function Personnel() {
                               nom:p.nom, prenom:p.prenom, email:p.email||'',
                               telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
-                              numero:p.numero||'', actif:p.actif
+                              numero:p.numero||'', actif:p.actif,
+                              est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||''
                             })
                             setErr(''); setModal(p)
                           }} style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
@@ -883,6 +885,23 @@ export default function Personnel() {
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>N° MATRICULE</label>
                     <input value={form.numero} onChange={e=>setForm({...form,numero:e.target.value})} style={inp}/>
                   </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12, marginTop:12}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}>
+                    <input type="checkbox" id="est_expatrie" checked={!!form.est_expatrie}
+                      onChange={e=>setForm({...form,est_expatrie:e.target.checked})}
+                      style={{width:16,height:16,cursor:'pointer'}}/>
+                    <label htmlFor="est_expatrie" style={{fontSize:12,fontWeight:600,color:'var(--rzc-text-2)',cursor:'pointer'}}>
+                      🌍 Personnel expatrié (billets d'avion)
+                    </label>
+                  </div>
+                  {form.est_expatrie && (
+                    <div>
+                      <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>PAYS D'ORIGINE</label>
+                      <input value={form.pays_origine||''} onChange={e=>setForm({...form,pays_origine:e.target.value})}
+                        placeholder="ex: Canada, France..." style={inp}/>
+                    </div>
+                  )}
                 </div>
                 <div style={{display:'flex',gap:10,marginTop:4}}>
                   <button onClick={()=>setModal(null)}

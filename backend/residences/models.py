@@ -44,6 +44,10 @@ class Personnel(models.Model):
     actif            = models.BooleanField(default=True)
     profil           = models.CharField(max_length=20, choices=PROFIL_CHOICES,
                        default='agent', blank=True)
+    est_expatrie     = models.BooleanField(default=False,
+                       help_text="Personnel expatrié — nécessite des billets d'avion pour les rotations pays d'origine <-> mine")
+    pays_origine     = models.CharField(max_length=100, blank=True, default="",
+                       help_text="Pays d'origine — point de départ des billets d'avion pour le personnel expatrié")
 
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")

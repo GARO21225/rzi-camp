@@ -99,7 +99,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "id", "nom", "prenom", "societe", "numero", "matricule", "telephone", "numero_whatsapp", "type_personnel",
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
-            "password_genere", "profil", "profil_label",
+            "password_genere", "profil", "profil_label", "est_expatrie", "pays_origine",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 

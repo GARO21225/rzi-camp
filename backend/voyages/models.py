@@ -150,6 +150,12 @@ class EtapeVoyage(models.Model):
     reference     = models.CharField(max_length=100, blank=True, default="",
                      help_text="Numéro de vol, plaque du véhicule, référence de réservation...")
     notes         = models.TextField(blank=True, default="")
+    # Justificatif billet d'avion — pour le personnel expatrie (comptabilite/
+    # remboursement). Pertinent surtout quand mode_transport="avion".
+    billet_fichier = models.TextField(blank=True, default="",
+                     help_text="Scan/PDF du billet d'avion en base64 — justificatif pour la comptabilité")
+    billet_cout    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                     help_text="Coût du billet — pour le suivi budgétaire du personnel expatrié")
 
     class Meta:
         ordering = ["voyage", "ordre"]
