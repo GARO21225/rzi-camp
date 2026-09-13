@@ -128,9 +128,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
         voyage.motif_refus = request.data.get("motif", "")
         # Un voyage refuse doit liberer sa place dans le convoi et disparaitre
         # du manifeste - sinon il reste compte comme "en transit" alors
-        # qu'il ne partira jamais.
+        # qu'il ne partira jamais. Detache aussi du rotation_id : une demande
+        # refusee n'a jamais reellement rejoint le convoi, elle ne doit plus
+        # y apparaitre du tout (le vehicule/matricule/conducteur restent
+        # visibles sur SA fiche a titre historique, seul le lien au groupe
+        # actif est retire).
         voyage.statut = "annule"
-        voyage.save(update_fields=["statut_validation","valide_par","date_validation","motif_refus","statut"])
+        voyage.rotation_id = None
+        voyage.save(update_fields=["statut_validation","valide_par","date_validation","motif_refus","statut","rotation_id"])
         try:
             from evenements.models import SimpleNotification
             demandeur = voyage.enregistre_par
@@ -216,6 +221,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if voyage.statut == "retour":
             return Response({"error":"Voyage déjà terminé"}, status=400)
         voyage.statut = "annule"
+        voyage.rotation_id = None
         voyage.save()
         return Response({"ok": True})
 

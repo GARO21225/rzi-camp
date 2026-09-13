@@ -1517,7 +1517,7 @@ export default function MissionControl() {
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
                   ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
-                  ['🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
+                  [detailVoyage.statut_validation==='refuse' ? '🚗 Véhicule prévu (non confirmé)' : '🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
                   ['🔖 Matricule', detailVoyage.vehicule_matricule||'—'],
                   ['🧑‍✈️ Conducteur (aller)', detailVoyage.conducteur||'—'],
                   ['📍 Point de RDV', detailVoyage.point_rdv||'—'],
