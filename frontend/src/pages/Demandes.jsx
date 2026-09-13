@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI } from '../api'
+import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -41,6 +41,8 @@ export default function Demandes() {
   })
   const [actionForm, setActionForm] = useState({ commentaire:'', proposition:{} })
 
+  const [voyagesEnAttente, setVoyagesEnAttente] = useState([])
+
   const load = () => {
     setLoading(true)
     const p = {}
@@ -49,11 +51,33 @@ export default function Demandes() {
     else if (tab === 'archive') {} // all
     demandesAPI.list(p).then(r => setData(r.data.results||r.data)).finally(()=>setLoading(false))
     if (isAdmin) demandesAPI.stats().then(r => setStats(r.data)).catch(()=>{})
+    // Vue unifiee : sur l'onglet 'en attente', agrege aussi les voyages
+    // en attente de validation (Centre de Mobilite) — un seul endroit
+    // pour tout ce qui necessite une action admin, plutot que des files
+    // d'attente eparpillees dans differents modules.
+    if (isAdmin && tab === 'pending') {
+      voyagesAPI.list({statut_validation:'en_attente', page_size:100}).then(r => {
+        setVoyagesEnAttente((r.data.results||r.data||[]).map(v=>({..._v_to_demande(v)})))
+      }).catch(()=>setVoyagesEnAttente([]))
+    } else {
+      setVoyagesEnAttente([])
+    }
     batAPI.list({page_size:300}).then(r => {
       const items = r.data.results||r.data
       setBats([...items].filter(b=>b.statut==='Libre').sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
     })
   }
+
+  // Adapte un Voyage au meme "gabarit" visuel qu'une Demande, pour
+  // pouvoir les afficher cote a cote dans la meme liste unifiee.
+  const _v_to_demande = (v) => ({
+    id: `voyage-${v.id}`, _voyageId: v.id, _source: 'voyage',
+    type_demande: 'voyage', statut: 'en_attente',
+    demandeur_nom: v.personnel_nom, date_creation: v.created_at,
+    date_debut_souhaitee: v.date_depart, date_fin_souhaitee: v.date_retour_prevue,
+    donnees: { destination: v.destination, motif: v.motif, origine: v.origine },
+    message_demandeur: v.motif ? `${v.motif} — vers ${v.destination||'—'}` : `Voyage vers ${v.destination||'—'}`,
+  })
 
   useEffect(()=>{ load() }, [tab])
 
@@ -69,9 +93,14 @@ export default function Demandes() {
   const doAction = async () => {
     const { demande, action } = actionModal
     try {
-      if (action === 'valider') await demandesAPI.valider(demande.id, actionForm)
-      else if (action === 'rejeter') await demandesAPI.rejeter(demande.id, actionForm)
-      else if (action === 'proposer') await demandesAPI.proposer(demande.id, actionForm)
+      if (demande._source === 'voyage') {
+        if (action === 'valider') await voyagesAPI.valider(demande._voyageId)
+        else if (action === 'rejeter') await voyagesAPI.refuser(demande._voyageId, actionForm.commentaire)
+      } else {
+        if (action === 'valider') await demandesAPI.valider(demande.id, actionForm)
+        else if (action === 'rejeter') await demandesAPI.rejeter(demande.id, actionForm)
+        else if (action === 'proposer') await demandesAPI.proposer(demande.id, actionForm)
+      }
       setActionModal(null)
       setActionForm({ commentaire:'', proposition:{} })
       setDetailModal(null)
@@ -98,6 +127,10 @@ export default function Demandes() {
 
   const filterData = () => {
     if (!isAdmin && tab === 'proposition_recue') return data.filter(d=>d.statut==='proposition')
+    if (isAdmin && tab === 'pending') {
+      // Fusionne demandes classiques + voyages en attente, tries par date
+      return [...data, ...voyagesEnAttente].sort((a,b)=>new Date(b.date_creation||0)-new Date(a.date_creation||0))
+    }
     return data
   }
 
@@ -129,7 +162,7 @@ export default function Demandes() {
       {isAdmin && stats && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
           {[
-            [stats.en_attente,'En attente','#d08800','⏳'],
+            [(stats.en_attente||0) + voyagesEnAttente.length,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
             [stats.validees,'Validées','#16a34a','✅'],
             [stats.rejetees,'Rejetées','#dc2626','❌'],
