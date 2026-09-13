@@ -169,6 +169,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
+        if voyage.statut == "retour":
+            return Response({"error":"Ce voyage est terminé (retour effectué) — plus rien à modifier."}, status=400)
         vehicule = request.data.get("vehicule", "")
         if not vehicule:
             return Response({"error":"Véhicule requis"}, status=400)
@@ -192,6 +194,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
+        if voyage.statut == "retour":
+            return Response({"error":"Ce voyage est terminé (retour effectué) — plus rien à modifier."}, status=400)
         nouveau_rotation_id = request.data.get("rotation_id")
         if not nouveau_rotation_id:
             return Response({"error":"rotation_id requis"}, status=400)
@@ -609,24 +613,35 @@ class EtapeVoyageViewSet(viewsets.ModelViewSet):
             qs = qs.filter(voyage_id=voyage_id)
         return qs
 
+    def create(self, request, *args, **kwargs):
+        # Un voyage termine (retour) est fige - plus aucune modification
+        # d'itineraire n'a de sens une fois le trajet reellement termine.
+        voyage_id = request.data.get("voyage")
+        if voyage_id:
+            voyage = Voyage.objects.filter(pk=voyage_id).first()
+            if voyage and voyage.statut == "retour":
+                return Response({"error": "Ce voyage est terminé (retour effectué) — l'itinéraire ne peut plus être modifié."}, status=400)
+        return super().create(request, *args, **kwargs)
+
 
 def _generer_billet_html(voyage):
     """Document imprimable façon billet d'agence de voyage — toutes les
     étapes de l'itinéraire, point de RDV, référence, à imprimer ou garder
     en PDF via le navigateur (Ctrl+P -> Enregistrer en PDF)."""
     p = voyage.personnel
-    etapes = voyage.etapes.all().order_by("ordre")
+    etapes = voyage.etapes.select_related("vehicule_flotte").all().order_by("ordre")
     etapes_html = "".join([f"""
         <tr>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0F2A5C">{e.ordre}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:{'#16a34a' if e.sens=='retour' else '#0F2A5C'}">{'⬅️ Retour' if e.sens=='retour' else '➡️ Aller'}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.get_mode_transport_display()}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.origine} → {e.destination}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.date_etape.strftime('%d/%m/%Y')}{' à ' + e.heure_depart.strftime('%H:%M') if e.heure_depart else ''}</td>
-          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{e.point_rdv or '—'}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0">{(e.vehicule_flotte.nom + (' (' + e.vehicule_flotte.matricule + ')' if e.vehicule_flotte.matricule else '')) if e.vehicule_flotte else '—'}{(' — ' + e.conducteur) if e.conducteur else ''}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace">{e.reference or '—'}</td>
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{f'{e.billet_cout:,.0f} FCFA' if e.billet_cout else '—'}</td>
         </tr>
-    """ for e in etapes]) or '<tr><td colspan="7" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
+    """ for e in etapes]) or '<tr><td colspan="8" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
 
     return f"""
     <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -662,7 +677,7 @@ def _generer_billet_html(voyage):
       </table>
       <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire</h2>
       <table>
-        <thead><tr><th>Étape</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Point de RDV</th><th>Référence</th><th>Coût</th></tr></thead>
+        <thead><tr><th>Étape</th><th>Sens</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Véhicule / Conducteur</th><th>Référence</th><th>Coût</th></tr></thead>
         <tbody>{etapes_html}</tbody>
       </table>
       <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — RZI Camp ERP · Usage interne uniquement</p>

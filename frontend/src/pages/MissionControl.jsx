@@ -1607,23 +1607,32 @@ export default function MissionControl() {
                 <div style={{marginBottom:16}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:8}}>🗺️ Itinéraire détaillé</div>
                   {etapesDetail.map(e=>(
-                    <div key={e.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:C.bg,borderRadius:8,marginBottom:6,fontSize:11}}>
-                      <span style={{background:C.accent,color:'#0f172a',borderRadius:99,width:18,height:18,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:10,flexShrink:0}}>{e.ordre}</span>
-                      <span>{e.mode_transport_label}</span>
-                      <span style={{color:C.muted}}>{e.origine} → {e.destination}</span>
-                      <span style={{marginLeft:'auto',color:C.muted}}>{fmt(e.date_etape)}{e.heure_depart?` ${e.heure_depart}`:''}</span>
-                      {e.reference && <span style={{fontFamily:'monospace',color:C.accent}}>{e.reference}</span>}
-                      {e.billet_fichier && (
-                        <a href={e.billet_fichier} download={`billet-${e.reference||e.id}.pdf`} onClick={ev=>ev.stopPropagation()}
-                          style={{color:C.green,fontSize:10,textDecoration:'underline'}}>🎫 Billet</a>
+                    <div key={e.id} style={{padding:'8px 10px',background:C.bg,borderRadius:8,marginBottom:6,fontSize:11}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{background:e.sens==='retour'?C.green:C.accent,color:'#0f172a',borderRadius:99,width:18,height:18,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:10,flexShrink:0}}>{e.ordre}</span>
+                        <span style={{fontWeight:700,color:e.sens==='retour'?C.green:C.accent}}>{e.sens==='retour'?'⬅️ RETOUR':'➡️ ALLER'}</span>
+                        <span>{e.mode_transport_label}</span>
+                        <span style={{color:C.muted}}>{e.origine} → {e.destination}</span>
+                        <span style={{marginLeft:'auto',color:C.muted}}>{fmt(e.date_etape)}{e.heure_depart?` ${e.heure_depart}`:''}</span>
+                      </div>
+                      {(e.vehicule_nom || e.conducteur || e.reference) && (
+                        <div style={{display:'flex',gap:10,marginTop:4,paddingLeft:26,color:C.muted,flexWrap:'wrap'}}>
+                          {e.vehicule_nom && <span>🚗 <b style={{color:C.text}}>{e.vehicule_nom}</b>{e.vehicule_matricule?` (${e.vehicule_matricule})`:''}</span>}
+                          {e.conducteur && <span>🧑‍✈️ {e.conducteur}</span>}
+                          {e.reference && <span style={{fontFamily:'monospace'}}>{e.reference}</span>}
+                          {e.billet_fichier && (
+                            <a href={e.billet_fichier} download={`billet-${e.reference||e.id}.pdf`} onClick={ev=>ev.stopPropagation()}
+                              style={{color:C.green,textDecoration:'underline'}}>🎫 Billet</a>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Actions : changer de véhicule ou de convoi */}
-              {detailVoyage.statut !== 'retour' && (
+              {/* Actions : changer de véhicule ou de convoi — verrouillé une fois le voyage termine */}
+              {detailVoyage.statut !== 'retour' ? (
                 <div style={{display:'flex',gap:8,marginBottom:16}}>
                   <button className="mc-btn" style={{flex:1,fontSize:11,background:C.bg}}
                     onClick={()=>setChangerVehiculeForm({vehicule:detailVoyage.vehicule||'', vehicule_matricule:detailVoyage.vehicule_matricule||'', vehicule_photo:detailVoyage.vehicule_photo||'', conducteur:detailVoyage.conducteur||'', vehicule_flotte_id:''})}>
@@ -1633,6 +1642,10 @@ export default function MissionControl() {
                     onClick={()=>setChangerConvoiForm(true)}>
                     🔀 Changer de convoi
                   </button>
+                </div>
+              ) : (
+                <div style={{marginBottom:16,padding:'8px 12px',background:`${C.muted}12`,borderRadius:8,fontSize:11,color:C.muted,textAlign:'center'}}>
+                  🔒 Voyage terminé (retour effectué) — itinéraire et véhicule figés, plus rien à modifier
                 </div>
               )}
 
@@ -1688,10 +1701,12 @@ export default function MissionControl() {
               <div style={{marginBottom:16}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.accent}}>🗺️ Trajet sur la carte</div>
+                  {detailVoyage.statut !== 'retour' && (
                   <div style={{display:'flex',gap:6}}>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape aller</button>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('retour')}>⬅️ + Étape retour</button>
                   </div>
+                  )}
                 </div>
                 <CarteItineraire origine={detailVoyage.origine} destination={detailVoyage.destination} etapes={etapesDetail}/>
               </div>
