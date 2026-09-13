@@ -1163,7 +1163,23 @@ export default function MissionControl() {
                                     </div>
                                   </div>
                                   <StatusBadge statut={p.statut}/>
-                                  <span style={{fontSize:10,color:C.muted}}>⚙️</span>
+                                  {p.statut==='planifie' && (
+                                    <button onClick={async ev=>{
+                                        ev.stopPropagation()
+                                        const ok = await confirmDialog(`Retirer ${p.personnel__nom} ${p.personnel__prenom} de cette rotation ?`)
+                                        if (!ok) return
+                                        try {
+                                          const res = await api(`/api/voyages/${p.id}/annuler/`, {method:'POST'})
+                                          if (res.ok) { toast.success('Retiré de la rotation'); load() }
+                                          else { const d = await res.json(); toast.error(d.error||'Erreur') }
+                                        } catch { toast.error('Erreur réseau') }
+                                      }}
+                                      title="Retirer de la rotation"
+                                      style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:13,padding:'2px 4px',flexShrink:0}}>
+                                      🗑️
+                                    </button>
+                                  )}
+                                  <span style={{fontSize:10,color:C.muted}} title="Cliquer la ligne pour modifier">⚙️</span>
                                 </div>
                               ))}
                               {(r.passagers||[]).length===0&&(
