@@ -558,7 +558,7 @@ export default function MapPage() {
         {/* Panneau flottant de contrôle du tracé en cours */}
         {drawingChemin && (
           <div style={{position:'absolute',bottom:20,left:10,background:'#fff',border:'1px solid var(--border)',
-            borderRadius:12,padding:14,zIndex:900,boxShadow:'var(--shadow-md)',width:260}}>
+            borderRadius:12,padding:14,zIndex:900,boxShadow:'var(--shadow-md)',width:260,maxWidth:'calc(100vw - 30px)'}}>
             <div style={{fontWeight:700,fontSize:13,color:'#0ea5e9',marginBottom:8}}>
               🛤️ Tracé en cours ({cheminPoints.length} point{cheminPoints.length>1?'s':''})
             </div>
