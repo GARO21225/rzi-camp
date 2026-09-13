@@ -1108,7 +1108,7 @@ export default function MissionControl() {
                             {libres>0 && r.statut==='planifie' && (
                               <div style={{marginTop:12}}>
                                 <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
-                                  Ajouter un passager
+                                  ➕ Ajouter un passager <b style={{color:C.text}}>à CE convoi</b> ({r.vehicule||r.rotation_id}) — pour un voyage séparé, utilise plutôt « + Voyage individuel »
                                 </div>
                                 <div style={{display:'flex',gap:8}}>
                                   <select
