@@ -318,11 +318,36 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"])
     def supprimer_planifie(self, request, pk=None):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
         if voyage.statut != "planifie":
             return Response({"error":"Seuls les voyages planifiés peuvent être supprimés"}, status=400)
         voyage.delete()
         return Response({"ok": True})
+
+    @action(detail=False, methods=["post"])
+    def supprimer_rotation(self, request):
+        """Supprime un convoi ENTIER (tous ses passagers d'un coup) - reserve
+        aux convois pas encore partis, comme la suppression individuelle."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        rotation_id = request.data.get("rotation_id")
+        if not rotation_id:
+            return Response({"error":"rotation_id requis"}, status=400)
+        membres = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule")
+        if not membres.exists():
+            return Response({"error":"Convoi introuvable ou déjà vide"}, status=404)
+        actifs_partis = membres.exclude(statut="planifie")
+        if actifs_partis.exists():
+            return Response({"error":"Ce convoi a déjà des passagers partis ou revenus — impossible de le supprimer entièrement. Retirez-les individuellement si besoin."}, status=400)
+        nb = membres.count()
+        membres.delete()
+        return Response({"ok": True, "supprimes": nb})
 
     # ── Stats ──────────────────────────────────────────────────────
     @action(detail=False, methods=["get"])

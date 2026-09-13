@@ -947,13 +947,13 @@ export default function MissionControl() {
                 {[
                   {icon:'✦',
                    text: absents.length>0
-                    ? `${absents.length} personne(s) hors camp. Taux d'occupation flotte: ${rotations.length>0?Math.round(rotations.reduce((s,r)=>s+r.nb_passagers,0)/rotations.reduce((s,r)=>s+(r.nb_places_total||15),0)*100):0}%.`
+                    ? `${absents.length} personne(s) hors camp. Taux d'occupation flotte (convois actifs): ${rotations.filter(r=>r.statut!=='retour').length>0?Math.round(rotations.filter(r=>r.statut!=='retour').reduce((s,r)=>s+(r.places_occupees||0)+(r.places_reservees||0),0)/rotations.filter(r=>r.statut!=='retour').reduce((s,r)=>s+(r.nb_places_total||15),0)*100):0}%.`
                     : 'Tout le personnel est présent au camp. Aucun déplacement actif.',
                    conf:'Données temps réel'},
                   {icon:'✦',
-                   text: rotations.filter(r=>r.places_libres>0).length > 0
-                    ? `${rotations.filter(r=>r.places_libres>0).reduce((s,r)=>s+r.places_libres,0)} siège(s) disponible(s) sur ${rotations.filter(r=>r.places_libres>0).length} rotation(s). Optimisez le remplissage.`
-                    : 'Toutes les rotations planifiées sont complètes.',
+                   text: rotations.filter(r=>r.places_libres>0 && r.statut!=='retour').length > 0
+                    ? `${rotations.filter(r=>r.places_libres>0 && r.statut!=='retour').reduce((s,r)=>s+r.places_libres,0)} siège(s) disponible(s) sur ${rotations.filter(r=>r.places_libres>0 && r.statut!=='retour').length} convoi(s) actif(s). Optimisez le remplissage.`
+                    : 'Aucun convoi actif avec des places libres actuellement.',
                    conf:'Analyse occupation'},
                   {icon:'✦',
                    text: departs.length>0
@@ -1079,6 +1079,22 @@ export default function MissionControl() {
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
                           🏠 Retour
+                        </button>}
+                        {r.statut==='planifie'&&<button className="mc-btn"
+                          style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
+                          title="Supprimer tout le convoi"
+                          onClick={async e=>{
+                            e.stopPropagation()
+                            const ok = await confirmDialog(`Supprimer entièrement le convoi ${r.vehicule||r.rotation_id} et ses ${r.nb_passagers} passager(s) ? Cette action est irréversible.`)
+                            if (!ok) return
+                            try {
+                              const res = await api('/api/voyages/supprimer_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id})})
+                              const d = await res.json()
+                              if (res.ok) { toast.success(`Convoi supprimé (${d.supprimes} passager(s))`); load() }
+                              else toast.error(d.error||'Erreur')
+                            } catch { toast.error('Erreur réseau') }
+                          }}>
+                          🗑️
                         </button>}
                         <button className="mc-btn mc-btn-ghost"
                           style={{padding:'6px 10px',fontSize:11}}
@@ -1877,10 +1893,11 @@ export default function MissionControl() {
                     </div>
                     {/* Capacité */}
                     <div>
-                      <label style={labelStyle}>Capacité (sièges)</label>
+                      <label style={labelStyle}>Capacité (sièges) {formRot.vehicule_flotte_id && <span style={{fontWeight:400,color:C.muted}}>(imposée par le véhicule du parc)</span>}</label>
                       <input type="number" min="1" max="60" value={formRot.nb_places_total}
+                        disabled={!!formRot.vehicule_flotte_id}
                         onChange={e=>setFormRot(p=>({...p,nb_places_total:parseInt(e.target.value)||15}))}
-                        style={inputStyle}/>
+                        style={{...inputStyle, background: formRot.vehicule_flotte_id ? C.bg : inputStyle.background, cursor: formRot.vehicule_flotte_id ? 'not-allowed' : 'text'}}/>
                     </div>
                     <div>
                       <label style={labelStyle}>Heure départ</label>
