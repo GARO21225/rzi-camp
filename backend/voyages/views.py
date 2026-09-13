@@ -174,10 +174,21 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule = request.data.get("vehicule", "")
         if not vehicule:
             return Response({"error":"Véhicule requis"}, status=400)
+        nouveau_conducteur = request.data.get("conducteur", "")
+        if nouveau_conducteur:
+            if voyage.personnel and f"{voyage.personnel.nom} {voyage.personnel.prenom}".strip().lower() == nouveau_conducteur.strip().lower():
+                return Response({"error": f"{nouveau_conducteur} est le voyageur lui-même : il ne peut pas être son propre conducteur."}, status=400)
+            chevauche = Voyage.objects.filter(
+                conducteur__iexact=nouveau_conducteur,
+                statut__in=("planifie","en_voyage"),
+                date_depart__lte=voyage.date_retour_prevue, date_retour_prevue__gte=voyage.date_depart,
+            ).exclude(pk=voyage.pk).first()
+            if chevauche:
+                return Response({"error": f"{nouveau_conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
         voyage.vehicule = vehicule
         voyage.vehicule_matricule = request.data.get("vehicule_matricule", "")
         voyage.vehicule_photo = request.data.get("vehicule_photo", "")
-        voyage.conducteur = request.data.get("conducteur", "")
+        voyage.conducteur = nouveau_conducteur
         voyage.save(update_fields=["vehicule","vehicule_matricule","vehicule_photo","conducteur"])
         return Response(VoyageSerializer(voyage).data)
 
@@ -202,6 +213,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         cible = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").first()
         if not cible:
             return Response({"error":"Convoi cible introuvable ou vide"}, status=404)
+        if cible.statut == "retour":
+            return Response({"error": "Ce convoi est déjà terminé (retour effectué) — impossible d'y ajouter quelqu'un. Créez un nouveau convoi à la place."}, status=400)
         prises = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").count()
         if prises >= (cible.nb_places_total or 15):
             return Response({"error":"Convoi cible complet"}, status=400)
@@ -459,6 +472,26 @@ class VoyageViewSet(viewsets.ModelViewSet):
         passagers_ids   = data.get("passagers",[])
         if not date_depart or not date_retour:
             return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
+
+        # Regle : le conducteur ne peut pas etre aussi passager de la meme rotation
+        if conducteur:
+            from residences.models import Personnel
+            for pid in passagers_ids:
+                try:
+                    p = Personnel.objects.get(pk=pid)
+                    if f"{p.nom} {p.prenom}".strip().lower() == conducteur.strip().lower():
+                        return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+                except Personnel.DoesNotExist:
+                    pass
+            # Regle : le conducteur ne peut pas deja etre conducteur sur un AUTRE convoi actif qui chevauche les dates
+            chevauche = Voyage.objects.filter(
+                conducteur__iexact=conducteur,
+                statut__in=("planifie","en_voyage"),
+                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
+            ).first()
+            if chevauche:
+                return Response({"error": f"{conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
+
         created = []
         conflicts = []
         for pid in passagers_ids:
@@ -474,6 +507,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if conflicts:
             return Response({"error": f"Impossible de créer la rotation : {len(conflicts)} conflit(s) détecté(s) — " + " | ".join(conflicts)}, status=400)
 
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        extra_validation = {}
+        if is_admin:
+            from django.utils import timezone as tz2
+            extra_validation = {"statut_validation":"valide", "valide_par":u, "date_validation":tz2.now()}
+
         for pid in passagers_ids:
             try:
                 v = Voyage.objects.create(
@@ -486,6 +526,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     motif=motif, type_voyage=type_voyage,
                     rotation_id=rotation_id, statut="planifie",
                     enregistre_par=request.user,
+                    **extra_validation,
                 )
                 created.append(v.id)
             except Exception:

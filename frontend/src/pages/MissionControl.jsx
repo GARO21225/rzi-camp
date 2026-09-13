@@ -516,9 +516,19 @@ export default function MissionControl() {
     }
     setSaving(true)
     try {
-      const res = await api('/api/voyages/', {
+      // Traite le voyage individuel comme une rotation a 1 passager -
+      // reutilise EXACTEMENT le meme mecanisme que 'Nouvelle rotation'
+      // (rotation_id genere, visible dans l'onglet Rotations, meme
+      // validation/conflits/notifications), plutot qu'un chemin separe
+      // et incomplet.
+      const res = await api('/api/voyages/creer_rotation/', {
         method:'POST',
-        body: JSON.stringify({ ...formIndiv, personnel: formIndiv.personnel_id })
+        body: JSON.stringify({
+          ...formIndiv,
+          nb_places_total: 1,
+          type_voyage: 'individuel',
+          passagers: [formIndiv.personnel_id],
+        })
       })
       const data = await res.json()
       if (res.ok) {
@@ -1682,10 +1692,10 @@ export default function MissionControl() {
                 <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16,border:`1px solid ${C.green}40`}}>
                   <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8}}>🔀 Déplacer vers un autre convoi</div>
                   <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:200,overflowY:'auto'}}>
-                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0).length===0 && (
+                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0 && r.statut!=='retour').length===0 && (
                       <div style={{fontSize:11,color:C.muted}}>Aucun autre convoi avec des places libres.</div>
                     )}
-                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0).map(r=>(
+                    {rotations.filter(r=>r.rotation_id!==detailVoyage.rotation_id && r.places_libres>0 && r.statut!=='retour').map(r=>(
                       <div key={r.rotation_id} onClick={()=>soumettreChangerConvoi(r.rotation_id)}
                         style={{padding:'8px 10px',background:C.panel,borderRadius:8,cursor:'pointer',fontSize:11,display:'flex',justifyContent:'space-between'}}>
                         <span><b style={{color:C.text}}>{r.vehicule}</b> · {r.destination} · {fmt(r.date_depart)}</span>
