@@ -123,6 +123,20 @@ const DESTINATIONS = [
   'Sango Mine Site', 'Camp de base', 'Site d\'exploration', 'Autre site minier',
 ]
 
+// Filtre le catalogue "véhicule du parc" selon le mode de transport choisi —
+// evite de proposer un avion pour un trajet en bus, etc. À pied ne nécessite
+// aucun véhicule.
+const CATEGORIES_PAR_MODE = {
+  bus: ['bus','minibus'], '4x4': ['4x4','pickup'], avion: ['avion'],
+  bateau: ['bateau'], a_pied: [], autre: ['autre'],
+}
+const filtrerFlotteParMode = (flotte, mode) => {
+  const cats = CATEGORIES_PAR_MODE[mode]
+  if (mode === 'a_pied') return []
+  if (!cats || cats.length === 0) return flotte
+  return flotte.filter(v => cats.includes(v.categorie))
+}
+
 export default function Voyages() {
   const { user } = useStore()
   const role = user?.profile?.role || (user?.is_staff ? 'admin' : 'agent')
@@ -705,20 +719,25 @@ export default function Voyages() {
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
                       <input value={e.origine} onChange={ev=>majEtape(idx,'origine',ev.target.value)} placeholder="Origine" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
                       <input value={e.destination} onChange={ev=>majEtape(idx,'destination',ev.target.value)} placeholder="Destination" style={{...inp,fontSize:12,padding:'7px 9px'}}/>
-                      <select value={e.mode_transport} onChange={ev=>majEtape(idx,'mode_transport',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
+                      <select value={e.mode_transport} onChange={ev=>{
+                          const nv = ev.target.value
+                          setEtapesForm(prev => prev.map((etp,i) => i===idx ? {...etp, mode_transport:nv, vehicule_flotte:''} : etp))
+                        }} style={{...inp,fontSize:12,padding:'7px 9px'}}>
                         {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                       </select>
                     </div>
+                    {e.mode_transport !== 'a_pied' && (
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
                       <select value={e.vehicule_flotte||''} onChange={ev=>majEtape(idx,'vehicule_flotte',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
-                        <option value="">— Véhicule du parc —</option>
-                        {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                        <option value="">— Véhicule du parc ({e.mode_transport}) —</option>
+                        {filtrerFlotteParMode(flotte, e.mode_transport).map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
                       </select>
                       <select value={e.conducteur||''} onChange={ev=>majEtape(idx,'conducteur',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}>
                         <option value="">— Conducteur —</option>
                         {personnelList.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
                       </select>
                     </div>
+                    )}
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6}}>
                       <input type="date" value={e.date_etape} onChange={ev=>majEtape(idx,'date_etape',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}/>
                       <input type="time" value={e.heure_depart} onChange={ev=>majEtape(idx,'heure_depart',ev.target.value)} style={{...inp,fontSize:12,padding:'7px 9px'}}/>

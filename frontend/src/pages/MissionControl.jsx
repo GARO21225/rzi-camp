@@ -27,6 +27,18 @@ const C = {
   cyan:   '#0891B2',
 }
 
+// Filtre le catalogue "véhicule du parc" selon le mode de transport choisi
+const CATEGORIES_PAR_MODE = {
+  bus: ['bus','minibus'], '4x4': ['4x4','pickup'], avion: ['avion'],
+  bateau: ['bateau'], a_pied: [], autre: ['autre'],
+}
+const filtrerFlotteParMode = (flotte, mode) => {
+  if (mode === 'a_pied') return []
+  const cats = CATEGORIES_PAR_MODE[mode]
+  if (!cats || cats.length === 0) return flotte
+  return flotte.filter(v => cats.includes(v.categorie))
+}
+
 const ST_CFG = {
   planifie:  { l:'Planifié',     c:C.accent,  dot:'#3b82f6' },
   en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
@@ -1592,20 +1604,22 @@ export default function MissionControl() {
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
                     <input value={nouvelleEtape.origine} onChange={e=>setNouvelleEtape(p=>({...p,origine:e.target.value}))} placeholder="Origine" style={inputStyle}/>
                     <input value={nouvelleEtape.destination} onChange={e=>setNouvelleEtape(p=>({...p,destination:e.target.value}))} placeholder="Destination" style={inputStyle}/>
-                    <select value={nouvelleEtape.mode_transport} onChange={e=>setNouvelleEtape(p=>({...p,mode_transport:e.target.value}))} style={inputStyle}>
+                    <select value={nouvelleEtape.mode_transport} onChange={e=>setNouvelleEtape(p=>({...p,mode_transport:e.target.value,vehicule_flotte:''}))} style={inputStyle}>
                       {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
+                  {nouvelleEtape.mode_transport !== 'a_pied' && (
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
                     <select value={nouvelleEtape.vehicule_flotte} onChange={e=>setNouvelleEtape(p=>({...p,vehicule_flotte:e.target.value}))} style={inputStyle}>
-                      <option value="">— Véhicule du parc —</option>
-                      {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                      <option value="">— Véhicule du parc ({nouvelleEtape.mode_transport}) —</option>
+                      {filtrerFlotteParMode(flotte, nouvelleEtape.mode_transport).map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
                     </select>
                     <select value={nouvelleEtape.conducteur} onChange={e=>setNouvelleEtape(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
                       <option value="">— Conducteur —</option>
                       {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
                     </select>
                   </div>
+                  )}
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6,marginBottom:8}}>
                     <input type="date" value={nouvelleEtape.date_etape} onChange={e=>setNouvelleEtape(p=>({...p,date_etape:e.target.value}))} style={inputStyle}/>
                     <input type="time" value={nouvelleEtape.heure_depart} onChange={e=>setNouvelleEtape(p=>({...p,heure_depart:e.target.value}))} style={inputStyle}/>

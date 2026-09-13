@@ -185,7 +185,7 @@ class VehiculeFlotte(models.Model):
     """
     CATEGORIES = [
         ("4x4", "🚙 4x4"), ("pickup", "🛻 Pick-up"), ("minibus", "🚐 Minibus"),
-        ("bus", "🚌 Bus"), ("avion", "✈️ Avion"), ("autre", "🚗 Autre"),
+        ("bus", "🚌 Bus"), ("avion", "✈️ Avion"), ("bateau", "⛴️ Bateau"), ("autre", "🚗 Autre"),
     ]
     nom         = models.CharField(max_length=100)
     categorie   = models.CharField(max_length=15, choices=CATEGORIES, default="4x4")
