@@ -1354,22 +1354,44 @@ class DemandeViewSet(viewsets.ModelViewSet):
         
         elif demande.type_demande == "voyage":
             from voyages.models import Voyage
+            from voyages.views import _check_voyage_conflit
+            import uuid as _uuid
             data = demande.donnees
             if demande.demandeur:
                 p = getattr(demande.demandeur,"personnel",None)
                 if p:
                     import datetime
-                    try:
-                        Voyage.objects.create(
-                            personnel=p,
-                            destination=data.get("destination",""),
-                            motif=data.get("motif",""),
-                            date_depart=demande.date_debut_souhaitee or datetime.date.today(),
-                            date_retour_prevue=demande.date_fin_souhaitee or (demande.date_debut_souhaitee or datetime.date.today()) + datetime.timedelta(days=7),
-                            enregistre_par=request.user,
-                        )
-                    except Exception as ve:
-                        pass  # Continue even if voyage creation fails
+                    dd = demande.date_debut_souhaitee or datetime.date.today()
+                    df = demande.date_fin_souhaitee or dd + datetime.timedelta(days=7)
+                    conflict = _check_voyage_conflit(p.id, dd, df)
+                    if conflict:
+                        demande.commentaire_admin = (demande.commentaire_admin or "") + f" ⚠️ Voyage non créé : {p.nom} {p.prenom} a déjà un voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}."
+                    else:
+                        try:
+                            # Meme traitement qu'un voyage individuel cree
+                            # depuis Centre de Mobilite (rotation_id genere,
+                            # statut_validation en_attente meme si valide ici -
+                            # coherence avec la regle 'voyage individuel
+                            # necessite toujours une vraie validation') plutot
+                            # que Voyage.objects.create() brut qui contournait
+                            # tout le workflow (pas de rotation_id, pas de
+                            # verification de chevauchement).
+                            Voyage.objects.create(
+                                personnel=p,
+                                destination=data.get("destination",""),
+                                motif=data.get("motif",""),
+                                date_depart=dd,
+                                date_retour_prevue=df,
+                                rotation_id=str(_uuid.uuid4())[:8].upper(),
+                                nb_places_total=1,
+                                type_voyage="individuel",
+                                statut_validation="valide",
+                                valide_par=request.user,
+                                date_validation=timezone.now(),
+                                enregistre_par=request.user,
+                            )
+                        except Exception as ve:
+                            pass  # Continue even if voyage creation fails
         
         demande.save()
         try:

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
@@ -411,6 +412,7 @@ function GanttBar({ voyage, days, onClick }) {
 // COMPOSANT PRINCIPAL
 // ════════════════════════════════════════════════════════════════════
 export default function MissionControl() {
+  const isMobile = useIsMobile()
   const [view,       setView]      = useState('command')
   const [voyages,    setVoyages]   = useState([])
   const [rotations,  setRotations] = useState([])
@@ -732,20 +734,21 @@ export default function MissionControl() {
       <div className="mc-inner">
 
         {/* ── TOPBAR ─────────────────────────────────────────────── */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'flex-start':'center',
+          flexDirection:isMobile?'column':'row',gap:isMobile?12:0,
           marginBottom:14,paddingBottom:12,
           borderBottom:`0.5px solid ${C.border}`}}>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             {/* Logo */}
-            <div style={{width:38,height:38,border:`1px solid ${C.accent}`,
+            {!isMobile && <div style={{width:38,height:38,border:`1px solid ${C.accent}`,
               borderRadius:9,display:'flex',alignItems:'center',
               justifyContent:'center',position:'relative',flexShrink:0}}>
               <div style={{position:'absolute',inset:4,border:`1px solid ${C.accent}40`,
                 borderRadius:5,animation:'mcPulse 2.5s ease-in-out infinite'}}/>
               <span style={{fontSize:18}}>⛏️</span>
-            </div>
+            </div>}
             <div>
-              <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,fontWeight:600,
+              <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:isMobile?11:12,fontWeight:600,
                 letterSpacing:2,textTransform:'uppercase',color:C.accent}}>
                 Centre de Mobilité · RZI Camp
               </div>
@@ -757,7 +760,11 @@ export default function MissionControl() {
 
           {/* Tabs */}
           <div style={{display:'flex',gap:4,background:`rgba(96,165,250,.05)`,
-            borderRadius:10,padding:4,flexWrap:'wrap'}}>
+            borderRadius:10,padding:4,
+            flexWrap:isMobile?'nowrap':'wrap',
+            overflowX:isMobile?'auto':'visible',
+            width:isMobile?'100%':'auto',
+            WebkitOverflowScrolling:'touch'}}>
             {[
               ['command','🛰️ Command'],
               ['rotations','🚀 Rotations'],
@@ -770,7 +777,7 @@ export default function MissionControl() {
               const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : 0
               return (
                 <button key={v} className={`mc-tab ${view===v?'active':''}`}
-                  onClick={()=>setView(v)} style={{position:'relative'}}>
+                  onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
                   {l}
                   {nbPending > 0 && (
                     <span style={{position:'absolute',top:-6,right:-6,background:C.red,color:'#fff',
@@ -1019,7 +1026,7 @@ export default function MissionControl() {
                   <Panel key={r.rotation_id} glow={isOpen}
                     style={{overflow:'visible'}}>
                     {/* Header rotation */}
-                    <div style={{padding:'14px 18px',display:'flex',gap:14,
+                    <div style={{padding:'14px 18px',display:'flex',gap:14,flexWrap:isMobile?'wrap':'nowrap',
                       alignItems:'center',cursor:'pointer'}}
                       onClick={()=>setSelRot(isOpen?null:r)}>
                       {/* Icône véhicule */}
@@ -1055,7 +1062,7 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {/* Jauge remplissage — 3 etats : occupe (confirme) / reserve (en attente) / libre */}
-                      <div style={{width:130,flexShrink:0}}>
+                      <div style={{width:isMobile?'100%':130,flexShrink:0,order:isMobile?3:0}}>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                           <span style={{fontSize:11,color:C.muted}}>{actifs}/{total}</span>
                           <span style={{fontSize:11,fontWeight:700,
