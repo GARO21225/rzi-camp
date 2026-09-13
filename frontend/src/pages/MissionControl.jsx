@@ -426,9 +426,9 @@ export default function MissionControl() {
 
   // Formulaires
   const [formRot, setFormRot] = useState({
-    destination:'Abidjan', vehicule:'BUS', numero_veh:'01',
+    destination:'Abidjan', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', vehicule_flotte_id:'',
-    modeDeplacement:'terrestre',
+    mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
     passagers:[],
@@ -484,13 +484,13 @@ export default function MissionControl() {
 
   const creerRotation = async () => {
     if (!formRot.date_depart || !formRot.date_retour_prevue) return flash('Dates requises',false)
+    if (formRot.mode_transport !== 'a_pied' && !formRot.vehicule) return flash('Véhicule requis (du parc ou saisi librement)',false)
     setSaving(true)
     try {
-      const vehicule = `${formRot.vehicule}-${formRot.numero_veh}`
       const res = await api('/api/voyages/creer_rotation/', {
         method:'POST',
         body: JSON.stringify({
-          ...formRot, vehicule,
+          ...formRot,
           passagers: formRot.passagers,
         })
       })
@@ -498,8 +498,8 @@ export default function MissionControl() {
       if (res.ok) {
         flash(`Rotation ${data.rotation_id} créée · ${data.voyages_crees} passager(s)`)
         setShowCreate(null)
-        setFormRot({destination:'Abidjan',vehicule:'BUS',numero_veh:'01',
-          vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',
+        setFormRot({destination:'Abidjan',vehicule:'',
+          vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
           date_depart:'',date_retour_prevue:'',nb_places_total:15,
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
         load()
@@ -1684,70 +1684,46 @@ export default function MissionControl() {
                         ))}
                       </select>
                     </div>
-                    {/* Mode de déplacement + Véhicule — 2 sélecteurs */}
+                    {/* Type de transport + Véhicule du parc — UN SEUL systeme coherent,
+                        plus d'ancienne liste generique deconnectee du catalogue */}
                     <div style={{gridColumn:'span 2',display:'grid',
                       gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
-                      {/* Sélecteur mode */}
                       <div>
-                        <label style={labelStyle}>Mode de déplacement</label>
+                        <label style={labelStyle}>Type de transport</label>
                         <select
-                          value={formRot.modeDeplacement||'terrestre'}
-                          onChange={e=>setFormRot(p=>({...p,
-                            modeDeplacement:e.target.value,vehicule:'',numero_veh:''}))}
+                          value={formRot.mode_transport||'bus'}
+                          onChange={e=>setFormRot(p=>({...p, mode_transport:e.target.value, vehicule_flotte_id:'', vehicule:'', vehicule_matricule:'', vehicule_photo:''}))}
                           style={inputStyle}>
-                          {Object.entries(MODES_DEPLACEMENT).map(([k,cat])=>(
-                            <option key={k} value={k}>{cat.label}</option>
-                          ))}
+                          {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                         </select>
                       </div>
-                      {/* Sélecteur véhicule filtré par mode */}
-                      <div>
-                        <label style={labelStyle}>Véhicule</label>
-                        <select
-                          value={`${formRot.vehicule||''}-${formRot.numero_veh||''}`}
-                          onChange={e=>{
-                            const v = VEHICULES_LIST.find(x=>x.code===e.target.value)
-                            if(v) setFormRot(p=>({...p,vehicule:v.type,numero_veh:e.target.value.split('-').pop()}))
-                          }}
-                          style={inputStyle}>
-                          <option value="">Sélectionner...</option>
-                          {VEHICULES_LIST.filter(v=>v.mode===(formRot.modeDeplacement||'terrestre')).map(v=>(
-                            <option key={v.code} value={v.code}>{v.labelFull}</option>
-                          ))}
-                          <option value="AUTRE-00">✏️ Autre (saisie manuelle)</option>
-                        </select>
-                      </div>
-                      {/* Saisie manuelle si AUTRE */}
-                      {formRot.vehicule==='AUTRE' && (
-                        <div style={{gridColumn:'span 2'}}>
-                          <label style={labelStyle}>Nom du véhicule</label>
-                          <input value={formRot.numero_veh}
-                            onChange={e=>setFormRot(p=>({...p,numero_veh:e.target.value}))}
-                            placeholder="ex: CESSNA-172, LAND-CRUISER-06..."
-                            style={inputStyle}/>
-                        </div>
-                      )}
+                      {formRot.mode_transport !== 'a_pied' && (
                       <div>
                         <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
                         <select value={formRot.vehicule_flotte_id}
                           onChange={e=>{
                             const id = e.target.value
                             const v = flotte.find(f=>String(f.id)===id)
-                            if (v) setFormRot(p=>({...p, vehicule_flotte_id:id,
+                            if (v) setFormRot(p=>({...p, vehicule_flotte_id:id, vehicule:v.nom,
                               vehicule_matricule:v.matricule, vehicule_photo:v.photo,
                               nb_places_total:v.capacite}))
-                            else setFormRot(p=>({...p, vehicule_flotte_id:''}))
+                            else setFormRot(p=>({...p, vehicule_flotte_id:'', vehicule:''}))
                           }} style={inputStyle}>
                           <option value="">— Sélectionner un véhicule du parc —</option>
-                          {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
+                          {filtrerFlotteParMode(flotte, formRot.mode_transport||'bus').map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                         </select>
-                        {formRot.vehicule_flotte_id && (
+                        {formRot.vehicule_flotte_id ? (
                           <div style={{marginTop:6,display:'flex',alignItems:'center',gap:8,fontSize:11,color:C.muted}}>
                             {formRot.vehicule_photo && <img src={formRot.vehicule_photo} alt="Véhicule" style={{height:36,width:52,objectFit:'cover',borderRadius:6}}/>}
                             <span>Matricule : <b style={{color:C.text}}>{formRot.vehicule_matricule||'—'}</b></span>
                           </div>
+                        ) : (
+                          <input value={formRot.vehicule} onChange={e=>setFormRot(p=>({...p,vehicule:e.target.value}))}
+                            placeholder="Ou nom libre si absent du catalogue (ex: Cessna 172)"
+                            style={{...inputStyle,marginTop:6,fontSize:11}}/>
                         )}
                       </div>
+                      )}
                       <div>
                         <label style={labelStyle}>Conducteur assigné</label>
                         <select value={formRot.conducteur}
@@ -1859,7 +1835,7 @@ export default function MissionControl() {
                     style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
                     disabled={saving||!formRot.date_depart||!formRot.date_retour_prevue}
                     onClick={creerRotation}>
-                    {saving ? '⏳ Création...' : `✦ Créer rotation ${formRot.vehicule}-${formRot.numero_veh} · ${formRot.passagers.length} passager(s)`}
+                    {saving ? '⏳ Création...' : `✦ Créer rotation ${formRot.vehicule||'—'} · ${formRot.passagers.length} passager(s)`}
                   </button>
                 </div>
               )}
