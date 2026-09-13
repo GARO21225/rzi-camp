@@ -226,6 +226,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         ancien_rotation_id = voyage.rotation_id
         voyage.rotation_id = nouveau_rotation_id
         voyage.destination = cible.destination
+        voyage.origine = cible.origine
         voyage.date_depart = cible.date_depart
         voyage.date_retour_prevue = cible.date_retour_prevue
         voyage.vehicule = cible.vehicule
@@ -495,6 +496,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         data = request.data
         rotation_id     = str(uuid.uuid4())[:8].upper()
         destination     = data.get("destination","")
+        origine         = data.get("origine","Camp Roxgold Sango")
         date_depart     = data.get("date_depart")
         date_retour     = data.get("date_retour_prevue")
         vehicule        = data.get("vehicule","")
@@ -561,7 +563,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         for pid in passagers_ids:
             try:
                 v = Voyage.objects.create(
-                    personnel_id=pid, destination=destination,
+                    personnel_id=pid, destination=destination, origine=origine,
                     date_depart=date_depart, date_retour_prevue=date_retour,
                     vehicule=vehicule, nb_places_total=nb_places,
                     vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
@@ -601,7 +603,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if conflict and conflict.rotation_id != rotation_id:
             return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
         v = Voyage.objects.create(
-            personnel_id=personnel_id, destination=existing.destination,
+            personnel_id=personnel_id, destination=existing.destination, origine=existing.origine,
             date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
             vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
             vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,

@@ -428,7 +428,7 @@ export default function MissionControl() {
 
   // Formulaires
   const [formRot, setFormRot] = useState({
-    destination:'Abidjan', vehicule:'',
+    destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', vehicule_flotte_id:'',
     mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
@@ -506,7 +506,7 @@ export default function MissionControl() {
           setTimeout(() => toast.warning(`⚠️ ${data.exclus.length} personne(s) retirée(s) automatiquement (déjà en voyage) : ${data.exclus.join(' | ')}`, 8000), 400)
         }
         setShowCreate(null)
-        setFormRot({destination:'Abidjan',vehicule:'',
+        setFormRot({destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
           date_depart:'',date_retour_prevue:'',nb_places_total:15,
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
@@ -1887,9 +1887,19 @@ export default function MissionControl() {
               {showCreate==='rotation' && (
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+                    {/* Adresse de départ — pas toujours le camp (ex: convoi de retour d'un site externe) */}
+                    <div>
+                      <label style={labelStyle}>Adresse de départ</label>
+                      <input list="origines-rotation" value={formRot.origine}
+                        onChange={e=>setFormRot(p=>({...p,origine:e.target.value}))}
+                        placeholder="Camp Roxgold Sango" style={inputStyle}/>
+                      <datalist id="origines-rotation">
+                        {['Camp Roxgold Sango','Abidjan','Yamoussoukro','San Pédro','Bouaké','Aéroport FHB','Mine Agbaou','Mine Yaouré'].map(d=><option key={d} value={d}/>)}
+                      </datalist>
+                    </div>
                     {/* Destination */}
-                    <div style={{gridColumn:'span 2'}}>
-                      <label style={labelStyle}>Destination *</label>
+                    <div>
+                      <label style={labelStyle}>Adresse d'arrivée *</label>
                       <select value={formRot.destination}
                         onChange={e=>setFormRot(p=>({...p,destination:e.target.value}))}
                         style={inputStyle}>

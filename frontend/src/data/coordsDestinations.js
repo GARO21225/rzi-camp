@@ -9,6 +9,8 @@ export const COORDS_DESTINATIONS = {
   'camp de base': [8.05, -6.75],
   "site d'exploration": [8.05, -6.75],
   'autre site minier': [8.05, -6.75],
+  'mine agbaou': [5.85, -5.35],
+  'mine yaouré': [6.85, -5.35],
   // Côte d'Ivoire - villes principales
   'abidjan': [5.3600, -4.0083],
   'yamoussoukro': [6.8276, -5.2893],
