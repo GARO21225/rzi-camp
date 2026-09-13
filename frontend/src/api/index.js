@@ -48,6 +48,15 @@ api.interceptors.response.use(r => r, async err => {
         localStorage.removeItem('refresh_token')
         window.location.href = '/login'
       }
+    } else {
+      // Pas de refresh_token disponible (deja consomme, jamais eu, ou deja
+      // retente et toujours 401) : la session est definitivement invalide.
+      // Avant ce correctif, ce cas tombait silencieusement sans jamais
+      // rediriger - tous les boutons semblaient "ne rien faire" puisque
+      // chaque action echouait en silence avec une session deja morte.
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      window.location.href = '/login'
     }
   }
   return Promise.reject(err)
