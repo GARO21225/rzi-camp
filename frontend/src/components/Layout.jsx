@@ -18,6 +18,7 @@ const ROLE_NAV = {
     // ── Personnel & Conformité
     { group:'Personnel & Conformité' },
     { to:'/personnel', label:'👤 Personnel' },
+    { to:'/presences', label:'🟢 Présences' },
     { to:'/induction', label:'🎓 Induction QHSE' },
     { to:'/induction-camp', label:'🏕️ Induction Camp' },
     { to:'/epi', label:'🦺 Équipements EPI' },

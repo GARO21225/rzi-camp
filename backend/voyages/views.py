@@ -1,7 +1,7 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import TokenInQueryOrHeader
 import datetime, csv, uuid
 from django.http import HttpResponse
@@ -155,6 +155,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
     # ── Actions individuelles ──────────────────────────────────────
     @action(detail=True, methods=["post"])
     def partir(self, request, pk=None):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
         if voyage.statut != "planifie":
             return Response({"error":"Voyage non planifié"}, status=400)
@@ -163,16 +167,33 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def revenir(self, request, pk=None):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
         if voyage.statut != "en_voyage":
             return Response({"error":"Personnel pas en voyage"}, status=400)
         date_str = request.data.get("date_retour")
         date = datetime.date.fromisoformat(date_str) if date_str else None
         voyage.revenir(date)
+        # Vehicule/conducteur du retour, si different de l'aller (ex: agent
+        # regroupe dans un autre vehicule suite a un retour anticipe)
+        champs_retour = {}
+        if request.data.get("vehicule_retour"): champs_retour["vehicule_retour"] = request.data["vehicule_retour"]
+        if request.data.get("vehicule_matricule_retour"): champs_retour["vehicule_matricule_retour"] = request.data["vehicule_matricule_retour"]
+        if request.data.get("conducteur_retour"): champs_retour["conducteur_retour"] = request.data["conducteur_retour"]
+        if champs_retour:
+            for k,v in champs_retour.items(): setattr(voyage, k, v)
+            voyage.save(update_fields=list(champs_retour.keys()))
         return Response(VoyageSerializer(voyage).data)
 
     @action(detail=True, methods=["post"])
     def annuler(self, request, pk=None):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
         if voyage.statut == "en_voyage":
             return Response({"error":"Impossible d annuler un voyage déjà commencé"}, status=400)
@@ -276,7 +297,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         groupes = (Voyage.objects
             .exclude(rotation_id__isnull=True).exclude(rotation_id="")
             .values("rotation_id","destination","date_depart","date_retour_prevue",
-                    "vehicule","vehicule_matricule","vehicule_photo","nb_places_total","heure_depart","point_rdv",
+                    "vehicule","vehicule_matricule","vehicule_photo","conducteur","nb_places_total","heure_depart","point_rdv",
                     "type_voyage","motif")
             .annotate(nb_passagers=Count("id"))
             .order_by("-date_depart"))
@@ -324,6 +345,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule        = data.get("vehicule","")
         vehicule_matricule = data.get("vehicule_matricule","")
         vehicule_photo  = data.get("vehicule_photo","")
+        conducteur      = data.get("conducteur","")
         nb_places       = int(data.get("nb_places_total",15))
         heure_depart    = data.get("heure_depart") or None
         point_rdv       = data.get("point_rdv","")
@@ -354,6 +376,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     date_depart=date_depart, date_retour_prevue=date_retour,
                     vehicule=vehicule, nb_places_total=nb_places,
                     vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
+                    conducteur=conducteur,
                     heure_depart=heure_depart, point_rdv=point_rdv,
                     motif=motif, type_voyage=type_voyage,
                     rotation_id=rotation_id, statut="planifie",
@@ -389,6 +412,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
             date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
             vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
             vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,
+            conducteur=existing.conducteur,
             heure_depart=existing.heure_depart, point_rdv=existing.point_rdv,
             motif=existing.motif, type_voyage=existing.type_voyage,
             rotation_id=rotation_id, statut="planifie",
@@ -530,6 +554,7 @@ def _generer_billet_html(voyage):
         <tr><td style="padding:6px 0;color:#64748b">Destination</td><td style="font-weight:700">{voyage.destination or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Motif</td><td>{voyage.motif or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#64748b">Véhicule / Convoi</td><td>{voyage.vehicule or '—'}{f' — {voyage.vehicule_matricule}' if voyage.vehicule_matricule else ''}</td></tr>
+        {f'<tr><td style="padding:6px 0;color:#64748b">Conducteur</td><td>{voyage.conducteur}</td></tr>' if voyage.conducteur else ''}
         <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
         {f'<tr><td style="padding:6px 0;color:#64748b">Validé par</td><td>{voyage.valide_par.get_full_name() or voyage.valide_par.username} le {voyage.date_validation.strftime("%d/%m/%Y à %H:%M")}</td></tr>' if voyage.valide_par and voyage.date_validation else ''}
       </table>
@@ -541,4 +566,23 @@ def _generer_billet_html(voyage):
       <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — RZI Camp ERP · Usage interne uniquement</p>
     </body></html>
     """
+
+
+from .models import VehiculeFlotte
+from .serializers import VehiculeFlotteSerializer
+
+class VehiculeFlotteViewSet(viewsets.ModelViewSet):
+    """Catalogue des véhicules du camp — lecture ouverte à tout connecté
+    (pour choisir un véhicule à la création de rotation), écriture admin."""
+    queryset = VehiculeFlotte.objects.filter(actif=True)
+    serializer_class = VehiculeFlotteSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
 

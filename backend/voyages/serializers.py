@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Voyage, EtapeVoyage
+from .models import Voyage, EtapeVoyage, VehiculeFlotte
 
 STATUT_MAP = {
     "planifie":"Planifié","en_voyage":"En voyage",
@@ -156,3 +156,11 @@ class VoyageSerializer(serializers.ModelSerializer):
         if req and req.user and req.user.is_authenticated:
             validated_data["enregistre_par"] = req.user
         return super().create(validated_data)
+
+
+class VehiculeFlotteSerializer(serializers.ModelSerializer):
+    categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
+
+    class Meta:
+        model = VehiculeFlotte
+        fields = ["id","nom","categorie","categorie_label","matricule","capacite","photo","actif"]

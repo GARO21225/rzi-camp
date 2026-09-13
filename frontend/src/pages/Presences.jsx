@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react'
 import { personnel as personnelAPI, voyages as voyAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
+import { useStore } from '../store'
 
 const STATUTS = {
   present:  { label:'Présent',   bg:'#f0fdf4', color:'#16a34a', dot:'#16a34a', icon:'✅' },
@@ -14,6 +15,8 @@ const STATUTS = {
 }
 
 export default function Presences() {
+  const { user } = useStore()
+  const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
   const [personnel, setPersonnel] = useState([])
   const [voyagesActifs, setVoyagesActifs] = useState([])
   const [search, setSearch] = useState('')
@@ -136,7 +139,7 @@ export default function Presences() {
               <div style={{ fontWeight:700, fontSize:14, color:'#0f172a' }}>{p.nom} {p.prenom}</div>
               <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:2 }}>{p.societe || '—'}</div>
               {p.numero && <div style={{ fontSize:11, color:'var(--rzc-text-4)', marginTop:4 }}>📞 {p.numero}</div>}
-              {p.statut === 'voyage' && p.voyage && (
+              {isAdmin && p.statut === 'voyage' && p.voyage && (
                 <button onClick={()=>declarerRetour(p)}
                   style={{marginTop:10,width:'100%',background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0',padding:'6px 10px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700}}>
                   🏠 Déclarer de retour

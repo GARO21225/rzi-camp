@@ -415,35 +415,44 @@ export default function MissionControl() {
   // Formulaires
   const [formRot, setFormRot] = useState({
     destination:'Abidjan', vehicule:'BUS', numero_veh:'01',
-    vehicule_matricule:'', vehicule_photo:'',
+    vehicule_matricule:'', vehicule_photo:'', conducteur:'', vehicule_flotte_id:'',
     modeDeplacement:'terrestre',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
     passagers:[],
   })
   const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'' })
+  const [formIndiv, setFormIndiv] = useState({
+    personnel_id:'', destination:'Abidjan', origine:'Camp Roxgold Sango',
+    date_depart:'', date_retour_prevue:'', heure_depart:'06:00',
+    vehicule:'', vehicule_matricule:'', vehicule_photo:'', conducteur:'',
+    point_rdv:'Entrée camp', motif:'',
+  })
   const [rappels, setRappels] = useState([])
   const [moisCal, setMoisCal] = useState(new Date())
   const [detailVoyage, setDetailVoyage] = useState(null)
   const [etapesDetail, setEtapesDetail] = useState([])
   const [rechercheListe, setRechercheListe] = useState('')
+  const [flotte, setFlotte] = useState([])
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr, rrap] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap, rvf] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true').then(r=>r.json()),
         api('/api/voyages/rotations/').then(r=>r.json()),
         api('/api/voyages/rappels_rotation/').then(r=>r.json()),
+        api('/api/vehicules-flotte/').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
       if (rp.status==='fulfilled') setPersonnel(rp.value?.results||rp.value||[])
       if (rr.status==='fulfilled') setRotations(rr.value?.rotations||[])
       if (rrap.status==='fulfilled') setRappels(Array.isArray(rrap.value) ? rrap.value : [])
+      if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -474,12 +483,36 @@ export default function MissionControl() {
         flash(`Rotation ${data.rotation_id} créée · ${data.voyages_crees} passager(s)`)
         setShowCreate(null)
         setFormRot({destination:'Abidjan',vehicule:'BUS',numero_veh:'01',
-          vehicule_matricule:'',vehicule_photo:'',
+          vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',
           date_depart:'',date_retour_prevue:'',nb_places_total:15,
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
         load()
       } else flash(data.error||'Erreur',false)
     } catch(e) { flash('Erreur réseau',false) }
+    setSaving(false)
+  }
+
+  const creerIndividuel = async () => {
+    if (!formIndiv.personnel_id || !formIndiv.date_depart || !formIndiv.date_retour_prevue) {
+      return flash('Personnel et dates requis', false)
+    }
+    setSaving(true)
+    try {
+      const res = await api('/api/voyages/', {
+        method:'POST',
+        body: JSON.stringify({ ...formIndiv, personnel: formIndiv.personnel_id })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        flash('Voyage individuel créé')
+        setShowCreate(null)
+        setFormIndiv({personnel_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',
+          date_depart:'',date_retour_prevue:'',heure_depart:'06:00',
+          vehicule:'',vehicule_matricule:'',vehicule_photo:'',conducteur:'',
+          point_rdv:'Entrée camp',motif:''})
+        load()
+      } else flash(data.error || data.detail || Object.values(data)[0]?.[0] || 'Erreur', false)
+    } catch(e) { flash('Erreur réseau', false) }
     setSaving(false)
   }
 
@@ -1429,6 +1462,7 @@ export default function MissionControl() {
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
                   ['🔖 Matricule', detailVoyage.vehicule_matricule||'—'],
+                  ['🧑‍✈️ Conducteur (aller)', detailVoyage.conducteur||'—'],
                   ['📍 Point de RDV', detailVoyage.point_rdv||'—'],
                   ['🎫 Motif', detailVoyage.motif||'—'],
                   ['📊 Statut opérationnel', ST_CFG[detailVoyage.statut]?.l || detailVoyage.statut],
@@ -1444,6 +1478,16 @@ export default function MissionControl() {
                 <div style={{marginBottom:16}}>
                   <div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:4}}>📸 Photo du véhicule</div>
                   <img src={detailVoyage.vehicule_photo} alt="Véhicule" style={{width:'100%',maxHeight:160,objectFit:'cover',borderRadius:10}}/>
+                </div>
+              )}
+
+              {(detailVoyage.vehicule_retour || detailVoyage.conducteur_retour) && (
+                <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16}}>
+                  <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:6}}>🔄 Trajet retour (différent de l'aller)</div>
+                  <div style={{fontSize:12,color:C.text}}>
+                    {detailVoyage.vehicule_retour && <div>Véhicule : <b>{detailVoyage.vehicule_retour}</b> {detailVoyage.vehicule_matricule_retour && `(${detailVoyage.vehicule_matricule_retour})`}</div>}
+                    {detailVoyage.conducteur_retour && <div>Conducteur : <b>{detailVoyage.conducteur_retour}</b></div>}
+                  </div>
                 </div>
               )}
 
@@ -1565,26 +1609,56 @@ export default function MissionControl() {
                         </div>
                       )}
                       <div>
-                        <label style={labelStyle}>Matricule / plaque</label>
-                        <input value={formRot.vehicule_matricule}
-                          onChange={e=>setFormRot(p=>({...p,vehicule_matricule:e.target.value}))}
-                          placeholder="ex: CI-1234-AB"
+                        <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
+                        <select value={formRot.vehicule_flotte_id}
+                          onChange={e=>{
+                            const id = e.target.value
+                            const v = flotte.find(f=>String(f.id)===id)
+                            if (v) setFormRot(p=>({...p, vehicule_flotte_id:id,
+                              vehicule_matricule:v.matricule, vehicule_photo:v.photo,
+                              nb_places_total:v.capacite}))
+                            else setFormRot(p=>({...p, vehicule_flotte_id:''}))
+                          }} style={inputStyle}>
+                          <option value="">— Aucun (saisie manuelle) —</option>
+                          {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Conducteur assigné</label>
+                        <input value={formRot.conducteur}
+                          onChange={e=>setFormRot(p=>({...p,conducteur:e.target.value}))}
+                          placeholder="Nom du conducteur"
                           style={inputStyle}/>
                       </div>
                       <div>
+                        <label style={labelStyle}>Matricule / plaque</label>
+                        <input value={formRot.vehicule_matricule} disabled={!!formRot.vehicule_flotte_id}
+                          onChange={e=>setFormRot(p=>({...p,vehicule_matricule:e.target.value}))}
+                          placeholder="ex: CI-1234-AB"
+                          style={{...inputStyle, background:formRot.vehicule_flotte_id?C.bg:inputStyle.background}}/>
+                      </div>
+                      <div>
                         <label style={labelStyle}>Photo du véhicule <span style={{fontWeight:400,color:C.muted}}>(exceptionnel)</span></label>
-                        <input type="file" accept="image/*"
-                          onChange={e=>{
-                            const f = e.target.files?.[0]
-                            if (!f) return
-                            if (f.size > 2*1024*1024) return toast.error('Image trop lourde (max 2 Mo)')
-                            const reader = new FileReader()
-                            reader.onload = () => setFormRot(p=>({...p,vehicule_photo:reader.result}))
-                            reader.readAsDataURL(f)
-                          }}
-                          style={{...inputStyle, padding:6}}/>
-                        {formRot.vehicule_photo && (
-                          <img src={formRot.vehicule_photo} alt="Véhicule" style={{marginTop:6,height:60,borderRadius:8,objectFit:'cover'}}/>
+                        {formRot.vehicule_flotte_id ? (
+                          formRot.vehicule_photo
+                            ? <img src={formRot.vehicule_photo} alt="Véhicule" style={{height:60,borderRadius:8,objectFit:'cover'}}/>
+                            : <div style={{fontSize:11,color:C.muted}}>Aucune photo pour ce véhicule du parc</div>
+                        ) : (
+                          <>
+                            <input type="file" accept="image/*"
+                              onChange={e=>{
+                                const f = e.target.files?.[0]
+                                if (!f) return
+                                if (f.size > 2*1024*1024) return toast.error('Image trop lourde (max 2 Mo)')
+                                const reader = new FileReader()
+                                reader.onload = () => setFormRot(p=>({...p,vehicule_photo:reader.result}))
+                                reader.readAsDataURL(f)
+                              }}
+                              style={{...inputStyle, padding:6}}/>
+                            {formRot.vehicule_photo && (
+                              <img src={formRot.vehicule_photo} alt="Véhicule" style={{marginTop:6,height:60,borderRadius:8,objectFit:'cover'}}/>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1690,6 +1764,86 @@ export default function MissionControl() {
                     disabled={saving||!formRot.date_depart||!formRot.date_retour_prevue}
                     onClick={creerRotation}>
                     {saving ? '⏳ Création...' : `✦ Créer rotation ${formRot.vehicule}-${formRot.numero_veh} · ${formRot.passagers.length} passager(s)`}
+                  </button>
+                </div>
+              )}
+
+              {showCreate==='individuel' && (
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+                    <div style={{gridColumn:'span 2'}}>
+                      <label style={labelStyle}>Personnel *</label>
+                      <select value={formIndiv.personnel_id}
+                        onChange={e=>setFormIndiv(p=>({...p,personnel_id:e.target.value}))}
+                        style={inputStyle}>
+                        <option value="">Sélectionner...</option>
+                        {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Origine</label>
+                      <input value={formIndiv.origine}
+                        onChange={e=>setFormIndiv(p=>({...p,origine:e.target.value}))}
+                        placeholder="Camp Roxgold Sango" style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Destination *</label>
+                      <input value={formIndiv.destination}
+                        onChange={e=>setFormIndiv(p=>({...p,destination:e.target.value}))}
+                        placeholder="Abidjan..." style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Date départ *</label>
+                      <input type="date" value={formIndiv.date_depart}
+                        onChange={e=>setFormIndiv(p=>({...p,date_depart:e.target.value}))} style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Heure départ</label>
+                      <input type="time" value={formIndiv.heure_depart}
+                        onChange={e=>setFormIndiv(p=>({...p,heure_depart:e.target.value}))} style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Retour prévu *</label>
+                      <input type="date" value={formIndiv.date_retour_prevue}
+                        onChange={e=>setFormIndiv(p=>({...p,date_retour_prevue:e.target.value}))} style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Point de RDV</label>
+                      <input value={formIndiv.point_rdv}
+                        onChange={e=>setFormIndiv(p=>({...p,point_rdv:e.target.value}))} style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
+                      <select value={formIndiv.vehicule_flotte_id||''}
+                        onChange={e=>{
+                          const id = e.target.value
+                          const v = flotte.find(f=>String(f.id)===id)
+                          if (v) setFormIndiv(p=>({...p, vehicule_flotte_id:id, vehicule:v.nom,
+                            vehicule_matricule:v.matricule, vehicule_photo:v.photo}))
+                          else setFormIndiv(p=>({...p, vehicule_flotte_id:''}))
+                        }} style={inputStyle}>
+                        <option value="">— Aucun (saisie manuelle) —</option>
+                        {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Conducteur</label>
+                      <input value={formIndiv.conducteur}
+                        onChange={e=>setFormIndiv(p=>({...p,conducteur:e.target.value}))}
+                        placeholder="Nom du conducteur" style={inputStyle}/>
+                    </div>
+                    <div style={{gridColumn:'span 2'}}>
+                      <label style={labelStyle}>Motif</label>
+                      <input value={formIndiv.motif}
+                        onChange={e=>setFormIndiv(p=>({...p,motif:e.target.value}))}
+                        placeholder="Congé, Mission, Formation..." style={inputStyle}/>
+                    </div>
+                  </div>
+                  <button className="mc-btn mc-btn-primary"
+                    style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
+                    disabled={saving||!formIndiv.personnel_id||!formIndiv.date_depart||!formIndiv.date_retour_prevue}
+                    onClick={creerIndividuel}>
+                    {saving ? '⏳ Création...' : '✈️ Créer le voyage individuel'}
                   </button>
                 </div>
               )}

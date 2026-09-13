@@ -744,6 +744,25 @@ export default function Voyages() {
                     onChange={e=>setEditModal({...editModal,[field]:e.target.value})} style={inp}/>
                 </div>
               ))}
+
+              {/* Trajet retour — peut differer de l'aller (vehicule/conducteur/equipage) */}
+              <div style={{border:'1px dashed #cbd5e1',borderRadius:10,padding:12}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--rzc-navy)',marginBottom:8}}>
+                  🔄 Trajet retour <span style={{fontWeight:400,color:'var(--rzc-text-4)'}}>(si différent de l'aller)</span>
+                </div>
+                {[
+                  ['Véhicule retour','vehicule_retour','text','ex: 4X4-03'],
+                  ['Matricule retour','vehicule_matricule_retour','text','ex: CI-9999-ZZ'],
+                  ['Conducteur retour','conducteur_retour','text','Nom du conducteur'],
+                ].map(([label,field,type,ph])=>(
+                  <div key={field} style={{marginBottom:8}}>
+                    <label style={{ display:'block',fontSize:10,fontWeight:700,color:'var(--rzc-text-4)',marginBottom:4,textTransform:'uppercase' }}>{label}</label>
+                    <input type={type} value={editModal[field]||''} placeholder={ph}
+                      onChange={e=>setEditModal({...editModal,[field]:e.target.value})} style={{...inp,fontSize:13,padding:'8px 10px'}}/>
+                  </div>
+                ))}
+              </div>
+
               <div>
                 <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>🗺️ Trajet</label>
                 <CarteItineraire origine={editModal.origine} destination={editModal.destination}/>

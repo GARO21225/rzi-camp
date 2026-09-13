@@ -33,6 +33,17 @@ class Voyage(models.Model):
                          help_text="Plaque d'immatriculation — aide l'agent à repérer le bon véhicule au parking")
     vehicule_photo    = models.TextField(blank=True, default="",
                          help_text="Photo du véhicule en base64 — usage exceptionnel, pour reconnaissance visuelle rapide au parking")
+    conducteur        = models.CharField(max_length=100, blank=True, default="",
+                         help_text="Nom du conducteur assigné pour l'ALLER — change trop souvent pour être lié au véhicule lui-même")
+    # ── Trajet RETOUR — potentiellement different de l'aller ──
+    # Une rotation est un aller-retour, mais le vehicule et l'equipage du
+    # retour peuvent differer de l'aller (ex: un agent revient plus tot que
+    # prevu et est regroupe dans un AUTRE vehicule avec d'autres personnes
+    # dans le meme cas). Champs vides par defaut -> on suppose le meme
+    # vehicule qu'a l'aller tant que rien n'est precise.
+    vehicule_retour           = models.CharField(max_length=50, blank=True, default="")
+    vehicule_matricule_retour = models.CharField(max_length=30, blank=True, default="")
+    conducteur_retour         = models.CharField(max_length=100, blank=True, default="")
     nb_places_total   = models.PositiveIntegerField(default=15, blank=True, null=True,
                          help_text="Capacité totale du véhicule pour ce convoi")
     heure_depart      = models.TimeField(null=True, blank=True,
@@ -146,3 +157,29 @@ class EtapeVoyage(models.Model):
 
     def __str__(self):
         return f"Étape {self.ordre} — {self.origine} → {self.destination}"
+
+
+class VehiculeFlotte(models.Model):
+    """
+    Catalogue des véhicules du camp (partagé, cote serveur) - permet de
+    SELECTIONNER un vehicule existant (matricule + photo deja renseignes)
+    plutot que de tout ressaisir a chaque rotation. Seul le conducteur
+    reste a assigner par voyage (change trop souvent pour etre fixe ici).
+    """
+    CATEGORIES = [
+        ("4x4", "🚙 4x4"), ("pickup", "🛻 Pick-up"), ("minibus", "🚐 Minibus"),
+        ("bus", "🚌 Bus"), ("avion", "✈️ Avion"), ("autre", "🚗 Autre"),
+    ]
+    nom         = models.CharField(max_length=100)
+    categorie   = models.CharField(max_length=15, choices=CATEGORIES, default="4x4")
+    matricule   = models.CharField(max_length=30, blank=True, default="")
+    capacite    = models.PositiveIntegerField(default=7)
+    photo       = models.TextField(blank=True, default="")
+    actif       = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["categorie", "nom"]
+        verbose_name = "Véhicule de la flotte"
+
+    def __str__(self):
+        return f"{self.nom} ({self.matricule})" if self.matricule else self.nom
