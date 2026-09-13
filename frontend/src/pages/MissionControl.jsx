@@ -434,18 +434,20 @@ export default function MissionControl() {
   const [etapesDetail, setEtapesDetail] = useState([])
   const [rechercheListe, setRechercheListe] = useState('')
   const [flotte, setFlotte] = useState([])
+  const [retoursAnticipes, setRetoursAnticipes] = useState([])
 
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr, rrap, rvf] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap, rvf, rra] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true').then(r=>r.json()),
         api('/api/voyages/rotations/').then(r=>r.json()),
         api('/api/voyages/rappels_rotation/').then(r=>r.json()),
         api('/api/vehicules-flotte/').then(r=>r.json()),
+        api('/api/voyages/retours_anticipes/').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
@@ -453,6 +455,7 @@ export default function MissionControl() {
       if (rr.status==='fulfilled') setRotations(rr.value?.rotations||[])
       if (rrap.status==='fulfilled') setRappels(Array.isArray(rrap.value) ? rrap.value : [])
       if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
+      if (rra.status==='fulfilled') setRetoursAnticipes(Array.isArray(rra.value) ? rra.value : [])
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -700,6 +703,22 @@ export default function MissionControl() {
           </div>
         </div>
 
+        {/* Retours anticipés — visible peu importe l'onglet actif */}
+        {retoursAnticipes.length > 0 && (
+          <div style={{margin:'0 0 14px',background:`${C.green}12`,border:`1px solid ${C.green}40`,borderRadius:10,padding:'10px 14px'}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.green,marginBottom:4}}>
+              ⚡ {retoursAnticipes.length} personne(s) rentrée(s) plus tôt que prévu récemment
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {retoursAnticipes.slice(0,6).map(r=>(
+                <span key={r.id} style={{fontSize:11,color:C.green,background:`${C.green}18`,padding:'3px 9px',borderRadius:20}}>
+                  {r.personnel_nom} — {r.jours_avance}j d'avance ({r.destination})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Rappels de fin de rotation ── */}
         {rappels.length > 0 && (
           <div style={{background:'rgba(248,113,113,.06)',border:`1px solid ${C.red}30`,
@@ -898,6 +917,8 @@ export default function MissionControl() {
                 const total   = r.nb_places_total || 15
                 const prises  = r.nb_passagers
                 const libres  = r.places_libres
+                const occ     = r.places_occupees ?? prises
+                const res     = r.places_reservees ?? 0
                 const pct     = Math.round(prises/total*100)
                 const cfg     = ST_CFG[r.statut]||ST_CFG.planifie
                 const isOpen  = selRot?.rotation_id===r.rotation_id
@@ -941,21 +962,19 @@ export default function MissionControl() {
                           </span>}
                         </div>
                       </div>
-                      {/* Jauge remplissage */}
-                      <div style={{width:120,flexShrink:0}}>
+                      {/* Jauge remplissage — 3 etats : occupe (confirme) / reserve (en attente) / libre */}
+                      <div style={{width:130,flexShrink:0}}>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                           <span style={{fontSize:11,color:C.muted}}>{prises}/{total}</span>
                           <span style={{fontSize:11,fontWeight:700,
                             color:pct>=90?C.red:pct>=70?C.amber:C.green}}>{pct}%</span>
                         </div>
-                        <div style={{height:4,background:`rgba(255,255,255,.08)`,borderRadius:99,overflow:'hidden'}}>
-                          <div style={{width:`${pct}%`,height:'100%',borderRadius:99,
-                            background:pct>=90?C.red:pct>=70?C.amber:C.green,
-                            transition:'width .6s ease',
-                            boxShadow:`0 0 6px ${pct>=90?C.red:pct>=70?C.amber:C.green}60`}}/>
+                        <div style={{height:6,background:`rgba(255,255,255,.08)`,borderRadius:99,overflow:'hidden',display:'flex'}}>
+                          <div style={{width:`${occ/total*100}%`,height:'100%',background:C.accent}} title={`${occ} occupé(s)`}/>
+                          <div style={{width:`${res/total*100}%`,height:'100%',background:C.amber}} title={`${res} réservé(s)`}/>
                         </div>
-                        <div style={{fontSize:9,color:C.muted,marginTop:3}}>
-                          {libres} siège(s) libre(s)
+                        <div style={{fontSize:9,color:C.muted,marginTop:3,display:'flex',gap:6}}>
+                          <span>● {occ}</span><span style={{color:C.amber}}>◐ {res}</span><span>○ {libres}</span>
                         </div>
                       </div>
                       {/* Actions */}
