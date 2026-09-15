@@ -439,9 +439,21 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def assigner(self, request, pk=None):
         """Assigner au technicien via SQL"""
         from django.db import connection
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         tech_id = request.data.get('technicien_id')
         if not tech_id:
             return Response({'error': 'technicien_id requis'}, status=400)
+        if not is_admin:
+            # Un non-admin peut prendre en charge un incident NON assigne
+            # (auto-prise en charge) ou le passer a quelqu'un d'autre s'il
+            # en est deja le titulaire (reassignation/passation) - mais pas
+            # arracher un incident assigne a quelqu'un d'autre.
+            with connection.cursor() as c:
+                c.execute('SELECT assigne_a_id FROM maintenance_incident WHERE id=%s', [pk])
+                row = c.fetchone()
+            if row and row[0] not in (None, u.id):
+                return Response({'error': "Cet incident est déjà pris en charge par quelqu'un d'autre — seul un admin peut le réassigner."}, status=403)
         try:
             with connection.cursor() as c:
                 c.execute('UPDATE maintenance_incident SET statut=%s, assigne_a_id=%s, date_assignation=NOW() WHERE id=%s',
