@@ -35,7 +35,7 @@ const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
-  ['induction',  '🎓 Induction QHSE'],
+  ['induction',  '🎓 Induction du Camp'],
   ['catalogue',  '📦 Catalogue Boutique'],
   ['avis',       '⭐ Questions Avis Restauration'],
 ]
@@ -46,6 +46,17 @@ const inputStyle = (isAdmin) => ({
   background: isAdmin ? '#fff' : '#f8fafc',
   color: isAdmin ? '#1e293b' : '#94a3b8'
 })
+
+// Choisit noir ou blanc pour le texte selon la luminosite de la couleur de
+// fond, pour que le texte reste toujours lisible quelle que soit la
+// couleur choisie par l'admin (une couleur claire au hasard rendait le
+// texte blanc fixe illisible).
+function texteLisibleSur(hex) {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return '#fff'
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255
+  return luminance > 0.6 ? '#0f172a' : '#fff'
+}
 
 export default function Parametrage() {
   const navigate = useNavigate()
@@ -551,13 +562,13 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
         </div>
 
         <div style={{ display:'flex', gap:10, marginTop:16, alignItems:'center', flexWrap:'wrap' }}>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:primaire, color:'#fff', fontSize:12, fontWeight:700 }}>Aperçu primaire</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:accent, color:'#fff', fontSize:12, fontWeight:700 }}>Aperçu accent</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:succes, color:'#fff', fontSize:12, fontWeight:700 }}>Succès</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:danger, color:'#fff', fontSize:12, fontWeight:700 }}>Danger</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:info, color:'#fff', fontSize:12, fontWeight:700 }}>Info</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:`linear-gradient(135deg,${fondInduction},color-mix(in srgb, ${fondInduction} 65%, white))`, color:'#fff', fontSize:12, fontWeight:700 }}>Fond Induction</div>
-          <div style={{ padding:'10px 16px', borderRadius:9, background:fondApp, color:'#334155', border:'1px solid #e2e8f0', fontSize:12, fontWeight:700 }}>Fond des pages</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:primaire, color:texteLisibleSur(primaire), fontSize:12, fontWeight:700 }}>Aperçu primaire</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:accent, color:texteLisibleSur(accent), fontSize:12, fontWeight:700 }}>Aperçu accent</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:succes, color:texteLisibleSur(succes), fontSize:12, fontWeight:700 }}>Succès</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:danger, color:texteLisibleSur(danger), fontSize:12, fontWeight:700 }}>Danger</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:info, color:texteLisibleSur(info), fontSize:12, fontWeight:700 }}>Info</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:`linear-gradient(135deg,${fondInduction},color-mix(in srgb, ${fondInduction} 65%, white))`, color:texteLisibleSur(fondInduction), fontSize:12, fontWeight:700 }}>Fond Induction</div>
+          <div style={{ padding:'10px 16px', borderRadius:9, background:fondApp, color:texteLisibleSur(fondApp), border:'1px solid #e2e8f0', fontSize:12, fontWeight:700 }}>Fond des pages</div>
         </div>
 
         {isAdmin && (

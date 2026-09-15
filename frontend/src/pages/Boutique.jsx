@@ -205,14 +205,15 @@ function AnalysesPanel({ periode, onPeriodeChange, data, loading, onLoad }) {
           {/* KPIs */}
           <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(4,1fr)',gap:12,marginBottom:20}}>
             {[
-              ['💰 CA FCFA',`${data.total_ca.toLocaleString()} FCFA`,'var(--rzc-navy)'],
-              ['📦 Quantités',data.total_qte,'#16a34a'],
-              ['🧾 Transactions',data.nb_transactions,'#7c3aed'],
-              ['📈 Panier moyen',data.nb_transactions?`${Math.round(data.total_ca/data.nb_transactions).toLocaleString()} FCFA`:'—','#f59e0b'],
-            ].map(([l,v,c])=>(
+              ['💰 CA FCFA',`${data.total_ca.toLocaleString()} FCFA`,'var(--rzc-navy)','Somme du montant de toutes les ventes de la période'],
+              ['📦 Quantités',data.total_qte,'#16a34a','Somme des quantités vendues, tous articles confondus'],
+              ['🧾 Transactions',data.nb_transactions,'#7c3aed','Nombre de ventes enregistrées sur la période'],
+              ['📈 Panier moyen',data.nb_transactions?`${Math.round(data.total_ca/data.nb_transactions).toLocaleString()} FCFA`:'—','#f59e0b','CA total ÷ nombre de transactions'],
+            ].map(([l,v,c,formule])=>(
               <div key={l} style={{background:'var(--rzc-white)',borderRadius:12,padding:'14px 16px',borderTop:`3px solid ${c}`,boxShadow:'0 1px 6px rgba(0,0,0,.07)'}}>
                 <div style={{fontFamily:'monospace',fontSize:20,fontWeight:900,color:c}}>{v}</div>
                 <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:3}}>{l}</div>
+                <div style={{fontSize:9.5,color:'var(--rzc-text-4)',marginTop:5,lineHeight:1.35,fontStyle:'italic'}}>{formule}</div>
               </div>
             ))}
           </div>
@@ -1548,7 +1549,7 @@ export default function Boutique({ embedded = false } = {}) {
           {/* Filtres historique */}
           <div style={{display:'flex',gap:8,padding:'12px 16px',borderBottom:'1px solid #f1f5f9',flexWrap:'wrap',alignItems:'center'}}>
             <input value={histSearch} onChange={e=>setHistSearch(e.target.value)}
-              placeholder="🔍 Rechercher agent, article..."
+              placeholder="🔍 Rechercher agent, client, article..."
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12,flex:1,minWidth:160}}/>
             <input type="date" value={histDate} onChange={e=>setHistDate(e.target.value)}
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 10px',fontSize:12}}/>
@@ -1569,7 +1570,7 @@ export default function Boutique({ embedded = false } = {}) {
             </button>
             <button onClick={()=>{
               const cf = consos.filter(c => {
-              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||''),(c.valide_par_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
               if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
               if (histMode && (c.mode_paiement||'especes') !== histMode) return false
               return true
@@ -1577,9 +1578,9 @@ export default function Boutique({ embedded = false } = {}) {
             const rows = cf.map(c=>[
                 c.date_conso ? new Date(c.date_conso).toLocaleDateString('fr-FR') : '',
                 new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
-                c.personnel_nom||'—',c.article_nom||'',c.quantite,c.montant,c.mode_paiement||'especes'
+                c.personnel_nom||'—',c.valide_par_nom||'—',c.article_nom||'',c.quantite,c.montant,c.mode_paiement||'especes'
               ])
-              const csv = [['Date','Heure','Agent','Article','Qté','Montant','Mode'],...rows].map(r=>r.join(';')).join('\n')
+              const csv = [['Date','Heure','Client','Agent','Article','Qté','Montant','Mode'],...rows].map(r=>r.join(';')).join('\n')
               const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a'); a.href=url; a.download='historique_boutique.csv'; a.click()
@@ -1589,7 +1590,7 @@ export default function Boutique({ embedded = false } = {}) {
           </div>
           {(() => {
             const consosFiltered = consos.filter(c => {
-              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
+              if (histSearch && ![(c.personnel_nom||''),(c.article_nom||''),(c.valide_par_nom||'')].some(v=>(v||'').toLowerCase().includes(histSearch.toLowerCase()))) return false
               if (histDate && (c.date_conso||'').slice(0,10) !== histDate) return false
               if (histMode && (c.mode_paiement||'especes') !== histMode) return false
               return true
@@ -1599,19 +1600,23 @@ export default function Boutique({ embedded = false } = {}) {
             ):(
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead><tr style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)'}}>
-                {['Date','Heure','Agent','Article','Qté','Montant','Mode'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
+                {['Date','Heure','Client','Agent','Article','Qté','Montant','Mode'].map(h=><th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:10.5,fontWeight:700,textTransform:'uppercase',color:'rgba(255,255,255,.85)',letterSpacing:.8}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {consosFiltered.map((c,i)=>(
+                {consosFiltered.map((c,i)=>{
+                  const modeCfg = {especes:'💵 Espèces',bon:'🎫 Bon',credit:'📇 Crédit',om:'🟠 OM',wave:'🔵 Wave',mtn:'🟡 MTN',moov:'🟢 Moov'}[c.mode_paiement||'especes'] || (c.mode_paiement||'especes')
+                  return (
                   <tr key={c.id} style={{borderTop:'1px solid #f1f5f9',background:i%2?'#fafafa':'var(--rzc-white)'}}>
                     <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-3)'}}>{c.date_conso?new Date(c.date_conso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'var(--rzc-text-3)'}}>{new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
                     <td style={{padding:'10px 14px',fontSize:12,fontWeight:600}}>{c.personnel_nom||'Anonyme'}</td>
+                    <td style={{padding:'10px 14px',fontSize:11.5,color:'var(--rzc-text-3)'}}>{c.valide_par_nom&&c.valide_par_nom!=='—'?c.valide_par_nom:'—'}</td>
                     <td style={{padding:'10px 14px',fontSize:12}}>{getEmoji(c.article_nom||'')} {c.article_nom}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',textAlign:'center'}}>{c.quantite}</td>
                     <td style={{padding:'10px 14px',fontWeight:800,color:'var(--rzc-navy)'}}>{parseInt(c.montant||0).toLocaleString()} FCFA</td>
+                    <td style={{padding:'10px 14px',fontSize:11}}>{modeCfg}</td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           )})()}
@@ -1726,17 +1731,18 @@ export default function Boutique({ embedded = false } = {}) {
             return (
               <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2, minmax(0, 1fr))':'repeat(5, minmax(0, 1fr))',gap:12,marginBottom:20}}>
                 {[
-                  {icon:'📦',label:'Articles',val:totalArticles,    color:'var(--rzc-navy)',bg:'#eff6ff'},
-                  {icon:'🔴',label:'En rupture',val:enRupture,      color:'#dc2626',bg:'#fef2f2'},
-                  {icon:'⚠️',label:'Stock faible',val:faible,       color:'#d97706',bg:'#fffbeb'},
-                  {icon:'📉',label:'Consommés (mois)',val:totalConso,color:'#7c3aed',bg:'#f5f3ff'},
-                  {icon:'💰',label:'Valeur stock',val:valeurTot.toLocaleString('fr-FR')+'F',color:'#059669',bg:'#f0fdf4'},
+                  {icon:'📦',label:'Articles',val:totalArticles,    color:'var(--rzc-navy)',bg:'#eff6ff', formule:'Nombre total de références au catalogue'},
+                  {icon:'🔴',label:'En rupture',val:enRupture,      color:'#dc2626',bg:'#fef2f2', formule:'Articles dont le stock = 0'},
+                  {icon:'⚠️',label:'Stock faible',val:faible,       color:'#d97706',bg:'#fffbeb', formule:'Stock > 0 mais ≤ seuil d\'alerte (5 par défaut, réglable par article)'},
+                  {icon:'📉',label:'Consommés (mois)',val:totalConso,color:'#7c3aed',bg:'#f5f3ff', formule:'Nombre de ventes enregistrées'},
+                  {icon:'💰',label:'Valeur stock',val:valeurTot.toLocaleString('fr-FR')+'F',color:'#059669',bg:'#f0fdf4', formule:'Σ (stock actuel × prix unitaire) de chaque article'},
                 ].map(k=>(
                   <div key={k.label} style={{background:k.bg,borderRadius:12,padding:'14px 16px',
                     borderLeft:`4px solid ${k.color}`,boxShadow:'0 1px 4px rgba(0,0,0,.05)'}}>
                     <div style={{fontSize:20,marginBottom:4}}>{k.icon}</div>
                     <div style={{fontSize:22,fontWeight:900,color:k.color,lineHeight:1}}>{k.val}</div>
                     <div style={{fontSize:11,color:'var(--rzc-text-3)',fontWeight:600,marginTop:3}}>{k.label}</div>
+                    <div style={{fontSize:9.5,color:'var(--rzc-text-4)',marginTop:5,lineHeight:1.35,fontStyle:'italic'}}>{k.formule}</div>
                   </div>
                 ))}
               </div>

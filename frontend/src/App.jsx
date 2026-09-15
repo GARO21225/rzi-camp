@@ -3,7 +3,7 @@ import React, { lazy, Suspense, Component, useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
-import { auth } from './api'
+import { auth, parametres } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -163,7 +163,7 @@ function useKeepAlive() {
 }
 
 export default function App() {
-  const { token, setUser, logout } = useStore()
+  const { token, setUser, logout, setLogoUrl } = useStore()
   useTheme()
   useEffect(() => {
     if (token) {
@@ -173,6 +173,19 @@ export default function App() {
         logout() // Nettoie le store et localStorage
         // Pas de redirect ici: le Router redirige vers /login via ProtectedRoute
       })
+      // Charge le logo personnalise sauvegarde (s'il existe) des le demarrage.
+      // Avant ce correctif, le logo change dans Parametrage ne s'appliquait
+      // que dans LA session ou l'admin venait de l'uploader - setLogoUrl()
+      // n'etait jamais appele ailleurs, donc apres un rafraichissement ou
+      // pour tout autre utilisateur, le logo par defaut revenait meme si
+      // le nouveau logo etait bien enregistre cote serveur.
+      parametres.list().then(r => {
+        const logoParam = r.data?.find?.(p => p.cle === 'logo_base64')
+        const mimeParam = r.data?.find?.(p => p.cle === 'logo_mime')
+        if (logoParam?.valeur) {
+          setLogoUrl(`data:${mimeParam?.valeur || 'image/png'};base64,${logoParam.valeur}`)
+        }
+      }).catch(() => {})
     }
   }, [token])
 
