@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:mobile": "vite build --mode mobile && npx cap sync",
     "dev": "vite",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -16,17 +17,25 @@
     "build:static": "rm -rf dist && mkdir -p dist && cp dist-static/index.html dist/index.html && cp -r public/* dist/ 2>/dev/null; exit 0"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
+    "axios": "^1.6.7",
+    "html5-qrcode": "^2.3.8",
+    "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0",
-    "axios": "^1.6.7",
-    "leaflet": "^1.9.4",
     "react-leaflet": "^4.2.1",
+    "react-router-dom": "^6.22.0",
     "recharts": "^2.12.0",
-    "zustand": "^4.5.0",
-    "html5-qrcode": "^2.3.8"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@eslint/js": "^9.10.0",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",

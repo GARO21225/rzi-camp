@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ATTENTION - CONFIGURATION DE TEST UNIQUEMENT, PAS POUR LA PRODUCTION.
+
+  Le serveur (204.168.229.74) utilise actuellement un certificat
+  auto-signe ("Non securise" dans le navigateur). Une app native
+  (contrairement a un navigateur) refuse par defaut toute connexion a
+  un serveur dont le certificat n'est pas reconnu par une autorite de
+  confiance - sans exception explicite, l'app ne pourrait AUCUNE requete
+  reseau et semblerait completement cassee.
+
+  Cette exception autorise cleartextTraffic UNIQUEMENT vers cette IP,
+  pour permettre de tester l'app sur un vrai telephone pendant le
+  developpement. Google Play ET Apple rejettent generalement les
+  soumissions avec ce type d'exception trop permissive.
+
+  AVANT toute soumission App Store / Play Store : obtenir un vrai
+  certificat SSL (Let's Encrypt, gratuit) sur un vrai nom de domaine
+  (pas une IP nue), puis SUPPRIMER ce fichier et son reference dans
+  AndroidManifest.xml (android:networkSecurityConfig).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">204.168.229.74</domain>
+    </domain-config>
+</network-security-config>

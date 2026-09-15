@@ -1,0 +1,12 @@
+
+# Capacitor / mobile - artefacts de build a ne pas versionner
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+android/app/release/
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/.build/
