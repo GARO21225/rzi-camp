@@ -176,8 +176,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Véhicule requis"}, status=400)
         nouveau_conducteur = request.data.get("conducteur", "")
         if nouveau_conducteur:
-            if voyage.personnel and f"{voyage.personnel.nom} {voyage.personnel.prenom}".strip().lower() == nouveau_conducteur.strip().lower():
-                return Response({"error": f"{nouveau_conducteur} est le voyageur lui-même : il ne peut pas être son propre conducteur."}, status=400)
+            # Meme exception que pour creer_rotation : voyage solo (aucun
+            # autre passager dans le meme convoi) -> la personne peut
+            # legitimement etre son propre conducteur.
+            autres_passagers = Voyage.objects.filter(rotation_id=voyage.rotation_id).exclude(statut="annule").exclude(pk=voyage.pk).exists() if voyage.rotation_id else False
+            if autres_passagers and voyage.personnel and f"{voyage.personnel.nom} {voyage.personnel.prenom}".strip().lower() == nouveau_conducteur.strip().lower():
+                return Response({"error": f"{nouveau_conducteur} est le voyageur lui-même : il ne peut pas être son propre conducteur quand d'autres passagers l'accompagnent."}, status=400)
             chevauche = Voyage.objects.filter(
                 conducteur__iexact=nouveau_conducteur,
                 statut__in=("planifie","en_voyage"),
@@ -512,8 +516,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not date_depart or not date_retour:
             return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
 
-        # Regle : le conducteur ne peut pas etre aussi passager de la meme rotation
-        if conducteur:
+        # Regle : le conducteur ne peut pas etre aussi passager de la meme
+        # rotation - SAUF si c'est un voyage SOLO (une seule personne) : la
+        # personne peut legitimement conduire elle-meme son propre vehicule.
+        if conducteur and len(passagers_ids) > 1:
             from residences.models import Personnel
             for pid in passagers_ids:
                 try:
@@ -522,6 +528,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                         return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
                 except Personnel.DoesNotExist:
                     pass
+        if conducteur:
             # Regle : le conducteur ne peut pas deja etre conducteur sur un AUTRE convoi actif qui chevauche les dates
             chevauche = Voyage.objects.filter(
                 conducteur__iexact=conducteur,

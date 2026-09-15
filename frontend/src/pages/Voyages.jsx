@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
+import LieuInput from '../components/LieuInput'
 
 const STATUT_STYLES = {
   planifie:  { bg:'rgba(37,99,235,.12)',  color:'#1d4ed8',  label:'Planifié'    },
@@ -229,6 +230,7 @@ export default function Voyages() {
 
   const createVoyage = async () => {
     if (!form.personnel || !form.destination || !form.date_depart) return toast.success('Personnel, destination et date de départ requis')
+    if (form._origineValide===false || form._destinationValide===false) return toast.error('Origine ou destination invalide — sélectionnez un lieu dans la liste proposée')
     setSubmitting(true)
     try {
       const r = await voyages.create(form)
@@ -658,18 +660,15 @@ export default function Voyages() {
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>
                     Point de départ <span style={{fontWeight:400,textTransform:'none',color:'var(--rzc-text-4)'}}>(pas forcément le camp — ex: 1er voyage d'un nouvel arrivant)</span>
                   </label>
-                  <input list="origines-list" value={form.origine} onChange={e=>setForm({...form,origine:e.target.value})}
+                  <LieuInput value={form.origine} onChange={v=>setForm({...form,origine:v})}
+                    onValidChange={v=>setForm(f=>({...f,_origineValide:v}))}
                     placeholder="Camp Roxgold Sango" style={inp}/>
-                  <datalist id="origines-list">
-                    {DESTINATIONS.map(d=><option key={d} value={d}/>)}
-                  </datalist>
                 </div>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Destination *</label>
-                  <select value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} style={inp}>
-                    <option value="">Sélectionner une destination...</option>
-                    {DESTINATIONS.map(d=><option key={d} value={d}>{d}</option>)}
-                  </select>
+                  <LieuInput value={form.destination} onChange={v=>setForm({...form,destination:v})}
+                    onValidChange={v=>setForm(f=>({...f,_destinationValide:v}))}
+                    placeholder="Abidjan" style={inp}/>
                 </div>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Motif</label>
@@ -779,7 +778,7 @@ export default function Voyages() {
               </div>
               <div style={{ display:'flex',gap:10,paddingTop:4 }}>
                 <button onClick={()=>setModal(false)} style={{ flex:1,background:'#f8fafc',color:'var(--rzc-text-3)',border:'1px solid #e2e8f0',padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>Annuler</button>
-                <button onClick={createVoyage} disabled={submitting}
+                <button onClick={createVoyage} disabled={submitting||form._origineValide===false||form._destinationValide===false}
                   style={{ flex:2,background:submitting?'var(--rzc-text-4)':'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:12,borderRadius:10,cursor:submitting?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
                   {submitting?'⏳ Enregistrement…':'✈️ Déclarer le voyage'}
                 </button>

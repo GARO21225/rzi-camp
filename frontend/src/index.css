@@ -560,3 +560,85 @@ input, select, textarea {
   box-shadow: var(--rzc-shadow-lg, 0 12px 32px rgba(15,26,46,.16));
   max-height: 360px; overflow-y: auto; z-index: 2000;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   FLUIDITÉ & MICRO-INTERACTIONS — passe de polish globale
+   Objectif : que chaque interaction (clic, survol, apparition)
+   donne une sensation de réactivité immédiate et douce, sans
+   jamais ralentir l'usage réel (durées courtes, easing naturel).
+   ══════════════════════════════════════════════════════════════ */
+
+/* Retour tactile universel sur tout élément cliquable — la marque
+   la plus reconnaissable d'une app "qui répond" au toucher */
+button, a, [role="button"], .rzc-clickable {
+  transition: transform .12s cubic-bezier(.4,0,.2,1),
+              opacity .12s ease, box-shadow .15s ease, filter .15s ease;
+}
+button:active, [role="button"]:active {
+  transform: scale(0.97);
+}
+button:disabled, [role="button"][aria-disabled="true"] {
+  opacity: .55; cursor: not-allowed; transform: none !important;
+}
+
+/* Champs de saisie — transition douce sur focus plutot qu'un saut net */
+input, select, textarea {
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15,42,92,.12);
+}
+
+/* Cartes / panneaux — legere elevation au survol, jamais sur mobile
+   (pas de hover tactile fiable, autant economiser le repaint) */
+@media (hover: hover) and (pointer: fine) {
+  .rzc-card-hover, .mc-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(15,26,46,.10);
+  }
+  .rzc-card-hover, .mc-card {
+    transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s ease;
+  }
+}
+
+/* Apparition en fondu du contenu de page — evite le "pop" brutal a
+   chaque changement de route, sensation la plus proche d'une
+   transition d'ecran native */
+.main-scroll > * {
+  animation: rzcPageIn .22s cubic-bezier(.4,0,.2,1);
+}
+@keyframes rzcPageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Modales — entree douce plutot qu'un affichage instantane */
+.mc-fade, [class*="modal"] {
+  animation: rzcFadeIn .18s ease;
+}
+@keyframes rzcFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Defilement — barre fine, discrete, coherente sur toute l'app
+   (remplace la barre systeme large et grise par defaut) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(100,116,139,.35);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.55); }
+* { scrollbar-width: thin; scrollbar-color: rgba(100,116,139,.35) transparent; }
+
+/* Respecte les personnes sensibles au mouvement — desactive toutes
+   les animations de cette passe si demande par le systeme */
+@media (prefers-reduced-motion: reduce) {
+  button, a, [role="button"], .rzc-clickable, input, select, textarea,
+  .rzc-card-hover, .mc-card, .main-scroll > *, .mc-fade, [class*="modal"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

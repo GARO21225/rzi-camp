@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast, confirmDialog } from '../toast'
+import LieuInput from '../components/LieuInput'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 
@@ -1890,24 +1891,18 @@ export default function MissionControl() {
                     {/* Adresse de départ — pas toujours le camp (ex: convoi de retour d'un site externe) */}
                     <div>
                       <label style={labelStyle}>Adresse de départ</label>
-                      <input list="origines-rotation" value={formRot.origine}
-                        onChange={e=>setFormRot(p=>({...p,origine:e.target.value}))}
+                      <LieuInput value={formRot.origine}
+                        onChange={v=>setFormRot(p=>({...p,origine:v}))}
+                        onValidChange={v=>setFormRot(p=>({...p,_origineValide:v}))}
                         placeholder="Camp Roxgold Sango" style={inputStyle}/>
-                      <datalist id="origines-rotation">
-                        {['Camp Roxgold Sango','Abidjan','Yamoussoukro','San Pédro','Bouaké','Aéroport FHB','Mine Agbaou','Mine Yaouré'].map(d=><option key={d} value={d}/>)}
-                      </datalist>
                     </div>
                     {/* Destination */}
                     <div>
                       <label style={labelStyle}>Adresse d'arrivée *</label>
-                      <select value={formRot.destination}
-                        onChange={e=>setFormRot(p=>({...p,destination:e.target.value}))}
-                        style={inputStyle}>
-                        {['Abidjan','Yamoussoukro','San Pédro','Bouaké','Aéroport FHB',
-                          'Mine Agbaou','Mine Yaouré','Autre'].map(d=>(
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                      <LieuInput value={formRot.destination}
+                        onChange={v=>setFormRot(p=>({...p,destination:v}))}
+                        onValidChange={v=>setFormRot(p=>({...p,_destinationValide:v}))}
+                        placeholder="Abidjan" style={inputStyle}/>
                     </div>
                     {/* Type de transport + Véhicule du parc — UN SEUL systeme coherent,
                         plus d'ancienne liste generique deconnectee du catalogue */}
@@ -2059,7 +2054,7 @@ export default function MissionControl() {
 
                   <button className="mc-btn mc-btn-primary"
                     style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
-                    disabled={saving||!formRot.date_depart||!formRot.date_retour_prevue}
+                    disabled={saving||!formRot.date_depart||!formRot.date_retour_prevue||formRot._origineValide===false||formRot._destinationValide===false}
                     onClick={creerRotation}>
                     {saving ? '⏳ Création...' : `✦ Créer rotation ${formRot.vehicule||'—'} · ${formRot.passagers.length} passager(s)`}
                   </button>
@@ -2080,15 +2075,17 @@ export default function MissionControl() {
                     </div>
                     <div>
                       <label style={labelStyle}>Origine</label>
-                      <input value={formIndiv.origine}
-                        onChange={e=>setFormIndiv(p=>({...p,origine:e.target.value}))}
+                      <LieuInput value={formIndiv.origine}
+                        onChange={v=>setFormIndiv(p=>({...p,origine:v}))}
+                        onValidChange={v=>setFormIndiv(p=>({...p,_origineValide:v}))}
                         placeholder="Camp Roxgold Sango" style={inputStyle}/>
                     </div>
                     <div>
                       <label style={labelStyle}>Destination *</label>
-                      <input value={formIndiv.destination}
-                        onChange={e=>setFormIndiv(p=>({...p,destination:e.target.value}))}
-                        placeholder="Abidjan..." style={inputStyle}/>
+                      <LieuInput value={formIndiv.destination}
+                        onChange={v=>setFormIndiv(p=>({...p,destination:v}))}
+                        onValidChange={v=>setFormIndiv(p=>({...p,_destinationValide:v}))}
+                        placeholder="Abidjan" style={inputStyle}/>
                     </div>
                     <div>
                       <label style={labelStyle}>Date départ *</label>
@@ -2141,7 +2138,7 @@ export default function MissionControl() {
                   </div>
                   <button className="mc-btn mc-btn-primary"
                     style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
-                    disabled={saving||!formIndiv.personnel_id||!formIndiv.date_depart||!formIndiv.date_retour_prevue}
+                    disabled={saving||!formIndiv.personnel_id||!formIndiv.date_depart||!formIndiv.date_retour_prevue||formIndiv._origineValide===false||formIndiv._destinationValide===false}
                     onClick={creerIndividuel}>
                     {saving ? '⏳ Création...' : '✈️ Créer le voyage individuel'}
                   </button>
