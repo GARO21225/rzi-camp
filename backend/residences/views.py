@@ -1599,8 +1599,11 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         """Suppression via SQL direct pour éviter les erreurs de migration."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         from django.db import connection
-        from rest_framework.response import Response
         pk = kwargs.get('pk')
         try:
             with connection.cursor() as c:

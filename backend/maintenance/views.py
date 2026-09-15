@@ -303,8 +303,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         """Suppression complète via SQL - tous les DELETE en séquence"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         from django.db import connection
-        from rest_framework.response import Response
         from rest_framework import status as drf_status
         pk = kwargs.get('pk')
         errors = []
