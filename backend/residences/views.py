@@ -870,7 +870,18 @@ class BatimentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(items, many=True)
         return Response({"count":len(items),"results":serializer.data})
 
+    def create(self, request, *args, **kwargs):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis pour créer une résidence"}, status=403)
+        return super().create(request, *args, **kwargs)
+
     def partial_update(self, request, *args, **kwargs):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis pour modifier une résidence"}, status=403)
         # Use standard queryset for object lookup
         instance = Batiment.objects.get(pk=kwargs["pk"])
         old_personnel = instance.personnel

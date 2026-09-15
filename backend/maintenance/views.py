@@ -341,6 +341,17 @@ class IncidentViewSet(viewsets.ModelViewSet):
         from django.db import connection
         from rest_framework.response import Response
         pk = kwargs.get('pk')
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            # Un non-admin ne peut modifier que l'incident qui lui est
+            # assigne (workflow normal d'un technicien) - pas n'importe
+            # quel incident du camp.
+            with connection.cursor() as c:
+                c.execute('SELECT assigne_a_id FROM maintenance_incident WHERE id=%s', [pk])
+                row = c.fetchone()
+            if not row or row[0] != u.id:
+                return Response({'detail': "Vous ne pouvez modifier que les incidents qui vous sont assignés."}, status=403)
         data = request.data
         fields = []
         values = []
