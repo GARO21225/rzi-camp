@@ -1,4 +1,5 @@
 import GlobalSearch from './GlobalSearch'
+import BottomTabBar from './BottomTabBar'
 import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import React, { useState, useEffect, useRef } from 'react'
@@ -433,10 +434,11 @@ export default function Layout() {
             </div>
           </nav>
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto' }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 62 : 0 }}>
             <Outlet />
           </main>
       </div>
+      {isMobile && <BottomTabBar role={isAdmin ? 'admin' : 'agent'} onOpenMenu={() => setSidebarOpen(true)} />}
       <ToastContainer />
       <ConfirmDialogContainer />
     </div>
