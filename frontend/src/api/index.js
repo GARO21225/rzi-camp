@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useStore } from '../store'
 // URL auto-détectée: VITE_API_URL → hostname replace → localhost
 const BASE = (() => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
@@ -32,11 +33,8 @@ api.interceptors.request.use(cfg => {
 })
 // Garde partagee : evite que PLUSIEURS requetes paralleles en echec 401
 // (une page comme Demandes charge 4 sources a la fois) ne declenchent
-// chacune leur propre tentative de rafraichissement ET leur propre
-// redirection vers /login - c'est exactement ce qui causait un
-// clignotement/rechargement en boucle visible a l'ecran.
+// chacune leur propre tentative de rafraichissement.
 let _refreshPromise = null
-let _redirected = false
 
 api.interceptors.response.use(r => r, async err => {
   const url = err.config?.url || ''
@@ -59,20 +57,25 @@ api.interceptors.response.use(r => r, async err => {
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
       } catch {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        if (!_redirected) { _redirected = true; window.location.href = '/login' }
+        // Session definitivement invalide. IMPORTANT : on ne fait PAS de
+        // window.location.href ici (rechargement complet du navigateur) -
+        // ca avait cree un risque reel de boucle de rechargement quand
+        // plusieurs requetes paralleles echouaient en meme temps, chacune
+        // relancant sa propre navigation en pleine page.
+        //
+        // A la place, on utilise le mecanisme REACTIF deja en place :
+        // logout() vide le store Zustand + localStorage, et PrivateRoute
+        // (dans App.jsx) reagit instantanement au token devenu null en
+        // affichant /login via react-router - une simple transition
+        // d'etat React, jamais un rechargement navigateur, donc jamais de
+        // boucle possible meme si plusieurs requetes echouent ensemble.
+        useStore.getState().logout()
       }
-    } else if (!_redirected) {
+    } else if (localStorage.getItem('access_token') || localStorage.getItem('refresh_token')) {
       // Pas de refresh_token disponible (deja consomme, jamais eu, ou deja
       // retente et toujours 401) : la session est definitivement invalide.
-      // Avant ce correctif, ce cas tombait silencieusement sans jamais
-      // rediriger - tous les boutons semblaient "ne rien faire" puisque
-      // chaque action echouait en silence avec une session deja morte.
-      _redirected = true
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      window.location.href = '/login'
+      // Meme logique reactive que ci-dessus, pas de rechargement force.
+      useStore.getState().logout()
     }
   }
   return Promise.reject(err)
