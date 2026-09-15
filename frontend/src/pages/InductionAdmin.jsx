@@ -121,6 +121,8 @@ export default function InductionAdmin() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
+  const [pendingVideoFile, setPendingVideoFile] = useState(null)
+  const [videoErr, setVideoErr] = useState('')
   const [importing, setImporting] = useState(false)
 
   const importerDonnees = async () => {
@@ -194,7 +196,7 @@ export default function InductionAdmin() {
     setPhotoErr('')
     if (item === 'new') {
       const defaults = {
-        infra: { titre: '', emoji: '🏠', couleur: '#3b82f6', description: '', details: [], photo_base64: '', ordre: 0, actif: true },
+        infra: { titre: '', emoji: '🏠', couleur: '#3b82f6', description: '', details: [], photo_base64: '', video_url: '', ordre: 0, actif: true },
         regle: { titre: '', emoji: '📋', niveau: 'standard', texte: '', ordre: 0, actif: true },
         quiz:  { question: '', options: ['', ''], bonne_reponse: 0, explication: '', ordre: 0, actif: true },
       }[type]
@@ -205,7 +207,7 @@ export default function InductionAdmin() {
     setModal({ type, item })
   }
 
-  const closeModal = () => { setModal(null); setForm({}) }
+  const closeModal = () => { setModal(null); setForm({}); setPendingVideoFile(null); setVideoErr('') }
 
   const handlePhoto = async (e) => {
     const file = e.target.files?.[0]
@@ -217,14 +219,37 @@ export default function InductionAdmin() {
     } catch (e) { setPhotoErr(e.message) }
   }
 
+  const handleVideo = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setVideoErr('')
+    if (file.size > 50 * 1024 * 1024) {
+      setVideoErr("La vidéo doit faire moins de 50 Mo. Compressez-la avant de l'importer.")
+      return
+    }
+    setPendingVideoFile(file)
+  }
+
   const saveItem = async () => {
     setSaving(true); setErr('')
     const api = { infra: inductionInfras, regle: inductionRegles, quiz: inductionQuiz }[modal.type]
     try {
-      if (modal.item !== 'new' && modal.item.id) {
-        await api.update(modal.item.id, form)
+      let savedId = modal.item !== 'new' ? modal.item.id : null
+      if (savedId) {
+        await api.update(savedId, form)
       } else {
-        await api.create(form)
+        const r = await api.create(form)
+        savedId = r.data?.id
+      }
+      // La video (fichier) se televerse a part, en multipart, une fois
+      // l'element cree/mis a jour (il faut son id) - impossible de
+      // l'envoyer dans le meme corps JSON que les autres champs.
+      if (modal.type === 'infra' && pendingVideoFile && savedId) {
+        try {
+          await inductionInfras.uploadVideo(savedId, pendingVideoFile)
+        } catch (ve) {
+          toast.error("Élément sauvegardé, mais l'envoi de la vidéo a échoué : " + (ve.response?.data?.video?.[0] || 'erreur'))
+        }
       }
       closeModal(); load()
     } catch (e) {
@@ -444,6 +469,25 @@ export default function InductionAdmin() {
                     padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Retirer la photo</button>
               </div>
             )}
+          </div>
+          <div>
+            <label style={label}>VIDÉO DE PRÉSENTATION (optionnel, max 50 Mo — ou un lien externe ci-dessous)</label>
+            <input type="file" accept="video/*" onChange={handleVideo} style={{ fontSize: 12 }} />
+            {videoErr && <p style={{ color: '#DC2626', fontSize: 11, marginTop: 4 }}>{videoErr}</p>}
+            {pendingVideoFile && (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#059669', fontWeight: 600 }}>
+                ✓ {pendingVideoFile.name} — sera envoyée à l'enregistrement
+              </div>
+            )}
+            {form.video && !pendingVideoFile && (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <video src={form.video} style={{ width: 100, borderRadius: 8 }} muted />
+                <span style={{ fontSize: 11, color: 'var(--rzc-text-3)' }}>Vidéo déjà enregistrée — en choisir une nouvelle la remplacera</span>
+              </div>
+            )}
+            <input style={{ ...inp, marginTop: 8 }} value={form.video_url || ''}
+              onChange={e => setForm({ ...form, video_url: e.target.value })}
+              placeholder="Ou lien externe (YouTube, Vimeo...) — https://..." />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
             <div>

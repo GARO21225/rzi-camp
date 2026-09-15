@@ -40,6 +40,12 @@ services:
       DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
       REDIS_URL: redis://redis:6379/0
       DEBUG: "False"
+    volumes:
+      # Fichiers uploades (videos d'induction, etc.) - sans ce volume,
+      # tout fichier uploade serait perdu au prochain rebuild du conteneur
+      # (le systeme de fichiers du conteneur backend n'est pas persistant
+      # par defaut).
+      - media_data:/app/media
     # PAS de "ports:" ici volontairement : le frontend proxie deja /api/ et
     # /ws/ vers ce conteneur EN INTERNE via le reseau Docker (voir
     # nginx.conf, proxy_pass http://backend:8000). Publier "8001:8000" sur
@@ -73,3 +79,4 @@ services:
 volumes:
   pgdata:
   ssl_data:
+  media_data:

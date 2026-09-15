@@ -22,6 +22,17 @@ const APPAREILS_TYPES = [
   'Bouilloire électrique','Radiateur électrique','Autre',
 ]
 
+// Convertit un lien YouTube/Vimeo "classique" en URL embarquable dans un
+// iframe (la page ne s'affiche pas correctement en iframe sinon).
+function urlVideoEmbed(url) {
+  if (!url) return null
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`
+  const vimeo = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return url // deja un lien direct ou deja un format embed
+}
+
 const NIVEAUX = {
   critique:  { c:'#ef4444', bg:'#fef2f2', label:'CRITIQUE',  ring:'rgba(239,68,68,.3)' },
   important: { c:'#f97316', bg:'#fff7ed', label:'IMPORTANT', ring:'rgba(249,115,22,.3)' },
@@ -828,6 +839,21 @@ export default function InductionCamp() {
                       </div>
                     </div>
                   </div>
+                  {/* Video de presentation - fichier uploade prioritaire, sinon lien externe */}
+                  {(inf.video || inf.video_url) && (
+                    <div style={{marginTop:16}}>
+                      {inf.video ? (
+                        <video src={inf.video} controls style={{width:'100%',maxHeight:320,borderRadius:12,background:'#000'}}/>
+                      ) : (
+                        <div style={{position:'relative',paddingTop:'56.25%',borderRadius:12,overflow:'hidden',background:'#000'}}>
+                          <iframe src={urlVideoEmbed(inf.video_url)} title={`Vidéo — ${inf.titre}`}
+                            style={{position:'absolute',inset:0,width:'100%',height:'100%',border:'none'}}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen/>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })()}

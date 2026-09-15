@@ -125,6 +125,13 @@ export const inductionInfras = {
   create: (d) => api.post('/api/induction-infras/', d),
   update: (id, d) => api.patch(`/api/induction-infras/${id}/`, d),
   delete: (id) => api.delete(`/api/induction-infras/${id}/`),
+  // Upload de fichier video : necessite multipart/form-data, contrairement
+  // aux autres champs (texte/JSON) geres par update() ci-dessus.
+  uploadVideo: (id, file) => {
+    const fd = new FormData()
+    fd.append('video', file)
+    return api.patch(`/api/induction-infras/${id}/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
 }
 export const inductionRegles = {
   list:   (p) => api.get('/api/induction-regles/', { params: p }),

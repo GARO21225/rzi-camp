@@ -191,6 +191,11 @@ class InductionInfraSerializer(serializers.ModelSerializer):
         model = InductionInfra
         fields = "__all__"
 
+    def validate_video(self, value):
+        if value and value.size > 50 * 1024 * 1024:
+            raise serializers.ValidationError("La vidéo doit faire moins de 50 Mo. Compressez-la avant de l'importer.")
+        return value
+
 
 class InductionRegleSerializer(serializers.ModelSerializer):
     class Meta:

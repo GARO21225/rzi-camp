@@ -481,6 +481,13 @@ class InductionInfra(models.Model):
     details    = models.JSONField(default=list, blank=True)  # liste de courtes lignes
     photo_base64 = models.TextField(blank=True, default="")
     photo_mime   = models.CharField(max_length=50, blank=True, default="image/jpeg")
+    # Video de presentation de l'infrastructure : soit un fichier uploade
+    # (stocke sur disque, PAS en base - une video en base64 dans Postgres
+    # ferait exploser la taille des requetes et du dump de sauvegarde),
+    # soit un lien externe (YouTube, Vimeo...) si l'admin prefere heberger
+    # ailleurs. Les deux sont optionnels et independants.
+    video      = models.FileField(upload_to="induction_infras/videos/", blank=True, null=True)
+    video_url  = models.URLField(max_length=500, blank=True, default="")
     ordre      = models.PositiveIntegerField(default=0)
     actif      = models.BooleanField(default=True)
     date_maj   = models.DateTimeField(auto_now=True)
