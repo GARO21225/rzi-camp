@@ -30,6 +30,14 @@ api.interceptors.request.use(cfg => {
   if (token) cfg.headers.Authorization = `Bearer ${token}`
   return cfg
 })
+// Garde partagee : evite que PLUSIEURS requetes paralleles en echec 401
+// (une page comme Demandes charge 4 sources a la fois) ne declenchent
+// chacune leur propre tentative de rafraichissement ET leur propre
+// redirection vers /login - c'est exactement ce qui causait un
+// clignotement/rechargement en boucle visible a l'ecran.
+let _refreshPromise = null
+let _redirected = false
+
 api.interceptors.response.use(r => r, async err => {
   const url = err.config?.url || ''
   // Ne pas intercepter les appels d'auth eux-mêmes
@@ -39,21 +47,29 @@ api.interceptors.response.use(r => r, async err => {
     if (refresh && !err.config._retry) {
       err.config._retry = true
       try {
-        const { data } = await axios.post(`${BASE}/api/auth/refresh/`, { refresh })
+        // Un seul rafraichissement en vol a la fois : les requetes
+        // paralleles qui arrivent ici pendant qu'un rafraichissement est
+        // deja en cours attendent CE MEME appel au lieu d'en relancer un.
+        if (!_refreshPromise) {
+          _refreshPromise = axios.post(`${BASE}/api/auth/refresh/`, { refresh })
+            .finally(() => { _refreshPromise = null })
+        }
+        const { data } = await _refreshPromise
         localStorage.setItem('access_token', data.access)
         err.config.headers.Authorization = `Bearer ${data.access}`
         return api(err.config)
       } catch {
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
+        if (!_redirected) { _redirected = true; window.location.href = '/login' }
       }
-    } else {
+    } else if (!_redirected) {
       // Pas de refresh_token disponible (deja consomme, jamais eu, ou deja
       // retente et toujours 401) : la session est definitivement invalide.
       // Avant ce correctif, ce cas tombait silencieusement sans jamais
       // rediriger - tous les boutons semblaient "ne rien faire" puisque
       // chaque action echouait en silence avec une session deja morte.
+      _redirected = true
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       window.location.href = '/login'
