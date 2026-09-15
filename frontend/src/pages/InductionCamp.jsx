@@ -23,12 +23,22 @@ const APPAREILS_TYPES = [
 ]
 
 // Convertit un lien YouTube/Vimeo "classique" en URL embarquable dans un
-// iframe (la page ne s'affiche pas correctement en iframe sinon).
-function urlVideoEmbed(url) {
-  if (!url) return null
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`
-  const vimeo = url.match(/vimeo\.com\/(\d+)/)
+// iframe (la page ne s'affiche pas correctement en iframe sinon). Gere
+// aussi le cas frequent ou le lien colle n'a pas de protocole explicite
+// (ex: "youtube.com/watch?v=xyz" sans https://) - sans ca, le navigateur
+// traite l'URL comme un CHEMIN RELATIF au site (ex:
+// "https://rzicamp.com/youtube.com/watch?v=xyz"), qui echoue toujours
+// silencieusement (frame blanche, aucune erreur visible) - c'est tres
+// probablement la cause du "ca ne charge pas malgre internet".
+function urlVideoEmbed(brut) {
+  if (!brut) return null
+  let url = brut.trim()
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url
+  // youtu.be/ID, youtube.com/watch?v=ID, m.youtube.com/watch?v=ID,
+  // youtube.com/shorts/ID, youtube-nocookie.com/watch?v=ID
+  const yt = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/)
+  if (yt) return `https://www.youtube-nocookie.com/embed/${yt[1]}`
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
   return url // deja un lien direct ou deja un format embed
 }
@@ -845,12 +855,21 @@ export default function InductionCamp() {
                       {inf.video ? (
                         <video src={inf.video} controls style={{width:'100%',maxHeight:320,borderRadius:12,background:'#000'}}/>
                       ) : (
-                        <div style={{position:'relative',paddingTop:'56.25%',borderRadius:12,overflow:'hidden',background:'#000'}}>
-                          <iframe src={urlVideoEmbed(inf.video_url)} title={`Vidéo — ${inf.titre}`}
-                            style={{position:'absolute',inset:0,width:'100%',height:'100%',border:'none'}}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen/>
-                        </div>
+                        <>
+                          <div style={{position:'relative',paddingTop:'56.25%',borderRadius:12,overflow:'hidden',background:'#000'}}>
+                            <iframe src={urlVideoEmbed(inf.video_url)} title={`Vidéo — ${inf.titre}`}
+                              style={{position:'absolute',inset:0,width:'100%',height:'100%',border:'none'}}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen/>
+                          </div>
+                          {/* Secours : si le cadre ne charge pas (video restreinte, reseau
+                              qui filtre l'embed...), un lien direct fonctionne toujours */}
+                          <a href={inf.video_url.match(/^https?:\/\//i) ? inf.video_url : `https://${inf.video_url}`}
+                            target="_blank" rel="noopener noreferrer"
+                            style={{display:'inline-block',marginTop:8,fontSize:11.5,color:'#93c5fd',textDecoration:'underline'}}>
+                            La vidéo ne s'affiche pas ? Ouvrir directement dans un nouvel onglet ↗
+                          </a>
+                        </>
                       )}
                     </div>
                   )}
