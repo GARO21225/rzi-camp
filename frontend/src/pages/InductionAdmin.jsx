@@ -74,17 +74,26 @@ const label = { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--r
 // ─────────────────────────────────────────────────────────────────
 function FormModal({ title, onClose, onSave, saving, children }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,15,20,.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,15,20,.65)', backdropFilter:'blur(3px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
+      animation:'iaFadeIn .18s ease' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
+      <style>{`
+        @keyframes iaFadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes iaPopIn { from{opacity:0;transform:scale(.96) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+      `}</style>
       <div className="rzc-card" style={{ width: '100%', maxWidth: 560, maxHeight: '90vh',
-        overflowY: 'auto', padding: 0 }}>
-        <div style={{ background: 'linear-gradient(135deg,var(--rzc-navy),#1E3A8A)', color: '#fff',
+        overflowY: 'auto', padding: 0, animation:'iaPopIn .22s cubic-bezier(.34,1.56,.64,1)',
+        boxShadow:'0 24px 64px rgba(0,0,0,.35)' }}>
+        <div style={{ background: 'linear-gradient(135deg,var(--rzc-navy),#163257)', color: '#fff',
           padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          position: 'sticky', top: 0 }}>
+          position: 'sticky', top: 0, borderBottom:'2px solid #F0A500' }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.2)', border: 'none',
-            color: '#fff', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none',
+            color: '#fff', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', fontSize: 16,
+            transition:'background .15s' }}
+            onMouseEnter={e=>e.currentTarget.style.background='rgba(240,165,0,.35)'}
+            onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.15)'}>✕</button>
         </div>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 13 }}>
           {children}
@@ -196,7 +205,7 @@ export default function InductionAdmin() {
     setPhotoErr('')
     if (item === 'new') {
       const defaults = {
-        infra: { titre: '', emoji: '🏠', couleur: '#3b82f6', description: '', details: [], photo_base64: '', video_url: '', ordre: 0, actif: true },
+        infra: { titre: '', emoji: '🏠', couleur: '#F0A500', description: '', details: [], photo_base64: '', video_url: '', ordre: 0, actif: true },
         regle: { titre: '', emoji: '📋', niveau: 'standard', texte: '', ordre: 0, actif: true },
         quiz:  { question: '', options: ['', ''], bonne_reponse: 0, explication: '', ordre: 0, actif: true },
       }[type]
