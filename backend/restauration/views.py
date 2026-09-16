@@ -775,6 +775,16 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
                 elif op == 'remove': nouveau = max(0, stock_actuel - qte)
                 else: nouveau = stock_actuel + qte
                 c.execute('UPDATE restauration_articleboutique SET stock=%s WHERE id=%s', [nouveau, pk])
+            # La raison etait saisie mais jamais enregistree nulle part -
+            # pour un controle d'inventaire (deja restreint aux admins),
+            # savoir POURQUOI un stock a change est la moitie de l'interet
+            # de la tracabilite.
+            from .models import AuditLog, ArticleBoutique
+            art_nom = ArticleBoutique.objects.filter(pk=pk).values_list('nom', flat=True).first() or f"#{pk}"
+            AuditLog.objects.create(
+                utilisateur=u, module='boutique', action='ajustement_stock',
+                detail=f"{art_nom}: {stock_actuel} → {nouveau} ({op}, qté {qte})" + (f" — {raison}" if raison else ""),
+            )
             return Response({'stock': nouveau, 'precedent': stock_actuel, 'operation': op})
         except Exception as e:
             return Response({'detail': str(e)}, status=500)

@@ -1077,17 +1077,14 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        demande = serializer.save(demandeur=self.request.user)
-        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
-        try:
-            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
-            import threading
-            def send():
-                envoyer_email_bienvenue(p)
-                envoyer_sms_bienvenue(p)
-            threading.Thread(target=send, daemon=True).start()
-        except Exception:
-            pass
+        # Ancien code casse : appelait serializer.save(demandeur=...) alors
+        # que Batiment n'a PAS de champ "demandeur" (copie-colle errone
+        # depuis DemandeViewSet), ce qui faisait planter TOUTE creation de
+        # residence via l'API avec un TypeError. Le bloc "email/SMS de
+        # bienvenue" qui suivait etait lui-meme casse (variable 'p' jamais
+        # definie) et n'a jamais eu de sens ici (creer une chambre n'est
+        # pas un evenement "bienvenue").
+        serializer.save()
 
 
     def destroy(self, request, *args, **kwargs):
@@ -1266,17 +1263,9 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
     serializer_class = OccupationHistorySerializer
 
     def perform_create(self, serializer):
-        demande = serializer.save(demandeur=self.request.user)
-        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
-        try:
-            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
-            import threading
-            def send():
-                envoyer_email_bienvenue(p)
-                envoyer_sms_bienvenue(p)
-            threading.Thread(target=send, daemon=True).start()
-        except Exception:
-            pass
+        # Meme bug que BatimentViewSet corrige juste au-dessus : "demandeur"
+        # n'existe pas sur OccupationHistory, ca cassait toute creation.
+        serializer.save()
 
 
     def destroy(self, request, *args, **kwargs):
@@ -1332,18 +1321,15 @@ class DemandeViewSet(viewsets.ModelViewSet):
             pass
 
     def perform_create(self, serializer):
-        demande = serializer.save(demandeur=self.request.user)
-        # Email + SMS de bienvenue (asynchrone, ne bloque pas)
-        try:
-            from rzi_camp.notifications import envoyer_email_bienvenue, envoyer_sms_bienvenue
-            import threading
-            def send():
-                envoyer_email_bienvenue(p)
-                envoyer_sms_bienvenue(p)
-            threading.Thread(target=send, daemon=True).start()
-        except Exception:
-            pass
-
+        # "demandeur" existe reellement sur Demande (contrairement aux 2
+        # autres endroits corriges juste au-dessus), cette ligne reste
+        # correcte. Seul le bloc email/SMS suivant etait casse (variable
+        # 'p' jamais definie - aurait plante silencieusement dans le
+        # thread arriere-plan a chaque nouvelle demande, sans jamais
+        # remonter d'erreur visible) et n'avait de toute facon pas de sens
+        # ici : "bienvenue" ne s'applique pas a une demande de residence/
+        # voyage/maintenance soumise par un employe deja en poste.
+        serializer.save(demandeur=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         """Only admin can hard-delete; agents can only cancel"""
