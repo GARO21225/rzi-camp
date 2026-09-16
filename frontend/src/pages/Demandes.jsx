@@ -396,6 +396,19 @@ export default function Demandes() {
                 <textarea value={actionForm.commentaire} onChange={e=>setActionForm({...actionForm,commentaire:e.target.value})} rows={3}
                   style={{ ...inp, resize:'vertical' }} placeholder={actionModal.action==='rejeter'?'Expliquez le motif...':'Message au demandeur...'}/>
               </div>
+
+              {actionModal.action==='rejeter' && actionModal.demande._source!=='voyage' && (
+                <button onClick={()=>setActionModal(m=>({...m,action:'proposer'}))}
+                  style={{ marginTop:10, background:'none', border:'none', color:'#7c3aed', fontSize:12, fontWeight:700, cursor:'pointer', textDecoration:'underline', padding:0 }}>
+                  💬 Proposer une alternative à la place d'un rejet sec
+                </button>
+              )}
+              {actionModal.action==='proposer' && (
+                <button onClick={()=>setActionModal(m=>({...m,action:'rejeter'}))}
+                  style={{ marginTop:10, background:'none', border:'none', color:'#dc2626', fontSize:12, fontWeight:700, cursor:'pointer', textDecoration:'underline', padding:0 }}>
+                  ← Revenir à un rejet simple
+                </button>
+              )}
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setActionModal(null)} disabled={actionSaving} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:actionSaving?'not-allowed':'pointer', fontSize:13, opacity:actionSaving?.5:1 }}>Annuler</button>
