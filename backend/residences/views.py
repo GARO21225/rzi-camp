@@ -45,6 +45,10 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def import_csv_data(self, request):
         """Import massif du personnel depuis les données CSV préparées par le frontend."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Seul l'admin peut importer du personnel."}, status=403)
         from django.db import connection
 
         rows = request.data.get('rows', [])
@@ -1510,6 +1514,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def desactiver_expires(self, request):
         """Désactiver automatiquement le personnel temporaire expiré"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         from django.utils import timezone
         expirés = Personnel.objects.filter(
             est_temporaire=True,
@@ -1657,6 +1665,17 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
             return Response({'error': 'personnel_id requis'}, status=400)
         if not etape_key:
             return Response({'error': 'etape requise'}, status=400)
+
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            # Un employe ne peut mettre a jour QUE sa propre progression
+            # d'induction - sans ca, n'importe qui pouvait falsifier
+            # l'induction (etapes/quiz) de n'importe quel autre employe en
+            # passant simplement un personnel_id different.
+            own_personnel = getattr(u, "personnel", None)
+            if not own_personnel or str(own_personnel.id) != str(personnel_id):
+                return Response({'error': "Vous ne pouvez mettre à jour que votre propre induction."}, status=403)
 
         try:
             from residences.models import Personnel, InductionRecord

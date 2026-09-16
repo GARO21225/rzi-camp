@@ -1054,6 +1054,10 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='crediter')
     def crediter(self, request):
         """Créditer/créer le bon d'un personnel pour l'année courante"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'error':"Admin requis pour créditer un bon de caisse"}, status=403)
         from django.utils import timezone
         personnel_id = request.data.get('personnel_id')
         montant      = int(request.data.get('montant', 100000))
@@ -1089,6 +1093,10 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='crediter_tous')
     def crediter_tous(self, request):
         """Créditer TOUS les personnels actifs — début d'année"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'error':"Admin requis pour créditer en masse"}, status=403)
         from django.utils import timezone
         from residences.models import Personnel
         montant = int(request.data.get('montant', 100000))

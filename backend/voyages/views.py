@@ -513,6 +513,15 @@ class VoyageViewSet(viewsets.ModelViewSet):
         motif           = data.get("motif","")
         type_voyage     = data.get("type_voyage","rotation")
         passagers_ids   = data.get("passagers",[])
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if type_voyage != "individuel" and not is_admin:
+            # Le voyage individuel reste en libre-service (un agent declare
+            # son propre deplacement), mais organiser une rotation GROUPEE
+            # (plusieurs passagers, choix du vehicule/conducteur pour
+            # d'autres personnes) est une action de dispatch admin - meme
+            # regle que partout ailleurs dans Centre de Mobilite.
+            return Response({"error":"Seul un admin peut créer une rotation groupée. Utilisez le voyage individuel pour votre propre déplacement."}, status=403)
         if not date_depart or not date_retour:
             return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
 
@@ -588,6 +597,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def rejoindre_rotation(self, request):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis pour ajouter un passager à un convoi"}, status=403)
         rotation_id  = request.data.get("rotation_id")
         personnel_id = request.data.get("personnel_id")
         if not rotation_id or not personnel_id:
@@ -624,6 +637,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def partir_rotation(self, request):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         rotation_id = request.data.get("rotation_id")
         if not rotation_id:
             return Response({"error":"rotation_id requis"},status=400)
@@ -635,6 +652,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def retour_rotation(self, request):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
         rotation_id = request.data.get("rotation_id")
         if not rotation_id:
             return Response({"error":"rotation_id requis"},status=400)

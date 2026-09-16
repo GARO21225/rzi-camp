@@ -637,6 +637,10 @@ class IncidentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def verifier_sla(self, request):
         """Vérifie et notifie les incidents en dépassement SLA"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'error':"Admin requis"}, status=403)
         now      = timezone.now()
         expires  = Incident.objects.filter(
             sla_echeance__lt=now,
