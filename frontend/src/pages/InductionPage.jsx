@@ -849,7 +849,8 @@ function InductionPageInner() {
 
       {/* Header */}
       <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',
-        borderRadius:16,padding:'18px 24px',marginBottom:20}}>
+        borderRadius:16,padding:'18px 24px',marginBottom:20,borderBottom:'3px solid #F0A500',
+        boxShadow:'0 8px 24px rgba(15,36,71,.25)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div>
             <h1 style={{fontSize:22,fontWeight:900,margin:0}}>Induction QHSE - Roxgold Sango</h1>
@@ -1062,16 +1063,24 @@ function InductionPageInner() {
       {/* ══ PANEL WORKFLOW INDIVIDUEL ══ */}
       {selected && (
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',
-          display:'flex',alignItems:'center',justifyContent:'flex-end',zIndex:1000}}
+          display:'flex',alignItems:'center',justifyContent:'flex-end',zIndex:1000,
+          animation:'ipBackdropIn .2s ease'}}
           onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
+          <style>{`
+            @keyframes ipBackdropIn { from{opacity:0} to{opacity:1} }
+            @keyframes ipPanelSlideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
+            @keyframes ipConfettiPop { 0%{transform:scale(0) rotate(0deg)} 60%{transform:scale(1.2) rotate(15deg)} 100%{transform:scale(1) rotate(0deg)} }
+            @keyframes ipBadgeGlow { 0%,100%{box-shadow:0 0 0 rgba(240,165,0,0)} 50%{box-shadow:0 0 32px rgba(240,165,0,.5)} }
+          `}</style>
           <div style={{background:'var(--rzc-white)',width:'100%',maxWidth:560,height:'100%',
-            overflow:'auto',boxShadow:'-4px 0 30px rgba(0,0,0,.2)'}}>
+            overflow:'auto',boxShadow:'-4px 0 30px rgba(0,0,0,.2)',animation:'ipPanelSlideIn .3s cubic-bezier(.22,1,.36,1)'}}>
 
             {/* Célébration finale */}
             {etapeActive==='celebration' ? (
-              <div style={{padding:40,textAlign:'center',background:'linear-gradient(135deg,#16a34a,#15803d)',
+              <div style={{padding:40,textAlign:'center',
+                background:'linear-gradient(135deg,#0F2A5C,#16a34a)',
                 minHeight:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                <div style={{fontSize:80,marginBottom:20}}>🎉</div>
+                <div style={{fontSize:80,marginBottom:20,animation:'ipConfettiPop .6s cubic-bezier(.34,1.56,.64,1)'}}>🎉</div>
                 <div style={{color:'var(--rzc-white)',fontSize:28,fontWeight:900,marginBottom:12}}>
                   Bienvenue au Camp Minier<br/>de ROXGOLD Sango !
                 </div>
@@ -1079,15 +1088,22 @@ function InductionPageInner() {
                   {selected.prenom} {selected.nom}<br/>
                   Induction QHSE complétée avec succès
                 </div>
-                <div style={{background:'rgba(255,255,255,.2)',borderRadius:16,padding:'20px 30px',
-                  color:'var(--rzc-white)',fontSize:13,textAlign:'left',maxWidth:360}}>
-                  <div style={{fontWeight:700,marginBottom:8}}>🎫 Badge d\'accès activé</div>
+                <div style={{background:'rgba(255,255,255,.12)',backdropFilter:'blur(10px)',
+                  border:'1px solid rgba(240,165,0,.4)',borderRadius:16,padding:'20px 30px',
+                  color:'var(--rzc-white)',fontSize:13,textAlign:'left',maxWidth:360,
+                  animation:'ipBadgeGlow 2.5s ease infinite'}}>
+                  <div style={{fontWeight:700,marginBottom:8,color:'#ffd97a'}}>🎫 Badge d\'accès activé</div>
                   <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
                   <div>Valide 12 mois — Présentez votre QR à chaque accès</div>
                 </div>
                 <button onClick={()=>{setSelected(null);setEtapeActive(null)}}
-                  style={{marginTop:24,background:'var(--rzc-white)',color:'#16a34a',border:'none',
-                    padding:'12px 30px',borderRadius:12,cursor:'pointer',fontSize:15,fontWeight:700}}>
+                  style={{marginTop:24,background:'linear-gradient(135deg,#F0A500,#C9972B)',color:'#0F2A5C',border:'none',
+                    padding:'12px 30px',borderRadius:12,cursor:'pointer',fontSize:15,fontWeight:700,
+                    boxShadow:'0 4px 20px rgba(240,165,0,.4)',transition:'all .2s cubic-bezier(.34,1.56,.64,1)'}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 8px 26px rgba(240,165,0,.6)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 4px 20px rgba(240,165,0,.4)'}}
+                  onMouseDown={e=>e.currentTarget.style.transform='scale(.95)'}
+                  onMouseUp={e=>e.currentTarget.style.transform='translateY(-2px)'}>
                   Fermer
                 </button>
               </div>
@@ -1095,6 +1111,7 @@ function InductionPageInner() {
               <>
                 {/* Header */}
                 <div style={{background:'linear-gradient(135deg,#0f2447,#1e3a8a)',
+                  borderBottom:'2px solid #F0A500',
                   color:'var(--rzc-white)',padding:'16px 20px',position:'sticky',top:0,zIndex:10}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                     <div>
