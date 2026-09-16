@@ -653,15 +653,25 @@ export default function MissionControl() {
 
   const partirRotation = async (rotId) => {
     try {
-      await api('/api/voyages/partir_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
-      flash('Rotation en transit ✈️'); load()
+      const res = await api('/api/voyages/partir_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
+      const d = await res.json()
+      flash(`Rotation en transit ✈️ (${d.partis} parti(s))`)
+      if (d.echecs && d.echecs.length > 0) {
+        toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu partir : ${d.echecs.join(' | ')}`, 8000)
+      }
+      load()
     } catch(e) { flash('Erreur',false) }
   }
 
   const retourRotation = async (rotId) => {
     try {
-      await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
-      flash('Rotation revenue 🏠'); load()
+      const res = await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
+      const d = await res.json()
+      flash(`Rotation revenue 🏠 (${d.rentres} rentré(s))`)
+      if (d.echecs && d.echecs.length > 0) {
+        toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu revenir : ${d.echecs.join(' | ')}`, 8000)
+      }
+      load()
     } catch(e) { flash('Erreur',false) }
   }
 

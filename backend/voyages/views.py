@@ -645,10 +645,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not rotation_id:
             return Response({"error":"rotation_id requis"},status=400)
         count = 0
-        for v in Voyage.objects.filter(rotation_id=rotation_id,statut="planifie"):
-            try: v.partir(); count+=1
-            except Exception: pass
-        return Response({"ok":True,"partis":count})
+        echecs = []
+        for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="planifie"):
+            try:
+                v.partir(); count+=1
+            except Exception as e:
+                nom = f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
+                echecs.append(f"{nom}: {e}")
+        return Response({"ok":True,"partis":count,"echecs":echecs})
 
     @action(detail=False, methods=["post"])
     def retour_rotation(self, request):
@@ -662,10 +666,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
         date_str = request.data.get("date_retour")
         date = datetime.date.fromisoformat(date_str) if date_str else None
         count = 0
-        for v in Voyage.objects.filter(rotation_id=rotation_id,statut="en_voyage"):
-            try: v.revenir(date); count+=1
-            except Exception: pass
-        return Response({"ok":True,"rentres":count})
+        echecs = []
+        for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="en_voyage"):
+            try:
+                v.revenir(date); count+=1
+            except Exception as e:
+                nom = f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
+                echecs.append(f"{nom}: {e}")
+        return Response({"ok":True,"rentres":count,"echecs":echecs})
 
     # ── Vue ensemble ───────────────────────────────────────────────
     @action(detail=False, methods=["get"])
