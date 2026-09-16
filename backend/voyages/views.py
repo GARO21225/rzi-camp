@@ -710,7 +710,12 @@ class EtapeVoyageViewSet(viewsets.ModelViewSet):
             qs = qs.filter(voyage_id=voyage_id)
         return qs
 
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
     def create(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
         # Un voyage termine (retour) est fige - plus aucune modification
         # d'itineraire n'a de sens une fois le trajet reellement termine.
         voyage_id = request.data.get("voyage")
@@ -719,6 +724,21 @@ class EtapeVoyageViewSet(viewsets.ModelViewSet):
             if voyage and voyage.statut == "retour":
                 return Response({"error": "Ce voyage est terminé (retour effectué) — l'itinéraire ne peut plus être modifié."}, status=400)
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
 
 def _generer_billet_html(voyage):

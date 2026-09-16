@@ -270,6 +270,24 @@ class IncidentViewSet(viewsets.ModelViewSet):
     serializer_class = IncidentSerializer
     filter_backends  = [filters.SearchFilter, filters.OrderingFilter]
     search_fields    = ['titre', 'description', 'residence', 'bloc', 'categorie']
+
+    def _refuse_si_pas_titulaire(self, request, pk):
+        """Verifie que l'utilisateur est admin OU le technicien assigne a
+        CET incident precis - reutilise par toutes les actions de workflow
+        (commencer/resoudre/cloturer/escalader/annuler) qui modifient un
+        incident specifique. Retourne None si autorise, sinon une Response
+        403 prete a renvoyer telle quelle."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if is_admin:
+            return None
+        from django.db import connection
+        with connection.cursor() as c:
+            c.execute('SELECT assigne_a_id FROM maintenance_incident WHERE id=%s', [pk])
+            row = c.fetchone()
+        if not row or row[0] != u.id:
+            return Response({'error': "Vous ne pouvez agir que sur les incidents qui vous sont assignés."}, status=403)
+        return None
     ordering_fields  = ['date_creation', 'priorite', 'statut']
     ordering         = ['-date_creation']
 
@@ -470,6 +488,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def commencer(self, request, pk=None):
+        err = self._refuse_si_pas_titulaire(request, pk)
+        if err: return err
         from django.db import connection
         auteur_id = request.user.id if request.user and request.user.is_authenticated else None
         commentaire = request.data.get('commentaire', 'Intervention démarrée')
@@ -484,6 +504,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=500)
     @action(detail=True, methods=['post'])
     def resoudre(self, request, pk=None):
+        err = self._refuse_si_pas_titulaire(request, pk)
+        if err: return err
         from django.db import connection
         auteur_id = request.user.id if request.user and request.user.is_authenticated else None
         commentaire = request.data.get('commentaire', 'Incident résolu')
@@ -498,6 +520,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=500)
     @action(detail=True, methods=['post'])
     def cloturer(self, request, pk=None):
+        err = self._refuse_si_pas_titulaire(request, pk)
+        if err: return err
         from django.db import connection
         auteur_id = request.user.id if request.user and request.user.is_authenticated else None
         commentaire = request.data.get('commentaire', 'Incident clôturé')
@@ -513,6 +537,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def escalader(self, request, pk=None):
         """Escalader la priorité"""
+        err = self._refuse_si_pas_titulaire(request, pk)
+        if err: return err
         incident = self.get_object()
         ancien   = incident.priorite
         mapping  = {'basse':'moyenne', 'moyenne':'haute', 'haute':'critique', 'critique':'critique'}
@@ -553,6 +579,16 @@ class IncidentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def annuler(self, request, pk=None):
         incident = self.get_object()
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        # Cas particulier: contrairement aux autres actions de workflow, on
+        # laisse aussi l'auteur (declarant) annuler SON PROPRE signalement
+        # tant que personne ne l'a encore pris en charge (ex: doublon,
+        # erreur de saisie) - sinon meme corriger une erreur evidente
+        # necessiterait de deranger un admin.
+        est_auteur_non_assigne = incident.auteur_id == u.id and not incident.assigne_a_id
+        if not is_admin and incident.assigne_a_id != u.id and not est_auteur_non_assigne:
+            return Response({'error': "Vous ne pouvez agir que sur les incidents qui vous sont assignés."}, status=403)
         incident.statut = 'annule'
         incident.save()
         CommentaireIncident.objects.create(
