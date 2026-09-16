@@ -31,7 +31,11 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     search_fields = ["nom","prenom","societe","numero"]
 
     def get_queryset(self):
-        qs = Personnel.objects.all()
+        # select_related sur user + user__profile : le serializer accede a
+        # obj.user.profile.role, obj.user.is_active et obj.user.username
+        # pour CHAQUE personnel de la liste - sans ca, une liste de 200
+        # personnes generait ~200-400 requetes supplementaires (N+1).
+        qs = Personnel.objects.select_related("user", "user__profile").all()
         t = self.request.query_params.get("type_personnel")
         if t: qs = qs.filter(type_personnel=t)
         actif = self.request.query_params.get("actif")
@@ -1301,7 +1305,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
         if is_admin:
             qs = Demande.objects.select_related("demandeur","traite_par").all()
         else:
-            qs = Demande.objects.filter(demandeur=user)
+            qs = Demande.objects.select_related("demandeur","traite_par").filter(demandeur=user)
         
         statut = self.request.query_params.get("statut")
         type_d = self.request.query_params.get("type_demande")
