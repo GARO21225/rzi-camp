@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import serializers as drf_serializers
 from django.utils import timezone
-from django.db import connection
+from django.db import connection, transaction
 from django.contrib.auth.models import User
 from evenements.models import SimpleNotification
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration, QuestionAvis, ReponseAvis
@@ -159,47 +159,65 @@ class QRTokenViewSet(viewsets.ViewSet):
             from datetime import date
             today = date.today()
 
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM restauration_repaslog r
-                    JOIN restauration_qrtoken q ON r.qr_token_id = q.id
-                    WHERE q.personnel_id = %s AND q.type_repas = %s AND DATE(r.date_validation) = %s
-                """, [pers_id, type_repas, today])
-                count = cursor.fetchone()[0]
+            # Verrouillage transactionnel: sans ca, scanner deux fois de
+            # suite le MEME QR (double-tap, ou deux agents au meme poste)
+            # pouvait faire passer les deux tentatives sur le controle
+            # "pas encore pris" avant que l'une des deux n'ait cree son
+            # RepasLog - creant deux repas comptabilises pour la meme
+            # personne le meme jour. select_for_update() verrouille la
+            # ligne Personnel pour la duree de la transaction : la 2e
+            # tentative concurrente attend que la 1ere commite, puis relit
+            # un compte a jour.
+            with transaction.atomic():
+                from residences.models import Personnel as P
+                # select_for_update() (ORM, portable) plutot que du SQL brut
+                # avec FOR UPDATE - fonctionne pareil sur PostgreSQL et reste
+                # testable en local sur SQLite.
+                list(P.objects.select_for_update().filter(pk=pers_id))
 
-            if count > 0:
-                return Response({
-                    "valid": False,
-                    "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
-                }, status=400)
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM restauration_repaslog r
+                        JOIN restauration_qrtoken q ON r.qr_token_id = q.id
+                        WHERE q.personnel_id = %s AND q.type_repas = %s AND DATE(r.date_validation) = %s
+                    """, [pers_id, type_repas, today])
+                    count = cursor.fetchone()[0]
 
-            # Créer QRToken + RepasLog via ORM (compatible SQLite ET PostgreSQL)
-            import uuid
-            from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
-            from residences.models import Personnel as P
+                if count > 0:
+                    return Response({
+                        "valid": False,
+                        "erreur": f"{nom} {prenom} a déjà pris ce repas aujourd'hui"
+                    }, status=400)
 
-            now       = timezone.now()
-            pers_obj  = P.objects.filter(pk=pers_id).first()
-            valide_by = request.user if request.user and request.user.is_authenticated else None
+                # Créer QRToken + RepasLog via ORM (compatible SQLite ET PostgreSQL)
+                # - reste DANS le meme bloc atomique que la verification
+                # ci-dessus, sinon le verrou serait deja relache avant la
+                # creation reelle et la protection ne servirait a rien.
+                import uuid
+                from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse
 
-            qt = QT.objects.create(
-                token      = str(uuid.uuid4()).replace("-",""),
-                personnel  = pers_obj,
-                resident   = f"{nom} {prenom}",
-                residence  = "",
-                type_repas = type_repas,
-                genere_par = valide_by,
-                cree_le    = now,
-                expire_le  = now,
-                utilise    = True,
-                utilise_le = now,
-            )
-            RL.objects.create(
-                qr_token        = qt,
-                personnel       = pers_obj,
-                valide_par      = valide_by,
-                date_validation = now,
-            )
+                now       = timezone.now()
+                pers_obj  = P.objects.filter(pk=pers_id).first()
+                valide_by = request.user if request.user and request.user.is_authenticated else None
+
+                qt = QRToken.objects.create(
+                    token      = str(uuid.uuid4()).replace("-",""),
+                    personnel  = pers_obj,
+                    resident   = f"{nom} {prenom}",
+                    residence  = "",
+                    type_repas = type_repas,
+                    genere_par = valide_by,
+                    cree_le    = now,
+                    expire_le  = now,
+                    utilise    = True,
+                    utilise_le = now,
+                )
+                RepasLog.objects.create(
+                    qr_token        = qt,
+                    personnel       = pers_obj,
+                    valide_par      = valide_by,
+                    date_validation = now,
+                )
 
             return Response({
                 "valid":    True,

@@ -215,34 +215,39 @@ class VoyageViewSet(viewsets.ModelViewSet):
         nouveau_rotation_id = request.data.get("rotation_id")
         if not nouveau_rotation_id:
             return Response({"error":"rotation_id requis"}, status=400)
-        cible = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").first()
-        if not cible:
-            return Response({"error":"Convoi cible introuvable ou vide"}, status=404)
-        if cible.statut == "retour":
-            return Response({"error": "Ce convoi est déjà terminé (retour effectué) — impossible d'y ajouter quelqu'un. Créez un nouveau convoi à la place."}, status=400)
-        prises = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").count()
-        if prises >= (cible.nb_places_total or 15):
-            return Response({"error":"Convoi cible complet"}, status=400)
-        conflict = _check_voyage_conflit(
-            voyage.personnel_id, cible.date_depart, cible.date_retour_prevue, exclude_pk=voyage.pk
-        )
-        if conflict:
-            return Response({"error": f"Conflit avec un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
-        ancien_rotation_id = voyage.rotation_id
-        voyage.rotation_id = nouveau_rotation_id
-        voyage.destination = cible.destination
-        voyage.origine = cible.origine
-        voyage.date_depart = cible.date_depart
-        voyage.date_retour_prevue = cible.date_retour_prevue
-        voyage.vehicule = cible.vehicule
-        voyage.vehicule_matricule = cible.vehicule_matricule
-        voyage.vehicule_photo = cible.vehicule_photo
-        voyage.conducteur = cible.conducteur
-        voyage.nb_places_total = cible.nb_places_total
-        voyage.heure_depart = cible.heure_depart
-        voyage.point_rdv = cible.point_rdv
-        voyage.statut = "planifie"
-        voyage.save()
+        # Meme verrouillage que rejoindre_rotation : deplacer quelqu'un vers
+        # un convoi cible verifie sa capacite avant d'agir - sans verrou,
+        # deux deplacements simultanes vers le MEME convoi cible presque
+        # plein pouvaient tous les deux passer le controle et le surbooker.
+        with transaction.atomic():
+            cible = Voyage.objects.select_for_update().filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").first()
+            if not cible:
+                return Response({"error":"Convoi cible introuvable ou vide"}, status=404)
+            if cible.statut == "retour":
+                return Response({"error": "Ce convoi est déjà terminé (retour effectué) — impossible d'y ajouter quelqu'un. Créez un nouveau convoi à la place."}, status=400)
+            prises = Voyage.objects.filter(rotation_id=nouveau_rotation_id).exclude(statut="annule").count()
+            if prises >= (cible.nb_places_total or 15):
+                return Response({"error":"Convoi cible complet"}, status=400)
+            conflict = _check_voyage_conflit(
+                voyage.personnel_id, cible.date_depart, cible.date_retour_prevue, exclude_pk=voyage.pk
+            )
+            if conflict:
+                return Response({"error": f"Conflit avec un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
+            ancien_rotation_id = voyage.rotation_id
+            voyage.rotation_id = nouveau_rotation_id
+            voyage.destination = cible.destination
+            voyage.origine = cible.origine
+            voyage.date_depart = cible.date_depart
+            voyage.date_retour_prevue = cible.date_retour_prevue
+            voyage.vehicule = cible.vehicule
+            voyage.vehicule_matricule = cible.vehicule_matricule
+            voyage.vehicule_photo = cible.vehicule_photo
+            voyage.conducteur = cible.conducteur
+            voyage.nb_places_total = cible.nb_places_total
+            voyage.heure_depart = cible.heure_depart
+            voyage.point_rdv = cible.point_rdv
+            voyage.statut = "planifie"
+            voyage.save()
         try:
             from evenements.models import SimpleNotification
             if voyage.enregistre_par:
