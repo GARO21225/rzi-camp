@@ -735,8 +735,15 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def ajuster_stock(self, request, pk=None):
+        # Contrairement a l'enregistrement d'une vente (ouvert au personnel
+        # de service), MODIFIER directement les quantites en stock est une
+        # responsabilite de gestion - sans verification, n'importe qui
+        # pourrait masquer un vol ou fausser l'inventaire.
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'detail':"Admin requis pour ajuster le stock"}, status=403)
         from django.db import connection
-        from rest_framework.response import Response
         op = request.data.get('operation', 'add')  # add | remove | set
         qte = int(request.data.get('quantite', 0))
         raison = request.data.get('raison', '')
@@ -768,6 +775,10 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def stock_update(self, request, pk=None):
         """Modifier le stock d'un article."""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'detail':"Admin requis pour ajuster le stock"}, status=403)
         article = self.get_object()
         operation = request.data.get('operation', 'set')  # set | add | subtract
         quantite = int(request.data.get('quantite', 0))
@@ -1111,6 +1122,10 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
         Restitue le solde restant (ou un montant partiel) d'un bon à l'agent,
         via mobile money — typiquement en fin d'année ou à son départ définitif.
         """
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'error':"Admin requis pour effectuer une restitution financière"}, status=403)
         from .models import RemboursementBon
         bon = self.get_object()
 

@@ -61,19 +61,45 @@ class EvenementViewSet(viewsets.ModelViewSet):
             .annotate(nb_notifies_annot=Count('notifications'))
             .order_by("-date_debut"))
 
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    def create(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
-        if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
+        if not self._is_admin(request.user):
             return Response({"error":"Admin uniquement"}, status=403)
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"])
     def notifier(self, request, pk=None):
+        # Diffuse une notification a TOUS les residents - une capacite de
+        # "broadcast" qui doit rester admin-only, d'autant plus que les
+        # evenements incluent des types 'Alerte'/'Securite' (un abus ici
+        # equivaudrait a une fausse alerte generale envoyee a tout le camp).
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
         evt = self.get_object()
         n = evt.notifier_residents()
         return Response({"ok":True,"residents_notifies":n})
 
     @action(detail=True, methods=["patch"])
     def changer_statut(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
         evt = self.get_object()
         statut = request.data.get("statut")
         if statut not in [s[0] for s in Evenement.STATUT]:
@@ -231,8 +257,37 @@ class AlerteViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return AlerteCampus.objects.filter(active=True).order_by("-date_creation")
 
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    def create(self, request, *args, **kwargs):
+        # Une alerte campus est diffusee a tout le monde - meme logique
+        # que les evenements de type Alerte/Securite, admin-only pour
+        # eviter qu'une fausse alerte generale puisse etre declenchee par
+        # n'importe quel utilisateur authentifie.
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=["post"])
     def desactiver(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
         a = self.get_object()
         a.active = False
         a.save(update_fields=["active"])

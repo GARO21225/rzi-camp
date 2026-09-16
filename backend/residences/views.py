@@ -545,8 +545,11 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def toggle_induction(self, request, pk=None):
         """Toggle induction_requise via SQL direct (champ ajouté via setup_db)"""
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({'error':"Admin requis"}, status=403)
         from django.db import connection
-        from rest_framework.response import Response
         valeur = request.data.get('induction_requise', True)
         try:
             with connection.cursor() as c:
