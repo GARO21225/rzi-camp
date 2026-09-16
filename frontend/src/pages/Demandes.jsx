@@ -87,7 +87,7 @@ export default function Demandes() {
       setCreateModal(null)
       setForm({ message_demandeur:'', residence_souhaitee:'', date_debut_souhaitee:today, date_fin_souhaitee:'', donnees:{} })
       load()
-    } catch(e) { toast.success(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) { toast.error(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
   const doAction = async () => {
@@ -105,7 +105,7 @@ export default function Demandes() {
       setActionForm({ commentaire:'', proposition:{} })
       setDetailModal(null)
       load()
-    } catch(e) { toast.success(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) { toast.error(e.response?.data?JSON.stringify(e.response.data):e.message) }
   }
 
   const doAgentAction = async (demande, action) => {
@@ -114,7 +114,7 @@ export default function Demandes() {
       else if (action === 'refuser') await demandesAPI.refuserProposition(demande.id)
       else if (action === 'annuler') await demandesAPI.annuler(demande.id)
       load()
-    } catch(e) { toast.success(e.response?.data?.error||e.message) }
+    } catch(e) { toast.error(e.response?.data?.error||e.message) }
   }
 
   const deleteDemande = async (id) => {

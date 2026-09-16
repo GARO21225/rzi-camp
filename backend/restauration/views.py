@@ -848,6 +848,7 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
             'personnel', 'article', 'valide_par'
         ).order_by('-date_conso')
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         from django.db import connection
         from django.utils import timezone as tz
@@ -921,6 +922,13 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
             return Response({"id": cid, "montant": montant, "mode": mode}, status=201)
 
         except Exception as exc:
+            # Annule explicitement la transaction : sans ca, l'exception est
+            # interceptee ICI (pas laissee remonter), donc @transaction.atomic
+            # ne la voit jamais et ne fait PAS de rollback tout seul - la
+            # vente (INSERT deja execute) restait commitee meme si une etape
+            # suivante (decrement stock, debit bon) echouait, laissant
+            # l'utilisateur voir une erreur alors que la vente etait creee.
+            transaction.set_rollback(True)
             return Response({"detail": str(exc)}, status=500)
 
 
