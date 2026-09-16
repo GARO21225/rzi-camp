@@ -1609,11 +1609,13 @@ export default function Boutique({ embedded = false } = {}) {
                   <tr key={c.id} style={{borderTop:'1px solid #f1f5f9',background:i%2?'#fafafa':'var(--rzc-white)'}}>
                     <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-3)'}}>{c.date_conso?new Date(c.date_conso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):''}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',fontSize:11,color:'var(--rzc-text-3)'}}>{new Date(c.date_conso||'').toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
-                    <td style={{padding:'10px 14px',fontSize:12,fontWeight:600}}>{c.personnel_nom||'Anonyme'}</td>
+                    <td style={{padding:'10px 14px',fontSize:12,fontWeight:600}}>{c.personnel_nom&&c.personnel_nom!=='—'?c.personnel_nom:'Anonyme'}</td>
                     <td style={{padding:'10px 14px',fontSize:11.5,color:'var(--rzc-text-3)'}}>{c.valide_par_nom&&c.valide_par_nom!=='—'?c.valide_par_nom:'—'}</td>
                     <td style={{padding:'10px 14px',fontSize:12}}>{getEmoji(c.article_nom||'')} {c.article_nom}</td>
                     <td style={{padding:'10px 14px',fontFamily:'monospace',textAlign:'center'}}>{c.quantite}</td>
-                    <td style={{padding:'10px 14px',fontWeight:800,color:'var(--rzc-navy)'}}>{parseInt(c.montant||0).toLocaleString()} FCFA</td>
+                    <td style={{padding:'10px 14px',fontWeight:800,color:'var(--rzc-navy)'}}>
+                      {(parseInt(c.montant)||Math.round(parseFloat(c.article_prix||0)*parseInt(c.quantite||1))||0).toLocaleString()} FCFA
+                    </td>
                     <td style={{padding:'10px 14px',fontSize:11}}>{modeCfg}</td>
                   </tr>
                 )})}

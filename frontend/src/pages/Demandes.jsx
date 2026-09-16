@@ -96,6 +96,7 @@ export default function Demandes() {
       if (demande._source === 'voyage') {
         if (action === 'valider') await voyagesAPI.valider(demande._voyageId)
         else if (action === 'rejeter') await voyagesAPI.refuser(demande._voyageId, actionForm.commentaire)
+        else { toast.error("Cette action n'est pas disponible pour un voyage."); return }
       } else {
         if (action === 'valider') await demandesAPI.valider(demande.id, actionForm)
         else if (action === 'rejeter') await demandesAPI.rejeter(demande.id, actionForm)
@@ -242,8 +243,10 @@ export default function Demandes() {
                     <>
                       <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                         style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
-                      <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-                        style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
+                      {d._source !== 'voyage' && (
+                        <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
+                          style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
+                      )}
                       <button onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
                         style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Rejeter</button>
                     </>
