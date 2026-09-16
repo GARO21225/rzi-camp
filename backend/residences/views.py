@@ -1534,6 +1534,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
 @permission_classes([IsAuthenticated])
 def declarer_soustraitants_masse(request):
     """Créer N sous-traitants temporaires pour une société"""
+    u = request.user
+    is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+    if not is_admin:
+        return Response({"error":"Admin requis pour créer des comptes en masse"}, status=403)
     societe = request.data.get('societe','').strip()
     nombre  = int(request.data.get('nombre', 0))
     duree_h = int(request.data.get('duree_h', 72))

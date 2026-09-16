@@ -7,6 +7,14 @@ from rest_framework.permissions import IsAuthenticated
 def envoyer_notification(request):
     """Envoyer une notification à un ou plusieurs utilisateurs"""
     from rest_framework.response import Response
+    u = request.user
+    is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+    if not is_admin:
+        # Peut cibler des utilisateurs precis ou un profil ENTIER
+        # (tous les agents d'un role) avec un titre/message libres - une
+        # capacite de diffusion qui doit rester admin-only, meme logique
+        # que les alertes campus/evenements deja corriges.
+        return Response({"error":"Admin requis pour envoyer une notification"}, status=403)
     from django.contrib.auth.models import User
     try:
         destinataires = request.data.get('destinataires', [])  # liste de user_id
