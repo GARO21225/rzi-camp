@@ -18,10 +18,10 @@ const C = {
   bg:     '#F4F6F9',
   panel:  '#FFFFFF',
   border: 'rgba(15,26,46,.10)',
-  glow:   'rgba(37,99,235,.25)',
+  glow:   'rgba(201,151,43,.28)',
   text:   '#0F1A2E',
   muted:  '#5B6472',
-  accent: '#2563EB',
+  accent: '#C9972B',
   green:  '#16A34A',
   amber:  '#D4A017',
   red:    '#DC2626',
@@ -42,7 +42,7 @@ const filtrerFlotteParMode = (flotte, mode) => {
 }
 
 const ST_CFG = {
-  planifie:  { l:'Planifié',     c:C.accent,  dot:'#3b82f6' },
+  planifie:  { l:'Planifié',     c:C.accent,  dot:'#C9972B' },
   en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
   retour:    { l:'Retour camp',  c:C.green,   dot:C.green   },
   annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
@@ -249,20 +249,20 @@ function FlowMap({ stats }) {
     <div style={{position:'relative',height:180}}>
       <svg viewBox="0 0 320 180" style={{width:'100%',height:'100%'}} aria-label="Carte flux rotations">
         <defs>
-          <filter id="glow-blue"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-gold"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
           <filter id="glow-green"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
 
         {/* Villes */}
         {/* Abidjan */}
-        <circle cx="40" cy="90" r="12" fill="rgba(96,165,250,.12)" stroke="#60a5fa" strokeWidth="1.5" filter="url(#glow-blue)"/>
-        <circle cx="40" cy="90" r="4" fill="#60a5fa"/>
+        <circle cx="40" cy="90" r="12" fill="rgba(201,151,43,.12)" stroke="#e0b04d" strokeWidth="1.5" filter="url(#glow-gold)"/>
+        <circle cx="40" cy="90" r="4" fill="#e0b04d"/>
         <text x="40" y="114" textAnchor="middle" fontSize="8" fill={C.muted} fontFamily="JetBrains Mono" letterSpacing="0.5">ABIDJAN</text>
 
         {/* Camp */}
-        <circle cx="200" cy="70" r="16" fill="rgba(96,165,250,.2)" stroke="#60a5fa" strokeWidth="2" filter="url(#glow-blue)"/>
-        <circle cx="200" cy="70" r="5" fill="#60a5fa"/>
-        <circle cx="200" cy="70" r="20" fill="none" stroke="rgba(96,165,250,.25)" strokeWidth="1">
+        <circle cx="200" cy="70" r="16" fill="rgba(201,151,43,.2)" stroke="#e0b04d" strokeWidth="2" filter="url(#glow-gold)"/>
+        <circle cx="200" cy="70" r="5" fill="#e0b04d"/>
+        <circle cx="200" cy="70" r="20" fill="none" stroke="rgba(201,151,43,.25)" strokeWidth="1">
           <animate attributeName="r" values="16;24;16" dur="2.5s" repeatCount="indefinite"/>
           <animate attributeName="opacity" values=".5;0;.5" dur="2.5s" repeatCount="indefinite"/>
         </circle>
@@ -279,9 +279,9 @@ function FlowMap({ stats }) {
         <text x="60" y="18" textAnchor="middle" fontSize="7" fill={C.muted} fontFamily="JetBrains Mono">AÉROPORT</text>
 
         {/* Flux Abidjan → Camp */}
-        <path d="M 52 90 Q 120 55 188 70" stroke="rgba(96,165,250,.2)" strokeWidth="1.5" fill="none" strokeDasharray="4 3"/>
+        <path d="M 52 90 Q 120 55 188 70" stroke="rgba(201,151,43,.2)" strokeWidth="1.5" fill="none" strokeDasharray="4 3"/>
         {dep > 0 && <>
-          <circle r="3.5" fill={C.accent} opacity=".9" filter="url(#glow-blue)">
+          <circle r="3.5" fill={C.accent} opacity=".9" filter="url(#glow-gold)">
             <animateMotion dur="2.8s" repeatCount="indefinite" path="M 52 90 Q 120 55 188 70"/>
           </circle>
           <circle r="3.5" fill={C.accent} opacity=".5">
@@ -289,7 +289,7 @@ function FlowMap({ stats }) {
           </circle>
         </>}
         {/* Badge départs */}
-        <rect x="88" y="56" width="36" height="14" rx="3" fill="rgba(96,165,250,.15)" stroke="rgba(96,165,250,.3)" strokeWidth="0.5"/>
+        <rect x="88" y="56" width="36" height="14" rx="3" fill="rgba(201,151,43,.15)" stroke="rgba(201,151,43,.3)" strokeWidth="0.5"/>
         <text x="106" y="66" textAnchor="middle" fontSize="8" fill={C.accent} fontFamily="JetBrains Mono" fontWeight="700">{dep} dép.</text>
 
         {/* Flux Camp → Mine */}
@@ -363,7 +363,7 @@ function GanttBar({ voyage, days, onClick }) {
   const ret = voyage.date_retour_prevue || dep
   return (
     <tr style={{borderBottom:`1px solid ${C.border}`}}
-      onMouseEnter={e=>e.currentTarget.style.background='rgba(96,165,250,.04)'}
+      onMouseEnter={e=>e.currentTarget.style.background='rgba(201,151,43,.04)'}
       onMouseLeave={e=>e.currentTarget.style.background=''}>
       <td style={{padding:'7px 12px',minWidth:160,maxWidth:180,
         position:'sticky',left:0,background:C.panel,zIndex:1}}>
@@ -383,7 +383,7 @@ function GanttBar({ voyage, days, onClick }) {
         const isTod = iso === toISO(new Date())
         return (
           <td key={i} style={{padding:0,width:32,minWidth:32,
-            background:isTod?'rgba(96,165,250,.06)':'transparent',
+            background:isTod?'rgba(201,151,43,.06)':'transparent',
             borderLeft:`1px solid ${isTod?C.accent+'40':C.border}`}}>
             {isOn ? (
               <div onClick={()=>onClick(voyage)}
@@ -699,17 +699,17 @@ export default function MissionControl() {
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     .mc-root { background:${C.bg}; color:${C.text}; font-family:'Space Grotesk',system-ui,sans-serif; min-height:100%; }
-    .mc-root::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(96,165,250,.018) 2px,rgba(96,165,250,.018) 4px); pointer-events:none; z-index:0; }
+    .mc-root::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(201,151,43,.018) 2px,rgba(201,151,43,.018) 4px); pointer-events:none; z-index:0; }
     .mc-inner { position:relative; z-index:1; padding:14px 18px; }
     .mc-tab { padding:7px 18px; border-radius:7px; border:none; cursor:pointer; font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600; transition:all .15s; }
     .mc-tab.active { background:${C.accent}; color:${C.bg}; box-shadow:0 0 12px ${C.accent}50; }
-    .mc-tab:not(.active) { background:rgba(96,165,250,.07); color:${C.muted}; }
-    .mc-tab:not(.active):hover { background:rgba(96,165,250,.13); color:${C.text}; }
+    .mc-tab:not(.active) { background:rgba(201,151,43,.07); color:${C.muted}; }
+    .mc-tab:not(.active):hover { background:rgba(201,151,43,.13); color:${C.text}; }
     .mc-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:700; transition:all .15s; }
     .mc-btn-primary { background:${C.accent}; color:${C.bg}; box-shadow:0 0 12px ${C.accent}40; }
     .mc-btn-primary:hover { background:#93c5fd; }
-    .mc-btn-ghost { background:rgba(96,165,250,.08); color:${C.accent}; border:0.5px solid ${C.border}; }
-    .mc-btn-ghost:hover { background:rgba(96,165,250,.15); }
+    .mc-btn-ghost { background:rgba(201,151,43,.08); color:${C.accent}; border:0.5px solid ${C.border}; }
+    .mc-btn-ghost:hover { background:rgba(201,151,43,.15); }
     .mc-btn-danger { background:rgba(248,113,113,.12); color:${C.red}; border:0.5px solid rgba(248,113,113,.3); }
     .mc-btn-success { background:rgba(52,211,153,.12); color:${C.green}; border:0.5px solid rgba(52,211,153,.3); }
     .mc-input { background:rgba(255,255,255,.05); border:0.5px solid ${C.border}; borderRadius:8px; padding:8px 12px; fontSize:13px; color:${C.text}; fontFamily:'Space Grotesk',sans-serif; outline:none; width:100%; }
@@ -717,7 +717,7 @@ export default function MissionControl() {
     @keyframes mcPulse { 0%,100%{opacity:1} 50%{opacity:.2} }
     @keyframes mcFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
     .mc-fade { animation:mcFadeIn .25s ease; }
-    .mc-row:hover { background:rgba(96,165,250,.04) !important; }
+    .mc-row:hover { background:rgba(201,151,43,.04) !important; }
     select.mc-input option { background:#0b1628; color:#e2eaf6; }
   `
 
@@ -776,7 +776,7 @@ export default function MissionControl() {
           </div>
 
           {/* Tabs */}
-          <div style={{display:'flex',gap:4,background:`rgba(96,165,250,.05)`,
+          <div style={{display:'flex',gap:4,background:`rgba(201,151,43,.05)`,
             borderRadius:10,padding:4,
             flexWrap:isMobile?'nowrap':'wrap',
             overflowX:isMobile?'auto':'visible',
