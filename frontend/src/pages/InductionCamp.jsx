@@ -53,7 +53,7 @@ const NIVEAUX = {
 //  COMPOSANTS
 // ─────────────────────────────────────────────
 
-function ProgressRing({ pct, size=80, stroke=6, color='#3b82f6', children }) {
+function ProgressRing({ pct, size=80, stroke=6, color='#F0A500', children }) {
   const r = (size - stroke) / 2
   const circ = 2 * Math.PI * r
   const dash = (pct / 100) * circ
@@ -326,31 +326,43 @@ export default function InductionCamp() {
     @keyframes icFadeIn { from{opacity:0} to{opacity:1} }
     @keyframes icSpin { to{transform:rotate(360deg)} }
     @keyframes icBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-    @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(59,130,246,.3)} 50%{box-shadow:0 0 40px rgba(59,130,246,.6)} }
+    @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(240,165,0,.3)} 50%{box-shadow:0 0 40px rgba(240,165,0,.6)} }
     .ic-slide { animation:icSlideIn .4s ease; }
     .ic-infra-card { transition:all .2s; cursor:pointer; }
     .ic-infra-card:hover { transform:translateY(-3px) scale(1.02); }
     .ic-regle-card { transition:all .2s; cursor:pointer; }
     .ic-regle-card:hover { transform:translateX(4px); }
-    .ic-quiz-opt { transition:all .15s; cursor:pointer; }
-    .ic-quiz-opt:hover { transform:scale(1.01); }
+    .ic-quiz-opt { transition:all .15s cubic-bezier(.34,1.56,.64,1); cursor:pointer; }
+    .ic-quiz-opt:hover { transform:scale(1.015) translateY(-1px); }
     .ic-btn { display:inline-flex;align-items:center;justify-content:center;gap:8px;
       font-family:'Space Grotesk',sans-serif;font-weight:700;border:none;cursor:pointer;
-      border-radius:12px;transition:all .2s; }
-    .ic-btn:active { transform:scale(.97); }
-    .ic-btn-primary { background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;
-      box-shadow:0 4px 20px rgba(59,130,246,.4); }
-    .ic-btn-primary:hover { background:linear-gradient(135deg,#2563eb,#1e40af);
-      box-shadow:0 6px 24px rgba(59,130,246,.6);transform:translateY(-1px); }
-    .ic-btn-primary:disabled { background:#94a3b8;box-shadow:none;transform:none;cursor:not-allowed; }
-    .ic-btn-ghost { background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2); }
-    .ic-btn-ghost:hover { background:rgba(255,255,255,.15); }
-    .ic-input { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+      border-radius:12px;transition:all .22s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden; }
+    .ic-btn:active { transform:scale(.95); }
+    .ic-btn-primary { background:linear-gradient(135deg,#F0A500,#C9972B);color:#0F2A5C;
+      box-shadow:0 4px 20px rgba(240,165,0,.35),inset 0 1px 0 rgba(255,255,255,.3); }
+    .ic-btn-primary::before { content:'';position:absolute;inset:0;
+      background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.45) 48%,rgba(255,255,255,.45) 52%,transparent 70%);
+      transform:translateX(-100%);transition:transform .6s ease; }
+    .ic-btn-primary:hover::before { transform:translateX(100%); }
+    .ic-btn-primary:hover { background:linear-gradient(135deg,#ffb800,#dba52f);
+      box-shadow:0 8px 28px rgba(240,165,0,.55),inset 0 1px 0 rgba(255,255,255,.4);transform:translateY(-2px); }
+    .ic-btn-primary:disabled { background:#4b5568;color:#94a3b8;box-shadow:none;transform:none;cursor:not-allowed; }
+    .ic-btn-primary:disabled::before { display:none; }
+    .ic-btn-ghost { background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.16);
+      backdrop-filter:blur(8px); }
+    .ic-btn-ghost:hover { background:rgba(255,255,255,.14);border-color:rgba(240,165,0,.4); }
+    .ic-input { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
       border-radius:10px;padding:10px 14px;font-size:13px;color:#fff;
-      font-family:'Space Grotesk',sans-serif;outline:none;width:100%;box-sizing:border-box; }
-    .ic-input:focus { border-color:rgba(59,130,246,.6);background:rgba(255,255,255,.12); }
+      font-family:'Space Grotesk',sans-serif;outline:none;width:100%;box-sizing:border-box;
+      transition:all .2s ease; }
+    .ic-input:focus { border-color:rgba(240,165,0,.65);background:rgba(255,255,255,.1);
+      box-shadow:0 0 0 3px rgba(240,165,0,.15); }
     .ic-input option { background:var(--rzc-navy);color:#fff; }
     select.ic-input option { background:var(--rzc-navy); }
+    .ic-card-glass { background:rgba(255,255,255,.05);backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,.12);transition:all .25s cubic-bezier(.34,1.56,.64,1); }
+    .ic-card-glass:hover { border-color:rgba(240,165,0,.35);
+      box-shadow:0 12px 32px rgba(0,0,0,.35),0 0 0 1px rgba(240,165,0,.1);transform:translateY(-2px); }
   `
 
   // ── Écran certificat final ────────────────────────────────────────
@@ -440,7 +452,7 @@ export default function InductionCamp() {
             ← Retour
           </button>
           <h1 style={{fontSize:20,fontWeight:800,margin:0}}>🏕️ Induction Camp — Vue Admin</h1>
-          <span style={{marginLeft:'auto',background:'rgba(59,130,246,.2)',color:'#93c5fd',
+          <span style={{marginLeft:'auto',background:'rgba(240,165,0,.2)',color:'#ffd97a',
             padding:'4px 12px',borderRadius:99,fontSize:12,fontWeight:600}}>
             {allInductions.length} dossier(s)
           </span>
@@ -585,7 +597,7 @@ export default function InductionCamp() {
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'center'}}>
             <button onClick={()=>window.location.href='/'}
-              style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',
+              style={{background:'linear-gradient(135deg,#F0A500,#C9972B)',color:'#fff',
                 border:'none',borderRadius:10,padding:'12px 24px',
                 fontSize:14,fontWeight:700,cursor:'pointer'}}>
               Dashboard →
@@ -635,7 +647,7 @@ export default function InductionCamp() {
       <div style={{position:'fixed',inset:0,pointerEvents:'none',overflow:'hidden',zIndex:0}}>
         {Array.from({length:12},(_,i)=>(
           <Particle key={i} x={Math.random()*100} y={Math.random()*100}
-            color={['#3b82f6','#8b5cf6','#10b981','#ffd400'][i%4]}
+            color={['#F0A500','#8b5cf6','#10b981','#ffd400'][i%4]}
             size={3+Math.random()*4} delay={Math.random()*3}/>
         ))}
       </div>
@@ -665,7 +677,7 @@ export default function InductionCamp() {
                   👁️ Admin
                 </button>
               )}
-              <ProgressRing pct={progression} size={52} stroke={4} color='#3b82f6'>
+              <ProgressRing pct={progression} size={52} stroke={4} color='#F0A500'>
                 <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{progression}%</span>
               </ProgressRing>
             </div>
@@ -685,16 +697,16 @@ export default function InductionCamp() {
                       width:32,height:32,borderRadius:'50%',
                       display:'flex',alignItems:'center',justifyContent:'center',
                       fontSize:12,fontWeight:700,
-                      background: done?'#10b981':actif?'#3b82f6':'rgba(255,255,255,.1)',
+                      background: done?'#10b981':actif?'#F0A500':'rgba(255,255,255,.1)',
                       color: '#fff',
-                      border: actif?'2px solid rgba(59,130,246,.6)':'2px solid transparent',
-                      boxShadow: actif?'0 0 0 4px rgba(59,130,246,.2)':done?'0 0 12px rgba(16,185,129,.4)':'none',
+                      border: actif?'2px solid rgba(240,165,0,.6)':'2px solid transparent',
+                      boxShadow: actif?'0 0 0 4px rgba(240,165,0,.2)':done?'0 0 12px rgba(16,185,129,.4)':'none',
                       transition:'all .3s',
                     }}>
                       {done ? '✓' : i+1}
                     </div>
                     <div style={{fontSize:9,marginTop:4,fontWeight:600,
-                      color:actif?'#93c5fd':done?'#6ee7b7':'#475569',
+                      color:actif?'#ffd97a':done?'#6ee7b7':'#475569',
                       textAlign:'center',whiteSpace:'nowrap',
                       letterSpacing:.3,textTransform:'uppercase'}}>
                       {e}
@@ -718,7 +730,7 @@ export default function InductionCamp() {
             <div style={{textAlign:'center',marginBottom:32,padding:'20px 0'}}>
               <div style={{fontSize:72,marginBottom:16,animation:'icBounce 3s ease infinite'}}>⛏️</div>
               <h1 style={{fontSize:28,fontWeight:900,margin:'0 0 8px',
-                background:'linear-gradient(135deg,#fff,#93c5fd)',
+                background:'linear-gradient(135deg,#fff,#ffd97a)',
                 WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
                 Bienvenue au Camp
               </h1>
@@ -747,9 +759,9 @@ export default function InductionCamp() {
             </div>
 
             {/* Parcours */}
-            <div style={{background:'rgba(59,130,246,.1)',border:'1px solid rgba(59,130,246,.25)',
+            <div style={{background:'rgba(240,165,0,.1)',border:'1px solid rgba(240,165,0,.25)',
               borderRadius:16,padding:20,marginBottom:28}}>
-              <div style={{fontSize:13,fontWeight:700,color:'#93c5fd',marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#ffd97a',marginBottom:12}}>
                 📋 Votre parcours d'induction — ~15 minutes
               </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:8}}>
@@ -784,8 +796,8 @@ export default function InductionCamp() {
               <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>🏗️ Infrastructures du Camp</h2>
               <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
                 Explorez les 8 zones — cliquez pour en savoir plus
-                <span style={{marginLeft:8,background:'rgba(59,130,246,.2)',padding:'2px 8px',
-                  borderRadius:99,fontSize:11,color:'#93c5fd'}}>
+                <span style={{marginLeft:8,background:'rgba(240,165,0,.2)',padding:'2px 8px',
+                  borderRadius:99,fontSize:11,color:'#ffd97a'}}>
                   {infrasVues.size}/{INFRAS.length} vues
                 </span>
               </p>
@@ -866,7 +878,7 @@ export default function InductionCamp() {
                               qui filtre l'embed...), un lien direct fonctionne toujours */}
                           <a href={inf.video_url.match(/^https?:\/\//i) ? inf.video_url : `https://${inf.video_url}`}
                             target="_blank" rel="noopener noreferrer"
-                            style={{display:'inline-block',marginTop:8,fontSize:11.5,color:'#93c5fd',textDecoration:'underline'}}>
+                            style={{display:'inline-block',marginTop:8,fontSize:11.5,color:'#ffd97a',textDecoration:'underline'}}>
                             La vidéo ne s'affiche pas ? Ouvrir directement dans un nouvel onglet ↗
                           </a>
                         </>
@@ -1027,13 +1039,13 @@ export default function InductionCamp() {
                                 style={{
                                   display:'flex',alignItems:'center',gap:8,padding:'9px 12px',
                                   borderRadius:9,cursor:'pointer',
-                                  background: isRight?'rgba(16,185,129,.2)':isWrong?'rgba(239,68,68,.2)':chosen?'rgba(59,130,246,.2)':'rgba(255,255,255,.04)',
-                                  border: `1px solid ${isRight?'rgba(16,185,129,.5)':isWrong?'rgba(239,68,68,.5)':chosen?'rgba(59,130,246,.5)':'rgba(255,255,255,.08)'}`,
+                                  background: isRight?'rgba(16,185,129,.2)':isWrong?'rgba(239,68,68,.2)':chosen?'rgba(240,165,0,.2)':'rgba(255,255,255,.04)',
+                                  border: `1px solid ${isRight?'rgba(16,185,129,.5)':isWrong?'rgba(239,68,68,.5)':chosen?'rgba(240,165,0,.5)':'rgba(255,255,255,.08)'}`,
                                 }}>
                                 <input type="radio" name={`q${qi}`} checked={chosen}
                                   onChange={()=>setQuizRep(prev=>({...prev,[qi]:oi}))}
-                                  style={{accentColor:'#3b82f6'}}/>
-                                <span style={{fontSize:12,color: isRight?'#6ee7b7':isWrong?'#fca5a5':chosen?'#93c5fd':'#cbd5e1'}}>
+                                  style={{accentColor:'#F0A500'}}/>
+                                <span style={{fontSize:12,color: isRight?'#6ee7b7':isWrong?'#fca5a5':chosen?'#ffd97a':'#cbd5e1'}}>
                                   {opt}
                                 </span>
                                 {isRight && <span style={{marginLeft:'auto',color:'#10b981'}}>✓</span>}
@@ -1044,8 +1056,8 @@ export default function InductionCamp() {
                         </div>
                         {quizErr && wrong && (
                           <div style={{marginTop:10,padding:'8px 12px',
-                            background:'rgba(59,130,246,.1)',borderRadius:8,
-                            fontSize:11,color:'#93c5fd'}}>
+                            background:'rgba(240,165,0,.1)',borderRadius:8,
+                            fontSize:11,color:'#ffd97a'}}>
                             💡 {q.explication}
                           </div>
                         )}
@@ -1125,9 +1137,9 @@ export default function InductionCamp() {
 
             {/* Formulaire */}
             {showFormApp ? (
-              <div style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(59,130,246,.3)',
+              <div style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(240,165,0,.3)',
                 borderRadius:14,padding:18,marginBottom:14}}>
-                <div style={{fontSize:14,fontWeight:700,color:'#93c5fd',marginBottom:14}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#ffd97a',marginBottom:14}}>
                   Nouvel appareil
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
@@ -1231,9 +1243,9 @@ export default function InductionCamp() {
             </div>
 
             {/* Texte engagement */}
-            <div style={{background:'rgba(59,130,246,.08)',border:'1px solid rgba(59,130,246,.2)',
+            <div style={{background:'rgba(240,165,0,.08)',border:'1px solid rgba(240,165,0,.2)',
               borderRadius:12,padding:'14px 16px',marginBottom:16,
-              fontSize:12,color:'#93c5fd',lineHeight:1.7}}>
+              fontSize:12,color:'#ffd97a',lineHeight:1.7}}>
               Je soussigné(e), <strong style={{color:'#fff'}}>{nomUser}</strong>, certifie avoir pris
               connaissance de l'ensemble des règles de vie du camp résidentiel Roxgold Sango,
               m'engage à les respecter et à signaler tout manquement à la direction.
@@ -1247,7 +1259,7 @@ export default function InductionCamp() {
               </div>
               <div style={{border:'1.5px solid rgba(255,255,255,.2)',borderRadius:12,
                 background:'rgba(255,255,255,.03)',overflow:'hidden',
-                boxShadow:signature?'0 0 20px rgba(59,130,246,.2)':'none'}}>
+                boxShadow:signature?'0 0 20px rgba(240,165,0,.2)':'none'}}>
                 <canvas ref={canvasRef} width={800} height={180}
                   style={{width:'100%',height:180,touchAction:'none',display:'block',cursor:'crosshair'}}/>
               </div>
