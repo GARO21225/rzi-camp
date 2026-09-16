@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import TokenInQueryOrHeader
 import datetime, csv, uuid
 from django.http import HttpResponse
+from django.db import transaction
 from .models import Voyage
 from .serializers import VoyageSerializer
 
@@ -605,35 +606,44 @@ class VoyageViewSet(viewsets.ModelViewSet):
         personnel_id = request.data.get("personnel_id")
         if not rotation_id or not personnel_id:
             return Response({"error":"rotation_id et personnel_id requis"},status=400)
-        existing = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").first()
-        if not existing:
-            return Response({"error":"Rotation introuvable"},status=404)
-        if existing.statut != "planifie":
-            libelle = {"en_voyage":"déjà en transit","retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
-            return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un. Utilisez un convoi pas encore parti, ou créez un voyage individuel."}, status=400)
-        prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
-        if prises >= (existing.nb_places_total or 15):
-            return Response({"error":"Rotation complète"},status=400)
-        if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
-            return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
-        # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
-        conflict = _check_voyage_conflit(
-            personnel_id, existing.date_depart, existing.date_retour_prevue
-        )
-        if conflict and conflict.rotation_id != rotation_id:
-            return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
-        v = Voyage.objects.create(
-            personnel_id=personnel_id, destination=existing.destination, origine=existing.origine,
-            date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
-            vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
-            vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,
-            conducteur=existing.conducteur,
-            heure_depart=existing.heure_depart, point_rdv=existing.point_rdv,
-            motif=existing.motif, type_voyage=existing.type_voyage,
-            rotation_id=rotation_id, statut="planifie",
-            enregistre_par=request.user,
-        )
-        return Response(VoyageSerializer(v).data,status=201)
+        # Verrouillage transactionnel: sans ca, deux admins ajoutant un
+        # passager AU MEME MOMENT sur le dernier siege libre pouvaient tous
+        # les deux passer le controle "prises >= nb_places" (tous deux lus
+        # AVANT que l'un ou l'autre n'ait cree son Voyage) et surbooker
+        # reellement le vehicule - un risque physique, pas juste une
+        # incoherence de donnees. select_for_update() serialise les
+        # requetes concurrentes sur la MEME rotation : la seconde attend
+        # que la premiere transaction commite avant de relire le compte.
+        with transaction.atomic():
+            existing = Voyage.objects.select_for_update().filter(rotation_id=rotation_id).exclude(statut="annule").first()
+            if not existing:
+                return Response({"error":"Rotation introuvable"},status=404)
+            if existing.statut != "planifie":
+                libelle = {"en_voyage":"déjà en transit","retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
+                return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un. Utilisez un convoi pas encore parti, ou créez un voyage individuel."}, status=400)
+            prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
+            if prises >= (existing.nb_places_total or 15):
+                return Response({"error":"Rotation complète"},status=400)
+            if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
+                return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
+            # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
+            conflict = _check_voyage_conflit(
+                personnel_id, existing.date_depart, existing.date_retour_prevue
+            )
+            if conflict and conflict.rotation_id != rotation_id:
+                return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
+            v = Voyage.objects.create(
+                personnel_id=personnel_id, destination=existing.destination, origine=existing.origine,
+                date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
+                vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
+                vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,
+                conducteur=existing.conducteur,
+                heure_depart=existing.heure_depart, point_rdv=existing.point_rdv,
+                motif=existing.motif, type_voyage=existing.type_voyage,
+                rotation_id=rotation_id, statut="planifie",
+                enregistre_par=request.user,
+            )
+            return Response(VoyageSerializer(v).data,status=201)
 
     @action(detail=False, methods=["post"])
     def partir_rotation(self, request):
