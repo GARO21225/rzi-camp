@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: rzi_camp
       POSTGRES_USER: rzi
-      POSTGRES_PASSWORD: rzi_secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?La variable POSTGRES_PASSWORD doit être définie dans .env — voir .env.example}
     volumes:
       - pgdata:/var/lib/postgresql/data
     # Sous charge (plusieurs workers backend), la config Postgres par
@@ -37,7 +37,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://rzi:rzi_secret@db:5432/rzi_camp
+      DATABASE_URL: postgresql://rzi:${POSTGRES_PASSWORD:?La variable POSTGRES_PASSWORD doit être définie dans .env}@db:5432/rzi_camp
       REDIS_URL: redis://redis:6379/0
       DEBUG: "False"
     volumes:
