@@ -720,12 +720,12 @@ from .serializers import EtapeVoyageSerializer
 class EtapeVoyageViewSet(viewsets.ModelViewSet):
     """Étapes d'itinéraire (tronçons) d'un voyage — comme une vraie agence :
     plusieurs étapes possibles (ex: Camp -> Aéroport en bus, puis vol)."""
-    queryset = EtapeVoyage.objects.select_related("voyage").all()
+    queryset = EtapeVoyage.objects.select_related("voyage", "vehicule_flotte").all()
     serializer_class = EtapeVoyageSerializer
     filter_backends = [filters.SearchFilter]
 
     def get_queryset(self):
-        qs = EtapeVoyage.objects.select_related("voyage").all()
+        qs = EtapeVoyage.objects.select_related("voyage", "vehicule_flotte").all()
         voyage_id = self.request.query_params.get("voyage")
         if voyage_id:
             qs = qs.filter(voyage_id=voyage_id)

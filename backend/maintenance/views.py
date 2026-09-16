@@ -266,7 +266,7 @@ def declarer_incident(request):
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.select_related('auteur', 'assigne_a').prefetch_related('commentaires').all()
+    queryset = Incident.objects.select_related('auteur', 'assigne_a').prefetch_related('commentaires__auteur').all()
     serializer_class = IncidentSerializer
     filter_backends  = [filters.SearchFilter, filters.OrderingFilter]
     search_fields    = ['titre', 'description', 'residence', 'bloc', 'categorie']
