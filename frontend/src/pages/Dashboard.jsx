@@ -325,7 +325,7 @@ export default function Dashboard() {
             background: 'var(--rzc-green-l)', border: '1px solid rgba(74,222,128,.25)',
             borderRadius: 99, padding: '5px 13px', fontSize: 11, fontWeight: 700, color: '#15803D' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A',
-              display: 'inline-block', boxShadow: '0 0 6px rgba(22,163,74,.5)' }} />
+              display: 'inline-block', animation: 'rzcLivePulse 1.8s ease-in-out infinite' }} />
             Opérations en direct
           </div>
           <button onClick={()=>setAutoRefresh(a=>!a)}
