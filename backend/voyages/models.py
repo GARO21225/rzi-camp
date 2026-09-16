@@ -20,7 +20,7 @@ class Voyage(models.Model):
     date_depart = models.DateField()
     date_retour_prevue = models.DateField()
     date_retour_effective = models.DateField(blank=True, null=True)
-    statut = models.CharField(max_length=20, choices=STATUT, default="planifie")
+    statut = models.CharField(max_length=20, choices=STATUT, default="planifie", db_index=True)
     enregistre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

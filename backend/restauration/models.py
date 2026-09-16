@@ -84,7 +84,7 @@ class ConsommationBoutique(models.Model):
     mode_paiement= models.CharField(max_length=20, choices=MODE_PAIEMENT, default='especes')
     notes        = models.TextField(blank=True)
     valide_par   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    date_conso   = models.DateTimeField(auto_now_add=True)
+    date_conso   = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def save(self, *args, **kwargs):
         self.montant = self.article.prix * self.quantite

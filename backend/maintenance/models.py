@@ -60,7 +60,7 @@ class Incident(models.Model):
     description = models.TextField()
     categorie   = models.CharField(max_length=50, choices=CATEGORIE)
     priorite    = models.CharField(max_length=20, choices=PRIORITE, default='moyenne')
-    statut      = models.CharField(max_length=20, choices=STATUT, default='declare')
+    statut      = models.CharField(max_length=20, choices=STATUT, default='declare', db_index=True)
 
     # Localisation
     residence   = models.CharField(max_length=20)

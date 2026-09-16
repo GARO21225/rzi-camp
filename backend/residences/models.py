@@ -41,7 +41,7 @@ class Personnel(models.Model):
     email = models.EmailField(blank=True)
     qr_code_data = models.TextField(blank=True)
     qr_code_string = models.CharField(max_length=500, blank=True)
-    actif            = models.BooleanField(default=True)
+    actif            = models.BooleanField(default=True, db_index=True)
     profil           = models.CharField(max_length=20, choices=PROFIL_CHOICES,
                        default='agent', blank=True)
     est_expatrie     = models.BooleanField(default=False,
@@ -165,7 +165,7 @@ class Batiment(models.Model):
     ]
     residence = models.CharField(max_length=20, unique=True)
     bloc = models.CharField(max_length=30)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="Libre")
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="Libre", db_index=True)
     personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="batiments")
     occupant = models.CharField(max_length=100, blank=True, null=True)
     societe = models.CharField(max_length=100, blank=True, null=True)
