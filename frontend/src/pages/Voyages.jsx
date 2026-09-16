@@ -11,7 +11,7 @@ import CarteItineraire from '../components/CarteItineraire'
 import LieuInput from '../components/LieuInput'
 
 const STATUT_STYLES = {
-  planifie:  { bg:'rgba(37,99,235,.12)',  color:'#1d4ed8',  label:'Planifié'    },
+  planifie:  { bg:'rgba(201,151,43,.14)',  color:'#a67d1f',  label:'Planifié'    },
   en_voyage: { bg:'rgba(249,115,22,.12)', color:'#c2410c',  label:'En voyage'   },
   retour:    { bg:'rgba(22,163,74,.12)',  color:'#15803d',  label:'Retour camp' },
   annule:    { bg:'rgba(100,116,139,.1)', color:'var(--rzc-text-2)',  label:'Annulé'      },
