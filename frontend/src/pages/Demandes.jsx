@@ -32,6 +32,7 @@ export default function Demandes() {
   const [createModal, setCreateModal] = useState(null) // 'reservation'|'voyage'|'maintenance'
   const [detailModal, setDetailModal] = useState(null)
   const [actionModal, setActionModal] = useState(null) // {demande, action:'valider'|'rejeter'|'proposer'}
+  const [actionSaving, setActionSaving] = useState(false)
   const [bats, setBats] = useState([])
   const [batsLoading, setBatsLoading] = useState(false)
   const [form, setForm] = useState({
@@ -92,11 +93,19 @@ export default function Demandes() {
 
   const doAction = async () => {
     const { demande, action } = actionModal
+    // Un refus doit toujours etre justifie - sans ca, impossible de
+    // comprendre pourquoi une demande a ete refusee, ni pour le demandeur
+    // ni pour un audit ulterieur.
+    if (action === 'rejeter' && !actionForm.commentaire?.trim()) {
+      toast.error('Vous devez justifier le refus avant de continuer.')
+      return
+    }
+    setActionSaving(true)
     try {
       if (demande._source === 'voyage') {
         if (action === 'valider') await voyagesAPI.valider(demande._voyageId)
         else if (action === 'rejeter') await voyagesAPI.refuser(demande._voyageId, actionForm.commentaire)
-        else { toast.error("Cette action n'est pas disponible pour un voyage."); return }
+        else { toast.error("Cette action n'est pas disponible pour un voyage."); setActionSaving(false); return }
       } else {
         if (action === 'valider') await demandesAPI.valider(demande.id, actionForm)
         else if (action === 'rejeter') await demandesAPI.rejeter(demande.id, actionForm)
@@ -105,8 +114,16 @@ export default function Demandes() {
       setActionModal(null)
       setActionForm({ commentaire:'', proposition:{} })
       setDetailModal(null)
+      // Retire IMMEDIATEMENT l'element traite de la liste locale, sans
+      // attendre le prochain load() (qui peut prendre un instant reseau) -
+      // pendant lequel les boutons Valider/Refuser restaient sinon
+      // cliquables sur un element deja traite, donnant l'impression que
+      // "la main" n'avait jamais ete retiree.
+      if (demande._source === 'voyage') setVoyagesEnAttente(prev => prev.filter(v => v._voyageId !== demande._voyageId))
+      else setData(prev => prev.filter(dd => dd.id !== demande.id))
       load()
     } catch(e) { toast.error(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    finally { setActionSaving(false) }
   }
 
   const doAgentAction = async (demande, action) => {
@@ -381,10 +398,10 @@ export default function Demandes() {
               </div>
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={()=>setActionModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>
-              <button onClick={doAction}
-                style={{ background:actionModal.action==='valider'?'#16a34a':actionModal.action==='rejeter'?'#dc2626':'#7c3aed', color:'var(--rzc-white)', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                {actionModal.action==='valider'?'✅ Confirmer validation':actionModal.action==='rejeter'?'❌ Confirmer rejet':'💬 Envoyer proposition'}
+              <button onClick={()=>setActionModal(null)} disabled={actionSaving} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:actionSaving?'not-allowed':'pointer', fontSize:13, opacity:actionSaving?.5:1 }}>Annuler</button>
+              <button onClick={doAction} disabled={actionSaving}
+                style={{ background:actionModal.action==='valider'?'#16a34a':actionModal.action==='rejeter'?'#dc2626':'#7c3aed', color:'var(--rzc-white)', border:'none', padding:'8px 18px', borderRadius:8, cursor:actionSaving?'not-allowed':'pointer', fontSize:13, fontWeight:700, opacity:actionSaving?.6:1 }}>
+                {actionSaving ? '⏳ Traitement...' : (actionModal.action==='valider'?'✅ Confirmer validation':actionModal.action==='rejeter'?'❌ Confirmer rejet':'💬 Envoyer proposition')}
               </button>
             </div>
           </div>

@@ -122,11 +122,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
+        motif = request.data.get("motif", "").strip()
+        if not motif:
+            return Response({"error":"Le motif de refus est obligatoire."}, status=400)
         voyage.statut_validation = "refuse"
         voyage.valide_par = u
         from django.utils import timezone
         voyage.date_validation = timezone.now()
-        voyage.motif_refus = request.data.get("motif", "")
+        voyage.motif_refus = motif
         # Un voyage refuse doit liberer sa place dans le convoi et disparaitre
         # du manifeste - sinon il reste compte comme "en transit" alors
         # qu'il ne partira jamais. Detache aussi du rotation_id : une demande

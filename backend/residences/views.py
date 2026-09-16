@@ -1424,9 +1424,12 @@ class DemandeViewSet(viewsets.ModelViewSet):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
         demande = self.get_object()
+        commentaire = request.data.get("commentaire","").strip()
+        if not commentaire:
+            return Response({"error":"Vous devez justifier le refus."}, status=400)
         demande.statut = "rejetee"
         demande.traite_par = request.user
-        demande.commentaire_admin = request.data.get("commentaire","Demande rejetée")
+        demande.commentaire_admin = commentaire
         demande.date_traitement = timezone.now()
         demande.save()
         try:

@@ -48,7 +48,7 @@ export default function BoutiquePOS() {
       const todayCons = cons.filter(c => c.date_conso?.slice(0, 10) === today)
       setStatsJour({
         total: todayCons.length,
-        montant: todayCons.reduce((s, c) => s + parseInt(c.montant || 0), 0)
+        montant: todayCons.reduce((s, c) => s + (parseInt(c.montant)||Math.round(parseFloat(c.article_prix||0)*parseInt(c.quantite||1))||0), 0)
       })
     } catch(e) { console.error(e) }
     finally { setLoading(false); setWaking(false) }
@@ -412,7 +412,7 @@ export default function BoutiquePOS() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)' }}>
-                    {['Heure', 'Agent', 'Article', 'Qté', 'Montant', 'Mode'].map(h => (
+                    {['Heure', 'Client', 'Article', 'Qté', 'Montant', 'Mode'].map(h => (
                       <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 700,
                         textTransform: 'uppercase', color: 'rgba(255,255,255,.85)', letterSpacing: .8 }}>{h}</th>
                     ))}
@@ -424,10 +424,12 @@ export default function BoutiquePOS() {
                       <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11, color: 'var(--rzc-text-3)' }}>
                         {new Date(c.date_conso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{c.personnel_nom || 'Anonyme'}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{c.personnel_nom&&c.personnel_nom!=='—'?c.personnel_nom:'Anonyme'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12 }}>🛒 {c.article_nom}</td>
                       <td style={{ padding: '10px 14px', fontFamily: 'monospace', textAlign: 'center' }}>{c.quantite}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 800, color: 'var(--rzc-navy)' }}>{parseInt(c.montant || 0).toLocaleString()} FCFA</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 800, color: 'var(--rzc-navy)' }}>
+                        {(parseInt(c.montant)||Math.round(parseFloat(c.article_prix||0)*parseInt(c.quantite||1))||0).toLocaleString()} FCFA
+                      </td>
                       <td style={{ padding: '10px 14px' }}>
                         <span style={{ background: c.mode_paiement === 'bon' ? '#eff6ff' : '#f0fdf4',
                           color: c.mode_paiement === 'bon' ? 'var(--rzc-blue)' : '#16a34a',
