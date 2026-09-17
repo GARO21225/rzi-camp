@@ -169,7 +169,7 @@ class InductionRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model  = InductionRecord
         fields = [
-            "id", "personnel", "personnel_detail", "statut",
+            "id", "personnel", "personnel_detail", "statut", "motif_refus",
             "etapes_data", "form_data", "docs_data", "medical_data",
             "quiz_score", "quiz_tentatives",
             "date_debut", "date_fin",

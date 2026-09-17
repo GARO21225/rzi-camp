@@ -414,6 +414,7 @@ class InductionRecord(models.Model):
     personnel    = models.OneToOneField(Personnel, on_delete=models.CASCADE,
                     related_name='induction')
     statut       = models.CharField(max_length=20, choices=STATUTS, default='en_cours')
+    motif_refus  = models.TextField(blank=True, default='')
     # Étapes complétées (JSON)
     etapes_data  = models.JSONField(default=dict, blank=True)
     # Données saisies

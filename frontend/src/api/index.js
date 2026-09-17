@@ -165,6 +165,8 @@ export const inductionAPI = {
   list:         (p)    => api.get('/api/induction-records/', {params:p}),
   getByPersonnel:(id)  => api.get('/api/induction-records/', {params:{personnel:id}}),
   updateEtape:  (d)    => api.post('/api/induction-records/update_etape/', d),
+  valider:      (id)   => api.post(`/api/induction-records/${id}/valider/`),
+  refuser:      (id,motif) => api.post(`/api/induction-records/${id}/refuser/`, {motif}),
 }
 
 // ── Équipements EPI ──

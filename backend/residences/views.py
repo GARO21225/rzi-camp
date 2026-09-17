@@ -1659,6 +1659,33 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         if pid: qs = qs.filter(personnel_id=pid)
         return qs
 
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    @action(detail=True, methods=['post'])
+    def valider(self, request, pk=None):
+        """Admin valide une induction terminee (toutes les etapes + quiz reussi)."""
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        rec = self.get_object()
+        rec.statut = 'valide'
+        rec.save(update_fields=['statut'])
+        return Response(InductionRecordSerializer(rec).data)
+
+    @action(detail=True, methods=['post'])
+    def refuser(self, request, pk=None):
+        """Admin refuse une induction (ex: quiz insuffisant, docs invalides) - motif obligatoire."""
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        motif = request.data.get('motif','').strip()
+        if not motif:
+            return Response({"error":"Le motif de refus est obligatoire."}, status=400)
+        rec = self.get_object()
+        rec.statut = 'refuse'
+        rec.motif_refus = motif
+        rec.save(update_fields=['statut','motif_refus'])
+        return Response(InductionRecordSerializer(rec).data)
+
     @action(detail=False, methods=['post'])
     def update_etape(self, request):
         """Mettre a jour une etape pour un personnel."""

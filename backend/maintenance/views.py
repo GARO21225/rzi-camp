@@ -156,8 +156,8 @@ def list_incidents(request):
                        i.date_creation, i.date_resolution, i.date_cloture,
                        i.sla_echeance, i.sla_depasse,
                        i.commentaire_resolution, i.commentaire_cloture,
-                       COALESCE(u.first_name || ' ' || u.last_name, u.username, '—') as auteur_nom,
-                       COALESCE(a.first_name || ' ' || a.last_name, a.username, NULL) as assigne_nom,
+                       COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), u.username, '—') as auteur_nom,
+                       COALESCE(NULLIF(TRIM(COALESCE(a.first_name,'') || ' ' || COALESCE(a.last_name,'')), ''), a.username, NULL) as assigne_nom,
                        i.auteur_id, i.assigne_a_id
                 FROM maintenance_incident i
                 LEFT JOIN auth_user u ON u.id = i.auteur_id
@@ -589,12 +589,15 @@ class IncidentViewSet(viewsets.ModelViewSet):
         est_auteur_non_assigne = incident.auteur_id == u.id and not incident.assigne_a_id
         if not is_admin and incident.assigne_a_id != u.id and not est_auteur_non_assigne:
             return Response({'error': "Vous ne pouvez agir que sur les incidents qui vous sont assignés."}, status=403)
+        raison = request.data.get('raison','').strip()
+        if not raison:
+            return Response({'error': "La raison de l'annulation est obligatoire."}, status=400)
         incident.statut = 'annule'
         incident.save()
         CommentaireIncident.objects.create(
             incident=incident, auteur=request.user,
             type_comment='info',
-            contenu=f"Incident annulé: {request.data.get('raison','—')}"
+            contenu=f"Incident annulé: {raison}"
         )
         return Response({'ok': True})
 

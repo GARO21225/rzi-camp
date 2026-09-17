@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI } from '../api'
+import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -7,6 +7,7 @@ const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
   voyage:{ bg:'rgba(234,88,12,.1)', color:'#ea580c', icon:'✈️', label:'Voyage' },
   maintenance:{ bg:'rgba(220,38,38,.1)', color:'#dc2626', icon:'🛠️', label:'Maintenance' },
+  induction:{ bg:'rgba(124,58,237,.1)', color:'#7c3aed', icon:'🎓', label:'Induction' },
 }
 const STATUT_STYLES = {
   en_attente:{ bg:'rgba(240,165,0,.12)', color:'#d08800', label:'⏳ En attente' },
@@ -43,6 +44,8 @@ export default function Demandes() {
   const [actionForm, setActionForm] = useState({ commentaire:'', proposition:{} })
 
   const [voyagesEnAttente, setVoyagesEnAttente] = useState([])
+  const [inductionsEnAttente, setInductionsEnAttente] = useState([])
+  const [incidentsEnAttente, setIncidentsEnAttente] = useState([])
 
   const load = () => {
     setLoading(true)
@@ -53,15 +56,23 @@ export default function Demandes() {
     demandesAPI.list(p).then(r => setData(r.data.results||r.data)).finally(()=>setLoading(false))
     if (isAdmin) demandesAPI.stats().then(r => setStats(r.data)).catch(()=>{})
     // Vue unifiee : sur l'onglet 'en attente', agrege aussi les voyages
-    // en attente de validation (Centre de Mobilite) — un seul endroit
-    // pour tout ce qui necessite une action admin, plutot que des files
-    // d'attente eparpillees dans differents modules.
+    // en attente de validation (Centre de Mobilite), les inductions
+    // terminees en attente de validation, et les incidents non assignes
+    // — un seul endroit pour tout ce qui necessite une action admin,
+    // plutot que des files d'attente eparpillees dans differents modules.
     if (isAdmin && tab === 'pending') {
       voyagesAPI.list({statut_validation:'en_attente', page_size:100}).then(r => {
         setVoyagesEnAttente((r.data.results||r.data||[]).map(v=>({..._v_to_demande(v)})))
       }).catch(()=>setVoyagesEnAttente([]))
+      inductionAPI.list({statut:'en_cours', page_size:100}).then(r => {
+        const recs = (r.data.results||r.data||[]).filter(rec => rec.quiz_score != null)
+        setInductionsEnAttente(recs.map(rec=>({..._i_to_demande(rec)})))
+      }).catch(()=>setInductionsEnAttente([]))
+      incidentsAPI.list({statut:'declare', page_size:100}).then(r => {
+        setIncidentsEnAttente((r.data.results||r.data||[]).map(inc=>({..._m_to_demande(inc)})))
+      }).catch(()=>setIncidentsEnAttente([]))
     } else {
-      setVoyagesEnAttente([])
+      setVoyagesEnAttente([]); setInductionsEnAttente([]); setIncidentsEnAttente([])
     }
     batAPI.list({page_size:300}).then(r => {
       const items = r.data.results||r.data
@@ -78,6 +89,27 @@ export default function Demandes() {
     date_debut_souhaitee: v.date_depart, date_fin_souhaitee: v.date_retour_prevue,
     donnees: { destination: v.destination, motif: v.motif, origine: v.origine },
     message_demandeur: v.motif ? `${v.motif} — vers ${v.destination||'—'}` : `Voyage vers ${v.destination||'—'}`,
+  })
+
+  // Induction terminee (toutes etapes + quiz fait) mais pas encore
+  // validee par un admin - meme logique de fusion que les voyages.
+  const _i_to_demande = (rec) => ({
+    id: `induction-${rec.id}`, _inductionId: rec.id, _source: 'induction',
+    type_demande: 'induction', statut: 'en_attente',
+    demandeur_nom: rec.personnel_detail ? `${rec.personnel_detail.nom} ${rec.personnel_detail.prenom}` : '—',
+    date_creation: rec.date_debut,
+    message_demandeur: `Induction terminée — quiz ${rec.quiz_score ?? '—'}%, à valider`,
+  })
+
+  // Incident non assigne (declare, personne ne l'a encore pris en
+  // charge) - traite comme une "demande" a router: prendre en charge
+  // (valider) ou annuler (rejeter, avec raison).
+  const _m_to_demande = (inc) => ({
+    id: `incident-${inc.id}`, _incidentId: inc.id, _source: 'incident',
+    type_demande: 'maintenance', statut: 'en_attente',
+    demandeur_nom: inc.auteur_nom || '—',
+    date_creation: inc.date_creation,
+    message_demandeur: `${inc.titre} — ${inc.categorie||''} (${inc.priorite||'moyenne'})`,
   })
 
   useEffect(()=>{ load() }, [tab])
@@ -106,6 +138,14 @@ export default function Demandes() {
         if (action === 'valider') await voyagesAPI.valider(demande._voyageId)
         else if (action === 'rejeter') await voyagesAPI.refuser(demande._voyageId, actionForm.commentaire)
         else { toast.error("Cette action n'est pas disponible pour un voyage."); setActionSaving(false); return }
+      } else if (demande._source === 'induction') {
+        if (action === 'valider') await inductionAPI.valider(demande._inductionId)
+        else if (action === 'rejeter') await inductionAPI.refuser(demande._inductionId, actionForm.commentaire)
+        else { toast.error("Cette action n'est pas disponible pour une induction."); setActionSaving(false); return }
+      } else if (demande._source === 'incident') {
+        if (action === 'valider') await incidentsAPI.assigner(demande._incidentId, { technicien_id: user?.id })
+        else if (action === 'rejeter') await incidentsAPI.annuler(demande._incidentId, { raison: actionForm.commentaire })
+        else { toast.error("Cette action n'est pas disponible pour un incident."); setActionSaving(false); return }
       } else {
         if (action === 'valider') await demandesAPI.valider(demande.id, actionForm)
         else if (action === 'rejeter') await demandesAPI.rejeter(demande.id, actionForm)
@@ -120,6 +160,8 @@ export default function Demandes() {
       // cliquables sur un element deja traite, donnant l'impression que
       // "la main" n'avait jamais ete retiree.
       if (demande._source === 'voyage') setVoyagesEnAttente(prev => prev.filter(v => v._voyageId !== demande._voyageId))
+      else if (demande._source === 'induction') setInductionsEnAttente(prev => prev.filter(v => v._inductionId !== demande._inductionId))
+      else if (demande._source === 'incident') setIncidentsEnAttente(prev => prev.filter(v => v._incidentId !== demande._incidentId))
       else setData(prev => prev.filter(dd => dd.id !== demande.id))
       load()
     } catch(e) { toast.error(e.response?.data?JSON.stringify(e.response.data):e.message) }
@@ -146,8 +188,8 @@ export default function Demandes() {
   const filterData = () => {
     if (!isAdmin && tab === 'proposition_recue') return data.filter(d=>d.statut==='proposition')
     if (isAdmin && tab === 'pending') {
-      // Fusionne demandes classiques + voyages en attente, tries par date
-      return [...data, ...voyagesEnAttente].sort((a,b)=>new Date(b.date_creation||0)-new Date(a.date_creation||0))
+      // Fusionne demandes classiques + voyages + inductions + incidents en attente, tries par date
+      return [...data, ...voyagesEnAttente, ...inductionsEnAttente, ...incidentsEnAttente].sort((a,b)=>new Date(b.date_creation||0)-new Date(a.date_creation||0))
     }
     return data
   }
@@ -180,7 +222,7 @@ export default function Demandes() {
       {isAdmin && stats && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
           {[
-            [(stats.en_attente||0) + voyagesEnAttente.length,'En attente','#d08800','⏳'],
+            [(stats.en_attente||0) + voyagesEnAttente.length + inductionsEnAttente.length + incidentsEnAttente.length,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
             [stats.validees,'Validées','#16a34a','✅'],
             [stats.rejetees,'Rejetées','#dc2626','❌'],
@@ -260,7 +302,7 @@ export default function Demandes() {
                     <>
                       <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                         style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
-                      {d._source !== 'voyage' && (
+                      {!['voyage','induction','incident'].includes(d._source) && (
                         <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                           style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
                       )}
@@ -397,7 +439,7 @@ export default function Demandes() {
                   style={{ ...inp, resize:'vertical' }} placeholder={actionModal.action==='rejeter'?'Expliquez le motif...':'Message au demandeur...'}/>
               </div>
 
-              {actionModal.action==='rejeter' && actionModal.demande._source!=='voyage' && (
+              {actionModal.action==='rejeter' && !['voyage','induction','incident'].includes(actionModal.demande._source) && (
                 <button onClick={()=>setActionModal(m=>({...m,action:'proposer'}))}
                   style={{ marginTop:10, background:'none', border:'none', color:'#7c3aed', fontSize:12, fontWeight:700, cursor:'pointer', textDecoration:'underline', padding:0 }}>
                   💬 Proposer une alternative à la place d'un rejet sec
