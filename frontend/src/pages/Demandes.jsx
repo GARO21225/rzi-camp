@@ -77,7 +77,7 @@ export default function Demandes() {
     batAPI.list({page_size:300}).then(r => {
       const items = r.data.results||r.data
       setBats([...items].filter(b=>b.statut==='Libre').sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
-    })
+    }).catch(()=>setBats([]))
   }
 
   // Adapte un Voyage au meme "gabarit" visuel qu'une Demande, pour
