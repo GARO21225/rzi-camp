@@ -177,9 +177,14 @@ export default function Demandes() {
     } catch(e) { toast.error(e.response?.data?.error||e.message) }
   }
 
-  const deleteDemande = async (id) => {
+  const deleteDemande = async (d) => {
     if (!await confirmDialog('Supprimer définitivement cette demande ?')) return
-    await demandesAPI.delete(id); load()
+    if (d._source === 'voyage') await voyagesAPI.supprimer(d._voyageId)
+    else if (d._source === 'induction' || d._source === 'incident') { toast.error("Utilisez Valider/Rejeter pour traiter cet élément — la suppression n'est pas disponible ici."); return }
+    else await demandesAPI.delete(d.id)
+    if (d._source === 'voyage') setVoyagesEnAttente(prev => prev.filter(v => v._voyageId !== d._voyageId))
+    else setData(prev => prev.filter(dd => dd.id !== d.id))
+    load()
   }
 
   const ADMIN_TABS = [['pending','⏳ En attente'],['propositions','💬 Propositions'],['archive','📋 Toutes']]
@@ -326,7 +331,7 @@ export default function Demandes() {
                       style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
                   )}
                   {isAdmin && (
-                    <button onClick={()=>deleteDemande(d.id)}
+                    <button onClick={()=>deleteDemande(d)}
                       style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>🗑</button>
                   )}
                 </div>

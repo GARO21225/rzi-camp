@@ -1999,10 +1999,14 @@ export default function MissionControl() {
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Motif / Objet</label>
-                      <input value={formRot.motif}
+                      <select value={formRot.motif}
                         onChange={e=>setFormRot(p=>({...p,motif:e.target.value}))}
-                        placeholder="Congé, Mission, Rotation site, Formation..."
-                        style={inputStyle}/>
+                        style={inputStyle}>
+                        <option value="">— Choisir un motif —</option>
+                        {['repos','medical','formation','conge','familial','administratif','autre'].map(m=>(
+                          <option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -2116,6 +2120,16 @@ export default function MissionControl() {
                       <label style={labelStyle}>Point de RDV</label>
                       <input value={formIndiv.point_rdv}
                         onChange={e=>setFormIndiv(p=>({...p,point_rdv:e.target.value}))} style={inputStyle}/>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Motif / Objet</label>
+                      <select value={formIndiv.motif||''}
+                        onChange={e=>setFormIndiv(p=>({...p,motif:e.target.value}))} style={inputStyle}>
+                        <option value="">— Choisir un motif —</option>
+                        {['repos','medical','formation','conge','familial','administratif','autre'].map(m=>(
+                          <option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(matricule/photo auto-remplis)</span></label>
