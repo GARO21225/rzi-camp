@@ -6,6 +6,7 @@ import { useInactivityLogout } from './hooks/useInactivityLogout'
 import { auth, parametres } from './api'
 import Login from './pages/Login'
 import Layout from './components/Layout'
+import ToastContainer from './components/ToastContainer'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MapPage = lazy(() => import('./pages/MapPage'))
 const MissionControl = lazy(() => import('./pages/MissionControl'))
@@ -191,6 +192,11 @@ export default function App() {
 
   return (
     <>
+      {/* Monte au niveau racine (pas dans Layout) : doit survivre a une
+          redirection vers /login (ex: session expiree pendant une action)
+          - dans Layout, il disparaissait exactement au moment ou le
+          message de deconnexion aurait du s'afficher. */}
+      <ToastContainer />
       <InactivityWarning />
       {token && <EventNotifBanner />}
       <InactivityGuard />

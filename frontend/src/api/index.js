@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useStore } from '../store'
+import { toast } from '../toast'
 // URL auto-détectée: VITE_API_URL → hostname replace → localhost
 const BASE = (() => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
@@ -70,12 +71,14 @@ api.interceptors.response.use(r => r, async err => {
         // d'etat React, jamais un rechargement navigateur, donc jamais de
         // boucle possible meme si plusieurs requetes echouent ensemble.
         useStore.getState().logout()
+        toast.error('Votre session a expiré — merci de vous reconnecter.')
       }
     } else if (localStorage.getItem('access_token') || localStorage.getItem('refresh_token')) {
       // Pas de refresh_token disponible (deja consomme, jamais eu, ou deja
       // retente et toujours 401) : la session est definitivement invalide.
       // Meme logique reactive que ci-dessus, pas de rechargement force.
       useStore.getState().logout()
+      toast.error('Votre session a expiré — merci de vous reconnecter.')
     }
   }
   return Promise.reject(err)
