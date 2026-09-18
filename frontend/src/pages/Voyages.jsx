@@ -19,6 +19,29 @@ const STATUT_STYLES = {
 const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
 const fmtFR = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'
 
+function exportVoyagesCSV(liste) {
+  const headers = ['ID','Personnel','Société','Destination','Motif','Départ prévu','Départ réel','Retour prévu','Retour réel','Statut']
+  const rows = liste.map(v => [
+    v.id,
+    '"' + (v.personnel_nom||'').replace(/"/g,'""') + '"',
+    v.personnel_societe||'',
+    '"' + (v.destination||'').replace(/"/g,'""') + '"',
+    v.motif||'',
+    v.date_depart||'',
+    v.date_depart_effective||'',
+    v.date_retour_prevue||'',
+    v.date_retour_effective||'',
+    STATUT_LABELS[v.statut]||v.statut||'',
+  ])
+  const csv = [headers.join(';'), ...rows.map(r=>r.join(';'))].join('\n')
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'voyages_' + new Date().toISOString().slice(0,10) + '.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ── Vue calendrier — départs/retours du mois affichés jour par jour ──
 function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
   const annee = mois.getFullYear(), moisIdx = mois.getMonth()
@@ -363,6 +386,10 @@ export default function Voyages() {
               🚌 {rotationsDispo.length} rotation(s) disponible(s)
             </button>
           )}
+          <button onClick={() => exportVoyagesCSV(filtered)}
+            style={{ background:'#16a34a', color:'#fff', border:'none', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, width:isMobile?'100%':'auto' }}>
+            📥 Export CSV ({filtered.length})
+          </button>
           <button onClick={() => setModal(true)}
             style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, width:isMobile?'100%':'auto' }}>
             + {isAdmin ? 'Nouveau voyage' : 'Déclarer mon voyage'}
