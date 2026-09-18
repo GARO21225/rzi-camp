@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI } from '../api'
 import { toast } from '../toast'
+import { useStore } from '../store'
+
+// Un role non-admin qui obtient acces a /historique (via Parametrage ->
+// Roles & Acces) ne voit que l'onglet correspondant a son propre
+// perimetre - pas l'ensemble des donnees du camp. L'admin voit toujours
+// tout, sans restriction.
+const TABS_PAR_ROLE = {
+  restauration: ['repas'],
+  technicien:   ['maintenance'],
+  agent:        ['voyages_pers','personne'],
+  menage:       ['chambre'],
+}
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -31,7 +43,11 @@ function SearchCard({ title, color, children }) {
 }
 
 export default function Historique() {
-  const [tab, setTab] = useState('chambre')
+  const { user } = useStore()
+  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const tabsAutorises = isAdmin ? null : (TABS_PAR_ROLE[role] || [])
+  const [tab, setTab] = useState(isAdmin ? 'chambre' : (tabsAutorises[0] || 'chambre'))
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -367,7 +383,7 @@ export default function Historique() {
     window.open(occupationHistory.exportCsv(p), '_blank')
   }
 
-  const TABS = [
+  const TABS_TOUTES = [
     ['chambre','🏠 Occupation chambres'],
     ['personne','👤 Parcours d\'un résident'],
     ['voyages_pers','✈️ Voyages personnel'],
@@ -376,6 +392,15 @@ export default function Historique() {
     ['maintenance','🛠️ Maintenance (clôturés)'],
     ['induction','🎓 Induction QHSE'],
   ]
+  const TABS = isAdmin ? TABS_TOUTES : TABS_TOUTES.filter(([k]) => tabsAutorises.includes(k))
+
+  if (!isAdmin && TABS.length === 0) {
+    return (
+      <div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>
+        Aucun historique n'est configuré pour votre rôle. Contactez un administrateur.
+      </div>
+    )
+  }
 
   return (
     <div style={{padding:'16px'}}>

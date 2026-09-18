@@ -36,10 +36,10 @@ def liste_parametres(request):
         # frontend), pour que rien ne change tant qu'un admin ne personnalise
         # pas explicitement. L'admin garde toujours acces a tout, jamais
         # limite par ce systeme.
-        'menu_role_agent':         ('["/mon-compte","/carte","/demandes","/evenements","/voyages","/restauration","/maintenance"]', "Pages accessibles au role Agent Terrain"),
-        'menu_role_restauration':  ('["/carte","/evenements","/restauration"]', "Pages accessibles au role Equipe Restauration"),
-        'menu_role_technicien':    ('["/carte","/evenements","/maintenance","/induction"]', "Pages accessibles au role Technicien Maintenance"),
-        'menu_role_menage':        ('["/carte","/evenements","/maintenance"]', "Pages accessibles au role Equipe Menage"),
+        'menu_role_agent':         ('["/mon-compte","/carte","/demandes","/evenements","/voyages","/restauration","/maintenance","/historique"]', "Pages accessibles au role Agent Terrain"),
+        'menu_role_restauration':  ('["/carte","/evenements","/restauration","/historique"]', "Pages accessibles au role Equipe Restauration"),
+        'menu_role_technicien':    ('["/carte","/evenements","/maintenance","/induction","/historique"]', "Pages accessibles au role Technicien Maintenance"),
+        'menu_role_menage':        ('["/carte","/evenements","/maintenance","/historique"]', "Pages accessibles au role Equipe Menage"),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []
