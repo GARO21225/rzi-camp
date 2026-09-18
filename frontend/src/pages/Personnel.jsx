@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { personnel as personnelAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
 
 // ── Error Boundary ───────────────────────────────────────
@@ -34,6 +35,7 @@ class PersonnelBoundary extends React.Component {
 // ── Composant principal ──────────────────────────────────
 export default function Personnel() {
   const isMobile = useIsMobile()
+  const lectureSeule = useReadOnly()
   const [data,         setData]         = useState([])
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
@@ -545,14 +547,18 @@ export default function Personnel() {
               style={{...btn('var(--rzc-copper)')}}>
               👥 Sous-traitants masse
             </button>
-            <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
-              setErr(''); setModal('new')
-            }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
-              ➕ Nouveau membre
-            </button>
-            <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📋 Template</button>
-            <button onClick={()=>importPersonnelCSV()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📤 Import CSV</button>
+            {!lectureSeule && (
+              <>
+                <button onClick={()=>{
+                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+                  setErr(''); setModal('new')
+                }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
+                  ➕ Nouveau membre
+                </button>
+                <button onClick={()=>downloadPersonnelTemplate()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📋 Template</button>
+                <button onClick={()=>importPersonnelCSV()} style={{...btn('var(--rzc-blue)'),fontSize:12}}>📤 Import CSV</button>
+              </>
+            )}
             <button onClick={()=>exportPersonnelCSV(filtered)} style={{...btn('var(--rzc-green)'),fontSize:12}}>📥 Export CSV ({filtered.length})</button>
           </div>
         </div>
@@ -603,7 +609,7 @@ export default function Personnel() {
 
         {/* ── TABLE ── */}
         {/* Barre actions masse */}
-        {selected_ids.size > 0 && (
+        {selected_ids.size > 0 && !lectureSeule && (
           <div style={{background:'linear-gradient(135deg,var(--rzc-ore-gold),var(--rzc-copper))',color:'#1A1206',
             borderRadius:12,padding:'10px 16px',marginBottom:12,
             display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
@@ -660,8 +666,8 @@ export default function Personnel() {
             <div>Aucun membre trouvé</div>
           </div>
         ) : (
-          <div className="rzc-card" style={{overflow:'hidden'}}>
-            <table className="rzc-table" style={{width:'100%',borderCollapse:'collapse'}}>
+          <div className="rzc-card" style={{overflowX:'auto'}}>
+            <table className="rzc-table" style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
               <thead>
                 <tr style={{background:'rgba(15,26,46,.02)',borderBottom:'1px solid var(--rzc-border)'}}>
                   <th style={{padding:'12px 14px',width:40}}>
@@ -732,6 +738,9 @@ export default function Personnel() {
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       <div style={{display:'flex',gap:6}}>
+                        {lectureSeule ? (
+                          <span style={{fontSize:11,color:'var(--rzc-text-4)',fontStyle:'italic'}}>🔒 Lecture seule</span>
+                        ) : (
                         <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                           <button onClick={() => {
                             setForm({
@@ -795,6 +804,7 @@ export default function Personnel() {
                             🗑️
                           </button>
                         </div>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -420,6 +420,9 @@ const PAGES_ASSIGNABLES = [
 const ROLES_CONFIGURABLES = [
   ['agent', 'Agent Terrain'], ['restauration', 'Équipe Restauration'],
   ['technicien', 'Technicien Maintenance'], ['menage', 'Équipe Ménage'],
+  ['boutique', 'Bar & Boutique'], ['securite', 'Sécurité'],
+  ['medical', 'Médical'], ['hse', 'HSE / QHSE'],
+  ['accueil', "Agent d'accueil"], ['manager', 'Manager / Responsable'],
 ]
 
 function RolesTab({ isAdmin, valeurs, handleChange, saving, sauvegarder }) {
@@ -439,9 +442,20 @@ function RolesTab({ isAdmin, valeurs, handleChange, saving, sauvegarder }) {
       </div>
       {ROLES_CONFIGURABLES.map(([role, label]) => {
         const liste = getListe(role)
+        const cleRO = `readonly_role_${role}`
+        const lectureSeule = valeurs[cleRO] === '1'
         return (
           <div key={role} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16}}>
-            <div style={{fontWeight:700,fontSize:14,color:'#0f172a',marginBottom:10}}>{label}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <div style={{fontWeight:700,fontSize:14,color:'#0f172a'}}>{label}</div>
+              <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,fontWeight:600,
+                color: lectureSeule ? '#92400e' : '#64748b', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
+                <input type="checkbox" disabled={!isAdmin} checked={lectureSeule}
+                  onChange={()=>handleChange(cleRO, lectureSeule ? '0' : '1')}
+                  style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
+                🔒 Lecture seule (ne peut ni créer, ni modifier, ni supprimer)
+              </label>
+            </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}}>
               {PAGES_ASSIGNABLES.map(([path, lbl]) => (
                 <label key={path} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,

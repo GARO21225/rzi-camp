@@ -3,11 +3,17 @@ from django.contrib.auth.models import User
 
 class Profile(models.Model):
     ROLES = [
-        ('admin', 'Administrateur'),
-        ('agent', 'Agent Terrain'),
+        ('admin',        'Administrateur'),
+        ('agent',        'Agent Terrain'),
         ('restauration', 'Equipe Restauration'),
-        ('technicien', 'Technicien Maintenance'),
-        ('menage', 'Equipe Ménage'),
+        ('technicien',   'Technicien Maintenance'),
+        ('menage',       'Equipe Ménage'),
+        ('boutique',     'Bar & Boutique'),
+        ('securite',     'Sécurité'),
+        ('medical',      'Médical'),
+        ('hse',          'HSE / QHSE'),
+        ('accueil',      "Agent d'accueil"),
+        ('manager',      'Manager / Responsable'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLES, default='agent')

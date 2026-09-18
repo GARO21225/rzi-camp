@@ -75,6 +75,42 @@ const ROLE_NAV = {
     { to:'/evenements', label:'📅 Événements' },
     { to:'/maintenance', label:'🛠️ Signaler' },
   ],
+  boutique: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/boutique', label:'🛒 Bar & Boutique' },
+  ],
+  securite: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/annuaire', label:'📋 Annuaire' },
+  ],
+  medical: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/annuaire', label:'📋 Annuaire' },
+  ],
+  hse: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/induction', label:'🎓 Induction QHSE' },
+    { to:'/maintenance', label:'🛠️ Maintenance' },
+    { to:'/epi', label:'🦺 Équipements EPI' },
+  ],
+  accueil: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/annuaire', label:'📋 Annuaire' },
+    { to:'/residences', label:'🏠 Résidences' },
+  ],
+  manager: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/demandes', label:'📝 Demandes' },
+    { to:'/rapports', label:'📄 Rapports' },
+    { to:'/analytics', label:'📈 Analytics' },
+    { to:'/historique', label:'📋 Historique' },
+  ],
 }
 
 const ROLE_LABELS = {
@@ -83,6 +119,12 @@ const ROLE_LABELS = {
   restauration: 'Restauration',
   technicien: 'Technicien',
   menage: 'Ménage',
+  boutique: 'Bar & Boutique',
+  securite: 'Sécurité',
+  medical: 'Médical',
+  hse: 'HSE / QHSE',
+  accueil: "Agent d'accueil",
+  manager: 'Manager',
 }
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {

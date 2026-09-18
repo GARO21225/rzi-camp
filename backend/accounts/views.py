@@ -40,6 +40,27 @@ def liste_parametres(request):
         'menu_role_restauration':  ('["/carte","/evenements","/restauration","/historique"]', "Pages accessibles au role Equipe Restauration"),
         'menu_role_technicien':    ('["/carte","/evenements","/maintenance","/induction","/historique"]', "Pages accessibles au role Technicien Maintenance"),
         'menu_role_menage':        ('["/carte","/evenements","/maintenance","/historique"]', "Pages accessibles au role Equipe Menage"),
+        'menu_role_boutique':      ('["/carte","/evenements","/boutique"]', "Pages accessibles au role Bar & Boutique"),
+        'menu_role_securite':      ('["/carte","/evenements","/annuaire"]', "Pages accessibles au role Sécurité"),
+        'menu_role_medical':       ('["/carte","/evenements","/annuaire"]', "Pages accessibles au role Médical"),
+        'menu_role_hse':           ('["/carte","/evenements","/induction","/maintenance","/epi"]', "Pages accessibles au role HSE / QHSE"),
+        'menu_role_accueil':       ('["/carte","/evenements","/annuaire","/residences"]', "Pages accessibles au role Agent d'accueil"),
+        'menu_role_manager':       ('["/carte","/evenements","/demandes","/rapports","/analytics","/historique"]', "Pages accessibles au role Manager / Responsable"),
+        # Lecture seule par role: quand actif ("1"), les pages accessibles a
+        # ce role restent visibles mais les actions de creation/modification/
+        # suppression y sont desactivees - pour un role qui doit consulter
+        # sans jamais pouvoir changer les donnees. Par defaut a "0" (comme
+        # avant) pour ne rien changer tant qu'un admin ne l'active pas.
+        'readonly_role_agent':        ('0', 'Agent Terrain : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_restauration': ('0', 'Équipe Restauration : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_technicien':   ('0', 'Technicien Maintenance : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_menage':       ('0', 'Équipe Ménage : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_boutique':     ('0', 'Bar & Boutique : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_securite':     ('0', 'Sécurité : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_medical':      ('0', 'Médical : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_hse':          ('0', 'HSE / QHSE : lecture seule (1) ou peut modifier (0)'),
+        'readonly_role_accueil':      ('0', "Agent d'accueil : lecture seule (1) ou peut modifier (0)"),
+        'readonly_role_manager':      ('0', 'Manager / Responsable : lecture seule (1) ou peut modifier (0)'),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []
