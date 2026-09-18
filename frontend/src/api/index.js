@@ -152,6 +152,7 @@ export const inductionQuiz = {
 export const personnel = {
   declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),
   list: (p) => api.get('/api/personnel/', {params:p}),
+  exportCsv: (p) => withToken(`${BASE}/api/personnel/export_csv/?${new URLSearchParams(p||{})}`),
   monProfil: () => api.get('/api/personnel/mon_profil/'),
   create: (d) => api.post('/api/personnel/', d),
   update: (id,d) => api.patch(`/api/personnel/${id}/`, d),

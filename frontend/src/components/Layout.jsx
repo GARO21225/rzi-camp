@@ -7,6 +7,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
+import { parametres } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -189,7 +190,33 @@ export default function Layout() {
 
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
-  const nav = ROLE_NAV[isAdmin ? 'admin' : role] || ROLE_NAV.agent
+
+  // Menu par role configurable depuis Parametrage (sans toucher au code) -
+  // repli sur ROLE_NAV code en dur si le parametre est absent/invalide,
+  // pour ne jamais casser l'affichage meme en cas de donnee corrompue.
+  const [roleMenuOverride, setRoleMenuOverride] = useState(null)
+  useEffect(() => {
+    if (isAdmin) return // admin garde toujours tout, jamais limite par ce systeme
+    parametres.list().then(r => {
+      const p = r.data?.find?.(x => x.cle === `menu_role_${role}`)
+      if (p?.valeur) {
+        try { setRoleMenuOverride(JSON.parse(p.valeur)) } catch { /* ignore, repli sur defaut */ }
+      }
+    }).catch(() => {})
+  }, [isAdmin, role])
+
+  const nav = (() => {
+    if (isAdmin) return ROLE_NAV.admin
+    if (roleMenuOverride) {
+      // Filtre la liste canonique (admin) aux seules routes autorisees pour
+      // ce role, dans l'ordre configure - garde le libelle/icone canonique.
+      const canon = {}
+      ROLE_NAV.admin.forEach(item => { if (item.to) canon[item.to] = item })
+      const filtered = roleMenuOverride.map(to => canon[to]).filter(Boolean)
+      if (filtered.length > 0) return filtered
+    }
+    return ROLE_NAV[role] || ROLE_NAV.agent
+  })()
 
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre

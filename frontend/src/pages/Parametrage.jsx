@@ -33,6 +33,7 @@ const LIENS_RAPIDES = [
 
 const TABS = [
   ['general',    '⚙️ Général & SLA'],
+  ['roles',      '👥 Rôles & Accès'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
   ['induction',  '🎓 Induction du Camp'],
@@ -142,6 +143,10 @@ export default function Parametrage() {
           isAdmin={isAdmin} valeurs={valeurs} handleChange={handleChange}
           saving={saving} sauvegarder={sauvegarder} navigate={navigate}
         />
+      )}
+
+      {tab === 'roles' && (
+        <RolesTab isAdmin={isAdmin} valeurs={valeurs} handleChange={handleChange} saving={saving} sauvegarder={sauvegarder} />
       )}
 
       {tab === 'apparence' && (
@@ -397,6 +402,67 @@ function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navig
         </div>
       </div>
     </>
+  )
+}
+
+// Liste des pages qu'un role NON-admin peut se voir attribuer. Exclut
+// deliberement les pages sensibles (Parametrage, Audit, Diagnostic) qui
+// restent reservees a l'admin quoi qu'il arrive, meme depuis cet ecran.
+const PAGES_ASSIGNABLES = [
+  ['/', '📊 Dashboard'], ['/carte', '🗺️ Carte GIS'], ['/mon-compte', '👤 Mon compte'],
+  ['/personnel', '👤 Personnel'], ['/presences', '🟢 Présences'], ['/induction', '🎓 Induction QHSE'],
+  ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
+  ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],
+  ['/restauration', '🍽️ Restauration'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
+  ['/maintenance', '🛠️ Maintenance'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
+  ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
+]
+const ROLES_CONFIGURABLES = [
+  ['agent', 'Agent Terrain'], ['restauration', 'Équipe Restauration'],
+  ['technicien', 'Technicien Maintenance'], ['menage', 'Équipe Ménage'],
+]
+
+function RolesTab({ isAdmin, valeurs, handleChange, saving, sauvegarder }) {
+  const getListe = (role) => {
+    try { return JSON.parse(valeurs[`menu_role_${role}`] || '[]') } catch { return [] }
+  }
+  const toggle = (role, path) => {
+    const cle = `menu_role_${role}`
+    const liste = getListe(role)
+    const next = liste.includes(path) ? liste.filter(p => p !== path) : [...liste, path]
+    handleChange(cle, JSON.stringify(next))
+  }
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:24}}>
+      <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
+        ℹ️ L'administrateur garde toujours accès à toutes les pages, quels que soient les réglages ci-dessous. Ceci ne configure que ce que voient les autres rôles.
+      </div>
+      {ROLES_CONFIGURABLES.map(([role, label]) => {
+        const liste = getListe(role)
+        return (
+          <div key={role} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16}}>
+            <div style={{fontWeight:700,fontSize:14,color:'#0f172a',marginBottom:10}}>{label}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}}>
+              {PAGES_ASSIGNABLES.map(([path, lbl]) => (
+                <label key={path} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,
+                  color: isAdmin ? '#334155' : '#94a3b8', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
+                  <input type="checkbox" disabled={!isAdmin} checked={liste.includes(path)}
+                    onChange={()=>toggle(role, path)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
+                  {lbl}
+                </label>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+      {isAdmin && (
+        <button onClick={()=>sauvegarder()} disabled={saving}
+          style={{alignSelf:'flex-start',background:'var(--rzc-navy,#0F2A5C)',color:'#fff',border:'none',
+            padding:'10px 24px',borderRadius:9,cursor:saving?'not-allowed':'pointer',fontSize:13,fontWeight:700,opacity:saving?.6:1}}>
+          {saving ? '⏳ Enregistrement...' : '💾 Enregistrer les accès'}
+        </button>
+      )}
+    </div>
   )
 }
 

@@ -47,6 +47,29 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(type_personnel__in=["roxgold","sous_traitant"]) | Q(eligible_mobilite=True))
         return qs
 
+    @action(detail=False, methods=['get'], permission_classes=[TokenInQueryOrHeader])
+    def export_csv(self, request):
+        """Export CSV du personnel - libre-service, pas besoin de passer par un dev."""
+        qs = self.get_queryset()
+        actif = request.query_params.get("actif")
+        if actif in ("true", "1"): qs = qs.filter(actif=True)
+        elif actif in ("false", "0"): qs = qs.filter(actif=False)
+        type_personnel = request.query_params.get("type_personnel")
+        if type_personnel: qs = qs.filter(type_personnel=type_personnel)
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = "attachment; filename=personnel_rzi.csv"
+        response.write("\ufeff")
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(["Nom","Prenom","Societe","Matricule","Type","Profil","Expatrie","Pays origine",
+                          "Telephone","WhatsApp","Email","Actif","Date creation"])
+        for p in qs.select_related("user").order_by("nom","prenom"):
+            writer.writerow([p.nom, p.prenom, p.societe, p.numero,
+                p.get_type_personnel_display(), p.profil,
+                "Oui" if p.est_expatrie else "Non", p.pays_origine or "",
+                p.telephone, p.numero_whatsapp, p.email,
+                "Oui" if p.actif else "Non", p.date_creation.strftime("%Y-%m-%d") if p.date_creation else ""])
+        return response
+
     @action(detail=False, methods=['post'])
     def import_csv_data(self, request):
         """Import massif du personnel depuis les données CSV préparées par le frontend."""

@@ -31,6 +31,15 @@ def liste_parametres(request):
         'theme_police':    ('IBM Plex Sans', "Police de caractères de toute l'application"),
         'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
         'theme_fond_app': ('#f1f5f9', "Couleur de fond de toutes les autres pages de l'application"),
+        # Menus par role - configurable depuis Parametrage sans toucher au
+        # code. Valeurs par defaut = comportement actuel (ROLE_NAV cote
+        # frontend), pour que rien ne change tant qu'un admin ne personnalise
+        # pas explicitement. L'admin garde toujours acces a tout, jamais
+        # limite par ce systeme.
+        'menu_role_agent':         ('["/mon-compte","/carte","/demandes","/evenements","/voyages","/restauration","/maintenance"]', "Pages accessibles au role Agent Terrain"),
+        'menu_role_restauration':  ('["/carte","/evenements","/restauration"]', "Pages accessibles au role Equipe Restauration"),
+        'menu_role_technicien':    ('["/carte","/evenements","/maintenance","/induction"]', "Pages accessibles au role Technicien Maintenance"),
+        'menu_role_menage':        ('["/carte","/evenements","/maintenance"]', "Pages accessibles au role Equipe Menage"),
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []
