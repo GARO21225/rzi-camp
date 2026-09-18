@@ -290,7 +290,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
         voyage = self.get_object()
         if voyage.statut != "planifie":
             return Response({"error":"Voyage non planifié"}, status=400)
-        voyage.partir()
+        date_str = request.data.get("date_depart_reelle")
+        date = datetime.date.fromisoformat(date_str) if date_str else None
+        voyage.partir(date)
         return Response(VoyageSerializer(voyage).data)
 
     @action(detail=True, methods=["post"])
@@ -664,11 +666,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
         rotation_id = request.data.get("rotation_id")
         if not rotation_id:
             return Response({"error":"rotation_id requis"},status=400)
+        date_str = request.data.get("date_depart_reelle")
+        date_reelle = datetime.date.fromisoformat(date_str) if date_str else None
         count = 0
         echecs = []
         for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="planifie"):
             try:
-                v.partir(); count+=1
+                v.partir(date_reelle); count+=1
             except Exception as e:
                 nom = f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
                 echecs.append(f"{nom}: {e}")
@@ -709,6 +713,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
             "chambre":v.batiment.residence if v.batiment else "—",
             "destination":v.destination or "—",
             "date_depart":str(v.date_depart),
+            "date_depart_effective":str(v.date_depart_effective) if v.date_depart_effective else None,
             "date_retour_prevue":str(v.date_retour_prevue),
             "date_retour_effective":str(v.date_retour_effective) if v.date_retour_effective else None,
             "statut":v.statut,"statut_label":STATUT_MAP.get(v.statut,v.statut),

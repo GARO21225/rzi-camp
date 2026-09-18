@@ -18,6 +18,7 @@ class Voyage(models.Model):
                    help_text="Point de départ réel — pas toujours le camp (ex: premier voyage d'un nouvel employé, qui part de chez lui VERS le camp)")
     motif = models.TextField(blank=True)
     date_depart = models.DateField()
+    date_depart_effective = models.DateField(blank=True, null=True)
     date_retour_prevue = models.DateField()
     date_retour_effective = models.DateField(blank=True, null=True)
     statut = models.CharField(max_length=20, choices=STATUT, default="planifie", db_index=True)
@@ -79,15 +80,17 @@ class Voyage(models.Model):
     def __str__(self):
         return f"{self.personnel} - depart {self.date_depart}"
 
-    def partir(self):
+    def partir(self, date_depart=None):
         """Libere la chambre au depart"""
         from residences.models import OccupationHistory
         import datetime
+        reel = date_depart or datetime.date.today()
+        self.date_depart_effective = reel
         if self.batiment:
             b = self.batiment
             # Clore historique occupation
             OccupationHistory.objects.filter(batiment=b, personnel=self.personnel, date_depart__isnull=True).update(
-                date_depart=self.date_depart, motif_depart="Voyage"
+                date_depart=reel, motif_depart="Voyage"
             )
             b.statut = "Libre"
             b.personnel = None

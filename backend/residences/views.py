@@ -331,6 +331,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             "voyages": [{
                 "id":v.id, "destination":v.destination or "Non spécifiée",
                 "motif":v.motif, "date_depart":str(v.date_depart),
+                "date_depart_effective":str(v.date_depart_effective) if v.date_depart_effective else None,
                 "date_retour_prevue":str(v.date_retour_prevue),
                 "date_retour_effective":str(v.date_retour_effective) if v.date_retour_effective else None,
                 "statut":v.get_statut_display() if hasattr(v,"get_statut_display") else v.statut,

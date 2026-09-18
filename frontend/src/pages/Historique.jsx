@@ -1038,8 +1038,8 @@ function VoyageTable({ voyages, showPersonnel }) {
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5,minWidth:600}}>
           <thead><tr style={{background:'var(--blue)'}}>
             {(showPersonnel
-              ?['Personnel','Société','Chambre','Destination','Départ','Retour prévu','Retour réel','Statut']
-              :['#','Chambre','Destination','Départ','Retour prévu','Retour réel','Statut']
+              ?['Personnel','Société','Chambre','Destination','Départ prévu','Départ réel','Retour prévu','Retour réel','Statut']
+              :['#','Chambre','Destination','Départ prévu','Départ réel','Retour prévu','Retour réel','Statut']
             ).map(h=>(
               <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'rgba(255,255,255,.85)',letterSpacing:1,textTransform:'uppercase',fontWeight:500}}>{h}</th>
             ))}
@@ -1056,6 +1056,7 @@ function VoyageTable({ voyages, showPersonnel }) {
                   <td style={{padding:'9px 12px',fontFamily:'monospace',color:'var(--blue)',fontWeight:700}}>{v.chambre||'—'}</td>
                   <td style={{padding:'9px 12px',fontWeight:600}}>{v.destination||<span style={{color:'var(--text-dim)'}}>—</span>}</td>
                   <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{v.date_depart}</td>
+                  <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11,color:!v.date_depart_effective?'#ea580c':'inherit'}}>{v.date_depart_effective||'—'}</td>
                   <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{v.date_retour_prevue}</td>
                   <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11,color:!v.date_retour_effective?'#ea580c':'inherit'}}>{v.date_retour_effective||'En cours'}</td>
                   <td style={{padding:'9px 12px'}}><span style={{background:sc.bg,color:sc.color,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700}}>{v.statut_label||v.statut}</span></td>

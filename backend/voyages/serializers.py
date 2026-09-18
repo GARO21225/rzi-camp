@@ -38,7 +38,7 @@ class VoyageSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Voyage
         fields = "__all__"
-        read_only_fields = ["enregistre_par","date_retour_effective","statut_validation","valide_par","date_validation"]
+        read_only_fields = ["enregistre_par","date_depart_effective","date_retour_effective","statut_validation","valide_par","date_validation"]
 
     def get_valide_par_nom(self, obj):
         o = self._obj(obj)

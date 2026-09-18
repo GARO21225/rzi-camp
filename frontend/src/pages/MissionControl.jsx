@@ -1674,7 +1674,8 @@ export default function MissionControl() {
               {/* Grille d'infos complètes */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
                 {[
-                  ['📅 Date de départ', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
+                  ['📅 Date de départ (prévue)', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
+                  ['✈️ Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
                   ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
