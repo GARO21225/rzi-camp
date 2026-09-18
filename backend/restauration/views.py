@@ -844,9 +844,19 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
     search_fields = ['article__nom']
 
     def get_queryset(self):
-        return ConsommationBoutique.objects.select_related(
+        qs = ConsommationBoutique.objects.select_related(
             'personnel', 'article', 'valide_par'
         ).order_by('-date_conso')
+        # Le personnel de vente (role 'boutique') a besoin de voir TOUTES
+        # les transactions pour gerer la caisse - mais un role qui n'a rien
+        # a voir avec la vente (agent, etc.) ne doit voir que ses PROPRES
+        # achats, jamais ceux des autres.
+        u = self.request.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin and role not in ("boutique",):
+            qs = qs.filter(personnel__user=u)
+        return qs
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):

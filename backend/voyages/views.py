@@ -46,6 +46,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if statut_validation: qs = qs.filter(statut_validation=statut_validation)
         if personnel: qs = qs.filter(personnel_id=personnel)
         if rotation: qs = qs.filter(rotation_id=rotation)
+        # Un non-admin ne voit QUE ses propres voyages - jamais ceux du
+        # reste du camp. Avant ce correctif, n'importe quel agent pouvait
+        # interroger l'API directement (hors interface) et voir les
+        # deplacements de tout le monde ; le filtre cote frontend seul
+        # n'est jamais une vraie protection.
+        u = self.request.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin:
+            qs = qs.filter(personnel__user=u)
         return qs
 
     def create(self, request, *args, **kwargs):

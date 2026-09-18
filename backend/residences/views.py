@@ -1337,23 +1337,24 @@ class DemandeViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        # "demandeur" existe reellement sur Demande (contrairement aux 2
+        # autres endroits corriges precedemment - Batiment/OccupationHistory),
+        # cette ligne reste correcte. Le bloc email/SMS "bienvenue" retire ici
+        # etait casse (variable 'p' jamais definie) et n'avait de toute facon
+        # pas de sens pour une demande de residence/voyage/maintenance.
+        #
+        # IMPORTANT : cette methode etait definie DEUX FOIS dans cette classe -
+        # Python ne garde que la DERNIERE definition, donc la premiere (avec
+        # l'appel a notifier_admin()) etait devenue completement inerte suite a
+        # mon edit precedent qui n'avait ajoute qu'une SECONDE definition sans
+        # remarquer la premiere. Fusionne maintenant les deux correctement :
+        # garde le demandeur=self.request.user ET restaure la notification
+        # admin perdue, au lieu d'une seule des deux.
         demande = serializer.save(demandeur=self.request.user)
-        # Notify admins
         try:
             demande.notifier_admin()
         except Exception:
             pass
-
-    def perform_create(self, serializer):
-        # "demandeur" existe reellement sur Demande (contrairement aux 2
-        # autres endroits corriges juste au-dessus), cette ligne reste
-        # correcte. Seul le bloc email/SMS suivant etait casse (variable
-        # 'p' jamais definie - aurait plante silencieusement dans le
-        # thread arriere-plan a chaque nouvelle demande, sans jamais
-        # remonter d'erreur visible) et n'avait de toute facon pas de sens
-        # ici : "bienvenue" ne s'applique pas a une demande de residence/
-        # voyage/maintenance soumise par un employe deja en poste.
-        serializer.save(demandeur=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         """Only admin can hard-delete; agents can only cancel"""
@@ -1681,6 +1682,13 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         pid = self.request.query_params.get('personnel')
         if pid: qs = qs.filter(personnel_id=pid)
+        # Contient form_data/docs_data/medical_data - un non-admin ne voit
+        # QUE son propre dossier, jamais celui d'un autre.
+        u = self.request.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin:
+            qs = qs.filter(personnel__user=u)
         return qs
 
     def _is_admin(self, u):
