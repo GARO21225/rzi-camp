@@ -30,6 +30,19 @@ export default function Demandes() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(isAdmin ? 'pending' : 'mes_demandes')
+
+  // Filet de securite contre une condition de course: si le profil
+  // utilisateur (role admin) se charge APRES le tout premier rendu de
+  // cette page (ex: navigation directe vers /demandes avant que le
+  // store Zustand ait fini de recuperer /api/auth/me/), le useState
+  // ci-dessus figeait "tab" sur 'mes_demandes' (vue agent) POUR
+  // TOUJOURS, meme une fois isAdmin devenu vrai - la fusion
+  // voyages/inductions/incidents ne s'activait alors jamais, de facon
+  // totalement dependante du timing reseau (parfois ca marchait,
+  // parfois non, sans rapport avec le code de l'action elle-meme).
+  useEffect(() => {
+    if (isAdmin && tab === 'mes_demandes') setTab('pending')
+  }, [isAdmin])
   const [createModal, setCreateModal] = useState(null) // 'reservation'|'voyage'|'maintenance'
   const [detailModal, setDetailModal] = useState(null)
   const [actionModal, setActionModal] = useState(null) // {demande, action:'valider'|'rejeter'|'proposer'}
@@ -137,6 +150,14 @@ export default function Demandes() {
       if (demande._source === 'voyage') {
         if (action === 'valider') await voyagesAPI.valider(demande._voyageId)
         else if (action === 'rejeter') await voyagesAPI.refuser(demande._voyageId, actionForm.commentaire)
+        else if (action === 'proposer') {
+          // Le modele Voyage n'a pas d'etat "proposition" separe (contrairement
+          // a Demande) - la contre-proposition se traduit par un refus dont le
+          // motif porte l'alternative suggeree, pour que ce soit trace et
+          // visible par l'agent qui a fait la demande initiale.
+          if (!actionForm.commentaire?.trim()) { toast.error('Précisez votre proposition.'); setActionSaving(false); return }
+          await voyagesAPI.refuser(demande._voyageId, `Proposition : ${actionForm.commentaire}`)
+        }
         else { toast.error("Cette action n'est pas disponible pour un voyage."); setActionSaving(false); return }
       } else if (demande._source === 'induction') {
         if (action === 'valider') await inductionAPI.valider(demande._inductionId)
@@ -307,7 +328,7 @@ export default function Demandes() {
                     <>
                       <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                         style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
-                      {!['voyage','induction','incident'].includes(d._source) && (
+                      {!['induction','incident'].includes(d._source) && (
                         <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                           style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
                       )}
@@ -444,7 +465,7 @@ export default function Demandes() {
                   style={{ ...inp, resize:'vertical' }} placeholder={actionModal.action==='rejeter'?'Expliquez le motif...':'Message au demandeur...'}/>
               </div>
 
-              {actionModal.action==='rejeter' && !['voyage','induction','incident'].includes(actionModal.demande._source) && (
+              {actionModal.action==='rejeter' && !['induction','incident'].includes(actionModal.demande._source) && (
                 <button onClick={()=>setActionModal(m=>({...m,action:'proposer'}))}
                   style={{ marginTop:10, background:'none', border:'none', color:'#7c3aed', fontSize:12, fontWeight:700, cursor:'pointer', textDecoration:'underline', padding:0 }}>
                   💬 Proposer une alternative à la place d'un rejet sec

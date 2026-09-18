@@ -39,9 +39,11 @@ class VoyageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Voyage.objects.select_related("personnel","batiment").all()
         statut = self.request.query_params.get("statut")
+        statut_validation = self.request.query_params.get("statut_validation")
         personnel = self.request.query_params.get("personnel")
         rotation = self.request.query_params.get("rotation_id")
         if statut: qs = qs.filter(statut=statut)
+        if statut_validation: qs = qs.filter(statut_validation=statut_validation)
         if personnel: qs = qs.filter(personnel_id=personnel)
         if rotation: qs = qs.filter(rotation_id=rotation)
         return qs
