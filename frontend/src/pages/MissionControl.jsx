@@ -1180,9 +1180,11 @@ export default function MissionControl() {
                               Manifeste ({prises} passager(s))
                             </div>
                             <div style={{maxHeight:180,overflowY:'auto'}}>
-                              {(r.passagers||[]).map((p,i)=>(
+                              {(r.passagers||[]).map((p,i)=>{
+                                const voyageComplet = voyages.find(v=>v.id===p.id)
+                                const destinationDiffere = voyageComplet && r.destination && voyageComplet.destination && voyageComplet.destination !== r.destination
+                                return (
                                 <div key={p.id||i} onClick={()=>{
-                                    const voyageComplet = voyages.find(v=>v.id===p.id)
                                     if (voyageComplet) ouvrirDetail(voyageComplet)
                                   }}
                                   style={{display:'flex',gap:8,
@@ -1197,11 +1199,18 @@ export default function MissionControl() {
                                     {i+1}
                                   </div>
                                   <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:12,fontWeight:600,color:C.text}}>
+                                    <div style={{fontSize:12,fontWeight:600,color:C.text,display:'flex',alignItems:'center',gap:6}}>
                                       {p.personnel__nom} {p.personnel__prenom}
+                                      {destinationDiffere && (
+                                        <span title={`Descend/monte à un autre point : ${voyageComplet.destination} (au lieu de ${r.destination})`}
+                                          style={{fontSize:9,fontWeight:700,color:C.purple,background:`${C.purple}20`,
+                                            padding:'1px 6px',borderRadius:20,whiteSpace:'nowrap'}}>
+                                          🔀 Trajet différent
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{fontSize:10,color:C.muted}}>
-                                      {p.personnel__societe||'—'}
+                                      {p.personnel__societe||'—'}{destinationDiffere && ` · → ${voyageComplet.destination}`}
                                     </div>
                                   </div>
                                   <StatusBadge statut={p.statut}/>
@@ -1223,7 +1232,7 @@ export default function MissionControl() {
                                   )}
                                   <span style={{fontSize:10,color:C.muted}} title="Cliquer la ligne pour modifier">⚙️</span>
                                 </div>
-                              ))}
+                              )})}
                               {(r.passagers||[]).length===0&&(
                                 <div style={{color:C.muted,fontSize:12,padding:'8px 0'}}>
                                   Aucun passager inscrit
@@ -1672,8 +1681,14 @@ export default function MissionControl() {
               </div>
 
               {/* Grille d'infos complètes */}
+              {(() => {
+                const rotationParente = detailVoyage.rotation_id ? rotations.find(r => r.rotation_id === detailVoyage.rotation_id) : null
+                const trajetDiffere = rotationParente && rotationParente.destination && detailVoyage.destination && detailVoyage.destination !== rotationParente.destination
+                return (
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
                 {[
+                  ['📍 Destination', detailVoyage.destination||'—'],
+                  ...(trajetDiffere ? [['🔀 Trajet vs convoi', `Diffère du convoi (${rotationParente.destination})`]] : []),
                   ['📅 Date de départ (prévue)', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
                   ['✈️ Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
@@ -1692,6 +1707,8 @@ export default function MissionControl() {
                   </div>
                 ))}
               </div>
+                )
+              })()}
 
               {detailVoyage.vehicule_photo && (
                 <div style={{marginBottom:16}}>
