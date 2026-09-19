@@ -71,12 +71,16 @@ export default function Login() {
   const nomApp = useAppName()
   const navigate   = useNavigate()
   const { setUser, setToken } = useStore()
+  const [mode, setMode] = useState('password') // 'password' | 'otp'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
   const [forgot,   setForgot]   = useState(false)
+  const [otpStep, setOtpStep] = useState('telephone') // 'telephone' | 'code'
+  const [telephone, setTelephone] = useState('')
+  const [otpCode, setOtpCode] = useState('')
 
   const doLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')
@@ -91,6 +95,34 @@ export default function Login() {
       navigate('/')
     } catch(e) {
       setError(e.response?.data?.detail || e.response?.data?.non_field_errors?.[0] || 'Identifiant ou mot de passe incorrect')
+    } finally { setLoading(false) }
+  }
+
+  const doDemanderOtp = async () => {
+    if (!telephone.trim()) return setError('Numéro de téléphone requis')
+    setLoading(true); setError('')
+    try {
+      const r = await auth.demanderOtp(telephone.trim())
+      setOtpStep('code')
+      if (r.data?.code_test) setError(`Mode test — code : ${r.data.code_test}`)
+    } catch(e) {
+      setError(e.response?.data?.error || "Impossible d'envoyer le code")
+    } finally { setLoading(false) }
+  }
+
+  const doVerifierOtp = async () => {
+    if (!otpCode.trim()) return setError('Code requis')
+    setLoading(true); setError('')
+    try {
+      const r = await auth.verifierOtp(telephone.trim(), otpCode.trim())
+      setToken(r.data.access)
+      localStorage.setItem('refresh_token', r.data.refresh)
+      const me = await auth.me()
+      setUser(me.data)
+      sessionStorage.setItem('just_logged_in', '1')
+      navigate('/')
+    } catch(e) {
+      setError(e.response?.data?.error || 'Code incorrect')
     } finally { setLoading(false) }
   }
 
@@ -211,6 +243,22 @@ export default function Login() {
             </div>
           )}
 
+          <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+            <button type="button" onClick={()=>{setMode('password');setError('')}}
+              style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:700, background: mode==='password' ? '#f0a500' : 'rgba(255,255,255,.08)',
+                color: mode==='password' ? '#000' : 'rgba(255,255,255,.6)' }}>
+              🔑 Mot de passe
+            </button>
+            <button type="button" onClick={()=>{setMode('otp');setError('');setOtpStep('telephone')}}
+              style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:700, background: mode==='otp' ? '#f0a500' : 'rgba(255,255,255,.08)',
+                color: mode==='otp' ? '#000' : 'rgba(255,255,255,.6)' }}>
+              📱 Code SMS
+            </button>
+          </div>
+
+          {mode === 'password' && (
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <div>
               <label style={{ display:'block', fontSize:11, fontWeight:700,
@@ -277,6 +325,65 @@ export default function Login() {
               Mot de passe oublié ?
             </button>
           </div>
+          )}
+
+          {mode === 'otp' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+            {otpStep === 'telephone' ? (
+              <>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700,
+                    color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
+                    Numéro de téléphone
+                  </label>
+                  <input
+                    value={telephone} onChange={e=>setTelephone(e.target.value)}
+                    onKeyDown={e=>e.key==='Enter'&&doDemanderOtp()}
+                    placeholder="07 00 00 00 00" autoComplete="tel"
+                    style={{ width:'100%', background:'rgba(255,255,255,.06)',
+                      border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
+                      padding:'13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
+                      boxSizing:'border-box' }}
+                  />
+                </div>
+                <button onClick={doDemanderOtp} disabled={loading}
+                  style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
+                    color:'#000', border:'none', borderRadius:10, padding:14,
+                    fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer' }}>
+                  {loading ? '⏳ Envoi...' : 'Recevoir un code par SMS →'}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize:12.5, color:'rgba(255,255,255,.6)' }}>
+                  Code envoyé au {telephone}. <button type="button" onClick={()=>setOtpStep('telephone')}
+                    style={{background:'none',border:'none',color:'#f0a500',cursor:'pointer',fontSize:12.5,textDecoration:'underline',padding:0}}>Changer de numéro</button>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700,
+                    color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
+                    Code reçu par SMS
+                  </label>
+                  <input
+                    value={otpCode} onChange={e=>setOtpCode(e.target.value)}
+                    onKeyDown={e=>e.key==='Enter'&&doVerifierOtp()}
+                    placeholder="123456" maxLength={6} inputMode="numeric"
+                    style={{ width:'100%', background:'rgba(255,255,255,.06)',
+                      border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
+                      padding:'13px 16px', fontSize:20, letterSpacing:6, textAlign:'center',
+                      color:'var(--rzc-white)', outline:'none', boxSizing:'border-box' }}
+                  />
+                </div>
+                <button onClick={doVerifierOtp} disabled={loading}
+                  style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
+                    color:'#000', border:'none', borderRadius:10, padding:14,
+                    fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer' }}>
+                  {loading ? '⏳ Vérification...' : 'Se connecter →'}
+                </button>
+              </>
+            )}
+          </div>
+          )}
 
           <div style={{ marginTop:32, textAlign:'center', fontSize:11,
             color:'rgba(255,255,255,.25)', lineHeight:1.8 }}>

@@ -111,6 +111,33 @@ nouveau, avec le même avertissement à usage unique.
 
 ---
 
+## 📱 Connexion par code SMS (OTP) — configuration
+
+En plus de l'identifiant/mot de passe, chaque personne peut se connecter
+avec son numéro de téléphone + un code à 6 chiffres reçu par SMS
+(onglet "📱 Code SMS" sur l'écran de connexion). Le numéro doit être
+celui renseigné sur sa fiche Personnel.
+
+**Aucun SMS n'est envoyé tant qu'aucun fournisseur n'est configuré** —
+le mode par défaut ("test") affiche le code directement à l'écran, ce
+qui permet de valider tout le flux avant de payer quoi que ce soit.
+
+Pour activer les vrais envois SMS, depuis **Paramétrage → Général →
+📱 Connexion par SMS (OTP)** :
+
+1. Choisir un fournisseur adapté à la Côte d'Ivoire :
+   - **Twilio** — le plus simple à démarrer, couverture mondiale, [twilio.com](https://www.twilio.com)
+   - **Orange SMS API** — si les employés sont majoritairement chez Orange CI, [developer.orange.com](https://developer.orange.com)
+   - **Africa's Talking** — spécialisé Afrique, souvent moins cher localement, [africastalking.com](https://africastalking.com)
+2. Créer un compte chez le fournisseur choisi et récupérer ses identifiants (SID/token pour Twilio, client ID/secret pour Orange, username/API key pour Africa's Talking)
+3. Renseigner le champ **"Fournisseur SMS"** avec `twilio`, `orange` ou `africastalking`, puis les identifiants correspondants dans les champs juste en dessous
+4. Tester immédiatement avec un vrai numéro depuis l'écran de connexion
+
+Tant que "Fournisseur SMS" reste sur `test`, rien n'est facturé et aucun
+SMS ne part réellement.
+
+---
+
 ## ☁️ Déploiement Render
 
 Le `render.yaml` est configuré en **Blueprint** (2 services + 1 base PostgreSQL) :

@@ -87,6 +87,8 @@ export default api
 export const auth = {
   login: (u,p) => api.post('/api/auth/login/', {username:u,password:p}),
   me: () => api.get('/api/auth/me/'),
+  demanderOtp: (telephone) => api.post('/api/auth/otp/demander/', {telephone}),
+  verifierOtp: (telephone, code) => api.post('/api/auth/otp/verifier/', {telephone, code}),
 }
 export const batiments = {
   list: (p) => api.get('/api/batiments/', {params:p}),

@@ -25,6 +25,18 @@ const CHAMPS = [
     { cle: 'mm_numero_mtn',  label: 'MTN Mobile Money', suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements MTN Money' },
     { cle: 'mm_numero_moov', label: 'Moov Money',  suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Moov Money' },
   ]},
+  { section: '📱 Connexion par SMS (OTP)', items: [
+    { cle: 'sms_provider', label: 'Fournisseur SMS', suffix: '', type: 'text',
+      hint: 'test (aucun envoi réel — code visible à l\'écran, pour valider le flux gratuitement), twilio, orange, ou africastalking' },
+    { cle: 'sms_twilio_account_sid', label: 'Twilio — Account SID', suffix: '', type: 'text', hint: 'Depuis console.twilio.com' },
+    { cle: 'sms_twilio_auth_token', label: 'Twilio — Auth Token', suffix: '', type: 'password', hint: 'Depuis console.twilio.com' },
+    { cle: 'sms_twilio_from', label: 'Twilio — Numéro expéditeur', suffix: '', type: 'text', hint: 'Ex: +14155238886' },
+    { cle: 'sms_orange_client_id', label: 'Orange SMS API — Client ID', suffix: '', type: 'text', hint: 'Depuis developer.orange.com' },
+    { cle: 'sms_orange_client_secret', label: 'Orange SMS API — Client Secret', suffix: '', type: 'password', hint: 'Depuis developer.orange.com' },
+    { cle: 'sms_orange_from', label: 'Orange SMS API — Numéro expéditeur', suffix: '', type: 'text', hint: 'Numéro court fourni par Orange' },
+    { cle: 'sms_at_username', label: "Africa's Talking — Username", suffix: '', type: 'text', hint: '' },
+    { cle: 'sms_at_api_key', label: "Africa's Talking — API Key", suffix: '', type: 'password', hint: '' },
+  ]},
 ]
 
 const LIENS_RAPIDES = [

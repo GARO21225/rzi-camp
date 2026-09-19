@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role, RoleCustomViewSet, RapportPlanifieViewSet
+from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role, RoleCustomViewSet, RapportPlanifieViewSet, demander_otp, verifier_otp
 
 router = DefaultRouter()
 router.register('roles', RoleCustomViewSet, basename='role-custom')
@@ -16,6 +16,8 @@ urlpatterns = [
     path("change-password/", views.change_password, name="change_password"),
     path("reset-password/<int:user_id>/", views.reset_user_password, name="reset_user_password"),
     path("auth/me/", me),
+    path("auth/otp/demander/", demander_otp, name="demander_otp"),
+    path("auth/otp/verifier/", verifier_otp, name="verifier_otp"),
     path("admin/users/", liste_users),
     path("admin/users/<int:user_id>/toggle-active/", toggle_user_active),
     path("admin/users/<int:user_id>/delete/", delete_user),

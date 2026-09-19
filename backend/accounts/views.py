@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from django.contrib.auth.models import User
 from .serializers import UserSerializer, RoleCustomSerializer, RapportPlanifieSerializer
-from .models import Parametre, RoleCustom, Profile, RapportPlanifie
+from .models import Parametre, RoleCustom, Profile, RapportPlanifie, CodeOTP
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -32,6 +32,18 @@ def liste_parametres(request):
         'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
         'theme_fond_app': ('#f1f5f9', "Couleur de fond de toutes les autres pages de l'application"),
         'nom_application': ('Roxgold SiteLife', "Nom de l'application affiché dans la barre latérale, le titre d'onglet et l'écran de connexion"),
+        # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
+        # seulement, code visible dans la reponse API en mode DEBUG) : permet
+        # de valider tout le flux avant de payer/configurer un fournisseur.
+        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio, orange, africastalking"),
+        'sms_twilio_account_sid': ('', 'Twilio — Account SID (console.twilio.com)'),
+        'sms_twilio_auth_token': ('', 'Twilio — Auth Token'),
+        'sms_twilio_from': ('', 'Twilio — Numéro expéditeur (ex: +14155238886)'),
+        'sms_orange_client_id': ('', 'Orange SMS API — Client ID (developer.orange.com)'),
+        'sms_orange_client_secret': ('', 'Orange SMS API — Client Secret'),
+        'sms_orange_from': ('', 'Orange SMS API — Numéro expéditeur court (ex: 225XXXXXXXX)'),
+        'sms_at_username': ("", "Africa's Talking — Username"),
+        'sms_at_api_key': ("", "Africa's Talking — API Key"),
         # Menus par role - configurable depuis Parametrage sans toucher au
         # Menus/lecture-seule par role : GERES DESORMAIS PAR LE MODELE
         # RoleCustom (voir accounts/models.py + RoleCustomViewSet), plus par
@@ -746,3 +758,117 @@ class RapportPlanifieViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         return self._check(request) or super().destroy(request, *args, **kwargs)
+
+
+def construire_reponse_connexion(user):
+    """
+    Construit la reponse JWT + profil standard, partagee entre la
+    connexion classique (identifiant/mot de passe, dans rzi_camp/urls.py)
+    et la connexion par OTP SMS ci-dessous - pour que les deux chemins
+    produisent EXACTEMENT la meme forme de reponse, consommee de la meme
+    facon par le frontend.
+    """
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    access = str(refresh.access_token)
+
+    profile = {}
+    try:
+        p = Profile.objects.filter(user=user).first()
+        if p:
+            profile = {'id': p.id, 'role': p.role, 'nom': user.get_full_name() or user.username}
+            try:
+                from residences.models import Personnel
+                pers = Personnel.objects.filter(user=user).first()
+                if pers:
+                    profile['personnel_id'] = pers.id
+                    profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+            except Exception:
+                pass
+    except Exception:
+        profile = {'role': 'admin' if user.is_superuser else 'agent', 'nom': user.get_full_name() or user.username}
+
+    return {
+        'access': access, 'refresh': str(refresh),
+        'user': {
+            'id': user.id, 'username': user.username, 'email': user.email or '',
+            'is_superuser': bool(user.is_superuser), 'is_staff': bool(user.is_staff),
+            'profile': profile,
+        }
+    }
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def demander_otp(request):
+    """
+    Etape 1 de la connexion par SMS : envoie un code a 6 chiffres au
+    numero fourni, SI ce numero correspond a un Personnel ayant deja un
+    compte utilisateur actif. Limite a 3 demandes / 10 min par numero
+    pour eviter les abus/spam SMS (qui coutent de l'argent en production).
+    """
+    from django.conf import settings
+    from django.utils import timezone
+    from datetime import timedelta
+    from residences.models import Personnel
+    from .sms import envoyer_sms
+
+    telephone = (request.data.get('telephone') or '').strip()
+    if not telephone:
+        return Response({'error': 'Numéro de téléphone requis'}, status=400)
+
+    recentes = CodeOTP.objects.filter(telephone=telephone, date_creation__gte=timezone.now()-timedelta(minutes=10)).count()
+    if recentes >= 3:
+        return Response({'error': 'Trop de demandes pour ce numéro — réessayez dans 10 minutes.'}, status=429)
+
+    pers = Personnel.objects.filter(telephone=telephone, user__isnull=False, actif=True).first()
+    if not pers or not pers.user or not pers.user.is_active:
+        return Response({'error': "Aucun compte actif associé à ce numéro."}, status=404)
+
+    otp = CodeOTP.generer(telephone)
+    nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
+    ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).")
+
+    if not ok:
+        return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)
+
+    reponse = {'ok': True, 'message': f"Code envoyé au {telephone}."}
+    # Mode test uniquement (aucun fournisseur reel configure) : renvoie le
+    # code directement pour valider le flux sans depenser un vrai SMS.
+    if info == "mode_test" and settings.DEBUG:
+        reponse['code_test'] = otp.code
+    return Response(reponse)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verifier_otp(request):
+    """Etape 2 : verifie le code et connecte, meme reponse que /api/auth/login/."""
+    from django.utils import timezone
+    from residences.models import Personnel
+
+    telephone = (request.data.get('telephone') or '').strip()
+    code = (request.data.get('code') or '').strip()
+    if not telephone or not code:
+        return Response({'error': 'Numéro et code requis'}, status=400)
+
+    otp = CodeOTP.objects.filter(telephone=telephone, utilise=False).order_by('-date_creation').first()
+    if not otp:
+        return Response({'error': 'Aucun code en attente pour ce numéro — redemandez-en un.'}, status=400)
+
+    if not otp.est_valide():
+        return Response({'error': 'Code expiré ou trop de tentatives — redemandez-en un.'}, status=400)
+
+    if otp.code != code:
+        otp.tentatives += 1
+        otp.save(update_fields=['tentatives'])
+        return Response({'error': 'Code incorrect.'}, status=400)
+
+    otp.utilise = True
+    otp.save(update_fields=['utilise'])
+
+    pers = Personnel.objects.filter(telephone=telephone, user__isnull=False).first()
+    if not pers or not pers.user:
+        return Response({'error': 'Compte introuvable.'}, status=404)
+
+    return Response(construire_reponse_connexion(pers.user))

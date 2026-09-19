@@ -128,3 +128,39 @@ class Parametre(models.Model):
             return int(Parametre.objects.get(cle=cle).valeur)
         except (Parametre.DoesNotExist, ValueError, TypeError):
             return defaut
+
+
+class CodeOTP(models.Model):
+    """
+    Code de connexion a usage unique envoye par SMS - alternative a
+    identifiant/mot de passe, en plus (pas a la place) du systeme
+    existant. Le numero doit correspondre au telephone d'un Personnel
+    ayant deja un compte utilisateur (cree via Personnel.creer_utilisateur()).
+    """
+    telephone      = models.CharField(max_length=20, db_index=True)
+    code           = models.CharField(max_length=6)
+    date_creation  = models.DateTimeField(auto_now_add=True)
+    expire_le      = models.DateTimeField()
+    utilise        = models.BooleanField(default=False)
+    tentatives     = models.PositiveSmallIntegerField(default=0)  # anti brute-force
+
+    DUREE_VALIDITE_MIN = 5
+    MAX_TENTATIVES = 5
+
+    class Meta:
+        ordering = ['-date_creation']
+
+    def est_valide(self):
+        from django.utils import timezone
+        return not self.utilise and self.tentatives < self.MAX_TENTATIVES and timezone.now() < self.expire_le
+
+    @staticmethod
+    def generer(telephone):
+        import random
+        from django.utils import timezone
+        from datetime import timedelta
+        code = f"{random.randint(0, 999999):06d}"
+        return CodeOTP.objects.create(
+            telephone=telephone, code=code,
+            expire_le=timezone.now() + timedelta(minutes=CodeOTP.DUREE_VALIDITE_MIN),
+        )
