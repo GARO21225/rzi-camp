@@ -61,6 +61,7 @@ export default function Personnel() {
   const [err,          setErr]          = useState('')
   const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
   const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
+  const [credentialsModal, setCredentialsModal] = useState(null) // Identifiants generes a afficher UNE fois
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
 
@@ -96,7 +97,14 @@ export default function Personnel() {
       if (modal && modal.id) {
         await personnelAPI.update(modal.id, form)
       } else {
-        await personnelAPI.create(form)
+        const r = await personnelAPI.create(form)
+        // Le mot de passe n'est JAMAIS revele nulle part ailleurs (retire
+        // de la liste/detail standard pour ne pas l'exposer en clair a
+        // chaque lecture) - c'est la SEULE occasion de le voir et de le
+        // transmettre au nouvel employe.
+        if (r.data?.login_genere && r.data?.password_genere) {
+          setCredentialsModal({ nom: form.nom, prenom: form.prenom, login: r.data.login_genere, password: r.data.password_genere })
+        }
       }
       setModal(null)
       setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
@@ -761,6 +769,18 @@ export default function Personnel() {
                             title="Changer le profil">
                             👤
                           </button>
+                          <button onClick={async () => {
+                              if (!await confirmDialog(`Régénérer les identifiants de ${p.nom} ${p.prenom} ? L'ancien mot de passe ne fonctionnera plus.`)) return
+                              try {
+                                const r = await personnelAPI.regenererCompte(p.id)
+                                setCredentialsModal({ nom: p.nom, prenom: p.prenom, login: r.data.login, password: r.data.password })
+                              } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+                            }}
+                            style={{background:'var(--rzc-bright-gold-l)',color:'var(--rzc-bright-gold)',border:'1px solid rgba(245,197,66,.3)',
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title="Régénérer les identifiants de connexion">
+                            🔑
+                          </button>
                           <button onClick={() => handleToggleActif(p)}
                             style={{background:p.actif?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
                               color:p.actif?'var(--rzc-bright-gold)':'#15803D',
@@ -1155,6 +1175,52 @@ export default function Personnel() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL IDENTIFIANTS GENERES (affichage unique) ══ */}
+      {credentialsModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:1200,padding:16}}>
+          <div className="rzc-card" style={{maxWidth:420,width:'100%',padding:24,textAlign:'center'}}>
+            <div style={{fontSize:40,marginBottom:10}}>🔑</div>
+            <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy,#0F2A5C)',marginBottom:4}}>
+              Identifiants de connexion
+            </div>
+            <div style={{fontSize:13,color:'var(--rzc-text-3)',marginBottom:16}}>
+              {credentialsModal.nom} {credentialsModal.prenom}
+            </div>
+            <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,padding:'14px 18px',
+              fontSize:12,color:'#92400e',marginBottom:16,textAlign:'left'}}>
+              ⚠️ Ce mot de passe ne sera <b>plus jamais affiché</b> nulle part dans l'application.
+              Notez-le ou communiquez-le à la personne maintenant.
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
+              <div style={{background:'rgba(15,26,46,.04)',borderRadius:8,padding:'10px 14px',
+                fontFamily:'monospace',fontSize:15,fontWeight:700,color:'var(--rzc-navy,#0F2A5C)',
+                display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span>👤 {credentialsModal.login}</span>
+              </div>
+              <div style={{background:'rgba(15,26,46,.04)',borderRadius:8,padding:'10px 14px',
+                fontFamily:'monospace',fontSize:15,fontWeight:700,color:'var(--rzc-bright-gold)',
+                display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span>🔒 {credentialsModal.password}</span>
+              </div>
+            </div>
+            <button onClick={()=>{
+                navigator.clipboard?.writeText(`Identifiant: ${credentialsModal.login}\nMot de passe: ${credentialsModal.password}`).catch(()=>{})
+                toast.success('Copié dans le presse-papier')
+              }}
+              style={{width:'100%',background:'rgba(15,26,46,.06)',color:'var(--rzc-navy,#0F2A5C)',border:'none',
+                padding:10,borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700,marginBottom:8}}>
+              📋 Copier les deux
+            </button>
+            <button onClick={()=>setCredentialsModal(null)}
+              style={{width:'100%',background:'var(--rzc-navy,#0F2A5C)',color:'#fff',border:'none',
+                padding:10,borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>
+              J'ai noté — Fermer
+            </button>
           </div>
         </div>
       )}

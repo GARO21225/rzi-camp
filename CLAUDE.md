@@ -1,4 +1,4 @@
-# CLAUDE.md — RZI Camp ERP
+# CLAUDE.md — Roxgold SiteLife ERP
 
 Ce fichier est le point d'entrée pour toute instance de Claude qui reprend ce projet. Lis-le avant de toucher au code.
 

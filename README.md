@@ -1,4 +1,4 @@
-# 🏔 RZI CAMP — ERP GIS Industriel
+# 🏔 ROXGOLD SITELIFE — ERP GIS Industriel
 ## Roxgold Côte d'Ivoire · Charte graphique officielle
 
 Système de gestion intégré pour la résidence **Roxgold Sango** (Côte d'Ivoire).
@@ -88,6 +88,29 @@ npm run dev
 
 ---
 
+## 🔑 Comment un employé accède à l'application
+
+Quand un admin crée une fiche Personnel (`Personnel.jsx → ➕ Nouveau membre`),
+un compte de connexion est **automatiquement généré** en arrière-plan
+(`Personnel.creer_utilisateur()`) :
+
+- **Identifiant** : préfixe société + initiale du nom + prénom (ex. `a_kadama` pour un agent Roxgold Adama Kouyaté)
+- **Mot de passe** : initiales en majuscules + les 4 derniers chiffres du matricule (ex. `AK1234`)
+
+Ce mot de passe **n'est affiché qu'une seule fois**, dans une fenêtre qui
+s'ouvre juste après la création — il n'apparaît ensuite plus nulle part
+dans l'application (ni dans la liste du personnel, ni dans son détail),
+pour éviter qu'il reste exposé en clair à quiconque peut consulter la
+liste du personnel. L'admin doit le noter ou le transmettre à l'employé
+à ce moment précis.
+
+Si un employé a perdu ses identifiants, un admin peut les régénérer
+depuis la fiche du personnel concerné (bouton 🔑 dans la liste
+Personnel) — cela invalide l'ancien mot de passe et en affiche un
+nouveau, avec le même avertissement à usage unique.
+
+---
+
 ## ☁️ Déploiement Render
 
 Le `render.yaml` est configuré en **Blueprint** (2 services + 1 base PostgreSQL) :
@@ -111,7 +134,7 @@ Le `render.yaml` est configuré en **Blueprint** (2 services + 1 base PostgreSQL
 ```bash
 git init
 git add .
-git commit -m "feat: initial commit — RZI CAMP avec charte Roxgold CI"
+git commit -m "feat: initial commit — ROXGOLD SITELIFE avec charte Roxgold CI"
 git branch -M main
 git remote add origin https://github.com/GARO21225/Roxgold.git
 git push -f origin main

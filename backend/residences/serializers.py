@@ -39,7 +39,14 @@ class PersonnelSerializer(serializers.ModelSerializer):
     user_role       = serializers.SerializerMethodField()
     user_active     = serializers.SerializerMethodField()
     login_genere    = serializers.SerializerMethodField()
-    password_genere = serializers.SerializerMethodField()
+    # password_genere delibere absent d'ici : ce mot de passe est en clair
+    # en base, l'exposer via CE serializer signifierait que TOUTE requete
+    # GET /api/personnel/ (liste ou detail) le revele a quiconque peut voir
+    # le personnel - un vrai trou de securite trouve en auditant "comment
+    # le personnel accede a l'application". Il ne doit etre visible qu'UNE
+    # fois, juste apres creation/regeneration du compte (create()/
+    # regenerer_compte() l'injectent deja manuellement dans LEUR propre
+    # reponse, independamment de ce serializer).
     a_droit_mobilite = serializers.BooleanField(read_only=True)
     # Alias explicite : en base/API le champ s'appelle "numero" mais représente
     # le matricule (cf. label "N° MATRICULE" côté frontend). Plusieurs pages
@@ -89,9 +96,6 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_login_genere(self, obj):
         return getattr(obj, 'login_genere', None) or (obj.user.username if obj.user else None)
 
-    def get_password_genere(self, obj):
-        try: return obj.password_genere
-        except: return None
 
 
     class Meta:
@@ -100,7 +104,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "id", "nom", "prenom", "societe", "numero", "matricule", "telephone", "numero_whatsapp", "type_personnel",
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
-            "password_genere", "profil", "profil_label", "est_expatrie", "pays_origine",
+            "profil", "profil_label", "est_expatrie", "pays_origine",
             "eligible_mobilite", "a_droit_mobilite",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
