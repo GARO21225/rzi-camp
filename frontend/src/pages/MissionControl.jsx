@@ -1837,7 +1837,14 @@ export default function MissionControl() {
                   </div>
                   )}
                 </div>
-                <CarteItineraire origine={detailVoyage.origine} destination={detailVoyage.destination} etapes={etapesDetail}/>
+                <CarteItineraire origine={detailVoyage.origine} destination={detailVoyage.destination} etapes={etapesDetail}
+                  trajetDiffereDuConvoi={(() => {
+                    const rotationParente = detailVoyage.rotation_id ? rotations.find(r => r.rotation_id === detailVoyage.rotation_id) : null
+                    if (rotationParente && rotationParente.destination && detailVoyage.destination && detailVoyage.destination !== rotationParente.destination) {
+                      return `le convoi va jusqu'à ${rotationParente.destination}`
+                    }
+                    return null
+                  })()}/>
               </div>
 
               {nouvelleEtape && (

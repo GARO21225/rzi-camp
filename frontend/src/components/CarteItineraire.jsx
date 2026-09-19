@@ -16,7 +16,7 @@ L.Icon.Default.mergeOptions({
  * intermédiaires, destination, reliés par une ligne. Coordonnées
  * approximatives (aperçu du trajet, pas un routage routier précis).
  */
-export default function CarteItineraire({ origine, destination, etapes = [] }) {
+export default function CarteItineraire({ origine, destination, etapes = [], trajetDiffereDuConvoi = null }) {
   // Construit la liste ordonnée des points : origine -> étapes -> destination
   const points = []
   const ajouter = (nom) => {
@@ -47,7 +47,15 @@ export default function CarteItineraire({ origine, destination, etapes = [] }) {
   const zoom = etendue > 40 ? 2 : etendue > 15 ? 4 : etendue > 5 ? 6 : etendue > 1 ? 7 : 9
 
   return (
-    <MapContainer center={centre} zoom={zoom} style={{height:320,width:'100%',borderRadius:10}} scrollWheelZoom={true}>
+    <div>
+      {trajetDiffereDuConvoi && (
+        <div style={{background:'#f5f3ff',border:'1px solid #c4b5fd',borderRadius:'10px 10px 0 0',
+          padding:'8px 14px',fontSize:12.5,fontWeight:700,color:'#6d28d9',display:'flex',alignItems:'center',gap:8}}>
+          🔀 Ce passager ne fait pas le trajet complet du convoi — {trajetDiffereDuConvoi}
+        </div>
+      )}
+    <MapContainer center={centre} zoom={zoom} style={{height:320,width:'100%',
+      borderRadius: trajetDiffereDuConvoi ? '0 0 10px 10px' : 10}} scrollWheelZoom={true}>
       <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
       <Polyline positions={pointsUniques.map(p=>p.coords)} pathOptions={{color:'#C9972B', weight:3, dashArray:'6 6'}}/>
       {pointsUniques.map((p, i) => (
@@ -58,5 +66,6 @@ export default function CarteItineraire({ origine, destination, etapes = [] }) {
         </Marker>
       ))}
     </MapContainer>
+    </div>
   )
 }
