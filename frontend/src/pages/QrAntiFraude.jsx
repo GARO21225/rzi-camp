@@ -30,7 +30,7 @@ export default function QrAntiFraude() {
   }, [])
 
   // QR code via API (Google Charts)
-  const qrData = `RZI-CAMP|${user?.id || 'guest'}|${Date.now()}|${segments.join('-')}`
+  const qrData = `ROXGOLD-SITELIFE|${user?.id || 'guest'}|${Date.now()}|${segments.join('-')}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(qrData)}`
 
   return (

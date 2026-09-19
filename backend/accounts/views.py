@@ -216,7 +216,7 @@ def forgot_password(request):
             dest = user.email or pers.email
             app_url = getattr(settings, "APP_URL", "https://rzi-camp-frontend.onrender.com")
             send_mail(
-                subject="🔐 Réinitialisation de mot de passe — RZI Camp",
+                subject="🔐 Réinitialisation de mot de passe — Roxgold SiteLife",
                 message=f"""Bonjour {user.first_name},
 
 Votre lien de réinitialisation (valide 1h) :
@@ -224,7 +224,7 @@ Votre lien de réinitialisation (valide 1h) :
 
 Si vous n\'avez pas demandé cette réinitialisation, ignorez ce message.
 
-L\'équipe RZI Camp""",
+L\'équipe Roxgold SiteLife""",
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[dest],
                 fail_silently=True,

@@ -841,7 +841,7 @@ def _generer_billet_html(voyage):
       <div class="header">
         <div>
           <h1 style="margin:0;color:#0F2A5C">✈️ Billet de voyage</h1>
-          <p style="margin:4px 0 0;color:#64748b">RZI Camp — Roxgold Sango</p>
+          <p style="margin:4px 0 0;color:#64748b">Roxgold SiteLife — Roxgold Sango</p>
         </div>
         <span class="badge" style="background:#0F2A5C22;color:#0F2A5C">Rotation {voyage.rotation_id or '—'}</span>
       </div>
@@ -861,7 +861,7 @@ def _generer_billet_html(voyage):
         <thead><tr><th>Étape</th><th>Sens</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Véhicule / Conducteur</th><th>Référence</th><th>Coût</th></tr></thead>
         <tbody>{etapes_html}</tbody>
       </table>
-      <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — RZI Camp ERP · Usage interne uniquement</p>
+      <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — Roxgold SiteLife · Usage interne uniquement</p>
     </body></html>
     """
 

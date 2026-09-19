@@ -161,7 +161,7 @@ export default function Historique() {
           `).join('')}
         </div>` : ''}
 
-        <div class="footer">RZI Camp — Roxgold Sango — Imprimé le ${fmt(new Date())}</div>
+        <div class="footer">Roxgold SiteLife — Roxgold Sango — Imprimé le ${fmt(new Date())}</div>
       </body></html>
     `)
     w.document.close()

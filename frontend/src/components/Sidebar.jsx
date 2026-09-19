@@ -175,7 +175,7 @@ export default function Sidebar({ currentPath }) {
         </div>
         <div>
           <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>
-            RZI CAMP
+            ROXGOLD SITELIFE
           </div>
           <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600, marginTop: 1 }}>
             Roxgold · Côte d'Ivoire

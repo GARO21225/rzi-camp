@@ -5,7 +5,7 @@ from accounts.models import Profile
 import json, random, datetime
 
 class Command(BaseCommand):
-    help = "Initialise la base de donnees RZI Camp"
+    help = "Initialise la base de donnees Roxgold SiteLife"
 
     def handle(self, *args, **kwargs):
         random.seed(42)

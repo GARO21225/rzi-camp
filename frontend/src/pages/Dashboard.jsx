@@ -313,7 +313,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0, letterSpacing: '.3px' }}>
-              RZI CAMP <span style={{ color: 'var(--rzc-text-4)', fontWeight: 500 }}>· Centre d'exploitation</span>
+              ROXGOLD SITELIFE <span style={{ color: 'var(--rzc-text-4)', fontWeight: 500 }}>· Centre d'exploitation</span>
             </h1>
             <p style={{ fontSize: 11.5, color: 'var(--rzc-text-3)', margin: '3px 0 0' }}>
               Roxgold Sango · {sync ? `Synchronisé ${sync.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}` : 'Chargement...'}

@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&family=Poppins:wght@400;500;600;700;800&display=swap');
 
-/* RZI CAMP — Design System */
+/* ROXGOLD SITELIFE — Design System */
 :root {
   /* ══════════════════════════════════════════════════════════════
      ROXGOLD SANGO — Design Token System v3
@@ -300,7 +300,7 @@ input, select, textarea {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   RZI CAMP — DESIGN SYSTEM v2 — Mining Operations Control Center
+   ROXGOLD SITELIFE — DESIGN SYSTEM v2 — Mining Operations Control Center
    Identité visuelle Roxgold. Préfixe --rzc- pour coexister avec
    les anciennes variables (--navy, --gold, etc.) pendant la migration
    module par module. Ne jamais supprimer les anciennes variables —

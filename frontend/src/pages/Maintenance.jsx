@@ -168,7 +168,7 @@ function genererRapport(incidents, stats, periode={}) {
 <!-- En-tête -->
 <div class="header">
   <div style="font-size:11px;opacity:.6;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">
-    RZI Camp · Résidence Roxgold Sango · Côte d'Ivoire
+    Roxgold SiteLife · Résidence Roxgold Sango · Côte d'Ivoire
   </div>
   <h1>🔧 Rapport de Maintenance</h1>
   <p>Généré le ${dateStr} à ${timeStr} · ${incidents.length} incident(s) au total</p>
@@ -347,7 +347,7 @@ ${critiques.length > 0 ? `<div class="section">
 
 <!-- Footer -->
 <div class="footer">
-  RZI Camp ERP · Rapport généré automatiquement le ${dateStr} à ${timeStr} ·
+  Roxgold SiteLife · Rapport généré automatiquement le ${dateStr} à ${timeStr} ·
   Roxgold Sango, Côte d'Ivoire
 </div>
 

@@ -417,7 +417,7 @@ def diagnostic(request):
 @permission_classes([AllowAny])
 def version(request):
     from rest_framework.response import Response
-    return Response({'version': 'v6.1', 'app': 'RZI Camp ERP', 'env': 'production'})
+    return Response({'version': 'v6.1', 'app': 'Roxgold SiteLife', 'env': 'production'})
 
 urlpatterns = [
     path('api/induction/', include('induction.api.urls')),

@@ -58,7 +58,7 @@ export default function SalleControle() {
     }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>
-          <div style={{ fontSize:26, fontWeight:900, letterSpacing:.5 }}>🛡️ RZI CAMP — SALLE DE CONTRÔLE</div>
+          <div style={{ fontSize:26, fontWeight:900, letterSpacing:.5 }}>🛡️ ROXGOLD SITELIFE — SALLE DE CONTRÔLE</div>
           <div style={{ fontSize:13, color:'#64748b', marginTop:2 }}>
             Roxgold Sango · {sync ? `Synchronisé ${sync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}` : 'Chargement...'}
           </div>

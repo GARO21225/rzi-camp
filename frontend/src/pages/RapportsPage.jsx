@@ -71,7 +71,7 @@ function buildHTML(d, periode) {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Rapport Opérationnel Global — RZI Camp</title>
+<title>Rapport Opérationnel Global — Roxgold SiteLife</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @media print {
@@ -160,7 +160,7 @@ tr:last-child td{border-bottom:none}
 <div class="header">
   <div class="header-top">
     <div>
-      <div class="header-logo">⛏️ RZI CAMP ERP</div>
+      <div class="header-logo">⛏️ ROXGOLD SITELIFE</div>
       <p style="opacity:.7;font-size:12px;margin-top:4px">Camp Résidentiel Roxgold Sango · Côte d'Ivoire</p>
     </div>
     <div class="header-badge">
@@ -427,7 +427,7 @@ tr:last-child td{border-bottom:none}
 
 <!-- FOOTER -->
 <div class="footer">
-  RZI Camp ERP — Rapport généré le ${dateStr} à ${timeStr} — Camp Résidentiel Roxgold Sango, Côte d'Ivoire<br>
+  Roxgold SiteLife — Rapport généré le ${dateStr} à ${timeStr} — Camp Résidentiel Roxgold Sango, Côte d'Ivoire<br>
   Ce document est confidentiel et à usage interne uniquement.
 </div>
 

@@ -767,7 +767,7 @@ export default function MissionControl() {
             <div>
               <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:isMobile?11:12,fontWeight:600,
                 letterSpacing:2,textTransform:'uppercase',color:C.accent}}>
-                Centre de Mobilité · RZI Camp
+                Centre de Mobilité · Roxgold SiteLife
               </div>
               <div style={{fontSize:10,color:C.muted,letterSpacing:.5,marginTop:1}}>
                 Rotations · Voyages · Itinéraires · Validations

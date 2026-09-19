@@ -1,5 +1,5 @@
 /**
- * Assistant IA RZI Camp — connecté aux données réelles
+ * Assistant IA Roxgold SiteLife — connecté aux données réelles
  * Répond aux questions sur le camp en utilisant l'API Anthropic
  */
 import React, { useState, useEffect, useRef } from 'react'
@@ -196,7 +196,7 @@ export default function AssistantIA() {
         <div style={{ width:44, height:44, borderRadius:14, background:'rgba(255,255,255,.2)',
           display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🤖</div>
         <div>
-          <div style={{ fontWeight:800, fontSize:16 }}>Assistant IA — RZI Camp</div>
+          <div style={{ fontWeight:800, fontSize:16 }}>Assistant IA — Roxgold SiteLife</div>
           <div style={{ fontSize:12, opacity:.8 }}>
             {campData ? '🟢 Connecté aux données en temps réel' : '⏳ Chargement des données...'}
           </div>

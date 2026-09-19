@@ -136,7 +136,7 @@ export default function Login() {
           <img src="/roxgold-logo.png" alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:3}}/>
         </div>
         <div>
-          <div style={{fontSize:12,fontWeight:800,color:'var(--rzc-white)',letterSpacing:1}}>RZI CAMP ERP</div>
+          <div style={{fontSize:12,fontWeight:800,color:'var(--rzc-white)',letterSpacing:1}}>ROXGOLD SITELIFE</div>
           <div style={{fontSize:10,color:'#f0a500',fontWeight:600}}>ROXGOLD · SANGO</div>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function Login() {
             ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
           </div>
           <div style={{ fontSize:28, fontWeight:900, color:'var(--rzc-white)', lineHeight:1.2, marginBottom:16 }}>
-            RZI Camp ERP
+            Roxgold SiteLife
           </div>
           <div style={{ fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
             Gestion intégrée de la résidence<br/>
@@ -278,7 +278,7 @@ export default function Login() {
 
           <div style={{ marginTop:32, textAlign:'center', fontSize:11,
             color:'rgba(255,255,255,.25)', lineHeight:1.8 }}>
-            RZI Camp ERP · Roxgold Mining Sango<br/>
+            Roxgold SiteLife · Roxgold Mining Sango<br/>
             © {new Date().getFullYear()} — Usage interne uniquement
           </div>
         </div>

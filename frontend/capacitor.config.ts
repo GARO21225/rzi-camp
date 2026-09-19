@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.roxgold.rzicamp',
-  appName: 'RZI Camp',
+  appName: 'Roxgold SiteLife',
   webDir: 'dist',
   backgroundColor: '#0F2A5C',
   plugins: {

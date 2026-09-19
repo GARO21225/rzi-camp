@@ -824,7 +824,7 @@ function BadgesTab({ valeurs }) {
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) return
     w.document.write(`
-      <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Badges Personnel — RZI Camp</title>
+      <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Badges Personnel — Roxgold SiteLife</title>
       <style>
         * { box-sizing:border-box; }
         body { font-family:Arial,sans-serif; margin:0; padding:20px; background:#f1f5f9; }
