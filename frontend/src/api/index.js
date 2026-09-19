@@ -335,6 +335,13 @@ export const rolesAPI = {
   delete: (id)    => api.delete(`/api/roles/${id}/`),
 }
 
+export const rapportsPlanifiesAPI = {
+  list:   ()      => api.get('/api/rapports-planifies/'),
+  create: (d)     => api.post('/api/rapports-planifies/', d),
+  update: (id, d) => api.patch(`/api/rapports-planifies/${id}/`, d),
+  delete: (id)    => api.delete(`/api/rapports-planifies/${id}/`),
+}
+
 // ── Mot de passe ──
 export const password = {
   change: (d) => api.post('/api/change-password/', d),

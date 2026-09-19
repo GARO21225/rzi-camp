@@ -3,8 +3,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from django.contrib.auth.models import User
-from .serializers import UserSerializer, RoleCustomSerializer
-from .models import Parametre, RoleCustom, Profile
+from .serializers import UserSerializer, RoleCustomSerializer, RapportPlanifieSerializer
+from .models import Parametre, RoleCustom, Profile, RapportPlanifie
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -701,3 +701,47 @@ class RoleCustomViewSet(viewsets.ModelViewSet):
         nb_reassignes = Profile.objects.filter(role=role.code).update(role="agent")
         self.perform_destroy(role)
         return Response({"ok":True,"comptes_reassignes_vers_agent":nb_reassignes})
+
+
+class RapportPlanifieViewSet(viewsets.ModelViewSet):
+    """Rapports envoyes automatiquement par email - admin-only de bout en bout,
+    la configuration des destinataires est une action sensible."""
+    queryset = RapportPlanifie.objects.all()
+    serializer_class = RapportPlanifieSerializer
+
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    def _check(self, request):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        return None
+
+    def get_queryset(self):
+        # Ceinture-bretelles : meme si un appel direct contourne list(),
+        # un non-admin ne recupere jamais rien ici (contient des adresses
+        # email de destinataires, une info sensible).
+        if not self._is_admin(self.request.user):
+            return RapportPlanifie.objects.none()
+        return RapportPlanifie.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        err = self._check(request)
+        return err or super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        err = self._check(request)
+        if err: return err
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(cree_par=request.user)
+        return Response(serializer.data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        return self._check(request) or super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._check(request) or super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        return self._check(request) or super().destroy(request, *args, **kwargs)

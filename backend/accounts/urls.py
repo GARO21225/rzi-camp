@@ -1,10 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role, RoleCustomViewSet
+from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role, RoleCustomViewSet, RapportPlanifieViewSet
 
 router = DefaultRouter()
 router.register('roles', RoleCustomViewSet, basename='role-custom')
+router.register('rapports-planifies', RapportPlanifieViewSet, basename='rapport-planifie')
 
 urlpatterns = [
     path("", include(router.urls)),

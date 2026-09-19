@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parametres as paramAPI, personnel as personnelAPI, rolesAPI } from '../api'
+import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
@@ -34,6 +34,7 @@ const LIENS_RAPIDES = [
 const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['roles',      '👥 Rôles & Accès'],
+  ['rapports-planifies', '📧 Rapports par email'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
   ['induction',  '🎓 Induction du Camp'],
@@ -147,6 +148,10 @@ export default function Parametrage() {
 
       {tab === 'roles' && (
         <RolesTab isAdmin={isAdmin} />
+      )}
+
+      {tab === 'rapports-planifies' && (
+        <RapportsPlanifiesTab isAdmin={isAdmin} />
       )}
 
       {tab === 'apparence' && (
@@ -540,6 +545,126 @@ function RolesTab({ isAdmin }) {
                 </button>
               )}
             </>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const JOURS_SEMAINE_OPTS = [
+  [0,'Lundi'],[1,'Mardi'],[2,'Mercredi'],[3,'Jeudi'],[4,'Vendredi'],[5,'Samedi'],[6,'Dimanche'],
+]
+
+function RapportsPlanifiesTab({ isAdmin }) {
+  const [liste, setListe] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ nom:'', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'' })
+  const [creating, setCreating] = useState(false)
+
+  const charger = () => {
+    setLoading(true)
+    rapportsPlanifiesAPI.list().then(r => setListe(r.data.results || r.data || [])).finally(()=>setLoading(false))
+  }
+  useEffect(charger, [])
+
+  const creer = async () => {
+    const destinataires = form.destinataires.split(',').map(e=>e.trim()).filter(Boolean)
+    if (!form.nom.trim() || destinataires.length===0) { toast.error('Nom et au moins un destinataire requis.'); return }
+    setCreating(true)
+    try {
+      await rapportsPlanifiesAPI.create({
+        nom: form.nom.trim(), frequence: form.frequence, heure: form.heure, destinataires,
+        jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
+        jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
+      })
+      toast.success('Rapport planifié créé.')
+      setForm({ nom:'', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'' })
+      charger()
+    } catch(e) { toast.error(e.response?.data?.error || JSON.stringify(e.response?.data||{}) || 'Erreur') }
+    setCreating(false)
+  }
+  const toggleActif = async (r) => {
+    try {
+      await rapportsPlanifiesAPI.update(r.id, { actif: !r.actif })
+      charger()
+    } catch(e) { toast.error('Erreur') }
+  }
+  const supprimer = async (r) => {
+    if (!await confirmDialog(`Supprimer le rapport planifié "${r.nom}" ?`)) return
+    try { await rapportsPlanifiesAPI.delete(r.id); toast.success('Supprimé.'); charger() }
+    catch(e) { toast.error('Erreur') }
+  }
+
+  if (loading) return <div style={{padding:20,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement...</div>
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
+        ℹ️ Un résumé (chambres occupées, incidents ouverts, départs du jour, stock critique) est envoyé automatiquement par email aux destinataires configurés, à l'heure choisie. Nécessite qu'une tâche planifiée (cron) tourne sur le serveur — voir la documentation de déploiement.
+      </div>
+
+      {isAdmin && (
+        <div style={{border:'1px dashed #C9972B',borderRadius:12,padding:16,background:'#fffbeb'}}>
+          <div style={{fontWeight:700,fontSize:14,color:'#92400e',marginBottom:10}}>➕ Nouveau rapport planifié</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:10}}>
+            <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Nom (ex: Rapport direction)"
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <select value={form.frequence} onChange={e=>setForm(f=>({...f,frequence:e.target.value}))}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
+              <option value="quotidien">Quotidien</option>
+              <option value="hebdomadaire">Hebdomadaire</option>
+              <option value="mensuel">Mensuel</option>
+            </select>
+            {form.frequence==='hebdomadaire' && (
+              <select value={form.jour_semaine} onChange={e=>setForm(f=>({...f,jour_semaine:Number(e.target.value)}))}
+                style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
+                {JOURS_SEMAINE_OPTS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+              </select>
+            )}
+            {form.frequence==='mensuel' && (
+              <input type="number" min={1} max={28} value={form.jour_mois} onChange={e=>setForm(f=>({...f,jour_mois:Number(e.target.value)}))}
+                placeholder="Jour du mois (1-28)" style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            )}
+            <input type="time" value={form.heure} onChange={e=>setForm(f=>({...f,heure:e.target.value}))}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+          </div>
+          <input value={form.destinataires} onChange={e=>setForm(f=>({...f,destinataires:e.target.value}))}
+            placeholder="Emails séparés par virgules (ex: direction@roxgold.com, rh@roxgold.com)"
+            style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,marginBottom:10}}/>
+          <button onClick={creer} disabled={creating}
+            style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
+              cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
+            {creating ? '⏳...' : 'Créer'}
+          </button>
+        </div>
+      )}
+
+      {liste.length === 0 && <div style={{color:'#94a3b8',fontSize:13,textAlign:'center',padding:20}}>Aucun rapport planifié pour l'instant.</div>}
+
+      {liste.map(r => (
+        <div key={r.id} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:'#0f172a'}}>{r.nom}</div>
+            <div style={{fontSize:12,color:'#64748b',marginTop:3}}>
+              {r.frequence_label} à {r.heure?.slice(0,5)}
+              {r.frequence==='hebdomadaire' && r.jour_semaine!=null && ` · ${JOURS_SEMAINE_OPTS.find(j=>j[0]===r.jour_semaine)?.[1]}`}
+              {r.frequence==='mensuel' && r.jour_mois && ` · le ${r.jour_mois}`}
+            </div>
+            <div style={{fontSize:11.5,color:'#94a3b8',marginTop:3}}>📧 {r.destinataires?.join(', ')}</div>
+            {r.derniere_execution && <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>Dernier envoi : {new Date(r.derniere_execution).toLocaleString('fr-FR')}</div>}
+          </div>
+          {isAdmin && (
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:r.actif?'#16a34a':'#94a3b8',cursor:'pointer'}}>
+                <input type="checkbox" checked={r.actif} onChange={()=>toggleActif(r)}/>
+                Actif
+              </label>
+              <button onClick={()=>supprimer(r)}
+                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                🗑️
+              </button>
+            </div>
           )}
         </div>
       ))}

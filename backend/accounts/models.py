@@ -52,6 +52,56 @@ class RoleCustom(models.Model):
         return self.label
 
 
+class RapportPlanifie(models.Model):
+    """
+    Rapport envoye automatiquement par email a intervalle regulier -
+    execute par une commande Django (envoyer_rapports_planifies),
+    elle-meme declenchee par une entree crontab sur le serveur (meme
+    principe que la sauvegarde quotidienne deja en place). Pas de Celery/
+    Redis-broker necessaire : un cron + une commande suffit pour ce besoin.
+    """
+    FREQUENCES = [
+        ('quotidien', 'Quotidien'),
+        ('hebdomadaire', 'Hebdomadaire'),
+        ('mensuel', 'Mensuel'),
+    ]
+    JOURS_SEMAINE = [
+        (0,'Lundi'),(1,'Mardi'),(2,'Mercredi'),(3,'Jeudi'),(4,'Vendredi'),(5,'Samedi'),(6,'Dimanche'),
+    ]
+    nom            = models.CharField(max_length=150)
+    frequence      = models.CharField(max_length=20, choices=FREQUENCES, default='hebdomadaire')
+    jour_semaine   = models.PositiveSmallIntegerField(choices=JOURS_SEMAINE, null=True, blank=True)  # pour hebdomadaire
+    jour_mois      = models.PositiveSmallIntegerField(null=True, blank=True)  # pour mensuel (1-28)
+    heure          = models.TimeField(default='07:00')
+    destinataires  = models.JSONField(default=list, blank=True)  # liste d'adresses email
+    actif          = models.BooleanField(default=True)
+    derniere_execution = models.DateTimeField(null=True, blank=True)
+    cree_par       = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_creation  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.get_frequence_display()})"
+
+    def est_du(self, maintenant):
+        """Ce rapport doit-il partir maintenant, compte tenu de sa derniere execution ?"""
+        if not self.actif:
+            return False
+        if self.derniere_execution and self.derniere_execution.date() == maintenant.date():
+            return False  # deja envoye aujourd'hui, jamais 2x le meme jour
+        if maintenant.time().hour != self.heure.hour:
+            return False
+        if self.frequence == 'quotidien':
+            return True
+        if self.frequence == 'hebdomadaire':
+            return self.jour_semaine is not None and maintenant.weekday() == self.jour_semaine
+        if self.frequence == 'mensuel':
+            return self.jour_mois is not None and maintenant.day == self.jour_mois
+        return False
+
+
 class Parametre(models.Model):
     """
     Paramétrage général de l'application — clé/valeur unique, modifiable
