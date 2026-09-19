@@ -1,10 +1,10 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from django.contrib.auth.models import User
-from .serializers import UserSerializer
-from .models import Parametre
+from .serializers import UserSerializer, RoleCustomSerializer
+from .models import Parametre, RoleCustom, Profile
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -32,35 +32,11 @@ def liste_parametres(request):
         'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
         'theme_fond_app': ('#f1f5f9', "Couleur de fond de toutes les autres pages de l'application"),
         # Menus par role - configurable depuis Parametrage sans toucher au
-        # code. Valeurs par defaut = comportement actuel (ROLE_NAV cote
-        # frontend), pour que rien ne change tant qu'un admin ne personnalise
-        # pas explicitement. L'admin garde toujours acces a tout, jamais
-        # limite par ce systeme.
-        'menu_role_agent':         ('["/mon-compte","/carte","/demandes","/evenements","/voyages","/restauration","/maintenance","/historique"]', "Pages accessibles au role Agent Terrain"),
-        'menu_role_restauration':  ('["/carte","/evenements","/restauration","/historique"]', "Pages accessibles au role Equipe Restauration"),
-        'menu_role_technicien':    ('["/carte","/evenements","/maintenance","/induction","/historique"]', "Pages accessibles au role Technicien Maintenance"),
-        'menu_role_menage':        ('["/carte","/evenements","/maintenance","/historique"]', "Pages accessibles au role Equipe Menage"),
-        'menu_role_boutique':      ('["/carte","/evenements","/boutique"]', "Pages accessibles au role Bar & Boutique"),
-        'menu_role_securite':      ('["/carte","/evenements","/annuaire"]', "Pages accessibles au role Sécurité"),
-        'menu_role_medical':       ('["/carte","/evenements","/annuaire"]', "Pages accessibles au role Médical"),
-        'menu_role_hse':           ('["/carte","/evenements","/induction","/maintenance","/epi"]', "Pages accessibles au role HSE / QHSE"),
-        'menu_role_accueil':       ('["/carte","/evenements","/annuaire","/residences"]', "Pages accessibles au role Agent d'accueil"),
-        'menu_role_manager':       ('["/carte","/evenements","/demandes","/rapports","/analytics","/historique"]', "Pages accessibles au role Manager / Responsable"),
-        # Lecture seule par role: quand actif ("1"), les pages accessibles a
-        # ce role restent visibles mais les actions de creation/modification/
-        # suppression y sont desactivees - pour un role qui doit consulter
-        # sans jamais pouvoir changer les donnees. Par defaut a "0" (comme
-        # avant) pour ne rien changer tant qu'un admin ne l'active pas.
-        'readonly_role_agent':        ('0', 'Agent Terrain : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_restauration': ('0', 'Équipe Restauration : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_technicien':   ('0', 'Technicien Maintenance : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_menage':       ('0', 'Équipe Ménage : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_boutique':     ('0', 'Bar & Boutique : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_securite':     ('0', 'Sécurité : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_medical':      ('0', 'Médical : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_hse':          ('0', 'HSE / QHSE : lecture seule (1) ou peut modifier (0)'),
-        'readonly_role_accueil':      ('0', "Agent d'accueil : lecture seule (1) ou peut modifier (0)"),
-        'readonly_role_manager':      ('0', 'Manager / Responsable : lecture seule (1) ou peut modifier (0)'),
+        # Menus/lecture-seule par role : GERES DESORMAIS PAR LE MODELE
+        # RoleCustom (voir accounts/models.py + RoleCustomViewSet), plus par
+        # ce systeme cle/valeur - superseded, retire d'ici pour eviter la
+        # confusion entre deux sources de verite. La migration 0007 a deja
+        # transfere toute personnalisation existante vers RoleCustom.
     }
     existants = {p.cle: p for p in Parametre.objects.all()}
     out = []
@@ -677,3 +653,51 @@ def version(request):
                     'bons-roxgold','sous-traitants-masse'],
         'status':  'ok'
     })
+
+
+class RoleCustomViewSet(viewsets.ModelViewSet):
+    """
+    Roles configurables depuis Parametrage -> Roles & Acces : lecture
+    ouverte a tout utilisateur connecte (chacun doit pouvoir recuperer la
+    configuration de SON PROPRE role pour construire son menu), ecriture
+    reservee a l'admin.
+    """
+    queryset = RoleCustom.objects.all()
+    serializer_class = RoleCustomSerializer
+
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    def create(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        code = (request.data.get("code") or "").strip().lower()
+        if not code or not code.replace("_","").replace("-","").isalnum():
+            return Response({"error":"Le code du role doit être alphanumérique (tirets/underscores autorisés)."}, status=400)
+        if RoleCustom.objects.filter(code=code).exists():
+            return Response({"error":f"Le role '{code}' existe déjà."}, status=400)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        role = self.get_object()
+        if role.est_systeme and ("code" in request.data or "est_systeme" in request.data):
+            return Response({"error":"Le rôle Administrateur ne peut pas être renommé."}, status=400)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis"}, status=403)
+        role = self.get_object()
+        if role.est_systeme:
+            return Response({"error":"Le rôle Administrateur ne peut pas être supprimé."}, status=400)
+        # Personne ne doit se retrouver avec un role qui n'existe plus -
+        # repli automatique sur 'agent' pour tous les comptes concernes,
+        # plutot que de les laisser avec une reference cassee.
+        nb_reassignes = Profile.objects.filter(role=role.code).update(role="agent")
+        self.perform_destroy(role)
+        return Response({"ok":True,"comptes_reassignes_vers_agent":nb_reassignes})

@@ -1,8 +1,13 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
-from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role
+from .views import ping, version,  me, liste_users, toggle_user_active, delete_user, assigner_role, RoleCustomViewSet
+
+router = DefaultRouter()
+router.register('roles', RoleCustomViewSet, basename='role-custom')
 
 urlpatterns = [
+    path("", include(router.urls)),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("reset-password-confirm/", views.reset_password_confirm, name="reset_password_confirm"),
     path("diagnostic/", views.diagnostic_status, name="diagnostic"),

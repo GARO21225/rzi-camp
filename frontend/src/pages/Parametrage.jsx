@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parametres as paramAPI, personnel as personnelAPI } from '../api'
+import { parametres as paramAPI, personnel as personnelAPI, rolesAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
@@ -146,7 +146,7 @@ export default function Parametrage() {
       )}
 
       {tab === 'roles' && (
-        <RolesTab isAdmin={isAdmin} valeurs={valeurs} handleChange={handleChange} saving={saving} sauvegarder={sauvegarder} />
+        <RolesTab isAdmin={isAdmin} />
       )}
 
       {tab === 'apparence' && (
@@ -417,65 +417,132 @@ const PAGES_ASSIGNABLES = [
   ['/maintenance', '🛠️ Maintenance'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
 ]
-const ROLES_CONFIGURABLES = [
-  ['agent', 'Agent Terrain'], ['restauration', 'Équipe Restauration'],
-  ['technicien', 'Technicien Maintenance'], ['menage', 'Équipe Ménage'],
-  ['boutique', 'Bar & Boutique'], ['securite', 'Sécurité'],
-  ['medical', 'Médical'], ['hse', 'HSE / QHSE'],
-  ['accueil', "Agent d'accueil"], ['manager', 'Manager / Responsable'],
-]
 
-function RolesTab({ isAdmin, valeurs, handleChange, saving, sauvegarder }) {
-  const getListe = (role) => {
-    try { return JSON.parse(valeurs[`menu_role_${role}`] || '[]') } catch { return [] }
+function RolesTab({ isAdmin }) {
+  const [roles, setRoles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState(null)
+  const [nouveauCode, setNouveauCode] = useState('')
+  const [nouveauLabel, setNouveauLabel] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const charger = () => {
+    setLoading(true)
+    rolesAPI.list().then(r => setRoles(r.data.results || r.data || [])).finally(()=>setLoading(false))
   }
+  useEffect(charger, [])
+
   const toggle = (role, path) => {
-    const cle = `menu_role_${role}`
-    const liste = getListe(role)
-    const next = liste.includes(path) ? liste.filter(p => p !== path) : [...liste, path]
-    handleChange(cle, JSON.stringify(next))
+    const next = role.menu_pages.includes(path)
+      ? role.menu_pages.filter(p => p !== path)
+      : [...role.menu_pages, path]
+    setRoles(rs => rs.map(r => r.id === role.id ? {...r, menu_pages: next} : r))
   }
+  const toggleReadonly = (role) => {
+    setRoles(rs => rs.map(r => r.id === role.id ? {...r, readonly: !r.readonly} : r))
+  }
+  const enregistrerRole = async (role) => {
+    setSavingId(role.id)
+    try {
+      await rolesAPI.update(role.id, { menu_pages: role.menu_pages, readonly: role.readonly })
+      toast.success(`Accès de "${role.label}" enregistrés.`)
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+    setSavingId(null)
+  }
+  const supprimerRole = async (role) => {
+    if (!await confirmDialog(`Supprimer le rôle "${role.label}" ? Les comptes concernés repasseront automatiquement en "Agent Terrain".`)) return
+    try {
+      const r = await rolesAPI.delete(role.id)
+      const n = r.data?.comptes_reassignes_vers_agent || 0
+      toast.success(`Rôle supprimé.${n > 0 ? ` ${n} compte(s) réaffecté(s) à Agent Terrain.` : ''}`)
+      charger()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
+  const creerRole = async () => {
+    const code = nouveauCode.trim().toLowerCase().replace(/\s+/g,'_')
+    if (!code || !nouveauLabel.trim()) { toast.error('Code et libellé requis.'); return }
+    setCreating(true)
+    try {
+      await rolesAPI.create({ code, label: nouveauLabel.trim(), menu_pages: [] })
+      toast.success(`Rôle "${nouveauLabel}" créé — cochez ses pages ci-dessous puis enregistrez.`)
+      setNouveauCode(''); setNouveauLabel('')
+      charger()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+    setCreating(false)
+  }
+
+  if (loading) return <div style={{padding:20,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement des rôles...</div>
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:24}}>
       <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
         ℹ️ L'administrateur garde toujours accès à toutes les pages, quels que soient les réglages ci-dessous. Ceci ne configure que ce que voient les autres rôles.
       </div>
-      {ROLES_CONFIGURABLES.map(([role, label]) => {
-        const liste = getListe(role)
-        const cleRO = `readonly_role_${role}`
-        const lectureSeule = valeurs[cleRO] === '1'
-        return (
-          <div key={role} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:14,color:'#0f172a'}}>{label}</div>
-              <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,fontWeight:600,
-                color: lectureSeule ? '#92400e' : '#64748b', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
-                <input type="checkbox" disabled={!isAdmin} checked={lectureSeule}
-                  onChange={()=>handleChange(cleRO, lectureSeule ? '0' : '1')}
-                  style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
-                🔒 Lecture seule (ne peut ni créer, ni modifier, ni supprimer)
-              </label>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}}>
-              {PAGES_ASSIGNABLES.map(([path, lbl]) => (
-                <label key={path} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,
-                  color: isAdmin ? '#334155' : '#94a3b8', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
-                  <input type="checkbox" disabled={!isAdmin} checked={liste.includes(path)}
-                    onChange={()=>toggle(role, path)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
-                  {lbl}
-                </label>
-              ))}
-            </div>
-          </div>
-        )
-      })}
+
       {isAdmin && (
-        <button onClick={()=>sauvegarder()} disabled={saving}
-          style={{alignSelf:'flex-start',background:'var(--rzc-navy,#0F2A5C)',color:'#fff',border:'none',
-            padding:'10px 24px',borderRadius:9,cursor:saving?'not-allowed':'pointer',fontSize:13,fontWeight:700,opacity:saving?.6:1}}>
-          {saving ? '⏳ Enregistrement...' : '💾 Enregistrer les accès'}
-        </button>
+        <div style={{border:'1px dashed #C9972B',borderRadius:12,padding:16,background:'#fffbeb'}}>
+          <div style={{fontWeight:700,fontSize:14,color:'#92400e',marginBottom:10}}>➕ Créer un nouveau rôle</div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+            <input value={nouveauLabel} onChange={e=>setNouveauLabel(e.target.value)} placeholder="Nom affiché (ex: Chef d'équipe)"
+              style={{flex:'1 1 220px',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <input value={nouveauCode} onChange={e=>setNouveauCode(e.target.value)} placeholder="code_technique (ex: chef_equipe)"
+              style={{flex:'1 1 200px',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,fontFamily:'monospace'}}/>
+            <button onClick={creerRole} disabled={creating}
+              style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
+                cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
+              {creating ? '⏳...' : 'Créer'}
+            </button>
+          </div>
+        </div>
       )}
+
+      {roles.map(role => (
+        <div key={role.id} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16, opacity: role.est_systeme ? .7 : 1}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+            <div style={{fontWeight:700,fontSize:14,color:'#0f172a'}}>
+              {role.label} {role.est_systeme && <span style={{fontSize:11,color:'#94a3b8',fontWeight:400}}>(rôle système, protégé)</span>}
+            </div>
+            {!role.est_systeme && (
+              <div style={{display:'flex',alignItems:'center',gap:14}}>
+                <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,fontWeight:600,
+                  color: role.readonly ? '#92400e' : '#64748b', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
+                  <input type="checkbox" disabled={!isAdmin} checked={role.readonly}
+                    onChange={()=>toggleReadonly(role)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
+                  🔒 Lecture seule
+                </label>
+                {isAdmin && (
+                  <button onClick={()=>supprimerRole(role)}
+                    style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px 10px',
+                      borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                    🗑️ Supprimer
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {!role.est_systeme && (
+            <>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8,marginBottom:12}}>
+                {PAGES_ASSIGNABLES.map(([path, lbl]) => (
+                  <label key={path} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,
+                    color: isAdmin ? '#334155' : '#94a3b8', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
+                    <input type="checkbox" disabled={!isAdmin} checked={role.menu_pages.includes(path)}
+                      onChange={()=>toggle(role, path)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
+                    {lbl}
+                  </label>
+                ))}
+              </div>
+              {isAdmin && (
+                <button onClick={()=>enregistrerRole(role)} disabled={savingId===role.id}
+                  style={{background:'var(--rzc-navy,#0F2A5C)',color:'#fff',border:'none',padding:'7px 16px',
+                    borderRadius:8,cursor:savingId===role.id?'not-allowed':'pointer',fontSize:12,fontWeight:700}}>
+                  {savingId===role.id ? '⏳...' : '💾 Enregistrer ce rôle'}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

@@ -328,6 +328,13 @@ export const parametres = {
   save: (parametres) => api.post('/api/parametres/sauver/', { parametres }),
 }
 
+export const rolesAPI = {
+  list:   ()      => api.get('/api/roles/'),
+  create: (d)     => api.post('/api/roles/', d),
+  update: (id, d) => api.patch(`/api/roles/${id}/`, d),
+  delete: (id)    => api.delete(`/api/roles/${id}/`),
+}
+
 // ── Mot de passe ──
 export const password = {
   change: (d) => api.post('/api/change-password/', d),

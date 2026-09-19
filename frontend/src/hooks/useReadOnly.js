@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { parametres } from '../api'
+import { rolesAPI } from '../api'
 
 /**
  * Renvoie true si le role de l'utilisateur courant est configure en
- * "lecture seule" depuis Parametrage -> Roles & Acces (readonly_role_<role>).
+ * "lecture seule" depuis Parametrage -> Roles & Acces (RoleCustom.readonly).
  * L'admin n'est JAMAIS en lecture seule via ce systeme, quel que soit le
  * reglage - protection deliberee contre un auto-verrouillage.
  *
@@ -19,9 +19,10 @@ export function useReadOnly() {
 
   useEffect(() => {
     if (isAdmin) { setReadOnly(false); return }
-    parametres.list().then(r => {
-      const p = r.data?.find?.(x => x.cle === `readonly_role_${role}`)
-      setReadOnly(p?.valeur === '1')
+    rolesAPI.list().then(r => {
+      const liste = r.data?.results || r.data || []
+      const roleCustom = liste.find(x => x.code === role)
+      setReadOnly(!!roleCustom?.readonly)
     }).catch(() => setReadOnly(false))
   }, [isAdmin, role])
 

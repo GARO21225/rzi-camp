@@ -7,7 +7,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
-import { parametres } from '../api'
+import { rolesAPI } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -195,7 +195,7 @@ function WelcomeToast({ user, onClose }) {
           Bienvenue, {name} 👋
         </div>
         <div style={{ fontSize: 11, color: '#64748b' }}>
-          Connecté en tant que <b>{ROLE_LABELS[role] || role}</b> · {new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'})}
+          Connecté en tant que <b>{roleCustomLabel || ROLE_LABELS[role] || role}</b> · {new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'})}
         </div>
       </div>
       <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16, padding:0, flexShrink:0 }}>✕</button>
@@ -234,16 +234,17 @@ export default function Layout() {
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
 
   // Menu par role configurable depuis Parametrage (sans toucher au code) -
-  // repli sur ROLE_NAV code en dur si le parametre est absent/invalide,
+  // repli sur ROLE_NAV code en dur si le role custom est absent/invalide,
   // pour ne jamais casser l'affichage meme en cas de donnee corrompue.
   const [roleMenuOverride, setRoleMenuOverride] = useState(null)
+  const [roleCustomLabel, setRoleCustomLabel] = useState(null)
   useEffect(() => {
     if (isAdmin) return // admin garde toujours tout, jamais limite par ce systeme
-    parametres.list().then(r => {
-      const p = r.data?.find?.(x => x.cle === `menu_role_${role}`)
-      if (p?.valeur) {
-        try { setRoleMenuOverride(JSON.parse(p.valeur)) } catch { /* ignore, repli sur defaut */ }
-      }
+    rolesAPI.list().then(r => {
+      const liste = r.data?.results || r.data || []
+      const roleCustom = liste.find(x => x.code === role)
+      if (roleCustom?.menu_pages?.length) setRoleMenuOverride(roleCustom.menu_pages)
+      if (roleCustom?.label) setRoleCustomLabel(roleCustom.label)
     }).catch(() => {})
   }, [isAdmin, role])
 
@@ -391,7 +392,7 @@ export default function Layout() {
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: isMobile ? 3 : '3px 10px 3px 3px', background: 'rgba(255,255,255,.06)', borderRadius: 99, cursor: 'pointer', transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.12)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}
-          title={`${user?.first_name||''} ${user?.last_name||''} — ${ROLE_LABELS[role] || role}`}>
+          title={`${user?.first_name||''} ${user?.last_name||''} — ${roleCustomLabel || ROLE_LABELS[role] || role}`}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>
             {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
           </div>
@@ -401,7 +402,7 @@ export default function Layout() {
               {(user?.first_name && user?.last_name) ? `${user.first_name}` : user?.username || ''}
             </span>
             <span style={{ color: 'var(--rzc-bright-gold)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {ROLE_LABELS[role] || role}
+              {roleCustomLabel || ROLE_LABELS[role] || role}
             </span>
           </div>
           )}

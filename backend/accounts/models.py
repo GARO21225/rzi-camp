@@ -2,6 +2,12 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Profile(models.Model):
+    # ROLES reste comme reference historique (labels par defaut, code deja
+    # utilise ailleurs) mais n'est PLUS la source de verite : RoleCustom
+    # ci-dessous permet desormais a l'admin de creer/supprimer des roles
+    # depuis Parametrage, sans toucher au code. Le champ role n'a plus de
+    # choices= impose - n'importe quel code de RoleCustom est accepte,
+    # valide au niveau applicatif (serializer) plutot qu'au niveau DB.
     ROLES = [
         ('admin',        'Administrateur'),
         ('agent',        'Agent Terrain'),
@@ -16,12 +22,34 @@ class Profile(models.Model):
         ('manager',      'Manager / Responsable'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLES, default='agent')
+    role = models.CharField(max_length=30, default='agent')
     societe = models.CharField(max_length=100, blank=True, default='ROXGOLD')
     telephone = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
-        return f"{self.user.username} ({self.get_role_display()})"
+        return f"{self.user.username} ({self.role})"
+
+
+class RoleCustom(models.Model):
+    """
+    Role configurable depuis Parametrage -> Roles & Acces : remplace la
+    liste figee Profile.ROLES par une vraie table que l'admin peut
+    completer ou reduire sans deploiement. 'admin' reste toujours protege
+    (est_systeme=True, jamais supprimable depuis l'interface) pour eviter
+    qu'un admin se retrouve sans acces complet par erreur.
+    """
+    code         = models.SlugField(max_length=30, unique=True)
+    label        = models.CharField(max_length=100)
+    menu_pages   = models.JSONField(default=list, blank=True)
+    readonly     = models.BooleanField(default=False)
+    est_systeme  = models.BooleanField(default=False)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['label']
+
+    def __str__(self):
+        return self.label
 
 
 class Parametre(models.Model):
