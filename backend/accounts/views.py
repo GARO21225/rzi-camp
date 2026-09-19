@@ -31,6 +31,7 @@ def liste_parametres(request):
         'theme_police':    ('IBM Plex Sans', "Police de caractères de toute l'application"),
         'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
         'theme_fond_app': ('#f1f5f9', "Couleur de fond de toutes les autres pages de l'application"),
+        'nom_application': ('Roxgold SiteLife', "Nom de l'application affiché dans la barre latérale, le titre d'onglet et l'écran de connexion"),
         # Menus par role - configurable depuis Parametrage sans toucher au
         # Menus/lecture-seule par role : GERES DESORMAIS PAR LE MODELE
         # RoleCustom (voir accounts/models.py + RoleCustomViewSet), plus par

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useAppName } from '../hooks/useAppName'
 
 // ─────────────────────────────────────────────────────────────────
 //  CARTE DIGITAL TWIN — évolution de la carte Leaflet existante
@@ -172,6 +173,7 @@ const tok  = () => localStorage.getItem('access_token') || ''
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 export default function Dashboard() {
+  const nomApp = useAppName()
   const nav = useNavigate()
   const isMobile = useIsMobile()
   const [d, setD]           = useState({})
@@ -313,7 +315,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0, letterSpacing: '.3px' }}>
-              ROXGOLD SITELIFE <span style={{ color: 'var(--rzc-text-4)', fontWeight: 500 }}>· Centre d'exploitation</span>
+              {nomApp.toUpperCase()} <span style={{ color: 'var(--rzc-text-4)', fontWeight: 500 }}>· Centre d'exploitation</span>
             </h1>
             <p style={{ fontSize: 11.5, color: 'var(--rzc-text-3)', margin: '3px 0 0' }}>
               Roxgold Sango · {sync ? `Synchronisé ${sync.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}` : 'Chargement...'}

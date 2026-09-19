@@ -3,6 +3,7 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
+import { useAppName } from '../hooks/useAppName'
 
 // ROUTES V1 inchangées (le backend ne bouge pas)
 // LABELS V2 affichés dans la sidebar
@@ -141,6 +142,7 @@ function SidebarItem({ to, label, icon, badge, exact, isActive }) {
 }
 
 export default function Sidebar({ currentPath }) {
+  const nomApp = useAppName()
   const navigate = useNavigate()
   const { user, logout } = useStore()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
@@ -175,7 +177,7 @@ export default function Sidebar({ currentPath }) {
         </div>
         <div>
           <div style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>
-            ROXGOLD SITELIFE
+            {nomApp.toUpperCase()}
           </div>
           <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 600, marginTop: 1 }}>
             Roxgold · Côte d'Ivoire

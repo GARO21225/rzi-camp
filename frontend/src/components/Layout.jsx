@@ -174,7 +174,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
 }
 
 
-function WelcomeToast({ user, onClose }) {
+function WelcomeToast({ user, roleCustomLabel, onClose }) {
   const role = user?.profile?.role || 'agent'
   const ROLE_ICONS = { admin:'👑', agent:'🏗️', restauration:'🍽️', technicien:'🔧', menage:'🧹' }
   const name = user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || ''
@@ -183,7 +183,7 @@ function WelcomeToast({ user, onClose }) {
       position: 'fixed', top: 72, right: 16, zIndex: 9999,
       width: 'min(320px, calc(100vw - 32px))',
       background: '#fff', border: '1px solid #e2e8f0',
-      borderLeft: '4px solid #1e3a8ar(--rzi-blue)',
+      borderLeft: '4px solid #1e3a8a',
       borderRadius: 14, padding: '14px 16px',
       boxShadow: '0 8px 30px rgba(30,58,138,.2)',
       animation: 'fadeIn .3s ease',
@@ -385,7 +385,7 @@ export default function Layout() {
               </span>
             )}
           </button>
-    {showWelcome && <WelcomeToast user={user} onClose={() => setShowWelcome(false)} />}
+    {showWelcome && <WelcomeToast user={user} roleCustomLabel={roleCustomLabel} onClose={() => setShowWelcome(false)} />}
       {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
         </div>
 

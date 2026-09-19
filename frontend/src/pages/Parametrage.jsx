@@ -15,6 +15,7 @@ const CHAMPS = [
     { cle: 'sla_basse_h',    label: 'Priorité Basse',    suffix: 'heures', type: 'number' },
   ]},
   { section: 'Général', items: [
+    { cle: 'nom_application', label: "Nom de l'application", suffix: '', type: 'text', hint: 'Affiché dans le menu, l\'écran de connexion et le titre d\'onglet — un changement ne nécessite plus de redéploiement' },
     { cle: 'societe_defaut', label: 'Société par défaut', suffix: '', type: 'text', hint: 'Utilisée pour l\'auto-remplissage "Employé Roxgold" dans Personnel' },
     { cle: 'nom_camp',       label: 'Nom du camp',        suffix: '', type: 'text' },
   ]},

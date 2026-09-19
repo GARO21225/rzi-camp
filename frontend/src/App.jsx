@@ -186,11 +186,16 @@ export default function App() {
         if (logoParam?.valeur) {
           setLogoUrl(`data:${mimeParam?.valeur || 'image/png'};base64,${logoParam.valeur}`)
         }
+        const nomParam = r.data?.find?.(p => p.cle === 'nom_application')
+        if (nomParam?.valeur) {
+          document.title = `${nomParam.valeur} — ERP GIS`
+        }
       }).catch(() => {})
     }
   }, [token])
 
   return (
+    <GlobalErrorBoundary>
     <>
       {/* Monte au niveau racine (pas dans Layout) : doit survivre a une
           redirection vers /login (ex: session expiree pendant une action)
@@ -238,5 +243,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
+    </GlobalErrorBoundary>
   )
 }
