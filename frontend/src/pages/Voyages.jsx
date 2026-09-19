@@ -552,13 +552,22 @@ export default function Voyages() {
                 {filtered.map((v, i) => {
                   const sc = STATUT_STYLES[v.statut] || STATUT_STYLES.planifie
                   const p  = v.personnel_detail
+                  const autresDuConvoi = v.rotation_id ? filtered.filter(x => x.rotation_id === v.rotation_id && x.id !== v.id) : []
+                  const trajetDiffere = autresDuConvoi.some(x => x.destination && v.destination && x.destination !== v.destination)
                   return (
                     <tr key={v.id} style={{ borderTop:'1px solid #f1f5f9', background: i%2 ? '#fafafa':'var(--rzc-white)', transition:'.1s' }}
                       onMouseEnter={e => e.currentTarget.style.background='#eff6ff'}
                       onMouseLeave={e => e.currentTarget.style.background = i%2?'#fafafa':'var(--rzc-white)'}>
                       <td style={{ padding:'11px 13px' }}>
-                        <div style={{ fontWeight:700, color:'var(--rzc-navy)', fontSize:13 }}>
+                        <div style={{ fontWeight:700, color:'var(--rzc-navy)', fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
                           {p ? `${p.nom} ${p.prenom}` : v.destination || '—'}
+                          {trajetDiffere && (
+                            <span title="Ce trajet diffère des autres passagers du même convoi"
+                              style={{fontSize:9,fontWeight:700,color:'#7c3aed',background:'rgba(124,58,237,.12)',
+                                padding:'1px 6px',borderRadius:20,whiteSpace:'nowrap'}}>
+                              🔀 Trajet différent
+                            </span>
+                          )}
                         </div>
                         {p?.societe && <div style={{ fontSize:10.5, color:'var(--rzc-text-4)', marginTop:1 }}>{p.societe}</div>}
                         <div style={{ fontSize:10, color:'var(--rzc-text-4)', marginTop:2 }}>
