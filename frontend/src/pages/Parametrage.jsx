@@ -28,6 +28,8 @@ const CHAMPS = [
   { section: '📱 Connexion par SMS (OTP)', items: [
     { cle: 'sms_provider', label: 'Fournisseur SMS', suffix: '', type: 'text',
       hint: 'test (aucun envoi réel — code visible à l\'écran, pour valider le flux gratuitement), twilio, orange, ou africastalking' },
+    { cle: 'canal_otp', label: "Canal d'envoi du code OTP", suffix: '', type: 'text',
+      hint: 'sms ou whatsapp — whatsapp nécessite le fournisseur twilio avec un numéro approuvé WhatsApp Business' },
     { cle: 'sms_twilio_account_sid', label: 'Twilio — Account SID', suffix: '', type: 'text', hint: 'Depuis console.twilio.com' },
     { cle: 'sms_twilio_auth_token', label: 'Twilio — Auth Token', suffix: '', type: 'password', hint: 'Depuis console.twilio.com' },
     { cle: 'sms_twilio_from', label: 'Twilio — Numéro expéditeur', suffix: '', type: 'text', hint: 'Ex: +14155238886' },

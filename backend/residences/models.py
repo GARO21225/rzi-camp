@@ -34,6 +34,8 @@ class Personnel(models.Model):
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
     societe = models.CharField(max_length=100)
+    departement = models.CharField(max_length=100, blank=True, default="",
+                     help_text="Département/service au sein de la société (ex: Maintenance, RH, Logistique) — distinct de la société elle-même")
     numero = models.CharField(max_length=20, blank=True)
     telephone = models.CharField(max_length=30, blank=True, default="")
     numero_whatsapp = models.CharField(max_length=30, blank=True, default="")

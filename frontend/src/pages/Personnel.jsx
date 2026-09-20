@@ -107,7 +107,7 @@ export default function Personnel() {
         }
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -558,7 +558,7 @@ export default function Personnel() {
             {!lectureSeule && (
               <>
                 <button onClick={()=>{
-                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
                   setErr(''); setModal('new')
                 }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
                   ➕ Nouveau membre
@@ -724,10 +724,16 @@ export default function Personnel() {
                     </td>
 
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
-                      {p.societe || '—'}
+                      <div>{p.societe || '—'}</div>
+                      {p.departement && (
+                        <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:2}}>{p.departement}</div>
+                      )}
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
-                      {p.telephone || '—'}
+                      <div>{p.telephone || '—'}</div>
+                      {p.numero_whatsapp && (
+                        <div style={{fontSize:11,color:'#16a34a',marginTop:2}}>💬 {p.numero_whatsapp}</div>
+                      )}
                     </td>
                     <td style={{padding:'10px 14px',fontSize:11,color:'var(--rzc-text-4)'}}>
                       {p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '—'}
@@ -753,7 +759,7 @@ export default function Personnel() {
                           <button onClick={() => {
                             setForm({
                               nom:p.nom, prenom:p.prenom, email:p.email||'',
-                              telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', societe:p.societe||'',
+                              telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
                               numero:p.numero||'', actif:p.actif,
                               est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite
@@ -914,6 +920,11 @@ export default function Personnel() {
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>N° MATRICULE</label>
                     <input value={form.numero} onChange={e=>setForm({...form,numero:e.target.value})} style={inp}/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>DÉPARTEMENT <span style={{fontWeight:400,color:'var(--rzc-text-4)'}}>(optionnel)</span></label>
+                    <input value={form.departement||''} placeholder="Ex: Maintenance, RH, Logistique..."
+                      onChange={e=>setForm({...form,departement:e.target.value})} style={inp}/>
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12, marginTop:12}}>

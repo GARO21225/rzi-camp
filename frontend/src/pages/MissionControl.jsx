@@ -1462,7 +1462,7 @@ export default function MissionControl() {
 
                 const exporterCSV = () => {
                   const csv = ['Convoi,Date,Ordre,Passager,Société,Téléphone,Lieu de montée,Lieu de descente,Statut,Chauffeur,Second chauffeur,Immatriculation',
-                    ...lignes.map(l=>`"${l._convoi}",${l.date_depart},${l._ordre},"${l.personnel_nom||''}","${l.personnel_societe||''}","${l.personnel_telephone||''}","${l.origine||'—'}","${l.destination||''}",${l.statut},"${l.conducteur||''}","${l.conducteur_secondaire||''}","${l.vehicule_matricule||''}"`)
+                    ...lignes.map(l=>`"${l._convoi}",${l.date_depart},${l._ordre},"${l.personnel_nom||''}","${l.personnel_departement||l.personnel_societe||''}","${l.personnel_telephone||''}","${l.origine||'—'}","${l.destination||''}",${l.statut},"${l.conducteur||''}","${l.conducteur_secondaire||''}","${l.vehicule_matricule||''}"`)
                   ].join('\n')
                   const a = document.createElement('a')
                   a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}))
@@ -1475,7 +1475,7 @@ export default function MissionControl() {
                     <tr>
                       <td class="ord">${l._ordre}</td>
                       <td class="pass">${l.personnel_nom||''}</td>
-                      <td>${l.personnel_societe||''}</td>
+                      <td>${l.personnel_departement||l.personnel_societe||''}</td>
                       <td>${l.personnel_telephone||''}</td>
                       <td>${l.origine||'—'}</td>
                       <td>${l.destination||''}</td>
@@ -1489,6 +1489,7 @@ export default function MissionControl() {
                       .hdr{width:100%;margin-bottom:10px}
                       .hdr td{border:1px solid #333;padding:6px 10px;font-size:11px}
                       .hdr .lbl{font-style:italic;color:#333;background:#f3f3f3;width:1%;white-space:nowrap}
+                      .hdr .chk{text-align:center;font-size:15px;width:1%}
                       .trajet{background:#111;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px;text-transform:uppercase}
                       thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:11px}
                       .ord{text-align:center;font-weight:800;color:#c00}
@@ -1502,6 +1503,16 @@ export default function MissionControl() {
                       <td class="lbl">Date de fin de voyage</td><td>${fmt(ref.date_retour_prevue)||''}</td>
                       <td class="lbl">Immatriculation du véhicule</td><td>${ref.vehicule_matricule||''}</td>
                     </tr></table>
+                    <table class="hdr equip">
+                      <tr><td class="lbl">Bouton de panique in véhicule ?</td><td class="chk">☐</td>
+                          <td class="lbl">Eau</td><td class="chk">☐</td></tr>
+                      <tr><td class="lbl">Emplacement du bouton connu ?</td><td class="chk">☐</td>
+                          <td class="lbl">Carte</td><td class="chk">☐</td></tr>
+                      <tr><td class="lbl">Téléphone satellite</td><td class="chk">☐</td>
+                          <td class="lbl">Lire et comprendre JMP ?</td><td class="chk">☐</td></tr>
+                      <tr><td class="lbl">Numéro de téléphone satellite :</td><td colspan="1" style="font-size:11px">&nbsp;</td>
+                          <td class="lbl">Trousse de premiers soins ?</td><td class="chk">☐</td></tr>
+                    </table>
                     <div class="trajet">${manifFiltreConvoi!=='tous'?`Convoi ${manifFiltreConvoi}`:'Manifeste'} — ${ref.origine||''} → ${ref.destination||''}</div>
                     <table style="margin-top:14px">
                       <thead><tr><td>Ordre</td><td>Passagers</td><td>Société / Département</td><td>N° MTN / Orange</td><td>Lieu de montée</td><td>Lieu de descente</td></tr></thead>
@@ -1564,7 +1575,7 @@ export default function MissionControl() {
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                     <thead style={{position:'sticky',top:0}}>
                       <tr style={{background:`${C.accent}10`}}>
-                        {['Convoi','Date','Ordre','Passager','Société','Téléphone','Lieu de montée','Lieu de descente','Statut'].map(h=>(
+                        {['Convoi','Date','Ordre','Passager','CIE / Département','Téléphone','Lieu de montée','Lieu de descente','Statut'].map(h=>(
                           <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:10,
                             fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:.5,
                             borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>{h}</th>
@@ -1578,7 +1589,7 @@ export default function MissionControl() {
                           <td style={{padding:'7px 10px',color:C.muted,whiteSpace:'nowrap'}}>{fmt(v.date_depart)}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace'}}>{v._ordre}</td>
                           <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
-                          <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_societe||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_departement || v.personnel_societe || '—'}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{v.personnel_telephone||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.destination||'—'}</td>

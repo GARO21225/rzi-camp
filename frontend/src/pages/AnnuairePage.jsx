@@ -145,11 +145,13 @@ export default function AnnuairePage() {
             {[
               ['🏠 Résidence', selected.batiment_nom || selected.residence || '—'],
               ['🏢 Société', selected.societe || '—'],
+              ['🗂️ Département', selected.departement || '—'],
               ['👤 Type', selected.type_personnel || '—'],
               ['🎓 Induction', selected.inductionrecord ?
                 (selected.inductionrecord.statut==='valide'?'✅ Induit':'⏳ En cours') :
                 '❌ Non commencé'],
-              ['📞 Téléphone', selected.numero || '—'],
+              ['📞 Téléphone', selected.telephone || '—'],
+              ['💬 WhatsApp', selected.numero_whatsapp || '—'],
               ['📧 Email', selected.email || '—'],
               ['🪪 Matricule', selected.matricule || '—'],
               ['📅 Arrivée', selected.date_creation?.slice(0,10) || '—'],

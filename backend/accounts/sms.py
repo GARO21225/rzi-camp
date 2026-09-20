@@ -16,20 +16,30 @@ class SMSNonConfigureError(Exception):
     pass
 
 
-def envoyer_sms(numero, message):
+def envoyer_sms(numero, message, canal=None):
     """
     Renvoie (ok: bool, info: str). Ne leve jamais d'exception vers
     l'appelant - les erreurs sont dans (False, "raison") pour que
     demander_otp() puisse repondre proprement au frontend.
+
+    canal: 'sms' (par defaut) ou 'whatsapp'. Si omis, lit le parametre
+    'canal_otp' (permet de choisir le canal par defaut pour tout le camp
+    sans toucher au code appelant). WhatsApp n'est pour l'instant
+    disponible que via Twilio (le numero expediteur doit etre approuve
+    WhatsApp Business par Twilio - voir console.twilio.com).
     """
     provider = Parametre.get('sms_provider', 'test')
+    canal = canal or Parametre.get('canal_otp', 'sms')
 
     if provider == 'test':
-        print(f"[SMS TEST] -> {numero} : {message}")
+        print(f"[SMS TEST{'/WHATSAPP' if canal=='whatsapp' else ''}] -> {numero} : {message}")
         return True, "mode_test"
 
     if provider == 'twilio':
-        return _envoyer_twilio(numero, message)
+        return _envoyer_twilio(numero, message, canal=canal)
+
+    if canal == 'whatsapp':
+        return False, f"WhatsApp n'est disponible que via Twilio pour l'instant (fournisseur actuel : {provider})"
 
     if provider == 'orange':
         return _envoyer_orange(numero, message)
@@ -40,7 +50,7 @@ def envoyer_sms(numero, message):
     return False, f"Fournisseur SMS inconnu : {provider}"
 
 
-def _envoyer_twilio(numero, message):
+def _envoyer_twilio(numero, message, canal='sms'):
     sid   = Parametre.get('sms_twilio_account_sid', '')
     token = Parametre.get('sms_twilio_auth_token', '')
     depuis = Parametre.get('sms_twilio_from', '')
@@ -49,6 +59,12 @@ def _envoyer_twilio(numero, message):
     try:
         from twilio.rest import Client
         client = Client(sid, token)
+        if canal == 'whatsapp':
+            # Le numero expediteur Twilio doit etre approuve WhatsApp
+            # Business (sandbox pour les tests, numero dedie en production) -
+            # prefixe "whatsapp:" requis des deux cotes par l'API Twilio.
+            client.messages.create(body=message, from_=f"whatsapp:{depuis}", to=f"whatsapp:{numero}")
+            return True, "envoyé via Twilio WhatsApp"
         client.messages.create(body=message, from_=depuis, to=numero)
         return True, "envoyé via Twilio"
     except ImportError:

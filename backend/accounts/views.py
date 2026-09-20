@@ -36,6 +36,7 @@ def liste_parametres(request):
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
         'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio, orange, africastalking"),
+        'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp (whatsapp nécessite le fournisseur twilio, avec un numéro approuvé WhatsApp Business)"),
         'sms_twilio_account_sid': ('', 'Twilio — Account SID (console.twilio.com)'),
         'sms_twilio_auth_token': ('', 'Twilio — Auth Token'),
         'sms_twilio_from': ('', 'Twilio — Numéro expéditeur (ex: +14155238886)'),
