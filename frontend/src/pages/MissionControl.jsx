@@ -1477,7 +1477,7 @@ export default function MissionControl() {
                   const lignesTable = lignes.map((l,i) => `
                     <tr>
                       <td class="ord">${l._ordre}</td>
-                      <td class="pass">${l.personnel_nom||''}</td>
+                      <td class="pass">${l.personnel_nom||''}${l.a_un_vol ? ` <span style="color:#7c3aed;font-weight:800;font-size:10px">✈️ VOL ${l.a_un_vol.heure_depart?l.a_un_vol.heure_depart.slice(0,5):''} ${l.a_un_vol.numero_vol||''}</span>` : ''}</td>
                       <td>${l.personnel_departement||l.personnel_societe||''}</td>
                       <td>${l.personnel_telephone||''}</td>
                       <td>${l.origine||'—'}</td>
@@ -1591,7 +1591,15 @@ export default function MissionControl() {
                           <td style={{padding:'7px 10px',fontFamily:'JetBrains Mono,monospace',fontSize:10,color:v.rotation_id?C.accent:C.muted}}>{v._convoi}</td>
                           <td style={{padding:'7px 10px',color:C.muted,whiteSpace:'nowrap'}}>{fmt(v.date_depart)}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace'}}>{v._ordre}</td>
-                          <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
+                          <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>
+                            {v.personnel_nom||'—'}
+                            {v.a_un_vol && (
+                              <span title={`Vol ${v.a_un_vol.numero_vol||''} — ${v.a_un_vol.heure_depart||'heure non renseignée'}`}
+                                style={{marginLeft:6,fontSize:10,fontWeight:700,color:'#7c3aed',background:'#7c3aed20',padding:'1px 6px',borderRadius:20,whiteSpace:'nowrap'}}>
+                                ✈️ {v.a_un_vol.heure_depart?.slice(0,5)||'Vol'}
+                              </span>
+                            )}
+                          </td>
                           <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_departement || v.personnel_societe || '—'}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{v.personnel_telephone||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'} <span style={{opacity:.4,fontSize:10}} title="Cliquer la ligne pour modifier montée/descente">✏️</span></td>

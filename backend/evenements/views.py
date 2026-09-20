@@ -93,6 +93,91 @@ class EvenementViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"])
+    def generer_qr(self, request, pk=None):
+        """
+        Genere (ou renvoie si deja genere) le QR individuel a usage unique
+        de L'UTILISATEUR CONNECTE pour cet evenement - jamais pour
+        quelqu'un d'autre (self-service, comme rejoindre_rotation). Refuse
+        si l'evenement n'a pas qr_requis actif.
+        """
+        from .models import QREvenement
+        from residences.models import Personnel
+        import uuid
+
+        evenement = self.get_object()
+        if not evenement.qr_requis:
+            return Response({"error":"Cet évènement ne nécessite pas de QR d'accès."}, status=400)
+
+        pers = Personnel.objects.filter(user=request.user).first()
+        if not pers:
+            return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=404)
+
+        preference = request.data.get("preference_boisson", "")
+        if evenement.propose_boisson and preference not in ("alcool", "sucrerie"):
+            return Response({"error":"Merci de choisir une préférence : alcool ou sucrerie."}, status=400)
+
+        qr, cree = QREvenement.objects.get_or_create(
+            evenement=evenement, personnel=pers,
+            defaults={"token": uuid.uuid4().hex, "preference_boisson": preference if evenement.propose_boisson else ""},
+        )
+        if not cree and evenement.propose_boisson and preference and qr.preference_boisson != preference:
+            qr.preference_boisson = preference
+            qr.save(update_fields=["preference_boisson"])
+        from .serializers import QREvenementSerializer
+        # Image QR generee a la volee (meme motif que les badges Personnel,
+        # residences/views.py) - pas stockee, le token suffit a la
+        # regenerer identique a chaque appel.
+        import qrcode, io, base64
+        qr_img = qrcode.make(qr.token, box_size=10, border=2)
+        buf = io.BytesIO()
+        qr_img.save(buf, format="PNG")
+        data = QREvenementSerializer(qr).data
+        data["qr_image_base64"] = base64.b64encode(buf.getvalue()).decode()
+        return Response(data, status=201 if cree else 200)
+
+    @action(detail=True, methods=["post"])
+    def scanner_qr(self, request, pk=None):
+        """
+        Valide un QR d'evenement a l'entree - reserve au personnel
+        autorise a controler l'acces (admin, ou role avec permission
+        d'ecriture sur /evenements). Usage unique strict, verrouillage
+        transactionnel identique au scan repas (empeche un double-scan
+        simultane de compter deux fois la meme personne).
+        """
+        from django.db import transaction
+        from django.utils import timezone
+        from .models import QREvenement
+
+        if not self._is_admin(request.user):
+            return Response({"error":"Seul le personnel autorisé peut scanner les accès."}, status=403)
+
+        token = (request.data.get("token") or "").strip()
+        if not token:
+            return Response({"valid": False, "erreur": "Token requis"}, status=400)
+
+        with transaction.atomic():
+            qr = QREvenement.objects.select_for_update().filter(token=token, evenement_id=pk).first()
+            if not qr:
+                return Response({"valid": False, "erreur": "Code invalide pour cet évènement."}, status=404)
+            if qr.utilise:
+                return Response({
+                    "valid": False,
+                    "erreur": f"Ce code a déjà été scanné ({qr.utilise_le.strftime('%d/%m/%Y à %H:%M') if qr.utilise_le else ''}).",
+                    "personnel_nom": f"{qr.personnel.nom} {qr.personnel.prenom}",
+                }, status=400)
+            qr.utilise = True
+            qr.utilise_le = timezone.now()
+            qr.valide_par = request.user
+            qr.save(update_fields=["utilise","utilise_le","valide_par"])
+
+        return Response({
+            "valid": True,
+            "personnel_nom": f"{qr.personnel.nom} {qr.personnel.prenom}",
+            "personnel_societe": qr.personnel.societe,
+            "preference_boisson": qr.get_preference_boisson_display() if qr.preference_boisson else None,
+        })
+
+    @action(detail=True, methods=["post"])
     def notifier(self, request, pk=None):
         # Diffuse une notification a TOUS les residents - une capacite de
         # "broadcast" qui doit rester admin-only, d'autant plus que les

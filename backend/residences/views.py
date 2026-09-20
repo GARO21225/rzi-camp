@@ -272,6 +272,40 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         data = dict(response.data)
         data["login_genere"] = username
         data["password_genere"] = password
+        # Envoi automatique des identifiants par WhatsApp et email (demande
+        # explicite: "chaque utilisateur qui sera cree ait le acces via
+        # whatsapp par mail") - en plus de l'affichage a l'ecran (qui reste
+        # la SEULE facon de voir a nouveau le mot de passe si ces envois
+        # echouent ou si le numero/email est absent). N'echoue jamais la
+        # creation du compte si l'envoi rate - fail_silently partout.
+        if username and password:
+            from accounts.models import Parametre
+            nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
+            message = f"{nom_app} — Vos identifiants de connexion :\nIdentifiant : {username}\nMot de passe : {password}\n\nConservez ce message, il ne sera plus jamais affiché."
+            envois = {"email": False, "whatsapp": False}
+            try:
+                if p.email:
+                    from django.core.mail import send_mail
+                    from django.conf import settings
+                    send_mail(
+                        subject=f"🔑 Vos identifiants — {nom_app}",
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[p.email],
+                        fail_silently=True,
+                    )
+                    envois["email"] = True
+            except Exception:
+                pass
+            try:
+                numero = p.numero_whatsapp or p.telephone
+                if numero:
+                    from accounts.sms import envoyer_sms
+                    ok, _info = envoyer_sms(numero, message, canal='whatsapp')
+                    envois["whatsapp"] = ok
+            except Exception:
+                pass
+            data["identifiants_envoyes"] = envois
         # Notifier uniquement sécurité, médical, agent d'accueil
         try:
             from evenements.models import SimpleNotification

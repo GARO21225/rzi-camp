@@ -24,7 +24,7 @@ class VoyageSerializer(serializers.ModelSerializer):
     personnel_nom      = serializers.SerializerMethodField()
     personnel_societe  = serializers.SerializerMethodField()
     personnel_departement = serializers.SerializerMethodField()
-    personnel_departement = serializers.SerializerMethodField()
+    a_un_vol = serializers.SerializerMethodField()
     personnel_telephone = serializers.SerializerMethodField()
     personnel_profil   = serializers.SerializerMethodField()
     batiment_nom       = serializers.SerializerMethodField()
@@ -65,6 +65,23 @@ class VoyageSerializer(serializers.ModelSerializer):
         o = self._obj(obj)
         try: return o.personnel.departement if o and o.personnel else ""
         except: return ""
+
+    def get_a_un_vol(self, obj):
+        """
+        Indique si ce voyage a une etape avion (aller ou retour), avec les
+        infos essentielles pour la planification (le convoi doit partir a
+        temps pour que ce passager attrape son vol). None si pas de vol.
+        """
+        o = self._obj(obj)
+        if not o: return None
+        etape_vol = o.etapes.filter(mode_transport="avion").order_by("date_etape","heure_depart").first()
+        if not etape_vol: return None
+        return {
+            "numero_vol": etape_vol.reference or "",
+            "date": str(etape_vol.date_etape),
+            "heure_depart": str(etape_vol.heure_depart) if etape_vol.heure_depart else None,
+            "sens": etape_vol.sens,
+        }
 
     def get_personnel_telephone(self, obj):
         o = self._obj(obj)

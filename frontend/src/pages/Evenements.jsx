@@ -35,9 +35,15 @@ export default function Evenements() {
   const [modal, setModal] = useState(false)
   const [alerteModal, setAlerteModal] = useState(false)
   const [notifResult, setNotifResult] = useState(null)
+  const [qrModal, setQrModal] = useState(null)        // { evt } en cours de generation
+  const [qrResult, setQrResult] = useState(null)       // reponse du serveur (image + token)
+  const [boissonChoix, setBoissonChoix] = useState('')
+  const [scanModal, setScanModal] = useState(null)     // evenement en cours de scan
+  const [scanToken, setScanToken] = useState('')
+  const [scanResult, setScanResult] = useState(null)
   const [form, setForm] = useState({
     titre:'', description:'', type_event:'reunion', lieu:'Salle polyvalente Camp RZI',
-    date_debut:todayDT, date_fin:'', obligatoire:false
+    date_debut:todayDT, date_fin:'', obligatoire:false, qr_requis:false, propose_boisson:false
   })
   const [alerteForm, setAlerteForm] = useState({ message:'', type_alerte:'info' })
 
@@ -179,8 +185,21 @@ export default function Evenements() {
                     {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
                   </div>
                 </div>
+                {evt.qr_requis && (
+                  <button onClick={()=>{setQrModal({evt}); setQrResult(null); setBoissonChoix('')}}
+                    style={{ background:'rgba(240,165,0,.12)', color:'#d08800', border:'1px solid rgba(240,165,0,.25)',
+                      padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0, alignSelf:'flex-start' }}>
+                    🎫 Mon QR
+                  </button>
+                )}
                 {isAdmin && (
                   <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
+                    {evt.qr_requis && (
+                      <button onClick={()=>{setScanModal(evt); setScanToken(''); setScanResult(null)}}
+                        style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        📷 Scanner
+                      </button>
+                    )}
                     <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                       🔔 Notifier
                     </button>
@@ -238,6 +257,16 @@ export default function Evenements() {
                 <input type="checkbox" id="oblig" checked={form.obligatoire} onChange={e=>setForm({...form,obligatoire:e.target.checked})} style={{ width:16, height:16 }}/>
                 <label htmlFor="oblig" style={{ fontSize:13, cursor:'pointer' }}>Participation obligatoire</label>
               </div>
+              <div style={{ gridColumn:'span 2', display:'flex', alignItems:'center', gap:10 }}>
+                <input type="checkbox" id="qrreq" checked={form.qr_requis} onChange={e=>setForm({...form,qr_requis:e.target.checked, propose_boisson: e.target.checked ? form.propose_boisson : false})} style={{ width:16, height:16 }}/>
+                <label htmlFor="qrreq" style={{ fontSize:13, cursor:'pointer' }}>🎫 QR individuel à l'entrée (usage unique — ex: barbecue)</label>
+              </div>
+              {form.qr_requis && (
+                <div style={{ gridColumn:'span 2', display:'flex', alignItems:'center', gap:10, marginLeft:26 }}>
+                  <input type="checkbox" id="boisson" checked={form.propose_boisson} onChange={e=>setForm({...form,propose_boisson:e.target.checked})} style={{ width:16, height:16 }}/>
+                  <label htmlFor="boisson" style={{ fontSize:13, cursor:'pointer' }}>🍺🥤 Proposer un choix alcool / sucrerie à la génération du QR</label>
+                </div>
+              )}
             </div>
             <div style={{ padding:'10px 20px', background:'rgba(22,163,74,.06)', borderTop:'1px solid rgba(22,163,74,.15)', fontSize:12, color:'#16a34a', fontWeight:600 }}>
               🔔 Les résidents actifs seront automatiquement notifiés à la création
@@ -279,6 +308,102 @@ export default function Evenements() {
             <div style={{ padding:'12px 18px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setAlerteModal(false)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 14px', borderRadius:7, cursor:'pointer', fontSize:13 }}>Annuler</button>
               <button onClick={createAlerte} style={{ background:'#dc2626', color:'var(--rzc-white)', border:'none', padding:'8px 16px', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:700 }}>⚠️ Diffuser l'alerte</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL GENERATION QR (n'importe quel utilisateur, pour SOI-MEME) ══ */}
+      {qrModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setQrModal(null)}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:14, maxWidth:360, width:'100%', overflow:'hidden', textAlign:'center' }}>
+            <div style={{ padding:'14px 18px', background:'#d08800', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>🎫 {qrModal.evt.titre}</div>
+              <button onClick={()=>setQrModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              {!qrResult ? (
+                <>
+                  {qrModal.evt.propose_boisson && (
+                    <div style={{ marginBottom:16, textAlign:'left' }}>
+                      <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Votre préférence :</label>
+                      <div style={{ display:'flex', gap:8 }}>
+                        {[['alcool','🍺 Alcool'],['sucrerie','🥤 Sucrerie']].map(([v,l])=>(
+                          <button key={v} onClick={()=>setBoissonChoix(v)}
+                            style={{ flex:1, padding:'10px 4px', borderRadius:8, border:`2px solid ${boissonChoix===v?'#d08800':'var(--border)'}`,
+                              background:boissonChoix===v?'#d0880015':'var(--surface2)', color:boissonChoix===v?'#d08800':'var(--text-dim)', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <button onClick={async ()=>{
+                      if (qrModal.evt.propose_boisson && !boissonChoix) return toast.error('Choisissez une préférence.')
+                      try {
+                        const r = await evtAPI.genererQr(qrModal.evt.id, boissonChoix)
+                        setQrResult(r.data)
+                      } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+                    }}
+                    style={{ width:'100%', background:'#d08800', color:'#fff', border:'none', padding:12, borderRadius:9, cursor:'pointer', fontSize:14, fontWeight:700 }}>
+                    Générer mon QR
+                  </button>
+                </>
+              ) : (
+                <>
+                  <img src={'data:image/png;base64,'+qrResult.qr_image_base64} alt="QR" style={{ width:200, height:200, margin:'0 auto 12px', display:'block' }}/>
+                  {qrResult.utilise ? (
+                    <div style={{ color:'#dc2626', fontWeight:700, fontSize:13 }}>⚠️ Déjà scanné le {qrResult.utilise_le ? new Date(qrResult.utilise_le).toLocaleString('fr-FR') : ''}</div>
+                  ) : (
+                    <div style={{ color:'#16a34a', fontWeight:700, fontSize:13 }}>Présentez ce code à l'entrée — usage unique</div>
+                  )}
+                  {qrResult.preference_boisson_label && <div style={{ fontSize:12, color:'var(--text-dim)', marginTop:6 }}>{qrResult.preference_boisson_label}</div>}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL SCAN (admin uniquement) ══ */}
+      {scanModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setScanModal(null)}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:14, maxWidth:380, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#7c3aed', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>📷 Scanner — {scanModal.titre}</div>
+              <button onClick={()=>setScanModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Code scanné ou saisi manuellement</label>
+              <input value={scanToken} onChange={e=>setScanToken(e.target.value)} autoFocus
+                onKeyDown={async e=>{
+                  if (e.key !== 'Enter' || !scanToken.trim()) return
+                  try {
+                    const r = await evtAPI.scannerQr(scanModal.id, scanToken.trim())
+                    setScanResult({ok:true, ...r.data})
+                  } catch(e2) { setScanResult({ok:false, ...(e2.response?.data||{erreur:'Erreur réseau'})}) }
+                  setScanToken('')
+                }}
+                placeholder="Coller le token ici et Entrée" style={{ ...inp, marginBottom:14 }}/>
+              {scanResult && (
+                <div style={{ padding:14, borderRadius:9, background: scanResult.valid ? '#16a34a15' : '#dc262615',
+                  border:`1px solid ${scanResult.valid ? '#16a34a40' : '#dc262640'}` }}>
+                  {scanResult.valid ? (
+                    <>
+                      <div style={{ color:'#16a34a', fontWeight:700, fontSize:14 }}>✅ Accès validé</div>
+                      <div style={{ fontSize:13, marginTop:4 }}>{scanResult.personnel_nom} · {scanResult.personnel_societe}</div>
+                      {scanResult.preference_boisson && <div style={{ fontSize:12, color:'var(--text-dim)', marginTop:2 }}>{scanResult.preference_boisson}</div>}
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ color:'#dc2626', fontWeight:700, fontSize:14 }}>❌ {scanResult.erreur}</div>
+                      {scanResult.personnel_nom && <div style={{ fontSize:13, marginTop:4 }}>{scanResult.personnel_nom}</div>}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

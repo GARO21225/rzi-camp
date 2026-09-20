@@ -114,7 +114,7 @@ export default function Personnel() {
         // chaque lecture) - c'est la SEULE occasion de le voir et de le
         // transmettre au nouvel employe.
         if (r.data?.login_genere && r.data?.password_genere) {
-          setCredentialsModal({ nom: form.nom, prenom: form.prenom, login: r.data.login_genere, password: r.data.password_genere })
+          setCredentialsModal({ nom: form.nom, prenom: form.prenom, login: r.data.login_genere, password: r.data.password_genere, envois: r.data.identifiants_envoyes })
         }
       }
       setModal(null)
@@ -1218,6 +1218,16 @@ export default function Personnel() {
               ⚠️ Ce mot de passe ne sera <b>plus jamais affiché</b> nulle part dans l'application.
               Notez-le ou communiquez-le à la personne maintenant.
             </div>
+            {credentialsModal.envois && (
+              <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16,fontSize:12}}>
+                <span style={{color: credentialsModal.envois.whatsapp ? '#16a34a' : '#94a3b8'}}>
+                  {credentialsModal.envois.whatsapp ? '✅' : '⚪'} WhatsApp
+                </span>
+                <span style={{color: credentialsModal.envois.email ? '#16a34a' : '#94a3b8'}}>
+                  {credentialsModal.envois.email ? '✅' : '⚪'} Email
+                </span>
+              </div>
+            )}
             <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
               <div style={{background:'rgba(15,26,46,.04)',borderRadius:8,padding:'10px 14px',
                 fontFamily:'monospace',fontSize:15,fontWeight:700,color:'var(--rzc-navy,#0F2A5C)',
