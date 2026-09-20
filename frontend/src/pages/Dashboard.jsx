@@ -33,9 +33,13 @@ function DigitalTwinMap({ bats, onClick }) {
         center: [8.111, -6.822], zoom: 17,
         zoomControl: false, attributionControl: false
       })
-      // Tuiles en mode sombre (CartoDB dark matter) pour cohérence avec l'identité minière
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd', maxZoom: 20
+      // Tuiles OSM standard (gratuites, sans cle) avec filtre CSS sombre -
+      // les tuiles CARTO dark_all utilisees ici auparavant exigent
+      // desormais une cle API (changement de politique CARTO fin aout
+      // 2026) et affichent sinon un filigrane "API KEY REQUIRED" sur
+      // toute la carte.
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        subdomains: 'abc', maxZoom: 20, className: 'rzc-tile-sombre'
       }).addTo(map)
       mapInstanceRef.current = map
     }

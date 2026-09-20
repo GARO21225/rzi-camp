@@ -180,3 +180,12 @@ html[data-theme="dark"] .modal-box {
 button:focus-visible, a:focus-visible, input:focus-visible {
   outline-color: var(--c-accent);
 }
+
+/* Mode "Sombre" de la carte : tuiles OSM standard (aucune cle requise,
+   contrairement aux tuiles CARTO dark_all qui exigent desormais une cle
+   API depuis fin aout 2026 et affichent sinon un filigrane "API KEY
+   REQUIRED") avec un filtre CSS qui inverse les couleurs pour obtenir un
+   rendu sombre - technique eprouvee, aucune dependance externe fragile. */
+.rzc-tile-sombre {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}

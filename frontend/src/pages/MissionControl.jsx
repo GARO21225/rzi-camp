@@ -434,7 +434,7 @@ export default function MissionControl() {
   // Formulaires
   const [formRot, setFormRot] = useState({
     destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
-    vehicule_matricule:'', vehicule_photo:'', conducteur:'', vehicule_flotte_id:'',
+    vehicule_matricule:'', vehicule_photo:'', conducteur:'', conducteur_secondaire:'', vehicule_flotte_id:'',
     mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
@@ -1461,15 +1461,79 @@ export default function MissionControl() {
                 })
 
                 const exporterCSV = () => {
-                  const csv = ['Convoi,Ordre,Passager,Société,Téléphone,Lieu de montée,Lieu de descente,Statut',
-                    ...lignes.map(l=>`"${l._convoi}",${l._ordre},"${l.personnel_nom||''}","${l.personnel_societe||''}","${l.personnel_telephone||''}","${l.origine||'—'}","${l.destination||''}",${l.statut}`)
+                  const csv = ['Convoi,Date,Ordre,Passager,Société,Téléphone,Lieu de montée,Lieu de descente,Statut,Chauffeur,Second chauffeur,Immatriculation',
+                    ...lignes.map(l=>`"${l._convoi}",${l.date_depart},${l._ordre},"${l.personnel_nom||''}","${l.personnel_societe||''}","${l.personnel_telephone||''}","${l.origine||'—'}","${l.destination||''}",${l.statut},"${l.conducteur||''}","${l.conducteur_secondaire||''}","${l.vehicule_matricule||''}"`)
                   ].join('\n')
                   const a = document.createElement('a')
                   a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}))
                   a.download = `manifeste_${today}.csv`; a.click()
                 }
 
+                const imprimerManifeste = () => {
+                  const ref = lignes[0] || {}
+                  const lignesTable = lignes.map((l,i) => `
+                    <tr>
+                      <td class="ord">${l._ordre}</td>
+                      <td class="pass">${l.personnel_nom||''}</td>
+                      <td>${l.personnel_societe||''}</td>
+                      <td>${l.personnel_telephone||''}</td>
+                      <td>${l.origine||'—'}</td>
+                      <td>${l.destination||''}</td>
+                    </tr>`).join('')
+                  const w = window.open('', '_blank')
+                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${manifFiltreConvoi!=='tous'?manifFiltreConvoi:''}</title>
+                    <style>
+                      body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#111}
+                      table{width:100%;border-collapse:collapse;margin-top:10px}
+                      td,th{border:1px solid #333;padding:5px 8px}
+                      .hdr{width:100%;margin-bottom:10px}
+                      .hdr td{border:1px solid #333;padding:6px 10px;font-size:11px}
+                      .hdr .lbl{font-style:italic;color:#333;background:#f3f3f3;width:1%;white-space:nowrap}
+                      .trajet{background:#111;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px;text-transform:uppercase}
+                      thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:11px}
+                      .ord{text-align:center;font-weight:800;color:#c00}
+                      .pass{height:22px}
+                      .print-btn{background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:16px}
+                      @media print{.print-btn{display:none}}
+                    </style></head><body>
+                    <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
+                    <table class="hdr"><tr>
+                      <td class="lbl">Date de début du voyage</td><td>${fmt(ref.date_depart)||''}</td>
+                      <td class="lbl">Date de fin de voyage</td><td>${fmt(ref.date_retour_prevue)||''}</td>
+                      <td class="lbl">Immatriculation du véhicule</td><td>${ref.vehicule_matricule||''}</td>
+                    </tr></table>
+                    <div class="trajet">${manifFiltreConvoi!=='tous'?`Convoi ${manifFiltreConvoi}`:'Manifeste'} — ${ref.origine||''} → ${ref.destination||''}</div>
+                    <table style="margin-top:14px">
+                      <thead><tr><td>Ordre</td><td>Passagers</td><td>Société / Département</td><td>N° MTN / Orange</td><td>Lieu de montée</td><td>Lieu de descente</td></tr></thead>
+                      <tbody>
+                        <tr><td class="ord">—</td><td class="pass">${ref.conducteur||''}</td><td colspan="4" style="font-weight:700;background:#fafafa">CHAUFFEUR</td></tr>
+                        ${ref.conducteur_secondaire?`<tr><td class="ord">—</td><td class="pass">${ref.conducteur_secondaire}</td><td colspan="4" style="font-weight:700;background:#fafafa">SECOND DRIVER</td></tr>`:''}
+                        ${lignesTable}
+                      </tbody>
+                    </table>
+                  </body></html>`)
+                  w.document.close()
+                }
+
                 return (<>
+                {manifFiltreConvoi !== 'tous' && lignes.length > 0 && (() => {
+                  const ref = lignes[0]
+                  return (
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,
+                      background:`${C.accent}0d`,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px 16px',marginBottom:12}}>
+                      <div><div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>Date de début</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{fmt(ref.date_depart)}</div></div>
+                      <div><div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>Date de fin</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{fmt(ref.date_retour_prevue)}</div></div>
+                      <div><div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>Immatriculation</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{ref.vehicule_matricule||'—'}</div></div>
+                      <div><div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>Chauffeur</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{ref.conducteur||'—'}</div></div>
+                      <div><div style={{fontSize:9,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>Second chauffeur</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{ref.conducteur_secondaire||'—'}</div></div>
+                    </div>
+                  )
+                })()}
                 <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
                   <select value={manifFiltreConvoi} onChange={e=>setManifFiltreConvoi(e.target.value)}
                     style={{background:C.bg,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',fontSize:12}}>
@@ -1489,7 +1553,10 @@ export default function MissionControl() {
                       ✕ Réinitialiser
                     </button>
                   )}
-                  <button className="mc-btn mc-btn-ghost" onClick={exporterCSV} style={{marginLeft:'auto'}}>
+                  <button className="mc-btn mc-btn-ghost" onClick={imprimerManifeste} style={{marginLeft:'auto'}}>
+                    🖨️ Imprimer
+                  </button>
+                  <button className="mc-btn mc-btn-ghost" onClick={exporterCSV}>
                     ⬇ Export CSV ({lignes.length})
                   </button>
                 </div>
@@ -1497,7 +1564,7 @@ export default function MissionControl() {
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                     <thead style={{position:'sticky',top:0}}>
                       <tr style={{background:`${C.accent}10`}}>
-                        {['Convoi','Ordre','Passager','Société','Téléphone','Lieu de montée','Lieu de descente','Statut'].map(h=>(
+                        {['Convoi','Date','Ordre','Passager','Société','Téléphone','Lieu de montée','Lieu de descente','Statut'].map(h=>(
                           <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:10,
                             fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:.5,
                             borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>{h}</th>
@@ -1508,6 +1575,7 @@ export default function MissionControl() {
                       {lignes.map(v=>(
                         <tr key={v.id} className="mc-row" onClick={()=>ouvrirDetail(v)} style={{borderBottom:`0.5px solid rgba(255,255,255,.03)`,cursor:'pointer'}}>
                           <td style={{padding:'7px 10px',fontFamily:'JetBrains Mono,monospace',fontSize:10,color:v.rotation_id?C.accent:C.muted}}>{v._convoi}</td>
+                          <td style={{padding:'7px 10px',color:C.muted,whiteSpace:'nowrap'}}>{fmt(v.date_depart)}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace'}}>{v._ordre}</td>
                           <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_societe||'—'}</td>
@@ -1518,7 +1586,7 @@ export default function MissionControl() {
                         </tr>
                       ))}
                       {lignes.length===0 && (
-                        <tr><td colSpan={8} style={{padding:'20px 10px',textAlign:'center',color:C.muted}}>Aucun résultat pour ces filtres</td></tr>
+                        <tr><td colSpan={9} style={{padding:'20px 10px',textAlign:'center',color:C.muted}}>Aucun résultat pour ces filtres</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -2031,6 +2099,15 @@ export default function MissionControl() {
                           onChange={e=>setFormRot(p=>({...p,conducteur:e.target.value}))}
                           style={inputStyle}>
                           <option value="">— Sélectionner dans le personnel —</option>
+                          {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Second chauffeur <span style={{fontWeight:400,color:C.muted}}>(relève, optionnel)</span></label>
+                        <select value={formRot.conducteur_secondaire||''}
+                          onChange={e=>setFormRot(p=>({...p,conducteur_secondaire:e.target.value}))}
+                          style={inputStyle}>
+                          <option value="">— Aucun —</option>
                           {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
                         </select>
                       </div>

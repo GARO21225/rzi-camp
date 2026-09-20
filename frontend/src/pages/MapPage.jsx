@@ -16,8 +16,8 @@ L.Icon.Default.mergeOptions({
 
 const TILES = [
   { id:'osm',   label:'🗺️ OSM',      url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' },
-  { id:'light', label:'☀️ Clair',     url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' },
-  { id:'dark',  label:'🌑 Sombre',    url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' },
+  { id:'light', label:'☀️ Clair',     url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' },
+  { id:'dark',  label:'🌑 Sombre',    url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', filtreCSS:'invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)' },
   { id:'sat', label:'🛰️ Satellite', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' },
 ]
 
@@ -445,7 +445,7 @@ export default function MapPage() {
 
       <MapContainer center={[8.111,-6.822]} zoom={17}
           style={{width:'100%',height:'100%',zIndex:0}}>
-          <TileLayer key={tileId} url={tile.url} attribution=""/>
+          <TileLayer key={tileId} url={tile.url} attribution="" className={tile.filtreCSS ? 'rzc-tile-sombre' : ''}/>
           {geojson&&(
             <>
               <FitBounds geojson={geojson}/>

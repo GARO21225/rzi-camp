@@ -36,6 +36,8 @@ class Voyage(models.Model):
                          help_text="Photo du véhicule en base64 — usage exceptionnel, pour reconnaissance visuelle rapide au parking")
     conducteur        = models.CharField(max_length=100, blank=True, default="",
                          help_text="Nom du conducteur assigné pour l'ALLER — change trop souvent pour être lié au véhicule lui-même")
+    conducteur_secondaire = models.CharField(max_length=100, blank=True, default="",
+                         help_text="Second chauffeur / chauffeur de relève pour ce trajet (long trajet, sécurité) — distinct du conducteur du retour")
     # ── Trajet RETOUR — potentiellement different de l'aller ──
     # Une rotation est un aller-retour, mais le vehicule et l'equipage du
     # retour peuvent differer de l'aller (ex: un agent revient plus tot que

@@ -546,6 +546,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule_matricule = data.get("vehicule_matricule","")
         vehicule_photo  = data.get("vehicule_photo","")
         conducteur      = data.get("conducteur","")
+        conducteur_secondaire = data.get("conducteur_secondaire","")
         nb_places       = int(data.get("nb_places_total",15))
         heure_depart    = data.get("heure_depart") or None
         point_rdv       = data.get("point_rdv","")
@@ -622,7 +623,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     date_depart=date_depart, date_retour_prevue=date_retour,
                     vehicule=vehicule, nb_places_total=nb_places,
                     vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
-                    conducteur=conducteur,
+                    conducteur=conducteur, conducteur_secondaire=conducteur_secondaire,
                     heure_depart=heure_depart, point_rdv=point_rdv,
                     motif=motif, type_voyage=type_voyage,
                     rotation_id=rotation_id, statut="planifie",
@@ -639,9 +640,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         rotation_id  = request.data.get("rotation_id")
+        voyage_id    = request.data.get("voyage_id")  # cible un voyage INDIVIDUEL (pas encore de rotation_id)
         personnel_id = request.data.get("personnel_id")
-        if not rotation_id or not personnel_id:
-            return Response({"error":"rotation_id et personnel_id requis"},status=400)
+        if not (rotation_id or voyage_id) or not personnel_id:
+            return Response({"error":"rotation_id (ou voyage_id) et personnel_id requis"},status=400)
         # Un non-admin ne peut s'inscrire QUE lui-meme (self-service) -
         # jamais ajouter quelqu'un d'autre a un convoi, qui reste reserve a
         # l'admin. Avant ce correctif, le bouton "Rejoindre" affiche a
@@ -661,18 +663,33 @@ class VoyageViewSet(viewsets.ModelViewSet):
         # requetes concurrentes sur la MEME rotation : la seconde attend
         # que la premiere transaction commite avant de relire le compte.
         with transaction.atomic():
+            if voyage_id:
+                # Rejoindre un voyage INDIVIDUEL : il n'a pas encore de
+                # rotation_id (par definition) - on lui en attribue un a la
+                # premiere personne qui le rejoint, le convertissant de
+                # facto en petit convoi partage. Un autre passager DOIT
+                # pouvoir se joindre a un individuel (demande explicite) -
+                # bien different d'un verrou qui l'interdirait.
+                cible = Voyage.objects.select_for_update().filter(id=voyage_id).exclude(statut="annule").first()
+                if not cible:
+                    return Response({"error":"Voyage introuvable"}, status=404)
+                if not cible.rotation_id:
+                    cible.rotation_id = str(uuid.uuid4())[:8].upper()
+                    cible.type_voyage = "rotation"
+                    cible.save(update_fields=["rotation_id","type_voyage"])
+                rotation_id = cible.rotation_id
             existing = Voyage.objects.select_for_update().filter(rotation_id=rotation_id).exclude(statut="annule").first()
             if not existing:
                 return Response({"error":"Rotation introuvable"},status=404)
-            if existing.type_voyage == "individuel":
-                # Verrou explicite demande : un voyage individuel n'est
-                # jamais rejoignable, meme s'il portait par erreur un
-                # rotation_id (normalement jamais le cas, mais explicite
-                # vaut mieux qu'implicite pour une regle de securite).
-                return Response({"error":"Ce voyage est individuel — il ne peut pas être rejoint par d'autres personnes."}, status=400)
-            if existing.statut != "planifie":
-                libelle = {"en_voyage":"déjà en transit","retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
-                return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un. Utilisez un convoi pas encore parti, ou créez un voyage individuel."}, status=400)
+            if existing.statut not in ("planifie", "en_voyage"):
+                # "en_voyage" reste rejoignable : c'est exactement le cas
+                # d'une montee en cours de route (point intermediaire) -
+                # bloquer ici aurait annule l'un des buts explicites de la
+                # fonctionnalite montee/descente. Seul un retour deja
+                # entame ou un convoi annule reste bloque : rejoindre un
+                # vehicule qui rentre deja au camp n'a pas de sens.
+                libelle = {"retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
+                return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un."}, status=400)
             prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
             if prises >= (existing.nb_places_total or 15):
                 return Response({"error":"Rotation complète"},status=400)
