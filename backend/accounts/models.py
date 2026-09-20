@@ -41,7 +41,12 @@ class RoleCustom(models.Model):
     code         = models.SlugField(max_length=30, unique=True)
     label        = models.CharField(max_length=100)
     menu_pages   = models.JSONField(default=list, blank=True)
-    readonly     = models.BooleanField(default=False)
+    # Sous-ensemble de menu_pages en lecture seule pour ce role - le reste
+    # de menu_pages reste modifiable normalement. Remplace l'ancien
+    # 'readonly' (booleen global, tout ou rien) par une granularite par
+    # page : un role peut ecrire sur Maintenance mais rester en lecture
+    # seule sur Induction, par exemple.
+    pages_readonly = models.JSONField(default=list, blank=True)
     est_systeme  = models.BooleanField(default=False)
     date_creation = models.DateTimeField(auto_now_add=True)
 

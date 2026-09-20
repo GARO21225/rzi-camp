@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { rolesAPI } from '../api'
 
 /**
- * Renvoie true si le role de l'utilisateur courant est configure en
- * "lecture seule" depuis Parametrage -> Roles & Acces (RoleCustom.readonly).
- * L'admin n'est JAMAIS en lecture seule via ce systeme, quel que soit le
- * reglage - protection deliberee contre un auto-verrouillage.
+ * Renvoie true si la PAGE COURANTE est configuree en "lecture seule" pour
+ * le role de l'utilisateur, depuis Parametrage -> Roles & Acces
+ * (RoleCustom.pages_readonly - une liste de pages, pas un booleen global :
+ * un role peut ecrire sur une page et rester en lecture seule sur une
+ * autre). L'admin n'est JAMAIS en lecture seule via ce systeme, quel que
+ * soit le reglage - protection deliberee contre un auto-verrouillage.
  *
  * Usage: const lectureSeule = useReadOnly()
  * puis: <button disabled={lectureSeule} ...>
  */
 export function useReadOnly() {
   const { user } = useStore()
+  const location = useLocation()
   const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const [readOnly, setReadOnly] = useState(false)
@@ -22,9 +26,10 @@ export function useReadOnly() {
     rolesAPI.list().then(r => {
       const liste = r.data?.results || r.data || []
       const roleCustom = liste.find(x => x.code === role)
-      setReadOnly(!!roleCustom?.readonly)
+      const pagesRO = roleCustom?.pages_readonly || []
+      setReadOnly(pagesRO.includes(location.pathname))
     }).catch(() => setReadOnly(false))
-  }, [isAdmin, role])
+  }, [isAdmin, role, location.pathname])
 
   return readOnly
 }

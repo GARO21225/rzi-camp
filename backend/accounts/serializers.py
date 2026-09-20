@@ -16,7 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
 class RoleCustomSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoleCustom
-        fields = ["id","code","label","menu_pages","readonly","est_systeme","date_creation"]
+        fields = ["id","code","label","menu_pages","pages_readonly","est_systeme","date_creation"]
         read_only_fields = ["est_systeme","date_creation"]
 
 class RapportPlanifieSerializer(serializers.ModelSerializer):

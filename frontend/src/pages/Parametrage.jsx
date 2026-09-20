@@ -456,15 +456,27 @@ function RolesTab({ isAdmin }) {
     const next = role.menu_pages.includes(path)
       ? role.menu_pages.filter(p => p !== path)
       : [...role.menu_pages, path]
-    setRoles(rs => rs.map(r => r.id === role.id ? {...r, menu_pages: next} : r))
+    // Retirer une page de menu_pages doit aussi la retirer de
+    // pages_readonly - sinon un reglage "lecture seule" orphelin reste en
+    // base pour une page que le role ne voit plus.
+    const nextRO = role.pages_readonly.includes(path) && !next.includes(path)
+      ? role.pages_readonly.filter(p => p !== path)
+      : role.pages_readonly
+    setRoles(rs => rs.map(r => r.id === role.id ? {...r, menu_pages: next, pages_readonly: nextRO} : r))
   }
-  const toggleReadonly = (role) => {
-    setRoles(rs => rs.map(r => r.id === role.id ? {...r, readonly: !r.readonly} : r))
+  const toggleEcriture = (role, path) => {
+    // Coche = peut modifier (ecriture) = PAS dans pages_readonly.
+    // Decoche = lecture seule sur CETTE page precisement, les autres
+    // pages du role ne sont pas affectees.
+    const next = role.pages_readonly.includes(path)
+      ? role.pages_readonly.filter(p => p !== path)
+      : [...role.pages_readonly, path]
+    setRoles(rs => rs.map(r => r.id === role.id ? {...r, pages_readonly: next} : r))
   }
   const enregistrerRole = async (role) => {
     setSavingId(role.id)
     try {
-      await rolesAPI.update(role.id, { menu_pages: role.menu_pages, readonly: role.readonly })
+      await rolesAPI.update(role.id, { menu_pages: role.menu_pages, pages_readonly: role.pages_readonly })
       toast.success(`Accès de "${role.label}" enregistrés.`)
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
     setSavingId(null)
@@ -524,12 +536,6 @@ function RolesTab({ isAdmin }) {
             </div>
             {!role.est_systeme && (
               <div style={{display:'flex',alignItems:'center',gap:14}}>
-                <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,fontWeight:600,
-                  color: role.readonly ? '#92400e' : '#64748b', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
-                  <input type="checkbox" disabled={!isAdmin} checked={role.readonly}
-                    onChange={()=>toggleReadonly(role)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
-                  🔒 Lecture seule
-                </label>
                 {isAdmin && (
                   <button onClick={()=>supprimerRole(role)}
                     style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px 10px',
@@ -542,15 +548,30 @@ function RolesTab({ isAdmin }) {
           </div>
           {!role.est_systeme && (
             <>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8,marginBottom:12}}>
-                {PAGES_ASSIGNABLES.map(([path, lbl]) => (
-                  <label key={path} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,
-                    color: isAdmin ? '#334155' : '#94a3b8', cursor: isAdmin ? 'pointer' : 'not-allowed'}}>
-                    <input type="checkbox" disabled={!isAdmin} checked={role.menu_pages.includes(path)}
-                      onChange={()=>toggle(role, path)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
-                    {lbl}
-                  </label>
-                ))}
+              <div style={{fontSize:10,color:'#94a3b8',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>
+                Voir la page · Modifier (créer/éditer/supprimer)
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:8,marginBottom:12}}>
+                {PAGES_ASSIGNABLES.map(([path, lbl]) => {
+                  const voitPage = role.menu_pages.includes(path)
+                  const peutEcrire = voitPage && !role.pages_readonly.includes(path)
+                  return (
+                    <div key={path} style={{display:'flex',alignItems:'center',gap:10,fontSize:12.5,
+                      color: isAdmin ? '#334155' : '#94a3b8', opacity: voitPage ? 1 : .55}}>
+                      <label style={{display:'flex',alignItems:'center',gap:5,cursor: isAdmin ? 'pointer' : 'not-allowed'}} title="Voir cette page">
+                        <input type="checkbox" disabled={!isAdmin} checked={voitPage}
+                          onChange={()=>toggle(role, path)} style={{cursor: isAdmin ? 'pointer' : 'not-allowed'}}/>
+                        {lbl}
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor: (isAdmin&&voitPage) ? 'pointer' : 'not-allowed',
+                        fontSize:11,color: peutEcrire ? '#16a34a' : '#94a3b8'}} title="Peut créer / modifier / supprimer sur cette page">
+                        <input type="checkbox" disabled={!isAdmin||!voitPage} checked={peutEcrire}
+                          onChange={()=>toggleEcriture(role, path)} style={{cursor: (isAdmin&&voitPage) ? 'pointer' : 'not-allowed'}}/>
+                        ✏️
+                      </label>
+                    </div>
+                  )
+                })}
               </div>
               {isAdmin && (
                 <button onClick={()=>enregistrerRole(role)} disabled={savingId===role.id}

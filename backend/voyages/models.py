@@ -16,6 +16,10 @@ class Voyage(models.Model):
     destination = models.CharField(max_length=200, blank=True)
     origine     = models.CharField(max_length=200, blank=True, default="Camp Roxgold Sango",
                    help_text="Point de départ réel — pas toujours le camp (ex: premier voyage d'un nouvel employé, qui part de chez lui VERS le camp)")
+    lieu_montee_retour   = models.CharField(max_length=200, blank=True, default="",
+                   help_text="Où CE passager monte precisement pour le RETOUR, si different du reste du convoi (ex: recupere en cours de route) — vide = meme point que le convoi")
+    lieu_descente_retour = models.CharField(max_length=200, blank=True, default="",
+                   help_text="Où CE passager descend precisement pour le RETOUR, si different (ex: depose avant l'arrivee finale du convoi) — vide = destination normale (origine)")
     motif = models.TextField(blank=True)
     date_depart = models.DateField()
     date_depart_effective = models.DateField(blank=True, null=True)
