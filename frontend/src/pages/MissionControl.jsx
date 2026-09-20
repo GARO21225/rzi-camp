@@ -423,6 +423,10 @@ export default function MissionControl() {
   const [weekOff,    setWeekOff]   = useState(0)
   const [selVoyage,  setSelVoyage] = useState(null)
   const [selRot,     setSelRot]    = useState(null)
+  const [manifFiltreConvoi, setManifFiltreConvoi] = useState('tous')
+  const [manifFiltreDestination, setManifFiltreDestination] = useState('')
+  const [manifFiltreDateDebut, setManifFiltreDateDebut] = useState('')
+  const [manifFiltreDateFin, setManifFiltreDateFin] = useState('')
   const [showCreate, setShowCreate]= useState(false) // 'rotation' | 'individuel' | null
   const [msg,        setMsg]       = useState(null)
   const [saving,     setSaving]    = useState(false)
@@ -1433,52 +1437,94 @@ export default function MissionControl() {
               ))}
             </div>
 
-            {/* Tableau complet */}
+            {/* Tableau complet — format manifeste papier (Ordre / Passager /
+                Société / Téléphone / Lieu de montée / Lieu de descente) */}
             <Panel style={{marginTop:14,padding:'14px 16px'}}>
-              <Label>Toutes les rotations — Export</Label>
-              <div style={{display:'flex',gap:8,marginBottom:12}}>
-                <button className="mc-btn mc-btn-ghost"
-                  onClick={()=>{
-                    const csv = ['ID,Personnel,Destination,Départ,Retour,Statut,Rotation,Véhicule',
-                      ...voyages.map(v=>`${v.id},"${v.personnel_nom||''}","${v.destination||''}",${v.date_depart},${v.date_retour_prevue},${v.statut},${v.rotation_id||''},${v.vehicule||''}`)
-                    ].join('\n')
-                    const a = document.createElement('a')
-                    a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}))
-                    a.download = `rotations_${today}.csv`; a.click()
-                  }}>
-                  ⬇ Export CSV
-                </button>
-              </div>
-              <div style={{overflowX:'auto',maxHeight:300}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                  <thead style={{position:'sticky',top:0}}>
-                    <tr style={{background:`${C.accent}10`}}>
-                      {['#','Personnel','Destination','Départ','Retour','Statut','Rotation'].map(h=>(
-                        <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:10,
-                          fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:.5,
-                          borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {voyages.map(v=>(
-                      <tr key={v.id} className="mc-row"
-                        style={{borderBottom:`0.5px solid rgba(255,255,255,.03)`}}>
-                        <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:10}}>{v.id}</td>
-                        <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
-                        <td style={{padding:'7px 10px',color:C.text}}>{v.destination||'—'}</td>
-                        <td style={{padding:'7px 10px',color:C.muted,whiteSpace:'nowrap'}}>{fmt(v.date_depart)}</td>
-                        <td style={{padding:'7px 10px',color:C.muted,whiteSpace:'nowrap'}}>{fmt(v.date_retour_prevue)}</td>
-                        <td style={{padding:'7px 10px'}}><StatusBadge statut={v.statut}/></td>
-                        <td style={{padding:'7px 10px',fontFamily:'JetBrains Mono,monospace',
-                          fontSize:10,color:v.rotation_id?C.accent:C.muted}}>
-                          {v.rotation_id||'—'}
-                        </td>
+              <Label>Manifeste — Export</Label>
+              {(() => {
+                const convoisDisponibles = [...new Set(voyages.filter(v=>v.rotation_id).map(v=>v.rotation_id))]
+                let filtres = voyages.filter(v => {
+                  if (manifFiltreConvoi !== 'tous' && v.rotation_id !== manifFiltreConvoi) return false
+                  if (manifFiltreDestination && !(v.destination||'').toLowerCase().includes(manifFiltreDestination.toLowerCase())) return false
+                  if (manifFiltreDateDebut && v.date_depart < manifFiltreDateDebut) return false
+                  if (manifFiltreDateFin && v.date_depart > manifFiltreDateFin) return false
+                  return true
+                })
+                // Groupe par convoi (rotation_id||'INDIVIDUEL') pour calculer
+                // l'ordre EXACTEMENT comme sur le manifeste papier - 0,1,2...
+                // au sein d'un meme convoi, pas un numero global sans sens.
+                const groupes = {}
+                filtres.forEach(v => { const k = v.rotation_id || `IND-${v.id}`; (groupes[k]=groupes[k]||[]).push(v) })
+                const lignes = []
+                Object.entries(groupes).sort(([a],[b])=>a.localeCompare(b)).forEach(([convoi,liste])=>{
+                  liste.forEach((v,i)=>lignes.push({...v, _ordre:i, _convoi: v.rotation_id ? convoi : 'Individuel'}))
+                })
+
+                const exporterCSV = () => {
+                  const csv = ['Convoi,Ordre,Passager,Société,Téléphone,Lieu de montée,Lieu de descente,Statut',
+                    ...lignes.map(l=>`"${l._convoi}",${l._ordre},"${l.personnel_nom||''}","${l.personnel_societe||''}","${l.personnel_telephone||''}","${l.origine||'—'}","${l.destination||''}",${l.statut}`)
+                  ].join('\n')
+                  const a = document.createElement('a')
+                  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}))
+                  a.download = `manifeste_${today}.csv`; a.click()
+                }
+
+                return (<>
+                <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+                  <select value={manifFiltreConvoi} onChange={e=>setManifFiltreConvoi(e.target.value)}
+                    style={{background:C.bg,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',fontSize:12}}>
+                    <option value="tous">Tous les convois</option>
+                    {convoisDisponibles.map(id=><option key={id} value={id}>Convoi {id}</option>)}
+                  </select>
+                  <input value={manifFiltreDestination} onChange={e=>setManifFiltreDestination(e.target.value)}
+                    placeholder="Filtrer par destination..."
+                    style={{background:C.bg,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',fontSize:12,minWidth:160}}/>
+                  <input type="date" value={manifFiltreDateDebut} onChange={e=>setManifFiltreDateDebut(e.target.value)}
+                    style={{background:C.bg,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',fontSize:12}}/>
+                  <span style={{color:C.muted,fontSize:11}}>à</span>
+                  <input type="date" value={manifFiltreDateFin} onChange={e=>setManifFiltreDateFin(e.target.value)}
+                    style={{background:C.bg,color:C.text,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',fontSize:12}}/>
+                  {(manifFiltreConvoi!=='tous'||manifFiltreDestination||manifFiltreDateDebut||manifFiltreDateFin) && (
+                    <button className="mc-btn mc-btn-ghost" onClick={()=>{setManifFiltreConvoi('tous');setManifFiltreDestination('');setManifFiltreDateDebut('');setManifFiltreDateFin('')}}>
+                      ✕ Réinitialiser
+                    </button>
+                  )}
+                  <button className="mc-btn mc-btn-ghost" onClick={exporterCSV} style={{marginLeft:'auto'}}>
+                    ⬇ Export CSV ({lignes.length})
+                  </button>
+                </div>
+                <div style={{overflowX:'auto',maxHeight:400}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                    <thead style={{position:'sticky',top:0}}>
+                      <tr style={{background:`${C.accent}10`}}>
+                        {['Convoi','Ordre','Passager','Société','Téléphone','Lieu de montée','Lieu de descente','Statut'].map(h=>(
+                          <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:10,
+                            fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:.5,
+                            borderBottom:`1px solid ${C.border}`,whiteSpace:'nowrap'}}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {lignes.map(v=>(
+                        <tr key={v.id} className="mc-row" onClick={()=>ouvrirDetail(v)} style={{borderBottom:`0.5px solid rgba(255,255,255,.03)`,cursor:'pointer'}}>
+                          <td style={{padding:'7px 10px',fontFamily:'JetBrains Mono,monospace',fontSize:10,color:v.rotation_id?C.accent:C.muted}}>{v._convoi}</td>
+                          <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace'}}>{v._ordre}</td>
+                          <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_societe||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{v.personnel_telephone||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.text}}>{v.destination||'—'}</td>
+                          <td style={{padding:'7px 10px'}}><StatusBadge statut={v.statut}/></td>
+                        </tr>
+                      ))}
+                      {lignes.length===0 && (
+                        <tr><td colSpan={8} style={{padding:'20px 10px',textAlign:'center',color:C.muted}}>Aucun résultat pour ces filtres</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                </>)
+              })()}
             </Panel>
           </div>
         )}

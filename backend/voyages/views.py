@@ -466,6 +466,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def rotations(self, request):
         from django.db.models import Count
+        u = request.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
         # IMPORTANT : ne PAS inclure "statut" dans le regroupement — sinon
         # des que UN SEUL passager change de statut (ex: rentre alors que
         # les autres sont encore en transit), Django scinde la meme rotation
@@ -498,7 +501,15 @@ class VoyageViewSet(viewsets.ModelViewSet):
             else:
                 statut_rotation = next(iter(statuts_presents), "planifie")
             g["statut"] = statut_rotation
-            g["passagers"] = passagers
+            # Liste nominative des passagers : UNIQUEMENT pour l'admin. Un
+            # agent qui consulte les rotations disponibles pour en
+            # rejoindre une ne doit voir qu'un nombre de sieges libres,
+            # jamais qui sont les autres occupants du convoi (avant ce
+            # correctif, le frontend n'affichait deja que l'agrege, mais
+            # l'API elle-meme renvoyait les noms complets a quiconque -
+            # visible via les outils reseau du navigateur).
+            if is_admin:
+                g["passagers"] = passagers
             g["nb_passagers"] = len(passagers)
             # Occupees/reservees EXCLUENT le statut "retour" - une personne
             # deja rentree a termine son aller-retour, elle ne doit plus
@@ -511,11 +522,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
             g["places_reservees"] = reservees
             g["places_libres"] = max(0,(g["nb_places_total"] or 15)-len(actifs))
             result.append(g)
-        indiv = list(Voyage.objects
-            .filter(rotation_id__isnull=True)
-            .select_related("personnel")
-            .values("id","personnel__nom","personnel__prenom","destination","date_depart","statut")
-            .order_by("-date_depart")[:50])
+        # "individuels" (voyages solo, sans rotation) : non utilise cote
+        # frontend actuellement, mais meme principe applique par coherence -
+        # jamais les noms d'autrui pour un non-admin.
+        indiv = []
+        if is_admin:
+            indiv = list(Voyage.objects
+                .filter(rotation_id__isnull=True)
+                .select_related("personnel")
+                .values("id","personnel__nom","personnel__prenom","destination","date_depart","statut")
+                .order_by("-date_depart")[:50])
         return Response({"rotations":result,"individuels":indiv,"total_rotations":len(result)})
 
     @action(detail=False, methods=["post"])
@@ -622,12 +638,20 @@ class VoyageViewSet(viewsets.ModelViewSet):
     def rejoindre_rotation(self, request):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
-        if not is_admin:
-            return Response({"error":"Admin requis pour ajouter un passager à un convoi"}, status=403)
         rotation_id  = request.data.get("rotation_id")
         personnel_id = request.data.get("personnel_id")
         if not rotation_id or not personnel_id:
             return Response({"error":"rotation_id et personnel_id requis"},status=400)
+        # Un non-admin ne peut s'inscrire QUE lui-meme (self-service) -
+        # jamais ajouter quelqu'un d'autre a un convoi, qui reste reserve a
+        # l'admin. Avant ce correctif, le bouton "Rejoindre" affiche a
+        # l'agent sur SA PROPRE page Voyages.jsx echouait systematiquement
+        # (403), rendant la fonctionnalite inutilisable pour son public cible.
+        if not is_admin:
+            from residences.models import Personnel
+            pers = Personnel.objects.filter(id=personnel_id, user=u).first()
+            if not pers:
+                return Response({"error":"Vous ne pouvez rejoindre un convoi que pour vous-même."}, status=403)
         # Verrouillage transactionnel: sans ca, deux admins ajoutant un
         # passager AU MEME MOMENT sur le dernier siege libre pouvaient tous
         # les deux passer le controle "prises >= nb_places" (tous deux lus
@@ -640,6 +664,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
             existing = Voyage.objects.select_for_update().filter(rotation_id=rotation_id).exclude(statut="annule").first()
             if not existing:
                 return Response({"error":"Rotation introuvable"},status=404)
+            if existing.type_voyage == "individuel":
+                # Verrou explicite demande : un voyage individuel n'est
+                # jamais rejoignable, meme s'il portait par erreur un
+                # rotation_id (normalement jamais le cas, mais explicite
+                # vaut mieux qu'implicite pour une regle de securite).
+                return Response({"error":"Ce voyage est individuel — il ne peut pas être rejoint par d'autres personnes."}, status=400)
             if existing.statut != "planifie":
                 libelle = {"en_voyage":"déjà en transit","retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
                 return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un. Utilisez un convoi pas encore parti, ou créez un voyage individuel."}, status=400)

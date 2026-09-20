@@ -23,6 +23,7 @@ class EtapeVoyageSerializer(serializers.ModelSerializer):
 class VoyageSerializer(serializers.ModelSerializer):
     personnel_nom      = serializers.SerializerMethodField()
     personnel_societe  = serializers.SerializerMethodField()
+    personnel_telephone = serializers.SerializerMethodField()
     personnel_profil   = serializers.SerializerMethodField()
     batiment_nom       = serializers.SerializerMethodField()
     statut_label       = serializers.SerializerMethodField()
@@ -56,6 +57,11 @@ class VoyageSerializer(serializers.ModelSerializer):
     def get_personnel_societe(self, obj):
         o = self._obj(obj)
         try: return o.personnel.societe if o and o.personnel else ""
+        except: return ""
+
+    def get_personnel_telephone(self, obj):
+        o = self._obj(obj)
+        try: return o.personnel.telephone if o and o.personnel else ""
         except: return ""
 
     def get_personnel_profil(self, obj):
