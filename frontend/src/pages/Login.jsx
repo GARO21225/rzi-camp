@@ -81,6 +81,7 @@ export default function Login() {
   const [otpStep, setOtpStep] = useState('telephone') // 'telephone' | 'code'
   const [telephone, setTelephone] = useState('')
   const [otpCode, setOtpCode] = useState('')
+  const [infoMsg, setInfoMsg] = useState('')
 
   const doLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')
@@ -100,11 +101,11 @@ export default function Login() {
 
   const doDemanderOtp = async () => {
     if (!telephone.trim()) return setError('Numéro de téléphone requis')
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setInfoMsg('')
     try {
       const r = await auth.demanderOtp(telephone.trim())
       setOtpStep('code')
-      if (r.data?.code_test) setError(`Mode test — code : ${r.data.code_test}`)
+      if (r.data?.code_test) setInfoMsg(`🧪 Mode test — code : ${r.data.code_test}`)
     } catch(e) {
       setError(e.response?.data?.error || "Impossible d'envoyer le code")
     } finally { setLoading(false) }
@@ -243,14 +244,22 @@ export default function Login() {
             </div>
           )}
 
+          {infoMsg && (
+            <div style={{ background:'rgba(59,130,246,.15)', border:'1px solid rgba(59,130,246,.3)',
+              borderRadius:10, padding:'12px 16px', marginBottom:20,
+              fontSize:13, color:'#93c5fd', fontWeight:600 }}>
+              {infoMsg}
+            </div>
+          )}
+
           <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-            <button type="button" onClick={()=>{setMode('password');setError('')}}
+            <button type="button" onClick={()=>{setMode('password');setError('');setInfoMsg('')}}
               style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer',
                 fontSize:12, fontWeight:700, background: mode==='password' ? '#f0a500' : 'rgba(255,255,255,.08)',
                 color: mode==='password' ? '#000' : 'rgba(255,255,255,.6)' }}>
               🔑 Mot de passe
             </button>
-            <button type="button" onClick={()=>{setMode('otp');setError('');setOtpStep('telephone')}}
+            <button type="button" onClick={()=>{setMode('otp');setError('');setInfoMsg('');setOtpStep('telephone')}}
               style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer',
                 fontSize:12, fontWeight:700, background: mode==='otp' ? '#f0a500' : 'rgba(255,255,255,.08)',
                 color: mode==='otp' ? '#000' : 'rgba(255,255,255,.6)' }}>
@@ -356,7 +365,7 @@ export default function Login() {
             ) : (
               <>
                 <div style={{ fontSize:12.5, color:'rgba(255,255,255,.6)' }}>
-                  Code envoyé au {telephone}. <button type="button" onClick={()=>setOtpStep('telephone')}
+                  Code envoyé au {telephone}. <button type="button" onClick={()=>{setOtpStep('telephone');setInfoMsg('')}}
                     style={{background:'none',border:'none',color:'#f0a500',cursor:'pointer',fontSize:12.5,textDecoration:'underline',padding:0}}>Changer de numéro</button>
                 </div>
                 <div>
