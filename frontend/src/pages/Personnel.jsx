@@ -65,6 +65,7 @@ export default function Personnel() {
   const [credentialsModal, setCredentialsModal] = useState(null) // Identifiants generes a afficher UNE fois
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
+  const [newLoginRole, setNewLoginRole] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -202,9 +203,14 @@ export default function Personnel() {
       const payload = {}
       if (newRole)   payload.type_personnel = newRole
       if (newProfil) payload.profil         = newProfil
-      if (Object.keys(payload).length === 0) { setRoleModal(null); return }
-      await personnelAPI.update(roleModal.id, payload)
-      setRoleModal(null); setNewProfil(''); load()
+      if (Object.keys(payload).length > 0) {
+        await personnelAPI.update(roleModal.id, payload)
+      }
+      if (newLoginRole) {
+        await personnelAPI.assigRole(roleModal.id, newLoginRole)
+      }
+      if (Object.keys(payload).length === 0 && !newLoginRole) { setRoleModal(null); return }
+      setRoleModal(null); setNewProfil(''); setNewLoginRole(''); load()
     } catch(e) {
       const msg = e.response?.data ? JSON.stringify(e.response.data) : 'Erreur réseau'
       toast.error('Erreur: ' + msg)
@@ -780,7 +786,7 @@ export default function Personnel() {
                             padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
                             ✏️
                           </button>
-                          <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setRoleModal(p)}}
+                          <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setNewLoginRole('');setRoleModal(p)}}
                             style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Changer le profil">
@@ -1295,6 +1301,18 @@ export default function Personnel() {
                     <option value="">Inchangé</option>
                     {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
                   </select>
+                </div>
+              </div>
+              <div style={{marginBottom:12,padding:'10px 12px',background:'rgba(124,58,237,.06)',border:'1px solid rgba(124,58,237,.2)',borderRadius:9}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
+                  🔑 Rôle de connexion (pages et droits accessibles)
+                </div>
+                <select value={newLoginRole||''} onChange={e=>setNewLoginRole(e.target.value)} style={inp}>
+                  <option value="">Inchangé</option>
+                  {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
+                </select>
+                <div style={{fontSize:10.5,color:'var(--rzc-text-4)',marginTop:5}}>
+                  Contrôle réellement les pages visibles et les droits d'écriture (configurés dans Paramétrage → Rôles & Accès) — distinct du "Profil système" ci-dessus, qui est juste informatif.
                 </div>
               </div>
               {newProfil && (

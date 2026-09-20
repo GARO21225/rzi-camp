@@ -361,7 +361,8 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return Response({"error":"Admin uniquement"}, status=403)
         p = self.get_object()
         role = request.data.get("role")
-        valid_roles = ["admin","agent","restauration","technicien","menage"]
+        from accounts.models import RoleCustom
+        valid_roles = list(RoleCustom.objects.values_list("code", flat=True))
         if not role or role not in valid_roles:
             return Response({"error":f"Role invalide. Valeurs acceptées: {valid_roles}"}, status=400)
         from accounts.models import Profile
