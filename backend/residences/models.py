@@ -44,8 +44,9 @@ class Personnel(models.Model):
     qr_code_data = models.TextField(blank=True)
     qr_code_string = models.CharField(max_length=500, blank=True)
     actif            = models.BooleanField(default=True, db_index=True)
-    profil           = models.CharField(max_length=20, choices=PROFIL_CHOICES,
-                       default='agent', blank=True)
+    profil           = models.CharField(max_length=30,
+                       default='agent', blank=True,
+                       help_text="Profil metier libre, aligne sur les roles configures dans Parametrage -> Roles & Acces (RoleCustom) - PROFIL_CHOICES ci-dessus garde a titre de reference/valeurs par defaut, mais n'est plus applique comme contrainte stricte : un role personnalise cree par l'admin doit pouvoir etre assigne ici sans etre rejete.")
     est_expatrie     = models.BooleanField(default=False,
                        help_text="Personnel expatrié — nécessite des billets d'avion pour les rotations pays d'origine <-> mine")
     pays_origine     = models.CharField(max_length=100, blank=True, default="",

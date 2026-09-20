@@ -37,7 +37,7 @@ const NAV_GROUPS = [
   {
     label: 'HÉBERGEMENT & MOBILITÉ',
     items: [
-      { to: '/voyages',    label: 'Voyages',    icon: '✈️' },
+      { to: '/voyages',    label: 'Voyages',    icon: '🧳' },
       { to: '/rotations',  label: 'Rotations',  icon: '🔄' },
     ],
   },

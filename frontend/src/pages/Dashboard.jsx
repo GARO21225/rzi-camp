@@ -296,7 +296,7 @@ export default function Dashboard() {
 
   const MODULES = [
     { icon:'👥', label:'Employés',      path:'/personnel',    },
-    { icon:'✈️', label:'Rotations',     path:'/rotations',    },
+    { icon:'🧳', label:'Rotations',     path:'/rotations',    },
     { icon:'📅', label:'Réservations',  path:'/reservations', },
     { icon:'🏠', label:'Chambres',      path:'/residences',   },
     { icon:'🍽️', label:'Restauration',  path:'/restauration',  },
@@ -369,7 +369,7 @@ export default function Dashboard() {
               <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
                 background: a.urgent ? 'var(--rzc-red-l)' : 'var(--rzc-charcoal-l2)',
                 border:`1.5px solid ${a.urgent ? 'rgba(220,38,38,.25)' : 'var(--rzc-border-light)'}` }}>
-                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'✈️',epi:'🦺'}[a.type]||'📋'}</span>
+                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'🧳',epi:'🦺'}[a.type]||'📋'}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:12, color: a.urgent ? 'var(--rzc-red)' : 'var(--rzc-text)' }}>{a.titre}</div>
                   <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1 }}>{a.desc}</div>
@@ -389,7 +389,7 @@ export default function Dashboard() {
         <Kpi loading={loading && !sync} icon="👥" label="Personnel total" accent="blue"
           value={total || '—'}
           sub={`${personnelLoge ?? 0} hébergé(s) · ${personnelNonLoge ?? 0} non hébergé(s)`} />
-        <Kpi loading={loading && !sync} icon="✈️" label="Rotation en cours" accent="gold"
+        <Kpi loading={loading && !sync} icon="🧳" label="Rotation en cours" accent="gold"
           value={planifies || 0}
           sub={`${enVoyage} en transit actuellement`} />
         <Kpi loading={loading && !sync} icon="🛏️" label="Chambres disponibles" accent="green"
@@ -443,7 +443,7 @@ export default function Dashboard() {
             title={`${sla} SLA dépassé(s)`} desc="Délai de résolution expiré" />}
           {stockCritiqueCount > 0 && <AlertRow icon="📦" severity="gold"
             title={`${stockCritiqueCount} article(s) en stock bas`} desc="Réapprovisionnement à prévoir" />}
-          {enVoyage > 0 && <AlertRow icon="✈️" severity="info"
+          {enVoyage > 0 && <AlertRow icon="🧳" severity="info"
             title={`${enVoyage} personne(s) hors camp`} desc={`${planifies} rotation(s) planifiée(s)`} />}
           {(d.bat?.departs_s1 || 0) > 0 && <AlertRow icon="🗓️" severity="info"
             title={`${d.bat.departs_s1} départ(s) cette semaine`} desc="Libérations de chambres à planifier" />}

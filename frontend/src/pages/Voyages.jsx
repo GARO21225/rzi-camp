@@ -93,7 +93,7 @@ function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
               {info?.departs.slice(0,2).map(v=>(
                 <div key={'d'+v.id} onClick={()=>onSelectVoyage(v)} title={`Départ — ${v.personnel_detail?.nom||''}`}
                   style={{background:'#fff7ed',color:'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  ✈️ {v.personnel_detail?.nom||v.destination}
+                  🧳 {v.personnel_detail?.nom||v.destination}
                 </div>
               ))}
               {info?.retours.slice(0,2).map(v=>(
@@ -107,7 +107,7 @@ function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
         })}
       </div>
       <div style={{display:'flex',gap:14,marginTop:10,fontSize:11,color:'var(--rzc-text-3)'}}>
-        <span>✈️ <span style={{color:'#c2410c'}}>Départ</span></span>
+        <span>🧳 <span style={{color:'#c2410c'}}>Départ</span></span>
         <span>🏠 <span style={{color:'#15803d'}}>Retour prévu</span></span>
       </div>
     </div>
@@ -364,7 +364,7 @@ export default function Voyages() {
   const filterBtns = [
     ['', '📋 Tous', data.length],
     ['planifie', '📅 Planifié', stats.planifies||0],
-    ['en_voyage', '✈️ En voyage', stats.en_voyage||0],
+    ['en_voyage', '🧳 En voyage', stats.en_voyage||0],
     ['retour', '🏠 Retour', stats.retours||0],
     ['annule', '❌ Annulé', stats.annules||0],
   ]
@@ -374,7 +374,7 @@ export default function Voyages() {
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ fontSize:isMobile?18:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>✈️ Gestion des Voyages</h2>
+          <h2 style={{ fontSize:isMobile?18:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>🧳 Gestion des Voyages</h2>
           <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
             {isAdmin ? 'Tous les voyages · Modification · Suivi' : `Mes voyages${myPersonnel?' — '+myPersonnel.nom+' '+myPersonnel.prenom:''}`}
           </p>
@@ -431,7 +431,7 @@ export default function Voyages() {
               <div key={rot.rotation_id} style={{background:'#fff',border:'1px solid #fde68a',borderRadius:12,padding:14,boxShadow:'0 2px 8px rgba(0,0,0,.05)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                   <div>
-                    <div style={{fontWeight:800,fontSize:14,color:'var(--rzc-navy)'}}>✈️ {rot.destination}</div>
+                    <div style={{fontWeight:800,fontSize:14,color:'var(--rzc-navy)'}}>🧳 {rot.destination}</div>
                     <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{rot.vehicule} · Convoi {rot.rotation_id}</div>
                   </div>
                   <span style={{background:'#fffbeb',color:'#92400e',padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700}}>
@@ -476,7 +476,7 @@ export default function Voyages() {
         {[
           ['Total',     '📋', stats.total||data.length, '#2563eb'],
           ['Planifiés', '📅', stats.planifies||0,        '#f59e0b'],
-          ['En voyage', '✈️', stats.en_voyage||0,        '#f97316'],
+          ['En voyage', '🧳', stats.en_voyage||0,        '#f97316'],
           ['Retours',   '🏠', stats.retours||0,          '#16a34a'],
         ].map(([l,ic,v,c]) => (
           <div key={l} style={{ background:'var(--rzc-white)', border:`2px solid ${c}30`, borderTop:`3px solid ${c}`, borderRadius:12, padding:'14px 16px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
@@ -534,7 +534,7 @@ export default function Voyages() {
           <div style={{ padding:48, textAlign:'center', fontSize:32 }}>⏳</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding:56, textAlign:'center', color:'var(--rzc-text-4)' }}>
-            <div style={{ fontSize:48, marginBottom:12 }}>✈️</div>
+            <div style={{ fontSize:48, marginBottom:12 }}>🧳</div>
             <div style={{ fontWeight:700, fontSize:15, color:'var(--rzc-text-3)' }}>Aucun voyage</div>
             <div style={{ fontSize:12, marginTop:5 }}>Cliquez sur "+ Nouveau voyage" pour commencer</div>
           </div>
@@ -665,7 +665,7 @@ export default function Voyages() {
           onClick={e=>e.target===e.currentTarget&&setModal(false)}>
           <div style={{ background:'var(--rzc-white)',width:'100%',maxWidth:540,maxHeight:'92dvh',overflow:'auto',borderRadius:'18px 18px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,.2)' }}>
             <div style={{ position:'sticky',top:0,background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderRadius:'18px 18px 0 0',zIndex:10 }}>
-              <span style={{ fontWeight:700,fontSize:15 }}>✈️ {isAdmin?'Nouveau voyage':'Déclarer mon voyage'}</span>
+              <span style={{ fontWeight:700,fontSize:15 }}>🧳 {isAdmin?'Nouveau voyage':'Déclarer mon voyage'}</span>
               <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'var(--rzc-white)',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
             </div>
             <div style={{ padding:20,display:'flex',flexDirection:'column',gap:14 }}>
@@ -816,7 +816,7 @@ export default function Voyages() {
                 <button onClick={()=>setModal(false)} style={{ flex:1,background:'#f8fafc',color:'var(--rzc-text-3)',border:'1px solid #e2e8f0',padding:12,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:600 }}>Annuler</button>
                 <button onClick={createVoyage} disabled={submitting||form._origineValide===false||form._destinationValide===false}
                   style={{ flex:2,background:submitting?'var(--rzc-text-4)':'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:12,borderRadius:10,cursor:submitting?'not-allowed':'pointer',fontSize:14,fontWeight:700 }}>
-                  {submitting?'⏳ Enregistrement…':'✈️ Déclarer le voyage'}
+                  {submitting?'⏳ Enregistrement…':'🧳 Déclarer le voyage'}
                 </button>
               </div>
             </div>

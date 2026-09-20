@@ -63,7 +63,15 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_profil_label(self, obj):
         try:
             from residences.models import Personnel
-            return dict(Personnel.PROFIL_CHOICES).get(obj.profil or 'agent', obj.profil or 'agent')
+            code = obj.profil or 'agent'
+            label = dict(Personnel.PROFIL_CHOICES).get(code)
+            if label: return label
+            # Profil personnalise (role cree depuis Parametrage -> Roles &
+            # Acces, absent de la liste figee PROFIL_CHOICES) - va chercher
+            # son libelle dans RoleCustom plutot que d'afficher le code brut.
+            from accounts.models import RoleCustom
+            role = RoleCustom.objects.filter(code=code).first()
+            return role.label if role else code
         except Exception:
             return 'agent'
 

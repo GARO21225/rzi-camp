@@ -55,7 +55,7 @@ const ROLE_NAV = {
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/demandes', label:'📝 Mes demandes' },
     { to:'/evenements', label:'📅 Événements' },
-    { to:'/voyages', label:'✈️ Voyages' },
+    { to:'/voyages', label:'🧳 Voyages' },
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/maintenance', label:'🛠️ Signaler Incident' },
   ],

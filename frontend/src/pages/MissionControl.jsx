@@ -223,7 +223,7 @@ function VueCalendrierMC({ voyages, mois, setMois, onSelect }) {
               {info?.departs.slice(0,2).map(v=>(
                 <div key={'d'+v.id} onClick={()=>onSelect(v)} title={`Départ — ${v.personnel_nom||''}`}
                   style={{background:`${C.orange||'#f97316'}18`,color:C.orange||'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  ✈️ {v.personnel_nom||v.destination}
+                  🧳 {v.personnel_nom||v.destination}
                 </div>
               ))}
               {info?.retours.slice(0,2).map(v=>(
@@ -659,7 +659,7 @@ export default function MissionControl() {
     try {
       const res = await api('/api/voyages/partir_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
-      flash(`Rotation en transit ✈️ (${d.partis} parti(s))`)
+      flash(`Rotation en transit 🧳 (${d.partis} parti(s))`)
       if (d.echecs && d.echecs.length > 0) {
         toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu partir : ${d.echecs.join(' | ')}`, 8000)
       }
@@ -869,7 +869,7 @@ export default function MissionControl() {
             {/* KPIs */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10,marginBottom:14}}>
               <Kpi icon="📅" label="Planifiés" value={stats.planifies||0} color={C.accent} glow/>
-              <Kpi icon="✈️" label="En transit" value={stats.en_voyage||0} color={C.amber}
+              <Kpi icon="🧳" label="En transit" value={stats.en_voyage||0} color={C.amber}
                 sub={absents.length>0?`${absents.length} hors camp`:''}/>
               <Kpi icon="🏠" label="Retours" value={stats.retours||0} color={C.green}/>
               <Kpi icon="🔄" label="Rotations" value={rotations.length} color={C.purple}/>
@@ -1102,7 +1102,7 @@ export default function MissionControl() {
                         {r.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
-                          ✈️ Partir
+                          🧳 Partir
                         </button>}
                         {r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
@@ -1253,7 +1253,7 @@ export default function MissionControl() {
 
               {rotations.length===0&&(
                 <Panel style={{padding:40,textAlign:'center'}}>
-                  <div style={{fontSize:40,marginBottom:12}}>✈️</div>
+                  <div style={{fontSize:40,marginBottom:12}}>🧳</div>
                   <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:8}}>
                     Aucune rotation planifiée
                   </div>
@@ -1375,7 +1375,7 @@ export default function MissionControl() {
                         const ok = await confirmDialog(`Confirmer le départ de ${selVoyage.personnel_nom} aujourd'hui ?`)
                         if(ok){ changerStatut(selVoyage.id,'partir'); setSelVoyage(null) }
                       }}>
-                      ✈️ Partir
+                      🧳 Partir
                     </button>}
                     {selVoyage.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                       style={{flex:1,fontSize:11}}
@@ -1441,6 +1441,9 @@ export default function MissionControl() {
                 Société / Téléphone / Lieu de montée / Lieu de descente) */}
             <Panel style={{marginTop:14,padding:'14px 16px'}}>
               <Label>Manifeste — Export</Label>
+              <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+                💡 Cliquer sur une ligne du tableau pour modifier son point de montée / descente (aller et retour).
+              </div>
               {(() => {
                 const convoisDisponibles = [...new Set(voyages.filter(v=>v.rotation_id).map(v=>v.rotation_id))]
                 let filtres = voyages.filter(v => {
@@ -1591,7 +1594,7 @@ export default function MissionControl() {
                           <td style={{padding:'7px 10px',fontWeight:600,color:C.text}}>{v.personnel_nom||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.muted}}>{v.personnel_departement || v.personnel_societe || '—'}</td>
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{v.personnel_telephone||'—'}</td>
-                          <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'}</td>
+                          <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'} <span style={{opacity:.4,fontSize:10}} title="Cliquer la ligne pour modifier montée/descente">✏️</span></td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.destination||'—'}</td>
                           <td style={{padding:'7px 10px'}}><StatusBadge statut={v.statut}/></td>
                         </tr>
@@ -1633,7 +1636,7 @@ export default function MissionControl() {
                         <div>
                           <div style={{fontWeight:800,fontSize:14,color:C.text}}>{v.personnel_nom}</div>
                           <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                            {v.personnel_societe} · ✈️ {v.destination} · {fmt(v.date_depart)} → {fmt(v.date_retour_prevue)}
+                            {v.personnel_societe} · 🧳 {v.destination} · {fmt(v.date_depart)} → {fmt(v.date_retour_prevue)}
                           </div>
                           {v.motif && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {v.motif}</div>}
                         </div>
@@ -1724,7 +1727,7 @@ export default function MissionControl() {
                         <div style={{display:'flex',alignItems:'center',gap:12,fontFamily:'JetBrains Mono,monospace',fontSize:13,color:C.text}}>
                           <span>🏕️ CAMP</span>
                           <span style={{flex:1,borderTop:`1px dashed ${C.border}`,position:'relative'}}>
-                            <span style={{position:'absolute',right:0,top:-9,fontSize:12}}>✈️</span>
+                            <span style={{position:'absolute',right:0,top:-9,fontSize:12}}>🧳</span>
                           </span>
                           <span>{(v.destination||'—').toUpperCase()}</span>
                         </div>
@@ -1779,7 +1782,7 @@ export default function MissionControl() {
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,fontFamily:'JetBrains Mono,monospace',fontSize:14,color:C.text}}>
                 <span style={{fontWeight:700}}>{(detailVoyage.origine||'Camp Roxgold Sango').toUpperCase()}</span>
                 <span style={{flex:1,borderTop:`1px dashed ${C.border}`,position:'relative'}}>
-                  <span style={{position:'absolute',right:'50%',top:-9,fontSize:12}}>✈️</span>
+                  <span style={{position:'absolute',right:'50%',top:-9,fontSize:12}}>🧳</span>
                 </span>
                 <span style={{fontWeight:700,color:C.accent}}>{(detailVoyage.destination||'—').toUpperCase()}</span>
               </div>
@@ -1805,6 +1808,56 @@ export default function MissionControl() {
                 {detailVoyage.motif_refus && <div style={{fontSize:11,color:C.red,marginTop:4}}>Motif : {detailVoyage.motif_refus}</div>}
               </div>
 
+              {/* Montée / Descente en cours de route — edition DIRECTE et
+                  simple des points de prise en charge, sans passer par le
+                  systeme d'etapes complet (reserve aux vrais trajets
+                  multi-tronçons). S'applique a l'aller (origine/destination
+                  du voyage) ET au retour (champs dedies). */}
+              <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:4}}>📍 Montée / Descente en cours de route</div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+                  Si ce passager ne fait pas exactement le même trajet que le reste du convoi — pris en route ou déposé avant l'arrivée, à l'aller ou au retour.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (aller)</label>
+                    <input defaultValue={detailVoyage.origine||''} id="mc-lieu-montee-aller"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (aller)</label>
+                    <input defaultValue={detailVoyage.destination||''} id="mc-lieu-descente-aller"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (retour)</label>
+                    <input defaultValue={detailVoyage.lieu_montee_retour||''} placeholder={detailVoyage.destination||'Même point que le convoi'} id="mc-lieu-montee-retour"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (retour)</label>
+                    <input defaultValue={detailVoyage.lieu_descente_retour||''} placeholder={detailVoyage.origine||'Destination normale'} id="mc-lieu-descente-retour"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                </div>
+                <button className="mc-btn" style={{fontSize:11,padding:'6px 14px',background:C.accent,color:'#000',fontWeight:700}}
+                  onClick={async()=>{
+                    const payload = {
+                      origine: document.getElementById('mc-lieu-montee-aller').value,
+                      destination: document.getElementById('mc-lieu-descente-aller').value,
+                      lieu_montee_retour: document.getElementById('mc-lieu-montee-retour').value,
+                      lieu_descente_retour: document.getElementById('mc-lieu-descente-retour').value,
+                    }
+                    try {
+                      const res = await api(`/api/voyages/${detailVoyage.id}/`, {method:'PATCH', body:JSON.stringify(payload)})
+                      if (res.ok) { toast.success('Montée/descente enregistrées'); const updated = await res.json(); setDetailVoyage(updated); load() }
+                      else { const d = await res.json(); toast.error(d.error||d.detail||'Erreur') }
+                    } catch { toast.error('Erreur réseau') }
+                  }}>
+                  💾 Enregistrer
+                </button>
+              </div>
+
               {/* Grille d'infos complètes */}
               {(() => {
                 const rotationParente = detailVoyage.rotation_id ? rotations.find(r => r.rotation_id === detailVoyage.rotation_id) : null
@@ -1815,7 +1868,7 @@ export default function MissionControl() {
                   ['📍 Destination', detailVoyage.destination||'—'],
                   ...(trajetDiffere ? [['🔀 Trajet vs convoi', `Diffère du convoi (${rotationParente.destination})`]] : []),
                   ['📅 Date de départ (prévue)', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
-                  ['✈️ Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
+                  ['🧳 Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
                   ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
@@ -1951,56 +2004,6 @@ export default function MissionControl() {
                 </div>
               )}
 
-              {/* Montée / Descente en cours de route — edition DIRECTE et
-                  simple des points de prise en charge, sans passer par le
-                  systeme d'etapes complet (reserve aux vrais trajets
-                  multi-tronçons). S'applique a l'aller (origine/destination
-                  du voyage) ET au retour (champs dedies). */}
-              <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:4}}>📍 Montée / Descente en cours de route</div>
-                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-                  Si ce passager ne fait pas exactement le même trajet que le reste du convoi — pris en route ou déposé avant l'arrivée, à l'aller ou au retour.
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (aller)</label>
-                    <input defaultValue={detailVoyage.origine||''} id="mc-lieu-montee-aller"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (aller)</label>
-                    <input defaultValue={detailVoyage.destination||''} id="mc-lieu-descente-aller"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (retour)</label>
-                    <input defaultValue={detailVoyage.lieu_montee_retour||''} placeholder={detailVoyage.destination||'Même point que le convoi'} id="mc-lieu-montee-retour"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (retour)</label>
-                    <input defaultValue={detailVoyage.lieu_descente_retour||''} placeholder={detailVoyage.origine||'Destination normale'} id="mc-lieu-descente-retour"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                </div>
-                <button className="mc-btn" style={{fontSize:11,padding:'6px 14px',background:C.accent,color:'#000',fontWeight:700}}
-                  onClick={async()=>{
-                    const payload = {
-                      origine: document.getElementById('mc-lieu-montee-aller').value,
-                      destination: document.getElementById('mc-lieu-descente-aller').value,
-                      lieu_montee_retour: document.getElementById('mc-lieu-montee-retour').value,
-                      lieu_descente_retour: document.getElementById('mc-lieu-descente-retour').value,
-                    }
-                    try {
-                      const res = await api(`/api/voyages/${detailVoyage.id}/`, {method:'PATCH', body:JSON.stringify(payload)})
-                      if (res.ok) { toast.success('Montée/descente enregistrées'); const updated = await res.json(); setDetailVoyage(updated); load() }
-                      else { const d = await res.json(); toast.error(d.error||d.detail||'Erreur') }
-                    } catch { toast.error('Erreur réseau') }
-                  }}>
-                  💾 Enregistrer
-                </button>
-              </div>
-
               {/* Carte de l'itinéraire */}
               <div style={{marginBottom:16}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -2083,7 +2086,7 @@ export default function MissionControl() {
                 alignItems:'center',marginBottom:20}}>
                 <div>
                   <div style={{fontSize:16,fontWeight:800,color:C.text}}>
-                    {showCreate==='rotation' ? '✦ Nouvelle rotation groupe' : '✈️ Voyage individuel'}
+                    {showCreate==='rotation' ? '✦ Nouvelle rotation groupe' : '🧳 Voyage individuel'}
                   </div>
                   <div style={{fontSize:11,color:C.muted,marginTop:2}}>
                     {showCreate==='rotation'
@@ -2221,11 +2224,8 @@ export default function MissionControl() {
 
                   {/* Sélection passagers */}
                   <div>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                      <label style={{...labelStyle,marginBottom:0}}>
-                        Passagers ({formRot.passagers.length}/{formRot.nb_places_total})
-                      </label>
-                      <button type="button" className="mc-btn" style={{fontSize:10,padding:'3px 8px',background:C.bg}}
+                    <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
+                        background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
                         onClick={()=>{
                           const saisie = prompt("Coller une liste de matricules (un par ligne, ou séparés par des virgules) :")
                           if (!saisie) return
@@ -2247,9 +2247,11 @@ export default function MissionControl() {
                           if (complets.length) msg += ` ${complets.length} non ajouté(s) — rotation déjà complète.`
                           toast[introuvables.length||complets.length ? 'error' : 'success'](msg)
                         }}>
-                        📋 Importer une liste
-                      </button>
-                    </div>
+                      📋 Importer une liste de matricules
+                    </button>
+                    <label style={labelStyle}>
+                      Passagers ({formRot.passagers.length}/{formRot.nb_places_total})
+                    </label>
                     <div style={{border:`0.5px solid ${C.border}`,borderRadius:8,
                       maxHeight:200,overflowY:'auto',background:'rgba(0,0,0,.2)'}}>
                       {personnel.map(p=>{
@@ -2399,7 +2401,7 @@ export default function MissionControl() {
                     style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
                     disabled={saving||!formIndiv.personnel_id||!formIndiv.date_depart||!formIndiv.date_retour_prevue||formIndiv._origineValide===false||formIndiv._destinationValide===false}
                     onClick={creerIndividuel}>
-                    {saving ? '⏳ Création...' : '✈️ Créer le voyage individuel'}
+                    {saving ? '⏳ Création...' : '🧳 Créer le voyage individuel'}
                   </button>
                 </div>
               )}

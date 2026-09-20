@@ -3,7 +3,7 @@
  * Version stable - Erreurs gérées par Error Boundary
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
@@ -61,6 +61,7 @@ export default function Personnel() {
   const [err,          setErr]          = useState('')
   const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
   const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
+  const [profilsDynamiques, setProfilsDynamiques] = useState(null) // charges depuis RoleCustom, remplace la liste figee
   const [credentialsModal, setCredentialsModal] = useState(null) // Identifiants generes a afficher UNE fois
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
@@ -74,6 +75,16 @@ export default function Personnel() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    // Les roles configures dans Parametrage -> Roles & Acces DOIVENT
+    // apparaitre ici automatiquement - avant ce correctif, cette liste
+    // etait figee dans le code et un nouveau role cree par l'admin
+    // n'etait jamais selectionnable pour un membre du personnel.
+    rolesAPI.list().then(r => {
+      const liste = r.data?.results || r.data || []
+      if (liste.length) setProfilsDynamiques(liste.map(role => ({ v: role.code, l: role.label })))
+    }).catch(() => {})
+  }, [])
 
   // Filtrage — mémoïsé : recalculé seulement quand data ou les filtres changent,
   // pas à chaque re-render du composant (ex: ouverture d'un modal, saisie dans
@@ -217,7 +228,7 @@ export default function Personnel() {
     {v:'visiteur',     l:'Visiteur'},
   ]
 
-  const PROFILS = [
+  const PROFILS = profilsDynamiques || [
   { v:'admin',      l:'Administrateur' },
   { v:'agent',      l:'Agent' },
   { v:'accueil',    l:"Agent d'accueil" },
