@@ -705,7 +705,7 @@ export default function Personnel() {
                       title="Tout sélectionner/désélectionner"
                       style={{width:16,height:16,cursor:'pointer'}}/>
                   </th>
-                  {['Nom','Type','Société','Contact','Date création','Actions'].map(h => (
+                  {['Nom','Type','Rôle','Société','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'var(--rzc-text-3)',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -738,6 +738,17 @@ export default function Personnel() {
                       }}>
                         {TYPES.find(t=>t.v===p.type_personnel)?.l || p.type_personnel}
                       </span>
+                    </td>
+                    <td style={{padding:'10px 14px'}}>
+                      <span style={{background:'rgba(124,58,237,.1)',color:'#7c3aed',
+                        padding:'3px 8px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                        {p.profil_label || PROFILS.find(pr=>pr.v===p.profil)?.l || p.profil || '—'}
+                      </span>
+                      {p.user_role && p.user_role !== p.profil && (
+                        <div style={{fontSize:10,color:'var(--rzc-text-4)',marginTop:3}} title="Rôle de connexion réel (pages/droits)">
+                          🔑 {PROFILS.find(pr=>pr.v===p.user_role)?.l || p.user_role}
+                        </div>
+                      )}
                     </td>
 
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>

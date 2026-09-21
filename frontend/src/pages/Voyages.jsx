@@ -718,7 +718,13 @@ export default function Voyages() {
               <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12 }}>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Date départ *</label>
-                  <input type="date" value={form.date_depart} onChange={e=>setForm({...form,date_depart:e.target.value})} style={inp}/>
+                  <input type="date" value={form.date_depart} onChange={e=>setForm({...form,date_depart:e.target.value})}
+                    min={isAdmin ? undefined : new Date(Date.now()+48*3600*1000).toISOString().slice(0,10)} style={inp}/>
+                  {!isAdmin && (
+                    <div style={{ fontSize:10.5,color:'var(--rzc-text-4)',marginTop:4 }}>
+                      Départ dans moins de 48h ? Contactez directement l'administrateur.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Heure</label>

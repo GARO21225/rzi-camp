@@ -72,6 +72,25 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 return Response({
                     "error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue} (règle : pas de voyages qui se chevauchent)."
                 }, status=400)
+        # Delai minimum de 48h avant le depart, pour une demande en
+        # SELF-SERVICE (un agent qui declare son propre voyage) - un admin
+        # cree en connaissance de cause (urgence, medical) et n'est jamais
+        # bloque par cette regle, meme pour le compte d'un tiers.
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin and date_depart:
+            from django.utils import timezone
+            from datetime import datetime, timedelta
+            try:
+                dt_depart = datetime.strptime(date_depart, "%Y-%m-%d").date()
+            except ValueError:
+                dt_depart = None
+            if dt_depart:
+                limite = timezone.localdate() + timedelta(days=2)
+                if dt_depart < limite:
+                    return Response({
+                        "error": "Les demandes de voyage doivent être envoyées au moins 48h avant la date de départ. Pour un départ plus proche, contactez l'administrateur directement."
+                    }, status=400)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -693,6 +712,15 @@ class VoyageViewSet(viewsets.ModelViewSet):
             prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
             if prises >= (existing.nb_places_total or 15):
                 return Response({"error":"Rotation complète"},status=400)
+            # Meme delai de 48h que la creation directe - mais UNIQUEMENT si
+            # le convoi n'est pas deja parti ("en_voyage" = montee en cours
+            # de route, par definition a court terme, exemptee).
+            if not is_admin and existing.statut == "planifie":
+                from django.utils import timezone
+                from datetime import timedelta
+                limite = timezone.localdate() + timedelta(days=2)
+                if existing.date_depart < limite:
+                    return Response({"error": "Les demandes pour rejoindre un convoi doivent être envoyées au moins 48h avant son départ. Pour un départ plus proche, contactez l'administrateur directement."}, status=400)
             if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
                 return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
