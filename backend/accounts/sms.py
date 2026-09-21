@@ -24,22 +24,37 @@ def envoyer_sms(numero, message, canal=None):
 
     canal: 'sms' (par defaut) ou 'whatsapp'. Si omis, lit le parametre
     'canal_otp' (permet de choisir le canal par defaut pour tout le camp
-    sans toucher au code appelant). WhatsApp n'est pour l'instant
-    disponible que via Twilio (le numero expediteur doit etre approuve
-    WhatsApp Business par Twilio - voir console.twilio.com).
+    sans toucher au code appelant).
+
+    Pour WhatsApp specifiquement, un fournisseur DEDIE et independant du
+    SMS peut etre configure ('whatsapp_provider') - Meta est une API
+    WhatsApp uniquement (pas de SMS), donc ca ne remplace jamais
+    sms_provider, ca s'ajoute a cote pour ce canal precis. Si
+    whatsapp_provider est vide/'auto', on retombe sur la capacite
+    WhatsApp du fournisseur SMS principal (aujourd'hui : Twilio).
     """
     provider = Parametre.get('sms_provider', 'test')
     canal = canal or Parametre.get('canal_otp', 'sms')
 
-    if provider == 'test':
-        print(f"[SMS TEST{'/WHATSAPP' if canal=='whatsapp' else ''}] -> {numero} : {message}")
+    if provider == 'test' and canal != 'whatsapp':
+        print(f"[SMS TEST] -> {numero} : {message}")
         return True, "mode_test"
+
+    if canal == 'whatsapp':
+        whatsapp_provider = Parametre.get('whatsapp_provider', 'auto')
+        if whatsapp_provider == 'meta':
+            return _envoyer_meta_whatsapp(numero, message)
+        if whatsapp_provider in ('', 'auto', 'twilio'):
+            if provider == 'test':
+                print(f"[SMS TEST/WHATSAPP] -> {numero} : {message}")
+                return True, "mode_test"
+            if provider == 'twilio':
+                return _envoyer_twilio(numero, message, canal='whatsapp')
+            return False, f"WhatsApp via Twilio nécessite sms_provider=twilio (actuel : {provider}) — ou configurez whatsapp_provider=meta pour l'API Meta officielle."
+        return False, f"whatsapp_provider inconnu : {whatsapp_provider}"
 
     if provider == 'twilio':
         return _envoyer_twilio(numero, message, canal=canal)
-
-    if canal == 'whatsapp':
-        return False, f"WhatsApp n'est disponible que via Twilio pour l'instant (fournisseur actuel : {provider})"
 
     if provider == 'orange':
         return _envoyer_orange(numero, message)
@@ -122,3 +137,55 @@ def _envoyer_africastalking(numero, message):
         return False, "Le paquet 'africastalking' n'est pas installé (pip install africastalking)"
     except Exception as e:
         return False, f"Erreur Africa's Talking : {e}"
+
+
+def _envoyer_meta_whatsapp(numero, message):
+    """
+    API WhatsApp Business officielle de Meta (Cloud API), independante de
+    Twilio - necessite un compte WhatsApp Business verifie et une APP
+    Meta for Developers.
+
+    IMPORTANT (contrainte imposee par Meta, pas par ce code) : un message
+    envoye en dehors d'une conversation deja ouverte par le destinataire
+    (ce qui est TOUJOURS le cas pour un code OTP ou des identifiants -
+    premier contact) doit obligatoirement utiliser un MODELE DE MESSAGE
+    ("message template") pre-approuve par Meta, pas du texte libre. Le
+    modele attendu ici a UNE seule variable {{1}} dans le corps, qui
+    recoit le message entier - creer un modele simple du type
+    "{{1}}" (categorie UTILITY) dans Meta Business Manager, attendre son
+    approbation (generalement quelques minutes a quelques heures), puis
+    renseigner son nom exact dans Parametrage.
+    """
+    phone_number_id = Parametre.get('meta_whatsapp_phone_number_id', '')
+    access_token     = Parametre.get('meta_whatsapp_access_token', '')
+    template_name    = Parametre.get('meta_whatsapp_template_name', '')
+    template_lang    = Parametre.get('meta_whatsapp_template_lang', 'fr') or 'fr'
+    if not (phone_number_id and access_token and template_name):
+        return False, "API Meta WhatsApp non configurée (Phone Number ID / Access Token / nom du modèle manquant)"
+    try:
+        import requests
+        numero_e164 = numero.replace(" ", "").replace("-", "")
+        if not numero_e164.startswith("+"):
+            # Hypothese raisonnable pour la Cote d'Ivoire si aucun indicatif
+            # n'est fourni - a ajuster si le camp accueille d'autres pays.
+            numero_e164 = "+225" + numero_e164.lstrip("0") if len(numero_e164) <= 10 else "+" + numero_e164
+        resp = requests.post(
+            f"https://graph.facebook.com/v21.0/{phone_number_id}/messages",
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            json={
+                "messaging_product": "whatsapp",
+                "to": numero_e164.lstrip("+"),
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {"code": template_lang},
+                    "components": [{"type": "body", "parameters": [{"type": "text", "text": message}]}],
+                },
+            },
+            timeout=10,
+        )
+        if resp.status_code >= 400:
+            return False, f"Erreur API Meta WhatsApp ({resp.status_code}) : {resp.text[:200]}"
+        return True, "envoyé via l'API Meta WhatsApp"
+    except Exception as e:
+        return False, f"Erreur API Meta WhatsApp : {e}"

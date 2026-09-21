@@ -1306,24 +1306,15 @@ export default function Personnel() {
                 </div>
                 <div>
                   <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
-                    Profil système
+                    🔑 Rôle (profil et accès)
                   </div>
-                  <select value={newProfil||''} onChange={e=>setNewProfil(e.target.value)} style={inp}>
+                  <select value={newProfil||''} onChange={e=>{setNewProfil(e.target.value); setNewLoginRole(e.target.value)}} style={inp}>
                     <option value="">Inchangé</option>
                     {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
                   </select>
-                </div>
-              </div>
-              <div style={{marginBottom:12,padding:'10px 12px',background:'rgba(124,58,237,.06)',border:'1px solid rgba(124,58,237,.2)',borderRadius:9}}>
-                <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
-                  🔑 Rôle de connexion (pages et droits accessibles)
-                </div>
-                <select value={newLoginRole||''} onChange={e=>setNewLoginRole(e.target.value)} style={inp}>
-                  <option value="">Inchangé</option>
-                  {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
-                </select>
-                <div style={{fontSize:10.5,color:'var(--rzc-text-4)',marginTop:5}}>
-                  Contrôle réellement les pages visibles et les droits d'écriture (configurés dans Paramétrage → Rôles & Accès) — distinct du "Profil système" ci-dessus, qui est juste informatif.
+                  <div style={{fontSize:10,color:'var(--rzc-text-4)',marginTop:4}}>
+                    Détermine les pages visibles et les droits (configurés dans Paramétrage → Rôles & Accès).
+                  </div>
                 </div>
               </div>
               {newProfil && (

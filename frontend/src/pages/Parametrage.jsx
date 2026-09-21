@@ -39,6 +39,14 @@ const CHAMPS = [
     { cle: 'sms_at_username', label: "Africa's Talking — Username", suffix: '', type: 'text', hint: '' },
     { cle: 'sms_at_api_key', label: "Africa's Talking — API Key", suffix: '', type: 'password', hint: '' },
   ]},
+  { section: '💬 WhatsApp — API Meta officielle', items: [
+    { cle: 'whatsapp_provider', label: 'Fournisseur WhatsApp', suffix: '', type: 'text',
+      hint: "auto (utilise Twilio, comme avant) ou meta (API WhatsApp Business officielle — indépendante de Twilio, remplit les champs ci-dessous)" },
+    { cle: 'meta_whatsapp_phone_number_id', label: 'Meta — Phone Number ID', suffix: '', type: 'text', hint: 'Depuis developers.facebook.com → votre app → WhatsApp → API Setup' },
+    { cle: 'meta_whatsapp_access_token', label: 'Meta — Access Token', suffix: '', type: 'password', hint: 'Token permanent généré via un utilisateur système (System User) dans Meta Business Manager — pas le token temporaire de 24h affiché par défaut' },
+    { cle: 'meta_whatsapp_template_name', label: 'Meta — Nom du modèle de message', suffix: '', type: 'text', hint: 'Le modèle doit être créé et approuvé dans Meta Business Manager au préalable, avec UNE seule variable {{1}} dans le corps' },
+    { cle: 'meta_whatsapp_template_lang', label: 'Meta — Code langue du modèle', suffix: '', type: 'text', hint: 'Ex: fr ou fr_FR — doit correspondre exactement à la langue choisie lors de la création du modèle' },
+  ]},
 ]
 
 const LIENS_RAPIDES = [
