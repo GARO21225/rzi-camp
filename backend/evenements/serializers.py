@@ -1,15 +1,30 @@
 from rest_framework import serializers
-from .models import Evenement, Notification, AlerteCampus, QREvenement
+from .models import Evenement, Notification, AlerteCampus, QREvenement, GroupeDiffusion
+
+class GroupeDiffusionSerializer(serializers.ModelSerializer):
+    nb_personnes = serializers.SerializerMethodField()
+    class Meta:
+        model = GroupeDiffusion
+        fields = ["id","nom","description","uniquement_residents_actifs","filtre_societe","filtre_type_personnel","est_defaut","date_creation","nb_personnes"]
+    def get_nb_personnes(self, obj):
+        return obj.personnel_cible().count()
 
 class EvenementSerializer(serializers.ModelSerializer):
     type_label = serializers.SerializerMethodField()
     statut_label = serializers.SerializerMethodField()
     nb_notifies = serializers.SerializerMethodField()
     cree_par_nom = serializers.SerializerMethodField()
+    groupe_diffusion_nom = serializers.CharField(source="groupe_diffusion.nom", read_only=True, default=None)
+    nb_qr_generes = serializers.SerializerMethodField()
+    nb_qr_scannes = serializers.SerializerMethodField()
     class Meta:
         model = Evenement
-        fields = ["id","titre","description","type_event","type_label","statut","statut_label","date_debut","date_fin","lieu","image_base64","obligatoire","qr_requis","propose_boisson","cree_par","cree_par_nom","date_creation","nb_notifies"]
+        fields = ["id","titre","description","type_event","type_label","statut","statut_label","date_debut","date_fin","lieu","image_base64","obligatoire","qr_requis","propose_boisson","groupe_diffusion","groupe_diffusion_nom","cree_par","cree_par_nom","date_creation","nb_notifies","nb_qr_generes","nb_qr_scannes"]
         read_only_fields = ["cree_par","date_creation"]
+    def get_nb_qr_generes(self, obj):
+        return obj.qr_codes.count() if obj.qr_requis else None
+    def get_nb_qr_scannes(self, obj):
+        return obj.qr_codes.filter(utilise=True).count() if obj.qr_requis else None
     def get_type_label(self,obj): return dict(Evenement.TYPE_CHOICES).get(obj.type_event,obj.type_event)
     def get_statut_label(self,obj): return dict(Evenement.STATUT).get(obj.statut,obj.statut)
     def get_nb_notifies(self,obj):

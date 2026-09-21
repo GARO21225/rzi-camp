@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { evenements as evtAPI, alertes as alertesAPI } from '../api'
+import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -43,8 +43,9 @@ export default function Evenements() {
   const [scanResult, setScanResult] = useState(null)
   const [form, setForm] = useState({
     titre:'', description:'', type_event:'reunion', lieu:'Salle polyvalente Camp RZI',
-    date_debut:todayDT, date_fin:'', obligatoire:false, qr_requis:false, propose_boisson:false
+    date_debut:todayDT, date_fin:'', obligatoire:false, qr_requis:false, propose_boisson:false, groupe_diffusion:''
   })
+  const [groupes, setGroupes] = useState([])
   const [alerteForm, setAlerteForm] = useState({ message:'', type_alerte:'info' })
 
   const load = () => {
@@ -53,6 +54,14 @@ export default function Evenements() {
     alertesAPI.list().then(r => setAlertes(r.data.results||r.data))
   }
   useEffect(()=>{ load() },[])
+  useEffect(()=>{
+    groupesAPI.list().then(r=>{
+      const liste = r.data.results || r.data
+      setGroupes(liste)
+      const defaut = liste.find(g=>g.est_defaut)
+      if (defaut) setForm(f=>({...f, groupe_diffusion: defaut.id}))
+    }).catch(()=>{})
+  },[])
 
   const createEvt = async () => {
     if (!form.titre||!form.date_debut) return toast.success('Titre et date obligatoires')
@@ -183,6 +192,7 @@ export default function Evenements() {
                     {evt.lieu && <span>📍 {evt.lieu}</span>}
                     <span>👤 {evt.cree_par_nom}</span>
                     {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
+                    {evt.qr_requis && <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>}
                   </div>
                 </div>
                 {evt.qr_requis && (
@@ -253,6 +263,18 @@ export default function Evenements() {
                   }
                 </div>
               ))}
+              <div style={{ gridColumn:'span 2' }}>
+                <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>
+                  Qui reçoit la notification ?
+                </label>
+                <select value={form.groupe_diffusion} onChange={e=>setForm({...form,groupe_diffusion:e.target.value})} style={inp}>
+                  <option value="">— Aucune notification automatique —</option>
+                  {groupes.map(g=><option key={g.id} value={g.id}>{g.nom} ({g.nb_personnes})</option>)}
+                </select>
+                <div style={{ fontSize:10.5, color:'var(--text-dim)', marginTop:3 }}>
+                  Groupes gérés depuis Paramétrage → Groupes de diffusion.
+                </div>
+              </div>
               <div style={{ gridColumn:'span 2', display:'flex', alignItems:'center', gap:10 }}>
                 <input type="checkbox" id="oblig" checked={form.obligatoire} onChange={e=>setForm({...form,obligatoire:e.target.checked})} style={{ width:16, height:16 }}/>
                 <label htmlFor="oblig" style={{ fontSize:13, cursor:'pointer' }}>Participation obligatoire</label>

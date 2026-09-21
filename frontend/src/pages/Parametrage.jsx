@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI } from '../api'
+import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
@@ -50,6 +50,7 @@ const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['roles',      '👥 Rôles & Accès'],
   ['rapports-planifies', '📧 Rapports par email'],
+  ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
   ['induction',  '🎓 Induction du Camp'],
@@ -167,6 +168,10 @@ export default function Parametrage() {
 
       {tab === 'rapports-planifies' && (
         <RapportsPlanifiesTab isAdmin={isAdmin} />
+      )}
+
+      {tab === 'groupes-diffusion' && (
+        <GroupesDiffusionTab isAdmin={isAdmin} />
       )}
 
       {tab === 'apparence' && (
@@ -699,6 +704,110 @@ function RapportsPlanifiesTab({ isAdmin }) {
               <button onClick={()=>supprimer(r)}
                 style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
                 🗑️
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function GroupesDiffusionTab({ isAdmin }) {
+  const [liste, setListe] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ nom:'', description:'', uniquement_residents_actifs:false, filtre_societe:'', filtre_type_personnel:'', est_defaut:false })
+  const [creating, setCreating] = useState(false)
+
+  const charger = () => {
+    setLoading(true)
+    groupesDiffusionAPI.list().then(r => setListe(r.data.results || r.data || [])).finally(()=>setLoading(false))
+  }
+  useEffect(charger, [])
+
+  const creer = async () => {
+    if (!form.nom.trim()) { toast.error('Nom requis.'); return }
+    setCreating(true)
+    try {
+      await groupesDiffusionAPI.create(form)
+      toast.success('Groupe de diffusion créé.')
+      setForm({ nom:'', description:'', uniquement_residents_actifs:false, filtre_societe:'', filtre_type_personnel:'', est_defaut:false })
+      charger()
+    } catch(e) { toast.error(e.response?.data?.error || JSON.stringify(e.response?.data||{}) || 'Erreur') }
+    setCreating(false)
+  }
+  const supprimer = async (g) => {
+    if (!await confirmDialog(`Supprimer le groupe "${g.nom}" ? Les évènements qui l'utilisaient repasseront au comportement par défaut.`)) return
+    try { await groupesDiffusionAPI.delete(g.id); toast.success('Supprimé.'); charger() }
+    catch(e) { toast.error('Erreur') }
+  }
+  const definirDefaut = async (g) => {
+    try { await groupesDiffusionAPI.update(g.id, { est_defaut: true }); charger() }
+    catch(e) { toast.error('Erreur') }
+  }
+
+  if (loading) return <div style={{padding:20,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement...</div>
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
+        ℹ️ Détermine qui reçoit la notification d'un évènement (ex: "Résidents actifs", "Employés Roxgold uniquement", "Tout le personnel"). Choisi ensuite lors de la création de chaque évènement, dans Événements.
+      </div>
+
+      {isAdmin && (
+        <div style={{border:'1px dashed #C9972B',borderRadius:12,padding:16,background:'#fffbeb'}}>
+          <div style={{fontWeight:700,fontSize:14,color:'#92400e',marginBottom:10}}>➕ Nouveau groupe de diffusion</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:10}}>
+            <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Nom (ex: Employés Roxgold)"
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Description (optionnel)"
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <input value={form.filtre_societe} onChange={e=>setForm(f=>({...f,filtre_societe:e.target.value}))} placeholder="Filtrer par société (ex: ROXGOLD)"
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <select value={form.filtre_type_personnel} onChange={e=>setForm(f=>({...f,filtre_type_personnel:e.target.value}))}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
+              <option value="">Tous types de personnel</option>
+              <option value="roxgold">Employé Roxgold</option>
+              <option value="sous_traitant">Sous-traitant</option>
+              <option value="visiteur">Visiteur</option>
+            </select>
+          </div>
+          <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5,marginBottom:10,cursor:'pointer'}}>
+            <input type="checkbox" checked={form.uniquement_residents_actifs} onChange={e=>setForm(f=>({...f,uniquement_residents_actifs:e.target.checked}))}/>
+            Seulement les personnes actuellement logées dans une chambre occupée
+          </label>
+          <button onClick={creer} disabled={creating}
+            style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
+              cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
+            {creating ? '⏳...' : 'Créer'}
+          </button>
+        </div>
+      )}
+
+      {liste.map(g => (
+        <div key={g.id} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:'#0f172a',display:'flex',alignItems:'center',gap:8}}>
+              {g.nom}
+              {g.est_defaut && <span style={{fontSize:10,background:'#dcfce7',color:'#15803d',padding:'2px 8px',borderRadius:20,fontWeight:700}}>PAR DÉFAUT</span>}
+            </div>
+            {g.description && <div style={{fontSize:12,color:'#64748b',marginTop:2}}>{g.description}</div>}
+            <div style={{fontSize:11,color:'#94a3b8',marginTop:4}}>
+              👥 {g.nb_personnes} personne(s) actuellement ciblée(s)
+              {g.filtre_societe && ` · Société: ${g.filtre_societe}`}
+              {g.filtre_type_personnel && ` · Type: ${g.filtre_type_personnel}`}
+              {g.uniquement_residents_actifs && ` · Résidents actifs uniquement`}
+            </div>
+          </div>
+          {isAdmin && (
+            <div style={{display:'flex',gap:8}}>
+              {!g.est_defaut && (
+                <button onClick={()=>definirDefaut(g)} style={{background:'#f8fafc',color:'#475569',border:'1px solid #e2e8f0',padding:'6px 12px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                  Définir par défaut
+                </button>
+              )}
+              <button onClick={()=>supprimer(g)} style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'6px 12px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                🗑️ Supprimer
               </button>
             </div>
           )}

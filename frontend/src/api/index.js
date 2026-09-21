@@ -294,6 +294,12 @@ export const evenements = {
   genererQr: (id, preference_boisson) => api.post(`/api/evenements/${id}/generer_qr/`, {preference_boisson}),
   scannerQr: (id, token) => api.post(`/api/evenements/${id}/scanner_qr/`, {token}),
 }
+export const groupesDiffusion = {
+  list: () => api.get('/api/groupes-diffusion/'),
+  create: (d) => api.post('/api/groupes-diffusion/', d),
+  update: (id,d) => api.patch(`/api/groupes-diffusion/${id}/`, d),
+  delete: (id) => api.delete(`/api/groupes-diffusion/${id}/`),
+}
 export const notifications = {
   list: (p) => api.get('/api/notifications/', {params:p}),
   compteur: () => api.get('/api/notifications/compteur/'),

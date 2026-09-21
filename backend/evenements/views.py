@@ -50,8 +50,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Evenement, Notification, AlerteCampus, SimpleNotification
-from .serializers import EvenementSerializer, NotificationSerializer, AlerteSerializer
+from .models import Evenement, Notification, AlerteCampus, SimpleNotification, GroupeDiffusion
+from .serializers import EvenementSerializer, NotificationSerializer, AlerteSerializer, GroupeDiffusionSerializer
 import datetime
 
 
@@ -341,6 +341,40 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'non_lues':count,'alertes':alertes_data,'prochain_evenement':prochain,'notifications':all_notifs[:20]})
         except Exception as e:
             return Response({'non_lues':0,'alertes':[],'prochain_evenement':None,'notifications':[],'error':str(e)})
+
+
+class GroupeDiffusionViewSet(viewsets.ModelViewSet):
+    """
+    Groupes de diffusion configurables depuis Parametrage - remplace le
+    ciblage code en dur ('residents actifs uniquement') des notifications
+    d'evenement. Lecture ouverte (necessaire pour peupler le selecteur a
+    la creation d'un evenement), ecriture admin-only.
+    """
+    serializer_class = GroupeDiffusionSerializer
+    queryset = GroupeDiffusion.objects.all()
+
+    def _is_admin(self, u):
+        return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+
+    def create(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin uniquement"}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
 
 class AlerteViewSet(viewsets.ModelViewSet):

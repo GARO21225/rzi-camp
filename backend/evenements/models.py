@@ -4,6 +4,43 @@ from django.contrib.auth.models import User
 from residences.models import Personnel, Batiment
 from simple_history.models import HistoricalRecords
 
+class GroupeDiffusion(models.Model):
+    """
+    Groupe de diffusion reutilisable pour cibler les notifications
+    d'evenements - configure une fois dans Parametrage, choisi ensuite a
+    la creation de chaque evenement (au lieu de refaire le choix "qui
+    reçoit ca" a chaque fois, code en dur).
+    """
+    nom = models.CharField(max_length=100)
+    description = models.CharField(max_length=255, blank=True, default="")
+    # Filtres combinables (ET logique) - vide = pas de restriction sur ce critere.
+    uniquement_residents_actifs = models.BooleanField(default=False,
+        help_text="Seulement le personnel actuellement loge dans une chambre occupee")
+    filtre_societe = models.CharField(max_length=100, blank=True, default="",
+        help_text="Ex: ROXGOLD - vide = toutes societes")
+    filtre_type_personnel = models.CharField(max_length=30, blank=True, default="",
+        help_text="Ex: roxgold, sous_traitant, visiteur - vide = tous types")
+    est_defaut = models.BooleanField(default=False,
+        help_text="Pre-selectionne a la creation d'un nouvel evenement")
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+    def personnel_cible(self):
+        qs = Personnel.objects.filter(actif=True)
+        if self.uniquement_residents_actifs:
+            qs = qs.filter(batiments__statut="Occupé").distinct()
+        if self.filtre_societe:
+            qs = qs.filter(societe__iexact=self.filtre_societe)
+        if self.filtre_type_personnel:
+            qs = qs.filter(type_personnel=self.filtre_type_personnel)
+        return qs
+
+
 class Evenement(models.Model):
     TYPE_CHOICES = [
         ("reunion","Réunion"),("securite","Sécurité"),("formation","Formation"),
@@ -25,6 +62,8 @@ class Evenement(models.Model):
                  help_text="Genere un QR individuel a usage unique par personne pour l'acces a cet evenement (ex: barbecue) - une fois scanne, le code ne peut plus etre reutilise")
     propose_boisson = models.BooleanField(default=False,
                  help_text="Proposer un choix alcool/sucrerie a la generation du QR de chaque personne, pour la logistique de l'evenement")
+    groupe_diffusion = models.ForeignKey(GroupeDiffusion, on_delete=models.SET_NULL, null=True, blank=True,
+                 related_name="evenements", help_text="Qui recoit la notification - configure dans Parametrage. Vide = comportement historique (residents actifs uniquement)")
     cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="evenements_crees")
     date_creation = models.DateTimeField(auto_now_add=True)
     history = HistoricalRecords()
@@ -37,10 +76,13 @@ class Evenement(models.Model):
         return self.titre
 
     def notifier_residents(self):
-        """Crée une notification pour tous les résidents actifs"""
-        residents = Personnel.objects.filter(
-            batiments__statut="Occupé"
-        ).distinct()
+        """Crée une notification pour le public cible (groupe_diffusion choisi, ou repli historique)"""
+        if self.groupe_diffusion:
+            residents = self.groupe_diffusion.personnel_cible()
+        else:
+            # Comportement historique, inchange pour un evenement qui n'a
+            # jamais eu de groupe choisi (avant l'ajout de ce systeme).
+            residents = Personnel.objects.filter(batiments__statut="Occupé").distinct()
         created = 0
         for p in residents:
             _, ok = Notification.objects.get_or_create(
