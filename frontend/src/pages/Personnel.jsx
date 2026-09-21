@@ -707,7 +707,7 @@ export default function Personnel() {
                       title="Tout sélectionner/désélectionner"
                       style={{width:16,height:16,cursor:'pointer'}}/>
                   </th>
-                  {['Nom','Type','Rôle','Société','Contact','Date création','Actions'].map(h => (
+                  {['Nom','Type','Rôle','Société','CIE / Département','Contact','Date création','Actions'].map(h => (
                     <th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,
                       fontWeight:700,color:'var(--rzc-text-3)',textTransform:'uppercase',letterSpacing:.5}}>
                       {h}
@@ -755,9 +755,9 @@ export default function Personnel() {
 
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       <div>{p.societe || '—'}</div>
-                      {p.departement && (
-                        <div style={{fontSize:11,color:'var(--rzc-text-4)',marginTop:2}}>{p.departement}</div>
-                      )}
+                    </td>
+                    <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
+                      {p.departement || <span style={{color:'var(--rzc-text-4)'}}>—</span>}
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       <div>{p.telephone || '—'}</div>

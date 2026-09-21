@@ -40,6 +40,8 @@ def liste_parametres(request):
         'jmp_tel_orange': ('', "JMP — Numéro Orange du centre d'urgence"),
         'jmp_securite_nom': ('', "JMP — Nom du responsable sécurité qui approuve le document"),
         'jmp_securite_fonction': ('SECURITY COORDINATOR', "JMP — Fonction du responsable sécurité"),
+        'jmp_logo_base64': ('', "JMP — Logo d'en-tête (image encodée base64) — pré-rempli via migration avec le logo Fortuna Mining/Roxgold Sango fourni"),
+        'jmp_logo_mime': ('image/jpeg', "JMP — Type MIME du logo d'en-tête"),
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.

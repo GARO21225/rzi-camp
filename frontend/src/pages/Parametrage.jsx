@@ -847,6 +847,11 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
   )
   const [logoBase64, setLogoBase64] = useState(valeurs.logo_base64 || '')
   const [logoMime, setLogoMime] = useState(valeurs.logo_mime || '')
+  const [jmpLogoPreview, setJmpLogoPreview] = useState(
+    valeurs.jmp_logo_base64 ? `data:${valeurs.jmp_logo_mime||'image/jpeg'};base64,${valeurs.jmp_logo_base64}` : null
+  )
+  const [jmpLogoBase64, setJmpLogoBase64] = useState('')
+  const [jmpLogoMime, setJmpLogoMime] = useState('')
   const fileRef = useRef(null)
 
   const onLogoChange = (e) => {
@@ -894,6 +899,26 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
     setLogoPreview(null); setLogoBase64(''); setLogoMime('')
     await sauvegarder({ logo_base64: '', logo_mime: '' })
     setLogoUrl(null)
+  }
+
+  const onJmpLogoChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 1.5 * 1024 * 1024) {
+      toast.success('Le logo doit faire moins de 1,5 Mo. Compressez l\'image avant de l\'importer.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      setJmpLogoPreview(dataUrl)
+      setJmpLogoBase64(dataUrl.split(',')[1])
+      setJmpLogoMime(file.type)
+    }
+    reader.readAsDataURL(file)
+  }
+  const appliquerJmpLogo = async () => {
+    await sauvegarder({ jmp_logo_base64: jmpLogoBase64, jmp_logo_mime: jmpLogoMime })
   }
 
   return (
@@ -1038,6 +1063,30 @@ function ApparenceTab({ isAdmin, valeurs, sauvegarder, saving }) {
                   ↺ Logo par défaut
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18, marginTop:16 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:4 }}>🛡️ Logo du document JMP</div>
+        <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
+          En-tête imprimé sur chaque Plan de gestion de voyage (JMP) généré depuis Centre de Mobilité. Pré-rempli avec le logo Fortuna Mining / Roxgold Sango fourni.
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+          <div style={{ width:160, height:60, borderRadius:10, background:'#f8fafc', border:'1px dashed #cbd5e1', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+            {jmpLogoPreview
+              ? <img src={jmpLogoPreview} alt="Logo JMP" style={{ maxWidth:'90%', maxHeight:'90%', objectFit:'contain' }}/>
+              : <span style={{fontSize:11,color:'#94a3b8'}}>Aucun logo</span>}
+          </div>
+          {isAdmin && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <input type="file" accept="image/*" onChange={onJmpLogoChange} style={{ fontSize:12 }}/>
+              <button onClick={appliquerJmpLogo} disabled={saving || !jmpLogoBase64}
+                style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:'8px 16px',
+                  borderRadius:9, cursor: (saving||!jmpLogoBase64)?'not-allowed':'pointer', fontSize:12, fontWeight:700, opacity: (saving||!jmpLogoBase64)?.5:1, alignSelf:'flex-start' }}>
+                💾 Utiliser ce logo pour le JMP
+              </button>
             </div>
           )}
         </div>

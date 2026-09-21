@@ -436,6 +436,7 @@ export default function MissionControl() {
     destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', conducteur_secondaire:'', vehicule_flotte_id:'',
     niveau_alerte: 1,
+    villesIntermediaires: [],
     mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
@@ -511,10 +512,34 @@ export default function MissionControl() {
         if (data.exclus && data.exclus.length > 0) {
           setTimeout(() => toast.warning(`⚠️ ${data.exclus.length} personne(s) retirée(s) automatiquement (déjà en voyage) : ${data.exclus.join(' | ')}`, 8000), 400)
         }
+        // Villes intermediaires saisies a la creation -> sauvegardees comme
+        // etapes du voyage de reference (le premier cree), pour que le
+        // tableau "Cote de securite de route" du JMP soit rempli sans
+        // repasser une par une par le detail de chaque voyage apres coup.
+        if (formRot.villesIntermediaires.length > 0 && data.ids?.length > 0) {
+          const refId = data.ids[0]
+          for (let i = 0; i < formRot.villesIntermediaires.length; i++) {
+            const ville = formRot.villesIntermediaires[i]
+            const precedente = i === 0 ? formRot.origine : formRot.villesIntermediaires[i-1].nom
+            try {
+              await api('/api/etapes-voyage/', {
+                method:'POST',
+                body: JSON.stringify({
+                  voyage: refId, ordre: i+1, sens:'aller',
+                  origine: precedente, destination: ville.nom,
+                  mode_transport: formRot.mode_transport||'bus',
+                  date_etape: formRot.date_depart,
+                  heure_depart: ville.heure_depart||'', heure_arrivee_prevue: ville.heure_arrivee||'',
+                  distance_km: ville.distance_km||null, pause_fatigue: ville.pause||'',
+                })
+              })
+            } catch { /* etape individuelle en echec - rotation deja creee, non bloquant */ }
+          }
+        }
         setShowCreate(null)
         setFormRot({destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
-          date_depart:'',date_retour_prevue:'',nb_places_total:15,
+          date_depart:'',date_retour_prevue:'',nb_places_total:15,niveau_alerte:1,villesIntermediaires:[],
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
         load()
       } else flash(data.error||'Erreur',false)
@@ -669,6 +694,16 @@ export default function MissionControl() {
       etapes = (etapes.results || etapes || []).filter(e=>e.sens!=='retour').sort((a,b)=>a.ordre-b.ordre)
     } catch { /* pas d'etapes detaillees - on se contente du trajet global */ }
 
+    if (etapes.length === 0) {
+      const continuer = await confirmDialog(
+        "Aucune ville intermédiaire ni distance n'a encore été renseignée pour ce convoi.\n\n" +
+        "Pour les faire apparaître sur le JMP : ouvrez le voyage (clic sur une ligne du Manifeste), " +
+        "puis « + Étape aller » pour chaque ville du trajet (avec distance et horaires).\n\n" +
+        "Générer quand même le JMP sans le détail des étapes ?"
+      )
+      if (!continuer) return
+    }
+
     let param = {}
     try {
       const liste = await api('/api/parametres/').then(r=>r.json())
@@ -724,6 +759,7 @@ export default function MissionControl() {
         ul{font-size:11px;margin:4px 0}
       </style></head><body>
       <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
+      ${param.jmp_logo_base64 ? `<img src="data:${param.jmp_logo_mime||'image/jpeg'};base64,${param.jmp_logo_base64}" style="max-height:60px;display:block;margin:0 auto 8px"/>` : ''}
       <h2 style="text-align:center">Plan de gestion de voyage</h2>
       <div class="urgence">URGENCE/EMERGENCY : Sat Téléphone : ${param.jmp_tel_satellite||'—'} · MTN : ${param.jmp_tel_mtn||'—'} · Orange : ${param.jmp_tel_orange||'—'}</div>
 
@@ -776,7 +812,16 @@ export default function MissionControl() {
       </tr></table>
 
       <h3>Niveaux d'alerte sur l'itinéraire</h3>
-      <table class="niveaux"><tr>${niveaux.map((n,i)=>`<td class="${i+1===niveauCourant?'actif':''}">${n}</td>`).join('')}</tr></table>
+      <div style="display:flex;width:100%;margin-top:6px">
+        ${['#8dc63f','#ffe600','#c86a1e','#e2231a','#5b3a8e'].map((couleur,i) => `
+          <div style="flex:1;background:${couleur};color:${i===1?'#000':'#fff'};text-align:center;
+            padding:10px 6px;font-size:9.5px;font-weight:800;position:relative;margin-left:${i>0?'-14px':'0'};
+            clip-path:${i<4?'polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%, 15% 50%)':'polygon(0 0, 100% 0, 100% 100%, 0 100%, 15% 50%)'};
+            outline:${i+1===niveauCourant?'4px solid #111':'none'};z-index:${i+1===niveauCourant?10:1}">
+            ${niveaux[i]}
+          </div>`).join('')}
+      </div>
+      <div style="font-size:10px;color:#555;margin-top:4px">Niveau retenu pour ce voyage : encadré en noir.</div>
 
       <h3>Règles de conduite</h3>
       <ul>
@@ -1312,19 +1357,20 @@ export default function MissionControl() {
                                 <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'8px 12px',
                                     background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
                                     onClick={async ()=>{
-                                      const saisie = prompt(`Coller une liste de matricules à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
+                                      const saisie = prompt(`Coller une liste de numéros de téléphone à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
                                       if (!saisie) return
-                                      const matricules = saisie.split(/[\n,;]+/).map(s=>s.trim().toLowerCase()).filter(Boolean)
+                                      const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
+                                      const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
                                       const dejaPresents = (r.passagers||[]).map(pp=>`${pp.personnel__nom} ${pp.personnel__prenom}`.toLowerCase())
                                       let placesRestantes = libres
                                       const trouves = []
                                       const introuvables = []
                                       const complets = []
-                                      for (const mat of matricules) {
-                                        const p = personnel.find(pp => (pp.numero||'').toLowerCase() === mat || (pp.matricule||'').toLowerCase() === mat)
-                                        if (!p) { introuvables.push(mat); continue }
+                                      for (const tel of numeros) {
+                                        const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
+                                        if (!p) { introuvables.push(tel); continue }
                                         if (dejaPresents.includes(`${p.nom} ${p.prenom}`.toLowerCase())) continue
-                                        if (placesRestantes <= 0) { complets.push(mat); continue }
+                                        if (placesRestantes <= 0) { complets.push(tel); continue }
                                         trouves.push(p)
                                         placesRestantes--
                                       }
@@ -1339,7 +1385,7 @@ export default function MissionControl() {
                                       }
                                       setSaving(false)
                                       let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
-                                      if (introuvables.length) msg += ` ${introuvables.length} matricule(s) introuvable(s).`
+                                      if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s).`
                                       if (complets.length) msg += ` ${complets.length} refusé(s) — convoi complet.`
                                       if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
                                       flash(msg, echoues.length===0 && introuvables.length===0 && complets.length===0)
@@ -2390,6 +2436,27 @@ export default function MissionControl() {
                         <option value={5}>5 — Aucun voyage n'est autorisé</option>
                       </select>
                     </div>
+                    <div style={{marginBottom:14}}>
+                      <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>(optionnel — trajet {formRot.origine||'origine'} → {formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}{formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)</span></label>
+                      {formRot.villesIntermediaires.map((v,i) => (
+                        <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr auto',gap:6,marginBottom:6}}>
+                          <input value={v.nom} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,nom:e.target.value}:vv)}))}
+                            placeholder={`Ville ${i+1}`} style={{...inputStyle,fontSize:12}}/>
+                          <input type="number" step="0.1" value={v.distance_km} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,distance_km:e.target.value}:vv)}))}
+                            placeholder="Km" style={{...inputStyle,fontSize:12}}/>
+                          <input type="time" value={v.heure_arrivee} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,heure_arrivee:e.target.value}:vv)}))}
+                            style={{...inputStyle,fontSize:12}}/>
+                          <input value={v.pause} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,pause:e.target.value}:vv)}))}
+                            placeholder="Pause" style={{...inputStyle,fontSize:12}}/>
+                          <button type="button" onClick={()=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.filter((_,ii)=>ii!==i)}))}
+                            style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:16}}>✕</button>
+                        </div>
+                      ))}
+                      <button type="button" className="mc-btn" style={{fontSize:11,padding:'5px 10px',background:C.bg}}
+                        onClick={()=>setFormRot(p=>({...p,villesIntermediaires:[...p.villesIntermediaires,{nom:'',distance_km:'',heure_depart:'',heure_arrivee:'',pause:''}]}))}>
+                        + Ajouter une ville
+                      </button>
+                    </div>
                     {/* Capacité */}
                     <div>
                       <label style={labelStyle}>Capacité (sièges) {formRot.vehicule_flotte_id && <span style={{fontWeight:400,color:C.muted}}>(imposée par le véhicule du parc)</span>}</label>
@@ -2441,27 +2508,28 @@ export default function MissionControl() {
                     <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
                         background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
                         onClick={()=>{
-                          const saisie = prompt("Coller une liste de matricules (un par ligne, ou séparés par des virgules) :")
+                          const saisie = prompt("Coller une liste de numéros de téléphone (un par ligne, ou séparés par des virgules) :")
                           if (!saisie) return
-                          const matricules = saisie.split(/[\n,;]+/).map(s=>s.trim().toLowerCase()).filter(Boolean)
+                          const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
+                          const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
                           const dejaPresents = new Set(formRot.passagers)
                           const trouves = []
                           const introuvables = []
                           const complets = []
-                          for (const mat of matricules) {
-                            const p = personnel.find(pp => (pp.numero||'').toLowerCase() === mat || (pp.matricule||'').toLowerCase() === mat)
-                            if (!p) { introuvables.push(mat); continue }
+                          for (const tel of numeros) {
+                            const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
+                            if (!p) { introuvables.push(tel); continue }
                             if (dejaPresents.has(p.id)) continue
-                            if (dejaPresents.size + trouves.length >= formRot.nb_places_total) { complets.push(mat); continue }
+                            if (dejaPresents.size + trouves.length >= formRot.nb_places_total) { complets.push(tel); continue }
                             trouves.push(p.id)
                           }
                           if (trouves.length) setFormRot(prev=>({...prev, passagers:[...prev.passagers, ...trouves]}))
                           let msg = `${trouves.length} passager(s) ajouté(s).`
-                          if (introuvables.length) msg += ` ${introuvables.length} matricule(s) introuvable(s) : ${introuvables.join(', ')}.`
+                          if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s) : ${introuvables.join(', ')}.`
                           if (complets.length) msg += ` ${complets.length} non ajouté(s) — rotation déjà complète.`
                           toast[introuvables.length||complets.length ? 'error' : 'success'](msg)
                         }}>
-                      📋 Importer une liste de matricules
+                      📋 Importer une liste de numéros
                     </button>
                     <label style={labelStyle}>
                       Passagers ({formRot.passagers.length}/{formRot.nb_places_total})
