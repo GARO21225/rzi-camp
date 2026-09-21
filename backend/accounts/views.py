@@ -32,6 +32,14 @@ def liste_parametres(request):
         'theme_fond_induction': ('#0F2A5C', 'Couleur de fond des pages Induction (dégradé généré automatiquement autour de cette couleur)'),
         'theme_fond_app': ('#f1f5f9', "Couleur de fond de toutes les autres pages de l'application"),
         'nom_application': ('Roxgold SiteLife', "Nom de l'application affiché dans la barre latérale, le titre d'onglet et l'écran de connexion"),
+        # Plan de gestion de voyage (JMP) - numeros d'urgence et coordinateur
+        # securite, fixes pour tout le camp, imprimes sur chaque document JMP
+        # genere avant un voyage.
+        'jmp_tel_satellite': ('', "JMP — Numéro de téléphone satellite d'urgence"),
+        'jmp_tel_mtn': ('', "JMP — Numéro MTN du centre d'urgence"),
+        'jmp_tel_orange': ('', "JMP — Numéro Orange du centre d'urgence"),
+        'jmp_securite_nom': ('', "JMP — Nom du responsable sécurité qui approuve le document"),
+        'jmp_securite_fonction': ('SECURITY COORDINATOR', "JMP — Fonction du responsable sécurité"),
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.

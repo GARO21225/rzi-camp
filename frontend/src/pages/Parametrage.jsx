@@ -19,6 +19,13 @@ const CHAMPS = [
     { cle: 'societe_defaut', label: 'Société par défaut', suffix: '', type: 'text', hint: 'Utilisée pour l\'auto-remplissage "Employé Roxgold" dans Personnel' },
     { cle: 'nom_camp',       label: 'Nom du camp',        suffix: '', type: 'text' },
   ]},
+  { section: '🛡️ Plan de gestion de voyage (JMP) — coordonnées d\'urgence', items: [
+    { cle: 'jmp_tel_satellite', label: 'Téléphone satellite d\'urgence', suffix: '', type: 'text', hint: 'Imprimé en en-tête de chaque document JMP' },
+    { cle: 'jmp_tel_mtn', label: 'Numéro MTN du centre d\'urgence', suffix: '', type: 'text', hint: '' },
+    { cle: 'jmp_tel_orange', label: 'Numéro Orange du centre d\'urgence', suffix: '', type: 'text', hint: '' },
+    { cle: 'jmp_securite_nom', label: 'Nom du responsable sécurité', suffix: '', type: 'text', hint: 'Approuve chaque document JMP' },
+    { cle: 'jmp_securite_fonction', label: 'Fonction du responsable sécurité', suffix: '', type: 'text', hint: '' },
+  ]},
   { section: '📱 Mobile Money — Numéros marchands du camp', items: [
     { cle: 'mm_numero_om',   label: 'Orange Money', suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Orange Money' },
     { cle: 'mm_numero_wave', label: 'Wave',         suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Wave' },

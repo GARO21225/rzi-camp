@@ -435,6 +435,7 @@ export default function MissionControl() {
   const [formRot, setFormRot] = useState({
     destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', conducteur_secondaire:'', vehicule_flotte_id:'',
+    niveau_alerte: 1,
     mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
@@ -598,7 +599,7 @@ export default function MissionControl() {
     destination: sens==='retour' ? (detailVoyage?.origine||'Camp Roxgold Sango') : (detailVoyage?.destination||''),
     mode_transport:'bus', vehicule_flotte:'', conducteur:'',
     date_etape: sens==='retour' ? (detailVoyage?.date_retour_prevue||'') : (detailVoyage?.date_depart||''),
-    heure_depart:'', point_rdv:'', reference:'',
+    heure_depart:'', heure_arrivee_prevue:'', distance_km:'', pause_fatigue:'', point_rdv:'', reference:'',
   })
 
   const soumettreEtape = async () => {
@@ -653,6 +654,150 @@ export default function MissionControl() {
         load()
       } else toast.error(d.error || 'Erreur')
     } catch { toast.error('Erreur réseau') }
+  }
+
+  const genererJMP = async (rotation) => {
+    // Voyage de reference pour ce convoi (vehicule/chauffeur/dates communs) -
+    // le premier passager confirme, ou a defaut n'importe lequel.
+    const refVoyageId = rotation.passagers?.[0]?.id
+    const refVoyage = refVoyageId ? voyages.find(v=>v.id===refVoyageId) : null
+    if (!refVoyage) { toast.error("Impossible de trouver un voyage de référence pour ce convoi."); return }
+
+    let etapes = []
+    try {
+      etapes = await api(`/api/etapes-voyage/?voyage=${refVoyage.id}`).then(r=>r.json())
+      etapes = (etapes.results || etapes || []).filter(e=>e.sens!=='retour').sort((a,b)=>a.ordre-b.ordre)
+    } catch { /* pas d'etapes detaillees - on se contente du trajet global */ }
+
+    let param = {}
+    try {
+      const liste = await api('/api/parametres/').then(r=>r.json())
+      liste.forEach(p => { param[p.cle] = p.valeur })
+    } catch { /* champs urgence vides si echec */ }
+
+    const passagersDetail = (rotation.passagers||[]).map(p => voyages.find(v=>v.id===p.id)).filter(Boolean)
+    const niveauCourant = refVoyage.niveau_alerte || 1
+    const niveaux = [
+      "Aucune restriction de voyage",
+      "Prudence — coordination entre CCTV",
+      "Minimum de 2 convois de véhicules",
+      "Escorte gendarme/policière requise",
+      "Aucun voyage n'est autorisé",
+    ]
+
+    const ligneManifeste = passagersDetail.map((v,i) => `
+      <tr>
+        <td class="ord">${i}</td>
+        <td class="pass">${v.personnel_nom||''}</td>
+        <td>${v.personnel_departement||v.personnel_societe||''}</td>
+        <td>${v.personnel_telephone||''}</td>
+        <td>${v.origine||'—'}</td>
+        <td>${v.destination||''}</td>
+      </tr>`).join('')
+
+    const ligneEtapes = etapes.length ? etapes.map(e => `
+      <tr>
+        <td>${e.ordre}</td><td>${e.origine}</td><td>${e.destination}</td>
+        <td>${e.distance_km ? e.distance_km+' Kms' : '—'}</td>
+        <td>${e.heure_depart||'—'}</td><td>${e.heure_arrivee_prevue||'—'}</td>
+        <td>${e.pause_fatigue||'N/A'}</td>
+      </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:#888">Aucune étape détaillée renseignée pour ce voyage</td></tr>`
+
+    const w = window.open('', '_blank')
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>JMP ${rotation.rotation_id}</title>
+      <style>
+        body{font-family:Arial,sans-serif;font-size:11.5px;margin:20px;color:#111}
+        table{width:100%;border-collapse:collapse;margin-top:10px}
+        td,th{border:1px solid #333;padding:5px 8px}
+        .hdr td{border:1px solid #333;padding:6px 10px;font-size:11px}
+        .hdr .lbl{font-style:italic;color:#333;background:#f3f3f3;width:1%;white-space:nowrap}
+        .hdr .chk{text-align:center;font-size:15px;width:1%}
+        .trajet{background:#111;color:#fff;text-align:center;font-weight:800;font-size:14px;padding:10px;text-transform:uppercase}
+        thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:10.5px}
+        .ord{text-align:center;font-weight:800;color:#c00}
+        .urgence{background:#111;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:12px;margin-bottom:10px}
+        .niveaux td{text-align:center;font-size:10px;font-weight:700}
+        .niveaux .actif{background:#111;color:#fff}
+        .print-btn{background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:16px}
+        @media print{.print-btn{display:none}}
+        h3{font-size:13px;margin:16px 0 4px}
+        ul{font-size:11px;margin:4px 0}
+      </style></head><body>
+      <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
+      <h2 style="text-align:center">Plan de gestion de voyage</h2>
+      <div class="urgence">URGENCE/EMERGENCY : Sat Téléphone : ${param.jmp_tel_satellite||'—'} · MTN : ${param.jmp_tel_mtn||'—'} · Orange : ${param.jmp_tel_orange||'—'}</div>
+
+      <table class="hdr"><tr>
+        <td class="lbl">Nom de l'entreprise</td><td>ROXGOLD SANGO</td>
+        <td class="lbl">Date de la demande</td><td>${new Date().toLocaleDateString('fr-FR')}</td>
+        <td class="lbl">Type de véhicule</td><td>${refVoyage.vehicule||''}</td>
+      </tr><tr>
+        <td class="lbl">Voyager à partir de</td><td>${refVoyage.origine||''}</td>
+        <td class="lbl">Destination finale</td><td>${refVoyage.destination||''}</td>
+        <td class="lbl">Numéro de véhicule</td><td>${refVoyage.vehicule||''}</td>
+      </tr><tr>
+        <td class="lbl">Date de début du voyage</td><td>${fmt(refVoyage.date_depart)}</td>
+        <td class="lbl">Date de fin de voyage</td><td>${fmt(refVoyage.date_retour_prevue)}</td>
+        <td class="lbl">Immatriculation</td><td>${refVoyage.vehicule_matricule||''}</td>
+      </tr></table>
+
+      <table class="hdr equip">
+        <tr><td class="lbl">Bouton de panique in véhicule ?</td><td class="chk">☐</td><td class="lbl">Eau</td><td class="chk">☐</td></tr>
+        <tr><td class="lbl">Emplacement du bouton connu ?</td><td class="chk">☐</td><td class="lbl">Carte</td><td class="chk">☐</td></tr>
+        <tr><td class="lbl">Téléphone satellite</td><td class="chk">☐</td><td class="lbl">Lire et comprendre JMP ?</td><td class="chk">☐</td></tr>
+        <tr><td class="lbl">Numéro de téléphone satellite :</td><td style="font-size:10px">${param.jmp_tel_satellite||''}</td><td class="lbl">Trousse de premiers soins ?</td><td class="chk">☐</td></tr>
+      </table>
+
+      <div class="trajet">${rotation.rotation_id} — ${refVoyage.origine||''} → ${refVoyage.destination||''}</div>
+
+      <table><thead><tr><td>Ordre</td><td>Passagers</td><td>Société / Département</td><td>N° MTN / Orange</td><td>Lieu de montée</td><td>Lieu de descente</td></tr></thead>
+        <tbody>
+          <tr><td class="ord">—</td><td class="pass">${refVoyage.conducteur||''}</td><td colspan="4" style="font-weight:700;background:#fafafa">CHAUFFEUR</td></tr>
+          ${refVoyage.conducteur_secondaire?`<tr><td class="ord">—</td><td class="pass">${refVoyage.conducteur_secondaire}</td><td colspan="4" style="font-weight:700;background:#fafafa">SECOND DRIVER</td></tr>`:''}
+          ${ligneManifeste}
+        </tbody>
+      </table>
+
+      <h3>Côte de sécurité de route</h3>
+      <table><thead><tr><td>Étape</td><td>De</td><td>À</td><td>Distance (km)</td><td>Heure de départ</td><td>Heure d'arrivée</td><td>Gestion fatigue</td></tr></thead>
+        <tbody>${ligneEtapes}</tbody>
+      </table>
+
+      <table style="margin-top:14px"><tr>
+        <td style="width:25%">Chauffeur : <b>${refVoyage.conducteur||''}</b></td>
+        <td style="width:25%">Fonction : <b>${(personnel.find(p=>`${p.nom} ${p.prenom}`===refVoyage.conducteur)?.departement) || (personnel.find(p=>`${p.nom} ${p.prenom}`===refVoyage.conducteur)?.profil_label) || '—'}</b></td>
+        <td style="width:20%">Date : <b>${new Date().toLocaleDateString('fr-FR')}</b></td>
+        <td style="width:30%">Signature : ______________________</td>
+      </tr><tr>
+        <td>Approbation sécurité : <b>${param.jmp_securite_nom||'—'}</b></td>
+        <td>Fonction : <b>${param.jmp_securite_fonction||'—'}</b></td>
+        <td>Date : <b>${new Date().toLocaleDateString('fr-FR')}</b></td>
+        <td>Signature : ______________________</td>
+      </tr></table>
+
+      <h3>Niveaux d'alerte sur l'itinéraire</h3>
+      <table class="niveaux"><tr>${niveaux.map((n,i)=>`<td class="${i+1===niveauCourant?'actif':''}">${n}</td>`).join('')}</tr></table>
+
+      <h3>Règles de conduite</h3>
+      <ul>
+        <li>Maximum de 8hrs de conduite par jour</li>
+        <li>Minimum de 10 heures de repos avant le voyage</li>
+        <li>Pause minimale de 15 minutes pour chaque 2-3 heures de conduite, à un endroit sécurisé</li>
+        <li>Après 2 jours de voyage successifs, repos de 24h obligatoire</li>
+        <li>Respect strict des limites de vitesse</li>
+        <li>Adapter sa conduite aux conditions (météo, visibilité, trafic, jour de marché...)</li>
+      </ul>
+
+      <h3>Comment utiliser ce JMP</h3>
+      <ul>
+        <li>Remplir ce document et obtenir une signature ou un email d'autorisation du service de sécurité Roxgold</li>
+        <li>S'assurer que toutes les instructions de sécurité sont suivies et respecter le niveau d'alerte de l'itinéraire</li>
+        <li>Téléphoner au centre d'urgence avant le départ</li>
+        <li>Informer le service de sécurité au moindre incident pendant le voyage</li>
+        <li>Contacter le service de sécurité à l'arrivée à destination</li>
+      </ul>
+    </body></html>`)
+    w.document.close()
   }
 
   const partirRotation = async (rotId) => {
@@ -1099,6 +1244,14 @@ export default function MissionControl() {
                       </div>
                       {/* Actions */}
                       <div style={{display:'flex',gap:6,flexShrink:0}}>
+                        {r.statut==='planifie'&&<button className="mc-btn"
+                          style={{padding:'6px 12px',fontSize:11,background:'#7c3aed20',color:'#7c3aed',border:'1px solid #7c3aed40'}}
+                          onClick={async e=>{
+                            e.stopPropagation()
+                            await genererJMP(r)
+                          }}>
+                          🛡️ JMP
+                        </button>}
                         {r.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
@@ -2097,9 +2250,14 @@ export default function MissionControl() {
                   )}
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6,marginBottom:8}}>
                     <input type="date" value={nouvelleEtape.date_etape} onChange={e=>setNouvelleEtape(p=>({...p,date_etape:e.target.value}))} style={inputStyle}/>
-                    <input type="time" value={nouvelleEtape.heure_depart} onChange={e=>setNouvelleEtape(p=>({...p,heure_depart:e.target.value}))} style={inputStyle}/>
+                    <input type="time" value={nouvelleEtape.heure_depart} onChange={e=>setNouvelleEtape(p=>({...p,heure_depart:e.target.value}))} placeholder="Heure départ" style={inputStyle}/>
+                    <input type="time" value={nouvelleEtape.heure_arrivee_prevue} onChange={e=>setNouvelleEtape(p=>({...p,heure_arrivee_prevue:e.target.value}))} placeholder="Heure arrivée" style={inputStyle}/>
                     <input value={nouvelleEtape.point_rdv} onChange={e=>setNouvelleEtape(p=>({...p,point_rdv:e.target.value}))} placeholder="Point de RDV" style={inputStyle}/>
                     <input value={nouvelleEtape.reference} onChange={e=>setNouvelleEtape(p=>({...p,reference:e.target.value}))} placeholder="Référence" style={inputStyle}/>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6,marginBottom:8}}>
+                    <input type="number" step="0.1" value={nouvelleEtape.distance_km} onChange={e=>setNouvelleEtape(p=>({...p,distance_km:e.target.value}))} placeholder="Distance (km) — JMP" style={inputStyle}/>
+                    <input value={nouvelleEtape.pause_fatigue} onChange={e=>setNouvelleEtape(p=>({...p,pause_fatigue:e.target.value}))} placeholder="Gestion fatigue (ex: 15 MIN DE PAUSE) — JMP" style={{...inputStyle,gridColumn:'span 2'}}/>
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button className="mc-btn" style={{flex:1,background:C.border}} onClick={()=>setNouvelleEtape(null)}>Annuler</button>
@@ -2221,6 +2379,16 @@ export default function MissionControl() {
                           {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
                         </select>
                       </div>
+                    </div>
+                    <div style={{marginBottom:14}}>
+                      <label style={labelStyle}>🛡️ Niveau d'alerte sécurité (pour le JMP)</label>
+                      <select value={formRot.niveau_alerte} onChange={e=>setFormRot(p=>({...p,niveau_alerte:Number(e.target.value)}))} style={inputStyle}>
+                        <option value={1}>1 — Aucune restriction de voyage</option>
+                        <option value={2}>2 — Prudence, coordination CCTV</option>
+                        <option value={3}>3 — Minimum de 2 convois de véhicules</option>
+                        <option value={4}>4 — Escorte gendarme/policière requise</option>
+                        <option value={5}>5 — Aucun voyage n'est autorisé</option>
+                      </select>
                     </div>
                     {/* Capacité */}
                     <div>

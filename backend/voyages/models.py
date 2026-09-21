@@ -42,6 +42,15 @@ class Voyage(models.Model):
                          help_text="Nom du conducteur assigné pour l'ALLER — change trop souvent pour être lié au véhicule lui-même")
     conducteur_secondaire = models.CharField(max_length=100, blank=True, default="",
                          help_text="Second chauffeur / chauffeur de relève pour ce trajet (long trajet, sécurité) — distinct du conducteur du retour")
+    NIVEAUX_ALERTE = [
+        (1, "Aucune restriction de voyage"),
+        (2, "Prudence — coordination entre CCTV"),
+        (3, "Minimum de 2 convois de véhicules"),
+        (4, "Escorte gendarme/policière requise"),
+        (5, "Aucun voyage n'est autorisé"),
+    ]
+    niveau_alerte = models.PositiveSmallIntegerField(choices=NIVEAUX_ALERTE, default=1,
+                         help_text="Niveau d'alerte sécurité sur l'itinéraire — pour le plan de gestion de voyage (JMP)")
     # ── Trajet RETOUR — potentiellement different de l'aller ──
     # Une rotation est un aller-retour, mais le vehicule et l'equipage du
     # retour peuvent differer de l'aller (ex: un agent revient plus tot que
@@ -166,6 +175,10 @@ class EtapeVoyage(models.Model):
     date_etape    = models.DateField()
     heure_depart  = models.TimeField(null=True, blank=True)
     heure_arrivee_prevue = models.TimeField(null=True, blank=True)
+    distance_km   = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True,
+                     help_text="Distance approximative de cette étape en km — pour le plan de gestion de voyage (JMP)")
+    pause_fatigue = models.CharField(max_length=50, blank=True, default="",
+                     help_text="Gestion de la fatigue du conducteur à cette étape (ex: '15 MIN DE PAUSE', 'N/A') — pour le JMP")
     point_rdv     = models.CharField(max_length=200, blank=True, default="")
     reference     = models.CharField(max_length=100, blank=True, default="",
                      help_text="Numéro de vol, plaque du véhicule, référence de réservation...")

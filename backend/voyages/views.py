@@ -566,6 +566,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule_photo  = data.get("vehicule_photo","")
         conducteur      = data.get("conducteur","")
         conducteur_secondaire = data.get("conducteur_secondaire","")
+        niveau_alerte   = data.get("niveau_alerte", 1)
         nb_places       = int(data.get("nb_places_total",15))
         heure_depart    = data.get("heure_depart") or None
         point_rdv       = data.get("point_rdv","")
@@ -642,7 +643,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     date_depart=date_depart, date_retour_prevue=date_retour,
                     vehicule=vehicule, nb_places_total=nb_places,
                     vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
-                    conducteur=conducteur, conducteur_secondaire=conducteur_secondaire,
+                    conducteur=conducteur, conducteur_secondaire=conducteur_secondaire, niveau_alerte=niveau_alerte,
                     heure_depart=heure_depart, point_rdv=point_rdv,
                     motif=motif, type_voyage=type_voyage,
                     rotation_id=rotation_id, statut="planifie",

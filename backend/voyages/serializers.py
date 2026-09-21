@@ -17,7 +17,7 @@ class EtapeVoyageSerializer(serializers.ModelSerializer):
         model = EtapeVoyage
         fields = ["id","voyage","ordre","sens","sens_label","origine","destination","mode_transport","mode_transport_label",
                   "vehicule_flotte","vehicule_nom","vehicule_matricule","vehicule_photo","conducteur",
-                  "date_etape","heure_depart","heure_arrivee_prevue","point_rdv","reference","notes",
+                  "date_etape","heure_depart","heure_arrivee_prevue","distance_km","pause_fatigue","point_rdv","reference","notes",
                   "billet_fichier","billet_cout"]
 
 class VoyageSerializer(serializers.ModelSerializer):
@@ -25,6 +25,7 @@ class VoyageSerializer(serializers.ModelSerializer):
     personnel_societe  = serializers.SerializerMethodField()
     personnel_departement = serializers.SerializerMethodField()
     a_un_vol = serializers.SerializerMethodField()
+    niveau_alerte_label = serializers.CharField(source="get_niveau_alerte_display", read_only=True)
     personnel_telephone = serializers.SerializerMethodField()
     personnel_profil   = serializers.SerializerMethodField()
     batiment_nom       = serializers.SerializerMethodField()

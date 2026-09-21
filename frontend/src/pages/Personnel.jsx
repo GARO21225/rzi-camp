@@ -156,8 +156,8 @@ export default function Personnel() {
     if (action === 'export') {
       const sel = filtered.filter(p=>selected_ids.has(p.id))
       const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
-      const rows = [['NOM','PRENOM','TYPE','SOCIETE','EMAIL','TEL','PROFIL'],
-        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.email,asText(p.numero),p.profil])]
+      const rows = [['NOM','PRENOM','TYPE','SOCIETE','DEPARTEMENT','WHATSAPP','EMAIL','TEL','PROFIL'],
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.departement,asText(p.numero_whatsapp),p.email,asText(p.numero),p.profil])]
       const csv = rows.map(r=>r.map(v=>typeof v==='string'&&v.startsWith('="')?v:`"${v||''}"`).join(',')).join('\n')
       const a = document.createElement('a')
       a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
@@ -251,9 +251,9 @@ export default function Personnel() {
     // Excel convertit automatiquement une cellule "0701234567" en nombre 701234567,
     // ce qui efface le 0 initial. La formule ="..." force Excel à garder le texte tel quel.
     const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
-    const headers = ['Matricule','Nom','Prénom','Société','Poste','Téléphone','WhatsApp','Email','Résidence','Chambre','Statut','Date création']
+    const headers = ['Matricule','Nom','Prénom','Société','Département','Poste','Téléphone','WhatsApp','Email','Résidence','Chambre','Statut','Date création']
     const rows = list.map(p => [
-      asText(p.matricule), p.nom||'', p.prenom||'', p.societe||p.entreprise||'',
+      asText(p.matricule), p.nom||'', p.prenom||'', p.societe||p.entreprise||'', p.departement||'',
       p.poste||p.fonction||'', asText(p.telephone), asText(p.numero_whatsapp), p.email||'',
       p.batiment?.nom||p.residence||'', p.chambre||'', p.statut||'actif',
       p.date_creation?new Date(p.date_creation).toLocaleDateString('fr-FR'):''
@@ -267,10 +267,10 @@ export default function Personnel() {
   }
 
   const downloadPersonnelTemplate = () => {
-    const csv = 'nom;prenom;telephone;numero_whatsapp;matricule;societe;type_personnel\n' +
-      'KOUAME;Jean;0701234567;0701234567;MAT001;Roxgold;employe\n' +
-      'TRAORE;Marie;0501234567;0501234567;MAT002;SODECI;sous_traitant\n' +
-      'DIALLO;Ibrahim;0102030405;0102030405;MAT003;Roxgold;employe'
+    const csv = 'nom;prenom;telephone;numero_whatsapp;matricule;societe;departement;type_personnel\n' +
+      'KOUAME;Jean;0701234567;0701234567;MAT001;Roxgold;Maintenance;employe\n' +
+      'TRAORE;Marie;0501234567;0501234567;MAT002;SODECI;RH;sous_traitant\n' +
+      'DIALLO;Ibrahim;0102030405;0102030405;MAT003;Roxgold;Logistique;employe'
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -481,6 +481,7 @@ export default function Personnel() {
             'matricule_personnel',
             'id_personnel'
           ])
+          const departement = get(row, ['departement', 'département', 'cie/departement', 'cie / departements', 'service'])
 
           rows.push({
             nom,
@@ -491,6 +492,7 @@ export default function Personnel() {
             numero_whatsapp: whatsapp,
 
             societe: societe || '',
+            departement: departement || '',
 
             // Le matricule est indépendant du téléphone.
             matricule,
