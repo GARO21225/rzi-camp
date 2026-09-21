@@ -1156,6 +1156,44 @@ export default function MissionControl() {
                                 <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
                                   ➕ Ajouter un passager <b style={{color:C.text}}>à CE convoi</b> ({r.vehicule||r.rotation_id}) — pour un voyage séparé, utilise plutôt « + Voyage individuel »
                                 </div>
+                                <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'8px 12px',
+                                    background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
+                                    onClick={async ()=>{
+                                      const saisie = prompt(`Coller une liste de matricules à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
+                                      if (!saisie) return
+                                      const matricules = saisie.split(/[\n,;]+/).map(s=>s.trim().toLowerCase()).filter(Boolean)
+                                      const dejaPresents = (r.passagers||[]).map(pp=>`${pp.personnel__nom} ${pp.personnel__prenom}`.toLowerCase())
+                                      let placesRestantes = libres
+                                      const trouves = []
+                                      const introuvables = []
+                                      const complets = []
+                                      for (const mat of matricules) {
+                                        const p = personnel.find(pp => (pp.numero||'').toLowerCase() === mat || (pp.matricule||'').toLowerCase() === mat)
+                                        if (!p) { introuvables.push(mat); continue }
+                                        if (dejaPresents.includes(`${p.nom} ${p.prenom}`.toLowerCase())) continue
+                                        if (placesRestantes <= 0) { complets.push(mat); continue }
+                                        trouves.push(p)
+                                        placesRestantes--
+                                      }
+                                      setSaving(true)
+                                      let ok = 0, echoues = []
+                                      for (const p of trouves) {
+                                        try {
+                                          const res = await api('/api/voyages/rejoindre_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id, personnel_id:p.id})})
+                                          if (res.ok) ok++
+                                          else { const d = await res.json(); echoues.push(`${p.nom} ${p.prenom} (${d.error||'erreur'})`) }
+                                        } catch { echoues.push(`${p.nom} ${p.prenom} (réseau)`) }
+                                      }
+                                      setSaving(false)
+                                      let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
+                                      if (introuvables.length) msg += ` ${introuvables.length} matricule(s) introuvable(s).`
+                                      if (complets.length) msg += ` ${complets.length} refusé(s) — convoi complet.`
+                                      if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
+                                      flash(msg, echoues.length===0 && introuvables.length===0 && complets.length===0)
+                                      load()
+                                    }}>
+                                  📋 Importer une liste dans ce convoi
+                                </button>
                                 <div style={{display:'flex',gap:8}}>
                                   <select
                                     onChange={e=>setFormJoin({personnel_id:e.target.value,rotation_id:r.rotation_id})}
