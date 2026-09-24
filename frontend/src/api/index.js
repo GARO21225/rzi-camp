@@ -291,7 +291,7 @@ export const evenements = {
   notifier: (id) => api.post(`/api/evenements/${id}/notifier/`),
   agenda: () => api.get('/api/evenements/agenda/'),
   changerStatut: (id,statut) => api.patch(`/api/evenements/${id}/changer_statut/`, {statut}),
-  genererQr: (id, preference_boisson) => api.post(`/api/evenements/${id}/generer_qr/`, {preference_boisson}),
+  genererQr: (id, preference_boisson, personnel_id) => api.post(`/api/evenements/${id}/generer_qr/`, {preference_boisson, personnel_id}),
   scannerQr: (id, token) => api.post(`/api/evenements/${id}/scanner_qr/`, {token}),
 }
 export const groupesDiffusion = {

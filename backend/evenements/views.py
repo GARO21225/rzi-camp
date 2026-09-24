@@ -96,9 +96,13 @@ class EvenementViewSet(viewsets.ModelViewSet):
     def generer_qr(self, request, pk=None):
         """
         Genere (ou renvoie si deja genere) le QR individuel a usage unique
-        de L'UTILISATEUR CONNECTE pour cet evenement - jamais pour
-        quelqu'un d'autre (self-service, comme rejoindre_rotation). Refuse
-        si l'evenement n'a pas qr_requis actif.
+        pour cet evenement - en self-service pour l'utilisateur connecte
+        (comme rejoindre_rotation), SAUF pour un admin qui peut, en plus,
+        generer pour n'importe quel personnel via personnel_id (utile:
+        le compte admin lui-meme n'a souvent aucune fiche Personnel liee,
+        et l'admin peut avoir besoin de generer/imprimer un QR pour
+        quelqu'un qui n'a pas acces a l'application). Refuse si
+        l'evenement n'a pas qr_requis actif.
         """
         from .models import QREvenement
         from residences.models import Personnel
@@ -108,9 +112,18 @@ class EvenementViewSet(viewsets.ModelViewSet):
         if not evenement.qr_requis:
             return Response({"error":"Cet évènement ne nécessite pas de QR d'accès."}, status=400)
 
-        pers = Personnel.objects.filter(user=request.user).first()
-        if not pers:
-            return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=404)
+        is_admin = request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and getattr(request.user.profile,"role","")=="admin")
+        personnel_id = request.data.get("personnel_id")
+        if personnel_id and is_admin:
+            pers = Personnel.objects.filter(pk=personnel_id).first()
+            if not pers:
+                return Response({"error":"Personnel introuvable."}, status=404)
+        else:
+            pers = Personnel.objects.filter(user=request.user).first()
+            if not pers:
+                if is_admin:
+                    return Response({"error":"Votre compte admin n'a pas de fiche personnel associée. Utilisez « Générer pour… » pour choisir la personne."}, status=404)
+                return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=404)
 
         preference = request.data.get("preference_boisson", "")
         if evenement.propose_boisson and preference not in ("alcool", "sucrerie"):

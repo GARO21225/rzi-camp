@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupesAPI } from '../api'
+import React, { useState, useEffect, useRef } from 'react'
+import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupesAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -12,6 +12,100 @@ const TYPE_COLORS = {
   alerte:{ bg:'rgba(220,38,38,.18)', color:'#dc2626', icon:'⚠️' },
   maintenance:{ bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', icon:'🔧' },
   autre:{ bg:'rgba(240,165,0,.12)', color:'#d08800', icon:'📌' },
+}
+
+// Scanner camera reel pour les QR d'evenement - meme motif que QRScanner
+// dans Restauration.jsx (html5-qrcode), adapte a scannerQr(). Avant cet
+// ajout, la modale Scanner ne proposait qu'un champ texte malgre son
+// icone 📷 - source de confusion ("le scanner ne s'ouvre pas").
+function EvtQRScanner({ evenementId, onResult }) {
+  const [phase, setPhase] = useState('init')
+  const [msg, setMsg] = useState('')
+  const scannerRef = useRef(null)
+  const cooldown = useRef(false)
+  const alive = useRef(true)
+
+  useEffect(() => {
+    alive.current = true
+    startCamera()
+    return () => { alive.current = false; stopCamera() }
+  }, [evenementId])
+
+  async function stopCamera() {
+    if (scannerRef.current) {
+      try { await scannerRef.current.stop() } catch {}
+      try { scannerRef.current.clear() } catch {}
+      scannerRef.current = null
+    }
+  }
+
+  async function startCamera() {
+    await stopCamera()
+    if (!alive.current) return
+    setPhase('init'); setMsg('')
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode')
+      if (!alive.current) return
+      const s = new Html5Qrcode('evt_qr_viewport')
+      scannerRef.current = s
+      await s.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 200, height: 200 } },
+        async (decoded) => {
+          if (cooldown.current || !alive.current) return
+          cooldown.current = true
+          setPhase('loading'); setMsg('')
+          try {
+            const r = await evtAPI.scannerQr(evenementId, decoded)
+            if (!alive.current) return
+            setPhase(r.data.valid ? 'ok' : 'already')
+            setMsg(r.data.valid ? '' : (r.data.erreur||''))
+            onResult({ ok:true, ...r.data })
+          } catch (e) {
+            if (!alive.current) return
+            setPhase('error')
+            setMsg(e.response?.data?.erreur || 'Code non reconnu')
+            onResult({ ok:false, ...(e.response?.data||{}) })
+          }
+          setTimeout(() => {
+            if (!alive.current) return
+            cooldown.current = false
+            setPhase('scan'); setMsg('')
+          }, 3000)
+        },
+        () => {}
+      )
+      setPhase('scan')
+    } catch {
+      if (!alive.current) return
+      setPhase('nocam')
+      setMsg("Caméra indisponible — vérifiez l'autorisation d'accès, ou utilisez la saisie manuelle ci-dessous")
+    }
+  }
+
+  const CFG = {
+    init:    { bg:'#1e293b', icon:'📡', text:'Démarrage…' },
+    scan:    { bg:'#1e293b', icon:'📷', text:'Scanner actif' },
+    loading: { bg:'#78350f', icon:'⏳', text:'Validation…' },
+    ok:      { bg:'#14532d', icon:'✅', text:'Accès validé' },
+    already: { bg:'#7c2d12', icon:'⛔', text: msg||'Déjà scanné' },
+    error:   { bg:'#450a0a', icon:'❌', text: msg||'QR non reconnu' },
+    nocam:   { bg:'#1e1e2e', icon:'📵', text:'Caméra indisponible' },
+  }
+  const cfg = CFG[phase] || CFG.scan
+
+  return (
+    <div style={{ borderRadius:12, overflow:'hidden', border:`2px solid ${cfg.bg}`, marginBottom:14 }}>
+      <div style={{ background:cfg.bg, padding:'8px 12px', display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontSize:18 }}>{cfg.icon}</span>
+        <span style={{ color:'#fff', fontWeight:700, fontSize:12 }}>{cfg.text}</span>
+      </div>
+      <div style={{ background:'#000', position:'relative', minHeight:180 }}>
+        <div id="evt_qr_viewport" style={{ width:'100%', minHeight:180 }} />
+      </div>
+      {phase==='nocam' && <div style={{ padding:'8px 12px', fontSize:11, color:'#dc2626', background:'#fef2f2' }}>{msg}</div>}
+    </div>
+  )
 }
 const STATUT_COLORS = {
   planifie:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', label:'Planifié' },
@@ -36,6 +130,8 @@ export default function Evenements() {
   const [alerteModal, setAlerteModal] = useState(false)
   const [notifResult, setNotifResult] = useState(null)
   const [qrModal, setQrModal] = useState(null)        // { evt } en cours de generation
+  const [personnelPourQui, setPersonnelPourQui] = useState('')  // admin seulement: generer pour un tiers
+  const [personnelListe, setPersonnelListe] = useState([])
   const [qrResult, setQrResult] = useState(null)       // reponse du serveur (image + token)
   const [boissonChoix, setBoissonChoix] = useState('')
   const [scanModal, setScanModal] = useState(null)     // evenement en cours de scan
@@ -196,7 +292,10 @@ export default function Evenements() {
                   </div>
                 </div>
                 {evt.qr_requis && (
-                  <button onClick={()=>{setQrModal({evt}); setQrResult(null); setBoissonChoix('')}}
+                  <button onClick={()=>{
+                      setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
+                      if (isAdmin && personnelListe.length===0) personnelAPI.list().then(r=>setPersonnelListe(r.data.results||r.data||[])).catch(()=>{})
+                    }}
                     style={{ background:'rgba(240,165,0,.12)', color:'#d08800', border:'1px solid rgba(240,165,0,.25)',
                       padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0, alignSelf:'flex-start' }}>
                     🎫 Mon QR
@@ -347,6 +446,16 @@ export default function Evenements() {
             <div style={{ padding:20 }}>
               {!qrResult ? (
                 <>
+                  {isAdmin && (
+                    <div style={{ marginBottom:16, textAlign:'left' }}>
+                      <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Générer pour :</label>
+                      <select value={personnelPourQui} onChange={e=>setPersonnelPourQui(e.target.value)}
+                        style={{ width:'100%', border:'1px solid var(--border)', borderRadius:8, padding:'8px 10px', fontSize:13 }}>
+                        <option value="">Moi-même</option>
+                        {personnelListe.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                      </select>
+                    </div>
+                  )}
                   {qrModal.evt.propose_boisson && (
                     <div style={{ marginBottom:16, textAlign:'left' }}>
                       <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Votre préférence :</label>
@@ -364,7 +473,7 @@ export default function Evenements() {
                   <button onClick={async ()=>{
                       if (qrModal.evt.propose_boisson && !boissonChoix) return toast.error('Choisissez une préférence.')
                       try {
-                        const r = await evtAPI.genererQr(qrModal.evt.id, boissonChoix)
+                        const r = await evtAPI.genererQr(qrModal.evt.id, boissonChoix, personnelPourQui || undefined)
                         setQrResult(r.data)
                       } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
                     }}
@@ -398,8 +507,9 @@ export default function Evenements() {
               <button onClick={()=>setScanModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:20 }}>
-              <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Code scanné ou saisi manuellement</label>
-              <input value={scanToken} onChange={e=>setScanToken(e.target.value)} autoFocus
+              <EvtQRScanner evenementId={scanModal.id} onResult={r=>setScanResult(r)} />
+              <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Ou saisir le code manuellement</label>
+              <input value={scanToken} onChange={e=>setScanToken(e.target.value)}
                 onKeyDown={async e=>{
                   if (e.key !== 'Enter' || !scanToken.trim()) return
                   try {
