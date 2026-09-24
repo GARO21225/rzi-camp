@@ -627,6 +627,46 @@ export default function MissionControl() {
     heure_depart:'', heure_arrivee_prevue:'', distance_km:'', pause_fatigue:'', point_rdv:'', reference:'',
   })
 
+  const importerEtapesEnMasse = async (sens) => {
+    if (!detailVoyage) return
+    const exemple = "Camp, Seguela, 36, 06:30, 07:20, N/A\nSeguela, Mankono, 54, 07:20, 08:20, N/A"
+    const saisie = prompt(
+      `Coller un itinéraire, une étape par ligne :\nDe, À, Distance(km), Heure départ, Heure arrivée, Pause\n\nExemple :\n${exemple}`
+    )
+    if (!saisie) return
+    const lignes = saisie.split('\n').map(l=>l.trim()).filter(Boolean)
+    let ordreDepart = etapesDetail.length + 1
+    let reussies = 0
+    const echecs = []
+    for (const ligne of lignes) {
+      const parts = ligne.split(/[,;\t]/).map(p=>p.trim())
+      const [origine, destination, distance, heure_depart, heure_arrivee, pause] = parts
+      if (!origine || !destination) { echecs.push(ligne); continue }
+      try {
+        const res = await api('/api/etapes-voyage/', {
+          method:'POST',
+          body: JSON.stringify({
+            voyage: detailVoyage.id, ordre: ordreDepart++, sens,
+            origine, destination,
+            distance_km: distance || null,
+            heure_depart: heure_depart || null,
+            heure_arrivee_prevue: heure_arrivee || null,
+            pause_fatigue: pause || '',
+            mode_transport: 'bus',
+            date_etape: sens==='retour' ? (detailVoyage.date_retour_prevue||detailVoyage.date_depart) : detailVoyage.date_depart,
+          })
+        })
+        if (res.ok) reussies++
+        else echecs.push(ligne)
+      } catch { echecs.push(ligne) }
+    }
+    const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
+    setEtapesDetail(r.results || r || [])
+    load()
+    if (reussies) toast.success(`${reussies} étape(s) ajoutée(s).`)
+    if (echecs.length) toast.error(`${echecs.length} ligne(s) non reconnue(s) : ${echecs.join(' | ')}`)
+  }
+
   const soumettreEtape = async () => {
     if (!nouvelleEtape || !detailVoyage) return
     try {
@@ -713,11 +753,11 @@ export default function MissionControl() {
     const passagersDetail = (rotation.passagers||[]).map(p => voyages.find(v=>v.id===p.id)).filter(Boolean)
     const niveauCourant = refVoyage.niveau_alerte || 1
     const niveaux = [
-      "Aucune restriction de voyage",
-      "Prudence — coordination entre CCTV",
-      "Minimum de 2 convois de véhicules",
-      "Escorte gendarme/policière requise",
-      "Aucun voyage n'est autorisé",
+      "Aucune restriction de voyage<br>No restrictions",
+      "Prudence Coordination entre CCTV<br>Caution Coordination between CCTV",
+      "Minimum de 2 convois de véhicules<br>Min. of 2 vehicles convoys",
+      "Escorte gendarme/policière requise.<br>Gendarme/police escort required",
+      "Aucun voyage n'est autorisé<br>No travel is authorized",
     ]
 
     const ligneManifeste = passagersDetail.map((v,i) => `
@@ -812,34 +852,38 @@ export default function MissionControl() {
       </tr></table>
 
       <h3>Niveaux d'alerte sur l'itinéraire</h3>
-      <div style="display:flex;width:100%;margin-top:6px">
+      <div style="display:flex;width:100%;margin-top:22px">
         ${['#8dc63f','#ffe600','#c86a1e','#e2231a','#5b3a8e'].map((couleur,i) => `
-          <div style="flex:1;background:${couleur};color:${i===1?'#000':'#fff'};text-align:center;
-            padding:10px 6px;font-size:9.5px;font-weight:800;position:relative;margin-left:${i>0?'-14px':'0'};
-            clip-path:${i<4?'polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%, 15% 50%)':'polygon(0 0, 100% 0, 100% 100%, 0 100%, 15% 50%)'};
-            outline:${i+1===niveauCourant?'4px solid #111':'none'};z-index:${i+1===niveauCourant?10:1}">
-            ${niveaux[i]}
+          <div style="flex:1;position:relative;margin-left:${i>0?'-14px':'0'};
+            transform:${i+1===niveauCourant?'scale(1.12)':'scale(1)'};z-index:${i+1===niveauCourant?10:1};transition:none">
+            ${i+1===niveauCourant?'<div style="position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:16px;color:#111">▼</div>':''}
+            <div style="background:${couleur};color:${i===1?'#000':'#fff'};text-align:center;
+              padding:10px 6px;font-size:9.5px;font-weight:800;
+              border:${i+1===niveauCourant?'3px solid #111':'none'};
+              clip-path:${i<4?'polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%, 15% 50%)':'polygon(0 0, 100% 0, 100% 100%, 0 100%, 15% 50%)'}">
+              ${niveaux[i]}
+            </div>
           </div>`).join('')}
       </div>
-      <div style="font-size:10px;color:#555;margin-top:4px">Niveau retenu pour ce voyage : encadré en noir.</div>
+      <div style="font-size:10px;color:#555;margin-top:4px">Niveau retenu pour ce voyage : agrandi, marqué ▼ et encadré en noir.</div>
 
-      <h3>Règles de conduite</h3>
+      <h3>REGLES DE CONDUITE/DRIVING RULES</h3>
       <ul>
-        <li>Maximum de 8hrs de conduite par jour</li>
-        <li>Minimum de 10 heures de repos avant le voyage</li>
-        <li>Pause minimale de 15 minutes pour chaque 2-3 heures de conduite, à un endroit sécurisé</li>
-        <li>Après 2 jours de voyage successifs, repos de 24h obligatoire</li>
-        <li>Respect strict des limites de vitesse</li>
-        <li>Adapter sa conduite aux conditions (météo, visibilité, trafic, jour de marché...)</li>
+        <li>Maximum de 8hrs de conduite par jour. / Maximum of 8 hours of driving per day</li>
+        <li>Minimum de 10 heures de repos avant le voyage /Minimum of 8 hours of rest before the trip</li>
+        <li>Pause minimale de 15 minutes pour chaque 2-3 heures de conduite à des endroits sécurisés / Minimum break of 15 minutes for every 2 hours of driving in a safe area</li>
+        <li>Après 2 jours de voyage successif un repos de 24 H Obligatoire est soumis au conducteur/ After 2 days of successive travel a mandatory 24-hour rest is submitted to the driver</li>
+        <li><b>RESPECT Strict des limites de vitesse/ STRICT observance of speed limits</b></li>
+        <li>Adapter votre conduite aux situations routières (Météo, visibilité, trafic routier, jour de marché, etc) / Adapt your driving to the road situation (weather, visibility, traffic, market day, etc)</li>
       </ul>
 
-      <h3>Comment utiliser ce JMP</h3>
+      <h3>Comment utiliser ce JMP (Journey Management Plan) :</h3>
       <ul>
-        <li>Remplir ce document et obtenir une signature ou un email d'autorisation du service de sécurité Roxgold</li>
-        <li>S'assurer que toutes les instructions de sécurité sont suivies et respecter le niveau d'alerte de l'itinéraire</li>
-        <li>Téléphoner au centre d'urgence avant le départ</li>
-        <li>Informer le service de sécurité au moindre incident pendant le voyage</li>
-        <li>Contacter le service de sécurité à l'arrivée à destination</li>
+        <li>Remplissez ce document et obtenez une signature ou un email d'autorisation du service de sécurité de Roxgold.</li>
+        <li>Assurez-vous que toutes les instructions de sécurité et de sûreté sont suivies et que vous respectez les niveaux d'alerte d'itinéraire (comme expliqué ci-dessous).</li>
+        <li>Téléphonez au centre d'urgence aux numéros suivant avant le départ : <b>${param.jmp_tel_orange||'A renseigner'} (N° Orange)/${param.jmp_tel_mtn||'A renseigner'} (N° MTN)</b></li>
+        <li>Pendant votre voyage, au moindre incident informez le service de sécurité.</li>
+        <li>À votre arrivée à destination, contactez le service de sécurité.</li>
       </ul>
     </body></html>`)
     w.document.close()
@@ -2257,6 +2301,7 @@ export default function MissionControl() {
                   <div style={{display:'flex',gap:6}}>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape aller</button>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('retour')}>⬅️ + Étape retour</button>
+                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:'#7c3aed20',color:'#7c3aed'}} onClick={()=>importerEtapesEnMasse('aller')}>📋 Coller un itinéraire</button>
                   </div>
                   )}
                 </div>
