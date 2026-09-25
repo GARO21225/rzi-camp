@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
-import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin } from '../api'
+import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -27,6 +27,7 @@ export default function Residences() {
   const [history, setHistory] = useState([])
   const [histLoading, setHistLoading] = useState(false)
   const [editHistModal, setEditHistModal] = useState(null) // Edit wrong history entry
+  const [vueOnglet, setVueOnglet] = useState('chambres')
 
   const [form, setForm] = useState({ statut:'Libre', personnel:'', occupant:'', societe:'', date_arrivee:'', date_depart:'' })
 
@@ -168,6 +169,22 @@ export default function Residences() {
           <a href={batiments.exportBlocs()} style={{ background:'var(--rzc-navy)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
         </div>
       </div>
+
+      {/* Onglets */}
+      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+        <button onClick={()=>setVueOnglet('chambres')}
+          style={{ background: vueOnglet==='chambres' ? 'var(--rzc-navy)' : '#f1f5f9', color: vueOnglet==='chambres' ? '#fff' : '#475569',
+            border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+          🏠 Chambres
+        </button>
+        <button onClick={()=>setVueOnglet('residents')}
+          style={{ background: vueOnglet==='residents' ? 'var(--rzc-navy)' : '#f1f5f9', color: vueOnglet==='residents' ? '#fff' : '#475569',
+            border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+          ⭐ Résidents principaux
+        </button>
+      </div>
+
+      {vueOnglet==='residents' ? <ResidentsPrincipauxTab isAdmin={isAdmin} personnelList={personnelList} batimentsList={data} /> : <>
 
       {/* Filtres */}
       <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
@@ -444,6 +461,144 @@ export default function Residences() {
             </div>
             <div style={{ padding:'12px 16px', borderTop:'1px solid var(--rzc-border-light)', display:'flex', justifyContent:'flex-end', flexShrink:0 }}>
               <button onClick={()=>setHistModal(null)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'8px 18px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>}
+    </div>
+  )
+}
+
+function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
+  const [liste, setListe] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [voirHistorique, setVoirHistorique] = useState(false)
+  const [rpModal, setRpModal] = useState(null)
+  const [personnelChoisi, setPersonnelChoisi] = useState('')
+  const [batimentChoisi, setBatimentChoisi] = useState('')
+
+  const charger = () => {
+    setLoading(true)
+    residentsPrincipaux.list({ actif: voirHistorique ? undefined : '1' })
+      .then(r => setListe(r.data.results || r.data || []))
+      .finally(() => setLoading(false))
+  }
+  useEffect(charger, [voirHistorique])
+
+  const ouvrirDeclaration = () => {
+    setPersonnelChoisi(''); setBatimentChoisi(''); setRpModal('nouveau')
+  }
+
+  const declarer = async () => {
+    if (!personnelChoisi || !batimentChoisi) return toast.error('Personnel et chambre requis.')
+    try {
+      await residentsPrincipaux.declarer(personnelChoisi, batimentChoisi)
+      toast.success('Résident principal déclaré.')
+      setRpModal(null); charger()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
+
+  const mettreFin = async (rp) => {
+    if (!await confirmDialog(`Mettre fin à la résidence principale de ${rp.personnel_nom} (${rp.batiment_residence}) ?`)) return
+    try {
+      await residentsPrincipaux.mettreFin(rp.id)
+      toast.success('Résidence principale terminée.')
+      charger()
+    } catch(e) { toast.error('Erreur') }
+  }
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={()=>setVoirHistorique(false)}
+            style={{ background: !voirHistorique ? 'var(--rzc-navy)' : '#f1f5f9', color: !voirHistorique ? '#fff' : '#475569',
+              border:'none', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            Actifs
+          </button>
+          <button onClick={()=>setVoirHistorique(true)}
+            style={{ background: voirHistorique ? 'var(--rzc-navy)' : '#f1f5f9', color: voirHistorique ? '#fff' : '#475569',
+              border:'none', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            📜 Historique complet
+          </button>
+        </div>
+        {isAdmin && (
+          <button onClick={ouvrirDeclaration}
+            style={{ background:'#16a34a', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+            ➕ Déclarer un résident principal
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ padding:40, textAlign:'center', color:'#94a3b8' }}>⏳ Chargement...</div>
+      ) : (
+        <div style={{ background:'#fff', borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+            <thead>
+              <tr style={{ background:'#f8fafc', textAlign:'left' }}>
+                {['Personnel','Nom / Matricule','Statut résident principal','Chambre principale','Date d\'affectation','Statut de la résidence','Occupant actuel',''].map(h=>(
+                  <th key={h} style={{ padding:'10px 14px', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {liste.length===0 && (
+                <tr><td colSpan={8} style={{ padding:30, textAlign:'center', color:'#94a3b8' }}>Aucun résident principal {voirHistorique?'':'actif'}.</td></tr>
+              )}
+              {liste.map(rp => (
+                <tr key={rp.id} style={{ borderTop:'1px solid #f1f5f9' }}>
+                  <td style={{ padding:'10px 14px', fontWeight:700 }}>{rp.personnel_nom}</td>
+                  <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.personnel_matricule || '—'}</td>
+                  <td style={{ padding:'10px 14px' }}>
+                    <span style={{ background: rp.actif ? '#dcfce7' : '#f1f5f9', color: rp.actif ? '#15803d' : '#94a3b8',
+                      padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>
+                      {rp.actif ? 'Oui' : 'Non (terminée)'}
+                    </span>
+                  </td>
+                  <td style={{ padding:'10px 14px', fontWeight:700 }}>{rp.batiment_residence}</td>
+                  <td style={{ padding:'10px 14px', color:'#64748b' }}>{new Date(rp.date_debut).toLocaleDateString('fr-FR')}{rp.date_fin ? ` → ${new Date(rp.date_fin).toLocaleDateString('fr-FR')}` : ''}</td>
+                  <td style={{ padding:'10px 14px' }}>{rp.actif ? '🟢 Active' : `⚪ Terminée${rp.motif_fin ? ' — '+rp.motif_fin : ''}`}</td>
+                  <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.occupant_actuel_nom || (rp.actif ? '(lui-même)' : '—')}</td>
+                  <td style={{ padding:'10px 14px' }}>
+                    {isAdmin && rp.actif && (
+                      <button onClick={()=>mettreFin(rp)} style={{ background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        Fin
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {rpModal==='nouveau' && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setRpModal(null)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#16a34a', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>➕ Déclarer un résident principal</div>
+              <button onClick={()=>setRpModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Personnel</label>
+              <select value={personnelChoisi} onChange={e=>setPersonnelChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
+                <option value="">— Choisir —</option>
+                {personnelList.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+              </select>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Chambre principale</label>
+              <select value={batimentChoisi} onChange={e=>setBatimentChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
+                <option value="">— Choisir —</option>
+                {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
+                  <option key={b.id} value={b.id}>{b.residence} {b.resident_principal ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
+                ))}
+              </select>
+              <button onClick={declarer} style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                Déclarer résident principal
+              </button>
             </div>
           </div>
         </div>
