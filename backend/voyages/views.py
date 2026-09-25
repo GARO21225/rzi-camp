@@ -498,9 +498,20 @@ class VoyageViewSet(viewsets.ModelViewSet):
         # en plusieurs groupes distincts au lieu d'une seule rotation avec
         # des statuts individuels mixtes. Le statut agrege de la rotation se
         # calcule a part, a partir des statuts individuels des passagers.
+        #
+        # MEME PIEGE, BUG REEL TROUVE ET CORRIGE ICI : "destination" etait
+        # elle aussi dans ce regroupement. Depuis l'ajout de l'edition du
+        # lieu de montee/descente PAR PASSAGER (qui modifie justement
+        # Voyage.destination pour UNE personne du convoi), des que cette
+        # valeur differe d'un seul passager par rapport aux autres, Django
+        # scindait la MEME rotation_id en deux groupes distincts avec le
+        # meme vehicule et les memes passagers dupliques a l'affichage -
+        # exactement le symptome signale. La destination "de la rotation"
+        # (celle du convoi dans son ensemble) se calcule desormais a part,
+        # comme le statut, plutot que de servir de cle de regroupement.
         groupes = (Voyage.objects
             .exclude(rotation_id__isnull=True).exclude(rotation_id="")
-            .values("rotation_id","destination","date_depart","date_retour_prevue",
+            .values("rotation_id","date_depart","date_retour_prevue",
                     "vehicule","vehicule_matricule","vehicule_photo","conducteur","nb_places_total","heure_depart","point_rdv",
                     "type_voyage","motif")
             .annotate(nb_passagers=Count("id"))
@@ -511,9 +522,15 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 .exclude(statut="annule")
                 .select_related("personnel")
                 .values("id","personnel__nom","personnel__prenom",
-                        "personnel__societe","statut","statut_validation"))
+                        "personnel__societe","statut","statut_validation","destination"))
             if not passagers:
                 continue  # tout le monde annule/refuse -> rotation vide, ne pas afficher
+            # Destination "de reference" affichee sur la carte du convoi :
+            # celle du plus grand nombre de passagers (la destination
+            # commune du convoi), pas une valeur de groupement qui casserait
+            # des qu'une seule personne a un lieu de descente different.
+            destinations = [p["destination"] for p in passagers if p["destination"]]
+            g["destination"] = max(set(destinations), key=destinations.count) if destinations else ""
             statuts_presents = {p["statut"] for p in passagers}
             if statuts_presents == {"retour"}:
                 statut_rotation = "retour"
