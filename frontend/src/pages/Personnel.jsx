@@ -1391,6 +1391,7 @@ export default function Personnel() {
                     if (!rpBatimentChoisi) return toast.error('Choisissez une chambre.')
                     try {
                       if (rpModal.residence_principale) {
+                        if (!await confirmDialog(`Changer la résidence principale de ${rpModal.residence_principale.residence} vers la nouvelle chambre choisie ? L'ancienne affectation sera conservée dans l'historique.`)) return
                         await rpAPI.changerChambre(rpModal.residence_principale.id, rpBatimentChoisi)
                       } else {
                         await rpAPI.declarer(rpModal.id, rpBatimentChoisi)

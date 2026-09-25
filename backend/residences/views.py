@@ -1266,6 +1266,18 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         role = getattr(getattr(u, "profile", None), "role", "")
         return role in ("admin", "manager")
 
+    def _notifier(self, personnel, titre, message):
+        """Notifie la personne concernee - jamais bloquant si ca echoue."""
+        try:
+            from evenements.models import SimpleNotification
+            if personnel and personnel.user:
+                SimpleNotification.objects.create(
+                    user=personnel.user, personnel=personnel,
+                    titre=titre, message=message, type_notif="info",
+                )
+        except Exception:
+            pass
+
     def get_queryset(self):
         qs = self.queryset
         actif = self.request.query_params.get("actif")
@@ -1325,6 +1337,8 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
                 personnel=personnel, batiment=batiment,
                 date_debut=timezone.localdate(), affecte_par=request.user,
             )
+        self._notifier(personnel, "🏠 Résidence principale attribuée",
+            f"Vous êtes désormais résident principal de la chambre {batiment.residence}.")
         return Response(ResidentPrincipalSerializer(rp).data, status=201)
 
     @action(detail=True, methods=["post"])
@@ -1361,6 +1375,8 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
                 personnel=rp.personnel, batiment=nouveau_batiment,
                 date_debut=timezone.localdate(), affecte_par=request.user,
             )
+        self._notifier(rp.personnel, "🏠 Résidence principale modifiée",
+            f"Votre résidence principale change de {rp.batiment.residence} vers {nouveau_batiment.residence}.")
         return Response(ResidentPrincipalSerializer(nouveau).data, status=201)
 
     @action(detail=True, methods=["post"])
@@ -1374,6 +1390,8 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         rp.date_fin = timezone.localdate()
         rp.motif_fin = request.data.get("motif", "Fin de résidence principale")
         rp.save(update_fields=["date_fin","motif_fin"])
+        self._notifier(rp.personnel, "🏠 Résidence principale terminée",
+            f"Votre statut de résident principal de la chambre {rp.batiment.residence} a pris fin.")
         return Response(ResidentPrincipalSerializer(rp).data)
 
 

@@ -162,14 +162,43 @@ class Voyage(models.Model):
                     enregistre_par_id=None
                 )
                 resultat["chambre_restituee"] = True
+                if rp:
+                    self._notifier_retour(self.personnel, f"🏠 Bon retour — votre chambre {b.residence} vous a été restituée.")
             elif b.personnel_id:
                 # Chambre occupee par quelqu'un d'autre a l'instant du
                 # retour - le droit prioritaire du resident (ResidentPrincipal)
                 # reste enregistre tel quel, MAIS le transfert de
                 # l'occupant temporaire n'est pas automatique ici.
                 resultat["chambre_occupee_par"] = f"{b.personnel.nom} {b.personnel.prenom}"
+                self._notifier_retour(self.personnel,
+                    f"⚠️ Vous êtes de retour, mais votre résidence principale ({b.residence}) est actuellement occupée par {b.personnel.nom} {b.personnel.prenom}. La gestion signalera une restitution manuelle.")
+                self._notifier_admins_conflit(self.personnel, b)
 
         return resultat
+
+    def _notifier_retour(self, personnel, message):
+        try:
+            from evenements.models import SimpleNotification
+            if personnel and personnel.user:
+                SimpleNotification.objects.create(user=personnel.user, personnel=personnel, titre="Centre de mobilité — retour", message=message, type_notif="info")
+        except Exception:
+            pass
+
+    def _notifier_admins_conflit(self, personnel, batiment):
+        try:
+            from evenements.models import SimpleNotification
+            from django.contrib.auth.models import User
+            from accounts.models import Profile
+            admins = set(User.objects.filter(is_staff=True))
+            admins |= set(u for u in User.objects.filter(profile__role="admin"))
+            for admin in admins:
+                SimpleNotification.objects.create(
+                    user=admin, titre="⚠️ Conflit résidence principale au retour",
+                    message=f"{personnel.nom} {personnel.prenom} est de retour mais sa chambre {batiment.residence} est occupée par {batiment.personnel.nom} {batiment.personnel.prenom} — restitution manuelle à organiser.",
+                    type_notif="alerte",
+                )
+        except Exception:
+            pass
 
 
 class EtapeVoyage(models.Model):

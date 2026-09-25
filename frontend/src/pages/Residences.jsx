@@ -474,6 +474,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   const [liste, setListe] = useState([])
   const [loading, setLoading] = useState(true)
   const [voirHistorique, setVoirHistorique] = useState(false)
+  const [rechercheRp, setRechercheRp] = useState('')
   const [rpModal, setRpModal] = useState(null)
   const [personnelChoisi, setPersonnelChoisi] = useState('')
   const [batimentChoisi, setBatimentChoisi] = useState('')
@@ -487,6 +488,14 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
       .finally(() => setLoading(false))
   }
   useEffect(charger, [voirHistorique])
+
+  const listeFiltree = liste.filter(rp => {
+    if (!rechercheRp.trim()) return true
+    const q = rechercheRp.toLowerCase()
+    return (rp.personnel_nom||'').toLowerCase().includes(q) ||
+           (rp.personnel_matricule||'').toLowerCase().includes(q) ||
+           (rp.batiment_residence||'').toLowerCase().includes(q)
+  })
 
   const ouvrirDeclaration = () => {
     setPersonnelChoisi(''); setBatimentChoisi(''); setRpModal('nouveau')
@@ -525,7 +534,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <button onClick={()=>setVoirHistorique(false)}
             style={{ background: !voirHistorique ? 'var(--rzc-navy)' : '#f1f5f9', color: !voirHistorique ? '#fff' : '#475569',
               border:'none', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
@@ -535,6 +544,21 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
             style={{ background: voirHistorique ? 'var(--rzc-navy)' : '#f1f5f9', color: voirHistorique ? '#fff' : '#475569',
               border:'none', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
             📜 Historique complet
+          </button>
+          <input value={rechercheRp} onChange={e=>setRechercheRp(e.target.value)} placeholder="🔍 Rechercher un personnel..."
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12.5, width:200 }}/>
+          <button onClick={()=>{
+              const rows = [['Nom','Matricule','Resident principal','Chambre','Date affectation','Date fin','Statut','Occupant actuel'],
+                ...listeFiltree.map(rp=>[rp.personnel_nom, rp.personnel_matricule||'', rp.actif?'Oui':'Non', rp.batiment_residence,
+                  rp.date_debut, rp.date_fin||'', rp.actif?'Active':'Terminee', rp.occupant_actuel_nom||''])]
+              const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+              const a = document.createElement('a')
+              a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
+              a.download = 'residents_principaux.csv'
+              a.click()
+            }}
+            style={{ background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            ⬇ Export CSV
           </button>
         </div>
         {isAdmin && (
@@ -558,10 +582,10 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
               </tr>
             </thead>
             <tbody>
-              {liste.length===0 && (
+              {listeFiltree.length===0 && (
                 <tr><td colSpan={8} style={{ padding:30, textAlign:'center', color:'#94a3b8' }}>Aucun résident principal {voirHistorique?'':'actif'}.</td></tr>
               )}
-              {liste.map(rp => (
+              {listeFiltree.map(rp => (
                 <tr key={rp.id} style={{ borderTop:'1px solid #f1f5f9' }}>
                   <td style={{ padding:'10px 14px', fontWeight:700 }}>{rp.personnel_nom}</td>
                   <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.personnel_matricule || '—'}</td>
