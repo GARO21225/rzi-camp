@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
-import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux } from '../api'
+import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -477,6 +477,8 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   const [rpModal, setRpModal] = useState(null)
   const [personnelChoisi, setPersonnelChoisi] = useState('')
   const [batimentChoisi, setBatimentChoisi] = useState('')
+  const [plainteModal, setPlainteModal] = useState(null) // { rp } - anomalie sur cette residence
+  const [plainteForm, setPlainteForm] = useState({ titre:'', description:'', categorie:'Autre' })
 
   const charger = () => {
     setLoading(true)
@@ -506,6 +508,18 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
       toast.success('Résidence principale terminée.')
       charger()
     } catch(e) { toast.error('Erreur') }
+  }
+
+  const soumettrePlainte = async () => {
+    if (!plainteForm.titre.trim() || !plainteForm.description.trim()) return toast.error('Titre et description requis.')
+    try {
+      await incidentsAPI.create({
+        titre: plainteForm.titre, description: plainteForm.description, categorie: plainteForm.categorie,
+        residence: plainteModal.rp.batiment_residence, priorite: 'moyenne',
+      })
+      toast.success('Anomalie signalée — suivie dans Maintenance (Plainte → Qualification → Résolution → Clôture).')
+      setPlainteModal(null); setPlainteForm({ titre:'', description:'', categorie:'Autre' })
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
   return (
@@ -562,11 +576,18 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
                   <td style={{ padding:'10px 14px' }}>{rp.actif ? '🟢 Active' : `⚪ Terminée${rp.motif_fin ? ' — '+rp.motif_fin : ''}`}</td>
                   <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.occupant_actuel_nom || (rp.actif ? '(lui-même)' : '—')}</td>
                   <td style={{ padding:'10px 14px' }}>
-                    {isAdmin && rp.actif && (
-                      <button onClick={()=>mettreFin(rp)} style={{ background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                        Fin
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>{setPlainteModal({rp}); setPlainteForm({titre:'',description:'',categorie:'Autre'})}}
+                        style={{ background:'#fff7ed', color:'#c2410c', border:'1px solid #fed7aa', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}
+                        title="Signaler une anomalie sur cette résidence">
+                        🚨 Signaler
                       </button>
-                    )}
+                      {isAdmin && rp.actif && (
+                        <button onClick={()=>mettreFin(rp)} style={{ background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                          Fin
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -598,6 +619,37 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
               </select>
               <button onClick={declarer} style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Déclarer résident principal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {plainteModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setPlainteModal(null)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:440, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#c2410c', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>🚨 Signaler une anomalie — {plainteModal.rp.batiment_residence}</div>
+              <button onClick={()=>setPlainteModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <div style={{ fontSize:11.5, color:'#64748b', marginBottom:14, background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, padding:'8px 12px' }}>
+                Cette anomalie sera suivie dans Maintenance : qualification, résolution, confirmation puis clôture — comme toute autre intervention.
+              </div>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Titre</label>
+              <input value={plainteForm.titre} onChange={e=>setPlainteForm(f=>({...f,titre:e.target.value}))} placeholder="Ex: Occupant non conforme, chambre non restituée..."
+                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14, boxSizing:'border-box' }}/>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Catégorie</label>
+              <select value={plainteForm.categorie} onChange={e=>setPlainteForm(f=>({...f,categorie:e.target.value}))}
+                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
+                {['Autre','Plomberie','Electricite','Serrurerie','Climatisation','Toiture','Informatique','Generateur'].map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Description</label>
+              <textarea value={plainteForm.description} onChange={e=>setPlainteForm(f=>({...f,description:e.target.value}))} rows={3}
+                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16, boxSizing:'border-box', resize:'vertical' }}/>
+              <button onClick={soumettrePlainte} style={{ width:'100%', background:'#c2410c', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                Signaler
               </button>
             </div>
           </div>
