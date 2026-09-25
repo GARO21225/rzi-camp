@@ -45,7 +45,7 @@ def liste_parametres(request):
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
-        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio, orange, africastalking"),
+        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio (en cours de retrait), orange, africastalking, prosms (bientôt), hsms (bientôt)"),
         'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp"),
         'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : auto (utilise Twilio), ou meta (API WhatsApp Business officielle, indépendante de Twilio)"),
         'meta_whatsapp_phone_number_id': ('', "API Meta WhatsApp — Phone Number ID (developers.facebook.com)"),
@@ -58,6 +58,10 @@ def liste_parametres(request):
         'sms_orange_client_id': ('', 'Orange SMS API — Client ID (developer.orange.com)'),
         'sms_orange_client_secret': ('', 'Orange SMS API — Client Secret'),
         'sms_orange_from': ('', 'Orange SMS API — Numéro expéditeur court (ex: 225XXXXXXXX)'),
+        'sms_prosms_api_key': ('', 'proSMS — Clé API (en attente de confirmation du fournisseur exact et de sa documentation)'),
+        'sms_prosms_sender_id': ('', 'proSMS — Nom expéditeur'),
+        'sms_hsms_api_key': ('', 'HSMS — Clé API (hsms.ci, en attente de sa documentation technique)'),
+        'sms_hsms_sender_id': ('', 'HSMS — Nom expéditeur'),
         'sms_at_username': ("", "Africa's Talking — Username"),
         'sms_at_api_key': ("", "Africa's Talking — API Key"),
         # Menus par role - configurable depuis Parametrage sans toucher au
@@ -836,10 +840,18 @@ def demander_otp(request):
     from datetime import timedelta
     from residences.models import Personnel
     from .sms import envoyer_sms
+    from .phone import normaliser
 
-    telephone = (request.data.get('telephone') or '').strip()
-    if not telephone:
+    telephone_saisi = (request.data.get('telephone') or '').strip()
+    if not telephone_saisi:
         return Response({'error': 'Numéro de téléphone requis'}, status=400)
+    # Normalise AVANT toute comparaison/stockage - le numero saisi peut
+    # arriver sous plusieurs formats (+225.../225.../0...), mais
+    # Personnel.telephone stocke toujours le format local (0XXXXXXXXX) -
+    # sans cette normalisation, une demande avec l'indicatif ne trouvait
+    # jamais le compte correspondant (trouve pendant l'audit SMS, jamais
+    # signale car personne n'avait encore teste ce cas precis).
+    telephone = normaliser(telephone_saisi)
 
     recentes = CodeOTP.objects.filter(telephone=telephone, date_creation__gte=timezone.now()-timedelta(minutes=10)).count()
     if recentes >= 3:
@@ -851,7 +863,7 @@ def demander_otp(request):
 
     otp = CodeOTP.generer(telephone)
     nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
-    ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).")
+    ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
 
     if not ok:
         return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)
@@ -870,8 +882,9 @@ def verifier_otp(request):
     """Etape 2 : verifie le code et connecte, meme reponse que /api/auth/login/."""
     from django.utils import timezone
     from residences.models import Personnel
+    from .phone import normaliser
 
-    telephone = (request.data.get('telephone') or '').strip()
+    telephone = normaliser((request.data.get('telephone') or '').strip())
     code = (request.data.get('code') or '').strip()
     if not telephone or not code:
         return Response({'error': 'Numéro et code requis'}, status=400)

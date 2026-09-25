@@ -187,10 +187,12 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@rzi-camp.com')
 
-# ── SMS (Twilio) ─────────────────────────────────────
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN  = os.environ.get('TWILIO_AUTH_TOKEN', '')
-TWILIO_FROM_NUMBER = os.environ.get('TWILIO_FROM_NUMBER', '+12345678901')
+# SMS : plus configure via variables d'environnement - toutes les
+# credentials fournisseurs vivent dans Parametre (base de donnees,
+# configurable depuis Parametrage -> Connexion SMS), voir
+# accounts/sms.py et accounts/sms_providers/. Les anciennes variables
+# TWILIO_* ont ete retirees (integration Twilio retiree, code mort
+# supprime - backend/rzi_camp/notifications.py).
 
 # ── Application URL ──────────────────────────────────
 APP_URL = os.environ.get('APP_URL', 'https://rzi-camp-frontend.onrender.com')

@@ -87,28 +87,10 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return str(value or '').strip()
 
         def normalize_phone(value):
-            v = clean(value)
-
-            if not v:
-                return ''
-
-            # Supprimer espaces, points, tirets et parenthèses
-            v = re.sub(r'[\s().-]+', '', v)
-
-            # +225XXXXXXXXXX -> 0XXXXXXXXX
-            if v.startswith('+225'):
-                v = v[4:]
-
-            # 225XXXXXXXXXX -> 0XXXXXXXXX
-            elif v.startswith('225'):
-                v = v[3:]
-
-            # Les fichiers Excel peuvent supprimer le 0 initial, quel que
-            # soit le chiffre suivant (numéro ivoirien = 9 chiffres sans le 0).
-            if re.fullmatch(r'\d{9}', v) and not v.startswith('0'):
-                v = '0' + v
-
-            return v
+            # Reutilise desormais PhoneNumberService (accounts/phone.py) -
+            # meme logique exactement, plus dupliquee ici.
+            from accounts.phone import normaliser
+            return normaliser(value)
 
         for i, row in enumerate(rows):
             nom = clean(row.get('nom')).upper()
@@ -301,7 +283,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                 numero = p.numero_whatsapp or p.telephone
                 if numero:
                     from accounts.sms import envoyer_sms
-                    ok, _info = envoyer_sms(numero, message, canal='whatsapp')
+                    ok, _info = envoyer_sms(numero, message, canal='whatsapp', type_message='identifiants')
                     envois["whatsapp"] = ok
             except Exception:
                 pass

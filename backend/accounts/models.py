@@ -169,3 +169,58 @@ class CodeOTP(models.Model):
             telephone=telephone, code=code,
             expire_le=timezone.now() + timedelta(minutes=CodeOTP.DUREE_VALIDITE_MIN),
         )
+
+
+class SMSMessage(models.Model):
+    """
+    Historique des envois SMS/WhatsApp externes - aucun modele existant
+    ne convenait pour ce besoin precis (SimpleNotification est pour les
+    notifications INTERNES a l'application, pas pour tracer un envoi vers
+    un fournisseur externe avec son statut de livraison). Permet de
+    repondre a "qui a recu quoi, par quel fournisseur, avec quel statut" -
+    utile pour le support, le diagnostic, et plus tard les statistiques
+    de campagnes.
+
+    Ne stocke JAMAIS le contenu d'un code OTP (donnee sensible et
+    ephemere par nature - CodeOTP.code reste la seule source, pas
+    duplique ici) - uniquement le TYPE d'envoi.
+    """
+    TYPE_CHOICES = [
+        ("otp", "Code de connexion (OTP)"),
+        ("identifiants", "Identifiants de compte"),
+        ("notification", "Notification"),
+        ("alerte", "Alerte"),
+        ("rappel", "Rappel"),
+        ("campagne", "Campagne"),
+        ("systeme", "Système"),
+    ]
+    STATUT_CHOICES = [
+        ("pending", "En attente"),
+        ("sending", "Envoi en cours"),
+        ("sent", "Envoyé"),
+        ("delivered", "Livré"),
+        ("failed", "Échec"),
+        ("rejected", "Rejeté"),
+        ("expired", "Expiré"),
+    ]
+    CANAL_CHOICES = [("sms", "SMS"), ("whatsapp", "WhatsApp")]
+
+    destinataire = models.CharField(max_length=30, db_index=True, help_text="Numéro au format local (celui déjà stocké dans Personnel.telephone)")
+    pays = models.CharField(max_length=2, default="CI")
+    canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default="sms")
+    type_message = models.CharField(max_length=20, choices=TYPE_CHOICES, default="systeme")
+    fournisseur = models.CharField(max_length=30, blank=True, default="", help_text="Code du fournisseur utilisé (test, twilio, orange, prosms, hsms, meta...)")
+    fournisseur_message_id = models.CharField(max_length=100, blank=True, default="", help_text="Identifiant renvoyé par le fournisseur, pour le suivi/webhook")
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="pending", db_index=True)
+    erreur = models.TextField(blank=True, default="")
+    campagne = models.CharField(max_length=100, blank=True, default="", help_text="Regroupement pour un envoi en masse — vide pour un envoi individuel")
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_envoi = models.DateTimeField(null=True, blank=True)
+    date_livraison = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-date_creation"]
+        indexes = [models.Index(fields=["campagne", "date_creation"])]
+
+    def __str__(self):
+        return f"{self.get_type_message_display()} -> {self.destinataire} ({self.statut})"
