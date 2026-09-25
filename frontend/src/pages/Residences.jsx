@@ -23,6 +23,7 @@ export default function Residences() {
   // Modals
   const [editModal, setEditModal] = useState(null)       // Room being edited
   const [confirmModal, setConfirmModal] = useState(null)  // Preview before confirm
+  const [conflitResidence, setConflitResidence] = useState(null) // { error, resident_principal, retour_prevu, alternatives }
   const [histModal, setHistModal] = useState(null)        // History view
   const [history, setHistory] = useState([])
   const [histLoading, setHistLoading] = useState(false)
@@ -106,6 +107,19 @@ export default function Residences() {
       setConfirmModal(null)
       load()
     } catch(e) {
+      if (e.response?.status === 409 && e.response?.data?.conflit_residence_principale) {
+        // Conflit avec un resident principal absent (section 9-12 du
+        // document hebergement) - recherche immediatement des chambres
+        // compatibles avec la MEME periode plutot que de laisser
+        // l'utilisateur deviner quoi faire.
+        let alternatives = []
+        try {
+          const r = await batiments.chambresDisponibles(confirmModal.payload.date_arrivee || new Date().toISOString().slice(0,10), confirmModal.payload.date_depart)
+          alternatives = r.data.compatibles || []
+        } catch {}
+        setConflitResidence({ ...e.response.data, alternatives, createHistory })
+        return
+      }
       if (e.response?.status === 409 && e.response?.data?.reaffectation_requise) {
         const ok = await confirmDialog(`${e.response.data.error}\n\nRéaffecter cette personne à la nouvelle chambre ? L'ancienne (${e.response.data.ancienne_chambre}) sera automatiquement libérée.`)
         if (ok) {
@@ -131,6 +145,25 @@ export default function Residences() {
     } catch(e) {
       toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
     }
+  }
+
+  const choisirAlternative = (b) => {
+    // Reprend exactement le meme payload (occupant, dates) mais vise la
+    // nouvelle chambre compatible choisie.
+    setConfirmModal(cm => ({ ...cm, batiment: b }))
+    setConflitResidence(null)
+    // Relance directement la sauvegarde sur la nouvelle chambre
+    batiments.update(b.id, confirmModal.payload, conflitResidence.createHistory)
+      .then(()=>{ setConfirmModal(null); load(); toast.success(`Affecté à ${b.residence} à la place.`) })
+      .catch(e=>toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message)))
+  }
+
+  const confirmerMalgreConflit = async () => {
+    try {
+      await batiments.update(confirmModal.batiment.id, {...confirmModal.payload, ignorer_conflit_residence:true}, conflitResidence.createHistory)
+      setConflitResidence(null); setConfirmModal(null)
+      load()
+    } catch(e) { toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message)) }
   }
 
   const openHistory = async (b) => {
@@ -390,6 +423,47 @@ export default function Residences() {
               <button onClick={()=>{ setConfirmModal(null); setEditModal(confirmModal.batiment) }}
                 style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text)', padding:'10px', borderRadius:8, cursor:'pointer', fontSize:13, width:'100%' }}>
                 ← Retour — Modifier
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONFLIT RESIDENCE PRINCIPALE (sections 9-12) ── */}
+      {conflitResidence && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2500, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setConflitResidence(null)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:480, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#dc2626', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>⚠ Conflit d'hébergement</div>
+              <button onClick={()=>setConflitResidence(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <div style={{ fontSize:13, color:'#334155', marginBottom:16, lineHeight:1.5 }}>{conflitResidence.error}</div>
+
+              {conflitResidence.alternatives.length > 0 ? (
+                <>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:8, textTransform:'uppercase' }}>
+                    Chambres compatibles pour toute la période
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16, maxHeight:200, overflowY:'auto' }}>
+                    {conflitResidence.alternatives.map(b=>(
+                      <button key={b.id} onClick={()=>choisirAlternative(b)}
+                        style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f0fdf4', border:'1px solid #bbf7d0',
+                          borderRadius:8, padding:'8px 12px', cursor:'pointer', textAlign:'left' }}>
+                        <span style={{ fontWeight:700, fontSize:13, color:'#15803d' }}>{b.residence}</span>
+                        <span style={{ fontSize:11, color:'#16a34a' }}>✓ Disponible toute la période</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize:12, color:'#94a3b8', marginBottom:16 }}>Aucune autre chambre compatible avec toute la période trouvée.</div>
+              )}
+
+              <button onClick={confirmerMalgreConflit}
+                style={{ width:'100%', background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', padding:9, borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                Confirmer quand même sur {conflitResidence.resident_principal ? confirmModal?.batiment?.residence : ''} (déconseillé)
               </button>
             </div>
           </div>

@@ -42,6 +42,11 @@ class Voyage(models.Model):
                          help_text="Nom du conducteur assigné pour l'ALLER — change trop souvent pour être lié au véhicule lui-même")
     conducteur_secondaire = models.CharField(max_length=100, blank=True, default="",
                          help_text="Second chauffeur / chauffeur de relève pour ce trajet (long trajet, sécurité) — distinct du conducteur du retour")
+    trajet_aller_seul = models.BooleanField(default=False,
+                         help_text="Rotation = un trajet aller a travers plusieurs villes intermediaires, PAS un aller-retour couple. "
+                                    "Un eventuel retour doit etre cree comme une NOUVELLE rotation separee, independante. "
+                                    "Quand actif, la fin du trajet ne tente jamais de restituer une chambre au camp "
+                                    "(la destination n'est pas forcement le camp).")
     NIVEAUX_ALERTE = [
         (1, "Aucune restriction de voyage"),
         (2, "Prudence — coordination entre CCTV"),
@@ -140,6 +145,14 @@ class Voyage(models.Model):
         self.save()
 
         resultat = {"chambre_restituee": False, "chambre_occupee_par": None, "residence": None}
+
+        if self.trajet_aller_seul:
+            # Trajet aller uniquement (convoi multi-villes) - la
+            # destination n'est pas forcement le camp, donc aucune
+            # tentative de restitution de chambre. Un eventuel retour
+            # au camp doit passer par une nouvelle rotation separee,
+            # qui suivra alors le cycle normal.
+            return resultat
 
         rp = None
         if self.personnel_id:

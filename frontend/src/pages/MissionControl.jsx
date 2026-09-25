@@ -436,6 +436,7 @@ export default function MissionControl() {
     destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', conducteur_secondaire:'', vehicule_flotte_id:'',
     niveau_alerte: 1,
+    trajet_aller_seul: false,
     villesIntermediaires: [],
     mode_transport:'bus',
     date_depart:'', date_retour_prevue:'', nb_places_total:15,
@@ -601,8 +602,10 @@ export default function MissionControl() {
 
   const changerStatut = async (id, action) => {
     try {
-      await api(`/api/voyages/${id}/${action}/`, {method:'POST'})
+      const res = await api(`/api/voyages/${id}/${action}/`, {method:'POST'})
+      const d = await res.json()
       flash(`Statut mis à jour`)
+      if (d.alerte_chambre) toast.warning(`🏠 ${d.alerte_chambre}`, 10000)
       load()
     } catch(e) { flash('Erreur',false) }
   }
@@ -908,6 +911,13 @@ export default function MissionControl() {
       flash(`Rotation revenue 🏠 (${d.rentres} rentré(s))`)
       if (d.echecs && d.echecs.length > 0) {
         toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu revenir : ${d.echecs.join(' | ')}`, 8000)
+      }
+      if (d.alertes_chambre && d.alertes_chambre.length > 0) {
+        // Conflit resident principal / occupant temporaire au retour
+        // (sections 8/10/13 du document hebergement) - affiche
+        // immediatement ici, en plus de la notification deja envoyee
+        // aux admins et au resident.
+        d.alertes_chambre.forEach(a => toast.warning(`🏠 ${a}`, 10000))
       }
       load()
     } catch(e) { flash('Erreur',false) }
@@ -1349,7 +1359,7 @@ export default function MissionControl() {
                         {r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                          🏠 Retour
+                          {r.trajet_aller_seul ? '✅ Terminer' : '🏠 Retour'}
                         </button>}
                         <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
@@ -2481,6 +2491,14 @@ export default function MissionControl() {
                         <option value={5}>5 — Aucun voyage n'est autorisé</option>
                       </select>
                     </div>
+                    <div style={{marginBottom:14,display:'flex',alignItems:'center',gap:10,background:C.bg,padding:'10px 12px',borderRadius:8}}>
+                      <input type="checkbox" id="trajet-aller-seul" checked={formRot.trajet_aller_seul}
+                        onChange={e=>setFormRot(p=>({...p,trajet_aller_seul:e.target.checked}))}
+                        style={{width:16,height:16}}/>
+                      <label htmlFor="trajet-aller-seul" style={{fontSize:12,cursor:'pointer'}}>
+                        🧭 Trajet aller uniquement (convoi multi-villes) — <span style={{color:C.muted}}>pas de retour couplé au camp. Un éventuel retour se crée comme une nouvelle rotation séparée.</span>
+                      </label>
+                    </div>
                     <div style={{marginBottom:14}}>
                       <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>(optionnel — trajet {formRot.origine||'origine'} → {formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}{formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)</span></label>
                       {formRot.villesIntermediaires.map((v,i) => (
@@ -2524,7 +2542,7 @@ export default function MissionControl() {
                         style={inputStyle}/>
                     </div>
                     <div>
-                      <label style={labelStyle}>Date de retour *</label>
+                      <label style={labelStyle}>{formRot.trajet_aller_seul ? 'Date de fin du trajet *' : 'Date de retour *'}</label>
                       <input type="date" value={formRot.date_retour_prevue}
                         onChange={e=>setFormRot(p=>({...p,date_retour_prevue:e.target.value}))}
                         style={inputStyle}/>

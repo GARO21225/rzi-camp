@@ -99,6 +99,7 @@ export const batiments = {
   exportCsv: (p) => withToken(`${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`),
   exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
+  chambresDisponibles: (date_debut, date_fin) => api.get('/api/batiments/chambres_disponibles/', {params:{date_debut, date_fin}}),
 }
 
 // ── Points d'intérêt carte (restaurant, sport, rampe, etc.) ──────────

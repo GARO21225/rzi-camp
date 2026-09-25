@@ -960,11 +960,19 @@ class BatimentViewSet(viewsets.ModelViewSet):
         from voyages.models import Voyage
         compatibles, incompatibles = [], []
         for b in Batiment.objects.exclude(statut="Maintenance"):
-            if b.statut == "Libre":
-                compatibles.append(b); continue
+            # Le statut "Libre" du batiment ne suffit PAS a exclure un
+            # conflit : une chambre peut etre physiquement vide (Libre)
+            # tout en restant la residence principale reservee de
+            # quelqu'un d'absent - meme logique que le controle applique
+            # a l'affectation elle-meme (partial_update), qui ne se fie
+            # jamais non plus au seul statut.
             rp = ResidentPrincipal.objects.filter(batiment=b, date_fin__isnull=True).select_related("personnel").first()
             if not rp:
-                incompatibles.append({"residence": b.residence, "motif": "Occupée"}); continue
+                if b.statut == "Libre":
+                    compatibles.append(b)
+                else:
+                    incompatibles.append({"residence": b.residence, "motif": "Occupée"})
+                continue
             voyage_actif = Voyage.objects.filter(personnel=rp.personnel, statut__in=["planifie","en_voyage"]).order_by("-date_retour_prevue").first()
             if not voyage_actif or not voyage_actif.date_retour_prevue:
                 incompatibles.append({"residence": b.residence, "motif": f"Résidence principale de {rp.personnel.nom} {rp.personnel.prenom} (non absent)"}); continue
