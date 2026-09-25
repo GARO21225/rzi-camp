@@ -335,7 +335,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Personnel pas en voyage"}, status=400)
         date_str = request.data.get("date_retour")
         date = datetime.date.fromisoformat(date_str) if date_str else None
-        voyage.revenir(date)
+        info_chambre = voyage.revenir(date)
         # Vehicule/conducteur du retour, si different de l'aller (ex: agent
         # regroupe dans un autre vehicule suite a un retour anticipe)
         champs_retour = {}
@@ -345,7 +345,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if champs_retour:
             for k,v in champs_retour.items(): setattr(voyage, k, v)
             voyage.save(update_fields=list(champs_retour.keys()))
-        return Response(VoyageSerializer(voyage).data)
+        data = VoyageSerializer(voyage).data
+        if info_chambre.get("chambre_occupee_par"):
+            data["alerte_chambre"] = f"Sa résidence principale ({info_chambre['residence']}) est actuellement occupée par {info_chambre['chambre_occupee_par']} — restitution manuelle à organiser."
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def annuler(self, request, pk=None):
@@ -777,13 +780,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
         date = datetime.date.fromisoformat(date_str) if date_str else None
         count = 0
         echecs = []
+        alertes_chambre = []
         for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="en_voyage"):
             try:
-                v.revenir(date); count+=1
+                info = v.revenir(date); count+=1
+                if info.get("chambre_occupee_par"):
+                    alertes_chambre.append(f"{v.personnel.nom} {v.personnel.prenom} : sa chambre ({info['residence']}) est occupée par {info['chambre_occupee_par']}.")
             except Exception as e:
                 nom = f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
                 echecs.append(f"{nom}: {e}")
-        return Response({"ok":True,"rentres":count,"echecs":echecs})
+        return Response({"ok":True,"rentres":count,"echecs":echecs,"alertes_chambre":alertes_chambre})
 
     # ── Vue ensemble ───────────────────────────────────────────────
     @action(detail=False, methods=["get"])

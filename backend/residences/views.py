@@ -941,6 +941,43 @@ class BatimentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(items, many=True)
         return Response({"count":len(items),"results":serializer.data})
 
+    @action(detail=False, methods=["get"])
+    def chambres_disponibles(self, request):
+        """
+        Section 12 du document : recherche automatique de chambres
+        compatibles avec TOUTE la periode demandee (pas seulement la
+        date d'arrivee). Une chambre est compatible si elle est libre,
+        OU occupee mais sans resident principal dont le retour chevauche
+        la periode demandee.
+        """
+        date_debut_str = request.query_params.get("date_debut")
+        date_fin_str = request.query_params.get("date_fin")
+        if not date_debut_str:
+            return Response({"error":"date_debut requis"}, status=400)
+        date_fin = datetime.date.fromisoformat(date_fin_str) if date_fin_str else None
+
+        from .models import ResidentPrincipal
+        from voyages.models import Voyage
+        compatibles, incompatibles = [], []
+        for b in Batiment.objects.exclude(statut="Maintenance"):
+            if b.statut == "Libre":
+                compatibles.append(b); continue
+            rp = ResidentPrincipal.objects.filter(batiment=b, date_fin__isnull=True).select_related("personnel").first()
+            if not rp:
+                incompatibles.append({"residence": b.residence, "motif": "Occupée"}); continue
+            voyage_actif = Voyage.objects.filter(personnel=rp.personnel, statut__in=["planifie","en_voyage"]).order_by("-date_retour_prevue").first()
+            if not voyage_actif or not voyage_actif.date_retour_prevue:
+                incompatibles.append({"residence": b.residence, "motif": f"Résidence principale de {rp.personnel.nom} {rp.personnel.prenom} (non absent)"}); continue
+            retour = voyage_actif.date_retour_prevue
+            if date_fin and date_fin < retour:
+                compatibles.append(b)
+            else:
+                incompatibles.append({"residence": b.residence, "motif": f"Retour de {rp.personnel.nom} {rp.personnel.prenom} le {retour.strftime('%d/%m/%Y')}, chevauche la période"})
+        return Response({
+            "compatibles": BatimentSerializer(compatibles, many=True).data,
+            "incompatibles": incompatibles,
+        })
+
     def create(self, request, *args, **kwargs):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -1006,6 +1043,41 @@ class BatimentViewSet(viewsets.ModelViewSet):
                         personnel=None, occupant=None, societe=None,
                         date_arrivee=None, date_depart=None, statut="Libre"
                     )
+
+            # Detection de conflit avec un resident principal absent
+            # (sections 9-12 du document hebergement/mobilite) : la
+            # chambre visee est la residence principale de quelqu'un
+            # d'autre, actuellement en voyage (Centre de Mobilite), dont
+            # le retour prevu chevauche le sejour demande pour ce
+            # nouvel occupant temporaire.
+            if personnel_obj and str(data.get("statut", instance.statut)) == "Occupé":
+                from .models import ResidentPrincipal
+                rp = ResidentPrincipal.objects.filter(
+                    batiment=instance, date_fin__isnull=True
+                ).exclude(personnel=personnel_obj).select_related("personnel").first()
+                if rp:
+                    from voyages.models import Voyage
+                    voyage_actif = Voyage.objects.filter(
+                        personnel=rp.personnel, statut__in=["planifie","en_voyage"]
+                    ).order_by("-date_retour_prevue").first()
+                    if voyage_actif and voyage_actif.date_retour_prevue:
+                        date_depart_visiteur = data.get("date_arrivee") or str(datetime.date.today())
+                        date_fin_visiteur = data.get("date_depart")  # peut etre absent = indetermine
+                        retour = voyage_actif.date_retour_prevue
+                        chevauche = True  # par defaut : pas de date de fin connue -> on ne peut pas exclure le chevauchement
+                        if date_fin_visiteur:
+                            try:
+                                chevauche = datetime.date.fromisoformat(str(date_fin_visiteur)) >= retour
+                            except ValueError:
+                                pass
+                        ignorer = str(request.data.get("ignorer_conflit_residence", "false")).lower() in ("true","1","yes")
+                        if chevauche and not ignorer:
+                            return Response({
+                                "error": f"La chambre {instance.residence} est la résidence principale de {rp.personnel.nom} {rp.personnel.prenom}, de retour prévu le {retour.strftime('%d/%m/%Y')}. Cette occupation temporaire chevauche son retour — veuillez sélectionner une autre chambre, ou confirmer explicitement.",
+                                "conflit_residence_principale": True,
+                                "resident_principal": f"{rp.personnel.nom} {rp.personnel.prenom}",
+                                "retour_prevu": str(retour),
+                            }, status=409)
 
             serializer = self.get_serializer(instance, data=data, partial=True)
             serializer.is_valid(raise_exception=True)

@@ -117,17 +117,38 @@ class Voyage(models.Model):
         self.save()
 
     def revenir(self, date_retour=None):
-        """Reassigne la chambre au retour"""
+        """
+        Reassigne la chambre au retour. Source de verite pour QUELLE
+        chambre : la residence principale declaree (ResidentPrincipal),
+        si elle existe - sinon repli sur self.batiment (comportement
+        historique, pour les voyages anterieurs a l'existence de ce
+        systeme). Ne transfere JAMAIS automatiquement un occupant
+        temporaire en place - une decision qui deplace quelqu'un d'autre
+        doit rester une action explicite de l'admin (via l'ecran
+        Hebergement) ; cette methode se contente de RESTITUER si la
+        chambre est libre, et de signaler clairement le conflit sinon.
+
+        Renvoie un dict decrivant ce qui s'est passe, pour que
+        l'appelant (vue) puisse le remonter a l'utilisateur : jamais
+        d'exception silencieuse sur ce point precis.
+        """
         import datetime
-        from residences.models import OccupationHistory
+        from residences.models import OccupationHistory, ResidentPrincipal
         today = date_retour or datetime.date.today()
         self.date_retour_effective = today
         self.statut = "retour"
         self.save()
-        # Reassigner la chambre si elle est encore libre
-        if self.batiment:
-            b = self.batiment
-            if b.statut == "Libre":
+
+        resultat = {"chambre_restituee": False, "chambre_occupee_par": None, "residence": None}
+
+        rp = None
+        if self.personnel_id:
+            rp = ResidentPrincipal.objects.filter(personnel_id=self.personnel_id, date_fin__isnull=True).select_related("batiment").first()
+        b = rp.batiment if rp else self.batiment
+
+        if b:
+            resultat["residence"] = b.residence
+            if b.statut == "Libre" or b.personnel_id == self.personnel_id:
                 b.statut = "Occupé"
                 b.personnel = self.personnel
                 b.occupant = f"{self.personnel.nom} {self.personnel.prenom}"
@@ -140,6 +161,15 @@ class Voyage(models.Model):
                     societe=self.personnel.societe, date_arrivee=today,
                     enregistre_par_id=None
                 )
+                resultat["chambre_restituee"] = True
+            elif b.personnel_id:
+                # Chambre occupee par quelqu'un d'autre a l'instant du
+                # retour - le droit prioritaire du resident (ResidentPrincipal)
+                # reste enregistre tel quel, MAIS le transfert de
+                # l'occupant temporaire n'est pas automatique ici.
+                resultat["chambre_occupee_par"] = f"{b.personnel.nom} {b.personnel.prenom}"
+
+        return resultat
 
 
 class EtapeVoyage(models.Model):
