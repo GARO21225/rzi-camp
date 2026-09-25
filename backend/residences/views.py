@@ -8,13 +8,13 @@ from django.db import transaction
 
 from .models import (
     InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
-    InductionCampConfig, InductionInfra, InductionRegle,
+    InductionCampConfig, InductionInfra, InductionRegle, ResidentPrincipal,
     InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI
 )
 
 from .serializers import (
     BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
-    DemandeSerializer, InductionRecordSerializer,
+    DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
     InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer,
@@ -1176,6 +1176,133 @@ class BatimentViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Aucun profil personnel lié"}, status=404)
         
         return Response(PersonnelSerializer(p).data)
+
+
+class ResidentPrincipalViewSet(viewsets.ModelViewSet):
+    """
+    Declaration/gestion du resident principal - fonctionnalite metier
+    distincte de l'occupation courante (Batiment.personnel), reutilisee et
+    etendue plutot que dupliquee. Ecriture reservee aux roles habilites
+    (admin ou gestionnaire hebergement), lecture ouverte a tous (consultee
+    depuis la fiche Personnel).
+    """
+    queryset = ResidentPrincipal.objects.select_related("personnel","batiment","affecte_par").all()
+    serializer_class = ResidentPrincipalSerializer
+
+    def _habilite(self, u):
+        if u.is_staff or u.is_superuser: return True
+        role = getattr(getattr(u, "profile", None), "role", "")
+        return role in ("admin", "manager")
+
+    def get_queryset(self):
+        qs = self.queryset
+        actif = self.request.query_params.get("actif")
+        if actif == "1": qs = qs.filter(date_fin__isnull=True)
+        elif actif == "0": qs = qs.filter(date_fin__isnull=False)
+        personnel_id = self.request.query_params.get("personnel")
+        if personnel_id: qs = qs.filter(personnel_id=personnel_id)
+        return qs
+
+    @action(detail=False, methods=["post"])
+    def declarer(self, request):
+        """
+        Declare un personnel resident principal ET lui affecte sa chambre
+        principale en une seule action (sections 1+2 du document).
+        Controles obligatoires (section 4) : chambre existe, active
+        (statut != Maintenance), pas deja residence principale active de
+        quelqu'un d'autre.
+        """
+        personnel_id = request.data.get("personnel")
+        batiment_id  = request.data.get("batiment")
+        if not personnel_id or not batiment_id:
+            return Response({"error":"Personnel et chambre requis."}, status=400)
+
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité à déclarer un résident principal."}, status=403)
+
+        try:
+            personnel = Personnel.objects.get(pk=personnel_id)
+            batiment = Batiment.objects.get(pk=batiment_id)
+        except (Personnel.DoesNotExist, Batiment.DoesNotExist):
+            return Response({"error":"Personnel ou chambre introuvable."}, status=404)
+
+        if batiment.statut == "Maintenance":
+            return Response({"error": f"La chambre {batiment.residence} est en maintenance — indisponible pour une résidence principale."}, status=400)
+
+        with transaction.atomic():
+            # Verrouille pour eviter 2 declarations simultanees sur la meme chambre
+            list(ResidentPrincipal.objects.select_for_update().filter(batiment=batiment, date_fin__isnull=True))
+
+            conflit = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True).exclude(personnel=personnel).first()
+            if conflit:
+                return Response({
+                    "error": f"{batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}.",
+                    "conflit_personnel": conflit.personnel_id,
+                }, status=409)
+
+            deja = ResidentPrincipal.objects.filter(personnel=personnel, date_fin__isnull=True).first()
+            if deja:
+                if deja.batiment_id == batiment.id:
+                    return Response(ResidentPrincipalSerializer(deja).data, status=200)
+                return Response({
+                    "error": f"{personnel.nom} {personnel.prenom} est déjà résident principal de {deja.batiment.residence}. Utilisez « changer de chambre » pour la modifier.",
+                    "residence_actuelle": deja.batiment.residence,
+                }, status=409)
+
+            rp = ResidentPrincipal.objects.create(
+                personnel=personnel, batiment=batiment,
+                date_debut=timezone.localdate(), affecte_par=request.user,
+            )
+        return Response(ResidentPrincipalSerializer(rp).data, status=201)
+
+    @action(detail=True, methods=["post"])
+    def changer_chambre(self, request, pk=None):
+        """
+        Section 5 : modifie la residence principale - cloture l'ancienne
+        (date_fin, jamais supprimee) et cree la nouvelle, meme controles
+        que la declaration initiale.
+        """
+        rp = self.get_object()
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        if rp.date_fin is not None:
+            return Response({"error":"Cette résidence principale est déjà terminée."}, status=400)
+
+        nouveau_batiment_id = request.data.get("batiment")
+        try:
+            nouveau_batiment = Batiment.objects.get(pk=nouveau_batiment_id)
+        except Batiment.DoesNotExist:
+            return Response({"error":"Chambre introuvable."}, status=404)
+        if nouveau_batiment.statut == "Maintenance":
+            return Response({"error": f"La chambre {nouveau_batiment.residence} est en maintenance."}, status=400)
+
+        with transaction.atomic():
+            list(ResidentPrincipal.objects.select_for_update().filter(batiment=nouveau_batiment, date_fin__isnull=True))
+            conflit = ResidentPrincipal.objects.filter(batiment=nouveau_batiment, date_fin__isnull=True).exclude(personnel=rp.personnel).first()
+            if conflit:
+                return Response({"error": f"{nouveau_batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}."}, status=409)
+
+            rp.date_fin = timezone.localdate()
+            rp.motif_fin = "Changement de chambre"
+            rp.save(update_fields=["date_fin","motif_fin"])
+            nouveau = ResidentPrincipal.objects.create(
+                personnel=rp.personnel, batiment=nouveau_batiment,
+                date_debut=timezone.localdate(), affecte_par=request.user,
+            )
+        return Response(ResidentPrincipalSerializer(nouveau).data, status=201)
+
+    @action(detail=True, methods=["post"])
+    def mettre_fin(self, request, pk=None):
+        """Section 6 : retire le statut sans jamais supprimer l'historique."""
+        rp = self.get_object()
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        if rp.date_fin is not None:
+            return Response({"error":"Déjà terminée."}, status=400)
+        rp.date_fin = timezone.localdate()
+        rp.motif_fin = request.data.get("motif", "Fin de résidence principale")
+        rp.save(update_fields=["date_fin","motif_fin"])
+        return Response(ResidentPrincipalSerializer(rp).data)
 
 
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):

@@ -151,6 +151,12 @@ export const inductionQuiz = {
   delete:   (id) => api.delete(`/api/induction-quiz/${id}/`),
   verifier: (reponses) => api.post('/api/induction-quiz/verifier/', { reponses }),
 }
+export const residentsPrincipaux = {
+  list: (params) => api.get('/api/residents-principaux/', {params}),
+  declarer: (personnel, batiment) => api.post('/api/residents-principaux/declarer/', {personnel, batiment}),
+  changerChambre: (id, batiment) => api.post(`/api/residents-principaux/${id}/changer_chambre/`, {batiment}),
+  mettreFin: (id, motif) => api.post(`/api/residents-principaux/${id}/mettre_fin/`, {motif}),
+}
 export const personnel = {
   declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),
   list: (p) => api.get('/api/personnel/', {params:p}),

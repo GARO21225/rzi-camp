@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import (Batiment, Personnel, OccupationHistory, InductionRecord,
+from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal,
     InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI)
 
 class PointInteretSerializer(serializers.ModelSerializer):
@@ -54,6 +54,13 @@ class PersonnelSerializer(serializers.ModelSerializer):
     # n'a jamais existé dans l'API -> valeur toujours vide. On l'expose ici en
     # lecture ET écriture, en miroir de "numero".
     matricule       = serializers.CharField(source="numero", required=False, allow_blank=True)
+    residence_principale = serializers.SerializerMethodField()
+
+    def get_residence_principale(self, obj):
+        """Statut resident principal + chambre - distinct de l'occupation actuelle (Batiment.personnel)."""
+        rp = obj.residences_principales.filter(date_fin__isnull=True).select_related("batiment").first()
+        if not rp: return None
+        return {"id": rp.id, "batiment_id": rp.batiment_id, "residence": rp.batiment.residence if rp.batiment_id else None, "date_debut": rp.date_debut}
 
     def get_type_label(self, obj):
         return dict(Personnel.TYPE_CHOICES).get(obj.type_personnel, obj.type_personnel)
@@ -113,16 +120,68 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "profil", "profil_label", "est_expatrie", "pays_origine",
-            "eligible_mobilite", "a_droit_mobilite",
+            "eligible_mobilite", "a_droit_mobilite", "residence_principale",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 
 
 class BatimentSerializer(serializers.ModelSerializer):
     personnel_detail = PersonnelSerializer(source="personnel", read_only=True)
+    resident_principal = serializers.SerializerMethodField()
     class Meta:
         model  = Batiment
         fields = "__all__"
+
+    def get_resident_principal(self, obj):
+        """
+        Distinct de 'personnel' (occupant actuel) - le titulaire au droit
+        prioritaire sur cette chambre, meme absent. None si cette chambre
+        n'a pas de resident principal declare.
+        """
+        rp = obj.residents_principaux.filter(date_fin__isnull=True).select_related("personnel").first()
+        if not rp: return None
+        return {
+            "id": rp.id,
+            "personnel_id": rp.personnel_id,
+            "personnel_nom": f"{rp.personnel.nom} {rp.personnel.prenom}" if rp.personnel else "—",
+            "date_debut": rp.date_debut,
+        }
+
+
+class ResidentPrincipalSerializer(serializers.ModelSerializer):
+    personnel_nom = serializers.SerializerMethodField()
+    personnel_matricule = serializers.CharField(source="personnel.matricule", read_only=True, default="")
+    batiment_residence = serializers.CharField(source="batiment.residence", read_only=True)
+    occupant_actuel_nom = serializers.SerializerMethodField()
+    actif = serializers.SerializerMethodField()
+    affecte_par_nom = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ResidentPrincipal
+        fields = ["id","personnel","personnel_nom","personnel_matricule","batiment","batiment_residence",
+                  "date_debut","date_fin","motif_fin","actif","occupant_actuel_nom",
+                  "affecte_par","affecte_par_nom","date_creation"]
+        read_only_fields = ["affecte_par","date_creation"]
+
+    def get_personnel_nom(self, obj):
+        return f"{obj.personnel.nom} {obj.personnel.prenom}" if obj.personnel else "—"
+
+    def get_actif(self, obj):
+        return obj.date_fin is None
+
+    def get_occupant_actuel_nom(self, obj):
+        """Qui occupe REELLEMENT la chambre en ce moment - peut differer du resident principal (occupant temporaire)."""
+        if obj.batiment and obj.batiment.personnel:
+            occ = obj.batiment.personnel
+            if occ.id == obj.personnel_id:
+                return None  # le resident principal occupe lui-meme sa chambre - rien de particulier a signaler
+            return f"{occ.nom} {occ.prenom}"
+        return None
+
+    def get_affecte_par_nom(self, obj):
+        if obj.affecte_par:
+            return obj.affecte_par.get_full_name() or obj.affecte_par.username
+        return "—"
 
 
 class OccupationHistorySerializer(serializers.ModelSerializer):

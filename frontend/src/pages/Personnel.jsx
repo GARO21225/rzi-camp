@@ -3,7 +3,7 @@
  * Version stable - Erreurs gérées par Error Boundary
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI, rolesAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
@@ -66,6 +66,9 @@ export default function Personnel() {
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
   const [newLoginRole, setNewLoginRole] = useState('')
+  const [rpModal, setRpModal] = useState(null)       // personnel en cours de declaration resident principal
+  const [rpBatiments, setRpBatiments] = useState([])
+  const [rpBatimentChoisi, setRpBatimentChoisi] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -805,6 +808,16 @@ export default function Personnel() {
                             title="Changer le profil">
                             👤
                           </button>
+                          <button onClick={() => {
+                              setRpModal(p); setRpBatimentChoisi(p.residence_principale?.batiment_id || '')
+                              if (rpBatiments.length===0) batimentsAPI.list().then(r=>setRpBatiments(r.data.results||r.data||[])).catch(()=>{})
+                            }}
+                            style={{background: p.residence_principale ? '#16a34a20' : 'var(--rzc-blue-l)', color: p.residence_principale ? '#16a34a' : '#2563EB',
+                              border:`1px solid ${p.residence_principale ? '#16a34a40' : 'rgba(37,99,235,.25)'}`,
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title={p.residence_principale ? `Résident principal — ${p.residence_principale.residence}` : "Déclarer résident principal"}>
+                            🏠
+                          </button>
                           <button onClick={async () => {
                               if (!await confirmDialog(`Régénérer les identifiants de ${p.nom} ${p.prenom} ? L'ancien mot de passe ne fonctionnera plus.`)) return
                               try {
@@ -1337,6 +1350,71 @@ export default function Personnel() {
                     fontSize:13,fontWeight:700}}>
                   💾 Enregistrer Type & Profil
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL RESIDENT PRINCIPAL ══ */}
+      {rpModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+          onClick={e=>e.target===e.currentTarget && setRpModal(null)}>
+          <div style={{background:'#fff',borderRadius:14,maxWidth:420,width:'100%',overflow:'hidden'}}>
+            <div style={{padding:'14px 18px',background:'#16a34a',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:700,fontSize:14}}>🏠 Résident principal — {rpModal.nom} {rpModal.prenom}</div>
+              <button onClick={()=>setRpModal(null)} style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',borderRadius:6,cursor:'pointer',width:28,height:28,fontSize:16}}>✕</button>
+            </div>
+            <div style={{padding:20}}>
+              {rpModal.residence_principale ? (
+                <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:9,padding:'12px 14px',marginBottom:16,fontSize:13}}>
+                  Résident principal depuis le <b>{new Date(rpModal.residence_principale.date_debut).toLocaleDateString('fr-FR')}</b>, chambre <b>{rpModal.residence_principale.residence}</b>.
+                  <div style={{fontSize:11,color:'#64748b',marginTop:4}}>Cette chambre reste la sienne même en son absence (voyage en cours via le Centre de mobilité).</div>
+                </div>
+              ) : (
+                <div style={{fontSize:13,color:'#64748b',marginBottom:16}}>Cette personne n'est pas déclarée résidente principale.</div>
+              )}
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:6,textTransform:'uppercase'}}>
+                {rpModal.residence_principale ? 'Changer de chambre principale' : 'Affecter une chambre principale'}
+              </label>
+              <select value={rpBatimentChoisi} onChange={e=>setRpBatimentChoisi(e.target.value)}
+                style={{width:'100%',border:'1px solid #e2e8f0',borderRadius:8,padding:'9px 12px',fontSize:13,marginBottom:14}}>
+                <option value="">— Choisir une chambre —</option>
+                {rpBatiments.filter(b=>b.statut!=='Maintenance').map(b=>(
+                  <option key={b.id} value={b.id}>
+                    {b.residence} {b.resident_principal && b.resident_principal.personnel_id!==rpModal.id ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}
+                  </option>
+                ))}
+              </select>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={async()=>{
+                    if (!rpBatimentChoisi) return toast.error('Choisissez une chambre.')
+                    try {
+                      if (rpModal.residence_principale) {
+                        await rpAPI.changerChambre(rpModal.residence_principale.id, rpBatimentChoisi)
+                      } else {
+                        await rpAPI.declarer(rpModal.id, rpBatimentChoisi)
+                      }
+                      toast.success('Résidence principale enregistrée.')
+                      setRpModal(null); load()
+                    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+                  }}
+                  style={{flex:1,background:'#16a34a',color:'#fff',border:'none',padding:11,borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  {rpModal.residence_principale ? 'Changer de chambre' : 'Déclarer résident principal'}
+                </button>
+                {rpModal.residence_principale && (
+                  <button onClick={async()=>{
+                      if (!await confirmDialog(`Mettre fin à la résidence principale de ${rpModal.nom} ${rpModal.prenom} ?`)) return
+                      try {
+                        await rpAPI.mettreFin(rpModal.residence_principale.id)
+                        toast.success('Résidence principale terminée.')
+                        setRpModal(null); load()
+                      } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+                    }}
+                    style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'11px 14px',borderRadius:9,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                    Fin
+                  </button>
+                )}
               </div>
             </div>
           </div>

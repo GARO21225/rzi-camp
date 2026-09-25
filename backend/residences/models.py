@@ -321,6 +321,38 @@ class OccupationHistory(models.Model):
         ordering = ["-date_arrivee"]
 
 
+class ResidentPrincipal(models.Model):
+    """
+    Distinction OBLIGATOIRE entre resident principal (droit prioritaire
+    persistant sur une chambre) et occupant actuel (Batiment.personnel,
+    qui reste l'occupation physique effective a un instant donne -
+    inchange, reutilise tel quel). Un resident principal absent du camp
+    (voyage en cours via le Centre de Mobilite) garde son droit sur sa
+    chambre meme si quelqu'un d'autre l'occupe temporairement entre-temps.
+
+    Le meme motif date_debut/date_fin (actif = date_fin NULL) que
+    OccupationHistory est repris ici volontairement, pour la coherence et
+    pour permettre l'historique complet sans jamais supprimer une ligne
+    (une chambre peut avoir plusieurs residents principaux successifs
+    dans le temps, jamais plus d'un actif simultanement).
+    """
+    personnel   = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name="residences_principales")
+    batiment    = models.ForeignKey(Batiment, on_delete=models.PROTECT, related_name="residents_principaux")
+    date_debut  = models.DateField()
+    date_fin    = models.DateField(null=True, blank=True,
+                   help_text="NULL = toujours actif. Renseigne uniquement quand ce mandat de residence principale se termine (changement de chambre, fin de residence).")
+    motif_fin   = models.CharField(max_length=200, blank=True, default="")
+    affecte_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="residences_principales_affectees")
+    date_creation = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.personnel} — résident principal {self.batiment.residence if self.batiment_id else '?'}"
+
+
 
 
 class Demande(models.Model):
