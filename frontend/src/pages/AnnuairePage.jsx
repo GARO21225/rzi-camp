@@ -164,10 +164,10 @@ export default function AnnuairePage() {
             ))}
 
             {/* Boutons d'action rapide */}
-            {(selected.numero || selected.email) && (
-              <div style={{display:'flex',gap:10,marginTop:16,marginBottom:4}}>
-                {selected.numero && (
-                  <a href={`tel:${selected.numero}`}
+            {(selected.telephone || selected.numero_whatsapp || selected.email) && (
+              <div style={{display:'flex',gap:10,marginTop:16,marginBottom:4,flexWrap:'wrap'}}>
+                {selected.telephone && (
+                  <a href={`tel:${selected.telephone}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
                       fontSize:14,background:'#059669',color:'var(--rzc-white)',
@@ -175,8 +175,8 @@ export default function AnnuairePage() {
                     📞 Appeler
                   </a>
                 )}
-                {selected.numero && (
-                  <a href={`sms:${selected.numero}`}
+                {selected.telephone && (
+                  <a href={`sms:${selected.telephone}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
                       fontSize:14,background:'#1d4ed8',color:'var(--rzc-white)',
@@ -184,7 +184,16 @@ export default function AnnuairePage() {
                     💬 Message
                   </a>
                 )}
-                {!selected.numero && selected.email && (
+                {selected.numero_whatsapp && (
+                  <a href={`https://wa.me/${selected.numero_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noreferrer"
+                    style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                      gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
+                      fontSize:14,background:'#16a34a',color:'var(--rzc-white)',
+                      boxShadow:'0 2px 8px rgba(22,163,74,.3)'}}>
+                    🟢 WhatsApp
+                  </a>
+                )}
+                {!selected.telephone && selected.email && (
                   <a href={`mailto:${selected.email}`}
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,

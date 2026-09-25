@@ -57,8 +57,23 @@ class PersonnelSerializer(serializers.ModelSerializer):
     residence_principale = serializers.SerializerMethodField()
 
     def get_residence_principale(self, obj):
-        """Statut resident principal + chambre - distinct de l'occupation actuelle (Batiment.personnel)."""
-        rp = obj.residences_principales.filter(date_fin__isnull=True).select_related("batiment").first()
+        """
+        Statut resident principal + chambre - distinct de l'occupation
+        actuelle (Batiment.personnel). PERFORMANCE : toutes les residences
+        principales actives sont chargees UNE SEULE FOIS par requete de
+        liste (mises en cache sur l'instance du serializer), au lieu d'une
+        requete ResidentPrincipal separee par personne - avec 200+ membres
+        du personnel, ca faisait 200+ requetes supplementaires a CHAQUE
+        chargement de la liste Personnel (utilisee tres largement dans
+        l'application) - contributeur plausible au ralentissement signale.
+        """
+        if not hasattr(self, '_residences_principales_cache'):
+            from residences.models import ResidentPrincipal
+            self._residences_principales_cache = {
+                rp.personnel_id: rp for rp in
+                ResidentPrincipal.objects.filter(date_fin__isnull=True).select_related("batiment")
+            }
+        rp = self._residences_principales_cache.get(obj.id)
         if not rp: return None
         return {"id": rp.id, "batiment_id": rp.batiment_id, "residence": rp.batiment.residence if rp.batiment_id else None, "date_debut": rp.date_debut}
 
@@ -75,10 +90,16 @@ class PersonnelSerializer(serializers.ModelSerializer):
             if label: return label
             # Profil personnalise (role cree depuis Parametrage -> Roles &
             # Acces, absent de la liste figee PROFIL_CHOICES) - va chercher
-            # son libelle dans RoleCustom plutot que d'afficher le code brut.
-            from accounts.models import RoleCustom
-            role = RoleCustom.objects.filter(code=code).first()
-            return role.label if role else code
+            # son libelle dans RoleCustom. PERFORMANCE : le mapping complet
+            # est charge UNE SEULE FOIS par requete de liste (mis en cache
+            # sur l'instance du serializer), plutot qu'une requete RoleCustom
+            # separee par personne - avec un profil personnalise courant
+            # (ex: "restauration"), une liste de 200 personnes declenchait
+            # jusqu'a 200 requetes supplementaires identiques.
+            if not hasattr(self, '_role_labels_cache'):
+                from accounts.models import RoleCustom
+                self._role_labels_cache = dict(RoleCustom.objects.values_list('code', 'label'))
+            return self._role_labels_cache.get(code, code)
         except Exception:
             return 'agent'
 
@@ -136,9 +157,17 @@ class BatimentSerializer(serializers.ModelSerializer):
         """
         Distinct de 'personnel' (occupant actuel) - le titulaire au droit
         prioritaire sur cette chambre, meme absent. None si cette chambre
-        n'a pas de resident principal declare.
+        n'a pas de resident principal declare. PERFORMANCE : meme correctif
+        que PersonnelSerializer.get_residence_principale - une seule
+        requete pour toute la liste de batiments (204 chambres), pas une
+        par chambre.
         """
-        rp = obj.residents_principaux.filter(date_fin__isnull=True).select_related("personnel").first()
+        if not hasattr(self, '_residents_principaux_cache'):
+            from residences.models import ResidentPrincipal
+            self._residents_principaux_cache = {}
+            for rp in ResidentPrincipal.objects.filter(date_fin__isnull=True).select_related("personnel"):
+                self._residents_principaux_cache[rp.batiment_id] = rp
+        rp = self._residents_principaux_cache.get(obj.id)
         if not rp: return None
         return {
             "id": rp.id,

@@ -512,17 +512,30 @@ class VoyageViewSet(viewsets.ModelViewSet):
         groupes = (Voyage.objects
             .exclude(rotation_id__isnull=True).exclude(rotation_id="")
             .values("rotation_id","date_depart","date_retour_prevue",
-                    "vehicule","vehicule_matricule","vehicule_photo","conducteur","nb_places_total","heure_depart","point_rdv",
+                    "vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_secondaire","nb_places_total","heure_depart","point_rdv",
                     "type_voyage","motif")
             .annotate(nb_passagers=Count("id"))
             .order_by("-date_depart"))
+        groupes = list(groupes)
+
+        # PERFORMANCE : recupere TOUS les passagers de TOUTES les rotations
+        # en UNE seule requete, puis regroupe en memoire par rotation_id -
+        # au lieu d'une requete SEPAREE par rotation (N+1 classique,
+        # potentiellement tres lent avec beaucoup de rotations actives, et
+        # un contributeur plausible au ralentissement signale).
+        rotation_ids = [g["rotation_id"] for g in groupes]
+        tous_passagers = list(Voyage.objects.filter(rotation_id__in=rotation_ids)
+            .exclude(statut="annule")
+            .select_related("personnel")
+            .values("id","rotation_id","personnel__nom","personnel__prenom",
+                    "personnel__societe","statut","statut_validation","destination"))
+        passagers_par_rotation = {}
+        for p in tous_passagers:
+            passagers_par_rotation.setdefault(p["rotation_id"], []).append(p)
+
         result = []
         for g in groupes:
-            passagers = list(Voyage.objects.filter(rotation_id=g["rotation_id"])
-                .exclude(statut="annule")
-                .select_related("personnel")
-                .values("id","personnel__nom","personnel__prenom",
-                        "personnel__societe","statut","statut_validation","destination"))
+            passagers = passagers_par_rotation.get(g["rotation_id"], [])
             if not passagers:
                 continue  # tout le monde annule/refuse -> rotation vide, ne pas afficher
             # Destination "de reference" affichee sur la carte du convoi :

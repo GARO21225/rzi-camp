@@ -1454,6 +1454,12 @@ export default function MissionControl() {
                                     <option value="">Sélectionner...</option>
                                     {personnel
                                       .filter(p=>!(r.passagers||[]).some(pp=>pp.personnel__nom===p.nom&&pp.personnel__prenom===p.prenom))
+                                      .filter(p=>{
+                                        const nomComplet = `${p.nom} ${p.prenom}`.trim().toLowerCase()
+                                        if (r.conducteur && r.conducteur.trim().toLowerCase()===nomComplet) return false
+                                        if (r.conducteur_secondaire && r.conducteur_secondaire.trim().toLowerCase()===nomComplet) return false
+                                        return true
+                                      })
                                       .map(p=>(
                                         <option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe||'—'}</option>
                                       ))}
@@ -2601,13 +2607,17 @@ export default function MissionControl() {
                       maxHeight:200,overflowY:'auto',background:'rgba(0,0,0,.2)'}}>
                       {personnel.map(p=>{
                         const checked = formRot.passagers.includes(p.id)
-                        const full = !checked && formRot.passagers.length >= formRot.nb_places_total
+                        const nomComplet = `${p.nom} ${p.prenom}`.trim().toLowerCase()
+                        const estChauffeur = (formRot.conducteur||'').trim().toLowerCase()===nomComplet
+                          || (formRot.conducteur_secondaire||'').trim().toLowerCase()===nomComplet
+                        const full = !checked && (formRot.passagers.length >= formRot.nb_places_total || estChauffeur)
                         return (
                           <label key={p.id} style={{display:'flex',gap:10,alignItems:'center',
                             padding:'8px 12px',cursor:full?'not-allowed':'pointer',
                             borderBottom:`0.5px solid rgba(255,255,255,.04)`,
                             background:checked?`${C.accent}10`:'transparent',
-                            opacity:full?0.4:1}}>
+                            opacity:full?0.4:1}}
+                            title={estChauffeur ? 'Déjà désigné chauffeur ou second chauffeur de cette rotation' : undefined}>
                             <input type="checkbox" checked={checked} disabled={full}
                               onChange={e=>{
                                 if(e.target.checked) setFormRot(f=>({...f,passagers:[...f.passagers,p.id]}))
@@ -2616,7 +2626,7 @@ export default function MissionControl() {
                               style={{accentColor:C.accent}}/>
                             <div>
                               <div style={{fontSize:13,fontWeight:500,color:checked?C.accent:C.text}}>
-                                {p.nom} {p.prenom}
+                                {p.nom} {p.prenom}{estChauffeur ? ' 🚗' : ''}
                               </div>
                               <div style={{fontSize:10,color:C.muted}}>{p.societe||'—'}</div>
                             </div>
