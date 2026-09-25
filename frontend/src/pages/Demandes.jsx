@@ -23,7 +23,7 @@ const today = new Date().toISOString().slice(0,10)
 
 export default function Demandes() {
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
 
   const [data, setData] = useState([])

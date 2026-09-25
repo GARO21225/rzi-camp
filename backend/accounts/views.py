@@ -793,7 +793,14 @@ def construire_reponse_connexion(user):
     try:
         p = Profile.objects.filter(user=user).first()
         if p:
-            profile = {'id': p.id, 'role': p.role, 'nom': user.get_full_name() or user.username}
+            # is_staff/is_superuser (verite Django) prime TOUJOURS sur
+            # Profile.role stocke - ce champ vaut 'agent' par defaut a la
+            # creation et peut ne jamais avoir ete mis a jour pour un
+            # compte promu admin autrement (createsuperuser, shell...).
+            # Sans ca, un veritable admin peut se voir affiche "Agent
+            # Terrain" indefiniment, meme apres connexion reussie.
+            role_effectif = 'admin' if (user.is_staff or user.is_superuser) else p.role
+            profile = {'id': p.id, 'role': role_effectif, 'nom': user.get_full_name() or user.username}
             try:
                 from residences.models import Personnel
                 pers = Personnel.objects.filter(user=user).first()
@@ -803,7 +810,7 @@ def construire_reponse_connexion(user):
             except Exception:
                 pass
     except Exception:
-        profile = {'role': 'admin' if user.is_superuser else 'agent', 'nom': user.get_full_name() or user.username}
+        profile = {'role': 'admin' if (user.is_staff or user.is_superuser) else 'agent', 'nom': user.get_full_name() or user.username}
 
     return {
         'access': access, 'refresh': str(refresh),

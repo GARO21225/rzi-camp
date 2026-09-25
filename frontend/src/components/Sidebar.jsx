@@ -145,7 +145,7 @@ export default function Sidebar({ currentPath }) {
   const nomApp = useAppName()
   const navigate = useNavigate()
   const { user, logout } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
 
   return (
     <aside style={{

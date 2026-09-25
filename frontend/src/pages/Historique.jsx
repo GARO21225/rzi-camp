@@ -44,7 +44,7 @@ function SearchCard({ title, color, children }) {
 
 export default function Historique() {
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const tabsAutorises = isAdmin ? null : (TABS_PAR_ROLE[role] || [])
   const [tab, setTab] = useState(isAdmin ? 'chambre' : (tabsAutorises[0] || 'chambre'))

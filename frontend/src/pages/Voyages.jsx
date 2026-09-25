@@ -165,7 +165,7 @@ const filtrerFlotteParMode = (flotte, mode) => {
 export default function Voyages() {
   const isMobile = useIsMobile()
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_staff ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
 
   const [data,          setData]          = useState([])

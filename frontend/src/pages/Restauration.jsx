@@ -588,7 +588,7 @@ function HistoriqueList({ data, onRefresh, loading }) {
 export default function Restauration() {
   const isMobile = useIsMobile()
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
 
   const [typeRepas, setTypeRepas] = useState('dejeuner')

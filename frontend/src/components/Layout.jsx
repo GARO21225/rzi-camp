@@ -175,7 +175,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
 
 
 function WelcomeToast({ user, roleCustomLabel, onClose }) {
-  const role = user?.profile?.role || 'agent'
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const ROLE_ICONS = { admin:'👑', agent:'🏗️', restauration:'🍽️', technicien:'🔧', menage:'🧹' }
   const name = user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || ''
   return (
@@ -230,7 +230,11 @@ export default function Layout() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  // is_staff/is_superuser (verite Django) prime TOUJOURS sur profile.role
+  // (simple champ metier, qui vaut 'agent' par defaut et peut ne jamais
+  // avoir ete mis a jour) - un compte reellement admin ne doit jamais
+  // pouvoir s'afficher comme 'Agent Terrain' a cause d'un profil oublie.
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
 
   // Menu par role configurable depuis Parametrage (sans toucher au code) -
@@ -239,13 +243,29 @@ export default function Layout() {
   const [roleMenuOverride, setRoleMenuOverride] = useState(null)
   const [roleCustomLabel, setRoleCustomLabel] = useState(null)
   useEffect(() => {
-    if (isAdmin) return // admin garde toujours tout, jamais limite par ce systeme
+    let annule = false
+    if (isAdmin) {
+      // Reinitialise tout etat potentiellement fige par un rendu
+      // anterieur ou isAdmin etait momentanement faux (ex: user pas
+      // encore charge lors d'un changement de page) - un admin ne doit
+      // JAMAIS rester coince sur un libelle/menu de role errone.
+      setRoleMenuOverride(null); setRoleCustomLabel(null)
+      return
+    }
     rolesAPI.list().then(r => {
+      // 'annule' capture l'etat isAdmin du moment ou CETTE requete a ete
+      // lancee - si isAdmin est repasse a true entre-temps (ex: user
+      // charge juste apres un premier rendu ou il etait encore absent),
+      // cette reponse tardive ne doit PLUS pouvoir ecraser le reset fait
+      // ci-dessus : sans cette garde, une reponse en retard restaure
+      // silencieusement un libelle de role errone pour un admin.
+      if (annule) return
       const liste = r.data?.results || r.data || []
       const roleCustom = liste.find(x => x.code === role)
       if (roleCustom?.menu_pages?.length) setRoleMenuOverride(roleCustom.menu_pages)
       if (roleCustom?.label) setRoleCustomLabel(roleCustom.label)
     }).catch(() => {})
+    return () => { annule = true }
   }, [isAdmin, role])
 
   const nav = (() => {

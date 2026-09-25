@@ -6,6 +6,7 @@ from accounts.permissions import TokenInQueryOrHeader
 import datetime, csv, uuid
 from django.http import HttpResponse
 from django.db import transaction
+from django.db.models import Q
 from .models import Voyage
 from .serializers import VoyageSerializer
 
@@ -601,6 +602,19 @@ class VoyageViewSet(viewsets.ModelViewSet):
                         return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
                 except Personnel.DoesNotExist:
                     pass
+        # Meme regle pour le second chauffeur (relance) - un cumul
+        # chauffeur+second+passager n'a jamais ete controle jusqu'ici.
+        if conducteur and conducteur_secondaire and conducteur.strip().lower() == conducteur_secondaire.strip().lower():
+            return Response({"error": f"{conducteur} ne peut pas être à la fois conducteur principal et second chauffeur de la même rotation."}, status=400)
+        if conducteur_secondaire and len(passagers_ids) > 1:
+            from residences.models import Personnel
+            for pid in passagers_ids:
+                try:
+                    p = Personnel.objects.get(pk=pid)
+                    if f"{p.nom} {p.prenom}".strip().lower() == conducteur_secondaire.strip().lower():
+                        return Response({"error": f"{conducteur_secondaire} est désigné comme second chauffeur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+                except Personnel.DoesNotExist:
+                    pass
         if conducteur:
             # Regle : le conducteur ne peut pas deja etre conducteur sur un AUTRE convoi actif qui chevauche les dates
             chevauche = Voyage.objects.filter(
@@ -610,6 +624,17 @@ class VoyageViewSet(viewsets.ModelViewSet):
             ).first()
             if chevauche:
                 return Response({"error": f"{conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
+        if conducteur_secondaire:
+            # Meme controle de chevauchement pour le second chauffeur, sur
+            # les DEUX roles a la fois (personne ne peut conduire 2 convois
+            # en meme temps, quel que soit le role tenu sur chacun).
+            chevauche2 = Voyage.objects.filter(
+                Q(conducteur__iexact=conducteur_secondaire) | Q(conducteur_secondaire__iexact=conducteur_secondaire),
+                statut__in=("planifie","en_voyage"),
+                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
+            ).first()
+            if chevauche2:
+                return Response({"error": f"{conducteur_secondaire} est déjà chauffeur (principal ou second) sur un autre convoi actif du {chevauche2.date_depart} au {chevauche2.date_retour_prevue}."}, status=400)
 
         created = []
         exclus = []
@@ -729,6 +754,17 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     return Response({"error": "Les demandes pour rejoindre un convoi doivent être envoyées au moins 48h avant son départ. Pour un départ plus proche, contactez l'administrateur directement."}, status=400)
             if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
                 return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
+            # Le chauffeur (principal ou second) de CE convoi ne peut pas
+            # non plus s'y inscrire comme passager - meme regle qu'a la
+            # creation, jamais verifiee ici jusqu'a present.
+            from residences.models import Personnel
+            pers_cible = Personnel.objects.filter(pk=personnel_id).first()
+            if pers_cible:
+                nom_complet = f"{pers_cible.nom} {pers_cible.prenom}".strip().lower()
+                if existing.conducteur and existing.conducteur.strip().lower() == nom_complet:
+                    return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné conducteur de ce convoi — ne peut pas aussi être passager."}, status=400)
+                if existing.conducteur_secondaire and existing.conducteur_secondaire.strip().lower() == nom_complet:
+                    return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné second chauffeur de ce convoi — ne peut pas aussi être passager."}, status=400)
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
             conflict = _check_voyage_conflit(
                 personnel_id, existing.date_depart, existing.date_retour_prevue

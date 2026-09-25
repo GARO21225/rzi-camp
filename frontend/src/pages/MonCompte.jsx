@@ -60,7 +60,7 @@ function PwdField({ label, value, onChange, onEnter }) {
 // ─── Composant principal ──────────────────────────────────────────
 export default function MonCompte() {
   const { user, logout } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const roleInfo = ROLES[role] || ROLES.agent
 
   const [tab, setTab]       = useState('profil')

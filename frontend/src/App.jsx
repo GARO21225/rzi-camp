@@ -101,7 +101,7 @@ function PrivateRoute({ children }) {
 
 function RoleHome() {
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const mapRoles = ['agent', 'restauration', 'technicien', 'menage']
   if (mapRoles.includes(role)) return <Navigate to="/carte" replace />
   return <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>}><Dashboard /></Suspense>

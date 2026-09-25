@@ -119,7 +119,7 @@ const todayDT = new Date().toISOString().slice(0,16)
 
 export default function Evenements() {
   const { user } = useStore()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || user?.profile?.role === 'admin'
 
   const [events, setEvents] = useState([])

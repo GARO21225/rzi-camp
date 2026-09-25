@@ -17,7 +17,7 @@ import { rolesAPI } from '../api'
 export function useReadOnly() {
   const { user } = useStore()
   const location = useLocation()
-  const role = user?.profile?.role || (user?.is_superuser ? 'admin' : 'agent')
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const [readOnly, setReadOnly] = useState(false)
 
