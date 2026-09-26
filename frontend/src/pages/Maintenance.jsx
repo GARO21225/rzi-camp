@@ -397,7 +397,7 @@ const PRIOS = {
   moyenne:  { l: 'Moyenne',  c: '#eab308' },
   basse:    { l: 'Basse',    c: '#16a34a' },
 }
-const CATS = ['Plomberie','Electricite','Climatisation','Serrurerie','Toiture','Peinture','Informatique','Autre']
+const CATS = ['Plomberie','Electricite','Climatisation','Serrurerie','Toiture','Proprete','Peinture','Informatique','Autre']
 const WF = [
   { s: 'declare',  icon: '📢', l: 'Déclaré' },
   { s: 'assigne',  icon: '👷', l: 'Assigné' },
@@ -432,6 +432,22 @@ export default function Maintenance() {
   const [err,        setErr]        = useState('')
   const EMPTY = { titre:'', description:'', categorie:'Plomberie', priorite:'moyenne', residence:'', bloc:'', photo_b64:'' }
   const [form, setForm] = useState(EMPTY)
+
+  // Ouverture automatique depuis un autre module (ex: Residents
+  // principaux -> "Signaler une anomalie") en reutilisant TEL QUEL ce
+  // formulaire existant plutot que d'en dupliquer un second ailleurs -
+  // signale a juste titre : un formulaire de signalement equivalent
+  // avait ete recree dans Residences.jsx alors que celui-ci existait deja.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const residence = params.get('residence')
+    if (residence) {
+      setForm(f => ({ ...f, residence, categorie: params.get('categorie') || f.categorie }))
+      setShowNew(true)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
   const [actionModal, setActionModal] = useState(null)
   const [actionComment, setActionComment] = useState('')
   const [actionTechId,  setActionTechId]  = useState('')

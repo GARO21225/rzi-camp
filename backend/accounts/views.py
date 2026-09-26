@@ -45,7 +45,7 @@ def liste_parametres(request):
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
-        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio (en cours de retrait), orange, africastalking, prosms (bientôt), hsms (bientôt)"),
+        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio (en cours de retrait), orange, africastalking, prosms, hsms (bientôt)"),
         'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp"),
         'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : auto (utilise Twilio), ou meta (API WhatsApp Business officielle, indépendante de Twilio)"),
         'meta_whatsapp_phone_number_id': ('', "API Meta WhatsApp — Phone Number ID (developers.facebook.com)"),
@@ -58,8 +58,9 @@ def liste_parametres(request):
         'sms_orange_client_id': ('', 'Orange SMS API — Client ID (developer.orange.com)'),
         'sms_orange_client_secret': ('', 'Orange SMS API — Client Secret'),
         'sms_orange_from': ('', 'Orange SMS API — Numéro expéditeur court (ex: 225XXXXXXXX)'),
-        'sms_prosms_api_key': ('', 'proSMS — Clé API (en attente de confirmation du fournisseur exact et de sa documentation)'),
-        'sms_prosms_sender_id': ('', 'proSMS — Nom expéditeur'),
+        'sms_prosms_client_id': ('', 'proSMS — Client ID (prosms.ci/api-credentials, confirmé et documenté)'),
+        'sms_prosms_client_secret': ('', 'proSMS — Client Secret'),
+        'sms_prosms_sender_id': ('', 'proSMS — Sender ID (doit être pré-approuvé sur prosms.ci, sinon rejeté)'),
         'sms_hsms_api_key': ('', 'HSMS — Clé API (hsms.ci, en attente de sa documentation technique)'),
         'sms_hsms_sender_id': ('', 'HSMS — Nom expéditeur'),
         'sms_at_username': ("", "Africa's Talking — Username"),

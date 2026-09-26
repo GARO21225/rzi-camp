@@ -44,6 +44,8 @@ export default function Personnel() {
   const [societeFilter,setSocieteFilter]= useState('')
   const [actifFilter,  setActifFilter]  = useState('')
   const [inductionFilter,setInductionFilter]= useState('')
+  const [expatrieFilter,setExpatrieFilter]  = useState('')
+  const [mobiliteFilter,setMobiliteFilter]  = useState('')
   const [modal,        setModal]        = useState(null)   // null | 'new' | personnel object
   const [qrModal,      setQrModal]      = useState(null)
   const [masseModal,   setMasseModal]   = useState(false)
@@ -101,8 +103,11 @@ export default function Personnel() {
     const matchType    = !typeFilter    || p.type_personnel === typeFilter
     const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
     const matchProfil  = !profilFilter  || p.profil === profilFilter
-    return matchSearch && matchType && matchSociete && matchProfil
-  }), [data, search, typeFilter, societeFilter, profilFilter])
+    const matchActif   = !actifFilter   || (actifFilter==='actif' ? p.actif : !p.actif)
+    const matchExpatrie = !expatrieFilter || (expatrieFilter==='oui' ? p.est_expatrie : !p.est_expatrie)
+    const matchMobilite = !mobiliteFilter || (mobiliteFilter==='oui' ? p.eligible_mobilite : !p.eligible_mobilite)
+    return matchSearch && matchType && matchSociete && matchProfil && matchActif && matchExpatrie && matchMobilite
+  }), [data, search, typeFilter, societeFilter, profilFilter, actifFilter, expatrieFilter, mobiliteFilter])
 
   // Sauvegarde
   const handleSave = async () => {
@@ -159,8 +164,8 @@ export default function Personnel() {
     if (action === 'export') {
       const sel = filtered.filter(p=>selected_ids.has(p.id))
       const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
-      const rows = [['NOM','PRENOM','TYPE','SOCIETE','DEPARTEMENT','WHATSAPP','EMAIL','TEL','PROFIL'],
-        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.departement,asText(p.numero_whatsapp),p.email,asText(p.numero),p.profil])]
+      const rows = [['NOM','PRENOM','TYPE','SOCIETE','DEPARTEMENT','WHATSAPP','EMAIL','TEL','PROFIL','EXPATRIE','DROIT_MOBILITE'],
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.departement,asText(p.numero_whatsapp),p.email,asText(p.numero),p.profil,p.est_expatrie?'Oui':'Non',p.eligible_mobilite?'Oui':'Non'])]
       const csv = rows.map(r=>r.map(v=>typeof v==='string'&&v.startsWith('="')?v:`"${v||''}"`).join(',')).join('\n')
       const a = document.createElement('a')
       a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
@@ -178,6 +183,10 @@ export default function Personnel() {
         else if (action === 'desactiver') body = { actif: false }
         else if (action === 'no_induction')   body = { induction_requise: false }
         else if (action === 'with_induction') body = { induction_requise: true }
+        else if (action === 'expatrie')       body = { est_expatrie: true }
+        else if (action === 'non_expatrie')   body = { est_expatrie: false }
+        else if (action === 'mobilite_oui')   body = { eligible_mobilite: true }
+        else if (action === 'mobilite_non')   body = { eligible_mobilite: false }
         else body = { type_personnel: action }
         await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
       } catch(e) {}
@@ -616,8 +625,20 @@ export default function Personnel() {
             <option value="en_cours">⏳ En cours</option>
             <option value="non_commence">❌ Non commencé</option>
           </select>
-          {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||search) && (
-            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setSearch('')}}
+          <select value={expatrieFilter} onChange={e=>setExpatrieFilter(e.target.value)}
+            style={{...inp,maxWidth:150}}>
+            <option value="">Expatrié ?</option>
+            <option value="oui">✈️ Expatriés</option>
+            <option value="non">🏠 Non-expatriés</option>
+          </select>
+          <select value={mobiliteFilter} onChange={e=>setMobiliteFilter(e.target.value)}
+            style={{...inp,maxWidth:170}}>
+            <option value="">Droit mobilité ?</option>
+            <option value="oui">🚐 Avec droit</option>
+            <option value="non">🚫 Sans droit</option>
+          </select>
+          {(typeFilter||profilFilter||societeFilter||actifFilter||inductionFilter||expatrieFilter||mobiliteFilter||search) && (
+            <button onClick={()=>{setTypeFilter('');setProfilFilter('');setSocieteFilter('');setActifFilter('');setInductionFilter('');setExpatrieFilter('');setMobiliteFilter('');setSearch('')}}
               style={{background:'var(--rzc-red-l)',color:'#DC2626',border:'1px solid rgba(220,38,38,.25)',borderRadius:9,
                 padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>
               ✕ Reset
@@ -659,6 +680,14 @@ export default function Personnel() {
               <optgroup label="── Induction" style={{color:'#000'}}>
                 <option value="no_induction" style={{color:'#000'}}>🚫 Marquer sans induction</option>
                 <option value="with_induction" style={{color:'#000'}}>✅ Marquer avec induction</option>
+              </optgroup>
+              <optgroup label="── Expatriation" style={{color:'#000'}}>
+                <option value="expatrie" style={{color:'#000'}}>✈️ Marquer expatrié</option>
+                <option value="non_expatrie" style={{color:'#000'}}>🏠 Marquer non-expatrié</option>
+              </optgroup>
+              <optgroup label="── Centre de mobilité" style={{color:'#000'}}>
+                <option value="mobilite_oui" style={{color:'#000'}}>🚐 Accorder le droit mobilité</option>
+                <option value="mobilite_non" style={{color:'#000'}}>🚫 Retirer le droit mobilité</option>
               </optgroup>
               <optgroup label="── Statut" style={{color:'#000'}}>
                 <option value="activer" style={{color:'#000'}}>✅ Activer</option>

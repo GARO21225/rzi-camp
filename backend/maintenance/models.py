@@ -49,6 +49,7 @@ class Incident(models.Model):
         ('Serrurerie',    'Serrurerie'),
         ('Climatisation', 'Climatisation'),
         ('Toiture',       'Toiture'),
+        ('Proprete',      'Propreté'),
         ('Informatique',  'Informatique'),
         ('Generateur',    'Générateur'),
         ('Vehicule',      'Véhicule'),

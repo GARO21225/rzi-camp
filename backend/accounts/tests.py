@@ -54,12 +54,47 @@ class ProviderFactoryTests(TestCase):
     def test_fournisseur_inconnu_renvoie_none(self):
         self.assertIsNone(ProviderFactory.get("inexistant"))
 
-    def test_prosms_echoue_proprement_sans_inventer(self):
-        """Le stub proSMS ne doit jamais pretendre reussir tant qu'il n'est pas implemente."""
+    def test_prosms_sans_config_echoue_proprement(self):
+        """proSMS est maintenant reellement implemente (documentation
+        officielle prosms.ci/documentation verifiee) - sans Client ID /
+        Client Secret configures, il doit echouer proprement, pas
+        pretendre reussir."""
         provider = ProviderFactory.get("prosms")
         ok, info = provider.envoyer("0701234567", "test")
         self.assertFalse(ok)
-        self.assertIn("pas encore implémenté", info)
+        self.assertIn("non configuré", info)
+
+    @patch("requests.post")
+    def test_prosms_envoi_reussi_mocke(self, mock_post):
+        """Simule la reponse 200 exacte documentee par prosms.ci - jamais
+        de vrai appel reseau dans les tests."""
+        Parametre.objects.update_or_create(cle="sms_prosms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_prosms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {
+            "success": True,
+            "data": {"campaign_id": 128, "recipients_count": 1, "sent": 1, "failed": 0, "credits_used": 1, "credits_remaining": 499},
+        }
+        provider = ProviderFactory.get("prosms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertTrue(ok)
+        self.assertIn("campagne #128", info)
+        # Verifie que le numero a bien ete converti au format international
+        # attendu par l'API (+225...), pas laisse au format local.
+        appel = mock_post.call_args
+        self.assertEqual(appel.kwargs["json"]["recipients"], ["+225701234567"])
+        self.assertEqual(appel.kwargs["headers"]["X-Client-ID"], "cid")
+
+    @patch("requests.post")
+    def test_prosms_credits_insuffisants_402(self, mock_post):
+        Parametre.objects.update_or_create(cle="sms_prosms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_prosms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 402
+        mock_post.return_value.json.return_value = {"data": {"required": 5, "available": 0}}
+        provider = ProviderFactory.get("prosms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertFalse(ok)
+        self.assertIn("crédits SMS insuffisants", info)
 
     def test_hsms_echoue_proprement_sans_inventer(self):
         provider = ProviderFactory.get("hsms")

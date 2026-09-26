@@ -741,7 +741,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Catégorie</label>
               <select value={plainteForm.categorie} onChange={e=>setPlainteForm(f=>({...f,categorie:e.target.value}))}
                 style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
-                {['Autre','Plomberie','Electricite','Serrurerie','Climatisation','Toiture','Informatique','Generateur'].map(c=><option key={c} value={c}>{c}</option>)}
+                {['Autre','Plomberie','Electricite','Serrurerie','Climatisation','Toiture','Proprete','Informatique','Generateur'].map(c=><option key={c} value={c}>{c==='Proprete'?'Propreté':c}</option>)}
               </select>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Description</label>
               <textarea value={plainteForm.description} onChange={e=>setPlainteForm(f=>({...f,description:e.target.value}))} rows={3}
