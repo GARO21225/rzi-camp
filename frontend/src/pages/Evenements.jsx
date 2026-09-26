@@ -268,9 +268,17 @@ export default function Evenements() {
         <div>
           {(tab==='agenda'?upcoming : tab==='passes'?past : events).map(evt => {
             const tc = TYPE_COLORS[evt.type_event] || TYPE_COLORS.autre
-            const sc = STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie
+            // Un evenement dont la date est passee mais dont le statut est
+            // reste sur 'planifie' (jamais demarre/termine manuellement)
+            // s'affichait auparavant EXACTEMENT comme un evenement a venir -
+            // meme badge "Planifie", boutons Demarrer/Notifier toujours
+            // actifs. Calcule ici un etat d'affichage distinct, sans forcer
+            // de changement en base (l'historique du statut choisi reste
+            // intact) - "Passes" utilise deja ce meme critere de date.
+            const estEchu = new Date(evt.date_debut) < now && evt.statut === 'planifie'
+            const sc = estEchu ? { bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'⏱ Échu (non démarré)' } : (STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie)
             return (
-              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14 }}>
+              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estEchu?0.7:1 }}>
                 {/* Type icon */}
                 <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
                   {tc.icon}
@@ -291,7 +299,7 @@ export default function Evenements() {
                     {evt.qr_requis && <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>}
                   </div>
                 </div>
-                {evt.qr_requis && (
+                {evt.qr_requis && !estEchu && (
                   <button onClick={()=>{
                       setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
                       if (isAdmin && personnelListe.length===0) personnelAPI.list().then(r=>setPersonnelListe(r.data.results||r.data||[])).catch(()=>{})
@@ -303,20 +311,23 @@ export default function Evenements() {
                 )}
                 {isAdmin && (
                   <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
-                    {evt.qr_requis && (
+                    {evt.qr_requis && !estEchu && (
                       <button onClick={()=>{setScanModal(evt); setScanToken(''); setScanResult(null)}}
                         style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                         📷 Scanner
                       </button>
                     )}
-                    <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      🔔 Notifier
-                    </button>
-                    {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
+                    {!estEchu && (
+                      <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                        🔔 Notifier
+                      </button>
+                    )}
+                    {evt.statut==='planifie' && !estEchu && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
                     {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
+                    {estEchu && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>📥 Historiser</button>}
                     {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
                     style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
-                  {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
+                  {['planifie','en_cours'].includes(evt.statut) && !estEchu && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
                   </div>
                 )}
               </div>
