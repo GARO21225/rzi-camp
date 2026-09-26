@@ -45,16 +45,13 @@ def liste_parametres(request):
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
-        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, twilio (en cours de retrait), orange, africastalking, prosms, hsms (bientôt)"),
+        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, orange, africastalking, prosms, hsms (bientôt)"),
         'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp"),
-        'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : auto (utilise Twilio), ou meta (API WhatsApp Business officielle, indépendante de Twilio)"),
+        'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : meta (API WhatsApp Business officielle) — vide/auto désactive le canal WhatsApp"),
         'meta_whatsapp_phone_number_id': ('', "API Meta WhatsApp — Phone Number ID (developers.facebook.com)"),
         'meta_whatsapp_access_token': ('', "API Meta WhatsApp — Access Token (permanent, généré depuis Meta Business Manager)"),
         'meta_whatsapp_template_name': ('', "API Meta WhatsApp — Nom du modèle de message approuvé (une seule variable {{1}})"),
         'meta_whatsapp_template_lang': ('fr', "API Meta WhatsApp — Code langue du modèle (ex: fr, fr_FR)"),
-        'sms_twilio_account_sid': ('', 'Twilio — Account SID (console.twilio.com)'),
-        'sms_twilio_auth_token': ('', 'Twilio — Auth Token'),
-        'sms_twilio_from': ('', 'Twilio — Numéro expéditeur (ex: +14155238886)'),
         'sms_orange_client_id': ('', 'Orange SMS API — Client ID (developer.orange.com)'),
         'sms_orange_client_secret': ('', 'Orange SMS API — Client Secret'),
         'sms_orange_from': ('', 'Orange SMS API — Numéro expéditeur court (ex: 225XXXXXXXX)'),

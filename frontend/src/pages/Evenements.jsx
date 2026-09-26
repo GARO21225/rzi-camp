@@ -197,11 +197,28 @@ export default function Evenements() {
   // les deux restent coherents (sinon le compteur continuait a inclure un
   // evenement deja marque "Échu" sur sa carte).
   const estEvenementEchu = (e) => {
-    const dateReference = e.date_fin || e.date_debut
-    return new Date(dateReference) < now && ['planifie','en_cours'].includes(e.statut)
+    // 'planifie' : la date prevue de DEBUT est passee et l'evenement
+    // n'a jamais ete demarre -> echu des que la date est depassee, sans
+    // delai de grace (il devait commencer a cette date-la et ne l'a
+    // jamais fait).
+    // 'en_cours' : par definition, sa date de debut est TOUJOURS dans le
+    // passe des qu'il a demarre - la seule question pertinente est s'il
+    // dure depuis trop longtemps sans avoir ete cloture manuellement.
+    // Bug reel trouve et corrige ici : sans delai de grace, un evenement
+    // demarre il y a seulement 1h se faisait deja marquer "Echu", alors
+    // qu'il est legitimement toujours en cours. Delai de grace de 24h
+    // apres sa date de FIN (ou de debut si pas de fin renseignee).
+    if (e.statut === 'planifie') return new Date(e.date_debut) < now
+    if (e.statut === 'en_cours') {
+      const dateReference = e.date_fin || e.date_debut
+      const echeanceAvecGrace = new Date(dateReference).getTime() + 24*60*60*1000
+      return echeanceAvecGrace < now.getTime()
+    }
+    return false
   }
   const upcoming = events.filter(e => new Date(e.date_debut) >= now && e.statut !== 'annule')
   const past = events.filter(e => new Date(e.date_debut) < now || e.statut === 'termine')
+  const enCoursListe = events.filter(e => e.statut === 'en_cours')
 
   const ALERTE_COLORS = { info:'var(--rzc-blue)', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
 
@@ -263,7 +280,7 @@ export default function Evenements() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:2, marginBottom:16, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
-        {[['agenda','📅 Agenda (à venir)'],['tous','📋 Tous les événements'],['passes','⏮ Passés']].map(([k,l])=>(
+        {[['agenda','📅 À venir'],['encours','▶️ En cours'],['passes','⏮ Passés'],['tous','📋 Tout']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
               background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
@@ -276,7 +293,7 @@ export default function Evenements() {
       {/* Events list */}
       {loading ? <div style={{ padding:32, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</div> : (
         <div>
-          {(tab==='agenda'?upcoming : tab==='passes'?past : events).map(evt => {
+          {(tab==='agenda'?upcoming : tab==='passes'?past : tab==='encours'?enCoursListe : events).map(evt => {
             const tc = TYPE_COLORS[evt.type_event] || TYPE_COLORS.autre
             // Un evenement dont la date est passee mais dont le statut est
             // reste sur 'planifie' (jamais demarre/termine manuellement)
@@ -294,6 +311,13 @@ export default function Evenements() {
             // avec le compteur KPI "En cours" ci-dessus) plutot que de
             // recalculer la meme chose ici.
             const estEchu = estEvenementEchu(evt)
+            // Un evenement deja marque Termine manuellement (via
+            // Historiser ou Terminer) n'est PAS "echu" au sens de
+            // estEvenementEchu (qui ne concerne que planifie/en_cours non
+            // clos) - mais il est tout aussi termine, donc les boutons QR/
+            // Scanner/Notifier n'ont pas plus de sens pour lui. Les deux
+            // cas partagent donc cette meme exclusion.
+            const estTermine = estEchu || evt.statut === 'termine'
             const sc = estEchu ? { bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'⏱ Échu (non démarré)' } : (STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie)
             return (
               <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estEchu?0.7:1 }}>
@@ -317,7 +341,7 @@ export default function Evenements() {
                     {evt.qr_requis && <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>}
                   </div>
                 </div>
-                {evt.qr_requis && !estEchu && (
+                {evt.qr_requis && !estTermine && (
                   <button onClick={()=>{
                       setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
                       if (isAdmin && personnelListe.length===0) personnelAPI.list().then(r=>setPersonnelListe(r.data.results||r.data||[])).catch(()=>{})
@@ -329,13 +353,13 @@ export default function Evenements() {
                 )}
                 {isAdmin && (
                   <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
-                    {evt.qr_requis && !estEchu && (
+                    {evt.qr_requis && !estTermine && (
                       <button onClick={()=>{setScanModal(evt); setScanToken(''); setScanResult(null)}}
                         style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                         📷 Scanner
                       </button>
                     )}
-                    {!estEchu && (
+                    {!estTermine && (
                       <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
                         🔔 Notifier
                       </button>

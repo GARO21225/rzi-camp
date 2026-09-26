@@ -16,7 +16,20 @@ export default function EventNotifBanner() {
       const r = await evtAPI.list({ page_size: 5, ordering: '-date_debut' })
       const items = r.data.results || r.data || []
       const seen  = JSON.parse(localStorage.getItem('rzi_seen_events') || '[]')
-      const fresh = items.filter(e => !seen.includes(e.id))
+      // Bug reel corrige ici : le filtre "seen" ne reposait QUE sur le
+      // localStorage - si le cache est vide (nouvel appareil/navigateur,
+      // cache efface), TOUT evenement, meme vieux de plusieurs jours et
+      // deja Termine, reapparaissait comme "nouveau". Ajoute un vrai
+      // controle de fraicheur (cree il y a moins de 2h) ET exclut les
+      // evenements deja Termine/Annule - une notification "nouvel
+      // evenement" n'a de sens que pour quelque chose de recent et
+      // encore actif.
+      const deuxHeuresAgo = Date.now() - 2*60*60*1000
+      const fresh = items.filter(e =>
+        !seen.includes(e.id) &&
+        !['termine','annule'].includes(e.statut) &&
+        new Date(e.date_creation || e.date_debut).getTime() > deuxHeuresAgo
+      )
       if (fresh.length > 0) {
         // Afficher seulement le plus récent
         setNotifs([fresh[0]])

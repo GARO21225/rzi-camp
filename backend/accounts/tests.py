@@ -46,7 +46,7 @@ class PhoneNumberServiceTests(TestCase):
 
 class ProviderFactoryTests(TestCase):
     def test_tous_les_fournisseurs_connus_sont_accessibles(self):
-        for code in ["test", "twilio", "orange", "africastalking", "meta", "prosms", "hsms"]:
+        for code in ["test", "orange", "africastalking", "meta", "prosms", "hsms"]:
             provider = ProviderFactory.get(code)
             self.assertIsNotNone(provider, f"fournisseur {code} introuvable")
             self.assertEqual(provider.code, code)
@@ -133,20 +133,22 @@ class EnvoyerSMSTests(TestCase):
         self.assertFalse(ok)
         self.assertIn("inconnu", info)
 
-    @patch("accounts.sms_providers.twilio.TwilioProvider.envoyer")
+    @patch("accounts.sms_providers.orange.OrangeProvider.envoyer")
     def test_provider_selection_bascule_correctement(self, mock_envoyer):
         """Changer sms_provider change bien le fournisseur appele, sans toucher au code appelant."""
-        mock_envoyer.return_value = (True, "envoyé via Twilio")
-        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "twilio"})
+        mock_envoyer.return_value = (True, "envoyé via Orange SMS API")
+        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "orange"})
         ok, info = envoyer_sms("0701234567", "test")
         self.assertTrue(ok)
         mock_envoyer.assert_called_once()
 
-    def test_whatsapp_via_twilio_sans_config_echoue_proprement(self):
-        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "twilio"})
+    def test_whatsapp_sans_meta_configure_echoue_proprement(self):
+        """Twilio retire du projet - sans whatsapp_provider=meta, le canal WhatsApp doit echouer proprement, jamais silencieusement."""
+        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "orange"})
         Parametre.objects.update_or_create(cle="whatsapp_provider", defaults={"valeur": "auto"})
         ok, info = envoyer_sms("0701234567", "test", canal="whatsapp")
-        self.assertFalse(ok)  # Twilio pas configure (SID/token manquants)
+        self.assertFalse(ok)
+        self.assertIn("non configuré", info)
 
     @patch("accounts.sms_providers.meta_whatsapp.MetaWhatsAppProvider.envoyer")
     def test_whatsapp_meta_bascule_correctement(self, mock_envoyer):

@@ -13,7 +13,6 @@ pays actif pour l'instant, PAYS_PROVIDERS_PAR_DEFAUT n'a qu'une entree
 toucher au reste.
 """
 from .test_provider import TestProvider
-from .twilio import TwilioProvider
 from .orange import OrangeProvider
 from .africastalking import AfricasTalkingProvider
 from .meta_whatsapp import MetaWhatsAppProvider
@@ -22,7 +21,6 @@ from .hsms import HSMSProvider
 
 PROVIDERS = {
     "test": TestProvider,
-    "twilio": TwilioProvider,
     "orange": OrangeProvider,
     "africastalking": AfricasTalkingProvider,
     "meta": MetaWhatsAppProvider,

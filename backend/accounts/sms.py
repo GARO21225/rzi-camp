@@ -53,17 +53,12 @@ def envoyer_sms(numero, message, canal=None, type_message="systeme", campagne=""
         whatsapp_provider = Parametre.get('whatsapp_provider', 'auto')
         if whatsapp_provider == 'meta':
             fournisseur_utilise = 'meta'
-        elif whatsapp_provider in ('', 'auto', 'twilio'):
-            fournisseur_utilise = provider_code if provider_code == 'test' else 'twilio'
-            if provider_code not in ('test', 'twilio'):
-                return _tracer_et_renvoyer(
-                    numero_normalise, message, canal, type_message, campagne, provider_code,
-                    False, f"WhatsApp via Twilio nécessite sms_provider=twilio (actuel : {provider_code}) — ou configurez whatsapp_provider=meta pour l'API Meta officielle.",
-                )
+        elif provider_code == 'test':
+            fournisseur_utilise = 'test'
         else:
             return _tracer_et_renvoyer(
                 numero_normalise, message, canal, type_message, campagne, whatsapp_provider,
-                False, f"whatsapp_provider inconnu : {whatsapp_provider}",
+                False, "Canal WhatsApp non configuré — définissez whatsapp_provider=meta (API WhatsApp Business officielle) dans Paramétrage.",
             )
     else:
         fournisseur_utilise = provider_code
