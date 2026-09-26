@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Popup, Circle, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Tooltip, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI } from '../api'
@@ -60,12 +60,12 @@ const CHEMIN_STYLE = {
   rampe:      { color:'#0ea5e9', dash:null,      label:'🛤️ Rampe' },
   galerie:    { color:'#7c3aed', dash:'10,6',    label:'🏛️ Galerie couverte' },
   dallette:   { color:'#64748b', dash:'2,6',     label:'🧱 Dallettes' },
-  escalier:   { color:'#dc2626', dash:'4,4',     label:'🪜 Escalier' },
-  chemin:     { color:'#16a34a', dash:null,      label:'🚶 Chemin' },
+  escalier:   { color:'#1f2937', dash:'3,5',     label:'🪜 Escalier' },
+  chemin:     { color:'#c084fc', dash:null,      label:'🚶 Chemin (foot-path)' },
   passerelle: { color:'#0891b2', dash:'8,4',     label:'🌉 Passerelle' },
   voirie:     { color:'#78716c', dash:null,      label:'🛣️ Voirie' },
   talus:      { color:'#92400e', dash:'3,3',     label:'⛰️ Talus en pierre' },
-  cloture:    { color:'#7f1d1d', dash:'12,6',    label:'🚧 Clôture' },
+  cloture:    { color:'#ea580c', dash:null,      label:'🚧 Clôture (délimitation)' },
   autre:      { color:'#94a3b8', dash:'6,4',     label:'➰ Autre' },
 }
 const CHEMIN_TYPES = [
@@ -546,6 +546,42 @@ export default function MapPage() {
             return groupe === 'autre_sig' || couchesActives[groupe] !== false
           }).map(poi => {
             const st = POI_STYLE[poi.categorie] || POI_STYLE.autre
+            const popupContent = (
+              <div style={{fontFamily:'sans-serif',minWidth:180}}>
+                <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{st.icon} {poi.nom}</div>
+                <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
+                {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
+                <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
+                  style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isAdmin?6:0}}>
+                  🧭 Aller à ce point
+                </button>
+                {isAdmin && (
+                  <button onClick={()=>deletePoi(poi.id)}
+                    style={{width:'100%',background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                    🗑️ Supprimer
+                  </button>
+                )}
+              </div>
+            )
+
+            // Empreinte réelle (bâtiment/emprise non-résidentiel tracé sur
+            // le SIG) -> polygone gris discret + nom affiché au survol,
+            // plutôt qu'une icône colorée (trop d'icônes similaires =
+            // carte surchargée). Un point placé manuellement (pas de
+            // géométrie) garde l'icône, seul moyen de le voir.
+            if (poi.geojson_geometry?.type === 'Polygon') {
+              const positions = poi.geojson_geometry.coordinates[0].map(([lng,lat]) => [lat,lng])
+              return (
+                <Polygon key={`poi-${poi.id}`} positions={positions}
+                  pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
+                  <Tooltip direction="center" opacity={0.9} permanent={false} sticky>
+                    <span style={{fontSize:11,fontWeight:700}}>{st.icon} {poi.nom}</span>
+                  </Tooltip>
+                  <Popup>{popupContent}</Popup>
+                </Polygon>
+              )
+            }
+
             const icon = L.divIcon({
               html:`<div style="width:30px;height:30px;background:${st.color};border-radius:50% 50% 50% 0;
                 transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
@@ -555,23 +591,7 @@ export default function MapPage() {
             })
             return (
               <Marker key={`poi-${poi.id}`} position={[poi.latitude, poi.longitude]} icon={icon}>
-                <Popup>
-                  <div style={{fontFamily:'sans-serif',minWidth:180}}>
-                    <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{st.icon} {poi.nom}</div>
-                    <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
-                    {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
-                    <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
-                      style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isAdmin?6:0}}>
-                      🧭 Aller à ce point
-                    </button>
-                    {isAdmin && (
-                      <button onClick={()=>deletePoi(poi.id)}
-                        style={{width:'100%',background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
-                        🗑️ Supprimer
-                      </button>
-                    )}
-                  </div>
-                </Popup>
+                <Popup>{popupContent}</Popup>
               </Marker>
             )
           })}
@@ -585,9 +605,11 @@ export default function MapPage() {
           <MapClickCapture active={addingPoi && !poiDraft} onPick={(pos)=>setPoiDraft(pos)}/>
           <MapClickCapture active={drawingChemin} onPick={(pos)=>setCheminPoints(pts=>[...pts,[pos.lat,pos.lng]])}/>
 
-          {/* Réseau de circulation existant */}
+          {/* Réseau de circulation existant (escaliers rendus en dernier
+              plus bas -> toujours au-dessus des chemins/foot-path) */}
           {chemins.filter(c => {
             const groupe = COUCHE_SIG[c.type_chemin]
+            if (c.type_chemin === 'escalier') return false
             return groupe === 'autre_sig' || !groupe || couchesActives[groupe] !== false
           }).map(c => {
             const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
@@ -609,6 +631,35 @@ export default function MapPage() {
                   </div>
                 </Popup>
               </Polyline>
+            )
+          })}
+
+          {/* Escaliers : toujours par-dessus les chemins, rendu "marches"
+              (double trait : base claire pleine + traits sombres courts
+              par-dessus, effet crémaillère). */}
+          {chemins.filter(c => c.type_chemin === 'escalier' && couchesActives.circulation !== false).map(c => {
+            const st = CHEMIN_STYLE.escalier
+            const popup = (
+              <Popup>
+                <div style={{fontFamily:'sans-serif'}}>
+                  <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.circulation}</div>
+                  <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
+                  {isAdmin && (
+                    <div style={{marginTop:6}}>
+                      <button onClick={()=>supprimerChemin(c.id)}
+                        style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            )
+            return (
+              <React.Fragment key={`chemin-${c.id}`}>
+                <Polyline positions={c.points} color="#e5e7eb" weight={7} opacity={0.9} />
+                <Polyline positions={c.points} color={st.color} weight={7} dashArray="3,5" opacity={0.95}>{popup}</Polyline>
+              </React.Fragment>
             )
           })}
 

@@ -187,6 +187,25 @@ class ProviderFactoryTests(TestCase):
         appel = mock_post.call_args
         self.assertEqual(appel.args[0], "https://hsms.ci/api/v2/sms/check-balance/")
 
+    @patch("requests.post")
+    def test_hsms_erreur_reseau_reelle_ne_plante_pas(self, mock_post):
+        """Régression : une VRAIE exception réseau (pas un status_code
+        d'erreur mocké) doit être rattrapée proprement et renvoyer
+        (False, message) — jamais remonter comme 500 côté demander_otp.
+        Un bug précédent référençait `requests.exceptions.RequestException`
+        dans le except de envoyer() sans que `requests` soit importé dans
+        ce scope : l'évaluation du except levait elle-même un NameError,
+        masquant l'erreur réseau réelle en 500 non géré."""
+        import requests
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.side_effect = requests.exceptions.ConnectionError("DNS/connexion impossible vers hsms.ci")
+        provider = ProviderFactory.get("hsms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertFalse(ok)
+        self.assertIn("Erreur réseau HSMS", info)
+
 
 class EnvoyerSMSTests(TestCase):
     """Le point d'entree unique envoyer_sms() - signature et comportement inchanges."""

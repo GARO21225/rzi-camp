@@ -32,6 +32,8 @@ Solde : POST /api/v2/sms/check-balance/ (clientid, clientsecret) -> balance
 Format telephone attendu : indicatif pays SANS le "+" (ex: 2250700000001),
 plusieurs numeros separes par des virgules pour un envoi groupe.
 """
+import requests
+
 from .base import SMSProvider
 from ..models import Parametre
 from ..phone import vers_international
@@ -69,7 +71,6 @@ class HSMSProvider(SMSProvider):
         if not (email and password):
             return None
         try:
-            import requests
             resp = requests.post(
                 f"{self.BASE_URL}/sms/token/",
                 headers={"Content-Type": "application/json"},
@@ -88,7 +89,6 @@ class HSMSProvider(SMSProvider):
         """POST authentifié vers un endpoint v2, avec UNE tentative de
         rafraîchissement du token (via email/mdp) si le token en place
         est rejeté (401)."""
-        import requests
         resp = requests.post(
             f"{self.BASE_URL}/{endpoint}",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
