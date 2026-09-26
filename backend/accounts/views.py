@@ -68,6 +68,34 @@ def liste_parametres(request):
         'sms_hsms_password': ('', 'HSMS — Mot de passe du compte (optionnel, utilisé uniquement pour renouveler le token)'),
         'sms_at_username': ("", "Africa's Talking — Username"),
         'sms_at_api_key': ("", "Africa's Talking — API Key"),
+        # Icônes des points d'intérêt sur la Carte SIG (MapPage.jsx) -
+        # personnalisables sans redéploiement, en remplacement des
+        # étiquettes de nom débordantes retirées de la carte (demande
+        # explicite : "supprime [le texte] pour laisser les icônes...
+        # qu'on pourra personnaliser"). Une clé par catégorie de
+        # PointInteret (residences/models.py CATEGORIES) - la valeur par
+        # défaut reprend exactement l'emoji déjà utilisé côté frontend
+        # (POI_STYLE) pour ne rien changer visuellement tant que
+        # personne n'a modifié le champ.
+        'icone_poi_restaurant':       ('🍽️', 'Carte SIG — Icône catégorie "Restaurant"'),
+        'icone_poi_bar':              ('🍺', 'Carte SIG — Icône catégorie "Bar & Boutique"'),
+        'icone_poi_sport':            ('🏋️', 'Carte SIG — Icône catégorie "Salle de sport"'),
+        'icone_poi_terrain_sport':    ('🏟️', 'Carte SIG — Icône catégorie "Terrain de sport"'),
+        'icone_poi_rampe':            ('🚁', 'Carte SIG — Icône catégorie "Rampe / Héliport"'),
+        'icone_poi_securite':         ('🛡️', 'Carte SIG — Icône catégorie "Sécurité"'),
+        'icone_poi_guerite':          ('💂', 'Carte SIG — Icône catégorie "Guérite"'),
+        'icone_poi_infirmerie':       ('⚕️', 'Carte SIG — Icône catégorie "Infirmerie"'),
+        'icone_poi_parking':          ('🅿️', 'Carte SIG — Icône catégorie "Parking"'),
+        'icone_poi_bureau':           ('🏢', 'Carte SIG — Icône catégorie "Bureau / Administration"'),
+        'icone_poi_communautaire':    ('🏢', 'Carte SIG — Icône catégorie "Bureau communautaire"'),
+        'icone_poi_accueil':          ('🛎️', 'Carte SIG — Icône catégorie "Bureau d\'accueil"'),
+        'icone_poi_reunion':          ('🗣️', 'Carte SIG — Icône catégorie "Salle de réunion"'),
+        'icone_poi_serveur':          ('🖥️', 'Carte SIG — Icône catégorie "Salle serveur"'),
+        'icone_poi_ats':              ('🏢', 'Carte SIG — Icône catégorie "Bureau ATS"'),
+        'icone_poi_toilette':         ('🚽', 'Carte SIG — Icône catégorie "Toilette"'),
+        'icone_poi_toilette_commune': ('🚻', 'Carte SIG — Icône catégorie "Toilette commune"'),
+        'icone_poi_loisirs':          ('🎮', 'Carte SIG — Icône catégorie "Loisirs"'),
+        'icone_poi_autre':            ('📍', 'Carte SIG — Icône catégorie "Autre"'),
         # Menus par role - configurable depuis Parametrage sans toucher au
         # Menus/lecture-seule par role : GERES DESORMAIS PAR LE MODELE
         # RoleCustom (voir accounts/models.py + RoleCustomViewSet), plus par

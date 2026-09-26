@@ -59,6 +59,27 @@ const CHAMPS = [
     { cle: 'meta_whatsapp_template_name', label: 'Meta — Nom du modèle de message', suffix: '', type: 'text', hint: 'Le modèle doit être créé et approuvé dans Meta Business Manager au préalable, avec UNE seule variable {{1}} dans le corps' },
     { cle: 'meta_whatsapp_template_lang', label: 'Meta — Code langue du modèle', suffix: '', type: 'text', hint: 'Ex: fr ou fr_FR — doit correspondre exactement à la langue choisie lors de la création du modèle' },
   ]},
+  { section: '🗺️ Carte SIG — Icônes des points d\'intérêt', items: [
+    { cle: 'icone_poi_restaurant',       label: 'Restaurant',              suffix: '', type: 'text', hint: 'Un seul emoji, ex: 🍽️' },
+    { cle: 'icone_poi_bar',              label: 'Bar & Boutique',          suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_sport',            label: 'Salle de sport',          suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_terrain_sport',    label: 'Terrain de sport',        suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_rampe',            label: 'Rampe / Héliport',        suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_securite',         label: 'Sécurité',                suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_guerite',          label: 'Guérite',                 suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_infirmerie',       label: 'Infirmerie',              suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_parking',          label: 'Parking',                 suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_bureau',           label: 'Bureau / Administration', suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_communautaire',    label: 'Bureau communautaire',    suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_accueil',          label: "Bureau d'accueil",        suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_reunion',          label: 'Salle de réunion',        suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_serveur',          label: 'Salle serveur',           suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_ats',              label: 'Bureau ATS',              suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_toilette',         label: 'Toilette',                suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_toilette_commune', label: 'Toilette commune',        suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_loisirs',          label: 'Loisirs',                 suffix: '', type: 'text', hint: '' },
+    { cle: 'icone_poi_autre',            label: 'Autre',                   suffix: '', type: 'text', hint: 'Catégorie par défaut si aucune ne correspond' },
+  ]},
 ]
 
 const LIENS_RAPIDES = [

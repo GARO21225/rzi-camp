@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI } from '../api'
+import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI, parametres as paramAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -229,6 +229,23 @@ export default function MapPage() {
     poiAPI.list().then(r => setPois(r.data.results || r.data || [])).catch(() => setPois([]))
   }, [])
   useEffect(() => { loadPois() }, [loadPois])
+
+  // Icônes des catégories de POI personnalisables depuis Paramétrage ->
+  // "Carte SIG — Icônes des points d'intérêt" (clés icone_poi_<categorie>),
+  // sans redéploiement. {} tant que la liste n'a pas encore répondu -> les
+  // icônes par défaut de POI_STYLE restent utilisées (voir iconePoi()).
+  const [iconesPoiPerso, setIconesPoiPerso] = useState({})
+  useEffect(() => {
+    paramAPI.list().then(r => {
+      const items = r.data.results || r.data || []
+      const map = {}
+      for (const p of items) {
+        if (p.cle?.startsWith('icone_poi_') && p.valeur) map[p.cle.slice('icone_poi_'.length)] = p.valeur
+      }
+      setIconesPoiPerso(map)
+    }).catch(() => setIconesPoiPerso({}))
+  }, [])
+  const iconePoi = categorie => iconesPoiPerso[categorie] || (POI_STYLE[categorie] || POI_STYLE.autre).icon
 
   // ── Réseau de circulation piéton (tracé admin) ──
   // Couches SIG affichables/masquables indépendamment (résidences,
@@ -575,9 +592,10 @@ export default function MapPage() {
             return groupe === 'autre_sig' || couchesActives[groupe] !== false
           }).map(poi => {
             const st = POI_STYLE[poi.categorie] || POI_STYLE.autre
+            const iconeAffichee = iconePoi(poi.categorie)
             const popupContent = (
               <div style={{fontFamily:'sans-serif',minWidth:180}}>
-                <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{st.icon} {poi.nom}</div>
+                <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{iconeAffichee} {poi.nom}</div>
                 <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
                 {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
                 <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
@@ -614,7 +632,7 @@ export default function MapPage() {
               html:`<div style="width:30px;height:30px;background:${st.color};border-radius:50% 50% 50% 0;
                 transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
                 box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">
-                <span style="transform:rotate(45deg);font-size:15px;line-height:1">${st.icon}</span></div>`,
+                <span style="transform:rotate(45deg);font-size:15px;line-height:1">${iconeAffichee}</span></div>`,
               className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30]
             })
             return (
