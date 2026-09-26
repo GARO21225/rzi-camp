@@ -116,7 +116,7 @@ class ProviderFactoryTests(TestCase):
         mock_post.return_value.content = b'{"success": true}'
         mock_post.return_value.json.return_value = {
             "success": True, "message": "SMS queued for delivery",
-            "tasks": {"225701234567": {"ticket": "tk-1"}},
+            "tasks": {"2250701234567": {"ticket": "tk-1"}},
             "total_queued": 1, "segments_per_message": 1, "encoding": "gsm",
         }
         provider = ProviderFactory.get("hsms")
@@ -125,11 +125,36 @@ class ProviderFactoryTests(TestCase):
         # Verifie l'endpoint v2 et le format telephone exact attendu par HSMS (indicatif SANS le "+")
         appel = mock_post.call_args
         self.assertEqual(appel.args[0], "https://hsms.ci/api/v2/sms/send/")
-        self.assertEqual(appel.kwargs["json"]["telephone"], "225701234567")
+        self.assertEqual(appel.kwargs["json"]["telephone"], "2250701234567")
         self.assertEqual(appel.kwargs["json"]["clientid"], "cid")
         self.assertEqual(appel.kwargs["json"]["clientsecret"], "csecret")
         self.assertEqual(appel.kwargs["headers"]["Authorization"], "Bearer tok123")
         self.assertIn("tk-1", info)
+
+    @patch("requests.post")
+    def test_hsms_format_telephone_conforme_exemple_documente(self, mock_post):
+        """Regression : la documentation officielle HSMS (citee dans
+        hsms.py) donne l'exemple exact "0700000001" (local, 10 chiffres)
+        -> "2250700000001" (indicatif SANS "+", zero initial CONSERVE,
+        13 chiffres au total). vers_international() de phone.py retire ce
+        zero (produit "+225700000001", 12 chiffres) - format different et
+        rejete par HSMS en production ("Aucun destinataire valide"). Ce
+        test pin exactement l'exemple documente, independamment de
+        vers_international(), pour empecher toute regression future vers
+        le format E.164 tronque."""
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.content = b'{"success": true}'
+        mock_post.return_value.json.return_value = {
+            "success": True, "tasks": {"2250700000001": {"ticket": "tk-doc"}},
+        }
+        provider = ProviderFactory.get("hsms")
+        ok, info = provider.envoyer("0700000001", "test")
+        self.assertTrue(ok)
+        appel = mock_post.call_args
+        self.assertEqual(appel.kwargs["json"]["telephone"], "2250700000001")
 
     @patch("requests.post")
     def test_hsms_solde_insuffisant_400(self, mock_post):
@@ -160,7 +185,7 @@ class ProviderFactoryTests(TestCase):
         reponse_token = MagicMock(status_code=200, content=b'{"token":"tok-neuf"}')
         reponse_token.json.return_value = {"success": True, "token": "tok-neuf"}
         reponse_ok = MagicMock(status_code=200, content=b'{"success": true}')
-        reponse_ok.json.return_value = {"success": True, "tasks": {"225701234567": {"ticket": "tk-2"}}}
+        reponse_ok.json.return_value = {"success": True, "tasks": {"2250701234567": {"ticket": "tk-2"}}}
 
         mock_post.side_effect = [reponse_401, reponse_token, reponse_ok]
         provider = ProviderFactory.get("hsms")

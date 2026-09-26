@@ -36,7 +36,6 @@ import requests
 
 from .base import SMSProvider
 from ..models import Parametre
-from ..phone import vers_international
 
 
 class HSMSProvider(SMSProvider):
@@ -118,9 +117,19 @@ class HSMSProvider(SMSProvider):
         if not token:
             return False, "HSMS non configuré (Token manquant — copiez-le depuis le tableau de bord hsms.ci, ou renseignez email/mot de passe pour l'obtenir automatiquement)"
 
-        # HSMS attend l'indicatif SANS le "+" (ex: 2250700000001) - phone.py
-        # renvoie "+225..." par defaut, on retire juste le prefixe.
-        numero_e164 = vers_international(numero).lstrip("+")
+        # HSMS attend l'indicatif pays SANS le "+", numero LOCAL COMPLET
+        # CONSERVE (voir l'exemple donne par la documentation officielle
+        # HSMS elle-meme, citee plus haut dans ce fichier : "0700000001"
+        # -> "2250700000001" - le zero initial n'est PAS retire).
+        # phone.py::vers_international() retire ce zero pour produire un
+        # format E.164 classique (+225700000001) - correct pour d'autres
+        # usages, mais CONTREDIT l'exemple documente par HSMS, cause
+        # confirmee en production du rejet "Aucun destinataire valide"
+        # (le numero envoye avait un chiffre en moins). Conversion donc
+        # faite ICI, independamment de vers_international(), pour suivre
+        # exactement ce que HSMS documente et attend.
+        chiffres = "".join(c for c in numero if c.isdigit())
+        numero_e164 = chiffres if chiffres.startswith("225") else f"225{chiffres}"
         try:
             resp = self._requete("sms/send/", token, {
                 "clientid": client_id,
