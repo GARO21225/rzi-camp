@@ -1,3 +1,4 @@
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
@@ -5,6 +6,8 @@ from rest_framework import status, viewsets
 from django.contrib.auth.models import User
 from .serializers import UserSerializer, RoleCustomSerializer, RapportPlanifieSerializer
 from .models import Parametre, RoleCustom, Profile, RapportPlanifie, CodeOTP
+
+logger = logging.getLogger(__name__)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -843,46 +846,55 @@ def demander_otp(request):
     from .sms import envoyer_sms
     from .phone import normaliser
 
-    telephone_saisi = (request.data.get('telephone') or '').strip()
-    if not telephone_saisi:
-        return Response({'error': 'Numéro de téléphone requis'}, status=400)
-    # Normalise AVANT toute comparaison/stockage - le numero saisi peut
-    # arriver sous plusieurs formats (+225.../225.../0...), mais
-    # Personnel.telephone stocke toujours le format local (0XXXXXXXXX) -
-    # sans cette normalisation, une demande avec l'indicatif ne trouvait
-    # jamais le compte correspondant (trouve pendant l'audit SMS, jamais
-    # signale car personne n'avait encore teste ce cas precis).
-    telephone = normaliser(telephone_saisi)
-
-    recentes = CodeOTP.objects.filter(telephone=telephone, date_creation__gte=timezone.now()-timedelta(minutes=10)).count()
-    if recentes >= 3:
-        return Response({'error': 'Trop de demandes pour ce numéro — réessayez dans 10 minutes.'}, status=429)
-
-    pers = Personnel.objects.filter(telephone=telephone, user__isnull=False, actif=True).first()
-    if not pers or not pers.user or not pers.user.is_active:
-        return Response({'error': "Aucun compte actif associé à ce numéro."}, status=404)
-
-    otp = CodeOTP.generer(telephone)
-    nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
-    # Filet de securite : meme avec la protection deja ajoutee dans
-    # envoyer_sms(), une exception totalement imprevue ici (CodeOTP,
-    # Parametre...) ne doit jamais renvoyer la page HTML 500 muette de
-    # Django - toujours du JSON avec le message reel, exploitable par le
-    # frontend ET par nous pour diagnostiquer sans deviner.
+    # Filet de securite GLOBAL sur toute la vue (pas seulement l'appel
+    # SMS) : la page HTML 500 muette de Django (DEBUG=False en prod)
+    # continuait d'apparaitre malgre le try/except precedent qui ne
+    # couvrait QUE envoyer_sms() - preuve que l'exception reelle se
+    # produit ailleurs dans cette fonction (CodeOTP.generer, Parametre,
+    # la requete Personnel...). On enveloppe donc tout le corps, et on
+    # logue le traceback complet (visible via `docker compose logs
+    # backend`) pour diagnostiquer sans deviner au prochain essai, meme
+    # si le message renvoye au frontend reste generique.
     try:
-        ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
+        telephone_saisi = (request.data.get('telephone') or '').strip()
+        if not telephone_saisi:
+            return Response({'error': 'Numéro de téléphone requis'}, status=400)
+        # Normalise AVANT toute comparaison/stockage - le numero saisi peut
+        # arriver sous plusieurs formats (+225.../225.../0...), mais
+        # Personnel.telephone stocke toujours le format local (0XXXXXXXXX) -
+        # sans cette normalisation, une demande avec l'indicatif ne trouvait
+        # jamais le compte correspondant (trouve pendant l'audit SMS, jamais
+        # signale car personne n'avait encore teste ce cas precis).
+        telephone = normaliser(telephone_saisi)
+
+        recentes = CodeOTP.objects.filter(telephone=telephone, date_creation__gte=timezone.now()-timedelta(minutes=10)).count()
+        if recentes >= 3:
+            return Response({'error': 'Trop de demandes pour ce numéro — réessayez dans 10 minutes.'}, status=429)
+
+        pers = Personnel.objects.filter(telephone=telephone, user__isnull=False, actif=True).first()
+        if not pers or not pers.user or not pers.user.is_active:
+            return Response({'error': "Aucun compte actif associé à ce numéro."}, status=404)
+
+        otp = CodeOTP.generer(telephone)
+        nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
+        try:
+            ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
+        except Exception as e:
+            logger.exception("demander_otp : exception non prevue dans envoyer_sms()")
+            return Response({'error': f"Erreur interne lors de l'envoi du SMS : {e}"}, status=500)
+
+        if not ok:
+            return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)
+
+        reponse = {'ok': True, 'message': f"Code envoyé au {telephone}."}
+        # Mode test uniquement (aucun fournisseur reel configure) : renvoie le
+        # code directement pour valider le flux sans depenser un vrai SMS.
+        if info == "mode_test" and settings.DEBUG:
+            reponse['code_test'] = otp.code
+        return Response(reponse)
     except Exception as e:
-        return Response({'error': f"Erreur interne lors de l'envoi du SMS : {e}"}, status=500)
-
-    if not ok:
-        return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)
-
-    reponse = {'ok': True, 'message': f"Code envoyé au {telephone}."}
-    # Mode test uniquement (aucun fournisseur reel configure) : renvoie le
-    # code directement pour valider le flux sans depenser un vrai SMS.
-    if info == "mode_test" and settings.DEBUG:
-        reponse['code_test'] = otp.code
-    return Response(reponse)
+        logger.exception("demander_otp : exception non prevue (hors envoi SMS)")
+        return Response({'error': f"Erreur interne inattendue : {e}"}, status=500)
 
 
 @api_view(['POST'])
