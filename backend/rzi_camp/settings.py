@@ -60,6 +60,13 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
+    # Filet de securite diagnostic GLOBAL pour /api/ - voir
+    # rzi_camp/middleware.py pour le contexte complet. En dernier de la
+    # liste : process_exception() est appele en ordre INVERSE de
+    # MIDDLEWARE (comme process_response), donc le mettre en dernier ici
+    # le fait s'executer EN PREMIER parmi les middlewares - au plus pres
+    # de la vue, avant toute autre transformation de l'exception.
+    "rzi_camp.middleware.JsonErrorMiddleware",
 ]
 
 ROOT_URLCONF = "rzi_camp.urls"

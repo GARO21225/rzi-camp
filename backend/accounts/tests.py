@@ -334,3 +334,26 @@ class OTPFlowTests(TestCase):
         self.assertIsInstance(resp, DRFResponse)
         self.assertEqual(resp.status_code, 500)
         self.assertIn("panne imprevue simulee", resp.data.get("error", ""))
+
+    def test_demander_otp_via_client_complet_reste_json_meme_si_exception(self):
+        """
+        Comme le test ci-dessus, mais via self.client.post() - passe par
+        TOUTE la chaine reelle (middleware, resolution d'URL, dispatch
+        DRF), pas seulement la fonction de vue appelee directement. Utile
+        car le 500 HTML muet a persiste en production malgre un
+        try/except deja complet dans la vue elle-meme (voir le test
+        precedent, qui prouve le code de la vue solide) - ce test verifie
+        qu'aucune couche AUTOUR de la vue (middleware, dispatch DRF) ne
+        transforme une exception en reponse HTML brute. S'il passe ici
+        mais que la prod montre encore du HTML, la difference se situe
+        forcement dans l'environnement de deploiement (gunicorn/uvicorn/
+        nginx), pas dans le code Django/DRF.
+        """
+        from unittest.mock import patch
+        with patch("accounts.views.CodeOTP.generer", side_effect=RuntimeError("panne imprevue simulee 2")):
+            resp = self.client.post(
+                "/api/auth/otp/demander/", {"telephone": "0701234567"}, content_type="application/json",
+            )
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(resp["Content-Type"], "application/json")
+        self.assertIn("panne imprevue simulee 2", resp.json().get("error", ""))
