@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Popup, Circle, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Tooltip, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI, parametres as paramAPI } from '../api'
@@ -111,6 +111,11 @@ function calcBearing(p1,p2){
   return ['Nord','Nord-Est','Est','Sud-Est','Sud','Sud-Ouest','Ouest','Nord-Ouest'][Math.round(b/45)%8]
 }
 
+function centroidPositions(positions){
+  let lat=0, lng=0
+  for (const p of positions) { lat += p[0]; lng += p[1] }
+  return [lat/positions.length, lng/positions.length]
+}
 // ── Talus (relief en pierre) : la source SIG ne donne qu'une polyligne
 // nue - l'utilisateur demande explicitement de la "hachurer" pour que ça
 // se lise comme un talus en pierre (rip-rap), pas comme un chemin. On
@@ -611,23 +616,6 @@ export default function MapPage() {
               </div>
             )
 
-            // Empreinte réelle (bâtiment/emprise non-résidentiel tracé sur
-            // le SIG) -> polygone gris discret, nom visible au clic (popup)
-            // uniquement - plus d'étiquette texte posée sur la carte : à
-            // l'usage, même bornée/ellipsée, elle restait moins lisible
-            // qu'une icône (demande explicite : ne garder que les icônes,
-            // la personnalisation des icônes par catégorie viendra dans
-            // Paramétrage).
-            if (poi.geojson_geometry?.type === 'Polygon') {
-              const positions = poi.geojson_geometry.coordinates[0].map(([lng,lat]) => [lat,lng])
-              return (
-                <Polygon key={`poi-${poi.id}`} positions={positions}
-                  pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
-                  <Popup>{popupContent}</Popup>
-                </Polygon>
-              )
-            }
-
             const icon = L.divIcon({
               html:`<div style="width:30px;height:30px;background:${st.color};border-radius:50% 50% 50% 0;
                 transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
@@ -635,8 +623,36 @@ export default function MapPage() {
                 <span style="transform:rotate(45deg);font-size:15px;line-height:1">${iconeAffichee}</span></div>`,
               className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30]
             })
+            // Nom "flottant" : Tooltip Leaflet non-permanent (bindTooltip
+            // par défaut) -> n'apparaît qu'au survol/à l'approche du
+            // curseur, disparaît sinon. Résout à la fois "je veux le nom
+            // flottant au survol" et le débordement (un seul visible à la
+            // fois, jamais tous en même temps sur la carte).
+            const tooltip = <Tooltip direction="top" offset={[0,-28]} opacity={0.95}>{poi.nom}</Tooltip>
+
+            // Empreinte réelle (bâtiment/emprise non-résidentiel tracé sur
+            // le SIG) -> polygone gris discret EN DESSOUS + icône de
+            // catégorie posée au centre (redemandée : "je ne vois pas les
+            // icônes dans les polygones infrastructure").
+            if (poi.geojson_geometry?.type === 'Polygon') {
+              const positions = poi.geojson_geometry.coordinates[0].map(([lng,lat]) => [lat,lng])
+              return (
+                <React.Fragment key={`poi-${poi.id}`}>
+                  <Polygon positions={positions}
+                    pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
+                    <Popup>{popupContent}</Popup>
+                  </Polygon>
+                  <Marker position={centroidPositions(positions)} icon={icon}>
+                    {tooltip}
+                    <Popup>{popupContent}</Popup>
+                  </Marker>
+                </React.Fragment>
+              )
+            }
+
             return (
               <Marker key={`poi-${poi.id}`} position={[poi.latitude, poi.longitude]} icon={icon}>
+                {tooltip}
                 <Popup>{popupContent}</Popup>
               </Marker>
             )
@@ -743,12 +759,13 @@ export default function MapPage() {
 
           {/* Clôture (délimitation du site) : toujours au-dessus de tout,
               trait plein orange large et épais pour ne jamais se faire
-              enterrer par un autre tracé. Nom visible au clic (popup)
-              uniquement - plus d'étiquette texte posée sur la carte. */}
+              enterrer par un autre tracé. Nom flottant au survol
+              (Tooltip non-permanent) + détail complet au clic (popup). */}
           {chemins.filter(c => c.type_chemin === 'cloture' && couchesActives.securite_delim !== false).map(c => {
             const st = CHEMIN_STYLE.cloture
             return (
               <Polyline key={`chemin-${c.id}`} positions={c.points} color={st.color} weight={5} opacity={0.95}>
+                <Tooltip sticky opacity={0.95}>{st.label}{c.nom ? ` — ${c.nom}` : ''}</Tooltip>
                 <Popup>
                   <div style={{fontFamily:'sans-serif'}}>
                     <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.securite_delim}</div>

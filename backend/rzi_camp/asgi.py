@@ -8,11 +8,21 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rzi_camp.settings")
 from django.core.asgi import get_asgi_application
 
 
+# Le frontend est servi en HTTPS (certificat auto-signé, voir
+# frontend/nginx.conf, server{listen 443 ssl;...}) depuis que la carte SIG
+# necessite geolocation()/navigator (API navigateur qui exige un contexte
+# securise) - seule la variante http:// figurait ici, jamais mise a jour.
+# Inoffensif pour la requete OTP elle-meme (meme origine, donc aucun
+# header CORS n'est requis par le navigateur), mais ca laissait un vrai
+# CORS casse pour tout usage futur en cross-origin reel.
 ALLOWED_ORIGINS = {
+    "https://204.168.229.74:5173",
     "http://204.168.229.74:5173",
     "http://localhost:5173",
+    "https://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173",
 }
 
 

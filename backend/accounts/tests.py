@@ -309,3 +309,28 @@ class OTPFlowTests(TestCase):
             expire_le=timezone.now() + timedelta(minutes=5), tentatives=5,
         )
         self.assertFalse(otp.est_valide())
+
+    def test_demander_otp_exception_imprevue_avant_envoi_sms_reste_json(self):
+        """
+        Regression : la page HTML 500 muette de Django (DEBUG=False en
+        prod) est revenue plusieurs fois en production malgre le
+        try/except deja pose autour du seul appel envoyer_sms() - preuve
+        qu'une exception imprevue AILLEURS dans la vue (avant l'envoi du
+        SMS : CodeOTP.generer, Parametre.get, la requete Personnel...)
+        n'etait pas couverte. Le try/except couvre maintenant TOUT le
+        corps de demander_otp - ce test simule une exception a un endroit
+        qui n'etait PAS protege avant (CodeOTP.generer) et verifie qu'elle
+        ne remonte plus jamais comme exception Python brute : toujours une
+        Response DRF (donc du JSON), jamais autre chose.
+        """
+        from unittest.mock import patch
+        from rest_framework.test import APIRequestFactory
+        from rest_framework.response import Response as DRFResponse
+        from .views import demander_otp
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/demander/", {"telephone": "0701234567"}, format="json")
+        with patch("accounts.views.CodeOTP.generer", side_effect=RuntimeError("panne imprevue simulee")):
+            resp = demander_otp(req)
+        self.assertIsInstance(resp, DRFResponse)
+        self.assertEqual(resp.status_code, 500)
+        self.assertIn("panne imprevue simulee", resp.data.get("error", ""))
