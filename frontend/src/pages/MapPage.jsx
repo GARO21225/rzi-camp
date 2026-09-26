@@ -25,36 +25,80 @@ const sColor = s => ({ Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'R�
 
 // ── Points d'intérêt : icône + couleur par catégorie ──
 const POI_STYLE = {
-  restaurant: { icon:'🍽️', color:'#ea580c' },
-  bar:        { icon:'🍺', color:'#d97706' },
-  sport:      { icon:'🏋️', color:'#16a34a' },
-  rampe:      { icon:'🚁', color:'#0ea5e9' },
-  securite:   { icon:'🛡️', color:'#dc2626' },
-  infirmerie: { icon:'⚕️', color:'#e11d48' },
-  parking:    { icon:'🅿️', color:'#475569' },
-  bureau:     { icon:'🏢', color:'#0f2a5c' },
-  loisirs:    { icon:'🎮', color:'#7c3aed' },
-  autre:      { icon:'📍', color:'#64748b' },
+  restaurant:       { icon:'🍽️', color:'#ea580c' },
+  bar:              { icon:'🍺', color:'#d97706' },
+  sport:            { icon:'🏋️', color:'#16a34a' },
+  terrain_sport:    { icon:'🏟️', color:'#15803d' },
+  rampe:            { icon:'🚁', color:'#0ea5e9' },
+  securite:         { icon:'🛡️', color:'#dc2626' },
+  guerite:          { icon:'💂', color:'#b91c1c' },
+  infirmerie:       { icon:'⚕️', color:'#e11d48' },
+  parking:          { icon:'🅿️', color:'#475569' },
+  bureau:           { icon:'🏢', color:'#0f2a5c' },
+  communautaire:    { icon:'🏢', color:'#1e40af' },
+  accueil:          { icon:'🛎️', color:'#0369a1' },
+  reunion:          { icon:'🗣️', color:'#7c3aed' },
+  serveur:          { icon:'🖥️', color:'#334155' },
+  ats:              { icon:'🏢', color:'#1e3a8a' },
+  toilette:         { icon:'🚽', color:'#0891b2' },
+  toilette_commune: { icon:'🚻', color:'#0e7490' },
+  loisirs:          { icon:'🎮', color:'#7c3aed' },
+  autre:            { icon:'📍', color:'#64748b' },
 }
 const POI_CATEGORIES = [
   ['restaurant','🍽️ Restaurant'],['bar','🍺 Bar & Boutique'],['sport','🏋️ Salle de sport'],
-  ['rampe','🚁 Rampe / Héliport'],['securite','🛡️ Sécurité'],['infirmerie','⚕️ Infirmerie'],
-  ['parking','🅿️ Parking'],['bureau','🏢 Bureau / Administration'],['loisirs','🎮 Loisirs'],['autre','📍 Autre'],
+  ['terrain_sport','🏟️ Terrain de sport'],['rampe','🚁 Rampe / Héliport'],['securite','🛡️ Sécurité'],
+  ['guerite','💂 Guérite'],['infirmerie','⚕️ Infirmerie'],['parking','🅿️ Parking'],
+  ['bureau','🏢 Bureau / Administration'],['communautaire','🏢 Bureau communautaire'],
+  ['accueil',"🛎️ Bureau d'accueil"],['reunion','🗣️ Salle de réunion'],['serveur','🖥️ Salle serveur'],
+  ['ats','🏢 Bureau ATS'],['toilette','🚽 Toilette'],['toilette_commune','🚻 Toilette commune'],
+  ['loisirs','🎮 Loisirs'],['autre','📍 Autre'],
 ]
 
 // ── Réseau de circulation piéton : style par type ──
 const CHEMIN_STYLE = {
-  rampe:    { color:'#0ea5e9', dash:null,      label:'🛤️ Rampe' },
-  galerie:  { color:'#7c3aed', dash:'10,6',    label:'🏛️ Galerie couverte' },
-  dallette: { color:'#64748b', dash:'2,6',     label:'🧱 Dallettes' },
-  escalier: { color:'#dc2626', dash:'4,4',     label:'🪜 Escalier' },
-  chemin:   { color:'#16a34a', dash:null,      label:'🚶 Chemin' },
-  autre:    { color:'#94a3b8', dash:'6,4',     label:'➰ Autre' },
+  rampe:      { color:'#0ea5e9', dash:null,      label:'🛤️ Rampe' },
+  galerie:    { color:'#7c3aed', dash:'10,6',    label:'🏛️ Galerie couverte' },
+  dallette:   { color:'#64748b', dash:'2,6',     label:'🧱 Dallettes' },
+  escalier:   { color:'#dc2626', dash:'4,4',     label:'🪜 Escalier' },
+  chemin:     { color:'#16a34a', dash:null,      label:'🚶 Chemin' },
+  passerelle: { color:'#0891b2', dash:'8,4',     label:'🌉 Passerelle' },
+  voirie:     { color:'#78716c', dash:null,      label:'🛣️ Voirie' },
+  talus:      { color:'#92400e', dash:'3,3',     label:'⛰️ Talus en pierre' },
+  cloture:    { color:'#7f1d1d', dash:'12,6',    label:'🚧 Clôture' },
+  autre:      { color:'#94a3b8', dash:'6,4',     label:'➰ Autre' },
 }
 const CHEMIN_TYPES = [
   ['rampe','🛤️ Rampe'],['galerie','🏛️ Galerie couverte'],['dallette','🧱 Dallettes / passerelle'],
-  ['escalier','🪜 Escalier'],['chemin','🚶 Chemin praticable'],['autre','➰ Autre'],
+  ['escalier','🪜 Escalier'],['chemin','🚶 Chemin praticable'],['passerelle','🌉 Passerelle'],
+  ['voirie','🛣️ Voirie'],['talus','⛰️ Talus en pierre'],['cloture','🚧 Clôture'],['autre','➰ Autre'],
 ]
+
+// ── Regroupement en 4 couches SIG (affichage/masquage) — miroir du
+// regroupement fait côté backend (residences/sig_classification.py) ;
+// une simple table d'affichage, aucune règle de classification ici.
+const COUCHE_SIG = {
+  // Infrastructures (PointInteret)
+  restaurant:'infrastructures', bar:'infrastructures', sport:'infrastructures', terrain_sport:'infrastructures',
+  securite:'infrastructures', guerite:'infrastructures', infirmerie:'infrastructures', parking:'infrastructures',
+  bureau:'infrastructures', communautaire:'infrastructures', accueil:'infrastructures', reunion:'infrastructures',
+  serveur:'infrastructures', ats:'infrastructures', toilette:'infrastructures', toilette_commune:'infrastructures',
+  loisirs:'infrastructures', autre:'autre_sig',
+  // Circulation / Aménagements (CheminCirculation)
+  rampe:'circulation', galerie:'circulation', dallette:'circulation', escalier:'circulation',
+  chemin:'circulation', passerelle:'circulation', voirie:'circulation',
+  // Relief / Terrain & Sécurité / Délimitation (CheminCirculation)
+  talus:'relief', cloture:'securite_delim',
+}
+const COUCHES_TOGGLE = [
+  ['residences','🏠 Résidences'],['infrastructures','🏢 Infrastructures'],
+  ['circulation','🚶 Circulation / Aménagements'],['relief','⛰️ Relief / Terrain'],
+  ['securite_delim','🚧 Sécurité / Délimitation'],
+]
+const GROUPE_LABEL = {
+  infrastructures:'Infrastructures', circulation:'Circulation / Aménagements',
+  relief:'Relief / Terrain', securite_delim:'Sécurité / Délimitation', autre_sig:'Autre SIG (non classifié)',
+}
 
 function calcDist(a,b){return L.latLng(a).distanceTo(L.latLng(b))}
 function distStr(d){return d>1000?`${(d/1000).toFixed(2)} km`:`${Math.round(d)} m`}
@@ -158,6 +202,13 @@ export default function MapPage() {
   useEffect(() => { loadPois() }, [loadPois])
 
   // ── Réseau de circulation piéton (tracé admin) ──
+  // Couches SIG affichables/masquables indépendamment (résidences,
+  // infrastructures, circulation, relief, sécurité — section 15 du prompt).
+  const [couchesActives, setCouchesActives] = useState({
+    residences:true, infrastructures:true, circulation:true, relief:true, securite_delim:true,
+  })
+  const toggleCouche = c => setCouchesActives(v => ({...v, [c]: !v[c]}))
+
   const [chemins, setChemins] = useState([])
   const [drawingChemin, setDrawingChemin] = useState(false)
   const [gererCheminsOuvert, setGererCheminsOuvert] = useState(false)
@@ -457,7 +508,7 @@ export default function MapPage() {
       <MapContainer center={[8.111,-6.822]} zoom={17}
           style={{width:'100%',height:'100%',zIndex:0}}>
           <TileLayer key={tileId} url={tile.url} attribution="" className={tile.filtreCSS ? 'rzc-tile-sombre' : ''}/>
-          {geojson&&(
+          {geojson&&couchesActives.residences&&(
             <>
               <FitBounds geojson={geojson}/>
               <GeoJSON key={geoKey} data={geojson}
@@ -490,7 +541,10 @@ export default function MapPage() {
           <NavLayer userPos={userPos} route={route} target={target} targetName={targetName}/>
 
           {/* Points d'intérêt (restaurant, sport, rampe, etc.) */}
-          {pois.map(poi => {
+          {pois.filter(poi => {
+            const groupe = COUCHE_SIG[poi.categorie]
+            return groupe === 'autre_sig' || couchesActives[groupe] !== false
+          }).map(poi => {
             const st = POI_STYLE[poi.categorie] || POI_STYLE.autre
             const icon = L.divIcon({
               html:`<div style="width:30px;height:30px;background:${st.color};border-radius:50% 50% 50% 0;
@@ -504,7 +558,7 @@ export default function MapPage() {
                 <Popup>
                   <div style={{fontFamily:'sans-serif',minWidth:180}}>
                     <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{st.icon} {poi.nom}</div>
-                    <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{poi.categorie_label}</div>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
                     {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
                     <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
                       style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isAdmin?6:0}}>
@@ -532,13 +586,17 @@ export default function MapPage() {
           <MapClickCapture active={drawingChemin} onPick={(pos)=>setCheminPoints(pts=>[...pts,[pos.lat,pos.lng]])}/>
 
           {/* Réseau de circulation existant */}
-          {chemins.map(c => {
+          {chemins.filter(c => {
+            const groupe = COUCHE_SIG[c.type_chemin]
+            return groupe === 'autre_sig' || !groupe || couchesActives[groupe] !== false
+          }).map(c => {
             const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
             return (
               <Polyline key={`chemin-${c.id}`} positions={c.points} color={st.color} weight={4}
                 dashArray={st.dash} opacity={0.85}>
                 <Popup>
                   <div style={{fontFamily:'sans-serif'}}>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL[COUCHE_SIG[c.type_chemin]] || 'Circulation / Aménagements'}</div>
                     <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
                     {isAdmin && (
                       <div style={{marginTop:6}}>
@@ -685,6 +743,17 @@ export default function MapPage() {
             </div>
           ))}
           <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)',fontSize:10,color:'var(--text-dim)'}}>{geojson?.features?.length||0} bâtiments</div>
+
+          {/* Couches SIG (résidences / infrastructures / circulation / relief / sécurité) */}
+          <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+            <div style={{fontFamily:'monospace',fontSize:9,color:'var(--text-dim)',letterSpacing:2,marginBottom:6,textTransform:'uppercase'}}>Couches SIG</div>
+            {COUCHES_TOGGLE.map(([code,label])=>(
+              <label key={code} style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0',cursor:'pointer',fontSize:11,fontWeight:couchesActives[code]?700:400,opacity:couchesActives[code]?1:.5}}>
+                <input type="checkbox" checked={!!couchesActives[code]} onChange={()=>toggleCouche(code)} style={{cursor:'pointer'}}/>
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

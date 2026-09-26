@@ -196,16 +196,25 @@ class PointInteret(models.Model):
     depuis le code.
     """
     CATEGORIES = [
-        ("restaurant", "🍽️ Restaurant"),
-        ("bar",        "🍺 Bar & Boutique"),
-        ("sport",      "🏋️ Salle de sport"),
-        ("rampe",      "🚁 Rampe / Héliport"),
-        ("securite",   "🛡️ Sécurité"),
-        ("infirmerie", "⚕️ Infirmerie"),
-        ("parking",    "🅿️ Parking"),
-        ("bureau",     "🏢 Bureau / Administration"),
-        ("loisirs",    "🎮 Loisirs"),
-        ("autre",      "📍 Autre"),
+        ("restaurant",       "🍽️ Restaurant"),
+        ("bar",              "🍺 Bar & Boutique"),
+        ("sport",            "🏋️ Salle de sport"),
+        ("terrain_sport",    "🏟️ Terrain de sport"),
+        ("rampe",            "🚁 Rampe / Héliport"),
+        ("securite",         "🛡️ Sécurité"),
+        ("guerite",          "💂 Guérite"),
+        ("infirmerie",       "⚕️ Infirmerie"),
+        ("parking",          "🅿️ Parking"),
+        ("bureau",           "🏢 Bureau / Administration"),
+        ("communautaire",    "🏢 Bureau communautaire"),
+        ("accueil",          "🛎️ Bureau d'accueil"),
+        ("reunion",          "🗣️ Salle de réunion"),
+        ("serveur",          "🖥️ Salle serveur"),
+        ("ats",              "🏢 Bureau ATS"),
+        ("toilette",         "🚽 Toilette"),
+        ("toilette_commune", "🚻 Toilette commune"),
+        ("loisirs",          "🎮 Loisirs"),
+        ("autre",            "📍 Autre"),
     ]
     nom          = models.CharField(max_length=100)
     categorie    = models.CharField(max_length=20, choices=CATEGORIES, default="autre")
@@ -213,6 +222,14 @@ class PointInteret(models.Model):
     longitude    = models.FloatField()
     description  = models.TextField(blank=True, default="")
     actif        = models.BooleanField(default=True)
+    # Empreinte reelle (Polygon GeoJSON, lon/lat) quand l'element vient
+    # d'un tracé SIG (import_sig) plutôt que d'un simple clic admin —
+    # meme principe que Batiment.geojson_geometry (centroide + geometrie).
+    geojson_geometry = models.JSONField(blank=True, null=True)
+    # Cle stable "SIG_V2/<couche>/.../<nom>" posee par import_sig pour
+    # rendre le reimport idempotent (jamais de doublon) - null pour les
+    # points crees manuellement (aucune contrainte pour ceux-la).
+    source_ref   = models.CharField(max_length=150, blank=True, null=True, unique=True)
     cree_par     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     date_creation= models.DateTimeField(auto_now_add=True)
 
@@ -234,17 +251,24 @@ class CheminCirculation(models.Model):
     le terrain réel).
     """
     TYPES = [
-        ("rampe",    "🛤️ Rampe"),
-        ("galerie",  "🏛️ Galerie couverte"),
-        ("dallette", "🧱 Dallettes / passerelle au sol"),
-        ("escalier", "🪜 Escalier"),
-        ("chemin",   "🚶 Chemin praticable"),
-        ("autre",    "➰ Autre"),
+        ("rampe",      "🛤️ Rampe"),
+        ("galerie",    "🏛️ Galerie couverte"),
+        ("dallette",   "🧱 Dallettes / passerelle au sol"),
+        ("escalier",   "🪜 Escalier"),
+        ("chemin",     "🚶 Chemin praticable"),
+        ("passerelle", "🌉 Passerelle"),
+        ("voirie",     "🛣️ Voirie"),
+        ("talus",      "⛰️ Talus en pierre"),
+        ("cloture",    "🚧 Clôture"),
+        ("autre",      "➰ Autre"),
     ]
     nom          = models.CharField(max_length=100, blank=True, default="")
     type_chemin  = models.CharField(max_length=20, choices=TYPES, default="chemin")
     points       = models.JSONField()  # liste de [lat, lng], au moins 2 points
     actif        = models.BooleanField(default=True)
+    # Cle stable posee par import_sig (voir PointInteret.source_ref) -
+    # rend le reimport de SIG_V2.kml idempotent.
+    source_ref   = models.CharField(max_length=150, blank=True, null=True, unique=True)
     cree_par     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     date_creation= models.DateTimeField(auto_now_add=True)
 

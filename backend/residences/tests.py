@@ -9,8 +9,10 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from .models import Personnel, Batiment, Plainte, ControleChambre, ResidentPrincipal
+from .models import Personnel, Batiment, Plainte, ControleChambre, ResidentPrincipal, PointInteret, CheminCirculation
 from .views import PlainteViewSet, ControleChambreViewSet
+from .sig_classification import classifier
+from django.core.management import call_command
 
 
 def _admin():
@@ -274,3 +276,68 @@ class ControleChambreTests(TestCase):
         force_authenticate(req, user=sans_u)
         resp = ControleChambreViewSet.as_view({"post": "create"})(req)
         self.assertEqual(resp.status_code, 403)
+
+
+class SigClassificationTests(TestCase):
+    """Classification centralisee des elements SIG_V2.kml - noms
+    specifiques avant generiques, normalisation accents/casse, repli sur
+    le nom de couche quand le Placemark porte un identifiant generique."""
+
+    def test_nom_specifique_reconnu(self):
+        r = classifier("Infirmerie principale", ["SIG", "Infra"])
+        self.assertTrue(r["reconnu"])
+        self.assertEqual(r["categorie_sig"], "infrastructures")
+        self.assertEqual(r["type_label"], "Infirmerie")
+
+    def test_priorite_specifique_avant_generique(self):
+        r = classifier("Salle de sport", ["SIG", "Infra"])
+        self.assertEqual(r["type_label"], "Salle de sport")
+        r2 = classifier("Toilette commune", ["SIG", "Infra"])
+        self.assertEqual(r2["type_label"], "Toilette commune")
+        r3 = classifier("Toilette", ["SIG", "Infra"])
+        self.assertEqual(r3["type_label"], "Toilette")
+
+    def test_normalisation_accents_casse(self):
+        r1 = classifier("GUERITE", [])
+        r2 = classifier("Guérite principale", [])
+        r3 = classifier("guerite", [])
+        for r in (r1, r2, r3):
+            self.assertEqual(r["type_label"], "Guérite")
+
+    def test_repli_sur_couche_si_nom_generique(self):
+        r = classifier("kml_5", ["SIG", "Relief", "TALUS"])
+        self.assertTrue(r["reconnu"])
+        self.assertEqual(r["methode"], "couche_repli")
+        self.assertEqual(r["categorie_sig"], "relief_terrain")
+        self.assertEqual(r["code_champ"], "talus")
+
+    def test_nom_non_reconnu_devient_autre_sig(self):
+        r = classifier("Workshop", ["SIG", "Infra"])
+        self.assertFalse(r["reconnu"])
+        self.assertEqual(r["categorie_sig"], "autre_sig")
+
+
+class ImportSigTests(TestCase):
+    """L'import SIG_V2 doit etre idempotent et ne jamais toucher aux
+    residences (Batiment)."""
+
+    def test_import_est_idempotent_sans_doublons(self):
+        call_command("import_sig")
+        total_pi_1 = PointInteret.objects.count()
+        total_cc_1 = CheminCirculation.objects.count()
+        self.assertGreater(total_pi_1, 0)
+        self.assertGreater(total_cc_1, 0)
+
+        call_command("import_sig")  # re-import
+        self.assertEqual(PointInteret.objects.count(), total_pi_1)
+        self.assertEqual(CheminCirculation.objects.count(), total_cc_1)
+
+    def test_import_ne_cree_aucune_residence(self):
+        avant = Batiment.objects.count()
+        call_command("import_sig")
+        self.assertEqual(Batiment.objects.count(), avant)
+
+    def test_elements_non_classifies_conserves_pas_supprimes(self):
+        call_command("import_sig")
+        self.assertTrue(PointInteret.objects.filter(categorie="autre", nom="Workshop").exists())
+        self.assertTrue(PointInteret.objects.filter(categorie="autre", nom="Admin").exists())

@@ -1,0 +1,5122 @@
+[
+{
+"source_ref": "SIG_V2/SIG/Délimitation/kml_1",
+"nom": "kml_1",
+"layer_path": [
+"SIG",
+"Délimitation"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82180468652492,
+8.11031869960291
+],
+[
+-6.82131370728212,
+8.11078634645488
+],
+[
+-6.8213090496846,
+8.11078884347417
+],
+[
+-6.82130561587173,
+8.11078811101127
+],
+[
+-6.82130214080736,
+8.11079335322871
+],
+[
+-6.82129975520616,
+8.11079841145074
+],
+[
+-6.82115346655152,
+8.11094117116648
+],
+[
+-6.82112900586807,
+8.11096255357178
+],
+[
+-6.821102541827891,
+8.11098715893318
+],
+[
+-6.821082602052291,
+8.11100569825237
+],
+[
+-6.8210662130413,
+8.1110209361901
+],
+[
+-6.82103526372277,
+8.11105155291591
+],
+[
+-6.821020726454669,
+8.11106593395833
+],
+[
+-6.820981838592051,
+8.11110169582658
+],
+[
+-6.82094546983764,
+8.11113287324961
+],
+[
+-6.820944730012921,
+8.1111573925933
+],
+[
+-6.82095422704384,
+8.11121293494399
+],
+[
+-6.82095395158917,
+8.11122197265268
+],
+[
+-6.820968698355051,
+8.1112940706102
+],
+[
+-6.82098483688352,
+8.11136511064151
+],
+[
+-6.82099442169922,
+8.11142119581408
+],
+[
+-6.8209949968452,
+8.11142219320127
+],
+[
+-6.820995613885151,
+8.11148781192871
+],
+[
+-6.821006093377791,
+8.11154114493788
+],
+[
+-6.82103721925445,
+8.1115604971311
+],
+[
+-6.8210642167674,
+8.11157418808569
+],
+[
+-6.82106783310836,
+8.11157797722855
+],
+[
+-6.821157054333879,
+8.11166987499397
+],
+[
+-6.821162221186099,
+8.11167590586418
+],
+[
+-6.821187508032741,
+8.11170404343345
+],
+[
+-6.821267963494981,
+8.11177662461607
+],
+[
+-6.82132107380589,
+8.11185711341849
+],
+[
+-6.82133453245936,
+8.11186749853487
+],
+[
+-6.821340566150681,
+8.11186729638502
+],
+[
+-6.821353230098031,
+8.1118687290483
+],
+[
+-6.821374702357801,
+8.11188349643258
+],
+[
+-6.821387635850671,
+8.11189887799882
+],
+[
+-6.821479455683819,
+8.11199402009133
+],
+[
+-6.82153505800534,
+8.11205599931566
+],
+[
+-6.821535684372469,
+8.11206547803753
+],
+[
+-6.82153628516981,
+8.1120711583114
+],
+[
+-6.82160375479098,
+8.11215107937257
+],
+[
+-6.82170284155781,
+8.11229606462303
+],
+[
+-6.82174903696852,
+8.11237015220633
+],
+[
+-6.82175248173457,
+8.11237533500951
+],
+[
+-6.82191120576751,
+8.1126088065928
+],
+[
+-6.8219402537703,
+8.11274118569052
+],
+[
+-6.82204434214652,
+8.11286868876788
+],
+[
+-6.82206334477275,
+8.11286879040256
+],
+[
+-6.82209366035381,
+8.11285767053856
+],
+[
+-6.822266578799501,
+8.11274131294401
+],
+[
+-6.82228720187898,
+8.11273524042696
+],
+[
+-6.822313749613411,
+8.11273730774536
+],
+[
+-6.822351949865231,
+8.11274335134497
+],
+[
+-6.82246750366454,
+8.1127714755259
+],
+[
+-6.82247998487818,
+8.11276810737499
+],
+[
+-6.822806130853959,
+8.11245191573664
+],
+[
+-6.823072812155731,
+8.11273089497839
+],
+[
+-6.82363395456,
+8.11219820168059
+],
+[
+-6.82338246013554,
+8.11193654845455
+],
+[
+-6.82235238268685,
+8.11088398317688
+],
+[
+-6.82235292510914,
+8.11087589600128
+],
+[
+-6.82180468652492,
+8.11031869960291
+]
+],
+"ferme": true,
+"categorie_sig": "securite_delimitation",
+"type_label": "Clôture",
+"cible_modele": "chemin_circulation",
+"code_champ": "cloture",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_1",
+"nom": "kml_1",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82182072345216,
+8.11130988320444
+],
+[
+-6.82185187906749,
+8.11134149199645
+],
+[
+-6.82237781652655,
+8.1108368351497
+],
+[
+-6.82212139052912,
+8.11059000945671
+],
+[
+-6.82210368288595,
+8.11060803835119
+],
+[
+-6.82231772396277,
+8.1108324747976
+],
+[
+-6.82182072345216,
+8.11130988320444
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_2",
+"nom": "kml_2",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82180773158956,
+8.11132274815856
+],
+[
+-6.821838338729231,
+8.11135433744405
+],
+[
+-6.8213196881384,
+8.11185248307056
+],
+[
+-6.82131598385699,
+8.11185567607648
+],
+[
+-6.821297303954719,
+8.11186474187843
+],
+[
+-6.82100303209497,
+8.11155544662464
+],
+[
+-6.82101247218792,
+8.1115424264728
+],
+[
+-6.82101369341046,
+8.11154135734381
+],
+[
+-6.821297893835989,
+8.11181248951043
+],
+[
+-6.82180773158956,
+8.11132274815856
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_3",
+"nom": "kml_3",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82091799249933,
+8.11110807639317
+],
+[
+-6.82089658815561,
+8.11111607002322
+],
+[
+-6.820929693976439,
+8.11126795173996
+],
+[
+-6.82095740881787,
+8.11146754053854
+],
+[
+-6.820997408633309,
+8.11154696880803
+],
+[
+-6.82153064596619,
+8.11103614767445
+],
+[
+-6.82148672747987,
+8.1109911822223
+],
+[
+-6.820998276650811,
+8.11145993125755
+],
+[
+-6.82099612361789,
+8.11146251852166
+],
+[
+-6.82099488596634,
+8.11145945752101
+],
+[
+-6.82091799249933,
+8.11110807639317
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_4",
+"nom": "kml_4",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82176502615008,
+8.11029917981543
+],
+[
+-6.82177582567872,
+8.11031163029203
+],
+[
+-6.82179799083171,
+8.11029204339046
+],
+[
+-6.821994791642521,
+8.11050502854125
+],
+[
+-6.821499954133201,
+8.11097835383426
+],
+[
+-6.82150115719157,
+8.11097960000862
+],
+[
+-6.8215438926537,
+8.11102369021335
+],
+[
+-6.82207452009487,
+8.1105172148333
+],
+[
+-6.821821402624099,
+8.1102498199879
+],
+[
+-6.82176502615008,
+8.11029917981543
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_5",
+"nom": "kml_5",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82240230008331,
+8.11092239544031
+],
+[
+-6.8224205755749,
+8.11090587911397
+],
+[
+-6.82269424361365,
+8.11116563705973
+],
+[
+-6.822169090724691,
+8.11166941265548
+],
+[
+-6.822133424396631,
+8.11163252539715
+],
+[
+-6.82262980101115,
+8.11115644318899
+],
+[
+-6.82240230008331,
+8.11092239544031
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_6",
+"nom": "kml_6",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821325147241031,
+8.11185866283189
+],
+[
+-6.82132357939636,
+8.11186009167485
+],
+[
+-6.82131522824573,
+8.1118747085563
+],
+[
+-6.82160366701055,
+8.11221284365967
+],
+[
+-6.82160977915293,
+8.11220469589116
+],
+[
+-6.822155948113339,
+8.11168246690237
+],
+[
+-6.82211997661222,
+8.11164528433698
+],
+[
+-6.82160305649419,
+8.11214263303775
+],
+[
+-6.821325147241031,
+8.11185866283189
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_7",
+"nom": "kml_7",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82162052171828,
+8.11220751934518
+],
+[
+-6.8216192891844,
+8.11220900421791
+],
+[
+-6.82161322523744,
+8.1122132563553
+],
+[
+-6.82161398237244,
+8.11221919915041
+],
+[
+-6.82160830535505,
+8.11222066024899
+],
+[
+-6.82167050946424,
+8.11232886663007
+],
+[
+-6.821665224988589,
+8.11234501850624
+],
+[
+-6.82167080398659,
+8.11236007147603
+],
+[
+-6.82168152355712,
+8.11237053291894
+],
+[
+-6.82173034159713,
+8.11239245193696
+],
+[
+-6.82187278589121,
+8.11265452770272
+],
+[
+-6.821874763083679,
+8.11265675222181
+],
+[
+-6.821975604174649,
+8.11265995880173
+],
+[
+-6.82207371528225,
+8.11256845556163
+],
+[
+-6.82207681999912,
+8.11256461243286
+],
+[
+-6.82207920969716,
+8.1125587949369
+],
+[
+-6.822080807673869,
+8.11254859929426
+],
+[
+-6.822080378350091,
+8.11254222331549
+],
+[
+-6.82207771436734,
+8.11253496867809
+],
+[
+-6.82207260435037,
+8.11252714956836
+],
+[
+-6.82199478544008,
+8.11245507068846
+],
+[
+-6.82199343732796,
+8.11245612106329
+],
+[
+-6.821985273479091,
+8.1124645923152
+],
+[
+-6.82204617844523,
+8.11252789294125
+],
+[
+-6.82195591365145,
+8.11261414231412
+],
+[
+-6.82189027808441,
+8.11262263158007
+],
+[
+-6.82179725020344,
+8.11245578583663
+],
+[
+-6.82162052171828,
+8.11220751934518
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_8",
+"nom": "kml_8",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82185570409226,
+8.1126709778063
+],
+[
+-6.821985755807949,
+8.11289037374168
+],
+[
+-6.822008528337319,
+8.11292033271754
+],
+[
+-6.82203118369517,
+8.11293529112324
+],
+[
+-6.822084047850869,
+8.1129250759762
+],
+[
+-6.82226798455337,
+8.11279960287452
+],
+[
+-6.82236490436533,
+8.11280294228869
+],
+[
+-6.822489022730399,
+8.11284781715108
+],
+[
+-6.823107183827549,
+8.11226114191014
+],
+[
+-6.82307457247013,
+8.11222805208868
+],
+[
+-6.82247196322645,
+8.11280346230175
+],
+[
+-6.82237768353381,
+8.11276269109368
+],
+[
+-6.82225528322739,
+8.11276010361459
+],
+[
+-6.822066559574241,
+8.11289245467153
+],
+[
+-6.82203546116857,
+8.11289811604921
+],
+[
+-6.82200166295988,
+8.11287918226635
+],
+[
+-6.82187564419093,
+8.11265778417938
+],
+[
+-6.82185570409226,
+8.1126709778063
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_9",
+"nom": "kml_9",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8228553947459,
+8.11250043125638
+],
+[
+-6.82306807982924,
+8.11276002772851
+],
+[
+-6.823085175909281,
+8.11275839715545
+],
+[
+-6.82365575594295,
+8.11220768947528
+],
+[
+-6.82365293182859,
+8.11218804666908
+],
+[
+-6.8234136036499,
+8.11197049332497
+],
+[
+-6.82363395456,
+8.11219820168059
+],
+[
+-6.823075700821479,
+8.11272815277037
+],
+[
+-6.8228553947459,
+8.11250043125638
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_10",
+"nom": "kml_10",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.823087546751121,
+8.1122156074276
+],
+[
+-6.82311936342224,
+8.11224956736005
+],
+[
+-6.8234493927667,
+8.11193668100725
+],
+[
+-6.8232624963843,
+8.11174829816951
+],
+[
+-6.82334872649301,
+8.11166497110161
+],
+[
+-6.823321912326589,
+8.11163813000168
+],
+[
+-6.82320480320418,
+8.11175659365877
+],
+[
+-6.82337977965642,
+8.11193677278792
+],
+[
+-6.823087546751121,
+8.1122156074276
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_11",
+"nom": "kml_11",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82253491230455,
+8.11206117435229
+],
+[
+-6.822567390013,
+8.11209586005542
+],
+[
+-6.823104324129849,
+8.11158400262581
+],
+[
+-6.82275690120079,
+8.111257820417
+],
+[
+-6.82273896019902,
+8.11127208661763
+],
+[
+-6.822737910539,
+8.11127330129743
+],
+[
+-6.82303823394631,
+8.11158260985783
+],
+[
+-6.82253491230455,
+8.11206117435229
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Relief/TALUS/kml_12",
+"nom": "kml_12",
+"layer_path": [
+"SIG",
+"Relief",
+"TALUS"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82203407017813,
+8.11241300451122
+],
+[
+-6.822022906901881,
+8.11242539169555
+],
+[
+-6.82210500544966,
+8.11250006066149
+],
+[
+-6.82211084710137,
+8.11250340024618
+],
+[
+-6.82212396451535,
+8.11250653468393
+],
+[
+-6.82213014173886,
+8.11250651348485
+],
+[
+-6.82214138010647,
+8.11250317485288
+],
+[
+-6.822146159922551,
+8.11249988303303
+],
+[
+-6.822554551957849,
+8.11210822934133
+],
+[
+-6.82252183887393,
+8.11207366030937
+],
+[
+-6.822102434425251,
+8.11247386038206
+],
+[
+-6.82203407017813,
+8.11241300451122
+]
+],
+"ferme": true,
+"categorie_sig": "relief_terrain",
+"type_label": "Talus en pierre",
+"cible_modele": "chemin_circulation",
+"code_champ": "talus",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Sport/Football court",
+"nom": "Football court",
+"layer_path": [
+"SIG",
+"Sport"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822249009252119,
+8.1116744731198
+],
+[
+-6.82254149396893,
+8.11197680457209
+],
+[
+-6.82277894644846,
+8.11174823321928
+],
+[
+-6.82247753435281,
+8.11144722500908
+],
+[
+-6.822249009252119,
+8.1116744731198
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Terrain de sport",
+"cible_modele": "point_interet",
+"code_champ": "terrain_sport",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Sport/Basket court",
+"nom": "Basket court",
+"layer_path": [
+"SIG",
+"Sport"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822490393539531,
+8.11143443766553
+],
+[
+-6.82261853294908,
+8.11156240543303
+],
+[
+-6.82271484251163,
+8.11146663388448
+],
+[
+-6.8225867030858,
+8.11133866614671
+],
+[
+-6.822490393539531,
+8.11143443766553
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Terrain de sport",
+"cible_modele": "point_interet",
+"code_champ": "terrain_sport",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Sport/GYM",
+"nom": "GYM",
+"layer_path": [
+"SIG",
+"Sport"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82287108347863,
+8.11148363026338
+],
+[
+-6.822792697236311,
+8.11155887618679
+],
+[
+-6.822888372873479,
+8.11165786597569
+],
+[
+-6.82296673309139,
+8.11158258226957
+],
+[
+-6.82287108347863,
+8.11148363026338
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Salle de sport",
+"cible_modele": "point_interet",
+"code_champ": "sport",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Sport/Tennis court",
+"nom": "Tennis court",
+"layer_path": [
+"SIG",
+"Sport"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82260116249012,
+8.11132491211004
+],
+[
+-6.822729301918539,
+8.11145287984339
+],
+[
+-6.822793508263779,
+8.11138903212125
+],
+[
+-6.822665368824499,
+8.11126106440772
+],
+[
+-6.82260116249012,
+8.11132491211004
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Terrain de sport",
+"cible_modele": "point_interet",
+"code_champ": "terrain_sport",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_100",
+"nom": "kml_100",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82277944501783,
+8.11157153647959
+],
+[
+-6.82287496054767,
+8.11167061948308
+],
+[
+-6.82287121069087,
+8.11169152517018
+],
+[
+-6.82284705492357,
+8.11173546210705
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_2",
+"nom": "kml_2",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82277894644846,
+8.11174823321928
+],
+[
+-6.82254149396893,
+8.11197680457209
+],
+[
+-6.822249009252119,
+8.1116744731198
+],
+[
+-6.82247760984626,
+8.1114471499374
+],
+[
+-6.82277894644846,
+8.11174823321928
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_3",
+"nom": "kml_3",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82305957514073,
+8.11167231149678
+],
+[
+-6.82309137769847,
+8.11170578887558
+],
+[
+-6.82305844258631,
+8.11173685979028
+],
+[
+-6.82302664003023,
+8.11170338240902
+],
+[
+-6.82305957514073,
+8.11167231149678
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_6",
+"nom": "kml_6",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82310187648451,
+8.11161257068253
+],
+[
+-6.823101749033671,
+8.11161244965685
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_32",
+"nom": "kml_32",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82199121158702,
+8.11213506431847
+],
+[
+-6.82197594137668,
+8.11214988485006
+],
+[
+-6.82189895733951,
+8.11207089374531
+],
+[
+-6.82191428231515,
+8.11205612945974
+],
+[
+-6.82199121158702,
+8.11213506431847
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_33",
+"nom": "kml_33",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82197134534455,
+8.11215437456611
+],
+[
+-6.82195606055491,
+8.11216918004233
+],
+[
+-6.821879087054759,
+8.11209003703929
+],
+[
+-6.82189441203184,
+8.11207527275486
+],
+[
+-6.82197134534455,
+8.11215437456611
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_35",
+"nom": "kml_35",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82247264697663,
+8.11204887560183
+],
+[
+-6.82248288673977,
+8.1120388048195
+],
+[
+-6.82250368586309,
+8.11201855977081
+],
+[
+-6.822386969577761,
+8.11189808506895
+],
+[
+-6.8223492194454,
+8.11185899662028
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_36",
+"nom": "kml_36",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82247264697663,
+8.11204887560183
+],
+[
+-6.82246608844058,
+8.11204209627155
+],
+[
+-6.82247640081261,
+8.11203214441311
+],
+[
+-6.82247983766953,
+8.11202894483757
+],
+[
+-6.822480029198879,
+8.11201358827622
+],
+[
+-6.82237732241197,
+8.11190745232172
+],
+[
+-6.822339437635989,
+8.11186810101571
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_37",
+"nom": "kml_37",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82221685410787,
+8.11177769541693
+],
+[
+-6.82221952519008,
+8.11177352455539
+],
+[
+-6.82223432993403,
+8.11175977376106
+],
+[
+-6.82224428476025,
+8.11175054374457
+],
+[
+-6.822197900746719,
+8.11170278573446
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_38",
+"nom": "kml_38",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82247989447205,
+8.11118274126533
+],
+[
+-6.82247321300544,
+8.11118881603725
+],
+[
+-6.82249217539184,
+8.11120814377628
+],
+[
+-6.82241861243158,
+8.11127895218573
+],
+[
+-6.822399461126931,
+8.11125933417921
+],
+[
+-6.82239314018498,
+8.11126583571869
+],
+[
+-6.82241191277296,
+8.11128503589789
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_39",
+"nom": "kml_39",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822505072174379,
+8.11120844774528
+],
+[
+-6.82236127574612,
+8.11134658418495
+],
+[
+-6.82221737081419,
+8.11148463861456
+],
+[
+-6.822098299129231,
+8.11159948657888
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_40",
+"nom": "kml_40",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822088434181471,
+8.11160887073879
+],
+[
+-6.82168101614675,
+8.1119999416465
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_41",
+"nom": "kml_41",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822195991229169,
+8.11088998063548
+],
+[
+-6.82178852553255,
+8.11128144934707
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_42",
+"nom": "kml_42",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82177972459167,
+8.11128990475039
+],
+[
+-6.821372572694879,
+8.1116810705787
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_43",
+"nom": "kml_43",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82168101614675,
+8.1119999416465
+],
+[
+-6.821656003201721,
+8.11197396482282
+],
+[
+-6.821662693617481,
+8.11196791723652
+],
+[
+-6.821681383578489,
+8.11198729779014
+],
+[
+-6.821755365540559,
+8.11191621160946
+],
+[
+-6.82173648378532,
+8.11189707409133
+],
+[
+-6.82174257808587,
+8.11189055327695
+],
+[
+-6.82176181983242,
+8.11191021699307
+],
+[
+-6.821820055361939,
+8.11185425048562
+],
+[
+-6.82180092041357,
+8.11183496698922
+],
+[
+-6.82180780115661,
+8.11182894753485
+],
+[
+-6.82182677390954,
+8.11184803130134
+],
+[
+-6.821900202382671,
+8.11177696923796
+],
+[
+-6.82188127483359,
+8.11175791283413
+],
+[
+-6.8218875145476,
+8.11175133855896
+],
+[
+-6.821906539388271,
+8.1117708564814
+],
+[
+-6.821964457074531,
+8.11171495151698
+],
+[
+-6.82194554854066,
+8.11169573251237
+],
+[
+-6.82195226435771,
+8.11169001950472
+],
+[
+-6.82197119244412,
+8.11170897647714
+],
+[
+-6.82204473620201,
+8.11163839406761
+],
+[
+-6.82202623592965,
+8.11161915917151
+],
+[
+-6.82203218460873,
+8.11161272796356
+],
+[
+-6.8220512204221,
+8.11163189340978
+],
+[
+-6.822082072127869,
+8.11160229179487
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_44",
+"nom": "kml_44",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8220919678494,
+8.11159274564397
+],
+[
+-6.82212235697046,
+8.11156363925582
+],
+[
+-6.82210392867476,
+8.11154451321828
+],
+[
+-6.82211003149898,
+8.11153809187204
+],
+[
+-6.82212878530577,
+8.11155740947292
+],
+[
+-6.82220282158278,
+8.11148631441993
+],
+[
+-6.822183740121531,
+8.11146720297165
+],
+[
+-6.82219021361135,
+8.11146100958533
+],
+[
+-6.82220903066955,
+8.1114803727168
+],
+[
+-6.82226704799838,
+8.11142447725893
+],
+[
+-6.82224814881865,
+8.11140520408284
+],
+[
+-6.82225457729539,
+8.11139894717994
+],
+[
+-6.82227375619643,
+8.1114184930271
+],
+[
+-6.82234745545706,
+8.11134764922946
+],
+[
+-6.822328647854699,
+8.1113282138412
+],
+[
+-6.82233537506684,
+8.11132206700393
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_45",
+"nom": "kml_45",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82241191277296,
+8.11128503589789
+],
+[
+-6.82235409234106,
+8.11134120221397
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_46",
+"nom": "kml_46",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82233537506684,
+8.11132206700393
+],
+[
+-6.82235409234106,
+8.11134120221397
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_47",
+"nom": "kml_47",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82247989447205,
+8.11118274126533
+],
+[
+-6.822505072174379,
+8.11120844774528
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_48",
+"nom": "kml_48",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821372572694879,
+8.1116810705787
+],
+[
+-6.8213474144685,
+8.11165512912552
+],
+[
+-6.821353987550571,
+8.11164897244617
+],
+[
+-6.82137261335683,
+8.11166847017279
+],
+[
+-6.82144683116297,
+8.11159737626871
+],
+[
+-6.821427715165709,
+8.11157794823671
+],
+[
+-6.82143402598393,
+8.11157164552555
+],
+[
+-6.82145303206593,
+8.11159127183138
+],
+[
+-6.821511229924081,
+8.11153555826231
+],
+[
+-6.821492387934529,
+8.11151577917067
+],
+[
+-6.82149889683808,
+8.11150974869309
+],
+[
+-6.82151757707063,
+8.11152924670446
+],
+[
+-6.821591540661469,
+8.11145818755726
+],
+[
+-6.821572488006681,
+8.11143878698823
+],
+[
+-6.82157904420696,
+8.11143239519425
+],
+[
+-6.82159783279922,
+8.11145198417351
+],
+[
+-6.82165617506191,
+8.11139639789394
+],
+[
+-6.82163724846536,
+8.1113771697466
+],
+[
+-6.82164347813082,
+8.11137077620456
+],
+[
+-6.82166233148314,
+8.11139013050848
+],
+[
+-6.8217361684767,
+8.11131898929156
+],
+[
+-6.821717187601909,
+8.11129973373999
+],
+[
+-6.821723706980779,
+8.11129344117658
+],
+[
+-6.82174276856404,
+8.11131286890406
+],
+[
+-6.82177351141496,
+8.11128332820672
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_49",
+"nom": "kml_49",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82178232136439,
+8.11127486275586
+],
+[
+-6.821813978567299,
+8.11124444345042
+],
+[
+-6.82179487788256,
+8.11122504586149
+],
+[
+-6.82180137328952,
+8.11121879530318
+],
+[
+-6.82182013401025,
+8.11123835683981
+],
+[
+-6.82189392403945,
+8.11116750458223
+],
+[
+-6.82187486857111,
+8.111148200741
+],
+[
+-6.82188145669535,
+8.11114187129502
+],
+[
+-6.82190059722024,
+8.11116128515068
+],
+[
+-6.821958414049919,
+8.11110556040767
+],
+[
+-6.8219394841985,
+8.11108615863491
+],
+[
+-6.821945888761639,
+8.11107999548832
+],
+[
+-6.82196459611558,
+8.11109958240636
+],
+[
+-6.822038514831659,
+8.11102840538632
+],
+[
+-6.822019670101249,
+8.11100913249807
+],
+[
+-6.822026071507589,
+8.11100284833565
+],
+[
+-6.82204510535275,
+8.11102237533215
+],
+[
+-6.822103266962281,
+8.11096662528395
+],
+[
+-6.82208436014904,
+8.11094708993015
+],
+[
+-6.82209089663526,
+8.11094098727225
+],
+[
+-6.82210974922127,
+8.11096048617904
+],
+[
+-6.82218334949999,
+8.11088947916092
+],
+[
+-6.82216476819501,
+8.11087013537416
+],
+[
+-6.82217096078427,
+8.1108638862485
+],
+[
+-6.822195991229169,
+8.11088998063548
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_50",
+"nom": "kml_50",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8220919678494,
+8.11159274564397
+],
+[
+-6.821965949525529,
+8.11146307348186
+],
+[
+-6.82185624388973,
+8.11134956925552
+],
+[
+-6.82185715266121,
+8.11134756741595
+],
+[
+-6.82185161364201,
+8.11134193349715
+],
+[
+-6.82182248038562,
+8.11131132466989
+],
+[
+-6.82181765211696,
+8.11131014183217
+],
+[
+-6.82181664675989,
+8.11131108557016
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_51",
+"nom": "kml_51",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8218081251617,
+8.11131908487296
+],
+[
+-6.82180921730417,
+8.11132345664128
+],
+[
+-6.821838858499891,
+8.11135406818592
+],
+[
+-6.82184422464676,
+8.11135980061142
+],
+[
+-6.821846063478831,
+8.11135858111599
+],
+[
+-6.821956204246699,
+8.11147213286787
+],
+[
+-6.822082127130259,
+8.11160234867236
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_52",
+"nom": "kml_52",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822088434181471,
+8.11160887073879
+],
+[
+-6.82212010500758,
+8.11164158117972
+],
+[
+-6.82212185622384,
+8.11164652594156
+],
+[
+-6.82215273968588,
+8.11167890676011
+],
+[
+-6.8221614553234,
+8.11168755867459
+],
+[
+-6.82216311231129,
+8.11168641955819
+],
+[
+-6.82218841796964,
+8.11171194596057
+],
+[
+-6.82222494126778,
+8.11174977140922
+],
+[
+-6.82222493112665,
+8.11174997021716
+],
+[
+-6.82220993342296,
+8.11176418097799
+],
+[
+-6.82220528439901,
+8.1117667684437
+],
+[
+-6.82221685410787,
+8.11177769541693
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_53",
+"nom": "kml_53",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82223432993403,
+8.11175977376106
+],
+[
+-6.822339437635989,
+8.11186810101571
+],
+[
+-6.8223492194454,
+8.11185899662028
+],
+[
+-6.82224428476025,
+8.11175054374457
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_54",
+"nom": "kml_54",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82212995767308,
+8.11163279353987
+],
+[
+-6.82213467608076,
+8.11163416561059
+],
+[
+-6.822165976244809,
+8.11166664808755
+],
+[
+-6.82216886416025,
+8.11166937528719
+],
+[
+-6.82217468174136,
+8.1116754988097
+],
+[
+-6.82217297726017,
+8.11167703539654
+],
+[
+-6.822197900746719,
+8.11170278573446
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_55",
+"nom": "kml_55",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8222130569569,
+8.11197246060593
+],
+[
+-6.82220856489772,
+8.11196948076974
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_56",
+"nom": "kml_56",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822220036412499,
+8.11195821600907
+],
+[
+-6.82222254003329,
+8.11196324614724
+],
+[
+-6.82223306699481,
+8.11197410427111
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_57",
+"nom": "kml_57",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82223306699481,
+8.11197410427111
+],
+[
+-6.82228892295397,
+8.11192038475501
+],
+[
+-6.82234112201746,
+8.11187029750631
+],
+[
+-6.82234863670599,
+8.11187793964709
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_58",
+"nom": "kml_58",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822202796056561,
+8.1120183157785
+],
+[
+-6.82228534674314,
+8.11210275840443
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_59",
+"nom": "kml_59",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82219504598648,
+8.11202574974415
+],
+[
+-6.82210070399028,
+8.11211639641229
+],
+[
+-6.82197414856361,
+8.11223801980544
+],
+[
+-6.822032096769239,
+8.11229830410246
+],
+[
+-6.82202375816409,
+8.11230630139077
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_60",
+"nom": "kml_60",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82177963777181,
+8.11128981729769
+],
+[
+-6.8218081251617,
+8.11131908487296
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_61",
+"nom": "kml_61",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82181765211696,
+8.11131014183217
+],
+[
+-6.82178932998883,
+8.11128050453471
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_62",
+"nom": "kml_62",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82178932998883,
+8.11128050453471
+],
+[
+-6.82178840543988,
+8.11127955047548
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_63",
+"nom": "kml_63",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82178311950711,
+8.11127409582317
+],
+[
+-6.82154764423729,
+8.11103110433286
+],
+[
+-6.82154920402936,
+8.11102948562197
+],
+[
+-6.82150110718276,
+8.11097979306601
+],
+[
+-6.82149672399958,
+8.11097849509691
+],
+[
+-6.82148044423049,
+8.11096128780498
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_64",
+"nom": "kml_64",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8214743386583,
+8.11095474693484
+],
+[
+-6.82146525158972,
+8.11094433038544
+],
+[
+-6.82145872314466,
+8.11095062289672
+],
+[
+-6.821467976059551,
+8.11096056125648
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_65",
+"nom": "kml_65",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821487178518841,
+8.11098751034488
+],
+[
+-6.82148824286244,
+8.11099199043454
+],
+[
+-6.8215362582697,
+8.11104164639963
+],
+[
+-6.821538134891149,
+8.1110401468928
+],
+[
+-6.82177345962719,
+8.11128327604147
+],
+[
+-6.82177351009481,
+8.11128332947525
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_66",
+"nom": "kml_66",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821778736792371,
+8.1112888633645
+],
+[
+-6.82177963777181,
+8.11128981729769
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_67",
+"nom": "kml_67",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82154883588803,
+8.11084521080787
+],
+[
+-6.82151946891458,
+8.11087316560846
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_68",
+"nom": "kml_68",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82151302797266,
+8.11087920091765
+],
+[
+-6.8214836022134,
+8.11090713285665
+],
+[
+-6.82149003548603,
+8.11091345853879
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_69",
+"nom": "kml_69",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8214135939537,
+8.11097395145704
+],
+[
+-6.821384132257551,
+8.11100175632022
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_70",
+"nom": "kml_70",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82137774932542,
+8.11100797729447
+],
+[
+-6.82134846386434,
+8.11103595059075
+],
+[
+-6.82135503426209,
+8.1110420781464
+],
+[
+-6.821383901611149,
+8.11101426531853
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_71",
+"nom": "kml_71",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82138966659891,
+8.11100913478026
+],
+[
+-6.821419315142149,
+8.11098093214726
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_72",
+"nom": "kml_72",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82149003548603,
+8.11091345853879
+],
+[
+-6.821519228862369,
+8.11088573783201
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_73",
+"nom": "kml_73",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82152563846602,
+8.11087961642814
+],
+[
+-6.8215550134878,
+8.11085185149308
+],
+[
+-6.82154883588803,
+8.11084521080787
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_74",
+"nom": "kml_74",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821476698962231,
+8.11077081213283
+],
+[
+-6.821447125273041,
+8.11079890141054
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_75",
+"nom": "kml_75",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821441454101161,
+8.11080428792478
+],
+[
+-6.821312459689821,
+8.11092703469027
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_76",
+"nom": "kml_76",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82130610494313,
+8.1109330750305
+],
+[
+-6.82127640220077,
+8.11096105512892
+],
+[
+-6.821270231679669,
+8.11095478508468
+],
+[
+-6.8214705495496,
+8.11076399081411
+],
+[
+-6.821476698962231,
+8.11077081213283
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_77",
+"nom": "kml_77",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82151946891458,
+8.11087316560846
+],
+[
+-6.82144760848362,
+8.11079795488057
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_78",
+"nom": "kml_78",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82144140662231,
+8.11080424009974
+],
+[
+-6.82151299645145,
+8.11087916916661
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_79",
+"nom": "kml_79",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821384132257551,
+8.11100175632022
+],
+[
+-6.821312459689821,
+8.11092703469027
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_80",
+"nom": "kml_80",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82130610494313,
+8.1109330750305
+],
+[
+-6.82137774932542,
+8.11100797729447
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_81",
+"nom": "kml_81",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821383901611149,
+8.11101426531853
+],
+[
+-6.82140322016737,
+8.111034815288
+],
+[
+-6.82147056949132,
+8.11097080748587
+],
+[
+-6.821487178518841,
+8.11098751034488
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_82",
+"nom": "kml_82",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821467976059551,
+8.11096056125648
+],
+[
+-6.82140307735626,
+8.11102091225746
+],
+[
+-6.8213904470306,
+8.11100818984028
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_83",
+"nom": "kml_83",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82148044423049,
+8.11096128780498
+],
+[
+-6.82154498652566,
+8.11089974170724
+],
+[
+-6.82152563846602,
+8.11087961642814
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_84",
+"nom": "kml_84",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821519228862369,
+8.11088573783201
+],
+[
+-6.82153228096919,
+8.11089930314548
+],
+[
+-6.8214743386583,
+8.11095474693484
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_85",
+"nom": "kml_85",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.821419482816679,
+8.11098110104435
+],
+[
+-6.82141361623896,
+8.11097397390479
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_86",
+"nom": "kml_86",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82212995767308,
+8.11163279353987
+],
+[
+-6.822098299129231,
+8.11159948657888
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_87",
+"nom": "kml_87",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82219504598648,
+8.11202574974415
+],
+[
+-6.822268512497719,
+8.11210091478193
+],
+[
+-6.82227728944747,
+8.11210997378818
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_88",
+"nom": "kml_88",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82202288512569,
+8.11230538739093
+],
+[
+-6.821933453974831,
+8.11221176025894
+],
+[
+-6.82196576528733,
+8.11218112751681
+],
+[
+-6.821971953489641,
+8.11218748804426
+],
+[
+-6.82194784699077,
+8.11221046328073
+],
+[
+-6.82196670707496,
+8.11223026053999
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_89",
+"nom": "kml_89",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82202375816409,
+8.11230630139077
+],
+[
+-6.821933453974831,
+8.11221176025894
+],
+[
+-6.82196576528733,
+8.11218112751681
+],
+[
+-6.821971953489641,
+8.11218748804426
+],
+[
+-6.82194784699077,
+8.11221046328073
+],
+[
+-6.82196670707496,
+8.11223026053999
+],
+[
+-6.822223511014579,
+8.11198338161451
+],
+[
+-6.8222130569569,
+8.11197246060593
+],
+[
+-6.82220856489772,
+8.11196948076974
+],
+[
+-6.822220036412499,
+8.11195821600907
+],
+[
+-6.82222254003329,
+8.11196324614724
+],
+[
+-6.82223306699481,
+8.11197410427111
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_90",
+"nom": "kml_90",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82197414856361,
+8.11223801980544
+],
+[
+-6.82219505250717,
+8.1120257564156
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_91",
+"nom": "kml_91",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82220279603933,
+8.11201831576072
+],
+[
+-6.82220280007055,
+8.11201831188718
+],
+[
+-6.82234863670599,
+8.11187793964709
+],
+[
+-6.82234112201746,
+8.11187029750631
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_92",
+"nom": "kml_92",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.822202796056561,
+8.1120183157785
+],
+[
+-6.822276153821459,
+8.11209346215504
+],
+[
+-6.82228534674314,
+8.11210275840443
+],
+[
+-6.82227728944747,
+8.11210997378818
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_93",
+"nom": "kml_93",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82232798172218,
+8.11217464004762
+],
+[
+-6.82227969824157,
+8.11212544657034
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_94",
+"nom": "kml_94",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82232190873,
+8.1121811858841
+],
+[
+-6.822267057051589,
+8.11212526761522
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_95",
+"nom": "kml_95",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82227495389605,
+8.11211756307243
+],
+[
+-6.822267057051589,
+8.11212526761522
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_96",
+"nom": "kml_96",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82228139680439,
+8.11212378937037
+],
+[
+-6.82227495389605,
+8.11211756307243
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_97",
+"nom": "kml_97",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82253337227272,
+8.1120626941626
+],
+[
+-6.82249731189633,
+8.112024798889
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_98",
+"nom": "kml_98",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82248758982872,
+8.11203422701799
+],
+[
+-6.82252360796821,
+8.11207191616526
+],
+[
+-6.82253337227272,
+8.1120626941626
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_99",
+"nom": "kml_99",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82251288956564,
+8.11204101713594
+],
+[
+-6.82252501553883,
+8.11204128987226
+],
+[
+-6.82261071869804,
+8.11195971743311
+],
+[
+-6.82275538035247,
+8.11182265219344
+],
+[
+-6.82284705492357,
+8.11173546210705
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_101",
+"nom": "kml_101",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82288787018275,
+8.11168370493207
+],
+[
+-6.822854432885579,
+8.11174323005815
+],
+[
+-6.82276242188243,
+8.11183057201382
+],
+[
+-6.82261815937132,
+8.11196763035067
+],
+[
+-6.8225261122778,
+8.11205491779742
+],
+[
+-6.82252604012808,
+8.11205498892959
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_102",
+"nom": "kml_102",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82251288956564,
+8.11204101713594
+],
+[
+-6.82251274168627,
+8.11204101380985
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_103",
+"nom": "kml_103",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82288787018275,
+8.11168370493207
+],
+[
+-6.82287496054767,
+8.11167061948308
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_104",
+"nom": "kml_104",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82228139680439,
+8.11212378937037
+],
+[
+-6.82227332859271,
+8.11213166110737
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_106",
+"nom": "kml_106",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82237218379337,
+8.11213256867702
+],
+[
+-6.82232066051964,
+8.11218211341086
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_107",
+"nom": "kml_107",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82236295581988,
+8.11214137302134
+],
+[
+-6.82231475897753,
+8.11209167996906
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_108",
+"nom": "kml_108",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82231501822734,
+8.11207890897992
+],
+[
+-6.82236935617422,
+8.11213528771363
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_109",
+"nom": "kml_109",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82231501822734,
+8.11207890897992
+],
+[
+-6.8223069939045,
+8.11208673920575
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_110",
+"nom": "kml_110",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.8223069939045,
+8.11208673920575
+],
+[
+-6.82231332879232,
+8.11209307556009
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_111",
+"nom": "kml_111",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82231332879232,
+8.11209307556009
+],
+[
+-6.82231475897753,
+8.11209167996906
+]
+],
+"ferme": false,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/FOOT-PATH/kml_112",
+"nom": "kml_112",
+"layer_path": [
+"SIG",
+"Circulation",
+"FOOT-PATH"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82213357720398,
+8.11250580509064
+],
+[
+-6.82213223819712,
+8.1125060288375
+],
+[
+-6.822130892192191,
+8.11250620604605
+],
+[
+-6.82212954081745,
+8.11250633650192
+],
+[
+-6.82212818570765,
+8.11250642004729
+],
+[
+-6.82212682850205,
+8.11250645658111
+],
+[
+-6.82212547084245,
+8.11250644605919
+],
+[
+-6.8221241143712,
+8.11250638849423
+],
+[
+-6.82212276072922,
+8.11250628395589
+],
+[
+-6.82212141155401,
+8.11250613257063
+],
+[
+-6.82212006847763,
+8.11250593452156
+],
+[
+-6.82211873312481,
+8.11250569004828
+],
+[
+-6.82211740711091,
+8.11250539944652
+],
+[
+-6.82211609203999,
+8.11250506306781
+],
+[
+-6.8221147895029,
+8.11250468131908
+],
+[
+-6.8221135010753,
+8.11250425466212
+],
+[
+-6.82211222831579,
+8.11250378361306
+],
+[
+-6.82211097276402,
+8.11250326874171
+],
+[
+-6.822109735938811,
+8.11250271067092
+],
+[
+-6.82210851933636,
+8.11250211007578
+],
+[
+-6.82210732442837,
+8.11250146768283
+],
+[
+-6.82210615266031,
+8.11250078426916
+],
+[
+-6.82210500544966,
+8.11250006066149
+],
+[
+-6.8220897819549,
+8.11248713455767
+],
+[
+-6.82205620558948,
+8.11245623078467
+],
+[
+-6.822023361593581,
+8.11242576480811
+],
+[
+-6.82198130547197,
+8.1123912542397
+],
+[
+-6.82193826190653,
+8.11234640659597
+],
+[
+-6.821944172608459,
+8.11230323993057
+],
+[
+-6.8219849728468,
+8.11226440885086
+],
+[
+-6.82195989700561,
+8.11223831419105
+],
+[
+-6.82193356457611,
+8.11226364578789
+],
+[
+-6.82188441254135,
+8.11231047706839
+],
+[
+-6.82180957034952,
+8.11223307193324
+],
+[
+-6.8217726059307,
+8.11219462942265
+],
+[
+-6.82175388074681,
+8.11217504981927
+],
+[
+-6.82173819108791,
+8.11215773720929
+],
+[
+-6.82174489257299,
+8.11215131907471
+],
+[
+-6.821738616234119,
+8.11214489940444
+],
+[
+-6.82172496385411,
+8.11215815457566
+],
+[
+-6.821731399280701,
+8.1121646881726
+],
+[
+-6.821747072656311,
+8.11218105158114
+],
+[
+-6.82170763475469,
+8.11221787418177
+],
+[
+-6.82169734640846,
+8.11222721902061
+],
+[
+-6.821715658298291,
+8.11224724021955
+],
+[
+-6.82172608612197,
+8.1122377686941
+],
+[
+-6.821777764351191,
+8.11223893095052
+],
+[
+-6.821789769497321,
+8.11225153251481
+],
+[
+-6.82186468395779,
+8.11232899227511
+],
+[
+-6.82191494501614,
+8.11238108275922
+],
+[
+-6.82195076390312,
+8.11241833500412
+],
+[
+-6.82197027448187,
+8.11243861482168
+],
+[
+-6.821995229207269,
+8.1124551996105
+],
+[
+-6.82202804706205,
+8.11248546658742
+],
+[
+-6.8220616957462,
+8.11251641594549
+],
+[
+-6.82207285900263,
+8.11252702438165
+],
+[
+-6.822073858268169,
+8.11252847292645
+],
+[
+-6.82207480750581,
+8.11252995450894
+],
+[
+-6.82207570561669,
+8.11253146741397
+],
+[
+-6.82207655156111,
+8.11253300989019
+],
+[
+-6.82207734435981,
+8.11253458015197
+],
+[
+-6.82207808309501,
+8.11253617638155
+],
+[
+-6.82207876691152,
+8.11253779673107
+],
+[
+-6.822079395017761,
+8.11253943932479
+],
+[
+-6.8220799666866,
+8.11254110226118
+],
+[
+-6.82208018421884,
+8.11254235976159
+],
+[
+-6.82208036022827,
+8.11254362369794
+],
+[
+-6.82208049452534,
+8.11254489270901
+],
+[
+-6.8220805869654,
+8.11254616542811
+],
+[
+-6.82208063744891,
+8.11254744048457
+],
+[
+-6.82208064592149,
+8.1125487165052
+],
+[
+-6.822080612374019,
+8.11254999211575
+],
+[
+-6.822080536842621,
+8.11255126594243
+],
+[
+-6.822080419408649,
+8.11255253661338
+],
+[
+-6.822080260198581,
+8.11255380276012
+],
+[
+-6.82208005938386,
+8.11255506301906
+],
+[
+-6.822079817180771,
+8.11255631603293
+],
+[
+-6.82207953385016,
+8.11255756045228
+],
+[
+-6.82207920969716,
+8.1125587949369
+],
+[
+-6.822109377521321,
+8.11253037436477
+],
+[
+-6.82213357720398,
+8.11250580509064
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Chemin",
+"cible_modele": "chemin_circulation",
+"code_champ": "chemin",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/Escalier/kml_1",
+"nom": "kml_1",
+"layer_path": [
+"SIG",
+"Circulation",
+"Escalier"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82256083945851,
+8.11211468078477
+],
+[
+-6.82257380328243,
+8.1121025381509
+],
+[
+-6.82253489552618,
+8.11206115643324
+],
+[
+-6.82252191750912,
+8.11207358500334
+],
+[
+-6.82256083945851,
+8.11211468078477
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Escalier",
+"cible_modele": "chemin_circulation",
+"code_champ": "escalier",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/Escalier/kml_2",
+"nom": "kml_2",
+"layer_path": [
+"SIG",
+"Circulation",
+"Escalier"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82217468174136,
+8.1116754988097
+],
+[
+-6.8221614553234,
+8.11168755867459
+],
+[
+-6.82212185622384,
+8.11164652594156
+],
+[
+-6.82212010500758,
+8.11164158117972
+],
+[
+-6.82212995767308,
+8.11163279353987
+],
+[
+-6.82213467608076,
+8.11163416561059
+],
+[
+-6.82217468174136,
+8.1116754988097
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Escalier",
+"cible_modele": "chemin_circulation",
+"code_champ": "escalier",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/Escalier/kml_3",
+"nom": "kml_3",
+"layer_path": [
+"SIG",
+"Circulation",
+"Escalier"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82181765211696,
+8.11131014183217
+],
+[
+-6.8218081251617,
+8.11131908487296
+],
+[
+-6.82180921730417,
+8.11132345664128
+],
+[
+-6.82184422464676,
+8.11135980061142
+],
+[
+-6.821846063478831,
+8.11135858111599
+],
+[
+-6.82185624388973,
+8.11134956925552
+],
+[
+-6.82185715266121,
+8.11134756741595
+],
+[
+-6.82182248038562,
+8.11131132466989
+],
+[
+-6.82181765211696,
+8.11131014183217
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Escalier",
+"cible_modele": "chemin_circulation",
+"code_champ": "escalier",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Circulation/Escalier/kml_4",
+"nom": "kml_4",
+"layer_path": [
+"SIG",
+"Circulation",
+"Escalier"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82149672399958,
+8.11097849509691
+],
+[
+-6.821487178518841,
+8.11098751034488
+],
+[
+-6.82148824286244,
+8.11099199043454
+],
+[
+-6.8215362582697,
+8.11104164639963
+],
+[
+-6.821538134891149,
+8.1110401468928
+],
+[
+-6.82154764423729,
+8.11103110433286
+],
+[
+-6.82154920402936,
+8.11102948562197
+],
+[
+-6.82150110718276,
+8.11097979306601
+],
+[
+-6.82149672399958,
+8.11097849509691
+]
+],
+"ferme": true,
+"categorie_sig": "circulation_amenagements",
+"type_label": "Escalier",
+"cible_modele": "chemin_circulation",
+"code_champ": "escalier",
+"methode": "couche_repli",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/SParking",
+"nom": "SParking",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "Polygon",
+"coords_lonlat": [
+[
+-6.822198153641414,
+8.112490020041315
+],
+[
+-6.822392789060146,
+8.112736650531156
+],
+[
+-6.822515410336059,
+8.112746509975855
+],
+[
+-6.822819755419873,
+8.112439677264934
+],
+[
+-6.822555387769632,
+8.11212856167584
+],
+[
+-6.822198153641414,
+8.112490020041315
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Parking",
+"cible_modele": "point_interet",
+"code_champ": "parking",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Parking",
+"nom": "Parking",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "Polygon",
+"coords_lonlat": [
+[
+-6.822589052658198,
+8.112097510543993
+],
+[
+-6.822860067710539,
+8.112411835379332
+],
+[
+-6.823252325255784,
+8.112029811593255
+],
+[
+-6.822966767001741,
+8.111741110143438
+],
+[
+-6.822589052658198,
+8.112097510543993
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Parking",
+"cible_modele": "point_interet",
+"code_champ": "parking",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Workshop",
+"nom": "Workshop",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82317370406898,
+8.11193478689541
+],
+[
+-6.82324251208192,
+8.11200591349709
+],
+[
+-6.82332211034207,
+8.11192944250125
+],
+[
+-6.823253320559019,
+8.11185829793161
+],
+[
+-6.82317370406898,
+8.11193478689541
+]
+],
+"ferme": true,
+"categorie_sig": "autre_sig",
+"type_label": "Non classifié",
+"cible_modele": "point_interet",
+"code_champ": "autre",
+"methode": "non_classifie",
+"reconnu": false
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Security Hut",
+"nom": "Security Hut",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82302664003023,
+8.11170338240902
+],
+[
+-6.82305844258631,
+8.11173685979028
+],
+[
+-6.82309137769847,
+8.11170578887558
+],
+[
+-6.82305961303704,
+8.11167228555138
+],
+[
+-6.82302664003023,
+8.11170338240902
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Guérite",
+"cible_modele": "point_interet",
+"code_champ": "guerite",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Restroom",
+"nom": "Restroom",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82227969824157,
+8.11212544657034
+],
+[
+-6.82232798172218,
+8.11217464004762
+],
+[
+-6.82236299058192,
+8.11214140886252
+],
+[
+-6.822314759553729,
+8.1120916794068
+],
+[
+-6.82231332879232,
+8.11209307556009
+],
+[
+-6.82230501746261,
+8.11208461716244
+],
+[
+-6.82227326205806,
+8.11211503227664
+],
+[
+-6.82228194092762,
+8.11212373624005
+],
+[
+-6.82227969824157,
+8.11212544657034
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Toilette",
+"cible_modele": "point_interet",
+"code_champ": "toilette",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Restaurant",
+"nom": "Restaurant",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82201788198486,
+8.11196952811096
+],
+[
+-6.82209437166988,
+8.1120485929982
+],
+[
+-6.822277212601561,
+8.11187293147528
+],
+[
+-6.8222007228957,
+8.11179386662112
+],
+[
+-6.82201788198486,
+8.11196952811096
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Restaurant",
+"cible_modele": "point_interet",
+"code_champ": "restaurant",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Meeting Room",
+"nom": "Meeting Room",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82219378143236,
+8.11216798805254
+],
+[
+-6.82225925569211,
+8.11223566349787
+],
+[
+-6.8223172364108,
+8.11217995946983
+],
+[
+-6.822251763690561,
+8.11211228254646
+],
+[
+-6.82219378143236,
+8.11216798805254
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Salle de réunion",
+"cible_modele": "point_interet",
+"code_champ": "reunion",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Infirmary",
+"nom": "Infirmary",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82317050357946,
+8.11185957053014
+],
+[
+-6.82319993707881,
+8.11189001160234
+],
+[
+-6.823243520495561,
+8.11184816239351
+],
+[
+-6.823214086994289,
+8.11181772132434
+],
+[
+-6.82317050357946,
+8.11185957053014
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Infirmerie",
+"cible_modele": "point_interet",
+"code_champ": "infirmerie",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Bar",
+"nom": "Bar",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82219378143236,
+8.11216798805254
+],
+[
+-6.822259254144141,
+8.11223566498506
+],
+[
+-6.82213831328275,
+8.11235185673769
+],
+[
+-6.8220728406902,
+8.11228417980476
+],
+[
+-6.82219378143236,
+8.11216798805254
+]
+],
+"ferme": true,
+"categorie_sig": "infrastructures",
+"type_label": "Bar",
+"cible_modele": "point_interet",
+"code_champ": "bar",
+"methode": "nom",
+"reconnu": true
+},
+{
+"source_ref": "SIG_V2/SIG/Infra/Admin",
+"nom": "Admin",
+"layer_path": [
+"SIG",
+"Infra"
+],
+"geom_type_kml": "LineString",
+"coords_lonlat": [
+[
+-6.82232540851751,
+8.11208421867672
+],
+[
+-6.82236947669675,
+8.11212977044436
+],
+[
+-6.822463509176769,
+8.11203943017585
+],
+[
+-6.82241944099032,
+8.111993878419
+],
+[
+-6.82232540851751,
+8.11208421867672
+]
+],
+"ferme": true,
+"categorie_sig": "autre_sig",
+"type_label": "Non classifié",
+"cible_modele": "point_interet",
+"code_champ": "autre",
+"methode": "non_classifie",
+"reconnu": false
+}
+]

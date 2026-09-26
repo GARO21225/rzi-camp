@@ -8,7 +8,7 @@ class PointInteretSerializer(serializers.ModelSerializer):
     class Meta:
         model = PointInteret
         fields = ["id","nom","categorie","categorie_label","latitude","longitude",
-                  "description","actif","date_creation"]
+                  "description","actif","date_creation","geojson_geometry","source_ref"]
         read_only_fields = ["date_creation"]
 
 class CheminCirculationSerializer(serializers.ModelSerializer):
@@ -16,7 +16,7 @@ class CheminCirculationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CheminCirculation
-        fields = ["id","nom","type_chemin","type_chemin_label","points","actif","date_creation"]
+        fields = ["id","nom","type_chemin","type_chemin_label","points","actif","date_creation","source_ref"]
         read_only_fields = ["date_creation"]
 
 class EquipementEPISerializer(serializers.ModelSerializer):
