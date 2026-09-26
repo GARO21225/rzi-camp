@@ -7,7 +7,7 @@ import datetime, csv, uuid
 from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Q
-from .models import Voyage
+from .models import Voyage, Rotation
 from .serializers import VoyageSerializer
 
 STATUT_MAP = {
@@ -551,38 +551,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         u = request.user
         role = getattr(getattr(u, "profile", None), "role", None)
         is_admin = u.is_staff or u.is_superuser or role == "admin"
-        # IMPORTANT : ne PAS inclure "statut" dans le regroupement — sinon
-        # des que UN SEUL passager change de statut (ex: rentre alors que
-        # les autres sont encore en transit), Django scinde la meme rotation
-        # en plusieurs groupes distincts au lieu d'une seule rotation avec
-        # des statuts individuels mixtes. Le statut agrege de la rotation se
-        # calcule a part, a partir des statuts individuels des passagers.
-        #
-        # MEME PIEGE, BUG REEL TROUVE ET CORRIGE ICI : "destination" etait
-        # elle aussi dans ce regroupement. Depuis l'ajout de l'edition du
-        # lieu de montee/descente PAR PASSAGER (qui modifie justement
-        # Voyage.destination pour UNE personne du convoi), des que cette
-        # valeur differe d'un seul passager par rapport aux autres, Django
-        # scindait la MEME rotation_id en deux groupes distincts avec le
-        # meme vehicule et les memes passagers dupliques a l'affichage -
-        # exactement le symptome signale. La destination "de la rotation"
-        # (celle du convoi dans son ensemble) se calcule desormais a part,
-        # comme le statut, plutot que de servir de cle de regroupement.
-        groupes = (Voyage.objects
-            .exclude(rotation_id__isnull=True).exclude(rotation_id="")
-            .values("rotation_id","date_depart","date_retour_prevue",
-                    "vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_secondaire","nb_places_total","heure_depart","point_rdv",
-                    "type_voyage","motif")
-            .annotate(nb_passagers=Count("id"))
-            .order_by("-date_depart"))
-        groupes = list(groupes)
+
+        # Source de verite desormais le modele Rotation (existence
+        # independante des passagers - bug corrige : avant, une rotation
+        # sans aucun passager n'existait nulle part puisqu'elle n'etait
+        # QUE le regroupement de lignes Voyage qui la partageaient). Les
+        # rotations a 0 passager s'affichent donc maintenant normalement,
+        # pretes a recevoir des personnes ensuite (section 11 du document).
+        rotations_qs = list(Rotation.objects.all().order_by("-date_depart").values(
+            "rotation_id","date_depart","date_retour_prevue","destination",
+            "vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_secondaire","nb_places_total","heure_depart","point_rdv",
+            "motif","niveau_alerte","trajet_aller_seul"))
 
         # PERFORMANCE : recupere TOUS les passagers de TOUTES les rotations
         # en UNE seule requete, puis regroupe en memoire par rotation_id -
-        # au lieu d'une requete SEPAREE par rotation (N+1 classique,
-        # potentiellement tres lent avec beaucoup de rotations actives, et
-        # un contributeur plausible au ralentissement signale).
-        rotation_ids = [g["rotation_id"] for g in groupes]
+        # au lieu d'une requete SEPAREE par rotation (N+1 classique).
+        rotation_ids = [g["rotation_id"] for g in rotations_qs]
         tous_passagers = list(Voyage.objects.filter(rotation_id__in=rotation_ids)
             .exclude(statut="annule")
             .select_related("personnel")
@@ -593,25 +577,26 @@ class VoyageViewSet(viewsets.ModelViewSet):
             passagers_par_rotation.setdefault(p["rotation_id"], []).append(p)
 
         result = []
-        for g in groupes:
+        for g in rotations_qs:
             passagers = passagers_par_rotation.get(g["rotation_id"], [])
-            if not passagers:
-                continue  # tout le monde annule/refuse -> rotation vide, ne pas afficher
             # Destination "de reference" affichee sur la carte du convoi :
-            # celle du plus grand nombre de passagers (la destination
-            # commune du convoi), pas une valeur de groupement qui casserait
-            # des qu'une seule personne a un lieu de descente different.
-            destinations = [p["destination"] for p in passagers if p["destination"]]
-            g["destination"] = max(set(destinations), key=destinations.count) if destinations else ""
-            statuts_presents = {p["statut"] for p in passagers}
-            if statuts_presents == {"retour"}:
-                statut_rotation = "retour"
-            elif "en_voyage" in statuts_presents:
-                statut_rotation = "en_voyage"
-            elif "planifie" in statuts_presents:
-                statut_rotation = "planifie"
+            # celle du plus grand nombre de passagers si assignes, sinon
+            # celle enregistree sur la Rotation elle-meme (rotation encore
+            # sans personne).
+            if passagers:
+                destinations = [p["destination"] for p in passagers if p["destination"]]
+                g["destination"] = max(set(destinations), key=destinations.count) if destinations else ""
+                statuts_presents = {p["statut"] for p in passagers}
+                if statuts_presents == {"retour"}:
+                    statut_rotation = "retour"
+                elif "en_voyage" in statuts_presents:
+                    statut_rotation = "en_voyage"
+                elif "planifie" in statuts_presents:
+                    statut_rotation = "planifie"
+                else:
+                    statut_rotation = next(iter(statuts_presents), "planifie")
             else:
-                statut_rotation = next(iter(statuts_presents), "planifie")
+                statut_rotation = "planifie"
             g["statut"] = statut_rotation
             # Liste nominative des passagers : UNIQUEMENT pour l'admin. Un
             # agent qui consulte les rotations disponibles pour en
@@ -756,6 +741,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error": f"{conducteur_secondaire} fait partie des personnes à transporter : ne peut pas être aussi second chauffeur."}, status=400)
 
         nouveau_rotation_id = str(uuid.uuid4())[:8].upper()
+        Rotation.objects.create(
+            rotation_id=nouveau_rotation_id, vehicule=vehicule, vehicule_matricule=vehicule_matricule,
+            conducteur=conducteur, conducteur_personnel=conducteur_personnel,
+            conducteur_secondaire=conducteur_secondaire, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
+            destination=voyages[0].destination if voyages else "", date_depart=voyages[0].date_depart if voyages else timezone.localdate(),
+            date_retour_prevue=voyages[0].date_retour_prevue if voyages else timezone.localdate(),
+            nb_places_total=len(voyages), statut="planifie", enregistre_par=request.user,
+        )
         for v in voyages:
             v.vehicule = vehicule
             v.vehicule_matricule = vehicule_matricule
@@ -912,6 +905,25 @@ class VoyageViewSet(viewsets.ModelViewSet):
             from django.utils import timezone as tz2
             extra_validation = {"statut_validation":"valide", "valide_par":u, "date_validation":tz2.now()}
 
+        # Bug reel corrige ici : la Rotation elle-meme (vehicule, chauffeur,
+        # dates) est desormais toujours enregistree, MEME avec 0 passager -
+        # avant ce correctif, une rotation cree sans personne ne persistait
+        # RIEN du tout (cette boucle ne s'executait jamais), la rendant
+        # invisible nulle part alors que la reponse annoncait un succes.
+        # Section 11 du document de refonte : les personnes peuvent etre
+        # ajoutees APRES la creation de la rotation, pas obligatoirement au
+        # meme moment.
+        if type_voyage != "individuel":
+            Rotation.objects.create(
+                rotation_id=rotation_id, vehicule=vehicule, vehicule_matricule=vehicule_matricule,
+                vehicule_photo=vehicule_photo, conducteur=conducteur, conducteur_personnel=conducteur_personnel,
+                conducteur_secondaire=conducteur_secondaire, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
+                destination=destination, origine=origine, date_depart=date_depart, date_retour_prevue=date_retour,
+                heure_depart=heure_depart, point_rdv=point_rdv, motif=motif, nb_places_total=nb_places,
+                niveau_alerte=niveau_alerte, trajet_aller_seul=trajet_aller_seul,
+                statut="planifie", enregistre_par=request.user,
+            )
+
         for pid in passagers_ids:
             try:
                 v = Voyage.objects.create(
@@ -977,28 +989,49 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     cible.save(update_fields=["rotation_id","type_voyage"])
                 rotation_id = cible.rotation_id
             existing = Voyage.objects.select_for_update().filter(rotation_id=rotation_id).exclude(statut="annule").first()
-            if not existing:
+            rotation_obj = Rotation.objects.filter(rotation_id=rotation_id).first()
+            if not existing and not rotation_obj:
                 return Response({"error":"Rotation introuvable"},status=404)
-            if existing.statut not in ("planifie", "en_voyage"):
+            # Attributs partages de la rotation : le modele Rotation est la
+            # source de verite (existe meme sans aucun passager - bug
+            # corrige) ; a defaut (anciennes rotations anterieures a ce
+            # modele, deja migrees en principe, ou incoherence), repli sur
+            # le voyage existant comme avant.
+            ref_statut = existing.statut if existing else "planifie"
+            ref_nb_places = (rotation_obj.nb_places_total if rotation_obj else None) or (existing.nb_places_total if existing else 15)
+            ref_date_depart = (rotation_obj.date_depart if rotation_obj else None) or (existing.date_depart if existing else None)
+            ref_date_retour = (rotation_obj.date_retour_prevue if rotation_obj else None) or (existing.date_retour_prevue if existing else None)
+            ref_conducteur = (rotation_obj.conducteur if rotation_obj else "") or (existing.conducteur if existing else "")
+            ref_conducteur_secondaire = (rotation_obj.conducteur_secondaire if rotation_obj else "") or (existing.conducteur_secondaire if existing else "")
+            ref_vehicule = (rotation_obj.vehicule if rotation_obj else "") or (existing.vehicule if existing else "")
+            ref_vehicule_matricule = (rotation_obj.vehicule_matricule if rotation_obj else "") or (existing.vehicule_matricule if existing else "")
+            ref_destination = (rotation_obj.destination if rotation_obj else "") or (existing.destination if existing else "")
+            ref_origine = (rotation_obj.origine if rotation_obj else "") or (existing.origine if existing else "")
+            ref_conducteur_personnel_id = (rotation_obj.conducteur_personnel_id if rotation_obj else None) or (existing.conducteur_personnel_id if existing else None)
+            ref_conducteur_secondaire_personnel_id = (rotation_obj.conducteur_secondaire_personnel_id if rotation_obj else None) or (existing.conducteur_secondaire_personnel_id if existing else None)
+            ref_niveau_alerte = (rotation_obj.niveau_alerte if rotation_obj else None) or (existing.niveau_alerte if existing else 1)
+            ref_trajet_aller_seul = rotation_obj.trajet_aller_seul if rotation_obj else (existing.trajet_aller_seul if existing else False)
+
+            if ref_statut not in ("planifie", "en_voyage"):
                 # "en_voyage" reste rejoignable : c'est exactement le cas
                 # d'une montee en cours de route (point intermediaire) -
                 # bloquer ici aurait annule l'un des buts explicites de la
                 # fonctionnalite montee/descente. Seul un retour deja
                 # entame ou un convoi annule reste bloque : rejoindre un
                 # vehicule qui rentre deja au camp n'a pas de sens.
-                libelle = {"retour":"déjà terminé (retour effectué)"}.get(existing.statut, existing.statut)
+                libelle = {"retour":"déjà terminé (retour effectué)"}.get(ref_statut, ref_statut)
                 return Response({"error": f"Ce convoi est {libelle} — impossible d'y ajouter quelqu'un."}, status=400)
             prises = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule").count()
-            if prises >= (existing.nb_places_total or 15):
+            if prises >= ref_nb_places:
                 return Response({"error":"Rotation complète"},status=400)
             # Meme delai de 48h que la creation directe - mais UNIQUEMENT si
             # le convoi n'est pas deja parti ("en_voyage" = montee en cours
             # de route, par definition a court terme, exemptee).
-            if not is_admin and existing.statut == "planifie":
+            if not is_admin and ref_statut == "planifie":
                 from django.utils import timezone
                 from datetime import timedelta
                 limite = timezone.localdate() + timedelta(days=2)
-                if existing.date_depart < limite:
+                if ref_date_depart and ref_date_depart < limite:
                     return Response({"error": "Les demandes pour rejoindre un convoi doivent être envoyées au moins 48h avant son départ. Pour un départ plus proche, contactez l'administrateur directement."}, status=400)
             if Voyage.objects.filter(rotation_id=rotation_id,personnel_id=personnel_id).exists():
                 return Response({"error":"Déjà inscrit sur cette rotation"},status=400)
@@ -1008,25 +1041,33 @@ class VoyageViewSet(viewsets.ModelViewSet):
             from residences.models import Personnel
             pers_cible = Personnel.objects.filter(pk=personnel_id).first()
             if pers_cible:
-                nom_complet = f"{pers_cible.nom} {pers_cible.prenom}".strip().lower()
-                if existing.conducteur and existing.conducteur.strip().lower() == nom_complet:
+                if ref_conducteur_personnel_id and ref_conducteur_personnel_id == pers_cible.id:
                     return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné conducteur de ce convoi — ne peut pas aussi être passager."}, status=400)
-                if existing.conducteur_secondaire and existing.conducteur_secondaire.strip().lower() == nom_complet:
+                if ref_conducteur_secondaire_personnel_id and ref_conducteur_secondaire_personnel_id == pers_cible.id:
+                    return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné second chauffeur de ce convoi — ne peut pas aussi être passager."}, status=400)
+                nom_complet = f"{pers_cible.nom} {pers_cible.prenom}".strip().lower()
+                if not ref_conducteur_personnel_id and ref_conducteur and ref_conducteur.strip().lower() == nom_complet:
+                    return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné conducteur de ce convoi — ne peut pas aussi être passager."}, status=400)
+                if not ref_conducteur_secondaire_personnel_id and ref_conducteur_secondaire and ref_conducteur_secondaire.strip().lower() == nom_complet:
                     return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné second chauffeur de ce convoi — ne peut pas aussi être passager."}, status=400)
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
             conflict = _check_voyage_conflit(
-                personnel_id, existing.date_depart, existing.date_retour_prevue
+                personnel_id, ref_date_depart, ref_date_retour
             )
             if conflict and conflict.rotation_id != rotation_id:
                 return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
             v = Voyage.objects.create(
-                personnel_id=personnel_id, destination=existing.destination, origine=existing.origine,
-                date_depart=existing.date_depart, date_retour_prevue=existing.date_retour_prevue,
-                vehicule=existing.vehicule, nb_places_total=existing.nb_places_total,
-                vehicule_matricule=existing.vehicule_matricule, vehicule_photo=existing.vehicule_photo,
-                conducteur=existing.conducteur,
-                heure_depart=existing.heure_depart, point_rdv=existing.point_rdv,
-                motif=existing.motif, type_voyage=existing.type_voyage,
+                personnel_id=personnel_id, destination=ref_destination, origine=ref_origine,
+                date_depart=ref_date_depart, date_retour_prevue=ref_date_retour,
+                vehicule=ref_vehicule, nb_places_total=ref_nb_places,
+                vehicule_matricule=ref_vehicule_matricule, vehicule_photo=(rotation_obj.vehicule_photo if rotation_obj else (existing.vehicule_photo if existing else "")),
+                conducteur=ref_conducteur, conducteur_secondaire=ref_conducteur_secondaire,
+                conducteur_personnel_id=ref_conducteur_personnel_id, conducteur_secondaire_personnel_id=ref_conducteur_secondaire_personnel_id,
+                niveau_alerte=ref_niveau_alerte, trajet_aller_seul=ref_trajet_aller_seul,
+                heure_depart=(rotation_obj.heure_depart if rotation_obj else (existing.heure_depart if existing else None)),
+                point_rdv=(rotation_obj.point_rdv if rotation_obj else (existing.point_rdv if existing else "")),
+                motif=(rotation_obj.motif if rotation_obj else (existing.motif if existing else "")),
+                type_voyage="rotation",
                 rotation_id=rotation_id, statut="planifie",
                 enregistre_par=request.user,
             )

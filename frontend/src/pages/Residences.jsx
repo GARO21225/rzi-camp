@@ -554,6 +554,12 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   const [batimentChoisi, setBatimentChoisi] = useState('')
   const [plainteModal, setPlainteModal] = useState(null) // { rp } - anomalie sur cette residence
   const [plainteForm, setPlainteForm] = useState({ titre:'', description:'', categorie:'Autre' })
+  const [selectionnes, setSelectionnes] = useState(new Set())
+  const [modifierModal, setModifierModal] = useState(null) // { rp } - changement de chambre
+  const [nouvelleBatimentChoisi, setNouvelleBatimentChoisi] = useState('')
+  const [importModal, setImportModal] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const [importLoading, setImportLoading] = useState(false)
 
   const charger = () => {
     setLoading(true)
@@ -591,6 +597,69 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
       toast.success('Résidence principale terminée.')
       charger()
     } catch(e) { toast.error('Erreur') }
+  }
+
+  const supprimer = async (rp) => {
+    if (!await confirmDialog(`Supprimer définitivement cette ligne (${rp.personnel_nom} — ${rp.batiment_residence}) ? Contrairement à « Fin », ceci efface l'historique — à réserver à la correction d'une erreur de saisie.`)) return
+    try {
+      await residentsPrincipaux.supprimer(rp.id)
+      toast.success('Supprimé.')
+      charger()
+    } catch(e) { toast.error(e.response?.data?.detail || 'Erreur') }
+  }
+
+  const confirmerModifier = async () => {
+    if (!nouvelleBatimentChoisi) return toast.error('Choisissez une chambre.')
+    try {
+      await residentsPrincipaux.changerChambre(modifierModal.rp.id, nouvelleBatimentChoisi)
+      toast.success('Chambre modifiée.')
+      setModifierModal(null); charger()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
+
+  const toggleSelection = (id) => {
+    setSelectionnes(s => {
+      const copie = new Set(s)
+      copie.has(id) ? copie.delete(id) : copie.add(id)
+      return copie
+    })
+  }
+
+  const finEnMasse = async () => {
+    if (!await confirmDialog(`Mettre fin à la résidence principale de ${selectionnes.size} personne(s) sélectionnée(s) ?`)) return
+    for (const id of selectionnes) {
+      try { await residentsPrincipaux.mettreFin(id) } catch {}
+    }
+    toast.success(`${selectionnes.size} résidence(s) terminée(s).`)
+    setSelectionnes(new Set()); charger()
+  }
+
+  const telechargerTemplate = () => {
+    const csv = 'matricule,residence\nMAT001,A12\nMAT002,B04\n'
+    const a = document.createElement('a')
+    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
+    a.download = 'template_residents_principaux.csv'
+    a.click()
+  }
+
+  const importerFichier = async (file) => {
+    setImportLoading(true); setImportResult(null)
+    try {
+      const texte = await file.text()
+      const lignes = texte.split('\n').map(l=>l.trim()).filter(Boolean)
+      const [entete, ...reste] = lignes
+      const cols = entete.split(',').map(c=>c.trim().toLowerCase())
+      const iMat = cols.indexOf('matricule'), iRes = cols.indexOf('residence')
+      if (iMat===-1 || iRes===-1) { toast.error('Colonnes attendues : matricule, residence'); setImportLoading(false); return }
+      const donnees = reste.map(l=>{
+        const cellules = l.split(',').map(c=>c.trim())
+        return { matricule: cellules[iMat], residence: cellules[iRes] }
+      })
+      const r = await residentsPrincipaux.importerMasse(donnees)
+      setImportResult(r.data)
+      if (r.data.reussis.length) charger()
+    } catch(e) { toast.error('Erreur de lecture du fichier') }
+    setImportLoading(false)
   }
 
   const soumettrePlainte = async () => {
@@ -636,12 +705,30 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
           </button>
         </div>
         {isAdmin && (
-          <button onClick={ouvrirDeclaration}
-            style={{ background:'#16a34a', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
-            ➕ Déclarer un résident principal
-          </button>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={()=>{setImportModal(true); setImportResult(null)}}
+              style={{ background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+              📤 Importer
+            </button>
+            <button onClick={ouvrirDeclaration}
+              style={{ background:'#16a34a', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+              ➕ Déclarer un résident principal
+            </button>
+          </div>
         )}
       </div>
+
+      {selectionnes.size > 0 && isAdmin && (
+        <div style={{ background:'#fef3c7', border:'1px solid #fde68a', borderRadius:10, padding:'8px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:12.5, fontWeight:700, color:'#92400e' }}>{selectionnes.size} sélectionné(s)</span>
+          <button onClick={finEnMasse} style={{ background:'#dc2626', color:'#fff', border:'none', padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+            Mettre fin (masse)
+          </button>
+          <button onClick={()=>setSelectionnes(new Set())} style={{ background:'rgba(0,0,0,.08)', border:'none', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11.5 }}>
+            ✕ Désélectionner
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding:40, textAlign:'center', color:'#94a3b8' }}>⏳ Chargement...</div>
@@ -650,6 +737,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
               <tr style={{ background:'#f8fafc', textAlign:'left' }}>
+                {isAdmin && <th style={{ padding:'10px 14px', width:30 }}></th>}
                 {['Personnel','Nom / Matricule','Statut résident principal','Chambre principale','Date d\'affectation','Statut de la résidence','Occupant actuel',''].map(h=>(
                   <th key={h} style={{ padding:'10px 14px', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase' }}>{h}</th>
                 ))}
@@ -657,10 +745,15 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
             </thead>
             <tbody>
               {listeFiltree.length===0 && (
-                <tr><td colSpan={8} style={{ padding:30, textAlign:'center', color:'#94a3b8' }}>Aucun résident principal {voirHistorique?'':'actif'}.</td></tr>
+                <tr><td colSpan={9} style={{ padding:30, textAlign:'center', color:'#94a3b8' }}>Aucun résident principal {voirHistorique?'':'actif'}.</td></tr>
               )}
               {listeFiltree.map(rp => (
                 <tr key={rp.id} style={{ borderTop:'1px solid #f1f5f9' }}>
+                  {isAdmin && (
+                    <td style={{ padding:'10px 14px' }}>
+                      <input type="checkbox" checked={selectionnes.has(rp.id)} onChange={()=>toggleSelection(rp.id)}/>
+                    </td>
+                  )}
                   <td style={{ padding:'10px 14px', fontWeight:700 }}>{rp.personnel_nom}</td>
                   <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.personnel_matricule || '—'}</td>
                   <td style={{ padding:'10px 14px' }}>
@@ -675,6 +768,20 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
                   <td style={{ padding:'10px 14px', color:'#64748b' }}>{rp.occupant_actuel_nom || (rp.actif ? '(lui-même)' : '—')}</td>
                   <td style={{ padding:'10px 14px' }}>
                     <div style={{display:'flex',gap:6}}>
+                      {isAdmin && rp.actif && (
+                        <button onClick={()=>{setModifierModal({rp}); setNouvelleBatimentChoisi('')}}
+                          style={{ background:'#eff6ff', color:'#2563eb', border:'1px solid #bfdbfe', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}
+                          title="Modifier la chambre">
+                          ✏️ Modifier
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button onClick={()=>supprimer(rp)}
+                          style={{ background:'#fef2f2', color:'#991b1b', border:'1px solid #fecaca', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}
+                          title="Supprimer définitivement cette ligne">
+                          🗑️
+                        </button>
+                      )}
                       <button onClick={()=>{setPlainteModal({rp}); setPlainteForm({titre:'',description:'',categorie:'Autre'})}}
                         style={{ background:'#fff7ed', color:'#c2410c', border:'1px solid #fed7aa', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}
                         title="Signaler une anomalie sur cette résidence">
@@ -718,6 +825,71 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
               <button onClick={declarer} style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Déclarer résident principal
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modifierModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setModifierModal(null)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#2563eb', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>✏️ Modifier — {modifierModal.rp.personnel_nom}</div>
+              <button onClick={()=>setModifierModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Résidence actuelle : <b>{modifierModal.rp.batiment_residence}</b></div>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Nouvelle chambre</label>
+              <select value={nouvelleBatimentChoisi} onChange={e=>setNouvelleBatimentChoisi(e.target.value)}
+                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
+                <option value="">— Choisir —</option>
+                {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
+                  <option key={b.id} value={b.id}>{b.residence} {b.resident_principal && b.resident_principal.personnel_id!==modifierModal.rp.personnel_id ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
+                ))}
+              </select>
+              <button onClick={confirmerModifier} style={{ width:'100%', background:'#2563eb', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setImportModal(false)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:480, width:'100%', overflow:'hidden' }}>
+            <div style={{ padding:'14px 18px', background:'#0f172a', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>📤 Importer des résidents principaux</div>
+              <button onClick={()=>setImportModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:20 }}>
+              <div style={{ fontSize:12, color:'#64748b', marginBottom:14, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:'10px 12px' }}>
+                Chaque ligne doit correspondre à une personne <b>déjà présente dans la liste du personnel</b> (par matricule) — aucune fiche n'est créée par cet import, seule la résidence principale est rattachée.
+              </div>
+              <button onClick={telechargerTemplate} style={{ background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, marginBottom:14 }}>
+                ⬇ Télécharger le modèle (.csv)
+              </button>
+              <input type="file" accept=".csv" onChange={e=>e.target.files[0] && importerFichier(e.target.files[0])}
+                style={{ display:'block', width:'100%', marginBottom:14, fontSize:12.5 }}/>
+              {importLoading && <div style={{ textAlign:'center', color:'#64748b', fontSize:12 }}>⏳ Import en cours...</div>}
+              {importResult && (
+                <div style={{ maxHeight:220, overflowY:'auto' }}>
+                  {importResult.reussis.length > 0 && (
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#15803d', marginBottom:4 }}>✅ {importResult.reussis.length} réussi(s)</div>
+                      {importResult.reussis.map(r=><div key={r.ligne} style={{ fontSize:11.5, color:'#166534' }}>Ligne {r.ligne} : {r.personnel} → {r.residence}</div>)}
+                    </div>
+                  )}
+                  {importResult.echecs.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#dc2626', marginBottom:4 }}>❌ {importResult.echecs.length} échec(s)</div>
+                      {importResult.echecs.map(e=><div key={e.ligne} style={{ fontSize:11.5, color:'#991b1b' }}>Ligne {e.ligne} : {e.erreur}</div>)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

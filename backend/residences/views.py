@@ -1256,6 +1256,17 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         role = getattr(getattr(u, "profile", None), "role", "")
         return role in ("admin", "manager")
 
+    def get_permissions(self):
+        # Les actions standard ModelViewSet (update/partial_update/destroy)
+        # n'avaient AUCUNE restriction au-dela d'etre connecte - seules les
+        # actions personnalisees (declarer/changer_chambre/mettre_fin)
+        # verifiaient _habilite(). Faille corrigee : ecriture reservee aux
+        # roles habilites partout, lecture ouverte a tous comme prevu.
+        if self.request.method not in ("GET", "HEAD", "OPTIONS") and not self._habilite(self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Non habilité à modifier les résidents principaux.")
+        return super().get_permissions()
+
     def _notifier(self, personnel, titre, message):
         """Notifie la personne concernee - jamais bloquant si ca echoue."""
         try:
@@ -1276,6 +1287,36 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         personnel_id = self.request.query_params.get("personnel")
         if personnel_id: qs = qs.filter(personnel_id=personnel_id)
         return qs
+
+    def _declarer_un(self, personnel, batiment, user):
+        """
+        Logique de declaration partagee entre l'action unitaire declarer()
+        et l'import en masse importer_masse() - memes controles partout,
+        jamais dupliques. Renvoie (rp_ou_None, error_dict_ou_None, status).
+        """
+        if batiment.statut == "Maintenance":
+            return None, {"error": f"La chambre {batiment.residence} est en maintenance — indisponible pour une résidence principale."}, 400
+        with transaction.atomic():
+            list(ResidentPrincipal.objects.select_for_update().filter(batiment=batiment, date_fin__isnull=True))
+            conflit = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True).exclude(personnel=personnel).first()
+            if conflit:
+                return None, {
+                    "error": f"{batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}.",
+                    "conflit_personnel": conflit.personnel_id,
+                }, 409
+            deja = ResidentPrincipal.objects.filter(personnel=personnel, date_fin__isnull=True).first()
+            if deja:
+                if deja.batiment_id == batiment.id:
+                    return deja, None, 200
+                return None, {
+                    "error": f"{personnel.nom} {personnel.prenom} est déjà résident principal de {deja.batiment.residence}. Utilisez « changer de chambre » pour la modifier.",
+                    "residence_actuelle": deja.batiment.residence,
+                }, 409
+            rp = ResidentPrincipal.objects.create(
+                personnel=personnel, batiment=batiment,
+                date_debut=timezone.localdate(), affecte_par=user,
+            )
+        return rp, None, 201
 
     @action(detail=False, methods=["post"])
     def declarer(self, request):
@@ -1300,36 +1341,51 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         except (Personnel.DoesNotExist, Batiment.DoesNotExist):
             return Response({"error":"Personnel ou chambre introuvable."}, status=404)
 
-        if batiment.statut == "Maintenance":
-            return Response({"error": f"La chambre {batiment.residence} est en maintenance — indisponible pour une résidence principale."}, status=400)
+        rp, error, status_code = self._declarer_un(personnel, batiment, request.user)
+        if error:
+            return Response(error, status=status_code)
+        if status_code == 201:
+            self._notifier(personnel, "🏠 Résidence principale attribuée",
+                f"Vous êtes désormais résident principal de la chambre {batiment.residence}.")
+        return Response(ResidentPrincipalSerializer(rp).data, status=status_code)
 
-        with transaction.atomic():
-            # Verrouille pour eviter 2 declarations simultanees sur la meme chambre
-            list(ResidentPrincipal.objects.select_for_update().filter(batiment=batiment, date_fin__isnull=True))
+    @action(detail=False, methods=["post"])
+    def importer_masse(self, request):
+        """
+        Import en masse de declarations de residents principaux (bouton
+        signale manquant) - CHAQUE ligne doit obligatoirement correspondre
+        a une personne DEJA presente dans le personnel declare (jamais de
+        creation de personnel a la volee ici, uniquement le rattachement
+        residence <-> personnel existant) et a une chambre existante.
+        Reutilise integralement _declarer_un (memes controles que la
+        declaration unitaire), rien de duplique.
+        """
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        lignes = request.data.get("lignes") or []
+        if not lignes:
+            return Response({"error":"Aucune ligne à importer."}, status=400)
 
-            conflit = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True).exclude(personnel=personnel).first()
-            if conflit:
-                return Response({
-                    "error": f"{batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}.",
-                    "conflit_personnel": conflit.personnel_id,
-                }, status=409)
-
-            deja = ResidentPrincipal.objects.filter(personnel=personnel, date_fin__isnull=True).first()
-            if deja:
-                if deja.batiment_id == batiment.id:
-                    return Response(ResidentPrincipalSerializer(deja).data, status=200)
-                return Response({
-                    "error": f"{personnel.nom} {personnel.prenom} est déjà résident principal de {deja.batiment.residence}. Utilisez « changer de chambre » pour la modifier.",
-                    "residence_actuelle": deja.batiment.residence,
-                }, status=409)
-
-            rp = ResidentPrincipal.objects.create(
-                personnel=personnel, batiment=batiment,
-                date_debut=timezone.localdate(), affecte_par=request.user,
-            )
-        self._notifier(personnel, "🏠 Résidence principale attribuée",
-            f"Vous êtes désormais résident principal de la chambre {batiment.residence}.")
-        return Response(ResidentPrincipalSerializer(rp).data, status=201)
+        reussis, echecs = [], []
+        for i, ligne in enumerate(lignes):
+            matricule = str(ligne.get("matricule") or "").strip()
+            residence = str(ligne.get("residence") or "").strip()
+            if not matricule or not residence:
+                echecs.append({"ligne": i+1, "erreur": "Matricule et résidence requis."}); continue
+            personnel = Personnel.objects.filter(numero=matricule).first()
+            if not personnel:
+                echecs.append({"ligne": i+1, "erreur": f"Aucun personnel avec le matricule « {matricule} » (doit déjà exister dans la liste du personnel)."}); continue
+            batiment = Batiment.objects.filter(residence__iexact=residence).first()
+            if not batiment:
+                echecs.append({"ligne": i+1, "erreur": f"Chambre « {residence} » introuvable."}); continue
+            rp, error, status_code = self._declarer_un(personnel, batiment, request.user)
+            if error:
+                echecs.append({"ligne": i+1, "erreur": error["error"]}); continue
+            if status_code == 201:
+                self._notifier(personnel, "🏠 Résidence principale attribuée",
+                    f"Vous êtes désormais résident principal de la chambre {batiment.residence}.")
+            reussis.append({"ligne": i+1, "personnel": f"{personnel.nom} {personnel.prenom}", "residence": batiment.residence})
+        return Response({"reussis": reussis, "echecs": echecs})
 
     @action(detail=True, methods=["post"])
     def changer_chambre(self, request, pk=None):

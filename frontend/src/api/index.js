@@ -157,6 +157,8 @@ export const residentsPrincipaux = {
   declarer: (personnel, batiment) => api.post('/api/residents-principaux/declarer/', {personnel, batiment}),
   changerChambre: (id, batiment) => api.post(`/api/residents-principaux/${id}/changer_chambre/`, {batiment}),
   mettreFin: (id, motif) => api.post(`/api/residents-principaux/${id}/mettre_fin/`, {motif}),
+  supprimer: (id) => api.delete(`/api/residents-principaux/${id}/`),
+  importerMasse: (lignes) => api.post('/api/residents-principaux/importer_masse/', {lignes}),
 }
 export const personnel = {
   declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),

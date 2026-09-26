@@ -4,6 +4,56 @@ from django.contrib.auth.models import User
 from residences.models import Personnel, Batiment
 from simple_history.models import HistoricalRecords
 
+
+class Rotation(models.Model):
+    """
+    Existence INDEPENDANTE d'une rotation (vehicule + chauffeur + dates),
+    separee des personnes qui y voyagent. Bug reel corrige ici : avant ce
+    modele, une "rotation" n'existait QUE comme valeur de rotation_id
+    partagee entre plusieurs lignes Voyage - creer une rotation avec 0
+    passager ne persistait donc RIEN du tout (la boucle de creation de
+    Voyage ne s'executait jamais), rendant impossible d'organiser d'abord
+    le vehicule/chauffeur puis d'ajouter les personnes ensuite (section 11
+    du document de refonte Centre de Mobilite : "les personnes ne doivent
+    pas obligatoirement etre toutes selectionnees au moment de creer la
+    rotation").
+
+    rotation_id reste la cle de regroupement historique (deja utilisee
+    partout, Voyage.rotation_id la reference toujours) - ce modele lui
+    donne desormais une existence propre, qui survit meme sans aucun
+    passager assigne.
+    """
+    rotation_id = models.CharField(max_length=20, unique=True, db_index=True)
+    vehicule = models.CharField(max_length=100, blank=True, default="")
+    vehicule_matricule = models.CharField(max_length=30, blank=True, default="")
+    vehicule_photo = models.TextField(blank=True, default="")
+    conducteur = models.CharField(max_length=100, blank=True, default="")
+    conducteur_personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="rotations_conduites")
+    conducteur_secondaire = models.CharField(max_length=100, blank=True, default="")
+    conducteur_secondaire_personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="rotations_conduites_second")
+    destination = models.CharField(max_length=200, blank=True, default="")
+    origine = models.CharField(max_length=200, blank=True, default="")
+    date_depart = models.DateField()
+    date_retour_prevue = models.DateField()
+    heure_depart = models.TimeField(null=True, blank=True)
+    point_rdv = models.CharField(max_length=200, blank=True, default="")
+    motif = models.CharField(max_length=200, blank=True, default="")
+    nb_places_total = models.PositiveIntegerField(default=15)
+    niveau_alerte = models.PositiveSmallIntegerField(default=1)
+    trajet_aller_seul = models.BooleanField(default=False)
+    statut = models.CharField(max_length=20, default="planifie",
+                 help_text="Statut de la rotation elle-meme (independant du statut de chaque Voyage individuel) - utile tant qu'aucun passager n'est encore assigne.")
+    enregistre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Rotation {self.rotation_id} — {self.vehicule_matricule}"
+
+
 class Voyage(models.Model):
     STATUT = [
         ("planifie","Planifié"),
