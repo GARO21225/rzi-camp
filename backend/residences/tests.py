@@ -77,6 +77,39 @@ class PlainteCreationTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class PlainteCreerPourOccupantTests(TestCase):
+    """Le bouton 'Signaler' sur Residents principaux - un admin cree une plainte pour un AUTRE occupant."""
+
+    def setUp(self):
+        self.rf = APIRequestFactory()
+        self.admin = _admin()
+        self.agent_u = User.objects.create_user("agentcpo", "acpo@a.com", "pass")
+        self.agent = Personnel.objects.create(nom="Kone", prenom="Ibrahim", societe="ROXGOLD",
+            numero="CPO1", telephone="1", type_personnel="roxgold", user=self.agent_u)
+        Batiment.objects.create(residence="F09", bloc="F", statut="Occupé", personnel=self.agent)
+
+    def _appel(self, data, user=None):
+        req = self.rf.post("/api/plaintes/creer_pour_occupant/", data, format="json")
+        force_authenticate(req, user=user or self.admin)
+        return PlainteViewSet.as_view({"post": "creer_pour_occupant"})(req)
+
+    def test_admin_cree_pour_occupant(self):
+        resp = self._appel({"personnel": self.agent.id, "categorie": "Proprete", "sous_categorie": "sol", "description": "Sol sale"})
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data["batiment_residence"], "F09")
+
+    def test_non_habilite_refuse(self):
+        resp = self._appel({"personnel": self.agent.id, "categorie": "Proprete", "description": "Test"}, user=self.agent_u)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_personne_sans_hebergement_refuse(self):
+        sans_u = User.objects.create_user("sanscpo", "s@a.com", "pass")
+        sans_pers = Personnel.objects.create(nom="Sans", prenom="Logement", societe="ROXGOLD",
+            numero="CPO2", telephone="2", type_personnel="roxgold", user=sans_u)
+        resp = self._appel({"personnel": sans_pers.id, "categorie": "Proprete", "description": "Test"})
+        self.assertEqual(resp.status_code, 400)
+
+
 class PlainteSecuriteTests(TestCase):
     """Section 54 : tests de securite explicitement exiges par le document."""
 

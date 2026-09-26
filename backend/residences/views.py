@@ -1523,13 +1523,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
         # Type d'occupant (section 22) : resident principal si declare et
         # actif POUR CETTE CHAMBRE, sinon deduit du type de personnel -
         # jamais choisi par l'utilisateur, toujours calcule.
-        est_rp = ResidentPrincipal.objects.filter(personnel=pers, batiment=batiment, date_fin__isnull=True).exists()
-        if est_rp:
-            type_occupant = "resident_principal"
-        elif pers.type_personnel == "visiteur":
-            type_occupant = "visiteur"
-        else:
-            type_occupant = "resident_temporaire"
+        type_occupant = self._type_occupant_de(pers, batiment)
 
         categorie = request.data.get("categorie")
         sous_categorie = request.data.get("sous_categorie", "")
@@ -1546,6 +1540,60 @@ class PlainteViewSet(viewsets.ModelViewSet):
             statut="a_qualifier",
         )
         self._notifier_habilites("🧹 Nouvelle plainte", f"{pers.nom} {pers.prenom} ({batiment.residence}) — {categorie} : {description[:80]}")
+        return Response(PlainteSerializer(plainte).data, status=201)
+
+    def _type_occupant_de(self, pers, batiment):
+        """Partage entre create() (self-service) et creer_pour_occupant() (admin, depuis Residents principaux) - jamais duplique."""
+        est_rp = ResidentPrincipal.objects.filter(personnel=pers, batiment=batiment, date_fin__isnull=True).exists()
+        if est_rp:
+            return "resident_principal"
+        if pers.type_personnel == "visiteur":
+            return "visiteur"
+        return "resident_temporaire"
+
+    @action(detail=False, methods=["post"])
+    def creer_pour_occupant(self, request):
+        """
+        Meme create(), mais initiee par un admin/superviseur DEPUIS la
+        fiche d'un occupant (ex: bouton 'Signaler' sur Residents
+        principaux) plutot que par l'occupant lui-meme en self-service.
+        La chambre reste TOUJOURS determinee automatiquement (regle
+        36/37) - jamais depuis un champ libre du formulaire - mais a
+        partir de l'hebergement actif DE LA PERSONNE CIBLE, pas de
+        l'admin qui remplit le formulaire.
+
+        Remplace l'ancien bouton 'Signaler' qui creait directement un
+        Incident Maintenance (deux systemes paralleles, contraire aux
+        regles non negociables du document Plaintes) - desormais une
+        vraie Plainte, qui suit le meme workflow complet (qualification,
+        affectation, etc.) et peut ensuite se relier a Maintenance si
+        besoin technique, exactement comme le reste du systeme.
+        """
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        personnel_id = request.data.get("personnel")
+        pers = Personnel.objects.filter(pk=personnel_id).first()
+        if not pers:
+            return Response({"error":"Personnel introuvable."}, status=404)
+        batiment = Plainte.hebergement_actif_de(pers)
+        if not batiment:
+            return Response({"error": f"{pers.nom} {pers.prenom} n'a pas d'hébergement actif — impossible de créer une plainte liée à une chambre."}, status=400)
+
+        categorie = request.data.get("categorie")
+        sous_categorie = request.data.get("sous_categorie", "")
+        description = request.data.get("description", "").strip()
+        if not categorie or not description:
+            return Response({"error":"Catégorie et description requises."}, status=400)
+        if categorie not in Plainte.CATEGORIES:
+            return Response({"error":"Catégorie inconnue."}, status=400)
+
+        plainte = Plainte.objects.create(
+            occupant=pers, utilisateur=request.user, batiment=batiment,
+            type_occupant=self._type_occupant_de(pers, batiment),
+            categorie=categorie, sous_categorie=sous_categorie, description=description,
+            commentaire=request.data.get("commentaire",""), statut="a_qualifier",
+        )
+        self._notifier_habilites("🧹 Nouvelle plainte (signalée par un admin)", f"{pers.nom} {pers.prenom} ({batiment.residence}) — {categorie} : {description[:80]}")
         return Response(PlainteSerializer(plainte).data, status=201)
 
     @action(detail=True, methods=["post"])

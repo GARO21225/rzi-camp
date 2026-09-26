@@ -2,17 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
-
-const CATEGORIES = {
-  Proprete: ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir","autre"],
-  Fournitures: ["couverture","drap","serviette","savon","gel_lave_mains","serpillere","insecticide","desodorisant","autre"],
-  Electricite: ["lumiere","interrupteur","prise","autre"],
-  Equipements: ["ordinateur","climatiseur","refrigerateur","television","autre"],
-  Plomberie: ["douche","wc","lavabo","fuite","canalisation","autre"],
-  Securite: ["serrure","poignee","porte","fenetre","cle","autre"],
-  Etat_chambre: ["peinture","humidite","degradation","autre"],
-  Autre: ["autre"],
-}
+import { PLAINTE_CATEGORIES as CATEGORIES } from '../constants/plaintes'
 const PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
 const FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
 const EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react'
-import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI } from '../api'
+import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI, plaintes as plaintesAPI } from '../api'
+import { PLAINTE_CATEGORIES } from '../constants/plaintes'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -572,7 +573,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   const [personnelChoisi, setPersonnelChoisi] = useState('')
   const [batimentChoisi, setBatimentChoisi] = useState('')
   const [plainteModal, setPlainteModal] = useState(null) // { rp } - anomalie sur cette residence
-  const [plainteForm, setPlainteForm] = useState({ titre:'', description:'', categorie:'Autre' })
+  const [plainteForm, setPlainteForm] = useState({ description:'', categorie:'Proprete', sous_categorie:'poubelle' })
   const [selectionnes, setSelectionnes] = useState(new Set())
   const [modifierModal, setModifierModal] = useState(null) // { rp } - changement de chambre
   const [nouvelleBatimentChoisi, setNouvelleBatimentChoisi] = useState('')
@@ -682,14 +683,14 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
   }
 
   const soumettrePlainte = async () => {
-    if (!plainteForm.titre.trim() || !plainteForm.description.trim()) return toast.error('Titre et description requis.')
+    if (!plainteForm.description.trim()) return toast.error('Description requise.')
     try {
-      await incidentsAPI.create({
-        titre: plainteForm.titre, description: plainteForm.description, categorie: plainteForm.categorie,
-        residence: plainteModal.rp.batiment_residence, priorite: 'moyenne',
+      await plaintesAPI.creerPourOccupant({
+        personnel: plainteModal.rp.personnel, categorie: plainteForm.categorie,
+        sous_categorie: plainteForm.sous_categorie, description: plainteForm.description,
       })
-      toast.success('Anomalie signalée — suivie dans Maintenance (Plainte → Qualification → Résolution → Clôture).')
-      setPlainteModal(null); setPlainteForm({ titre:'', description:'', categorie:'Autre' })
+      toast.success('Plainte créée — suivie dans Gestion des Plaintes (Qualification → Résolution → Confirmation → Clôture).')
+      setPlainteModal(null); setPlainteForm({description:'',categorie:'Proprete',sous_categorie:'poubelle'})
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -801,7 +802,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
                           🗑️
                         </button>
                       )}
-                      <button onClick={()=>{setPlainteModal({rp}); setPlainteForm({titre:'',description:'',categorie:'Autre'})}}
+                      <button onClick={()=>{setPlainteModal({rp}); setPlainteForm({description:'',categorie:'Proprete',sous_categorie:'poubelle'})}}
                         style={{ background:'#fff7ed', color:'#c2410c', border:'1px solid #fed7aa', padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}
                         title="Signaler une anomalie sur cette résidence">
                         🚨 Signaler
@@ -924,15 +925,17 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
             </div>
             <div style={{ padding:20 }}>
               <div style={{ fontSize:11.5, color:'#64748b', marginBottom:14, background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, padding:'8px 12px' }}>
-                Cette anomalie sera suivie dans Maintenance : qualification, résolution, confirmation puis clôture — comme toute autre intervention.
+                Suivie dans Gestion des Plaintes : qualification, affectation, résolution, confirmation par l'occupant puis clôture. Se relie à Maintenance si un problème technique est identifié.
               </div>
-              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Titre</label>
-              <input value={plainteForm.titre} onChange={e=>setPlainteForm(f=>({...f,titre:e.target.value}))} placeholder="Ex: Occupant non conforme, chambre non restituée..."
-                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14, boxSizing:'border-box' }}/>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Catégorie</label>
-              <select value={plainteForm.categorie} onChange={e=>setPlainteForm(f=>({...f,categorie:e.target.value}))}
+              <select value={plainteForm.categorie} onChange={e=>setPlainteForm(f=>({...f,categorie:e.target.value,sous_categorie:PLAINTE_CATEGORIES[e.target.value][0]}))}
                 style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
-                {['Autre','Plomberie','Electricite','Serrurerie','Climatisation','Toiture','Proprete','Informatique','Generateur'].map(c=><option key={c} value={c}>{c==='Proprete'?'Propreté':c}</option>)}
+                {Object.keys(PLAINTE_CATEGORIES).map(c=><option key={c} value={c}>{c.replace('_',' ')}</option>)}
+              </select>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Sous-catégorie</label>
+              <select value={plainteForm.sous_categorie} onChange={e=>setPlainteForm(f=>({...f,sous_categorie:e.target.value}))}
+                style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
+                {(PLAINTE_CATEGORIES[plainteForm.categorie]||[]).map(sc=><option key={sc} value={sc}>{sc}</option>)}
               </select>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Description</label>
               <textarea value={plainteForm.description} onChange={e=>setPlainteForm(f=>({...f,description:e.target.value}))} rows={3}

@@ -403,6 +403,7 @@ export const plaintes = {
   list: (params) => api.get('/api/plaintes/', {params}),
   get: (id) => api.get(`/api/plaintes/${id}/`),
   creer: (d) => api.post('/api/plaintes/', d),
+  creerPourOccupant: (d) => api.post('/api/plaintes/creer_pour_occupant/', d),
   qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
   affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
   prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
