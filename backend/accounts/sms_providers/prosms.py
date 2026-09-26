@@ -18,6 +18,8 @@ qu'il ne faut pas dupliquer ; proSMS ne sert ici qu'a acheminer le SMS
 contenant CE code, exactement comme les autres fournisseurs deja
 integres (Twilio, Orange, Africa's Talking).
 """
+import requests
+
 from .base import SMSProvider
 from ..models import Parametre
 from ..phone import vers_international
@@ -49,7 +51,6 @@ class ProSMSProvider(SMSProvider):
             payload["sender_name"] = sender_name
 
         try:
-            import requests
             resp = requests.post(f"{self.BASE_URL}/sms/send", headers=self._headers(), json=payload, timeout=10)
             if resp.status_code == 401:
                 return False, "proSMS : Client ID / Client Secret invalides ou identifiant désactivé."
@@ -78,7 +79,6 @@ class ProSMSProvider(SMSProvider):
         if not (client_id and client_secret):
             return None
         try:
-            import requests
             resp = requests.get(f"{self.BASE_URL}/account", headers=self._headers(), timeout=10)
             resp.raise_for_status()
             return resp.json().get("data", {}).get("sms_credits")
@@ -91,7 +91,6 @@ class ProSMSProvider(SMSProvider):
         if not (client_id and client_secret):
             return False, "proSMS non configuré"
         try:
-            import requests
             resp = requests.get(f"{self.BASE_URL}/campaigns/{message_id}", headers=self._headers(), timeout=10)
             if resp.status_code == 404:
                 return False, "Campagne introuvable"
