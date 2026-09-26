@@ -36,6 +36,7 @@ const ROLE_NAV = {
     // ── Exploitation
     { group:'Exploitation' },
     { to:'/maintenance', label:'🛠️ Maintenance' },
+    { to:'/plaintes', label:'🧹 Plaintes' },
     { to:'/evenements', label:'📡 Événements' },
     { to:'/demandes', label:'📝 Demandes' },
     // ── Pilotage
@@ -58,6 +59,7 @@ const ROLE_NAV = {
     { to:'/voyages', label:'🧳 Voyages' },
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/maintenance', label:'🛠️ Signaler Incident' },
+    { to:'/plaintes', label:'🧹 Ma chambre / Plaintes' },
   ],
   restauration: [
     { to:'/carte', label:'🗺️ Carte GIS' },

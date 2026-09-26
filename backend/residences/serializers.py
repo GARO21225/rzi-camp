@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal,
+from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal, Plainte, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI)
 
 class PointInteretSerializer(serializers.ModelSerializer):
@@ -211,6 +211,74 @@ class ResidentPrincipalSerializer(serializers.ModelSerializer):
         if obj.affecte_par:
             return obj.affecte_par.get_full_name() or obj.affecte_par.username
         return "—"
+
+
+class PlainteSerializer(serializers.ModelSerializer):
+    occupant_nom = serializers.SerializerMethodField()
+    batiment_residence = serializers.CharField(source="batiment.residence", read_only=True)
+    affecte_a_nom = serializers.SerializerMethodField()
+    prise_en_charge_par_nom = serializers.SerializerMethodField()
+    resolu_par_nom = serializers.SerializerMethodField()
+    categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
+    statut_label = serializers.CharField(source="get_statut_display", read_only=True)
+    priorite_label = serializers.CharField(source="get_priorite_display", read_only=True)
+    incident_lie_statut = serializers.CharField(source="incident_lie.get_statut_display", read_only=True, default=None)
+
+    class Meta:
+        model = Plainte
+        fields = ["id","occupant","occupant_nom","utilisateur","batiment","batiment_residence","type_occupant",
+                  "categorie","categorie_label","sous_categorie","description","commentaire","photo_base64",
+                  "statut","statut_label","priorite","priorite_label",
+                  "service","maintenance_necessaire","incident_lie","incident_lie_statut",
+                  "affecte_a","affecte_a_nom","prise_en_charge_par","prise_en_charge_par_nom","date_prise_en_charge",
+                  "motif_attente","resolu_par","resolu_par_nom","action_resolution","resultat_resolution",
+                  "commentaire_resolution","photo_resolution_base64","date_resolution",
+                  "date_confirmation","motif_reouverture","motif_rejet","date_cloture",
+                  "date_creation","date_qualification","date_affectation"]
+        read_only_fields = ["occupant","utilisateur","batiment","type_occupant","statut","date_creation"]
+
+    def get_occupant_nom(self, obj):
+        return f"{obj.occupant.nom} {obj.occupant.prenom}" if obj.occupant else "—"
+
+    def get_affecte_a_nom(self, obj):
+        return (obj.affecte_a.get_full_name() or obj.affecte_a.username) if obj.affecte_a else None
+
+    def get_prise_en_charge_par_nom(self, obj):
+        return (obj.prise_en_charge_par.get_full_name() or obj.prise_en_charge_par.username) if obj.prise_en_charge_par else None
+
+    def get_resolu_par_nom(self, obj):
+        return (obj.resolu_par.get_full_name() or obj.resolu_par.username) if obj.resolu_par else None
+
+
+class ControleChambreSerializer(serializers.ModelSerializer):
+    """
+    Section 19/42 : contrôle de chambre avec notation étoiles (1-5) sur
+    chaque critère de propreté, et cases Oui/Non pour fournitures,
+    équipements, état général. Déclenche automatiquement une Plainte
+    quand une note de propreté est strictement inférieure à 2 (demande
+    explicite) - plainte_generee_ref permet au frontend de la retrouver.
+    """
+    occupant_nom = serializers.SerializerMethodField()
+    batiment_residence = serializers.CharField(source="batiment.residence", read_only=True)
+    plainte_generee_ref = serializers.SerializerMethodField()
+    note_minimale = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ControleChambre
+        fields = ["id","batiment","batiment_residence","occupant","occupant_nom","utilisateur",
+                  "notes_proprete","fournitures","equipements","etat_general",
+                  "commentaire","photo_base64","plainte_generee","plainte_generee_ref",
+                  "note_minimale","date_creation"]
+        read_only_fields = ["occupant","utilisateur","plainte_generee","date_creation"]
+
+    def get_occupant_nom(self, obj):
+        return f"{obj.occupant.nom} {obj.occupant.prenom}" if obj.occupant else "—"
+
+    def get_note_minimale(self, obj):
+        return obj.note_minimale_proprete()
+
+    def get_plainte_generee_ref(self, obj):
+        return f"Plainte #{obj.plainte_generee_id}" if obj.plainte_generee_id else None
 
 
 class OccupationHistorySerializer(serializers.ModelSerializer):

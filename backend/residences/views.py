@@ -7,14 +7,14 @@ from accounts.permissions import TokenInQueryOrHeader
 from django.db import transaction
 
 from .models import (
-    InductionRecord, Batiment, Personnel, OccupationHistory, Demande,
+    InductionRecord, Batiment, Personnel, OccupationHistory, Demande, Plainte, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, ResidentPrincipal,
     InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI
 )
 
 from .serializers import (
     BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
-    DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer,
+    DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer, PlainteSerializer, ControleChambreSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
     InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer,
@@ -1439,6 +1439,436 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         self._notifier(rp.personnel, "🏠 Résidence principale terminée",
             f"Votre statut de résident principal de la chambre {rp.batiment.residence} a pris fin.")
         return Response(ResidentPrincipalSerializer(rp).data)
+
+
+class PlainteViewSet(viewsets.ModelViewSet):
+    """
+    Gestion des plaintes (fonctionnalite DISTINCTE de Maintenance,
+    document dedie section 21-55). Workflow trace :
+    nouvelle -> a_qualifier -> affectee -> prise_en_charge -> en_cours
+    -> [en_attente <-> en_cours] -> resolue -> confirmee -> cloturee
+    (ou reouverte -> en_cours, ou rejetee a tout moment avant resolution).
+
+    Securite (section 48, 54) : le backend est la SEULE source de verite.
+    Un occupant ne peut jamais choisir sa chambre, ne voit que ses propres
+    plaintes, ne peut jamais qualifier/affecter/resoudre - meme en
+    appelant l'API directement.
+    """
+    queryset = Plainte.objects.select_related("occupant","batiment","affecte_a","prise_en_charge_par","resolu_par","incident_lie").all()
+    serializer_class = PlainteSerializer
+
+    def _habilite(self, u):
+        """Superviseur/admin - meme motif que partout ailleurs dans le projet (regle 55 : ne pas recreer un systeme de permissions)."""
+        if u.is_staff or u.is_superuser: return True
+        role = getattr(getattr(u, "profile", None), "role", "")
+        return role in ("admin", "manager", "superviseur")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+        if self._habilite(u):
+            statut = self.request.query_params.get("statut")
+            categorie = self.request.query_params.get("categorie")
+            priorite = self.request.query_params.get("priorite")
+            residence = self.request.query_params.get("residence")
+            service = self.request.query_params.get("service")
+            responsable = self.request.query_params.get("responsable")
+            if statut: qs = qs.filter(statut=statut)
+            if categorie: qs = qs.filter(categorie=categorie)
+            if priorite: qs = qs.filter(priorite=priorite)
+            if residence: qs = qs.filter(batiment__residence__icontains=residence)
+            if service: qs = qs.filter(service__icontains=service)
+            if responsable: qs = qs.filter(affecte_a_id=responsable)
+            return qs
+        # Regle 42/54 : un occupant ne voit QUE ses propres plaintes,
+        # jamais celles d'un autre - filtre applique cote backend, jamais
+        # laisse au frontend.
+        pers = Personnel.objects.filter(user=u).first()
+        return qs.filter(occupant=pers) if pers else qs.none()
+
+    def _notifier(self, user_cible, titre, message):
+        try:
+            from evenements.models import SimpleNotification
+            if user_cible:
+                SimpleNotification.objects.create(user=user_cible, titre=titre, message=message, type_notif="info")
+        except Exception:
+            pass
+
+    def _notifier_habilites(self, titre, message):
+        try:
+            from evenements.models import SimpleNotification
+            admins = set(User.objects.filter(is_staff=True)) | set(User.objects.filter(is_superuser=True))
+            for a in admins:
+                SimpleNotification.objects.create(user=a, titre=titre, message=message, type_notif="alerte")
+        except Exception:
+            pass
+
+    def create(self, request, *args, **kwargs):
+        """
+        Section 22-25 : n'importe quel occupant HEBERGE ACTIVEMENT peut
+        deposer une plainte - le statut de resident principal n'est PAS
+        une condition (regle 32). La chambre est TOUJOURS determinee cote
+        backend (regle 36/37), jamais transmise par le frontend meme si
+        presente dans la requete.
+        """
+        u = request.user
+        pers = Personnel.objects.filter(user=u).first()
+        if not pers:
+            return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=403)
+
+        batiment = Plainte.hebergement_actif_de(pers)
+        if not batiment:
+            return Response({"error":"Vous n'avez pas d'hébergement actif — impossible de déposer une plainte liée à une chambre."}, status=403)
+
+        # Type d'occupant (section 22) : resident principal si declare et
+        # actif POUR CETTE CHAMBRE, sinon deduit du type de personnel -
+        # jamais choisi par l'utilisateur, toujours calcule.
+        est_rp = ResidentPrincipal.objects.filter(personnel=pers, batiment=batiment, date_fin__isnull=True).exists()
+        if est_rp:
+            type_occupant = "resident_principal"
+        elif pers.type_personnel == "visiteur":
+            type_occupant = "visiteur"
+        else:
+            type_occupant = "resident_temporaire"
+
+        categorie = request.data.get("categorie")
+        sous_categorie = request.data.get("sous_categorie", "")
+        description = request.data.get("description", "").strip()
+        if not categorie or not description:
+            return Response({"error":"Catégorie et description requises."}, status=400)
+        if categorie not in Plainte.CATEGORIES:
+            return Response({"error":"Catégorie inconnue."}, status=400)
+
+        plainte = Plainte.objects.create(
+            occupant=pers, utilisateur=u, batiment=batiment, type_occupant=type_occupant,
+            categorie=categorie, sous_categorie=sous_categorie, description=description,
+            commentaire=request.data.get("commentaire",""), photo_base64=request.data.get("photo_base64",""),
+            statut="a_qualifier",
+        )
+        self._notifier_habilites("🧹 Nouvelle plainte", f"{pers.nom} {pers.prenom} ({batiment.residence}) — {categorie} : {description[:80]}")
+        return Response(PlainteSerializer(plainte).data, status=201)
+
+    @action(detail=True, methods=["post"])
+    def qualifier(self, request, pk=None):
+        """Section 27 : le responsable verifie, ajuste categorie/priorite/service, decide si Maintenance est necessaire."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        if p.statut not in ("nouvelle","a_qualifier"):
+            return Response({"error":"Cette plainte n'est plus à qualifier."}, status=400)
+        if request.data.get("categorie"): p.categorie = request.data["categorie"]
+        if request.data.get("sous_categorie") is not None: p.sous_categorie = request.data["sous_categorie"]
+        if request.data.get("priorite"): p.priorite = request.data["priorite"]
+        if request.data.get("service") is not None: p.service = request.data["service"]
+        p.maintenance_necessaire = bool(request.data.get("maintenance_necessaire", False))
+        p.statut = "affectee" if request.data.get("affecte_a") else "a_qualifier"
+        p.date_qualification = timezone.now()
+        if request.data.get("affecte_a"):
+            p.affecte_a_id = request.data["affecte_a"]
+            p.date_affectation = timezone.now()
+        p.save()
+        self._notifier(p.utilisateur, "🧹 Votre plainte a été qualifiée", f"Catégorie : {p.categorie} — priorité {p.get_priorite_display()}.")
+        if p.affecte_a:
+            self._notifier(p.affecte_a, "🧹 Plainte affectée", f"{p.occupant.nom} {p.occupant.prenom} ({p.batiment.residence}) — {p.description[:80]}")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def affecter(self, request, pk=None):
+        """Section 28 : affectation/reaffectation - toujours historisee (HistoricalRecords deja actif sur ce modele)."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        if p.statut in ("cloturee","rejetee"):
+            return Response({"error":"Cette plainte est clôturée/rejetée."}, status=400)
+        affecte_a_id = request.data.get("affecte_a")
+        if not affecte_a_id:
+            return Response({"error":"affecte_a requis."}, status=400)
+        p.affecte_a_id = affecte_a_id
+        if request.data.get("service") is not None: p.service = request.data["service"]
+        p.statut = "affectee"
+        p.date_affectation = timezone.now()
+        p.save()
+        self._notifier(p.affecte_a, "🧹 Plainte (ré)affectée", f"{p.occupant.nom} {p.occupant.prenom} ({p.batiment.residence}) — {p.description[:80]}")
+        self._notifier(p.utilisateur, "🧹 Votre plainte a été affectée", "Un responsable a été désigné pour traiter votre plainte.")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def prendre_en_charge(self, request, pk=None):
+        """Section 31 : l'agent affecte prend la plainte en charge - enregistre qui, quand."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        if p.statut != "affectee":
+            return Response({"error":"Cette plainte doit d'abord être affectée."}, status=400)
+        p.statut = "prise_en_charge"
+        p.prise_en_charge_par = request.user
+        p.date_prise_en_charge = timezone.now()
+        p.save()
+        self._notifier(p.utilisateur, "🧹 Votre plainte est prise en charge", f"{request.user.get_full_name() or request.user.username} s'en occupe.")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def demarrer(self, request, pk=None):
+        """Passage explicite a EN_COURS (apres prise en charge, ou reprise apres attente)."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        if p.statut not in ("prise_en_charge","en_attente"):
+            return Response({"error":"Statut incompatible."}, status=400)
+        p.statut = "en_cours"
+        p.save()
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def mettre_en_attente(self, request, pk=None):
+        """Section 33 : motif obligatoire, historise (HistoricalRecords)."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        motif = request.data.get("motif_attente")
+        if not motif:
+            return Response({"error":"Le motif de mise en attente est obligatoire."}, status=400)
+        p.statut = "en_attente"
+        p.motif_attente = motif
+        p.save()
+        self._notifier(p.utilisateur, "🧹 Votre plainte est en attente", f"Motif : {p.get_motif_attente_display()}")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def relier_incident(self, request, pk=None):
+        """
+        Section 29-30 : relie la plainte a un Incident Maintenance
+        EXISTANT (deja cree via le module Maintenance existant) ou en
+        cree un via l'API Maintenance deja en place, plutot que de
+        dupliquer sa logique ici. Le champ incident_lie est le SEUL
+        pont entre les deux systemes.
+        """
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        incident_id = request.data.get("incident_id")
+        if not incident_id:
+            return Response({"error":"incident_id requis."}, status=400)
+        from maintenance.models import Incident
+        incident = Incident.objects.filter(pk=incident_id).first()
+        if not incident:
+            return Response({"error":"Incident introuvable."}, status=404)
+        p.incident_lie = incident
+        p.maintenance_necessaire = True
+        p.save()
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def resoudre(self, request, pk=None):
+        """Section 34 - si un Incident Maintenance est lie, recupere ses infos plutot que de les redemander (section 32)."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        if p.statut not in ("prise_en_charge","en_cours","en_attente","reouverte"):
+            return Response({"error":"Cette plainte ne peut pas être résolue dans son état actuel."}, status=400)
+        p.action_resolution = request.data.get("action_resolution", "")
+        p.resultat_resolution = request.data.get("resultat_resolution", "")
+        p.commentaire_resolution = request.data.get("commentaire_resolution", "")
+        p.photo_resolution_base64 = request.data.get("photo_resolution_base64", "")
+        if not p.action_resolution and p.incident_lie:
+            p.action_resolution = p.incident_lie.commentaire_resolution or ""
+        p.statut = "resolue"
+        p.resolu_par = request.user
+        p.date_resolution = timezone.now()
+        p.save()
+        self._notifier(p.utilisateur, "🧹 Votre plainte a été traitée",
+            "Le problème signalé a été traité. Merci de confirmer si le problème est résolu.")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def confirmer(self, request, pk=None):
+        """
+        Section 35 : SEUL l'occupant qui a depose la plainte peut
+        confirmer/rouvrir - securite verifiee cote backend (regle 54),
+        jamais un simple controle d'affichage frontend.
+        """
+        p = self.get_object()
+        u = request.user
+        pers = Personnel.objects.filter(user=u).first()
+        if not pers or p.occupant_id != pers.id:
+            return Response({"error":"Seul l'auteur de la plainte peut la confirmer."}, status=403)
+        if p.statut != "resolue":
+            return Response({"error":"Cette plainte n'est pas en attente de confirmation."}, status=400)
+        resolu = bool(request.data.get("resolu", True))
+        if resolu:
+            p.statut = "confirmee"
+            p.date_confirmation = timezone.now()
+            p.save()
+            # Cloture automatique juste apres confirmation (section 35) -
+            # laisse une trace HistoricalRecords distincte de la
+            # confirmation elle-meme (deux transitions, pas une seule).
+            p.statut = "cloturee"
+            p.date_cloture = timezone.now()
+            p.save()
+            self._notifier_habilites("🧹 Plainte confirmée et clôturée", f"#{p.id} — {p.occupant.nom} {p.occupant.prenom} ({p.batiment.residence})")
+        else:
+            p.statut = "reouverte"
+            p.motif_reouverture = request.data.get("motif", "")
+            p.save()
+            p.statut = "en_cours"
+            p.save()
+            self._notifier_habilites("🧹 Plainte réouverte", f"#{p.id} — {p.occupant.nom} {p.occupant.prenom} : le problème persiste.")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def rejeter(self, request, pk=None):
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        p = self.get_object()
+        motif = request.data.get("motif", "").strip()
+        if not motif:
+            return Response({"error":"Le motif du rejet est obligatoire."}, status=400)
+        p.statut = "rejetee"
+        p.motif_rejet = motif
+        p.save()
+        self._notifier(p.utilisateur, "🧹 Votre plainte a été rejetée", motif)
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=False, methods=["get"])
+    def dashboard(self, request):
+        """Section 38-39 : compteurs par statut + indicateurs de base."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        from django.db.models import Count, Avg, F
+        qs = Plainte.objects.all()
+        compteurs = {s: qs.filter(statut=s).count() for s,_ in Plainte.STATUT_CHOICES}
+        en_retard = qs.filter(statut__in=["nouvelle","a_qualifier","affectee","prise_en_charge","en_cours"],
+                               date_creation__lt=timezone.now()-timezone.timedelta(days=3)).count()
+        par_categorie = list(qs.values("categorie").annotate(n=Count("id")).order_by("-n"))
+        par_residence = list(qs.values("batiment__residence").annotate(n=Count("id")).order_by("-n")[:10])
+        reouvertes = qs.filter(statut="reouverte").count() + qs.exclude(motif_reouverture="").count()
+        total = qs.count()
+        taux_reouverture = round(100*reouvertes/total, 1) if total else 0
+        return Response({
+            "total": total, "par_statut": compteurs, "en_retard": en_retard,
+            "par_categorie": par_categorie, "residences_les_plus_touchees": par_residence,
+            "taux_reouverture": taux_reouverture,
+        })
+
+    @action(detail=False, methods=["get"])
+    def export_csv(self, request):
+        """Section 45-46 : reutilise le motif d'export CSV deja utilise ailleurs (Personnel, Residents principaux)."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        from django.http import HttpResponse
+        import csv as _csv
+        qs = self.get_queryset()
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="plaintes.csv"'
+        response.write("\ufeff")
+        writer = _csv.writer(response)
+        writer.writerow(["Référence","Date création","Occupant","Type occupant","Chambre","Catégorie","Sous-catégorie",
+                          "Description","Priorité","Statut","Service","Responsable","Prise en charge par",
+                          "Date résolution","Date clôture"])
+        for p in qs:
+            writer.writerow([
+                p.id, p.date_creation.strftime("%d/%m/%Y %H:%M"), f"{p.occupant.nom} {p.occupant.prenom}",
+                p.get_type_occupant_display(), p.batiment.residence, p.get_categorie_display(), p.sous_categorie,
+                p.description, p.get_priorite_display(), p.get_statut_display(), p.service,
+                (p.affecte_a.get_full_name() or p.affecte_a.username) if p.affecte_a else "",
+                (p.prise_en_charge_par.get_full_name() or p.prise_en_charge_par.username) if p.prise_en_charge_par else "",
+                p.date_resolution.strftime("%d/%m/%Y %H:%M") if p.date_resolution else "",
+                p.date_cloture.strftime("%d/%m/%Y %H:%M") if p.date_cloture else "",
+            ])
+        return response
+
+
+class ControleChambreViewSet(viewsets.ModelViewSet):
+    """
+    Section 19/42 : contrôle de chambre par étoiles (1-5) sur chaque
+    critère de propreté + cases Oui/Non fournitures/équipements/état
+    général. Réutilise EXACTEMENT le même mécanisme de détermination de
+    chambre que Plainte (Plainte.hebergement_actif_de) - jamais choisie
+    par l'occupant, jamais dupliqué.
+
+    Règle métier ajoutée (demande explicite de l'utilisateur) : toute
+    note de propreté strictement inférieure à 2 déclenche automatiquement
+    un "signal de mécontentement" - une Plainte (catégorie=proprete) est
+    créée toute seule, sans action supplémentaire de l'occupant.
+    """
+    queryset = ControleChambre.objects.select_related("batiment","occupant","plainte_generee").all()
+    serializer_class = ControleChambreSerializer
+
+    def _habilite(self, u):
+        if u.is_staff or u.is_superuser: return True
+        role = getattr(getattr(u, "profile", None), "role", "")
+        return role in ("admin", "manager", "superviseur")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+        if self._habilite(u):
+            return qs
+        pers = Personnel.objects.filter(user=u).first()
+        return qs.filter(occupant=pers) if pers else qs.none()
+
+    def create(self, request, *args, **kwargs):
+        u = request.user
+        pers = Personnel.objects.filter(user=u).first()
+        if not pers:
+            return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=403)
+        batiment = Plainte.hebergement_actif_de(pers)
+        if not batiment:
+            return Response({"error":"Vous n'avez pas d'hébergement actif — impossible d'effectuer un contrôle de chambre."}, status=403)
+
+        notes_proprete = request.data.get("notes_proprete") or {}
+        fournitures = request.data.get("fournitures") or {}
+        equipements = request.data.get("equipements") or {}
+        etat_general = request.data.get("etat_general") or {}
+        # Validation stricte des notes (1 a 5) - jamais de valeur invalide
+        # silencieusement acceptee.
+        for critere, note in notes_proprete.items():
+            if critere not in ControleChambre.PROPRETE_CRITERES:
+                return Response({"error": f"Critère de propreté inconnu : {critere}"}, status=400)
+            try:
+                note_int = int(note)
+            except (TypeError, ValueError):
+                return Response({"error": f"Note invalide pour {critere} (doit être un entier 1-5)."}, status=400)
+            if not (1 <= note_int <= 5):
+                return Response({"error": f"Note pour {critere} doit être entre 1 et 5."}, status=400)
+            notes_proprete[critere] = note_int
+
+        controle = ControleChambre.objects.create(
+            batiment=batiment, occupant=pers, utilisateur=u,
+            notes_proprete=notes_proprete, fournitures=fournitures, equipements=equipements,
+            etat_general=etat_general, commentaire=request.data.get("commentaire",""),
+            photo_base64=request.data.get("photo_base64",""),
+        )
+
+        # Signal de mecontentement : toute note < 2 genere une Plainte
+        # automatique, sans action supplementaire de l'occupant.
+        criteres_bas = [c for c, n in notes_proprete.items() if n < 2]
+        if criteres_bas:
+            est_rp = ResidentPrincipal.objects.filter(personnel=pers, batiment=batiment, date_fin__isnull=True).exists()
+            type_occupant = "resident_principal" if est_rp else ("visiteur" if pers.type_personnel == "visiteur" else "resident_temporaire")
+            noms_criteres = ", ".join(criteres_bas)
+            plainte = Plainte.objects.create(
+                occupant=pers, utilisateur=u, batiment=batiment, type_occupant=type_occupant,
+                categorie="Proprete", sous_categorie=criteres_bas[0],
+                description=f"Signal de mécontentement automatique (contrôle de chambre) — note(s) très basse(s) : {noms_criteres}.",
+                commentaire=controle.commentaire, photo_base64=controle.photo_base64,
+                statut="a_qualifier",
+            )
+            controle.plainte_generee = plainte
+            controle.save(update_fields=["plainte_generee"])
+            try:
+                from evenements.models import SimpleNotification
+                admins = set(User.objects.filter(is_staff=True)) | set(User.objects.filter(is_superuser=True))
+                for a in admins:
+                    SimpleNotification.objects.create(
+                        user=a, titre="⚠️ Signal de mécontentement (propreté)",
+                        message=f"{pers.nom} {pers.prenom} ({batiment.residence}) — note très basse sur : {noms_criteres}",
+                        type_notif="alerte",
+                    )
+            except Exception:
+                pass
+
+        return Response(ControleChambreSerializer(controle).data, status=201)
 
 
 class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):

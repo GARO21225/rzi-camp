@@ -438,6 +438,135 @@ class Demande(models.Model):
             pass
 
 
+class Plainte(models.Model):
+    """
+    Fonctionnalite DISTINCTE de Maintenance (regle absolue du document,
+    section 21/29/38 des regles non negociables) : une plainte est le
+    signalement initial d'un occupant heberge, qui peut ENSUITE se relier
+    a Maintenance (incident_lie) si un probleme technique est identifie -
+    jamais l'inverse, jamais de duplication du systeme Maintenance
+    existant (backend/maintenance/models.py::Incident, deja mature :
+    statuts, SLA, assignation, commentaires, photos, historique).
+
+    La chambre n'est JAMAIS choisie par l'occupant (regle 36/37) - elle
+    est determinee cote backend a partir de son hebergement actif reel
+    (Batiment.personnel, deja le champ existant pour l'occupation
+    courante - pas duplique ici).
+    """
+    TYPE_OCCUPANT_CHOICES = [
+        ("resident_principal", "Résident principal"),
+        ("resident_temporaire", "Résident temporaire"),
+        ("visiteur", "Visiteur hébergé"),
+        ("autre", "Autre occupant hébergé"),
+    ]
+    CATEGORIES = {
+        "Proprete": ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir","autre"],
+        "Fournitures": ["couverture","drap","serviette","savon","gel_lave_mains","serpillere","insecticide","desodorisant","autre"],
+        "Electricite": ["lumiere","interrupteur","prise","autre"],
+        "Equipements": ["ordinateur","climatiseur","refrigerateur","television","autre"],
+        "Plomberie": ["douche","wc","lavabo","fuite","canalisation","autre"],
+        "Securite": ["serrure","poignee","porte","fenetre","cle","autre"],
+        "Etat_chambre": ["peinture","humidite","degradation","autre"],
+        "Autre": ["autre"],
+    }
+    CATEGORIE_CHOICES = [(c, c.replace("_"," ")) for c in CATEGORIES.keys()]
+
+    STATUT_CHOICES = [
+        ("nouvelle", "Nouvelle"),
+        ("a_qualifier", "À qualifier"),
+        ("affectee", "Affectée"),
+        ("prise_en_charge", "Prise en charge"),
+        ("en_cours", "En cours"),
+        ("en_attente", "En attente"),
+        ("resolue", "Résolue"),
+        ("confirmee", "Confirmée par l'occupant"),
+        ("cloturee", "Clôturée"),
+        ("reouverte", "Réouverte"),
+        ("rejetee", "Rejetée"),
+    ]
+    PRIORITE_CHOICES = [("critique","🔴 Critique"),("haute","🟠 Haute"),("moyenne","🟡 Moyenne"),("basse","🟢 Basse")]
+    MOTIF_ATTENTE_CHOICES = [
+        ("piece_indisponible", "Pièce indisponible"),
+        ("fournisseur_attendu", "Fournisseur attendu"),
+        ("resident_absent", "Résident absent"),
+        ("acces_impossible", "Accès impossible"),
+        ("autre_service", "Autre service nécessaire"),
+        ("autre", "Autre"),
+    ]
+
+    # Section 25 - recuperes automatiquement a la creation
+    occupant = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name="plaintes")
+    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="plaintes_deposees")
+    batiment = models.ForeignKey(Batiment, on_delete=models.PROTECT, related_name="plaintes")
+    type_occupant = models.CharField(max_length=30, choices=TYPE_OCCUPANT_CHOICES)
+
+    categorie = models.CharField(max_length=30, choices=CATEGORIE_CHOICES)
+    sous_categorie = models.CharField(max_length=50, blank=True, default="")
+    description = models.TextField()
+    commentaire = models.TextField(blank=True, default="")
+    photo_base64 = models.TextField(blank=True, default="")
+
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="nouvelle", db_index=True)
+    priorite = models.CharField(max_length=20, choices=PRIORITE_CHOICES, default="moyenne")
+
+    # Qualification (section 27)
+    service = models.CharField(max_length=50, blank=True, default="")
+    maintenance_necessaire = models.BooleanField(default=False)
+    incident_lie = models.ForeignKey("maintenance.Incident", on_delete=models.SET_NULL, null=True, blank=True, related_name="plaintes_liees")
+
+    # Affectation (section 28)
+    affecte_a = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="plaintes_affectees")
+
+    # Prise en charge (section 31)
+    prise_en_charge_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="plaintes_prises_en_charge")
+    date_prise_en_charge = models.DateTimeField(null=True, blank=True)
+
+    # Mise en attente (section 33)
+    motif_attente = models.CharField(max_length=30, choices=MOTIF_ATTENTE_CHOICES, blank=True, default="")
+
+    # Resolution (section 34)
+    resolu_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="plaintes_resolues")
+    action_resolution = models.TextField(blank=True, default="")
+    resultat_resolution = models.TextField(blank=True, default="")
+    commentaire_resolution = models.TextField(blank=True, default="")
+    photo_resolution_base64 = models.TextField(blank=True, default="")
+    date_resolution = models.DateTimeField(null=True, blank=True)
+
+    # Confirmation / reouverture (section 35)
+    date_confirmation = models.DateTimeField(null=True, blank=True)
+    motif_reouverture = models.TextField(blank=True, default="")
+
+    # Rejet
+    motif_rejet = models.TextField(blank=True, default="")
+
+    # Cloture
+    date_cloture = models.DateTimeField(null=True, blank=True)
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_qualification = models.DateTimeField(null=True, blank=True)
+    date_affectation = models.DateTimeField(null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date_creation"]
+        verbose_name = "Plainte"
+
+    def __str__(self):
+        return f"Plainte #{self.id} — {self.occupant} — {self.get_statut_display()}"
+
+    @staticmethod
+    def hebergement_actif_de(personnel):
+        """
+        Determine la chambre ACTUELLEMENT occupee par cette personne -
+        seule source de verite acceptee pour associer une plainte a une
+        chambre (regle 36/37 : jamais choisie par l'occupant). Reutilise
+        Batiment.personnel, deja le champ existant pour l'occupant
+        courant (distinct du resident principal) - pas de duplication.
+        """
+        return Batiment.objects.filter(personnel=personnel, statut="Occupé").first()
+
+
 class InductionRecord(models.Model):
     """Suivi de l'induction QHSE pour chaque membre du personnel."""
     STATUTS = [
@@ -576,3 +705,52 @@ class InductionQuizQuestion(models.Model):
 
     def __str__(self):
         return self.question[:60]
+
+
+class ControleChambre(models.Model):
+    """
+    Contrôle de chambre (section 19 + 42) - avant l'arrivee d'un occupant,
+    OU en libre-service par l'occupant lui-meme depuis son "Espace
+    occupant". Chaque critere de PROPRETE est note 1 a 5 (etoiles) ;
+    Fournitures/Equipements/Etat general sont des cases Oui/Non
+    (present et en bon etat, ou anomalie a signaler).
+
+    Regle metier ajoutee (demandee explicitement) : toute note de
+    proprete strictement inferieure a 2 declenche automatiquement un
+    "signal de mecontentement" - une Plainte categorie=proprete est
+    creee toute seule, reliee au(x) critere(s) concerne(s), sans que
+    l'occupant ait besoin de la creer manuellement en plus.
+    """
+    PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
+    FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
+    EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]
+    ETAT_GENERAL_CRITERES = ["serrure","poignee","porte","fenetres","peinture","humidite","fuite","plomberie"]
+
+    batiment = models.ForeignKey(Batiment, on_delete=models.CASCADE, related_name="controles")
+    occupant = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="controles_effectues")
+    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="controles_effectues")
+
+    # Propreté - notes 1 a 5 (etoiles), stockees en JSON {critere: note}
+    notes_proprete = models.JSONField(default=dict, blank=True)
+    # Fournitures/Equipements/Etat general - JSON {critere: true/false}
+    fournitures = models.JSONField(default=dict, blank=True)
+    equipements = models.JSONField(default=dict, blank=True)
+    etat_general = models.JSONField(default=dict, blank=True)
+
+    commentaire = models.TextField(blank=True, default="")
+    photo_base64 = models.TextField(blank=True, default="")
+    plainte_generee = models.ForeignKey(Plainte, on_delete=models.SET_NULL, null=True, blank=True, related_name="controle_origine")
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date_creation"]
+        verbose_name = "Contrôle de chambre"
+
+    def note_minimale_proprete(self):
+        valeurs = [v for v in self.notes_proprete.values() if isinstance(v, (int, float))]
+        return min(valeurs) if valeurs else None
+
+    def __str__(self):
+        return f"Contrôle {self.batiment.residence if self.batiment_id else '—'} — {self.date_creation:%d/%m/%Y}"

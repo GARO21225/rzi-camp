@@ -396,3 +396,24 @@ export const boutique = {
   // Analyses
   analyses:        (p)        => api.get('/api/boutique/consommations/analyses/', {params:p}),
 }
+
+export const plaintes = {
+  list: (params) => api.get('/api/plaintes/', {params}),
+  get: (id) => api.get(`/api/plaintes/${id}/`),
+  creer: (d) => api.post('/api/plaintes/', d),
+  qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
+  affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
+  prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
+  traiter: (id, d) => api.post(`/api/plaintes/${id}/traiter/`, d),
+  mettreEnAttente: (id, motif_attente) => api.post(`/api/plaintes/${id}/mettre_en_attente/`, {motif_attente}),
+  reprendre: (id) => api.post(`/api/plaintes/${id}/reprendre/`, {}),
+  resoudre: (id, d) => api.post(`/api/plaintes/${id}/resoudre/`, d),
+  confirmer: (id, resolu, motif) => api.post(`/api/plaintes/${id}/confirmer/`, {resolu, motif}),
+  rejeter: (id, motif) => api.post(`/api/plaintes/${id}/rejeter/`, {motif}),
+  dashboard: () => api.get('/api/plaintes/dashboard/'),
+  exportCsv: (params) => `${BASE}/api/plaintes/export_csv/?${new URLSearchParams(params).toString()}`,
+}
+export const controlesChambre = {
+  list: (params) => api.get('/api/controles-chambre/', {params}),
+  creer: (d) => api.post('/api/controles-chambre/', d),
+}

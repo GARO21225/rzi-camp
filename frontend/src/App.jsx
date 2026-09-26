@@ -22,6 +22,7 @@ const Historique = lazy(() => import('./pages/Historique'))
 const Voyages = lazy(() => import('./pages/Voyages'))
 const Restauration = lazy(() => import('./pages/Restauration'))
 const Maintenance = lazy(() => import('./pages/Maintenance'))
+const Plaintes = lazy(() => import('./pages/Plaintes'))
 const MonCompte = lazy(() => import('./pages/MonCompte'))
 const Analytics   = lazy(() => import('./pages/Analytics'))
 const RapportsPage = lazy(() => import('./pages/RapportsPage'))
@@ -219,6 +220,7 @@ export default function App() {
           <Route path="voyages" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Voyages /></Suspense>} />
           <Route path="restauration" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Restauration /></Suspense>} />
           <Route path="maintenance" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Maintenance /></Suspense>} />
+          <Route path="plaintes" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Plaintes /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Analytics /></Suspense>} />
           <Route path="demandes" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Demandes /></Suspense>}/>
           <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
