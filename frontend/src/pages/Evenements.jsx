@@ -275,7 +275,14 @@ export default function Evenements() {
             // actifs. Calcule ici un etat d'affichage distinct, sans forcer
             // de changement en base (l'historique du statut choisi reste
             // intact) - "Passes" utilise deja ce meme critere de date.
-            const estEchu = new Date(evt.date_debut) < now && evt.statut === 'planifie'
+            // Un evenement "en_cours" (demarre mais jamais cloture
+            // manuellement) etait exclu de cette detection - ne
+            // couvrait que 'planifie'. Corrige : les DEUX statuts non
+            // definitifs (planifie ET en_cours) sont concernes des que
+            // la date de FIN (ou de debut si pas de fin renseignee) est
+            // clairement passee.
+            const dateReference = evt.date_fin || evt.date_debut
+            const estEchu = new Date(dateReference) < now && ['planifie','en_cours'].includes(evt.statut)
             const sc = estEchu ? { bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'⏱ Échu (non démarré)' } : (STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie)
             return (
               <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estEchu?0.7:1 }}>
@@ -323,7 +330,7 @@ export default function Evenements() {
                       </button>
                     )}
                     {evt.statut==='planifie' && !estEchu && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
-                    {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
+                    {evt.statut==='en_cours' && !estEchu && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
                     {estEchu && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>📥 Historiser</button>}
                     {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
                     style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
