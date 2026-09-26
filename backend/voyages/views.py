@@ -1176,7 +1176,20 @@ class EtapeVoyageViewSet(viewsets.ModelViewSet):
 def _generer_billet_html(voyage):
     """Document imprimable façon billet d'agence de voyage — toutes les
     étapes de l'itinéraire, point de RDV, référence, à imprimer ou garder
-    en PDF via le navigateur (Ctrl+P -> Enregistrer en PDF)."""
+    en PDF via le navigateur (Ctrl+P -> Enregistrer en PDF).
+
+    Enrichi (refonte Centre de Mobilite) avec une carte distinguant
+    l'itineraire de la ROTATION (EtapeVoyage, deja existant) de
+    l'itineraire REEL du PASSAGER (EvenementMonteeDescente, evenements
+    horodates reellement survenus - jamais saisi manuellement). Coordonnees
+    reprises telles quelles de frontend/src/data/coordsDestinations.js
+    (source de verite partagee avec CarteItineraire.jsx) - dupliquees ici
+    car cette page HTML est generee cote serveur, sans acces au bundle JS
+    du frontend.
+    """
+    from .models import EvenementMonteeDescente
+    import json as _json
+
     p = voyage.personnel
     etapes = voyage.etapes.select_related("vehicule_flotte").all().order_by("ordre")
     etapes_html = "".join([f"""
@@ -1191,6 +1204,82 @@ def _generer_billet_html(voyage):
           <td style="padding:10px;border-bottom:1px solid #e2e8f0">{f'{e.billet_cout:,.0f} FCFA' if e.billet_cout else '—'}</td>
         </tr>
     """ for e in etapes]) or '<tr><td colspan="8" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
+
+    # Itineraire REEL du passager (section 21-22 du document de refonte) -
+    # construit UNIQUEMENT a partir des evenements montee/descente
+    # reellement enregistres, jamais saisi manuellement.
+    segments = EvenementMonteeDescente.itineraire_reel(voyage)
+    evenements = list(voyage.evenements_montee_descente.order_by("date_heure"))
+    if evenements:
+        evenements_html = "".join([f"""
+            <tr>
+              <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">{'🟢 Montée' if e.type_evenement=='montee' else '🔴 Descente'}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700">{e.lieu}</td>
+              <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">{e.date_heure.strftime('%d/%m/%Y à %H:%M')}</td>
+            </tr>
+        """ for e in evenements])
+        itineraire_reel_html = f"""
+          <h2 style="color:#0F2A5C;font-size:16px">🧭 Itinéraire réel du passager</h2>
+          <p style="color:#64748b;font-size:12px;margin-top:-8px">Construit à partir des montées/descentes réellement enregistrées — distinct de l'itinéraire prévu de la rotation ci-dessus.</p>
+          <table style="margin-bottom:16px">
+            <thead><tr><th>Événement</th><th>Lieu</th><th>Date / Heure</th></tr></thead>
+            <tbody>{evenements_html}</tbody>
+          </table>
+        """
+    else:
+        itineraire_reel_html = """
+          <h2 style="color:#0F2A5C;font-size:16px">🧭 Itinéraire réel du passager</h2>
+          <p style="color:#94a3b8;font-size:12px">Aucune montée/descente encore enregistrée pour ce voyage.</p>
+        """
+
+    # Points pour la carte : itineraire de la ROTATION (origine/etapes/destination
+    # du voyage - le trajet PREVU) vs points REELS (evenements montee/descente).
+    points_prevus = [voyage.origine or "Camp Roxgold Sango"] + [e.destination for e in etapes] if etapes else [voyage.origine or "Camp Roxgold Sango", voyage.destination or ""]
+    points_reels = [e.lieu for e in evenements]
+    carte_html = f"""
+      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Carte — itinéraire prévu vs réel</h2>
+      <div id="billet-map" style="height:320px;border-radius:10px;margin-bottom:24px;background:#f1f5f9"></div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+      <script>
+       window.addEventListener('load', function() {{
+        try {{
+        if (typeof L === 'undefined') throw new Error('Bibliothèque de carte indisponible');
+        const COORDS = {_json.dumps({
+            'camp roxgold sango':[8.05,-6.75],'sango mine site':[8.05,-6.75],'camp de base':[8.05,-6.75],
+            "site d'exploration":[8.05,-6.75],'autre site minier':[8.05,-6.75],'mine agbaou':[5.85,-5.35],
+            'mine yaouré':[6.85,-5.35],'abidjan':[5.3600,-4.0083],'yamoussoukro':[6.8276,-5.2893],
+            'bouaké':[7.6906,-5.0300],'san pedro':[4.7485,-6.6363],'korhogo':[9.4580,-5.6297],'man':[7.4125,-7.5539],
+            'daloa':[6.8770,-6.4502],'gagnoa':[6.1319,-5.9506],'séguéla':[7.9611,-6.6731],'mankono':[8.0583,-6.1889],
+        })};
+        function chercherCoords(nom) {{
+          if (!nom) return null;
+          const k = nom.trim().toLowerCase();
+          if (COORDS[k]) return COORDS[k];
+          for (const [key, c] of Object.entries(COORDS)) {{ if (k.includes(key) || key.includes(k)) return c; }}
+          return null;
+        }}
+        const pointsPrevus = {_json.dumps(points_prevus)}.map(chercherCoords).filter(Boolean);
+        const pointsReels = {_json.dumps(points_reels)}.map(chercherCoords).filter(Boolean);
+        if (pointsPrevus.length >= 2 || pointsReels.length >= 2) {{
+          const tous = [...pointsPrevus, ...pointsReels];
+          const lats = tous.map(p=>p[0]), lngs = tous.map(p=>p[1]);
+          const centre = [(Math.min(...lats)+Math.max(...lats))/2, (Math.min(...lngs)+Math.max(...lngs))/2];
+          const map = L.map('billet-map').setView(centre, 7);
+          L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{attribution:'&copy; OpenStreetMap'}}).addTo(map);
+          if (pointsPrevus.length >= 2) L.polyline(pointsPrevus, {{color:'#94a3b8', weight:3, dashArray:'6 6'}}).addTo(map).bindPopup('Itinéraire prévu (rotation)');
+          if (pointsReels.length >= 2) L.polyline(pointsReels, {{color:'#16a34a', weight:4}}).addTo(map).bindPopup('Itinéraire réel (passager)');
+          pointsReels.forEach((c,i) => L.marker(c).addTo(map));
+          map.fitBounds(L.latLngBounds(tous), {{padding:[20,20]}});
+        }} else {{
+          document.getElementById('billet-map').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8">Coordonnées non disponibles pour tracer la carte.</div>';
+        }}
+        }} catch (err) {{
+          document.getElementById('billet-map').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8">🗺️ Carte indisponible (connexion réseau) — les informations d\\'itinéraire ci-dessus restent complètes.</div>';
+        }}
+       }});
+      </script>
+    """
 
     return f"""
     <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -1224,14 +1313,17 @@ def _generer_billet_html(voyage):
         <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
         {f'<tr><td style="padding:6px 0;color:#64748b">Validé par</td><td>{voyage.valide_par.get_full_name() or voyage.valide_par.username} le {voyage.date_validation.strftime("%d/%m/%Y à %H:%M")}</td></tr>' if voyage.valide_par and voyage.date_validation else ''}
       </table>
-      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire</h2>
+      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire prévu (rotation)</h2>
       <table>
         <thead><tr><th>Étape</th><th>Sens</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Véhicule / Conducteur</th><th>Référence</th><th>Coût</th></tr></thead>
         <tbody>{etapes_html}</tbody>
       </table>
+      {itineraire_reel_html}
+      {carte_html}
       <p style="margin-top:32px;color:#94a3b8;font-size:11px">Document généré le {voyage.created_at.strftime('%d/%m/%Y')} — Roxgold SiteLife · Usage interne uniquement</p>
     </body></html>
     """
+
 
 
 from .models import VehiculeFlotte
