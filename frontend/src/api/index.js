@@ -302,6 +302,8 @@ export const evenements = {
   changerStatut: (id,statut) => api.patch(`/api/evenements/${id}/changer_statut/`, {statut}),
   genererQr: (id, preference_boisson, personnel_id) => api.post(`/api/evenements/${id}/generer_qr/`, {preference_boisson, personnel_id}),
   scannerQr: (id, token) => api.post(`/api/evenements/${id}/scanner_qr/`, {token}),
+  personnesScannees: (id) => api.get(`/api/evenements/${id}/personnes_scannees/`),
+  exportScannesCsvUrl: (id) => `${BASE}/api/evenements/${id}/export_scannes_csv/`,
 }
 export const groupesDiffusion = {
   list: () => api.get('/api/groupes-diffusion/'),

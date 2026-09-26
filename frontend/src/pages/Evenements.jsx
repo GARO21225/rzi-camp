@@ -126,6 +126,15 @@ export default function Evenements() {
   const [alertes, setAlertes] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('agenda')
+  const [listeScannesModal, setListeScannesModal] = useState(null)
+  const [personnesScannees, setPersonnesScannees] = useState(null)
+  const chargerPersonnesScannees = async (id) => {
+    setPersonnesScannees(null)
+    try {
+      const r = await evtAPI.personnesScannees(id)
+      setPersonnesScannees(r.data)
+    } catch(e) { toast.error("Erreur de chargement") }
+  }
   const [modal, setModal] = useState(false)
   const [alerteModal, setAlerteModal] = useState(false)
   const [notifResult, setNotifResult] = useState(null)
@@ -338,7 +347,16 @@ export default function Evenements() {
                     {evt.lieu && <span>📍 {evt.lieu}</span>}
                     <span>👤 {evt.cree_par_nom}</span>
                     {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
-                    {evt.qr_requis && <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>}
+                    {evt.qr_requis && (
+                      isAdmin ? (
+                        <span onClick={()=>{setListeScannesModal(evt); chargerPersonnesScannees(evt.id)}}
+                          style={{ color:'#7c3aed', fontWeight:700, cursor:'pointer', textDecoration:'underline' }}>
+                          🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés — voir la liste
+                        </span>
+                      ) : (
+                        <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>
+                      )
+                    )}
                   </div>
                 </div>
                 {evt.qr_requis && !estTermine && (
@@ -588,6 +606,50 @@ export default function Evenements() {
                     </>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {listeScannesModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setListeScannesModal(null)}>
+          <div style={{ background:'var(--rzc-white)', borderRadius:14, maxWidth:480, width:'100%', maxHeight:'80vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'14px 18px', background:'#7c3aed', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>🎫 Personnes scannées — {listeScannesModal.titre}</div>
+              <button onClick={()=>setListeScannesModal(null)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:16, overflowY:'auto', flex:1 }}>
+              {!personnesScannees ? (
+                <div style={{textAlign:'center', color:'var(--text-dim)', padding:20}}>⏳ Chargement...</div>
+              ) : (
+                <>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+                    <div style={{fontSize:13, fontWeight:700}}>{personnesScannees.nb_scannes} / {personnesScannees.nb_generes} scannés</div>
+                    <a href={evtAPI.exportScannesCsvUrl(listeScannesModal.id)} target="_blank" rel="noreferrer"
+                      style={{background:'#f1f5f9', color:'#475569', border:'1px solid var(--border)', padding:'6px 12px', borderRadius:8, textDecoration:'none', fontSize:11.5, fontWeight:700}}>
+                      ⬇ Export CSV
+                    </a>
+                  </div>
+                  {personnesScannees.personnes.length === 0 ? (
+                    <div style={{textAlign:'center', color:'var(--text-dim)', padding:20}}>Aucun scan pour cet évènement.</div>
+                  ) : (
+                    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                      {personnesScannees.personnes.map(p => (
+                        <div key={p.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'var(--surface2)', borderRadius:8}}>
+                          <div>
+                            <div style={{fontSize:13, fontWeight:700}}>{p.personnel_nom}</div>
+                            <div style={{fontSize:11, color:'var(--text-dim)'}}>{p.personnel_societe}{p.preference_boisson ? ` · ${p.preference_boisson}` : ''}</div>
+                          </div>
+                          <div style={{fontSize:11, color:'var(--text-dim)', textAlign:'right'}}>
+                            {p.utilise_le ? new Date(p.utilise_le).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

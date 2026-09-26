@@ -190,6 +190,54 @@ class EvenementViewSet(viewsets.ModelViewSet):
             "preference_boisson": qr.get_preference_boisson_display() if qr.preference_boisson else None,
         })
 
+    @action(detail=True, methods=["get"])
+    def personnes_scannees(self, request, pk=None):
+        """
+        Section demandee : depuis l'onglet Passes, voir le nombre de
+        scans PUIS la liste nominative des personnes scannees pour un
+        evenement donne. Admin uniquement (memes noms complets que
+        rotations() en mobilite - jamais renvoyes a un simple agent).
+        """
+        if not self._is_admin(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        from .models import QREvenement
+        qs = QREvenement.objects.filter(evenement_id=pk, utilise=True).select_related("personnel","valide_par").order_by("utilise_le")
+        result = [{
+            "id": q.id,
+            "personnel_nom": f"{q.personnel.nom} {q.personnel.prenom}",
+            "personnel_societe": q.personnel.societe,
+            "preference_boisson": q.get_preference_boisson_display() if q.preference_boisson else None,
+            "utilise_le": q.utilise_le,
+            "valide_par_nom": (q.valide_par.get_full_name() or q.valide_par.username) if q.valide_par else None,
+        } for q in qs]
+        total_generes = QREvenement.objects.filter(evenement_id=pk).count()
+        return Response({"nb_scannes": len(result), "nb_generes": total_generes, "personnes": result})
+
+    @action(detail=True, methods=["get"])
+    def export_scannes_csv(self, request, pk=None):
+        """Meme personnes_scannees, au format CSV - reutilise le meme motif d'export deja utilise ailleurs (Personnel, Residents principaux, Plaintes)."""
+        if not self._is_admin(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        import csv
+        from django.http import HttpResponse
+        from .models import QREvenement, Evenement
+        evt = Evenement.objects.filter(pk=pk).first()
+        if not evt:
+            return Response({"error":"Événement introuvable."}, status=404)
+        qs = QREvenement.objects.filter(evenement_id=pk, utilise=True).select_related("personnel","valide_par").order_by("utilise_le")
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="scannes_{evt.titre}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Nom","Société","Préférence boisson","Heure de scan","Scanné par"])
+        for q in qs:
+            writer.writerow([
+                f"{q.personnel.nom} {q.personnel.prenom}", q.personnel.societe,
+                q.get_preference_boisson_display() if q.preference_boisson else "",
+                q.utilise_le.strftime("%d/%m/%Y %H:%M") if q.utilise_le else "",
+                (q.valide_par.get_full_name() or q.valide_par.username) if q.valide_par else "",
+            ])
+        return response
+
     @action(detail=True, methods=["post"])
     def notifier(self, request, pk=None):
         # Diffuse une notification a TOUS les residents - une capacite de
