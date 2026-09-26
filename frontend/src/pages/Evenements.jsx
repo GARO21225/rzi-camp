@@ -190,6 +190,16 @@ export default function Evenements() {
   }
 
   const now = new Date()
+  // Un evenement dont la date est passee (date_fin si renseignee, sinon
+  // date_debut) mais dont le statut est reste sur 'planifie' ou 'en_cours'
+  // (jamais cloture manuellement) est considere echu - partage entre le
+  // badge/boutons de chaque carte ET le compteur KPI "En cours", pour que
+  // les deux restent coherents (sinon le compteur continuait a inclure un
+  // evenement deja marque "Échu" sur sa carte).
+  const estEvenementEchu = (e) => {
+    const dateReference = e.date_fin || e.date_debut
+    return new Date(dateReference) < now && ['planifie','en_cours'].includes(e.statut)
+  }
   const upcoming = events.filter(e => new Date(e.date_debut) >= now && e.statut !== 'annule')
   const past = events.filter(e => new Date(e.date_debut) < now || e.statut === 'termine')
 
@@ -241,7 +251,7 @@ export default function Evenements() {
         {[
           [events.length,'Total','var(--blue)','📅'],
           [upcoming.length,'À venir','#16a34a','🗓️'],
-          [events.filter(e=>e.statut==='en_cours').length,'En cours','#ea580c','▶️'],
+          [events.filter(e=>e.statut==='en_cours' && !estEvenementEchu(e)).length,'En cours','#ea580c','▶️'],
           [alertes.length,'Alertes actives','#dc2626','⚠️'],
         ].map(([v,l,c,ic])=>(
           <div key={l} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
@@ -280,9 +290,10 @@ export default function Evenements() {
             // couvrait que 'planifie'. Corrige : les DEUX statuts non
             // definitifs (planifie ET en_cours) sont concernes des que
             // la date de FIN (ou de debut si pas de fin renseignee) est
-            // clairement passee.
-            const dateReference = evt.date_fin || evt.date_debut
-            const estEchu = new Date(dateReference) < now && ['planifie','en_cours'].includes(evt.statut)
+            // clairement passee. Reutilise estEvenementEchu (partagee
+            // avec le compteur KPI "En cours" ci-dessus) plutot que de
+            // recalculer la meme chose ici.
+            const estEchu = estEvenementEchu(evt)
             const sc = estEchu ? { bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'⏱ Échu (non démarré)' } : (STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie)
             return (
               <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estEchu?0.7:1 }}>
