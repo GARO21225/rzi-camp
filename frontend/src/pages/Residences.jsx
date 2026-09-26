@@ -187,6 +187,14 @@ export default function Residences() {
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
+  // Diagnostic demande explicitement : la carte SIG (endpoint geojson)
+  // ecarte SILENCIEUSEMENT tout batiment sans coordonnees GPS ni
+  // geometrie tracee - c'est la cause la plus probable d'un ecart entre
+  // le total ici (data.length, TOUJOURS complet - list() ne filtre et
+  // ne pagine jamais) et ce qui s'affiche sur la carte. Identifie ici
+  // precisement LESQUELS, pour guider la mise a jour de la carte.
+  const sansPosition = data.filter(b => !b.geojson_geometry && !(b.latitude && b.longitude))
+
   const inp = { background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text)', padding:'8px 12px', borderRadius:8, fontSize:13, outline:'none', fontFamily:'inherit', width:'100%' }
 
   return (
@@ -195,13 +203,24 @@ export default function Residences() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
           <h2 style={{ fontSize:19, fontWeight:700, color:'var(--rzc-navy)' }}>🏠 Gestion des Résidences</h2>
-          <p style={{ fontSize:12, color:'var(--rzc-text-3)', marginTop:3 }}>204 bâtiments · 19 blocs · Confirmation avant historisation</p>
+          <p style={{ fontSize:12, color:'var(--rzc-text-3)', marginTop:3 }}>{data.length} bâtiments · {blocs.length} blocs · Confirmation avant historisation</p>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={batiments.exportCsv({})} style={{ background:'var(--rzc-green)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ CSV</a>
           <a href={batiments.exportBlocs()} style={{ background:'var(--rzc-navy)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
         </div>
       </div>
+
+      {sansPosition.length > 0 && (
+        <div style={{ background:'#fef3c7', border:'1px solid #fde68a', borderRadius:10, padding:'10px 14px', marginBottom:16 }}>
+          <div style={{ fontSize:12.5, fontWeight:700, color:'#92400e', marginBottom:4 }}>
+            ⚠️ {sansPosition.length} bâtiment(s) sans position GPS — invisible(s) sur la Carte SIG
+          </div>
+          <div style={{ fontSize:12, color:'#78350f' }}>
+            {sansPosition.map(b=>b.residence).join(', ')} — à tracer sur la carte pour qu'ils y apparaissent.
+          </div>
+        </div>
+      )}
 
       {/* Onglets */}
       <div style={{ display:'flex', gap:8, marginBottom:16 }}>

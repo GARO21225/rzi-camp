@@ -160,6 +160,7 @@ export default function MapPage() {
   // ── Réseau de circulation piéton (tracé admin) ──
   const [chemins, setChemins] = useState([])
   const [drawingChemin, setDrawingChemin] = useState(false)
+  const [gererCheminsOuvert, setGererCheminsOuvert] = useState(false)
   const [cheminPoints, setCheminPoints] = useState([])
   const [cheminForm, setCheminForm] = useState({ nom:'', type_chemin:'chemin' })
 
@@ -375,6 +376,16 @@ export default function MapPage() {
           </button>
         )}
 
+        {isAdmin && chemins.length > 0 && (
+          <button onClick={()=>setGererCheminsOuvert(v=>!v)}
+            title="Liste de tous les chemins tracés, avec suppression directe — utile quand cliquer sur un tracé précis sur la carte est difficile"
+            style={{padding:'5px 12px',borderRadius:8,border:`2px solid ${gererCheminsOuvert?'#dc2626':'var(--border)'}`,
+              background:gererCheminsOuvert?'rgba(220,38,38,.1)':'var(--surface2)',
+              color:gererCheminsOuvert?'#dc2626':'var(--text-dim)',cursor:'pointer',fontSize:11,fontWeight:700,transition:'.2s'}}>
+            🗂️ Gérer les chemins ({chemins.length})
+          </button>
+        )}
+
         <div style={{marginLeft:'auto',display:'flex',gap:8,fontSize:10,fontFamily:'monospace'}}>
           {[['Libre','var(--rzc-green)'],['Occupé','var(--rzc-red)'],['Réservé','var(--rzc-blue)']].map(([l,c])=>(
             <span key={l} style={{display:'flex',alignItems:'center',gap:3,color:'var(--text-dim)',cursor:'pointer'}}
@@ -586,6 +597,41 @@ export default function MapPage() {
                 ✅ Terminer
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Panneau de gestion des chemins traces - liste directe avec
+            suppression, independante d'un clic precis sur le trace lui-meme
+            sur la carte (repond au signalement : rampe tracee impossible a
+            supprimer en cliquant dessus). */}
+        {gererCheminsOuvert && (
+          <div style={{position:'absolute',bottom:20,left:10,background:'#fff',border:'1px solid var(--border)',
+            borderRadius:12,padding:14,zIndex:900,boxShadow:'var(--shadow-md)',width:300,maxWidth:'calc(100vw - 30px)',maxHeight:320,overflowY:'auto'}}>
+            <div style={{fontWeight:700,fontSize:13,color:'#dc2626',marginBottom:8}}>
+              🗂️ Chemins tracés ({chemins.length})
+            </div>
+            {chemins.length===0 ? (
+              <div style={{fontSize:12,color:'var(--text-dim)'}}>Aucun chemin tracé.</div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {chemins.map(c => {
+                  const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
+                  return (
+                    <div key={c.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                      padding:'6px 10px',background:'var(--surface2)',borderRadius:8,gap:8}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:700,color:st.color}}>{st.label}{c.nom ? ` — ${c.nom}` : ''}</div>
+                        <div style={{fontSize:10,color:'var(--text-dim)'}}>{(c.points||[]).length} points</div>
+                      </div>
+                      <button onClick={()=>supprimerChemin(c.id)}
+                        style={{flexShrink:0,background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                        🗑️
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
