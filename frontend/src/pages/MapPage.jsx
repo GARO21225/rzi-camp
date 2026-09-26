@@ -574,8 +574,8 @@ export default function MapPage() {
               return (
                 <Polygon key={`poi-${poi.id}`} positions={positions}
                   pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
-                  <Tooltip direction="center" opacity={0.9} permanent={false} sticky>
-                    <span style={{fontSize:11,fontWeight:700}}>{st.icon} {poi.nom}</span>
+                  <Tooltip direction="center" opacity={0.95} permanent className="rzc-label-permanent">
+                    <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{st.icon} {poi.nom}</span>
                   </Tooltip>
                   <Popup>{popupContent}</Popup>
                 </Polygon>
@@ -591,6 +591,9 @@ export default function MapPage() {
             })
             return (
               <Marker key={`poi-${poi.id}`} position={[poi.latitude, poi.longitude]} icon={icon}>
+                <Tooltip direction="right" offset={[10,-10]} opacity={0.95} permanent className="rzc-label-permanent">
+                  <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{poi.nom}</span>
+                </Tooltip>
                 <Popup>{popupContent}</Popup>
               </Marker>
             )
@@ -605,11 +608,11 @@ export default function MapPage() {
           <MapClickCapture active={addingPoi && !poiDraft} onPick={(pos)=>setPoiDraft(pos)}/>
           <MapClickCapture active={drawingChemin} onPick={(pos)=>setCheminPoints(pts=>[...pts,[pos.lat,pos.lng]])}/>
 
-          {/* Réseau de circulation existant (escaliers rendus en dernier
-              plus bas -> toujours au-dessus des chemins/foot-path) */}
+          {/* Réseau de circulation existant (escaliers et clôture rendus
+              en dernier plus bas -> toujours au-dessus des autres tracés) */}
           {chemins.filter(c => {
             const groupe = COUCHE_SIG[c.type_chemin]
-            if (c.type_chemin === 'escalier') return false
+            if (c.type_chemin === 'escalier' || c.type_chemin === 'cloture') return false
             return groupe === 'autre_sig' || !groupe || couchesActives[groupe] !== false
           }).map(c => {
             const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
@@ -660,6 +663,34 @@ export default function MapPage() {
                 <Polyline positions={c.points} color="#e5e7eb" weight={7} opacity={0.9} />
                 <Polyline positions={c.points} color={st.color} weight={7} dashArray="3,5" opacity={0.95}>{popup}</Polyline>
               </React.Fragment>
+            )
+          })}
+
+          {/* Clôture (délimitation du site) : toujours au-dessus de tout,
+              trait plein orange large, avec étiquette permanente pour ne
+              plus la confondre avec le talus. */}
+          {chemins.filter(c => c.type_chemin === 'cloture' && couchesActives.securite_delim !== false).map(c => {
+            const st = CHEMIN_STYLE.cloture
+            return (
+              <Polyline key={`chemin-${c.id}`} positions={c.points} color={st.color} weight={4} opacity={0.95}>
+                <Tooltip direction="center" opacity={0.95} permanent className="rzc-label-permanent">
+                  <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{st.label}{c.nom ? ` — ${c.nom}` : ''}</span>
+                </Tooltip>
+                <Popup>
+                  <div style={{fontFamily:'sans-serif'}}>
+                    <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.securite_delim}</div>
+                    <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
+                    {isAdmin && (
+                      <div style={{marginTop:6}}>
+                        <button onClick={()=>supprimerChemin(c.id)}
+                          style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                          🗑️ Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Polyline>
             )
           })}
 
