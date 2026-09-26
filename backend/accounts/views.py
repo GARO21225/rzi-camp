@@ -45,7 +45,7 @@ def liste_parametres(request):
         # Connexion par SMS (OTP) - 'test' n'envoie aucun SMS reel (journalise
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
-        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, orange, africastalking, prosms, hsms (bientôt)"),
+        'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, orange, africastalking, prosms, hsms"),
         'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp"),
         'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : meta (API WhatsApp Business officielle) — vide/auto désactive le canal WhatsApp"),
         'meta_whatsapp_phone_number_id': ('', "API Meta WhatsApp — Phone Number ID (developers.facebook.com)"),
@@ -58,8 +58,9 @@ def liste_parametres(request):
         'sms_prosms_client_id': ('', 'proSMS — Client ID (prosms.ci/api-credentials, confirmé et documenté)'),
         'sms_prosms_client_secret': ('', 'proSMS — Client Secret'),
         'sms_prosms_sender_id': ('', 'proSMS — Sender ID (doit être pré-approuvé sur prosms.ci, sinon rejeté)'),
-        'sms_hsms_api_key': ('', 'HSMS — Clé API (hsms.ci, en attente de sa documentation technique)'),
-        'sms_hsms_sender_id': ('', 'HSMS — Nom expéditeur'),
+        'sms_hsms_token': ('', 'HSMS — Token API (obtenu via POST /api/token/ avec email+mot de passe, ou copié depuis le tableau de bord — documentation confirmée et vérifiée)'),
+        'sms_hsms_client_id': ('', 'HSMS — Client ID de votre application (tableau de bord hsms.ci, onglet « Identifiants API »)'),
+        'sms_hsms_client_secret': ('', 'HSMS — Client Secret de votre application'),
         'sms_at_username': ("", "Africa's Talking — Username"),
         'sms_at_api_key': ("", "Africa's Talking — API Key"),
         # Menus par role - configurable depuis Parametrage sans toucher au

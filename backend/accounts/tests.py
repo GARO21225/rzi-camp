@@ -96,11 +96,42 @@ class ProviderFactoryTests(TestCase):
         self.assertFalse(ok)
         self.assertIn("crédits SMS insuffisants", info)
 
-    def test_hsms_echoue_proprement_sans_inventer(self):
+    def test_hsms_sans_config_echoue_proprement(self):
+        """HSMS est maintenant reellement implemente (documentation
+        officielle hsms.ci/api/documentation/ verifiee) - sans Token/
+        Client ID/Client Secret configures, il doit echouer proprement."""
         provider = ProviderFactory.get("hsms")
         ok, info = provider.envoyer("0701234567", "test")
         self.assertFalse(ok)
-        self.assertIn("pas encore implémenté", info)
+        self.assertIn("non configuré", info)
+
+    @patch("requests.post")
+    def test_hsms_envoi_reussi_mocke(self, mock_post):
+        """Simule la reponse exacte documentee par hsms.ci - jamais de vrai appel reseau dans les tests."""
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"success": True, "message": "OK"}
+        provider = ProviderFactory.get("hsms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertTrue(ok)
+        # Verifie le format telephone exact attendu par HSMS (indicatif SANS le "+")
+        appel = mock_post.call_args
+        self.assertEqual(appel.kwargs["json"]["telephone"], "225701234567")
+        self.assertEqual(appel.kwargs["headers"]["Authorization"], "Bearer tok123")
+
+    @patch("requests.post")
+    def test_hsms_solde_insuffisant_400(self, mock_post):
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 400
+        mock_post.return_value.json.return_value = {"success": False, "message": "Solde insuffisant"}
+        provider = ProviderFactory.get("hsms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertFalse(ok)
+        self.assertIn("Solde insuffisant", info)
 
 
 class EnvoyerSMSTests(TestCase):
