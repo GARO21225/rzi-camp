@@ -620,9 +620,20 @@ class PointInteretViewSet(viewsets.ModelViewSet):
     Points d'intérêt sur la carte (restaurant, sport, rampe, etc.).
     Lecture ouverte à tout utilisateur connecté (utile pour la navigation),
     écriture réservée aux administrateurs (création/déplacement des points).
+
+    pagination_class = None : la carte (MapPage.jsx) affiche TOUT le réseau
+    d'un coup et lit `r.data.results || r.data` en un seul appel — avec la
+    pagination DRF par defaut (PAGE_SIZE=50, voir settings.py), tout point
+    au-dela de la page 1 (selon l'ordre des id, qui grossit au fil des
+    imports/creations) disparaissait silencieusement de la carte sans
+    aucune erreur visible. C'est ce qui a fait "disparaitre" des elements
+    importes via SIG_V2.kml une fois le total > 50 (talus/escalier/cloture
+    ajoutes apres des tracés deja existants). Corrige ici plutot que cote
+    frontend car cette vue doit toujours renvoyer l'integralite du reseau.
     """
     queryset = PointInteret.objects.filter(actif=True)
     serializer_class = PointInteretSerializer
+    pagination_class = None
 
     def get_permissions(self):
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):
@@ -723,9 +734,20 @@ class CheminCirculationViewSet(viewsets.ModelViewSet):
     """
     Réseau de circulation piéton (rampes, galeries, dallettes...). Lecture
     ouverte à tout connecté, tracé réservé aux administrateurs.
+
+    pagination_class = None : voir la même remarque sur PointInteretViewSet
+    ci-dessus — c'était la cause racine confirmée du talus et de la
+    clôture (délimitation) invisibles sur la carte malgré un import SIG_V2
+    correct (113 éléments bien en base, cf. import_sig) : avec 99 chemins
+    au total et des tracés déjà existants avant l'import, les entrées
+    talus/clôture tombaient au-delà de la page 1 (PAGE_SIZE=50) et
+    n'étaient jamais renvoyées par GET /api/chemins-circulation/, que
+    MapPage.jsx lit en un seul appel (`r.data.results || r.data`) sans
+    jamais paginer plus loin. Un problème de données/API, pas de style.
     """
     queryset = CheminCirculation.objects.filter(actif=True)
     serializer_class = CheminCirculationSerializer
+    pagination_class = None
 
     def get_permissions(self):
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):

@@ -70,7 +70,16 @@ def envoyer_sms(numero, message, canal=None, type_message="systeme", campagne=""
             False, f"Fournisseur SMS inconnu : {fournisseur_utilise}",
         )
 
-    ok, info = provider.envoyer(numero_normalise, message, canal=canal)
+    # Filet de securite structurel : quel que soit le fournisseur (HSMS,
+    # proSMS, Orange...), une exception INATTENDUE dans provider.envoyer()
+    # (bug du provider, panne reseau non prevue par son propre try/except,
+    # etc.) ne doit JAMAIS remonter comme 500 brut jusqu'a demander_otp()
+    # / verifier_otp() - toujours (False, message clair) pour que le
+    # frontend affiche une vraie erreur au lieu d'une page 500 muette.
+    try:
+        ok, info = provider.envoyer(numero_normalise, message, canal=canal)
+    except Exception as e:
+        ok, info = False, f"Erreur inattendue du fournisseur SMS ({fournisseur_utilise}) : {e}"
     return _tracer_et_renvoyer(numero_normalise, message, canal, type_message, campagne, fournisseur_utilise, ok, info)
 
 

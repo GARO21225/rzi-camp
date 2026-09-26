@@ -864,7 +864,15 @@ def demander_otp(request):
 
     otp = CodeOTP.generer(telephone)
     nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
-    ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
+    # Filet de securite : meme avec la protection deja ajoutee dans
+    # envoyer_sms(), une exception totalement imprevue ici (CodeOTP,
+    # Parametre...) ne doit jamais renvoyer la page HTML 500 muette de
+    # Django - toujours du JSON avec le message reel, exploitable par le
+    # frontend ET par nous pour diagnostiquer sans deviner.
+    try:
+        ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
+    except Exception as e:
+        return Response({'error': f"Erreur interne lors de l'envoi du SMS : {e}"}, status=500)
 
     if not ok:
         return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)

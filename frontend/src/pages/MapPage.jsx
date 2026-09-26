@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Tooltip, Popup, Circle, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI } from '../api'
@@ -109,6 +109,63 @@ function calcBearing(p1,p2){
   const x=Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(lo2-lo1)
   const b=(Math.atan2(y,x)*180/Math.PI+360)%360
   return ['Nord','Nord-Est','Est','Sud-Est','Sud','Sud-Ouest','Ouest','Nord-Ouest'][Math.round(b/45)%8]
+}
+
+// ── Étiquette de nom "contenue" (jamais flottante ni débordante) : au
+// lieu d'un Tooltip Leaflet permanent (bulle avec flèche, taille libre —
+// ce que l'utilisateur a explicitement rejeté comme "vilain et flottant"),
+// on construit un petit encart borné (largeur max + ellipsis) directement
+// dans le HTML d'un divIcon, centré sur son point d'ancrage via un
+// transform CSS -50%/-50% qui ne dépend pas d'un iconSize connu à
+// l'avance. Utilisé pour les polygones d'infra, les icônes de POI et la
+// clôture.
+function etiquetteHTML(texte, {maxWidth=110, fontSize=9.5, offsetY=0}={}){
+  const echap = String(texte).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  return `<div style="transform:translate(-50%, calc(-50% + ${offsetY}px));max-width:${maxWidth}px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;font-size:${fontSize}px;font-weight:700;color:#0f172a;
+    background:rgba(255,255,255,.92);border:1px solid rgba(15,23,42,.18);border-radius:4px;
+    padding:1px 5px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none">${echap}</div>`
+}
+function etiquetteIcon(texte, opts){
+  return L.divIcon({ html: etiquetteHTML(texte, opts), className:'', iconSize:null })
+}
+function centroidPositions(positions){
+  let lat=0, lng=0
+  for (const p of positions) { lat += p[0]; lng += p[1] }
+  return [lat/positions.length, lng/positions.length]
+}
+function pointMilieu(points){
+  if (!points || points.length === 0) return [0,0]
+  return points[Math.floor((points.length - 1) / 2)]
+}
+
+// ── Talus (relief en pierre) : la source SIG ne donne qu'une polyligne
+// nue - l'utilisateur demande explicitement de la "hachurer" pour que ça
+// se lise comme un talus en pierre (rip-rap), pas comme un chemin. On
+// calcule des petits traits perpendiculaires réguliers le long du tracé
+// (même principe que l'effet "marches" des escaliers plus bas : un
+// rendu géométrique dérivé des points existants, aucune donnée
+// inventée).
+function genererHachures(points, espacementM=6, longueurM=3.4){
+  if (!points || points.length < 2) return []
+  const segments = []
+  const degParM = 1 / 111320
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i+1]
+    const distSeg = calcDist(a, b)
+    if (distSeg < 0.5) continue
+    const nb = Math.max(1, Math.round(distSeg / espacementM))
+    const dLat = b[0]-a[0], dLng = b[1]-a[1]
+    const norme = Math.sqrt(dLat*dLat + dLng*dLng) || 1
+    const px = -dLng/norme, py = dLat/norme
+    const demiLong = longueurM * degParM / 2
+    for (let k = 0; k <= nb; k++) {
+      const t = k / nb
+      const lat = a[0] + dLat*t, lng = a[1] + dLng*t
+      segments.push([[lat+py*demiLong, lng+px*demiLong], [lat-py*demiLong, lng-px*demiLong]])
+    }
+  }
+  return segments
 }
 
 function MapClickCapture({ active, onPick }) {
@@ -565,20 +622,23 @@ export default function MapPage() {
             )
 
             // Empreinte réelle (bâtiment/emprise non-résidentiel tracé sur
-            // le SIG) -> polygone gris discret + nom affiché au survol,
-            // plutôt qu'une icône colorée (trop d'icônes similaires =
-            // carte surchargée). Un point placé manuellement (pas de
-            // géométrie) garde l'icône, seul moyen de le voir.
+            // le SIG) -> polygone gris discret + nom affiché EN SON
+            // CENTRE dans un encart borné (largeur max + ellipsis, jamais
+            // de bulle flottante avec flèche) plutôt qu'une icône colorée
+            // (trop d'icônes similaires = carte surchargée). Le libellé
+            // est un Marker non-interactif superposé (pas un Tooltip) :
+            // le clic traverse jusqu'au polygone pour ouvrir le popup.
             if (poi.geojson_geometry?.type === 'Polygon') {
               const positions = poi.geojson_geometry.coordinates[0].map(([lng,lat]) => [lat,lng])
               return (
-                <Polygon key={`poi-${poi.id}`} positions={positions}
-                  pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
-                  <Tooltip direction="center" opacity={0.95} permanent className="rzc-label-permanent">
-                    <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{st.icon} {poi.nom}</span>
-                  </Tooltip>
-                  <Popup>{popupContent}</Popup>
-                </Polygon>
+                <React.Fragment key={`poi-${poi.id}`}>
+                  <Polygon positions={positions}
+                    pathOptions={{ color:'#6b7280', weight:1.5, fillColor:'#9ca3af', fillOpacity:0.25 }}>
+                    <Popup>{popupContent}</Popup>
+                  </Polygon>
+                  <Marker position={centroidPositions(positions)} interactive={false}
+                    icon={etiquetteIcon(`${st.icon} ${poi.nom}`)} />
+                </React.Fragment>
               )
             }
 
@@ -590,12 +650,14 @@ export default function MapPage() {
               className:'', iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30]
             })
             return (
-              <Marker key={`poi-${poi.id}`} position={[poi.latitude, poi.longitude]} icon={icon}>
-                <Tooltip direction="right" offset={[10,-10]} opacity={0.95} permanent className="rzc-label-permanent">
-                  <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{poi.nom}</span>
-                </Tooltip>
-                <Popup>{popupContent}</Popup>
-              </Marker>
+              <React.Fragment key={`poi-${poi.id}`}>
+                <Marker position={[poi.latitude, poi.longitude]} icon={icon}>
+                  <Popup>{popupContent}</Popup>
+                </Marker>
+                <Marker position={[poi.latitude, poi.longitude]} interactive={false}
+                  icon={etiquetteIcon(poi.nom, {maxWidth:90, offsetY:12})}
+                  zIndexOffset={1000} />
+              </React.Fragment>
             )
           })}
 
@@ -608,11 +670,12 @@ export default function MapPage() {
           <MapClickCapture active={addingPoi && !poiDraft} onPick={(pos)=>setPoiDraft(pos)}/>
           <MapClickCapture active={drawingChemin} onPick={(pos)=>setCheminPoints(pts=>[...pts,[pos.lat,pos.lng]])}/>
 
-          {/* Réseau de circulation existant (escaliers et clôture rendus
-              en dernier plus bas -> toujours au-dessus des autres tracés) */}
+          {/* Réseau de circulation existant (escaliers, talus et clôture
+              rendus en dernier plus bas -> toujours au-dessus des autres
+              tracés, chacun avec son propre effet visuel). */}
           {chemins.filter(c => {
             const groupe = COUCHE_SIG[c.type_chemin]
-            if (c.type_chemin === 'escalier' || c.type_chemin === 'cloture') return false
+            if (c.type_chemin === 'escalier' || c.type_chemin === 'cloture' || c.type_chemin === 'talus') return false
             return groupe === 'autre_sig' || !groupe || couchesActives[groupe] !== false
           }).map(c => {
             const st = CHEMIN_STYLE[c.type_chemin] || CHEMIN_STYLE.autre
@@ -634,6 +697,37 @@ export default function MapPage() {
                   </div>
                 </Popup>
               </Polyline>
+            )
+          })}
+
+          {/* Talus (relief en pierre) : trait plein marron + hachures
+              perpendiculaires régulières (rip-rap) pour se lire comme un
+              amas de pierres, comme demandé explicitement ("des pierres
+              donc il faut harchurer la polyligne") — plus seulement un
+              simple trait pointillé, trop discret pour être vu. */}
+          {chemins.filter(c => c.type_chemin === 'talus' && couchesActives.relief !== false).map(c => {
+            const st = CHEMIN_STYLE.talus
+            const popup = (
+              <Popup>
+                <div style={{fontFamily:'sans-serif'}}>
+                  <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.relief}</div>
+                  <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
+                  {isAdmin && (
+                    <div style={{marginTop:6}}>
+                      <button onClick={()=>supprimerChemin(c.id)}
+                        style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            )
+            return (
+              <React.Fragment key={`chemin-${c.id}`}>
+                <Polyline positions={c.points} color={st.color} weight={3} opacity={0.95}>{popup}</Polyline>
+                <Polyline positions={genererHachures(c.points)} color={st.color} weight={2} opacity={0.85} />
+              </React.Fragment>
             )
           })}
 
@@ -667,30 +761,32 @@ export default function MapPage() {
           })}
 
           {/* Clôture (délimitation du site) : toujours au-dessus de tout,
-              trait plein orange large, avec étiquette permanente pour ne
-              plus la confondre avec le talus. */}
+              trait plein orange large et épais pour ne jamais se faire
+              enterrer par un autre tracé, avec une étiquette bornée (pas
+              une bulle flottante) posée en son milieu. */}
           {chemins.filter(c => c.type_chemin === 'cloture' && couchesActives.securite_delim !== false).map(c => {
             const st = CHEMIN_STYLE.cloture
             return (
-              <Polyline key={`chemin-${c.id}`} positions={c.points} color={st.color} weight={4} opacity={0.95}>
-                <Tooltip direction="center" opacity={0.95} permanent className="rzc-label-permanent">
-                  <span style={{fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{st.label}{c.nom ? ` — ${c.nom}` : ''}</span>
-                </Tooltip>
-                <Popup>
-                  <div style={{fontFamily:'sans-serif'}}>
-                    <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.securite_delim}</div>
-                    <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
-                    {isAdmin && (
-                      <div style={{marginTop:6}}>
-                        <button onClick={()=>supprimerChemin(c.id)}
-                          style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
-                          🗑️ Supprimer
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </Popup>
-              </Polyline>
+              <React.Fragment key={`chemin-${c.id}`}>
+                <Polyline positions={c.points} color={st.color} weight={5} opacity={0.95}>
+                  <Popup>
+                    <div style={{fontFamily:'sans-serif'}}>
+                      <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.securite_delim}</div>
+                      <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
+                      {isAdmin && (
+                        <div style={{marginTop:6}}>
+                          <button onClick={()=>supprimerChemin(c.id)}
+                            style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                            🗑️ Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </Popup>
+                </Polyline>
+                <Marker position={pointMilieu(c.points)} interactive={false}
+                  icon={etiquetteIcon(`${st.label}${c.nom ? ' — ' + c.nom : ''}`, {maxWidth:150})} />
+              </React.Fragment>
             )
           })}
 

@@ -190,16 +190,3 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
 }
 
-/* Étiquettes permanentes (nom des infrastructures/résidences SIG sur la
-   carte) - compactes, sans la flèche par défaut de Leaflet qui alourdit
-   visuellement une carte avec beaucoup d'éléments. */
-.rzc-label-permanent {
-  background: rgba(255,255,255,.92);
-  border: 1px solid rgba(15,23,42,.15);
-  border-radius: 4px;
-  padding: 1px 5px;
-  box-shadow: none;
-}
-.rzc-label-permanent::before {
-  display: none;
-}

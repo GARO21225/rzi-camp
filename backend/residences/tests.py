@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from .models import Personnel, Batiment, Plainte, ControleChambre, ResidentPrincipal, PointInteret, CheminCirculation
-from .views import PlainteViewSet, ControleChambreViewSet
+from .views import PlainteViewSet, ControleChambreViewSet, PointInteretViewSet, CheminCirculationViewSet
 from .sig_classification import classifier
 from django.core.management import call_command
 
@@ -341,3 +341,49 @@ class ImportSigTests(TestCase):
         call_command("import_sig")
         self.assertTrue(PointInteret.objects.filter(categorie="autre", nom="Workshop").exists())
         self.assertTrue(PointInteret.objects.filter(categorie="autre", nom="Admin").exists())
+
+
+class CarteSigListeCompleteTests(TestCase):
+    """
+    Regression : GET /api/points-interet/ et /api/chemins-circulation/
+    doivent renvoyer l'INTEGRALITE du reseau, jamais une page tronquee.
+
+    Root cause reelle trouvee en prod : MapPage.jsx lit `r.data.results ||
+    r.data` en un seul appel (jamais de pagination cote frontend, la carte
+    doit tout afficher d'un coup) alors que les deux ViewSet heritaient de
+    la pagination DRF par defaut (PAGE_SIZE=50, voir settings.py). Avec
+    des tracés deja existants avant l'import SIG_V2 (99 elements a eux
+    seuls, cf ImportSigTests), le talus et la cloture tombaient au-dela de
+    la page 1 et disparaissaient silencieusement de la carte - aucune
+    erreur, juste des elements "invisibles" malgre des donnees correctes
+    en base. Corrige en desactivant la pagination sur ces deux ViewSet
+    (pagination_class = None) : ce test verifie que ca ne regresse pas.
+    """
+
+    def _get_liste(self, viewset_class, url):
+        request = APIRequestFactory().get(url)
+        force_authenticate(request, user=_admin())
+        response = viewset_class.as_view({"get": "list"})(request)
+        response.render() if hasattr(response, "render") else None
+        return response
+
+    def test_points_interet_pagination_desactivee(self):
+        self.assertIsNone(PointInteretViewSet.pagination_class)
+
+    def test_chemins_circulation_pagination_desactivee(self):
+        self.assertIsNone(CheminCirculationViewSet.pagination_class)
+
+    def test_plus_de_50_chemins_sont_tous_renvoyes(self):
+        call_command("import_sig")  # 99 CheminCirculation (cf ImportSigTests) : > PAGE_SIZE (50)
+        total = CheminCirculation.objects.filter(actif=True).count()
+        self.assertGreater(total, 50, "le scenario de regression exige plus de 50 elements")
+
+        response = self._get_liste(CheminCirculationViewSet, "/api/chemins-circulation/")
+        self.assertEqual(response.status_code, 200)
+        # Sans pagination, DRF renvoie une liste brute (pas de clef "results").
+        self.assertNotIsInstance(response.data, dict)
+        self.assertEqual(len(response.data), total)
+        types = {el["type_chemin"] for el in response.data}
+        self.assertIn("talus", types)
+        self.assertIn("cloture", types)
+        self.assertIn("escalier", types)
