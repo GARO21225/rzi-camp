@@ -326,6 +326,65 @@ class VoyageViewSet(viewsets.ModelViewSet):
         return Response(VoyageSerializer(voyage).data)
 
     @action(detail=True, methods=["post"])
+    def enregistrer_montee(self, request, pk=None):
+        """
+        Enregistre un evenement de montee REEL pour ce passager - distinct
+        du fait d'etre simplement AFFECTE a la rotation (Voyage deja
+        cree). Point metier explicite du document de refonte : affecte ≠
+        monte. Le lieu par defaut reprend voyage.origine (lieu de montee
+        PREVU), mais peut etre corrige si la montee a reellement eu lieu
+        ailleurs.
+        """
+        from .models import EvenementMonteeDescente
+        import datetime as dt
+        voyage = self.get_object()
+        lieu = request.data.get("lieu") or voyage.origine or "—"
+        date_heure_str = request.data.get("date_heure")
+        date_heure = dt.datetime.fromisoformat(date_heure_str) if date_heure_str else timezone.now()
+        if timezone.is_naive(date_heure):
+            date_heure = timezone.make_aware(date_heure)
+        evt = EvenementMonteeDescente.objects.create(
+            voyage=voyage, type_evenement="montee", lieu=lieu, date_heure=date_heure,
+            latitude=request.data.get("latitude"), longitude=request.data.get("longitude"),
+            enregistre_par=request.user,
+        )
+        return Response({"id": evt.id, "type_evenement": "montee", "lieu": evt.lieu, "date_heure": evt.date_heure})
+
+    @action(detail=True, methods=["post"])
+    def enregistrer_descente(self, request, pk=None):
+        """Meme principe que enregistrer_montee, pour l'evenement de descente."""
+        from .models import EvenementMonteeDescente
+        import datetime as dt
+        voyage = self.get_object()
+        lieu = request.data.get("lieu") or voyage.destination or "—"
+        date_heure_str = request.data.get("date_heure")
+        date_heure = dt.datetime.fromisoformat(date_heure_str) if date_heure_str else timezone.now()
+        if timezone.is_naive(date_heure):
+            date_heure = timezone.make_aware(date_heure)
+        evt = EvenementMonteeDescente.objects.create(
+            voyage=voyage, type_evenement="descente", lieu=lieu, date_heure=date_heure,
+            latitude=request.data.get("latitude"), longitude=request.data.get("longitude"),
+            enregistre_par=request.user,
+        )
+        return Response({"id": evt.id, "type_evenement": "descente", "lieu": evt.lieu, "date_heure": evt.date_heure})
+
+    @action(detail=True, methods=["get"])
+    def itineraire_reel(self, request, pk=None):
+        """
+        Itineraire REEL du passager (section 21 du document) : construit
+        UNIQUEMENT a partir des evenements montee/descente reellement
+        enregistres - jamais saisi manuellement comme une nouvelle route.
+        Distinct de l'itineraire de la ROTATION (EtapeVoyage, deja
+        existant) - le billet affichera les deux separement.
+        """
+        from .models import EvenementMonteeDescente
+        voyage = self.get_object()
+        segments = EvenementMonteeDescente.itineraire_reel(voyage)
+        evenements = list(voyage.evenements_montee_descente.order_by("date_heure").values(
+            "id", "type_evenement", "lieu", "date_heure"))
+        return Response({"segments": segments, "evenements": evenements})
+
+    @action(detail=True, methods=["post"])
     def revenir(self, request, pk=None):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -587,6 +646,131 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 .order_by("-date_depart")[:50])
         return Response({"rotations":result,"individuels":indiv,"total_rotations":len(result)})
 
+    @action(detail=False, methods=["get"])
+    def demandes_a_organiser(self, request):
+        """
+        Section 6/11 du document de refonte : les demandes de voyage
+        VALIDEES par l'admin (systeme de demandes existant, reutilise tel
+        quel) mais dont le voyage genere automatiquement est encore un
+        simple placeholder individuel (aucun vehicule/chauffeur assigne
+        - jamais fusionne avec d'autres demandes en une rotation
+        organisee). C'est le "pool" de personnes pretes a etre organisees
+        en rotation, sans recreer le systeme de demandes.
+        """
+        from residences.models import Demande
+        demandes = (Demande.objects
+            .filter(type_demande="voyage", statut="validee")
+            .select_related("demandeur")
+            .prefetch_related("voyages_generes"))
+        result = []
+        for d in demandes:
+            voyage = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
+            if not voyage or voyage.vehicule_matricule:
+                continue  # deja organisee (vehicule assigne) ou voyage introuvable
+            p = getattr(d.demandeur, "personnel", None)
+            result.append({
+                "demande_id": d.id,
+                "voyage_id": voyage.id,
+                "personnel_id": p.id if p else None,
+                "personnel_nom": f"{p.nom} {p.prenom}" if p else d.demandeur.get_full_name(),
+                "destination": voyage.destination,
+                "date_depart": voyage.date_depart,
+                "date_retour_prevue": voyage.date_retour_prevue,
+            })
+        return Response({"demandes_a_organiser": result})
+
+    @action(detail=False, methods=["post"])
+    def organiser_demandes_en_rotation(self, request):
+        """
+        Le maillon manquant identifie par l'audit : jusqu'ici, valider une
+        demande de voyage creait un voyage individuel isole, jamais relie
+        a un vehicule/chauffeur ni fusionnable avec d'autres demandes.
+        Cette action prend une ou plusieurs demandes DEJA VALIDEES
+        (systeme de demandes existant, jamais duplique ici) et organise
+        leurs voyages generes en UNE rotation partagee : meme
+        vehicule/chauffeur, meme rotation_id. Reutilise EXACTEMENT les
+        memes regles de validation que creer_rotation (conducteur ≠
+        passager, conducteur ≠ second chauffeur, second chauffeur ≠
+        passager, second chauffeur facultatif) plutot que de les
+        redefinir.
+        """
+        from residences.models import Demande
+        data = request.data
+        demande_ids = data.get("demande_ids") or []
+        if not demande_ids:
+            return Response({"error": "Au moins une demande requise."}, status=400)
+
+        conducteur = (data.get("conducteur") or "").strip()
+        conducteur_secondaire = (data.get("conducteur_secondaire") or "").strip()
+        # Meme motif que creer_rotation : conducteur_id/conducteur_secondaire_id
+        # (reference reelle vers Personnel) privilegie, le texte libre reste
+        # accepte pour compatibilite.
+        conducteur_personnel = None
+        conducteur_secondaire_personnel = None
+        conducteur_id = data.get("conducteur_id")
+        conducteur_secondaire_id = data.get("conducteur_secondaire_id")
+        from residences.models import Personnel as _Pers
+        if conducteur_id:
+            conducteur_personnel = _Pers.objects.filter(pk=conducteur_id).first()
+            if conducteur_personnel:
+                conducteur = f"{conducteur_personnel.nom} {conducteur_personnel.prenom}"
+        if conducteur_secondaire_id:
+            conducteur_secondaire_personnel = _Pers.objects.filter(pk=conducteur_secondaire_id).first()
+            if conducteur_secondaire_personnel:
+                conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
+        vehicule = data.get("vehicule", "")
+        vehicule_matricule = data.get("vehicule_matricule", "")
+        if not conducteur or not vehicule_matricule:
+            return Response({"error": "Véhicule et chauffeur principal sont obligatoires."}, status=400)
+        meme_personne = (conducteur_personnel and conducteur_secondaire_personnel and conducteur_personnel.id == conducteur_secondaire_personnel.id) \
+            if (conducteur_personnel or conducteur_secondaire_personnel) else (conducteur_secondaire and conducteur_secondaire.lower() == conducteur.lower())
+        if meme_personne:
+            return Response({"error": "Le second chauffeur doit être différent du chauffeur principal."}, status=400)
+
+        demandes = Demande.objects.filter(id__in=demande_ids, type_demande="voyage", statut="validee")
+        if demandes.count() != len(demande_ids):
+            return Response({"error": "Une ou plusieurs demandes ne sont pas valides/validées."}, status=400)
+
+        voyages = []
+        for d in demandes:
+            v = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
+            if not v:
+                return Response({"error": f"Aucun voyage généré pour la demande #{d.id}."}, status=400)
+            if v.vehicule_matricule:
+                return Response({"error": f"La demande #{d.id} est déjà organisée dans une rotation."}, status=409)
+            voyages.append(v)
+
+        # Comparaison par ID quand disponible (fiable), repli sur le nom
+        # (comme creer_rotation) sinon.
+        passagers_ids = {v.personnel_id for v in voyages if v.personnel_id}
+        noms_passagers = {f"{v.personnel.nom} {v.personnel.prenom}".strip().lower() for v in voyages if v.personnel}
+        if conducteur_personnel:
+            if conducteur_personnel.id in passagers_ids:
+                return Response({"error": f"{conducteur} fait partie des personnes à transporter : ne peut pas être aussi conducteur."}, status=400)
+        elif conducteur.lower() in noms_passagers:
+            return Response({"error": f"{conducteur} fait partie des personnes à transporter : ne peut pas être aussi conducteur."}, status=400)
+        if conducteur_secondaire_personnel:
+            if conducteur_secondaire_personnel.id in passagers_ids:
+                return Response({"error": f"{conducteur_secondaire} fait partie des personnes à transporter : ne peut pas être aussi second chauffeur."}, status=400)
+        elif conducteur_secondaire and conducteur_secondaire.lower() in noms_passagers:
+            return Response({"error": f"{conducteur_secondaire} fait partie des personnes à transporter : ne peut pas être aussi second chauffeur."}, status=400)
+
+        nouveau_rotation_id = str(uuid.uuid4())[:8].upper()
+        for v in voyages:
+            v.vehicule = vehicule
+            v.vehicule_matricule = vehicule_matricule
+            v.conducteur = conducteur
+            v.conducteur_secondaire = conducteur_secondaire
+            v.conducteur_personnel = conducteur_personnel
+            v.conducteur_secondaire_personnel = conducteur_secondaire_personnel
+            v.rotation_id = nouveau_rotation_id
+            v.type_voyage = "rotation"
+            v.nb_places_total = len(voyages)
+            v.save(update_fields=["vehicule","vehicule_matricule","conducteur","conducteur_secondaire",
+                                   "conducteur_personnel","conducteur_secondaire_personnel","rotation_id","type_voyage","nb_places_total"])
+
+        return Response({"rotation_id": nouveau_rotation_id, "nb_personnes": len(voyages)}, status=201)
+
     @action(detail=False, methods=["post"])
     def creer_rotation(self, request):
         data = request.data
@@ -600,6 +784,25 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule_photo  = data.get("vehicule_photo","")
         conducteur      = data.get("conducteur","")
         conducteur_secondaire = data.get("conducteur_secondaire","")
+        # Reference reelle vers Personnel (privilegiee) - le texte libre
+        # ci-dessus reste accepte pour compatibilite ascendante (anciens
+        # appelants, saisie manuelle exceptionnelle), mais quand un ID est
+        # fourni il devient la source de verite et REMPLIT le texte
+        # automatiquement, plutot que l'inverse.
+        conducteur_personnel = None
+        conducteur_secondaire_personnel = None
+        conducteur_id = data.get("conducteur_id")
+        conducteur_secondaire_id = data.get("conducteur_secondaire_id")
+        if conducteur_id:
+            from residences.models import Personnel as _Pers
+            conducteur_personnel = _Pers.objects.filter(pk=conducteur_id).first()
+            if conducteur_personnel:
+                conducteur = f"{conducteur_personnel.nom} {conducteur_personnel.prenom}"
+        if conducteur_secondaire_id:
+            from residences.models import Personnel as _Pers
+            conducteur_secondaire_personnel = _Pers.objects.filter(pk=conducteur_secondaire_id).first()
+            if conducteur_secondaire_personnel:
+                conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
         niveau_alerte   = data.get("niveau_alerte", 1)
         trajet_aller_seul = bool(data.get("trajet_aller_seul", False))
         nb_places       = int(data.get("nb_places_total",15))
@@ -623,28 +826,42 @@ class VoyageViewSet(viewsets.ModelViewSet):
         # Regle : le conducteur ne peut pas etre aussi passager de la meme
         # rotation - SAUF si c'est un voyage SOLO (une seule personne) : la
         # personne peut legitimement conduire elle-meme son propre vehicule.
+        # Comparaison par ID (fiable) quand conducteur_personnel est fourni,
+        # sinon repli sur la comparaison de nom (texte libre, ancien
+        # comportement conserve pour compatibilite).
         if conducteur and len(passagers_ids) > 1:
-            from residences.models import Personnel
-            for pid in passagers_ids:
-                try:
-                    p = Personnel.objects.get(pk=pid)
-                    if f"{p.nom} {p.prenom}".strip().lower() == conducteur.strip().lower():
-                        return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
-                except Personnel.DoesNotExist:
-                    pass
+            if conducteur_personnel:
+                if conducteur_personnel.id in passagers_ids:
+                    return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+            else:
+                from residences.models import Personnel
+                for pid in passagers_ids:
+                    try:
+                        p = Personnel.objects.get(pk=pid)
+                        if f"{p.nom} {p.prenom}".strip().lower() == conducteur.strip().lower():
+                            return Response({"error": f"{conducteur} est désigné comme conducteur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+                    except Personnel.DoesNotExist:
+                        pass
         # Meme regle pour le second chauffeur (relance) - un cumul
         # chauffeur+second+passager n'a jamais ete controle jusqu'ici.
-        if conducteur and conducteur_secondaire and conducteur.strip().lower() == conducteur_secondaire.strip().lower():
-            return Response({"error": f"{conducteur} ne peut pas être à la fois conducteur principal et second chauffeur de la même rotation."}, status=400)
+        if conducteur and conducteur_secondaire:
+            meme_personne = (conducteur_personnel and conducteur_secondaire_personnel and conducteur_personnel.id == conducteur_secondaire_personnel.id) \
+                if (conducteur_personnel or conducteur_secondaire_personnel) else (conducteur.strip().lower() == conducteur_secondaire.strip().lower())
+            if meme_personne:
+                return Response({"error": f"{conducteur} ne peut pas être à la fois conducteur principal et second chauffeur de la même rotation."}, status=400)
         if conducteur_secondaire and len(passagers_ids) > 1:
-            from residences.models import Personnel
-            for pid in passagers_ids:
-                try:
-                    p = Personnel.objects.get(pk=pid)
-                    if f"{p.nom} {p.prenom}".strip().lower() == conducteur_secondaire.strip().lower():
-                        return Response({"error": f"{conducteur_secondaire} est désigné comme second chauffeur : il ne peut pas être aussi passager de la même rotation."}, status=400)
-                except Personnel.DoesNotExist:
-                    pass
+            if conducteur_secondaire_personnel:
+                if conducteur_secondaire_personnel.id in passagers_ids:
+                    return Response({"error": f"{conducteur_secondaire} est désigné comme second chauffeur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+            else:
+                from residences.models import Personnel
+                for pid in passagers_ids:
+                    try:
+                        p = Personnel.objects.get(pk=pid)
+                        if f"{p.nom} {p.prenom}".strip().lower() == conducteur_secondaire.strip().lower():
+                            return Response({"error": f"{conducteur_secondaire} est désigné comme second chauffeur : il ne peut pas être aussi passager de la même rotation."}, status=400)
+                    except Personnel.DoesNotExist:
+                        pass
         if conducteur:
             # Regle : le conducteur ne peut pas deja etre conducteur sur un AUTRE convoi actif qui chevauche les dates
             chevauche = Voyage.objects.filter(
@@ -703,6 +920,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     vehicule=vehicule, nb_places_total=nb_places,
                     vehicule_matricule=vehicule_matricule, vehicule_photo=vehicule_photo,
                     conducteur=conducteur, conducteur_secondaire=conducteur_secondaire, niveau_alerte=niveau_alerte,
+                    conducteur_personnel=conducteur_personnel, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
                     trajet_aller_seul=trajet_aller_seul,
                     heure_depart=heure_depart, point_rdv=point_rdv,
                     motif=motif, type_voyage=type_voyage,

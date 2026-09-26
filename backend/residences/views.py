@@ -1674,6 +1674,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 valide_par=request.user,
                                 date_validation=timezone.now(),
                                 enregistre_par=request.user,
+                                demande_origine=demande,
                             )
                         except Exception as ve:
                             pass  # Continue even if voyage creation fails

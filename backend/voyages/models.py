@@ -42,11 +42,23 @@ class Voyage(models.Model):
                          help_text="Nom du conducteur assigné pour l'ALLER — change trop souvent pour être lié au véhicule lui-même")
     conducteur_secondaire = models.CharField(max_length=100, blank=True, default="",
                          help_text="Second chauffeur / chauffeur de relève pour ce trajet (long trajet, sécurité) — distinct du conducteur du retour")
+    conducteur_personnel = models.ForeignKey("residences.Personnel", on_delete=models.SET_NULL, null=True, blank=True,
+                         related_name="voyages_comme_conducteur",
+                         help_text="Référence réelle vers le personnel désigné conducteur — le champ 'conducteur' (texte) reste rempli en parallèle "
+                                    "pour l'affichage (JMP, historique) et la compatibilité avec le code existant, mais cette FK est désormais "
+                                    "la source de vérité pour les contrôles d'intégrité (une personne ne peut pas être conducteur ET passager).")
+    conducteur_secondaire_personnel = models.ForeignKey("residences.Personnel", on_delete=models.SET_NULL, null=True, blank=True,
+                         related_name="voyages_comme_conducteur_secondaire", help_text="Voir conducteur_personnel — même principe pour le second chauffeur.")
     trajet_aller_seul = models.BooleanField(default=False,
                          help_text="Rotation = un trajet aller a travers plusieurs villes intermediaires, PAS un aller-retour couple. "
                                     "Un eventuel retour doit etre cree comme une NOUVELLE rotation separee, independante. "
                                     "Quand actif, la fin du trajet ne tente jamais de restituer une chambre au camp "
                                     "(la destination n'est pas forcement le camp).")
+    demande_origine = models.ForeignKey("residences.Demande", on_delete=models.SET_NULL, null=True, blank=True,
+                         related_name="voyages_generes",
+                         help_text="Demande de voyage a l'origine de ce voyage, si cree depuis une demande validee "
+                                    "(refonte Centre de Mobilite) - trace le lien demande -> rotation sans dupliquer "
+                                    "le systeme de demandes existant.")
     NIVEAUX_ALERTE = [
         (1, "Aucune restriction de voyage"),
         (2, "Prudence — coordination entre CCTV"),
@@ -268,6 +280,66 @@ class EtapeVoyage(models.Model):
 
     def __str__(self):
         return f"Étape {self.ordre} — {self.origine} → {self.destination}"
+
+
+class EvenementMonteeDescente(models.Model):
+    """
+    Historique REEL des montees/descentes d'un passager - point metier
+    fondamental du document de refonte Centre de Mobilite : une personne
+    AFFECTEE a une rotation (Voyage cree) n'est pas automatiquement
+    consideree MONTEE. La montee et la descente sont deux evenements
+    distincts et horodates, et un passager peut avoir PLUSIEURS segments
+    (descend puis remonte plus tard - ex: escale). Ne remplace PAS
+    Voyage.origine/destination (qui restent le lieu de montee/descente
+    PREVU, editable a l'avance) - ceci est le journal des evenements
+    REELLEMENT survenus, dans l'ordre chronologique.
+
+    Rattache a un Voyage (= la participation d'UNE personne a UNE
+    rotation, deja le modele existant) plutot qu'a un nouveau modele
+    Rotation separe - il n'y a pas de modele Rotation independant dans
+    ce projet, rotation_id regroupe deja plusieurs Voyage (confirme par
+    l'audit prealable), donc chaque evenement appartient logiquement au
+    Voyage (donc a la personne) auquel il se rapporte.
+    """
+    TYPE_CHOIX = [("montee", "🟢 Montée"), ("descente", "🔴 Descente")]
+
+    voyage = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="evenements_montee_descente")
+    type_evenement = models.CharField(max_length=10, choices=TYPE_CHOIX)
+    lieu = models.CharField(max_length=150)
+    date_heure = models.DateTimeField()
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    enregistre_par = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["voyage", "date_heure"]
+        verbose_name = "Événement montée/descente"
+
+    def __str__(self):
+        return f"{self.get_type_evenement_display()} — {self.lieu} ({self.date_heure:%d/%m %H:%M})"
+
+    @staticmethod
+    def itineraire_reel(voyage):
+        """
+        Construit l'itineraire REEL du passager a partir de ses
+        evenements montee/descente, en segments (section 23 du
+        document) : [{depart, arrivee, lieu_depart, lieu_arrivee}, ...].
+        Gere les allers-retours multiples (redescend puis remonte).
+        """
+        evenements = list(voyage.evenements_montee_descente.order_by("date_heure"))
+        segments = []
+        montee_en_cours = None
+        for e in evenements:
+            if e.type_evenement == "montee":
+                montee_en_cours = e
+            elif e.type_evenement == "descente" and montee_en_cours:
+                segments.append({
+                    "lieu_depart": montee_en_cours.lieu, "date_heure_depart": montee_en_cours.date_heure,
+                    "lieu_arrivee": e.lieu, "date_heure_arrivee": e.date_heure,
+                })
+                montee_en_cours = None
+        return segments
 
 
 class VehiculeFlotte(models.Model):

@@ -417,6 +417,9 @@ export default function MissionControl() {
   const [view,       setView]      = useState('command')
   const [voyages,    setVoyages]   = useState([])
   const [rotations,  setRotations] = useState([])
+  const [demandesAOrganiser, setDemandesAOrganiser] = useState([])
+  const [demandesSelectionnees, setDemandesSelectionnees] = useState([])
+  const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'' })
   const [personnel,  setPersonnel] = useState([])
   const [stats,      setStats]     = useState({})
   const [loading,    setLoading]   = useState(true)
@@ -466,7 +469,7 @@ export default function MissionControl() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr, rrap, rvf, rra] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap, rvf, rra, rorg] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true&droit_mobilite=true').then(r=>r.json()),
@@ -474,12 +477,14 @@ export default function MissionControl() {
         api('/api/voyages/rappels_rotation/').then(r=>r.json()),
         api('/api/vehicules-flotte/').then(r=>r.json()),
         api('/api/voyages/retours_anticipes/').then(r=>r.json()),
+        api('/api/voyages/demandes_a_organiser/').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
       if (rp.status==='fulfilled') setPersonnel(rp.value?.results||rp.value||[])
       if (rr.status==='fulfilled') setRotations(rr.value?.rotations||[])
       if (rrap.status==='fulfilled') setRappels(Array.isArray(rrap.value) ? rrap.value : [])
+      if (rorg.status==='fulfilled') setDemandesAOrganiser(rorg.value?.demandes_a_organiser||[])
       if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
       if (rra.status==='fulfilled') setRetoursAnticipes(Array.isArray(rra.value) ? rra.value : [])
     } catch(e) {}
@@ -1033,13 +1038,14 @@ export default function MissionControl() {
             {[
               ['command','🛰️ Command'],
               ['rotations','🚀 Rotations'],
+              ['organiser','📋 À organiser'],
               ['gantt','📅 Gantt'],
               ['manifest','📋 Manifest'],
               ['calendrier','🗓️ Calendrier'],
               ['validations','✅ Validations'],
               ['liste','🎫 Tous les voyages'],
             ].map(([v,l])=>{
-              const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : 0
+              const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : (v==='organiser' ? demandesAOrganiser.length : 0)
               return (
                 <button key={v} className={`mc-tab ${view===v?'active':''}`}
                   onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
@@ -1564,6 +1570,96 @@ export default function MissionControl() {
                 </Panel>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ══ VUE À ORGANISER (demandes validees pas encore en rotation) ══ */}
+        {view==='organiser' && (
+          <div className="mc-fade" style={{padding:16}}>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Demandes validées à organiser</div>
+              <div style={{fontSize:12,color:C.muted}}>
+                {demandesAOrganiser.length} demande(s) de voyage déjà validées par l'admin, en attente d'un véhicule et d'un chauffeur — sélectionnez-en une ou plusieurs pour les regrouper dans une même rotation.
+              </div>
+            </div>
+
+            {demandesAOrganiser.length===0 ? (
+              <div style={{padding:30,textAlign:'center',color:C.muted,background:C.panel,borderRadius:10}}>
+                Aucune demande validée en attente d'organisation.
+              </div>
+            ) : (
+              <>
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
+                  {demandesAOrganiser.map(d=>{
+                    const checked = demandesSelectionnees.includes(d.demande_id)
+                    return (
+                      <label key={d.demande_id} style={{display:'flex',alignItems:'center',gap:10,
+                        padding:'10px 14px',borderRadius:9,cursor:'pointer',background:checked?`${C.accent}15`:C.panel,
+                        border:`1px solid ${checked?C.accent:C.border}`}}>
+                        <input type="checkbox" checked={checked} style={{accentColor:C.accent}}
+                          onChange={e=>{
+                            if(e.target.checked) setDemandesSelectionnees(s=>[...s,d.demande_id])
+                            else setDemandesSelectionnees(s=>s.filter(x=>x!==d.demande_id))
+                          }}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:C.text}}>{d.personnel_nom}</div>
+                          <div style={{fontSize:11,color:C.muted}}>→ {d.destination||'—'} · {d.date_depart} → {d.date_retour_prevue}</div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {demandesSelectionnees.length > 0 && (
+                  <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:C.text}}>
+                      Organiser {demandesSelectionnees.length} demande(s) en une rotation
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
+                      <div>
+                        <label style={labelStyle}>Véhicule *</label>
+                        <select value={organiserForm.vehicule_matricule} onChange={e=>{
+                            const vf = flotte.find(v=>v.matricule===e.target.value)
+                            setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
+                          }} style={inputStyle}>
+                          <option value="">Sélectionner...</option>
+                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Chauffeur principal *</label>
+                        <select value={organiserForm.conducteur_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_id:e.target.value}))} style={inputStyle}>
+                          <option value="">Sélectionner...</option>
+                          {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>2e chauffeur (facultatif)</label>
+                        <select value={organiserForm.conducteur_secondaire_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_secondaire_id:e.target.value}))} style={inputStyle}>
+                          <option value="">Aucun</option>
+                          {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12}}
+                      disabled={!organiserForm.vehicule_matricule||!organiserForm.conducteur_id}
+                      onClick={async()=>{
+                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify({
+                          demande_ids: demandesSelectionnees, ...organiserForm,
+                        })})
+                        const d = await res.json()
+                        if (res.ok) {
+                          flash(`Rotation organisée (${d.nb_personnes} personne(s))`)
+                          setDemandesSelectionnees([]); setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:''})
+                          load()
+                        } else { toast.error(d.error || 'Erreur') }
+                      }}>
+                      ✦ Créer la rotation
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -2161,6 +2257,37 @@ export default function MissionControl() {
                   }}>
                   💾 Enregistrer
                 </button>
+              </div>
+
+              {/* Evenements REELS de montee/descente - distinct de la
+                  planification ci-dessus. Point metier du document de
+                  refonte : AFFECTE (voyage cree) ≠ MONTE (evenement reel
+                  survenu). */}
+              <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#16a34a',marginBottom:4}}>🟢 Montée / descente réelles</div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+                  Affecté à cette rotation ne veut pas dire monté — enregistrez l'événement réel au moment où il survient.
+                </div>
+                <div style={{display:'flex',gap:8,marginBottom:10}}>
+                  <button className="mc-btn" style={{flex:1,fontSize:11,padding:'8px',background:'#16a34a',color:'#fff',fontWeight:700}}
+                    onClick={async()=>{
+                      const lieu = prompt('Lieu de montée ?', detailVoyage.origine || '')
+                      if (lieu===null) return
+                      const res = await api(`/api/voyages/${detailVoyage.id}/enregistrer_montee/`, {method:'POST', body:JSON.stringify({lieu})})
+                      if (res.ok) { toast.success('Montée enregistrée'); load() } else toast.error('Erreur')
+                    }}>
+                    🟢 Enregistrer montée
+                  </button>
+                  <button className="mc-btn" style={{flex:1,fontSize:11,padding:'8px',background:'#dc2626',color:'#fff',fontWeight:700}}
+                    onClick={async()=>{
+                      const lieu = prompt('Lieu de descente ?', detailVoyage.destination || '')
+                      if (lieu===null) return
+                      const res = await api(`/api/voyages/${detailVoyage.id}/enregistrer_descente/`, {method:'POST', body:JSON.stringify({lieu})})
+                      if (res.ok) { toast.success('Descente enregistrée'); load() } else toast.error('Erreur')
+                    }}>
+                    🔴 Enregistrer descente
+                  </button>
+                </div>
               </div>
 
               {/* Grille d'infos complètes */}
