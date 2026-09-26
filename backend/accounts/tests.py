@@ -4,7 +4,7 @@ n'existait avant, confirme par l'audit prealable). Tous les fournisseurs
 SMS sont MOCKES - aucun test ici n'envoie de vrai SMS ni n'appelle un
 reseau externe (exigence explicite du prompt d'integration SMS).
 """
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -107,19 +107,29 @@ class ProviderFactoryTests(TestCase):
 
     @patch("requests.post")
     def test_hsms_envoi_reussi_mocke(self, mock_post):
-        """Simule la reponse exacte documentee par hsms.ci - jamais de vrai appel reseau dans les tests."""
+        """Simule la reponse exacte documentee par hsms.ci API v2 (/api/v2/sms/send/) -
+        jamais de vrai appel reseau dans les tests."""
         Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
         Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
         Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
         mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {"success": True, "message": "OK"}
+        mock_post.return_value.content = b'{"success": true}'
+        mock_post.return_value.json.return_value = {
+            "success": True, "message": "SMS queued for delivery",
+            "tasks": {"225701234567": {"ticket": "tk-1"}},
+            "total_queued": 1, "segments_per_message": 1, "encoding": "gsm",
+        }
         provider = ProviderFactory.get("hsms")
         ok, info = provider.envoyer("0701234567", "test")
         self.assertTrue(ok)
-        # Verifie le format telephone exact attendu par HSMS (indicatif SANS le "+")
+        # Verifie l'endpoint v2 et le format telephone exact attendu par HSMS (indicatif SANS le "+")
         appel = mock_post.call_args
+        self.assertEqual(appel.args[0], "https://hsms.ci/api/v2/sms/send/")
         self.assertEqual(appel.kwargs["json"]["telephone"], "225701234567")
+        self.assertEqual(appel.kwargs["json"]["clientid"], "cid")
+        self.assertEqual(appel.kwargs["json"]["clientsecret"], "csecret")
         self.assertEqual(appel.kwargs["headers"]["Authorization"], "Bearer tok123")
+        self.assertIn("tk-1", info)
 
     @patch("requests.post")
     def test_hsms_solde_insuffisant_400(self, mock_post):
@@ -127,11 +137,55 @@ class ProviderFactoryTests(TestCase):
         Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
         Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
         mock_post.return_value.status_code = 400
+        mock_post.return_value.content = b'{}'
         mock_post.return_value.json.return_value = {"success": False, "message": "Solde insuffisant"}
         provider = ProviderFactory.get("hsms")
         ok, info = provider.envoyer("0701234567", "test")
         self.assertFalse(ok)
         self.assertIn("Solde insuffisant", info)
+
+    @patch("requests.post")
+    def test_hsms_token_expire_renouvele_automatiquement(self, mock_post):
+        """Si le token statique est rejete (401) et que email/mot de passe
+        sont configures, le provider doit obtenir un nouveau token via
+        /api/v2/sms/token/ et reessayer l'envoi avec celui-ci."""
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok-perime"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        Parametre.objects.update_or_create(cle="sms_hsms_email", defaults={"valeur": "user@example.com"})
+        Parametre.objects.update_or_create(cle="sms_hsms_password", defaults={"valeur": "secret"})
+
+        reponse_401 = MagicMock(status_code=401, content=b'{}')
+        reponse_401.json.return_value = {"success": False, "message": "Jeton invalide"}
+        reponse_token = MagicMock(status_code=200, content=b'{"token":"tok-neuf"}')
+        reponse_token.json.return_value = {"success": True, "token": "tok-neuf"}
+        reponse_ok = MagicMock(status_code=200, content=b'{"success": true}')
+        reponse_ok.json.return_value = {"success": True, "tasks": {"225701234567": {"ticket": "tk-2"}}}
+
+        mock_post.side_effect = [reponse_401, reponse_token, reponse_ok]
+        provider = ProviderFactory.get("hsms")
+        ok, info = provider.envoyer("0701234567", "test")
+        self.assertTrue(ok)
+        # 3 appels : envoi (rejeté) -> obtention token -> envoi (accepté)
+        self.assertEqual(mock_post.call_count, 3)
+        self.assertEqual(mock_post.call_args_list[1].args[0], "https://hsms.ci/api/v2/sms/token/")
+        self.assertEqual(mock_post.call_args_list[1].kwargs["json"], {"email": "user@example.com", "password": "secret"})
+        self.assertEqual(mock_post.call_args_list[2].kwargs["headers"]["Authorization"], "Bearer tok-neuf")
+        # Le nouveau token doit être mis en cache
+        self.assertEqual(Parametre.get("sms_hsms_token"), "tok-neuf")
+
+    @patch("requests.post")
+    def test_hsms_solde_v2(self, mock_post):
+        Parametre.objects.update_or_create(cle="sms_hsms_token", defaults={"valeur": "tok123"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_id", defaults={"valeur": "cid"})
+        Parametre.objects.update_or_create(cle="sms_hsms_client_secret", defaults={"valeur": "csecret"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"success": True, "balance": 1500, "app_name": "MyApp"}
+        provider = ProviderFactory.get("hsms")
+        solde = provider.get_balance()
+        self.assertEqual(solde, 1500)
+        appel = mock_post.call_args
+        self.assertEqual(appel.args[0], "https://hsms.ci/api/v2/sms/check-balance/")
 
 
 class EnvoyerSMSTests(TestCase):

@@ -58,9 +58,11 @@ def liste_parametres(request):
         'sms_prosms_client_id': ('', 'proSMS — Client ID (prosms.ci/api-credentials, confirmé et documenté)'),
         'sms_prosms_client_secret': ('', 'proSMS — Client Secret'),
         'sms_prosms_sender_id': ('', 'proSMS — Sender ID (doit être pré-approuvé sur prosms.ci, sinon rejeté)'),
-        'sms_hsms_token': ('', 'HSMS — Token API (obtenu via POST /api/token/ avec email+mot de passe, ou copié depuis le tableau de bord — documentation confirmée et vérifiée)'),
+        'sms_hsms_token': ('', 'HSMS (API v2) — Token API (copié depuis le tableau de bord, ou obtenu automatiquement via email+mot de passe ci-dessous s\'il expire)'),
         'sms_hsms_client_id': ('', 'HSMS — Client ID de votre application (tableau de bord hsms.ci, onglet « Identifiants API »)'),
         'sms_hsms_client_secret': ('', 'HSMS — Client Secret de votre application'),
+        'sms_hsms_email': ('', 'HSMS — Email du compte (optionnel : permet de renouveler automatiquement le token quand il expire)'),
+        'sms_hsms_password': ('', 'HSMS — Mot de passe du compte (optionnel, utilisé uniquement pour renouveler le token)'),
         'sms_at_username': ("", "Africa's Talking — Username"),
         'sms_at_api_key': ("", "Africa's Talking — API Key"),
         # Menus par role - configurable depuis Parametrage sans toucher au
