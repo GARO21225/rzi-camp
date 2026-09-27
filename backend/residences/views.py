@@ -78,10 +78,16 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Seul l'admin peut importer du personnel."}, status=403)
         from django.db import connection
+        from accounts.models import Parametre
+        from accounts.contact_validation import valider_contact_selon_canal
+        from accounts.notifications import envoyer_identifiants
 
         rows = request.data.get('rows', [])
         ok = 0
         errors = []
+        canal_otp = Parametre.get('canal_otp', 'sms')
+        identifiants_envoyes = 0
+        identifiants_echecs = []
 
         def clean(value):
             return str(value or '').strip()
@@ -169,7 +175,22 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
             email = clean(row.get('email'))
 
+            # Contact obligatoire + format valide, selon le canal de
+            # connexion configure (Parametrage -> canal_otp) - sans ca,
+            # cette personne ne pourra jamais recevoir son code OTP ni
+            # ses identifiants (demande explicite : "je pense qu'on doit
+            # rendre des champ obligatoire et contraindre certains
+            # format"). Meme regle que la creation individuelle
+            # (PersonnelSerializer.validate()) - une ligne invalide est
+            # IGNOREE (pas d'exception qui stopperait tout l'import), et
+            # signalee dans "errors" comme les autres lignes invalides.
+            erreurs_contact = valider_contact_selon_canal(canal_otp, telephone=telephone, numero_whatsapp=whatsapp, email=email)
+            if erreurs_contact:
+                errors.append(f"Ligne {i + 2}: " + " ".join(erreurs_contact))
+                continue
+
             try:
+                from django.utils import timezone
                 with connection.cursor() as c:
                     c.execute(
                         """
@@ -178,6 +199,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             nom,
                             prenom,
                             societe,
+                            departement,
                             email,
                             numero,
                             telephone,
@@ -185,6 +207,9 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             type_personnel,
                             actif,
                             profil,
+                            est_expatrie,
+                            pays_origine,
+                            eligible_mobilite,
                             qr_code_data,
                             qr_code_string,
                             login_genere,
@@ -192,8 +217,8 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             date_creation
                         )
                         VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
-                            TRUE, 'agent', '', '', '', '', NOW()
+                            %s, %s, %s, '', %s, %s, %s, %s, %s,
+                            TRUE, 'agent', FALSE, '', FALSE, '', '', '', '', %s
                         )
                         RETURNING id
                         """,
@@ -206,6 +231,13 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             telephone,
                             whatsapp,
                             type_p,
+                            # NOW() etait specifique a Postgres (echoue sous
+                            # SQLite, la base utilisee par la suite de tests -
+                            # jamais detecte faute de test sur ce chemin
+                            # avant l'ajout de PersonnelImportCsvIdentifiantsTests) -
+                            # une valeur Python parametree fonctionne sous
+                            # les deux moteurs, sans rien changer en prod.
+                            timezone.now(),
                         ]
                     )
 
@@ -223,9 +255,20 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                 except Exception:
                     pass
 
-                # Générer le compte utilisateur
+                # Générer le compte utilisateur + envoyer les identifiants
+                # PAR LE CANAL CONFIGURE (meme fonction que la creation
+                # individuelle - accounts.notifications.envoyer_identifiants -
+                # demande explicite : "prend en compte creation individuel
+                # et par importation"). N'echoue jamais la ligne si l'envoi
+                # rate (comptabilise seulement pour le resume renvoye).
                 try:
-                    p.creer_utilisateur()
+                    username, password = p.creer_utilisateur()
+                    if username and password:
+                        envoi = envoyer_identifiants(p, username, password)
+                        if envoi.get("ok"):
+                            identifiants_envoyes += 1
+                        else:
+                            identifiants_echecs.append(f"Ligne {i + 2} ({nom} {prenom}): {envoi.get('info')}")
                 except Exception:
                     pass
 
@@ -238,7 +281,10 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
         return Response({
             'imported': ok,
-            'errors': errors
+            'errors': errors,
+            'canal_otp': canal_otp,
+            'identifiants_envoyes': identifiants_envoyes,
+            'identifiants_echecs': identifiants_echecs,
         })
 
     def create(self, request, *args, **kwargs):
@@ -254,40 +300,17 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         data = dict(response.data)
         data["login_genere"] = username
         data["password_genere"] = password
-        # Envoi automatique des identifiants par WhatsApp et email (demande
-        # explicite: "chaque utilisateur qui sera cree ait le acces via
-        # whatsapp par mail") - en plus de l'affichage a l'ecran (qui reste
-        # la SEULE facon de voir a nouveau le mot de passe si ces envois
-        # echouent ou si le numero/email est absent). N'echoue jamais la
-        # creation du compte si l'envoi rate - fail_silently partout.
+        # Envoi automatique des identifiants, PAR LE CANAL CONFIGURE
+        # (Parametrage -> canal_otp : sms/whatsapp/email) - en plus de
+        # l'affichage a l'ecran (qui reste la SEULE facon de voir a
+        # nouveau le mot de passe si cet envoi echoue ou si la coordonnee
+        # est absente). N'echoue jamais la creation du compte si l'envoi
+        # rate (accounts.notifications.envoyer_identifiants ne leve
+        # jamais d'exception). Meme fonction utilisee par l'import CSV en
+        # masse (import_csv_data ci-dessous) - un seul endroit a maintenir.
         if username and password:
-            from accounts.models import Parametre
-            nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
-            message = f"{nom_app} — Vos identifiants de connexion :\nIdentifiant : {username}\nMot de passe : {password}\n\nConservez ce message, il ne sera plus jamais affiché."
-            envois = {"email": False, "whatsapp": False}
-            try:
-                if p.email:
-                    from django.core.mail import send_mail
-                    from django.conf import settings
-                    send_mail(
-                        subject=f"🔑 Vos identifiants — {nom_app}",
-                        message=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[p.email],
-                        fail_silently=True,
-                    )
-                    envois["email"] = True
-            except Exception:
-                pass
-            try:
-                numero = p.numero_whatsapp or p.telephone
-                if numero:
-                    from accounts.sms import envoyer_sms
-                    ok, _info = envoyer_sms(numero, message, canal='whatsapp', type_message='identifiants')
-                    envois["whatsapp"] = ok
-            except Exception:
-                pass
-            data["identifiants_envoyes"] = envois
+            from accounts.notifications import envoyer_identifiants
+            data["identifiants_envoyes"] = envoyer_identifiants(p, username, password)
         # Notifier uniquement sécurité, médical, agent d'accueil
         try:
             from evenements.models import SimpleNotification

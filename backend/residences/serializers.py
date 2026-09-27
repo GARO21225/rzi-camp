@@ -132,7 +132,45 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_login_genere(self, obj):
         return getattr(obj, 'login_genere', None) or (obj.user.username if obj.user else None)
 
+    def validate(self, attrs):
+        """
+        Contraint le champ de contact (telephone/whatsapp/email) requis
+        pour le canal de connexion configure (Parametre 'canal_otp') -
+        sans ca, la personne creee ne pourra jamais recevoir son code OTP
+        ni ses identifiants (demande explicite : "je pense qu'on doit
+        rendre des champ obligatoire et contraindre certains format").
 
+        Le caractere OBLIGATOIRE n'est applique qu'A LA CREATION (pas de
+        blocage d'une modification sur un Personnel deja existant qui
+        aurait ete cree avant cette regle, sans ce champ) ; le FORMAT est
+        verifie des qu'une valeur est fournie, creation ou modification.
+        """
+        from accounts.models import Parametre
+        from accounts.contact_validation import valider_contact_selon_canal
+
+        creation = self.instance is None
+        canal = Parametre.get('canal_otp', 'sms')
+
+        def valeur(champ):
+            if champ in attrs:
+                return attrs[champ]
+            return getattr(self.instance, champ, '') if self.instance else ''
+
+        erreurs = valider_contact_selon_canal(
+            canal,
+            telephone=valeur('telephone'),
+            numero_whatsapp=valeur('numero_whatsapp'),
+            email=valeur('email'),
+        )
+        if erreurs and not creation:
+            # En modification : ne garder que les erreurs de FORMAT (pas
+            # "obligatoire", pour ne pas bloquer un enregistrement
+            # preexistant incomplet sur un champ non touche par cette
+            # modification).
+            erreurs = [e for e in erreurs if "obligatoire" not in e]
+        if erreurs:
+            raise serializers.ValidationError(erreurs)
+        return attrs
 
     class Meta:
         model  = Personnel

@@ -68,6 +68,17 @@ def normaliser(numero: str, pays: str = PAYS_PAR_DEFAUT) -> str:
     return regles['normaliser_local'](v)
 
 
+def est_valide(numero: str, pays: str = PAYS_PAR_DEFAUT) -> bool:
+    """
+    True si le numero, une fois normalise, correspond au format LOCAL
+    ivoirien attendu (0XXXXXXXXX, 10 chiffres). Utilise pour valider la
+    saisie (creation Personnel individuelle et import CSV en masse) avant
+    d'accepter un numero comme destination valide pour l'OTP/les
+    identifiants — pas seulement pour l'affichage.
+    """
+    return bool(re.fullmatch(r'0\d{9}', normaliser(numero, pays)))
+
+
 def vers_international(numero: str, pays: str = PAYS_PAR_DEFAUT) -> str:
     """
     Format international (+225XXXXXXXXXX) attendu par les fournisseurs

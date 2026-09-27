@@ -387,3 +387,115 @@ class CarteSigListeCompleteTests(TestCase):
         self.assertIn("talus", types)
         self.assertIn("cloture", types)
         self.assertIn("escalier", types)
+
+
+class PersonnelContactObligatoireTests(TestCase):
+    """
+    Demande explicite : envoi automatique des identifiants (creation
+    individuelle ET import CSV) par le canal choisi dans Parametrage
+    (canal_otp), et rendre obligatoire + valider le format du champ de
+    contact correspondant (telephone/whatsapp/email). Voir
+    accounts/contact_validation.py, accounts/notifications.py.
+    """
+
+    def setUp(self):
+        from .views import PersonnelViewSet
+        from accounts.models import Parametre
+        self.rf = APIRequestFactory()
+        self.admin = _admin()
+        self.ViewSet = PersonnelViewSet
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "sms"})
+
+    def _create(self, payload):
+        request = self.rf.post("/api/personnel/", payload, format="json")
+        force_authenticate(request, user=self.admin)
+        return self.ViewSet.as_view({"post": "create"})(request)
+
+    def test_canal_sms_sans_telephone_est_refuse(self):
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_canal_sms_telephone_invalide_est_refuse(self):
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "123"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_canal_sms_telephone_valide_est_accepte(self):
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567"})
+        self.assertEqual(resp.status_code, 201)
+        self.assertIn("identifiants_envoyes", resp.data)
+        self.assertEqual(resp.data["identifiants_envoyes"]["canal"], "sms")
+
+    def test_canal_email_sans_email_est_refuse(self):
+        from accounts.models import Parametre
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_canal_email_avec_email_invalide_est_refuse(self):
+        from accounts.models import Parametre
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "email": "pas-un-email"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_canal_email_avec_email_valide_est_accepte_et_envoye(self):
+        from accounts.models import Parametre
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "test"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "email": "awa.kone@example.com"})
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data["identifiants_envoyes"]["canal"], "email")
+        self.assertTrue(resp.data["identifiants_envoyes"]["ok"])
+
+    def test_modification_personnel_existant_incomplet_non_bloquee(self):
+        """Un Personnel deja en base sans telephone (cree avant cette
+        regle) doit rester modifiable sur d'AUTRES champs, sans etre
+        force de renseigner un telephone retroactivement."""
+        p = Personnel.objects.create(nom="Old", prenom="Record", societe="ROXGOLD", numero="OLD1", type_personnel="roxgold")
+        request = self.rf.patch(f"/api/personnel/{p.id}/", {"departement": "RH"}, format="json")
+        force_authenticate(request, user=self.admin)
+        resp = self.ViewSet.as_view({"patch": "partial_update"})(request, pk=p.id)
+        self.assertEqual(resp.status_code, 200)
+
+
+class PersonnelImportCsvIdentifiantsTests(TestCase):
+    """Import CSV en masse : meme regle de contact obligatoire + meme
+    envoi automatique des identifiants que la creation individuelle."""
+
+    def setUp(self):
+        from .views import PersonnelViewSet
+        from accounts.models import Parametre
+        self.rf = APIRequestFactory()
+        self.admin = _admin()
+        self.ViewSet = PersonnelViewSet
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "sms"})
+
+    def _import(self, rows):
+        request = self.rf.post("/api/personnel/import_csv_data/", {"rows": rows}, format="json")
+        force_authenticate(request, user=self.admin)
+        return self.ViewSet.as_view({"post": "import_csv_data"})(request)
+
+    def test_ligne_sans_telephone_est_ignoree_avec_erreur(self):
+        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold"}])
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["imported"], 0)
+        self.assertEqual(len(resp.data["errors"]), 1)
+        self.assertFalse(Personnel.objects.filter(nom="TRAORE").exists())
+
+    def test_ligne_valide_est_importee_et_identifiants_envoyes(self):
+        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0709876543"}])
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["imported"], 1)
+        self.assertEqual(resp.data["errors"], [])
+        self.assertEqual(resp.data["identifiants_envoyes"], 1)
+        self.assertTrue(Personnel.objects.filter(nom="TRAORE").exists())
+
+    def test_import_mixte_lignes_valides_et_invalides(self):
+        resp = self._import([
+            {"nom": "Bon", "prenom": "Un", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701111111"},
+            {"nom": "Mauvais", "prenom": "Deux", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "abc"},
+        ])
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["imported"], 1)
+        self.assertEqual(len(resp.data["errors"]), 1)
+        self.assertTrue(Personnel.objects.filter(nom="BON").exists())
+        self.assertFalse(Personnel.objects.filter(nom="MAUVAIS").exists())

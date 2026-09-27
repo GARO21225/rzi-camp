@@ -3,7 +3,7 @@
  * Version stable - Erreurs gérées par Error Boundary
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
@@ -64,6 +64,7 @@ export default function Personnel() {
   const [confirmDel,   setConfirmDel]   = useState(null)   // Personnel à supprimer
   const [roleModal,    setRoleModal]    = useState(null)   // Personnel dont on change le rôle
   const [profilsDynamiques, setProfilsDynamiques] = useState(null) // charges depuis RoleCustom, remplace la liste figee
+  const [canalOtp, setCanalOtp] = useState('sms') // canal_otp (Parametrage) - determine quel champ (telephone/whatsapp/email) est obligatoire ci-dessous
   const [credentialsModal, setCredentialsModal] = useState(null) // Identifiants generes a afficher UNE fois
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
@@ -90,6 +91,11 @@ export default function Personnel() {
       const liste = r.data?.results || r.data || []
       if (liste.length) setProfilsDynamiques(liste.map(role => ({ v: role.code, l: role.label })))
     }).catch(() => {})
+    paramAPI.list().then(r => {
+      const liste = r.data?.results || r.data || []
+      const p = liste.find(x => x.cle === 'canal_otp')
+      if (p?.valeur) setCanalOtp(p.valeur)
+    }).catch(() => {})
   }, [])
 
   // Filtrage — mémoïsé : recalculé seulement quand data ou les filtres changent,
@@ -112,6 +118,14 @@ export default function Personnel() {
   // Sauvegarde
   const handleSave = async () => {
     if (!form.nom || !form.prenom) { setErr('Nom et prénom requis'); return }
+    // Meme regle que le backend (residences/serializers.py::PersonnelSerializer.validate())
+    // - verifiee ici aussi pour eviter un aller-retour serveur inutile,
+    // mais le backend reste la source de verite (import CSV notamment).
+    if (!(modal && modal.id)) {
+      if (canalOtp === 'email' && !form.email) { setErr("Email requis — canal de connexion configuré : email"); return }
+      if (canalOtp === 'sms' && !form.telephone) { setErr("Téléphone requis — canal de connexion configuré : sms"); return }
+      if (canalOtp === 'whatsapp' && !form.numero_whatsapp && !form.telephone) { setErr("Numéro WhatsApp (ou téléphone) requis — canal de connexion configuré : whatsapp"); return }
+    }
     setSaving(true); setErr('')
     try {
       if (modal && modal.id) {
@@ -546,12 +560,20 @@ export default function Personnel() {
 
         const ok = d.imported || 0
         const errs = d.errors || []
+        const envoyes = d.identifiants_envoyes || 0
+        const echecsEnvoi = d.identifiants_echecs || []
+        const canalLabel = { sms: 'SMS', whatsapp: 'WhatsApp', email: 'email' }[d.canal_otp] || d.canal_otp || 'SMS'
 
         (errs.length ? toast.warning : toast.success)(
-          `✅ ${ok} personnel importé(s)` +
+          `✅ ${ok} personnel importé(s) — identifiants envoyés par ${canalLabel} à ${envoyes}/${ok}` +
           (
             errs.length
-              ? '\n\n⚠️ Erreurs:\n' + errs.slice(0, 5).join('\n')
+              ? '\n\n⚠️ Lignes ignorées:\n' + errs.slice(0, 5).join('\n')
+              : ''
+          ) +
+          (
+            echecsEnvoi.length
+              ? '\n\n⚠️ Envoi identifiants échoué:\n' + echecsEnvoi.slice(0, 5).join('\n')
               : ''
           )
         )
@@ -946,12 +968,17 @@ export default function Personnel() {
                   </div>
                 </div>
                 <div>
-                  <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>EMAIL</label>
+                  <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>
+                    EMAIL{canalOtp==='email' && ' *'}
+                  </label>
                   <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} style={inp}/>
+                  {canalOtp==='email' && <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — canal de connexion configuré : email</div>}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>TÉLÉPHONE</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>
+                      TÉLÉPHONE{canalOtp==='sms' && ' *'}
+                    </label>
                     <input
                       type="tel"
                       value={form.telephone}
@@ -959,9 +986,12 @@ export default function Personnel() {
                       style={inp}
                       placeholder="0701234567"
                     />
+                    {canalOtp==='sms' && <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — format 0XXXXXXXXX</div>}
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>WHATSAPP</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>
+                      WHATSAPP{canalOtp==='whatsapp' && ' *'}
+                    </label>
                     <input
                       type="tel"
                       value={form.numero_whatsapp}
@@ -969,6 +999,7 @@ export default function Personnel() {
                       style={inp}
                       placeholder="0701234567"
                     />
+                    {canalOtp==='whatsapp' && <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire (ou téléphone) — format 0XXXXXXXXX</div>}
                   </div>
                 </div>
 
@@ -1280,13 +1311,11 @@ export default function Personnel() {
               Notez-le ou communiquez-le à la personne maintenant.
             </div>
             {credentialsModal.envois && (
-              <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16,fontSize:12}}>
-                <span style={{color: credentialsModal.envois.whatsapp ? '#16a34a' : '#94a3b8'}}>
-                  {credentialsModal.envois.whatsapp ? '✅' : '⚪'} WhatsApp
-                </span>
-                <span style={{color: credentialsModal.envois.email ? '#16a34a' : '#94a3b8'}}>
-                  {credentialsModal.envois.email ? '✅' : '⚪'} Email
-                </span>
+              <div style={{marginBottom:16,fontSize:12,
+                color: credentialsModal.envois.ok ? '#16a34a' : '#b45309'}}>
+                {credentialsModal.envois.ok
+                  ? `✅ Identifiants envoyés par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal}`
+                  : `⚠️ Envoi par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal} échoué : ${credentialsModal.envois.info || ''}`}
               </div>
             )}
             <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
