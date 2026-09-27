@@ -122,9 +122,11 @@ export default function Personnel() {
     // - verifiee ici aussi pour eviter un aller-retour serveur inutile,
     // mais le backend reste la source de verite (import CSV notamment).
     if (!(modal && modal.id)) {
+      // Téléphone + WhatsApp désormais TOUJOURS obligatoires (quel que soit
+      // le canal configuré) ; email obligatoire seulement si canal='email'.
+      if (!form.telephone) { setErr("Téléphone requis"); return }
+      if (!form.numero_whatsapp) { setErr("Numéro WhatsApp requis"); return }
       if (canalOtp === 'email' && !form.email) { setErr("Email requis — canal de connexion configuré : email"); return }
-      if (canalOtp === 'sms' && !form.telephone) { setErr("Téléphone requis — canal de connexion configuré : sms"); return }
-      if (canalOtp === 'whatsapp' && !form.numero_whatsapp && !form.telephone) { setErr("Numéro WhatsApp (ou téléphone) requis — canal de connexion configuré : whatsapp"); return }
     }
     setSaving(true); setErr('')
     try {
@@ -977,7 +979,7 @@ export default function Personnel() {
                 <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>
-                      TÉLÉPHONE{canalOtp==='sms' && ' *'}
+                      TÉLÉPHONE *
                     </label>
                     <input
                       type="tel"
@@ -986,11 +988,11 @@ export default function Personnel() {
                       style={inp}
                       placeholder="0701234567"
                     />
-                    {canalOtp==='sms' && <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — format 0XXXXXXXXX</div>}
+                    <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — format 0XXXXXXXXX</div>
                   </div>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>
-                      WHATSAPP{canalOtp==='whatsapp' && ' *'}
+                      WHATSAPP *
                     </label>
                     <input
                       type="tel"
@@ -999,7 +1001,7 @@ export default function Personnel() {
                       style={inp}
                       placeholder="0701234567"
                     />
-                    {canalOtp==='whatsapp' && <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire (ou téléphone) — format 0XXXXXXXXX</div>}
+                    <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — format 0XXXXXXXXX</div>
                   </div>
                 </div>
 

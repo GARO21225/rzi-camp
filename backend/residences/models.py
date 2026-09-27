@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from simple_history.models import HistoricalRecords
-import qrcode, io, base64, unicodedata, re
+import qrcode, io, base64, unicodedata, re, secrets, string
 
 def slugify_fr(text):
     """Remove accents and special chars"""
@@ -83,9 +83,36 @@ class Personnel(models.Model):
         prenom_slug = slugify_fr(self.prenom)
         nom_init = slugify_fr(self.nom[0]) if self.nom else "x"
         username = f"{prefix}_{nom_init}{prenom_slug}"
-        digits = re.sub(r"\D", "", self.numero)[-4:] if self.numero else "0000"
-        password = f"{self.nom[0].upper()}{self.prenom[0].upper()}{digits}"
+        password = self._generer_mot_de_passe_fort()
         return username, password
+
+    @staticmethod
+    def _generer_mot_de_passe_fort(longueur=10):
+        """
+        Mot de passe genere aleatoirement via `secrets` (cryptographiquement
+        sur, pas `random`) - remplace l'ancien schema
+        Initiale-Nom+Initiale-Prenom+4-derniers-chiffres-du-telephone (ex:
+        "KA0000" pour Kone Awa avec un numero finissant par 0000) : bien trop
+        devinable des qu'on connait juste le nom de la personne et la fin de
+        son numero, souvent visibles ailleurs (badge, annuaire...). Le nouveau
+        mot de passe n'a plus aucun lien avec les infos publiques de la
+        personne et garantit au moins une majuscule, une minuscule, un
+        chiffre et un caractere special - envoye automatiquement via
+        accounts/notifications.py, personne n'a besoin de le retenir/taper
+        de tete.
+        """
+        majuscules, minuscules, chiffres, speciaux = (
+            string.ascii_uppercase, string.ascii_lowercase, string.digits, "!@#$%&*",
+        )
+        tous = majuscules + minuscules + chiffres + speciaux
+        obligatoires = [
+            secrets.choice(majuscules), secrets.choice(minuscules),
+            secrets.choice(chiffres), secrets.choice(speciaux),
+        ]
+        reste = [secrets.choice(tous) for _ in range(max(longueur - len(obligatoires), 0))]
+        caracteres = obligatoires + reste
+        secrets.SystemRandom().shuffle(caracteres)
+        return "".join(caracteres)
 
     def creer_utilisateur(self):
         username, password = self.generer_login_password()

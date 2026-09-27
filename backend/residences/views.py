@@ -156,12 +156,17 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             # -------------------------
             telephone = normalize_phone(row.get('telephone'))
 
-            # WhatsApp = numéro WhatsApp si présent,
-            # sinon téléphone.
+            # WhatsApp : plus de repli silencieux sur le téléphone depuis le
+            # durcissement "rend obligatoire les numéros et le numéro
+            # whatsapp" - la colonne whatsapp doit être réellement remplie
+            # (même règle que la création individuelle, où il n'y a jamais
+            # eu un tel repli). Sans ça, une ligne CSV sans colonne whatsapp
+            # passait silencieusement avec whatsapp = téléphone, ce qui
+            # contredit l'obligation explicite des deux champs.
             whatsapp = normalize_phone(
                 row.get('numero_whatsapp')
                 or row.get('whatsapp')
-            ) or telephone
+            )
 
             # -------------------------
             # MATRICULE

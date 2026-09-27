@@ -64,7 +64,7 @@ const CHAMPS = [
       hint: 'test (aucun envoi réel — code visible à l\'écran, pour valider le flux gratuitement) ou resend' },
     { cle: 'resend_api_key', label: 'Resend — Clé API', suffix: '', type: 'password', hint: 'Tableau de bord resend.com/api-keys' },
     { cle: 'resend_email_from', label: 'Resend — Adresse expéditeur', suffix: '', type: 'text',
-      hint: '⚠️ "onboarding@resend.dev" fonctionne SANS domaine mais uniquement en test (Resend n\'envoie alors qu\'à l\'adresse du compte Resend lui-même, jamais au personnel) — il n\'existe pas d\'équivalent "IP+PORT" pour l\'envoi d\'email : pour envoyer au personnel, un domaine (ou sous-domaine) vérifié dans Resend est obligatoire (3 enregistrements DNS à ajouter une fois)' },
+      hint: 'Domaine vérifié : notifications@mail.roxgold-sitelife.com (fonctionne). ⚠️ "onboarding@resend.dev" fonctionne SANS domaine mais uniquement en test (Resend n\'envoie alors qu\'à l\'adresse du compte Resend lui-même, jamais au personnel) — il n\'existe pas d\'équivalent "IP+PORT" pour l\'envoi d\'email : pour envoyer au personnel, un domaine (ou sous-domaine) vérifié dans Resend est obligatoire (3 enregistrements DNS à ajouter une fois)' },
     { cle: 'resend_email_from_nom', label: 'Resend — Nom affiché de l\'expéditeur', suffix: '', type: 'text', hint: 'Ex: Roxgold SiteLife' },
   ]},
   { section: '🗺️ Carte SIG — Icônes des points d\'intérêt', items: [

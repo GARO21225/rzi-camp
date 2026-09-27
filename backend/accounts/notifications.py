@@ -14,6 +14,7 @@ inoperant) au lieu du systeme email deja en place pour l'OTP
 (accounts/email.py, fournisseur Resend).
 """
 from .models import Parametre
+from .messages_bienvenue import message_bienvenue_identifiants
 
 
 def envoyer_identifiants(personnel, username, password):
@@ -25,25 +26,15 @@ def envoyer_identifiants(personnel, username, password):
     """
     nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
     canal = Parametre.get('canal_otp', 'sms')
-    texte = (
-        f"{nom_app} — Vos identifiants de connexion :\n"
-        f"Identifiant : {username}\nMot de passe : {password}\n\n"
-        "Conservez ce message, il ne sera plus jamais affiché."
-    )
+    texte, corps_html = message_bienvenue_identifiants(nom_app, personnel.prenom, username, password)
 
     try:
         if canal == 'email':
             if not personnel.email:
                 return {"canal": "email", "ok": False, "info": "Aucune adresse email associée à ce compte."}
             from .email import envoyer_email
-            corps_html = (
-                f"<p>{nom_app} — Vos identifiants de connexion :</p>"
-                f"<p>Identifiant : <strong>{username}</strong><br>"
-                f"Mot de passe : <strong>{password}</strong></p>"
-                "<p>Conservez ce message, il ne sera plus jamais affiché.</p>"
-            )
             ok, info = envoyer_email(
-                personnel.email, sujet=f"🔑 Vos identifiants — {nom_app}",
+                personnel.email, sujet=f"🔑 Bienvenue — vos identifiants {nom_app}",
                 corps_html=corps_html, corps_texte=texte, type_message="identifiants",
             )
             return {"canal": "email", "ok": ok, "info": info}

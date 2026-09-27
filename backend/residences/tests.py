@@ -412,15 +412,26 @@ class PersonnelContactObligatoireTests(TestCase):
         return self.ViewSet.as_view({"post": "create"})(request)
 
     def test_canal_sms_sans_telephone_est_refuse(self):
-        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "numero_whatsapp": "0701234567"})
         self.assertEqual(resp.status_code, 400)
 
     def test_canal_sms_telephone_invalide_est_refuse(self):
-        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "123"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "123", "numero_whatsapp": "0701234567"})
         self.assertEqual(resp.status_code, 400)
 
-    def test_canal_sms_telephone_valide_est_accepte(self):
+    def test_sans_whatsapp_est_refuse(self):
+        """Durcissement : le numero WhatsApp est desormais TOUJOURS
+        obligatoire, quel que soit le canal_otp configure (avant, il
+        n'etait requis qu'en canal='whatsapp')."""
         resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_whatsapp_invalide_est_refuse(self):
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567", "numero_whatsapp": "abc"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_canal_sms_telephone_et_whatsapp_valides_est_accepte(self):
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567", "numero_whatsapp": "0701234567"})
         self.assertEqual(resp.status_code, 201)
         self.assertIn("identifiants_envoyes", resp.data)
         self.assertEqual(resp.data["identifiants_envoyes"]["canal"], "sms")
@@ -428,20 +439,22 @@ class PersonnelContactObligatoireTests(TestCase):
     def test_canal_email_sans_email_est_refuse(self):
         from accounts.models import Parametre
         Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
-        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567", "numero_whatsapp": "0701234567"})
         self.assertEqual(resp.status_code, 400)
 
     def test_canal_email_avec_email_invalide_est_refuse(self):
         from accounts.models import Parametre
         Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
-        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "email": "pas-un-email"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567", "numero_whatsapp": "0701234567", "email": "pas-un-email"})
         self.assertEqual(resp.status_code, 400)
 
     def test_canal_email_avec_email_valide_est_accepte_et_envoye(self):
+        """Meme en canal 'email', telephone + whatsapp restent obligatoires
+        (nouvelle regle) - seul l'email est en PLUS requis pour ce canal."""
         from accounts.models import Parametre
         Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
         Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "test"})
-        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "email": "awa.kone@example.com"})
+        resp = self._create({"nom": "Kone", "prenom": "Awa", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701234567", "numero_whatsapp": "0701234567", "email": "awa.kone@example.com"})
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["identifiants_envoyes"]["canal"], "email")
         self.assertTrue(resp.data["identifiants_envoyes"]["ok"])
@@ -475,14 +488,22 @@ class PersonnelImportCsvIdentifiantsTests(TestCase):
         return self.ViewSet.as_view({"post": "import_csv_data"})(request)
 
     def test_ligne_sans_telephone_est_ignoree_avec_erreur(self):
-        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold"}])
+        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "numero_whatsapp": "0709876543"}])
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["imported"], 0)
+        self.assertEqual(len(resp.data["errors"]), 1)
+        self.assertFalse(Personnel.objects.filter(nom="TRAORE").exists())
+
+    def test_ligne_sans_whatsapp_est_ignoree_avec_erreur(self):
+        """Durcissement : whatsapp desormais obligatoire aussi a l'import CSV."""
+        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0709876543"}])
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["imported"], 0)
         self.assertEqual(len(resp.data["errors"]), 1)
         self.assertFalse(Personnel.objects.filter(nom="TRAORE").exists())
 
     def test_ligne_valide_est_importee_et_identifiants_envoyes(self):
-        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0709876543"}])
+        resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0709876543", "numero_whatsapp": "0709876543"}])
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["imported"], 1)
         self.assertEqual(resp.data["errors"], [])
@@ -491,8 +512,8 @@ class PersonnelImportCsvIdentifiantsTests(TestCase):
 
     def test_import_mixte_lignes_valides_et_invalides(self):
         resp = self._import([
-            {"nom": "Bon", "prenom": "Un", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701111111"},
-            {"nom": "Mauvais", "prenom": "Deux", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "abc"},
+            {"nom": "Bon", "prenom": "Un", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0701111111", "numero_whatsapp": "0701111111"},
+            {"nom": "Mauvais", "prenom": "Deux", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "abc", "numero_whatsapp": "0701111111"},
         ])
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["imported"], 1)

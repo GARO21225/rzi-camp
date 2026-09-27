@@ -930,7 +930,8 @@ def demander_otp(request):
         otp = CodeOTP.generer(telephone)
         nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
         canal = Parametre.get('canal_otp', 'sms')
-        texte = f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min)."
+        from .messages_bienvenue import message_code_otp
+        texte, corps_html = message_code_otp(nom_app, pers.prenom, otp.code, CodeOTP.DUREE_VALIDITE_MIN)
 
         if canal == 'email':
             if not pers.email:
@@ -939,7 +940,7 @@ def demander_otp(request):
                 ok, info = envoyer_email(
                     pers.email,
                     sujet=f"{nom_app} — Code de connexion",
-                    corps_html=f"<p>Votre code de connexion est <strong style=\"font-size:20px;letter-spacing:2px\">{otp.code}</strong> (valable {CodeOTP.DUREE_VALIDITE_MIN} minutes).</p>",
+                    corps_html=corps_html,
                     corps_texte=texte,
                     type_message="otp",
                 )
