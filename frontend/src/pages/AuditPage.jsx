@@ -1,13 +1,23 @@
 import React, { useEffect, useState } from 'react'
 import { audit } from '../api'
 
+const todayStr = new Date().toISOString().slice(0,10)
+
 export default function AuditPage() {
   const [data, setData] = useState([])
-  useEffect(() => { audit.list({ page_size:50 }).then(r => setData(r.data.results || r.data)) }, [])
+  // Volontairement limité à AUJOURD'HUI (demande explicite : "garder les
+  // traces du jour") - les autres dates se consultent dans Historique ->
+  // onglet "Audit (archive)", avec des filtres (module/action/utilisateur).
+  // Inclut désormais aussi les connexions (accounts/audit.py) - avant ce
+  // correctif, seule une action (ajustement de stock boutique, admin
+  // uniquement) était journalisée, ce qui donnait l'impression que seul
+  // l'admin "faisait" quelque chose : les autres se connectaient bien,
+  // mais rien ne le montrait nulle part.
+  useEffect(() => { audit.list({ page_size:500, date: todayStr }).then(r => setData(r.data.results || r.data)).catch(() => setData([])) }, [])
   return (
     <div style={{ padding:16, flex:1 }}>
-      <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>📋 Audit Trail Global</h2>
-      <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:20 }}>Toutes les actions tracées · Niveau bancaire · django-simple-history</p>
+      <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>📋 Audit Trail — Aujourd'hui</h2>
+      <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:20 }}>Connexions + actions tracées (django-simple-history) · Pour les autres dates, avec filtres : Historique → onglet « Audit (archive) »</p>
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead>

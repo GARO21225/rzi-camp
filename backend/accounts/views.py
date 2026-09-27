@@ -1002,4 +1002,6 @@ def verifier_otp(request):
     if not pers or not pers.user:
         return Response({'error': 'Compte introuvable.'}, status=404)
 
+    from .audit import journaliser_connexion
+    journaliser_connexion(request, pers.user, True, 'otp')
     return Response(construire_reponse_connexion(pers.user))

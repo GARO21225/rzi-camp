@@ -484,3 +484,75 @@ class EmailProviderTests(TestCase):
         ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>")
         self.assertFalse(ok)
         self.assertIn("domaine", info.lower())
+
+
+class AuditLoginTrackingTests(TestCase):
+    """
+    Les connexions (mot de passe ET OTP) doivent desormais laisser une
+    trace dans AuditLog (accounts/audit.py::journaliser_connexion) - avant
+    ce correctif, aucune connexion n'etait journalisee, ce qui donnait
+    l'impression que seules les actions admin (ajustement stock boutique)
+    apparaissaient dans l'audit trail.
+    """
+
+    def setUp(self):
+        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "test"})
+        self.user = User.objects.create_user("jdoe", "j@example.com", "motdepasse123")
+        from residences.models import Personnel
+        self.personnel = Personnel.objects.create(
+            nom="Doe", prenom="Jane", societe="ROXGOLD", numero="AUD1",
+            telephone="0709998877", type_personnel="roxgold", user=self.user,
+        )
+
+    def test_login_reussi_journalise(self):
+        from restauration.models import AuditLog
+        resp = self.client.post("/api/auth/login/", {"username": "jdoe", "password": "motdepasse123"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        entry = AuditLog.objects.filter(module="connexion", action="login_reussi").first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.utilisateur, self.user)
+
+    def test_login_mauvais_mot_de_passe_journalise_echec_sans_utilisateur(self):
+        from restauration.models import AuditLog
+        resp = self.client.post("/api/auth/login/", {"username": "jdoe", "password": "faux"}, format="json")
+        self.assertEqual(resp.status_code, 401)
+        entry = AuditLog.objects.filter(module="connexion", action="login_echec").first()
+        self.assertIsNotNone(entry)
+        self.assertIsNone(entry.utilisateur)
+        self.assertIn("jdoe", entry.detail)
+
+    def test_login_compte_desactive_journalise(self):
+        """
+        Django's ModelBackend.authenticate() rejette deja les comptes
+        is_active=False (user_can_authenticate()) - authenticate() renvoie
+        donc None avant meme d'atteindre le controle is_active explicite de
+        custom_login. Le compte desactive est donc journalise comme un
+        echec d'authentification standard (branche 'not user'), avec
+        l'identifiant tente dans le detail - toujours tracable, meme si ce
+        n'est pas le message 'compte desactive' specifique.
+        """
+        from restauration.models import AuditLog
+        self.user.is_active = False
+        self.user.save()
+        resp = self.client.post("/api/auth/login/", {"username": "jdoe", "password": "motdepasse123"}, format="json")
+        self.assertEqual(resp.status_code, 401)
+        entry = AuditLog.objects.filter(module="connexion", action="login_echec").first()
+        self.assertIsNotNone(entry)
+        self.assertIsNone(entry.utilisateur)
+        self.assertIn("jdoe", entry.detail)
+
+    def test_verifier_otp_reussi_journalise(self):
+        from restauration.models import AuditLog
+        from rest_framework.test import APIRequestFactory
+        from .views import verifier_otp
+        otp = CodeOTP.objects.create(
+            telephone="0709998877", code="654321",
+            expire_le=timezone.now() + timedelta(minutes=5),
+        )
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/verifier/", {"telephone": "0709998877", "code": "654321"}, format="json")
+        resp = verifier_otp(req)
+        self.assertEqual(resp.status_code, 200)
+        entry = AuditLog.objects.filter(module="connexion", action="login_reussi").first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.utilisateur, self.user)

@@ -33,11 +33,15 @@ def custom_login(request):
     if not username or not password:
         return Response({'detail': 'Identifiants requis'}, status=400)
 
+    from accounts.audit import journaliser_connexion
+
     user = authenticate(request, username=username, password=password)
     if not user:
+        journaliser_connexion(request, None, False, 'mot_de_passe', detail=f"identifiant tenté : {username}")
         return Response({'detail': 'Identifiants incorrects'}, status=401)
 
     if not user.is_active:
+        journaliser_connexion(request, None, False, 'mot_de_passe', detail=f"compte désactivé : {username}")
         return Response({'detail': 'Compte désactivé'}, status=401)
 
     try:
@@ -76,6 +80,7 @@ def custom_login(request):
                    'nom': user.get_full_name() or user.username}
 
     try:
+        journaliser_connexion(request, user, True, 'mot_de_passe')
         return Response({
             'access':  access,
             'refresh': str(refresh),

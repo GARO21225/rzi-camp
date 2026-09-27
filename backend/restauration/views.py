@@ -606,21 +606,47 @@ class _IsRestoOuAdmin(BasePermission):
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Audit Trail unifié : la table AuditLog n'est alimentée par aucun code
-    (bug d'origine — page toujours vide). La vraie traçabilité existe déjà
-    via django-simple-history sur Personnel, Incidents, Résidences, Repas
-    et Événements : on agrège leurs historiques en un flux unique.
+    Audit Trail unifié : la table AuditLog (connexions + ajustements de
+    stock boutique — accounts/audit.py, restauration/views.py::
+    ArticleBoutiqueViewSet.ajuster_stock) est fusionnée avec la vraie
+    traçabilité django-simple-history (Personnel, Incidents, Repas,
+    Événements) en un seul flux.
+
+    Reservee aux administrateurs (donnees sensibles : qui s'est connecte,
+    a quelle heure, depuis quelle IP) - IsAuthenticated seul (heritage
+    DEFAULT_PERMISSION_CLASSES) laissait n'importe quel compte connecte
+    (menage, technicien...) consulter tout l'audit trail du camp.
+
+    Filtres (query params) :
+    - date=YYYY-MM-DD : un seul jour (utilise par la page Audit "du jour").
+    - date_debut=YYYY-MM-DD / date_fin=YYYY-MM-DD : plage (archive
+      Historique). Sans aucun de ces 3 parametres : comportement
+      d'origine, pas de filtre de date (compatibilite ascendante).
+    - module, action, utilisateur (sous-chaine, insensible a la casse).
     """
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
 
     TYPE_LABEL = {'+': 'Création', '~': 'Modification', '-': 'Suppression'}
 
-    def _rows_for(self, model, module, display_fn):
+    def _est_admin(self, user):
+        return bool(user.is_staff or user.is_superuser or (hasattr(user, 'profile') and getattr(user.profile, 'role', '') == 'admin'))
+
+    def _bornes_date(self, request):
+        date_unique = request.query_params.get('date')
+        if date_unique:
+            return date_unique, date_unique
+        return request.query_params.get('date_debut'), request.query_params.get('date_fin')
+
+    def _rows_for(self, model, module, display_fn, date_debut=None, date_fin=None):
         rows = []
         try:
-            qs = model.history.select_related('history_user').order_by('-history_date')[:300]
-            for h in qs:
+            qs = model.history.select_related('history_user').order_by('-history_date')
+            if date_debut:
+                qs = qs.filter(history_date__date__gte=date_debut)
+            if date_fin:
+                qs = qs.filter(history_date__date__lte=date_fin)
+            for h in qs[:1000]:
                 user = h.history_user
                 rows.append({
                     'id': f'{module}-{h.history_id}',
@@ -635,6 +661,31 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             pass
         return rows
 
+    def _rows_auditlog(self, date_debut=None, date_fin=None):
+        """Entrees manuelles (connexions, ajustements de stock) - ignorees
+        par l'ancienne version de cette methode, qui ne lisait QUE
+        django-simple-history malgre self.queryset deja defini dessus."""
+        rows = []
+        try:
+            qs = AuditLog.objects.select_related('utilisateur').order_by('-timestamp')
+            if date_debut:
+                qs = qs.filter(timestamp__date__gte=date_debut)
+            if date_fin:
+                qs = qs.filter(timestamp__date__lte=date_fin)
+            for a in qs[:1000]:
+                rows.append({
+                    'id': f'log-{a.id}',
+                    'timestamp': a.timestamp,
+                    'utilisateur_nom': (a.utilisateur.get_full_name() or a.utilisateur.username) if a.utilisateur else 'Système',
+                    'action': a.action,
+                    'module': a.module,
+                    'detail': a.detail,
+                    'ip': a.ip,
+                })
+        except Exception:
+            pass
+        return rows
+
     def list(self, request, *args, **kwargs):
         from rest_framework.response import Response
         from residences.models import Personnel
@@ -642,11 +693,17 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         from restauration.models import RepasLog
         from evenements.models import Evenement
 
+        if not self._est_admin(request.user):
+            return Response({'detail': "Admin uniquement."}, status=403)
+
+        date_debut, date_fin = self._bornes_date(request)
+
         rows = []
-        rows += self._rows_for(Personnel, 'Personnel', lambda h: f'{h.nom} {h.prenom} ({h.societe})')
-        rows += self._rows_for(Incident, 'Maintenance', lambda h: f'{h.titre} — {h.statut}')
-        rows += self._rows_for(RepasLog, 'Restauration', lambda h: f'Repas #{h.id}')
-        rows += self._rows_for(Evenement, 'Événements', lambda h: getattr(h, 'titre', f'Événement #{h.id}'))
+        rows += self._rows_auditlog(date_debut, date_fin)
+        rows += self._rows_for(Personnel, 'Personnel', lambda h: f'{h.nom} {h.prenom} ({h.societe})', date_debut, date_fin)
+        rows += self._rows_for(Incident, 'Maintenance', lambda h: f'{h.titre} — {h.statut}', date_debut, date_fin)
+        rows += self._rows_for(RepasLog, 'Restauration', lambda h: f'Repas #{h.id}', date_debut, date_fin)
+        rows += self._rows_for(Evenement, 'Événements', lambda h: getattr(h, 'titre', f'Événement #{h.id}'), date_debut, date_fin)
 
         rows.sort(key=lambda r: r['timestamp'], reverse=True)
 
@@ -658,6 +715,14 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         module = request.query_params.get('module')
         if module:
             rows = [r for r in rows if r['module'] == module]
+
+        action = request.query_params.get('action')
+        if action:
+            rows = [r for r in rows if action.lower() in (r['action'] or '').lower()]
+
+        utilisateur = request.query_params.get('utilisateur')
+        if utilisateur:
+            rows = [r for r in rows if utilisateur.lower() in (r['utilisateur_nom'] or '').lower()]
 
         return Response({'count': len(rows), 'results': rows[:page_size]})
 
@@ -780,10 +845,12 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
             # savoir POURQUOI un stock a change est la moitie de l'interet
             # de la tracabilite.
             from .models import AuditLog, ArticleBoutique
+            from accounts.audit import _ip_client
             art_nom = ArticleBoutique.objects.filter(pk=pk).values_list('nom', flat=True).first() or f"#{pk}"
             AuditLog.objects.create(
                 utilisateur=u, module='boutique', action='ajustement_stock',
                 detail=f"{art_nom}: {stock_actuel} → {nouveau} ({op}, qté {qte})" + (f" — {raison}" if raison else ""),
+                ip=_ip_client(request),
             )
             return Response({'stock': nouveau, 'precedent': stock_actuel, 'operation': op})
         except Exception as e:

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI } from '../api'
+import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI } from '../api'
 import { toast } from '../toast'
 import { useStore } from '../store'
 
@@ -16,6 +16,7 @@ const TABS_PAR_ROLE = {
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
+const yesterdayStr = new Date(Date.now()-86400000).toISOString().slice(0,10)
 
 const inp = {background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,outline:'none',fontFamily:'inherit',width:'100%'}
 
@@ -214,6 +215,27 @@ export default function Historique() {
       .finally(() => setInductionLoading(false))
   }
 
+  // ── Audit (archive — dates autres que le jour même, cf. page Audit Trail
+  // qui reste, elle, limitée au jour en cours) ──
+  const [auditData, setAuditData] = useState([])
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditSearched, setAuditSearched] = useState(false)
+  const [auditFiltres, setAuditFiltres] = useState({
+    date_debut: new Date(Date.now()-7*86400000).toISOString().slice(0,10), // 7 derniers jours par défaut
+    date_fin: yesterdayStr,
+    module: '', action: '', utilisateur: '',
+  })
+
+  const loadAudit = () => {
+    setAuditLoading(true); setAuditSearched(true)
+    const p = { page_size: 2000 }
+    Object.entries(auditFiltres).forEach(([k,v]) => { if (v) p[k] = v })
+    auditAPI.list(p)
+      .then(r => setAuditData(r.data.results || r.data || []))
+      .catch(() => setAuditData([]))
+      .finally(() => setAuditLoading(false))
+  }
+
   // Données filtrées côté client
   const repasFiltered = React.useMemo(() => {
     let filtered = repasData
@@ -391,6 +413,7 @@ export default function Historique() {
     ['repas','🍽️ Restaurant'],
     ['maintenance','🛠️ Maintenance (clôturés)'],
     ['induction','🎓 Induction QHSE'],
+    ['audit','🛡️ Audit (archive)'],
   ]
   const TABS = isAdmin ? TABS_TOUTES : TABS_TOUTES.filter(([k]) => tabsAutorises.includes(k))
 
@@ -412,7 +435,7 @@ export default function Historique() {
       {/* TABS */}
       <div style={{display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
         {TABS.map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='induction') loadInduction()}}
+          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='induction') loadInduction(); if(k==='audit' && !auditSearched) loadAudit()}}
             style={{flex:1,padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
               background:tab===k?'#fff':'transparent',color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none',transition:'.2s'}}>
@@ -974,6 +997,83 @@ export default function Historique() {
             </div>
           ) : (
             <EmptyState icon="🎓" text={inductionLoading ? "Chargement..." : "Aucune induction enregistrée."}/>
+          )}
+        </div>
+      )}
+
+      {/* ── AUDIT (ARCHIVE) ── */}
+      {tab==='audit' && (
+        <div>
+          <SearchCard title="🛡️ Audit — archive (hors journée en cours)" color="#0F2A5C">
+            <div style={{fontSize:11.5,color:'var(--text-dim)',marginBottom:10}}>
+              La journée en cours reste consultable en direct sur la page <b>Audit Trail</b> — cet onglet sert à retrouver les traces des <b>autres dates</b>.
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8,marginBottom:10}}>
+              <Fld label="Du">
+                <input type="date" value={auditFiltres.date_debut} max={yesterdayStr}
+                  onChange={e=>setAuditFiltres({...auditFiltres,date_debut:e.target.value})} style={inp}/>
+              </Fld>
+              <Fld label="Au">
+                <input type="date" value={auditFiltres.date_fin} max={yesterdayStr}
+                  onChange={e=>setAuditFiltres({...auditFiltres,date_fin:e.target.value})} style={inp}/>
+              </Fld>
+              <Fld label="Module">
+                <select value={auditFiltres.module} onChange={e=>setAuditFiltres({...auditFiltres,module:e.target.value})} style={inp}>
+                  <option value="">Tous</option>
+                  <option value="connexion">Connexion</option>
+                  <option value="boutique">Boutique</option>
+                  <option value="Personnel">Personnel</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Restauration">Restauration</option>
+                  <option value="Événements">Événements</option>
+                </select>
+              </Fld>
+              <Fld label="Action">
+                <input type="text" value={auditFiltres.action} placeholder="ex: login_reussi, Modification..."
+                  onChange={e=>setAuditFiltres({...auditFiltres,action:e.target.value})} style={inp}/>
+              </Fld>
+              <Fld label="Utilisateur">
+                <input type="text" value={auditFiltres.utilisateur} placeholder="nom ou identifiant"
+                  onChange={e=>setAuditFiltres({...auditFiltres,utilisateur:e.target.value})} style={inp}/>
+              </Fld>
+            </div>
+            <button onClick={loadAudit} disabled={auditLoading}
+              style={{background:'var(--rzc-navy)',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+              {auditLoading ? '⏳ Recherche...' : '🔍 Rechercher'}
+            </button>
+          </SearchCard>
+
+          {auditLoading ? (
+            <div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>🔍 Recherche en cours...</div>
+          ) : auditData.length > 0 ? (
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+              <div style={{padding:'10px 16px',background:'var(--rzc-navy)',color:'#fff',fontWeight:600,fontSize:13}}>
+                🛡️ {auditData.length} événement(s)
+              </div>
+              <div style={{overflowX:'auto',maxHeight:560,overflowY:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead><tr style={{background:'var(--surface2)'}}>
+                    {['Horodatage','Utilisateur','Action','Module','Détail','IP'].map(h=>(
+                      <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {auditData.map((a,idx)=>(
+                      <tr key={a.id||idx} style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff'}}>
+                        <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:10.5,color:'var(--text-dim)'}}>{new Date(a.timestamp).toLocaleString('fr-FR')}</td>
+                        <td style={{padding:'9px 12px',fontWeight:600}}>{a.utilisateur_nom}</td>
+                        <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11,color:'var(--blue)'}}>{a.action}</td>
+                        <td style={{padding:'9px 12px'}}>{a.module}</td>
+                        <td style={{padding:'9px 12px',color:'var(--text-dim)',fontSize:11}}>{a.detail}</td>
+                        <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:10,color:'var(--text-dim)'}}>{a.ip||'—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon="🛡️" text={auditSearched ? "Aucun événement pour ces critères." : "Choisissez une plage de dates et lancez la recherche."}/>
           )}
         </div>
       )}
