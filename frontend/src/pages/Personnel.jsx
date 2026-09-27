@@ -1314,10 +1314,15 @@ export default function Personnel() {
             </div>
             {credentialsModal.envois && (
               <div style={{marginBottom:16,fontSize:12,
-                color: credentialsModal.envois.ok ? '#16a34a' : '#b45309'}}>
-                {credentialsModal.envois.ok
-                  ? `✅ Identifiants envoyés par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal}`
-                  : `⚠️ Envoi par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal} échoué : ${credentialsModal.envois.info || ''}`}
+                color: credentialsModal.envois.mode_test ? '#b45309' : (credentialsModal.envois.ok ? '#16a34a' : '#b45309')}}>
+                {credentialsModal.envois.mode_test
+                  // Le fournisseur 'test' (Paramétrage) répond toujours "ok" sans
+                  // rien envoyer réellement - le signaler clairement ici évite de
+                  // croire à une livraison qui n'a jamais eu lieu.
+                  ? `🧪 Mode TEST — aucun envoi réel par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal} (changez le fournisseur dans Paramétrage pour un envoi réel)`
+                  : credentialsModal.envois.ok
+                    ? `✅ Identifiants envoyés par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal}`
+                    : `⚠️ Envoi par ${{sms:'SMS',whatsapp:'WhatsApp',email:'email'}[credentialsModal.envois.canal] || credentialsModal.envois.canal} échoué : ${credentialsModal.envois.info || ''}`}
               </div>
             )}
             <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>

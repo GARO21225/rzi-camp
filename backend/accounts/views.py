@@ -960,11 +960,19 @@ def demander_otp(request):
         if not ok:
             return Response({'error': f"Échec d'envoi du code par {moyen} : {info}"}, status=502)
 
-        reponse = {'ok': True, 'message': f"Code envoyé par {moyen} à {destination_affichee}."}
-        # Mode test uniquement (aucun fournisseur reel configure) : renvoie le
-        # code directement pour valider le flux sans depenser un vrai SMS/email.
-        if info == "mode_test" and settings.DEBUG:
-            reponse['code_test'] = otp.code
+        reponse = {'ok': True, 'message': f"Code envoyé par {moyen} à {destination_affichee}.", 'mode_test': info == "mode_test"}
+        if info == "mode_test":
+            # Signale EXPLICITEMENT (pas seulement en DEBUG) qu'aucun envoi reel
+            # n'a eu lieu - sans ca, "ok: true" laissait croire a un code
+            # reellement livre alors que le fournisseur 'test' (Parametrage)
+            # ne fait que journaliser. Trouve suite a un signalement : code/mail
+            # jamais recu alors que la reponse ne montrait aucune erreur.
+            reponse['message'] += " (mode test — aucun envoi réel : vérifiez le fournisseur configuré dans Paramétrage)"
+            # Le code lui-meme (code_test) reste reserve au DEBUG - ne jamais
+            # exposer le code en clair dans une reponse API en production,
+            # meme en mode test.
+            if settings.DEBUG:
+                reponse['code_test'] = otp.code
         return Response(reponse)
     except Exception as e:
         logger.exception("demander_otp : exception non prevue (hors envoi SMS)")

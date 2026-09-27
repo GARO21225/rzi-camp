@@ -471,6 +471,32 @@ class EmailProviderTests(TestCase):
         self.assertIn("abc-123", info)
 
     @patch("requests.post")
+    def test_resend_utilise_toujours_ladresse_configuree_jamais_une_valeur_en_dur(self, mock_post):
+        """
+        Regression explicite suite a un signalement ("tu ne dois pas coder
+        en dur, tu dois t'appuyer sur l'adresse introduite dans Paramétrage")
+        : configure un domaine PERSONNALISE (celui reellement verifie et
+        utilise en production : notifications@mail.roxgold-sitelife.com,
+        different de la valeur par defaut onboarding@resend.dev) et verifie
+        que c'est EXACTEMENT cette adresse qui part dans la requete Resend -
+        preuve que rien n'est code en dur, le code lit bien
+        Parametre.get("resend_email_from") a chaque envoi.
+        """
+        Parametre.objects.update_or_create(cle="resend_api_key", defaults={"valeur": "re_test_key"})
+        Parametre.objects.update_or_create(cle="resend_email_from", defaults={"valeur": "notifications@mail.roxgold-sitelife.com"})
+        Parametre.objects.update_or_create(cle="resend_email_from_nom", defaults={"valeur": "Roxgold SiteLife"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.content = b'{"id": "abc-123"}'
+        mock_post.return_value.json.return_value = {"id": "abc-123"}
+        from .email_providers import EmailProviderFactory
+        provider = EmailProviderFactory.get("resend")
+        ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>", "Corps")
+        self.assertTrue(ok)
+        appel = mock_post.call_args
+        self.assertEqual(appel.kwargs["json"]["from"], "Roxgold SiteLife <notifications@mail.roxgold-sitelife.com>")
+        self.assertNotIn("onboarding@resend.dev", appel.kwargs["json"]["from"])
+
+    @patch("requests.post")
     def test_resend_domaine_non_verifie_403_message_clair(self, mock_post):
         """Cas attendu tant qu'aucun domaine n'est vérifié dans Resend
         (ou onboarding@resend.dev utilisé hors mode test) - le message
@@ -556,3 +582,72 @@ class AuditLoginTrackingTests(TestCase):
         entry = AuditLog.objects.filter(module="connexion", action="login_reussi").first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.utilisateur, self.user)
+
+
+class ModeTestVisibiliteTests(TestCase):
+    """
+    Signalement : "le mail n'est pas parti" alors que la reponse ne
+    montrait aucune erreur - cause probable : le fournisseur configure
+    (Paramétrage) est reste sur 'test' (qui repond toujours ok=True sans
+    rien envoyer reellement), ce qui etait indiscernable d'un vrai envoi
+    reussi cote reponse API/interface. Ces tests verifient que le mode
+    test est desormais signale EXPLICITEMENT, pour que ce cas ne puisse
+    plus passer inapercu.
+    """
+
+    def setUp(self):
+        Parametre.objects.update_or_create(cle="sms_provider", defaults={"valeur": "test"})
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "sms"})
+        self.user = User.objects.create_user("modetest", "m@m.com", "pass")
+        from residences.models import Personnel
+        self.personnel = Personnel.objects.create(
+            nom="Mode", prenom="Test", societe="ROXGOLD", numero="MTX1",
+            telephone="0700001111", numero_whatsapp="0700001111",
+            type_personnel="roxgold", user=self.user,
+        )
+
+    def test_demander_otp_signale_le_mode_test_dans_le_message(self):
+        from rest_framework.test import APIRequestFactory
+        from .views import demander_otp
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/demander/", {"telephone": "0700001111"}, format="json")
+        resp = demander_otp(req)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data.get("mode_test"))
+        self.assertIn("mode test", resp.data.get("message", "").lower())
+
+    def test_envoyer_identifiants_signale_le_mode_test_sms(self):
+        from .notifications import envoyer_identifiants
+        envoi = envoyer_identifiants(self.personnel, "u_test", "Xx1!aaaa")
+        self.assertTrue(envoi["ok"])
+        self.assertTrue(envoi["mode_test"])
+
+    def test_envoyer_identifiants_signale_le_mode_test_email(self):
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "test"})
+        self.personnel.email = "mode.test@example.com"
+        self.personnel.save()
+        from .notifications import envoyer_identifiants
+        envoi = envoyer_identifiants(self.personnel, "u_test", "Xx1!aaaa")
+        self.assertTrue(envoi["ok"])
+        self.assertTrue(envoi["mode_test"])
+
+    def test_envoyer_identifiants_mode_test_false_quand_fournisseur_reel_configure(self):
+        """Une fois un vrai fournisseur configure (resend), mode_test doit
+        redevenir False - sinon l'avertissement s'afficherait a tort meme
+        sur un envoi reellement livre."""
+        from unittest.mock import patch as _patch
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "resend"})
+        Parametre.objects.update_or_create(cle="resend_api_key", defaults={"valeur": "re_test_key"})
+        Parametre.objects.update_or_create(cle="resend_email_from", defaults={"valeur": "notifications@mail.roxgold-sitelife.com"})
+        self.personnel.email = "reel@example.com"
+        self.personnel.save()
+        with _patch("requests.post") as mock_post:
+            mock_post.return_value.status_code = 200
+            mock_post.return_value.content = b'{"id": "abc-123"}'
+            mock_post.return_value.json.return_value = {"id": "abc-123"}
+            from .notifications import envoyer_identifiants
+            envoi = envoyer_identifiants(self.personnel, "u_test", "Xx1!aaaa")
+        self.assertTrue(envoi["ok"])
+        self.assertFalse(envoi["mode_test"])
