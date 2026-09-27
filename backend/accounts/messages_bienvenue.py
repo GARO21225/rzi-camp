@@ -15,9 +15,10 @@ from django.conf import settings
 def _lien_connexion():
     # settings.APP_URL est TOUJOURS défini (voir rzi_camp/settings.py) - ce
     # 2e argument n'est qu'un filet de sécurité si jamais ce n'était plus le
-    # cas ; sa valeur suit celle de settings.py, jamais un domaine Render
-    # jamais utilisé sur ce déploiement.
-    return getattr(settings, "APP_URL", "https://204.168.229.74:5173")
+    # cas ; sa valeur suit celle de settings.py. Le lien est repris ICI
+    # TEL QUEL (aucune concaténation de chemin) - si APP_URL se termine par
+    # "/", le lien envoyé se termine aussi par "/".
+    return getattr(settings, "APP_URL", "https://app.roxgold-sitelife.com:5173")
 
 
 def message_bienvenue_identifiants(nom_app, prenom, username, password):

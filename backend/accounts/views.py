@@ -291,7 +291,13 @@ def forgot_password(request):
         pers = Personnel.objects.filter(user=user).first()
         if user.email or (pers and pers.email):
             dest = user.email or pers.email
-            app_url = getattr(settings, "APP_URL", "https://204.168.229.74:5173")
+            # .rstrip('/') : APP_URL peut être défini avec ou sans "/" final
+            # (les deux sont un lien de connexion valide dans les messages
+            # de bienvenue/OTP, voir messages_bienvenue.py) - mais ICI on
+            # concatène un chemin, donc on retire le "/" final pour éviter
+            # un double slash ("...5173//reset-password") qui casserait le
+            # routing côté frontend.
+            app_url = getattr(settings, "APP_URL", "https://app.roxgold-sitelife.com:5173").rstrip('/')
             send_mail(
                 subject="🔐 Réinitialisation de mot de passe — Roxgold SiteLife",
                 message=f"""Bonjour {user.first_name},

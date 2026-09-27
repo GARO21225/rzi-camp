@@ -209,11 +209,9 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@rzi-camp.com'
 # Lien inclus dans les emails/SMS (réinitialisation de mot de passe,
 # identifiants de connexion, code OTP) - TOUJOURS piloté par la variable
 # d'environnement APP_URL (.env sur le serveur), jamais par ce fallback en
-# dur, qui n'existe que pour ne pas planter si .env est incomplet. Ancien
-# fallback pointait vers un nom de domaine Render jamais utilisé sur ce
-# déploiement Hetzner - corrigé vers l'adresse réellement servie
-# aujourd'hui. Une fois app.roxgold-sitelife.com pointé (DNS) sur ce
-# serveur et le certificat mis à jour (voir frontend/docker-entrypoint-ssl.sh),
-# définir APP_URL=https://app.roxgold-sitelife.com:5173 dans .env - AUCUN
-# changement de code n'est nécessaire pour cette bascule.
-APP_URL = os.environ.get('APP_URL', 'https://204.168.229.74:5173')
+# dur, qui n'existe que pour ne pas planter si .env est incomplet.
+# Domaine app.roxgold-sitelife.com pointé (DNS) + certificat Let's Encrypt
+# réel en place (voir frontend/docker-entrypoint-ssl.sh) - le fallback
+# reflète maintenant l'adresse canonique de l'app. Pour changer le lien
+# réellement envoyé, modifier APP_URL dans .env sur le serveur, jamais ici.
+APP_URL = os.environ.get('APP_URL', 'https://app.roxgold-sitelife.com:5173')
