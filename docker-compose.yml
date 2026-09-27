@@ -78,6 +78,11 @@ services:
       # (voir docker-entrypoint-ssl.sh) — évite d'invalider l'exception de
       # sécurité du navigateur à chaque redéploiement.
       - ssl_data:/etc/nginx/ssl
+      # Certificat Let's Encrypt REEL (optionnel) — décommenter cette ligne
+      # une fois le certificat obtenu sur l'hôte (voir instructions fournies :
+      # certbot + plugin DNS Porkbun, défi DNS-01, aucun port entrant requis).
+      # Chemin standard laissé par certbot sur l'hôte pour ce domaine.
+      # - /etc/letsencrypt/live/app.roxgold-sitelife.com:/etc/nginx/ssl-letsencrypt:ro
     depends_on:
       - backend
     mem_limit: 100m

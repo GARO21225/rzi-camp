@@ -6,12 +6,26 @@
 # changeait donc le certificat, invalidant l'exception de sécurité que le
 # navigateur avait mémorisée — d'où la bannière "hors ligne" qui revenait
 # après chaque mise à jour de l'app, même en étant réellement en ligne.
+#
+# CERTIFICAT REEL (Let's Encrypt, optionnel) : si le dossier
+# /etc/nginx/ssl-letsencrypt contient fullchain.pem + privkey.pem (monté en
+# lecture seule depuis /etc/letsencrypt/live/app.roxgold-sitelife.com/ sur
+# l'hôte - voir docker-compose.yml et les instructions d'obtention), ils
+# sont copiés vers CERT_DIR à CHAQUE démarrage - donc un `docker compose
+# restart frontend` après un renouvellement certbot suffit à prendre en
+# compte le nouveau certificat, sans supprimer le volume ssl_data. Sans ce
+# montage, le comportement est INCHANGE (auto-signé, généré une seule fois).
 set -e
 
 CERT_DIR=/etc/nginx/ssl
+LE_DIR=/etc/nginx/ssl-letsencrypt
 mkdir -p "$CERT_DIR"
 
-if [ ! -f "$CERT_DIR/selfsigned.crt" ] || [ ! -f "$CERT_DIR/selfsigned.key" ]; then
+if [ -f "$LE_DIR/fullchain.pem" ] && [ -f "$LE_DIR/privkey.pem" ]; then
+  echo "[ssl] Certificat Let's Encrypt trouvé (${LE_DIR}) — utilisé à la place de l'auto-signé."
+  cp "$LE_DIR/fullchain.pem" "$CERT_DIR/selfsigned.crt"
+  cp "$LE_DIR/privkey.pem" "$CERT_DIR/selfsigned.key"
+elif [ ! -f "$CERT_DIR/selfsigned.crt" ] || [ ! -f "$CERT_DIR/selfsigned.key" ]; then
   echo "[ssl] Aucun certificat existant sur le volume — génération (une seule fois)."
   # SAN inclut l'IP ET le domaine (app.roxgold-sitelife.com) : sans ça,
   # accéder à l'app par le nom de domaine plutôt que par l'IP brute
