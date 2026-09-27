@@ -203,9 +203,9 @@ class SMSMessage(models.Model):
         ("rejected", "Rejeté"),
         ("expired", "Expiré"),
     ]
-    CANAL_CHOICES = [("sms", "SMS"), ("whatsapp", "WhatsApp")]
+    CANAL_CHOICES = [("sms", "SMS"), ("whatsapp", "WhatsApp"), ("email", "Email")]
 
-    destinataire = models.CharField(max_length=30, db_index=True, help_text="Numéro au format local (celui déjà stocké dans Personnel.telephone)")
+    destinataire = models.CharField(max_length=254, db_index=True, help_text="Numéro au format local (Personnel.telephone) pour sms/whatsapp, adresse email (Personnel.email) pour le canal email — 254 = longueur max RFC 5321 d'une adresse email")
     pays = models.CharField(max_length=2, default="CI")
     canal = models.CharField(max_length=10, choices=CANAL_CHOICES, default="sms")
     type_message = models.CharField(max_length=20, choices=TYPE_CHOICES, default="systeme")

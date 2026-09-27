@@ -49,8 +49,20 @@ def liste_parametres(request):
         # seulement, code visible dans la reponse API en mode DEBUG) : permet
         # de valider tout le flux avant de payer/configurer un fournisseur.
         'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, orange, africastalking, prosms, hsms"),
-        'canal_otp': ('sms', "Canal d'envoi du code OTP : sms ou whatsapp"),
+        'canal_otp': ('sms', "Canal d'envoi du code OTP : sms, whatsapp ou email"),
         'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : meta (API WhatsApp Business officielle) — vide/auto désactive le canal WhatsApp"),
+        # Canal EMAIL (ajouté suite à l'échec de livraison SMS constaté en
+        # production — HSMS accepte le numéro mais l'opérateur mobile ne
+        # remet pas toujours le SMS au terminal). Resend est le seul
+        # fournisseur email intégré pour l'instant : voir
+        # accounts/email_providers/resend.py pour l'explication détaillée
+        # du champ "from" (un domaine vérifié est requis — aucun
+        # équivalent "IP+PORT" n'existe pour l'envoi d'email, ce n'est pas
+        # comme un serveur web).
+        'email_provider': ('test', "Fournisseur Email pour la connexion par code OTP (canal_otp=email) : test, resend"),
+        'resend_api_key': ('', 'Resend — Clé API (tableau de bord resend.com/api-keys)'),
+        'resend_email_from': ('onboarding@resend.dev', 'Resend — Adresse expéditeur. "onboarding@resend.dev" fonctionne sans domaine mais UNIQUEMENT en test (envoi limité à l\'adresse du compte Resend) — pour envoyer au personnel, un domaine (ou sous-domaine) vérifié dans Resend est obligatoire'),
+        'resend_email_from_nom': ('Roxgold SiteLife', "Resend — Nom affiché de l'expéditeur (ex: « Roxgold SiteLife <no-reply@...> »)"),
         'meta_whatsapp_phone_number_id': ('', "API Meta WhatsApp — Phone Number ID (developers.facebook.com)"),
         'meta_whatsapp_access_token': ('', "API Meta WhatsApp — Access Token (permanent, généré depuis Meta Business Manager)"),
         'meta_whatsapp_template_name': ('', "API Meta WhatsApp — Nom du modèle de message approuvé (une seule variable {{1}})"),
@@ -862,16 +874,28 @@ def construire_reponse_connexion(user):
 @permission_classes([AllowAny])
 def demander_otp(request):
     """
-    Etape 1 de la connexion par SMS : envoie un code a 6 chiffres au
+    Etape 1 de la connexion par code : envoie un code a 6 chiffres au
     numero fourni, SI ce numero correspond a un Personnel ayant deja un
     compte utilisateur actif. Limite a 3 demandes / 10 min par numero
-    pour eviter les abus/spam SMS (qui coutent de l'argent en production).
+    pour eviter les abus/spam (SMS et email coutent tous deux de l'argent
+    en production, ou sont soumis a des limites de fournisseur).
+
+    Le canal de LIVRAISON du code (sms / whatsapp / email) est choisi par
+    le parametre 'canal_otp' (Parametrage) - l'IDENTIFICATION reste
+    toujours par numero de telephone (pas de changement cote frontend) :
+    pour le canal 'email', on retrouve juste l'adresse email associee au
+    meme Personnel (Personnel.email) et on envoie le code la, au lieu du
+    telephone. Ajoute suite a des echecs de livraison SMS constates en
+    production (numero valide cote fournisseur, mais l'operateur mobile
+    ne remet pas toujours le SMS au terminal) - l'email est un canal de
+    secours independant de la remise SMS/reseau mobile.
     """
     from django.conf import settings
     from django.utils import timezone
     from datetime import timedelta
     from residences.models import Personnel
     from .sms import envoyer_sms
+    from .email import envoyer_email
     from .phone import normaliser
 
     # Filet de securite GLOBAL sur toute la vue (pas seulement l'appel
@@ -905,18 +929,39 @@ def demander_otp(request):
 
         otp = CodeOTP.generer(telephone)
         nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
-        try:
-            ok, info = envoyer_sms(telephone, f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min).", type_message="otp")
-        except Exception as e:
-            logger.exception("demander_otp : exception non prevue dans envoyer_sms()")
-            return Response({'error': f"Erreur interne lors de l'envoi du SMS : {e}"}, status=500)
+        canal = Parametre.get('canal_otp', 'sms')
+        texte = f"{nom_app} : votre code de connexion est {otp.code} (valable {CodeOTP.DUREE_VALIDITE_MIN} min)."
+
+        if canal == 'email':
+            if not pers.email:
+                return Response({'error': "Aucune adresse email associée à ce compte — renseignez-en une (fiche Personnel), ou changez le canal OTP dans Paramétrage."}, status=404)
+            try:
+                ok, info = envoyer_email(
+                    pers.email,
+                    sujet=f"{nom_app} — Code de connexion",
+                    corps_html=f"<p>Votre code de connexion est <strong style=\"font-size:20px;letter-spacing:2px\">{otp.code}</strong> (valable {CodeOTP.DUREE_VALIDITE_MIN} minutes).</p>",
+                    corps_texte=texte,
+                    type_message="otp",
+                )
+            except Exception as e:
+                logger.exception("demander_otp : exception non prevue dans envoyer_email()")
+                return Response({'error': f"Erreur interne lors de l'envoi de l'email : {e}"}, status=500)
+            destination_affichee, moyen = pers.email, "email"
+        else:
+            try:
+                ok, info = envoyer_sms(telephone, texte, type_message="otp")
+            except Exception as e:
+                logger.exception("demander_otp : exception non prevue dans envoyer_sms()")
+                return Response({'error': f"Erreur interne lors de l'envoi du SMS : {e}"}, status=500)
+            destination_affichee = telephone
+            moyen = "WhatsApp" if canal == 'whatsapp' else "SMS"
 
         if not ok:
-            return Response({'error': f"Échec d'envoi du SMS : {info}"}, status=502)
+            return Response({'error': f"Échec d'envoi du code par {moyen} : {info}"}, status=502)
 
-        reponse = {'ok': True, 'message': f"Code envoyé au {telephone}."}
+        reponse = {'ok': True, 'message': f"Code envoyé par {moyen} à {destination_affichee}."}
         # Mode test uniquement (aucun fournisseur reel configure) : renvoie le
-        # code directement pour valider le flux sans depenser un vrai SMS.
+        # code directement pour valider le flux sans depenser un vrai SMS/email.
         if info == "mode_test" and settings.DEBUG:
             reponse['code_test'] = otp.code
         return Response(reponse)

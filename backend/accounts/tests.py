@@ -382,3 +382,105 @@ class OTPFlowTests(TestCase):
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(resp["Content-Type"], "application/json")
         self.assertIn("panne imprevue simulee 2", resp.json().get("error", ""))
+
+    def test_demander_otp_canal_email_sans_adresse_echoue_proprement(self):
+        """Nouveau canal 'email' (ajoute suite aux echecs de livraison SMS
+        constates en production) : si canal_otp=email mais que le
+        Personnel n'a pas d'adresse email renseignee, l'echec doit etre
+        clair (404), jamais une exception."""
+        from rest_framework.test import APIRequestFactory
+        from .views import demander_otp
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/demander/", {"telephone": "0701234567"}, format="json")
+        resp = demander_otp(req)
+        self.assertEqual(resp.status_code, 404)
+        self.assertIn("email", resp.data.get("error", "").lower())
+
+    def test_demander_otp_canal_email_mode_test_reussit_et_message_est_canal_aware(self):
+        """canal_otp=email + Personnel.email renseigne + email_provider=test
+        (par defaut) : doit reussir sans reseau, et le message renvoye au
+        frontend doit mentionner l'email (pas 'SMS'), demande explicite de
+        l'utilisateur ('notifier qu'un mail a ete envoye par mail ou SMS
+        selon ce qui a ete choisi')."""
+        from rest_framework.test import APIRequestFactory
+        from .views import demander_otp
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        self.personnel.email = "agent.otp@example.com"
+        self.personnel.save()
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/demander/", {"telephone": "0701234567"}, format="json")
+        resp = demander_otp(req)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("email", resp.data.get("message", "").lower())
+        self.assertIn("agent.otp@example.com", resp.data.get("message", ""))
+        self.assertNotIn("SMS", resp.data.get("message", ""))
+        otp = CodeOTP.objects.filter(telephone="0701234567").order_by("-date_creation").first()
+        self.assertIsNotNone(otp)
+
+    def test_demander_otp_canal_sms_message_mentionne_sms_pas_email(self):
+        """Non-regression : le canal par defaut (sms) doit garder un
+        message mentionnant SMS, pas 'email' - le message est bien
+        canal-aware dans les deux sens."""
+        from rest_framework.test import APIRequestFactory
+        from .views import demander_otp
+        rf = APIRequestFactory()
+        req = rf.post("/api/auth/otp/demander/", {"telephone": "0701234567"}, format="json")
+        resp = demander_otp(req)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("SMS", resp.data.get("message", ""))
+
+
+class EmailProviderTests(TestCase):
+    """Fournisseurs email (accounts/email_providers/) - meme structure de
+    tests que ProviderFactoryTests pour les fournisseurs SMS."""
+
+    def test_test_provider_reussit_sans_reseau(self):
+        from .email_providers import EmailProviderFactory
+        provider = EmailProviderFactory.get("test")
+        ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>", "Corps")
+        self.assertTrue(ok)
+        self.assertEqual(info, "mode_test")
+
+    def test_fournisseur_inconnu_renvoie_none(self):
+        from .email_providers import EmailProviderFactory
+        self.assertIsNone(EmailProviderFactory.get("inconnu"))
+
+    def test_resend_sans_cle_api_echoue_proprement(self):
+        from .email_providers import EmailProviderFactory
+        provider = EmailProviderFactory.get("resend")
+        ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>")
+        self.assertFalse(ok)
+        self.assertIn("clé API", info)
+
+    @patch("requests.post")
+    def test_resend_envoi_reussi_mocke(self, mock_post):
+        Parametre.objects.update_or_create(cle="resend_api_key", defaults={"valeur": "re_test_key"})
+        Parametre.objects.update_or_create(cle="resend_email_from", defaults={"valeur": "onboarding@resend.dev"})
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.content = b'{"id": "abc-123"}'
+        mock_post.return_value.json.return_value = {"id": "abc-123"}
+        from .email_providers import EmailProviderFactory
+        provider = EmailProviderFactory.get("resend")
+        ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>", "Corps")
+        self.assertTrue(ok)
+        appel = mock_post.call_args
+        self.assertEqual(appel.args[0], "https://api.resend.com/emails")
+        self.assertEqual(appel.kwargs["json"]["to"], ["agent@example.com"])
+        self.assertEqual(appel.kwargs["headers"]["Authorization"], "Bearer re_test_key")
+        self.assertIn("abc-123", info)
+
+    @patch("requests.post")
+    def test_resend_domaine_non_verifie_403_message_clair(self, mock_post):
+        """Cas attendu tant qu'aucun domaine n'est vérifié dans Resend
+        (ou onboarding@resend.dev utilisé hors mode test) - le message
+        doit expliquer la cause, jamais un 500 muet."""
+        Parametre.objects.update_or_create(cle="resend_api_key", defaults={"valeur": "re_test_key"})
+        mock_post.return_value.status_code = 403
+        mock_post.return_value.content = b'{}'
+        mock_post.return_value.json.return_value = {}
+        from .email_providers import EmailProviderFactory
+        provider = EmailProviderFactory.get("resend")
+        ok, info = provider.envoyer("agent@example.com", "Sujet", "<p>Corps</p>")
+        self.assertFalse(ok)
+        self.assertIn("domaine", info.lower())

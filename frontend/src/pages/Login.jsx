@@ -82,6 +82,7 @@ export default function Login() {
   const [telephone, setTelephone] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [infoMsg, setInfoMsg] = useState('')
+  const [otpMessage, setOtpMessage] = useState('') // message exact renvoyé par le backend (canal-aware : SMS/WhatsApp/Email)
 
   const doLogin = async () => {
     if (!username || !password) return setError('Identifiant et mot de passe requis')
@@ -105,6 +106,7 @@ export default function Login() {
     try {
       const r = await auth.demanderOtp(telephone.trim())
       setOtpStep('code')
+      setOtpMessage(r.data?.message || `Code envoyé au ${telephone.trim()}.`)
       if (r.data?.code_test) setInfoMsg(`🧪 Mode test — code : ${r.data.code_test}`)
     } catch(e) {
       setError(e.response?.data?.error || "Impossible d'envoyer le code")
@@ -359,19 +361,19 @@ export default function Login() {
                   style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                     color:'#000', border:'none', borderRadius:10, padding:14,
                     fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer' }}>
-                  {loading ? '⏳ Envoi...' : 'Recevoir un code par SMS →'}
+                  {loading ? '⏳ Envoi...' : 'Recevoir un code →'}
                 </button>
               </>
             ) : (
               <>
                 <div style={{ fontSize:12.5, color:'rgba(255,255,255,.6)' }}>
-                  Code envoyé au {telephone}. <button type="button" onClick={()=>{setOtpStep('telephone');setInfoMsg('')}}
+                  {otpMessage || `Code envoyé au ${telephone}.`} <button type="button" onClick={()=>{setOtpStep('telephone');setInfoMsg('');setOtpMessage('')}}
                     style={{background:'none',border:'none',color:'#f0a500',cursor:'pointer',fontSize:12.5,textDecoration:'underline',padding:0}}>Changer de numéro</button>
                 </div>
                 <div>
                   <label style={{ display:'block', fontSize:11, fontWeight:700,
                     color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
-                    Code reçu par SMS
+                    Code reçu
                   </label>
                   <input
                     value={otpCode} onChange={e=>setOtpCode(e.target.value)}

@@ -36,7 +36,7 @@ const CHAMPS = [
     { cle: 'sms_provider', label: 'Fournisseur SMS', suffix: '', type: 'text',
       hint: 'test (aucun envoi réel — code visible à l\'écran, pour valider le flux gratuitement), orange, africastalking, prosms, hsms' },
     { cle: 'canal_otp', label: "Canal d'envoi du code OTP", suffix: '', type: 'text',
-      hint: 'sms ou whatsapp — whatsapp nécessite whatsapp_provider=meta ci-dessous (API WhatsApp Business officielle)' },
+      hint: 'sms, whatsapp ou email — whatsapp nécessite whatsapp_provider=meta ci-dessous, email nécessite la section Resend ci-dessous ET une adresse email renseignée sur la fiche de chaque agent' },
     { cle: 'sms_prosms_client_id', label: 'proSMS — Client ID', suffix: '', type: 'text', hint: 'Depuis prosms.ci/api-credentials — documentation confirmée et vérifiée' },
     { cle: 'sms_prosms_client_secret', label: 'proSMS — Client Secret', suffix: '', type: 'password', hint: '' },
     { cle: 'sms_prosms_sender_id', label: 'proSMS — Sender ID', suffix: '', type: 'text', hint: 'Max 11 caractères, doit être pré-approuvé sur prosms.ci sinon les envois sont rejetés (403)' },
@@ -58,6 +58,14 @@ const CHAMPS = [
     { cle: 'meta_whatsapp_access_token', label: 'Meta — Access Token', suffix: '', type: 'password', hint: 'Token permanent généré via un utilisateur système (System User) dans Meta Business Manager — pas le token temporaire de 24h affiché par défaut' },
     { cle: 'meta_whatsapp_template_name', label: 'Meta — Nom du modèle de message', suffix: '', type: 'text', hint: 'Le modèle doit être créé et approuvé dans Meta Business Manager au préalable, avec UNE seule variable {{1}} dans le corps' },
     { cle: 'meta_whatsapp_template_lang', label: 'Meta — Code langue du modèle', suffix: '', type: 'text', hint: 'Ex: fr ou fr_FR — doit correspondre exactement à la langue choisie lors de la création du modèle' },
+  ]},
+  { section: '📧 Connexion par Email (OTP) — Resend', items: [
+    { cle: 'email_provider', label: 'Fournisseur Email', suffix: '', type: 'text',
+      hint: 'test (aucun envoi réel — code visible à l\'écran, pour valider le flux gratuitement) ou resend' },
+    { cle: 'resend_api_key', label: 'Resend — Clé API', suffix: '', type: 'password', hint: 'Tableau de bord resend.com/api-keys' },
+    { cle: 'resend_email_from', label: 'Resend — Adresse expéditeur', suffix: '', type: 'text',
+      hint: '⚠️ "onboarding@resend.dev" fonctionne SANS domaine mais uniquement en test (Resend n\'envoie alors qu\'à l\'adresse du compte Resend lui-même, jamais au personnel) — il n\'existe pas d\'équivalent "IP+PORT" pour l\'envoi d\'email : pour envoyer au personnel, un domaine (ou sous-domaine) vérifié dans Resend est obligatoire (3 enregistrements DNS à ajouter une fois)' },
+    { cle: 'resend_email_from_nom', label: 'Resend — Nom affiché de l\'expéditeur', suffix: '', type: 'text', hint: 'Ex: Roxgold SiteLife' },
   ]},
   { section: '🗺️ Carte SIG — Icônes des points d\'intérêt', items: [
     { cle: 'icone_poi_restaurant',       label: 'Restaurant',              suffix: '', type: 'text', hint: 'Un seul emoji, ex: 🍽️' },
