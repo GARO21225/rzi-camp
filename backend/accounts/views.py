@@ -291,7 +291,7 @@ def forgot_password(request):
         pers = Personnel.objects.filter(user=user).first()
         if user.email or (pers and pers.email):
             dest = user.email or pers.email
-            app_url = getattr(settings, "APP_URL", "https://rzi-camp-frontend.onrender.com")
+            app_url = getattr(settings, "APP_URL", "https://204.168.229.74:5173")
             send_mail(
                 subject="🔐 Réinitialisation de mot de passe — Roxgold SiteLife",
                 message=f"""Bonjour {user.first_name},

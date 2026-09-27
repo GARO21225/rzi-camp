@@ -13,7 +13,11 @@ from django.conf import settings
 
 
 def _lien_connexion():
-    return getattr(settings, "APP_URL", "https://rzi-camp-frontend.onrender.com")
+    # settings.APP_URL est TOUJOURS défini (voir rzi_camp/settings.py) - ce
+    # 2e argument n'est qu'un filet de sécurité si jamais ce n'était plus le
+    # cas ; sa valeur suit celle de settings.py, jamais un domaine Render
+    # jamais utilisé sur ce déploiement.
+    return getattr(settings, "APP_URL", "https://204.168.229.74:5173")
 
 
 def message_bienvenue_identifiants(nom_app, prenom, username, password):

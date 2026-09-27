@@ -62,8 +62,15 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_URL: https://204.168.229.74:5173
+      # PAS de VITE_API_URL codé en dur ici volontairement (ça a cassé
+      # l'accès par nom de domaine : l'app appelait toujours l'IP en dur,
+      # peu importe l'adresse utilisée pour charger la page). Le Dockerfile
+      # laisse ce build arg vide par défaut -> src/api/index.js détecte
+      # l'API tout seul via window.location.origin, donc ça marche pour
+      # l'IP (https://204.168.229.74:5173) ET pour un domaine
+      # (https://app.roxgold-sitelife.com:5173) avec la MÊME image, sans
+      # rebuild. Ne réintroduire cette ligne que si l'API est un jour
+      # servie depuis un hôte réellement différent du frontend.
     ports:
       - "5173:443"
     volumes:

@@ -113,11 +113,14 @@ SIMPLE_JWT = {
 # ── CORS Configuration ──────────────────────────────────────────────
 # SECURITE : CORS_ALLOW_ALL_ORIGINS acceptait des requêtes credentialisées
 # depuis N'IMPORTE QUEL site web. Restreint à la liste explicite ci-dessous
-# (ajouter un domaine ici si l'app change d'adresse).
+# (piloté par CORS_ALLOWED_ORIGINS dans .env sur le serveur - la valeur de
+# secours ci-dessous couvre les deux adresses connues aujourd'hui, IP brute
+# ET domaine, pour que l'attachement du domaine app.roxgold-sitelife.com
+# fonctionne sans avoir à toucher .env dans l'immédiat).
 CORS_ALLOWED_ORIGINS = [
     o for o in os.environ.get(
         'CORS_ALLOWED_ORIGINS',
-        'https://204.168.229.74:5173,http://localhost:5173,http://localhost:3000'
+        'https://204.168.229.74:5173,https://app.roxgold-sitelife.com:5173,http://localhost:5173,http://localhost:3000'
     ).split(',') if o
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -140,6 +143,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
     'https://204.168.229.74:5173',
+    'https://app.roxgold-sitelife.com:5173',
     'https://rzi-camp-frontend.onrender.com',
     'https://rzi-camp-backend.onrender.com',
     'http://localhost:5173',
@@ -202,4 +206,14 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@rzi-camp.com'
 # supprime - backend/rzi_camp/notifications.py).
 
 # ── Application URL ──────────────────────────────────
-APP_URL = os.environ.get('APP_URL', 'https://rzi-camp-frontend.onrender.com')
+# Lien inclus dans les emails/SMS (réinitialisation de mot de passe,
+# identifiants de connexion, code OTP) - TOUJOURS piloté par la variable
+# d'environnement APP_URL (.env sur le serveur), jamais par ce fallback en
+# dur, qui n'existe que pour ne pas planter si .env est incomplet. Ancien
+# fallback pointait vers un nom de domaine Render jamais utilisé sur ce
+# déploiement Hetzner - corrigé vers l'adresse réellement servie
+# aujourd'hui. Une fois app.roxgold-sitelife.com pointé (DNS) sur ce
+# serveur et le certificat mis à jour (voir frontend/docker-entrypoint-ssl.sh),
+# définir APP_URL=https://app.roxgold-sitelife.com:5173 dans .env - AUCUN
+# changement de code n'est nécessaire pour cette bascule.
+APP_URL = os.environ.get('APP_URL', 'https://204.168.229.74:5173')
