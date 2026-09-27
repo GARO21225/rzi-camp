@@ -8,17 +8,23 @@
 # après chaque mise à jour de l'app, même en étant réellement en ligne.
 #
 # CERTIFICAT REEL (Let's Encrypt, optionnel) : si le dossier
-# /etc/nginx/ssl-letsencrypt contient fullchain.pem + privkey.pem (monté en
-# lecture seule depuis /etc/letsencrypt/live/app.roxgold-sitelife.com/ sur
-# l'hôte - voir docker-compose.yml et les instructions d'obtention), ils
-# sont copiés vers CERT_DIR à CHAQUE démarrage - donc un `docker compose
-# restart frontend` après un renouvellement certbot suffit à prendre en
-# compte le nouveau certificat, sans supprimer le volume ssl_data. Sans ce
-# montage, le comportement est INCHANGE (auto-signé, généré une seule fois).
+# /etc/letsencrypt/live/app.roxgold-sitelife.com contient fullchain.pem +
+# privkey.pem (monté en lecture seule sur l'hôte - voir docker-compose.yml
+# et les instructions d'obtention), ils sont copiés vers CERT_DIR à CHAQUE
+# démarrage - donc un `docker compose restart frontend` après un
+# renouvellement certbot suffit à prendre en compte le nouveau certificat,
+# sans supprimer le volume ssl_data. Sans ce montage, le comportement est
+# INCHANGE (auto-signé, généré une seule fois).
+#
+# IMPORTANT : on monte TOUT /etc/letsencrypt (pas seulement le sous-dossier
+# live/<domaine>), car live/*.pem sont des LIENS SYMBOLIQUES RELATIFS vers
+# ../../archive/<domaine>/*.pem. Monter uniquement live/<domaine> casse ces
+# liens (leur cible sort du dossier monté) - fullchain.pem existe alors en
+# apparence (visible via ls) mais est illisible depuis le conteneur.
 set -e
 
 CERT_DIR=/etc/nginx/ssl
-LE_DIR=/etc/nginx/ssl-letsencrypt
+LE_DIR=/etc/letsencrypt/live/app.roxgold-sitelife.com
 mkdir -p "$CERT_DIR"
 
 if [ -f "$LE_DIR/fullchain.pem" ] && [ -f "$LE_DIR/privkey.pem" ]; then

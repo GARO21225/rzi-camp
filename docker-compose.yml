@@ -81,8 +81,12 @@ services:
       # Certificat Let's Encrypt REEL (optionnel) — décommenter cette ligne
       # une fois le certificat obtenu sur l'hôte (voir instructions fournies :
       # certbot + plugin DNS Porkbun, défi DNS-01, aucun port entrant requis).
-      # Chemin standard laissé par certbot sur l'hôte pour ce domaine.
-      # - /etc/letsencrypt/live/app.roxgold-sitelife.com:/etc/nginx/ssl-letsencrypt:ro
+      # On monte TOUT /etc/letsencrypt (et pas seulement live/<domaine>) car
+      # les fichiers sous live/ sont des liens symboliques RELATIFS vers
+      # ../../archive/<domaine>/ — monter uniquement le sous-dossier live/
+      # casse ces liens (cible hors du volume monté, illisible depuis le
+      # conteneur même si `ls` les affiche comme présents).
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
     mem_limit: 100m
