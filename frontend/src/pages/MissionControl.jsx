@@ -436,7 +436,7 @@ export default function MissionControl() {
 
   // Formulaires
   const [formRot, setFormRot] = useState({
-    destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
+    itineraire_id:'', destination:'Abidjan', origine:'Camp Roxgold Sango', vehicule:'',
     vehicule_matricule:'', vehicule_photo:'', conducteur:'', conducteur_secondaire:'', vehicule_flotte_id:'',
     niveau_alerte: 1,
     trajet_aller_seul: false,
@@ -546,7 +546,7 @@ export default function MissionControl() {
           }
         }
         setShowCreate(null)
-        setFormRot({destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
+        setFormRot({itineraire_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
           date_depart:'',date_retour_prevue:'',nb_places_total:15,niveau_alerte:1,villesIntermediaires:[],
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
@@ -2641,7 +2641,42 @@ export default function MissionControl() {
 
               {showCreate==='rotation' && (
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  {/* Itinéraire — remplace la saisie manuelle d'adresses pour les
+                      trajets connus (Camp <-> Abidjan) : le choisir remplit
+                      automatiquement origine/destination/villes intermédiaires,
+                      plus besoin de les ressaisir. "Autre trajet" reste possible
+                      pour un déplacement non couvert par un modèle. */}
+                  <div>
+                    <label style={labelStyle}>🧭 Itinéraire</label>
+                    <select value={formRot.itineraire_id} onChange={e=>{
+                        const id = e.target.value
+                        const it = itineraires.find(i=>String(i.id)===id)
+                        if (it) setFormRot(p=>({...p,
+                          itineraire_id: id, origine: it.origine, destination: it.destination,
+                          _origineValide: true, _destinationValide: true,
+                          villesIntermediaires: (it.etapes||[]).map(et=>({
+                            nom: et.ville, distance_km: et.distance_km||'',
+                            heure_depart: et.heure_depart||'', heure_arrivee: et.heure_arrivee||'',
+                            pause: et.pause_fatigue||'',
+                          })),
+                        }))
+                        else setFormRot(p=>({...p, itineraire_id:''}))
+                      }} style={inputStyle}>
+                      <option value="">✏️ Autre trajet (saisie libre)</option>
+                      {itineraires.map(it=><option key={it.id} value={it.id}>{it.nom}</option>)}
+                    </select>
+                  </div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+                    {formRot.itineraire_id ? (
+                      <div style={{gridColumn:'span 2',display:'flex',alignItems:'center',gap:10,
+                        background:C.bg,borderRadius:8,padding:'10px 12px',fontSize:13,color:C.text}}>
+                        <b>{formRot.origine}</b><span style={{color:C.muted}}>→</span><b>{formRot.destination}</b>
+                        <button type="button" onClick={()=>setFormRot(p=>({...p,itineraire_id:''}))}
+                          style={{marginLeft:'auto',background:'none',border:'none',color:C.accent,cursor:'pointer',fontSize:11,textDecoration:'underline'}}>
+                          Changer
+                        </button>
+                      </div>
+                    ) : (<>
                     {/* Adresse de départ — pas toujours le camp (ex: convoi de retour d'un site externe) */}
                     <div>
                       <label style={labelStyle}>Adresse de départ</label>
@@ -2658,6 +2693,7 @@ export default function MissionControl() {
                         onValidChange={v=>setFormRot(p=>({...p,_destinationValide:v}))}
                         placeholder="Abidjan" style={inputStyle}/>
                     </div>
+                    </>)}
                     {/* Type de transport + Véhicule du parc — UN SEUL systeme coherent,
                         plus d'ancienne liste generique deconnectee du catalogue */}
                     <div style={{gridColumn:'span 2',display:'grid',
@@ -2735,28 +2771,8 @@ export default function MissionControl() {
                         🧭 Trajet aller uniquement (convoi multi-villes) — <span style={{color:C.muted}}>pas de retour couplé au camp. Un éventuel retour se crée comme une nouvelle rotation séparée.</span>
                       </label>
                     </div>
-                    {itineraires.length > 0 && (
-                      <div style={{marginBottom:14}}>
-                        <label style={labelStyle}>🧭 Itinéraire <span style={{fontWeight:400,color:C.muted}}>(optionnel — remplit automatiquement origine/destination et les villes intermédiaires ci-dessous)</span></label>
-                        <select value="" onChange={e=>{
-                            const it = itineraires.find(i=>String(i.id)===e.target.value)
-                            if (!it) return
-                            setFormRot(p=>({...p,
-                              origine: it.origine, destination: it.destination,
-                              villesIntermediaires: (it.etapes||[]).map(et=>({
-                                nom: et.ville, distance_km: et.distance_km||'',
-                                heure_depart: et.heure_depart||'', heure_arrivee: et.heure_arrivee||'',
-                                pause: et.pause_fatigue||'',
-                              })),
-                            }))
-                          }} style={inputStyle}>
-                          <option value="">— Choisir un itinéraire type —</option>
-                          {itineraires.map(it=><option key={it.id} value={it.id}>{it.nom}</option>)}
-                        </select>
-                      </div>
-                    )}
                     <div style={{marginBottom:14}}>
-                      <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>(optionnel — trajet {formRot.origine||'origine'} → {formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}{formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)</span></label>
+                      <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>{formRot.itineraire_id ? '(remplies par l\'itinéraire choisi ci-dessus — modifiables si besoin)' : `(optionnel — trajet ${formRot.origine||'origine'} → ${formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}${formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)`}</span></label>
                       {formRot.villesIntermediaires.map((v,i) => (
                         <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr auto',gap:6,marginBottom:6}}>
                           <input value={v.nom} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,nom:e.target.value}:vv)}))}
