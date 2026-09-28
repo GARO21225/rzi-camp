@@ -460,6 +460,7 @@ export default function MissionControl() {
   const [rechercheListe, setRechercheListe] = useState('')
   const [selectionListe, setSelectionListe] = useState(new Set())
   const [flotte, setFlotte] = useState([])
+  const [itineraires, setItineraires] = useState([])
   const [retoursAnticipes, setRetoursAnticipes] = useState([])
   const [nouvelleEtape, setNouvelleEtape] = useState(null)
   const [changerVehiculeForm, setChangerVehiculeForm] = useState(null)
@@ -469,7 +470,7 @@ export default function MissionControl() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr, rrap, rvf, rra, rorg] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap, rvf, rra, rorg, rit] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true&droit_mobilite=true').then(r=>r.json()),
@@ -478,6 +479,7 @@ export default function MissionControl() {
         api('/api/vehicules-flotte/').then(r=>r.json()),
         api('/api/voyages/retours_anticipes/').then(r=>r.json()),
         api('/api/voyages/demandes_a_organiser/').then(r=>r.json()),
+        api('/api/itineraires-modeles/').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
@@ -487,6 +489,7 @@ export default function MissionControl() {
       if (rorg.status==='fulfilled') setDemandesAOrganiser(rorg.value?.demandes_a_organiser||[])
       if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
       if (rra.status==='fulfilled') setRetoursAnticipes(Array.isArray(rra.value) ? rra.value : [])
+      if (rit.status==='fulfilled') setItineraires(rit.value?.results||rit.value||[])
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -1515,6 +1518,13 @@ export default function MissionControl() {
                                           🔀 Trajet différent
                                         </span>
                                       )}
+                                      {voyageComplet?.a_un_vol && (
+                                        <span title={`Correspondance vol à ne pas rater — ${voyageComplet.a_un_vol.numero_vol||'vol'} ${voyageComplet.a_un_vol.heure_depart?voyageComplet.a_un_vol.heure_depart.slice(0,5):''}`}
+                                          style={{fontSize:9,fontWeight:700,color:'#7c3aed',background:'#7c3aed20',
+                                            padding:'1px 6px',borderRadius:20,whiteSpace:'nowrap'}}>
+                                          ✈️ VOL {voyageComplet.a_un_vol.heure_depart?voyageComplet.a_un_vol.heure_depart.slice(0,5):''}
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{fontSize:10,color:C.muted}}>
                                       {p.personnel__societe||'—'}{destinationDiffere && ` · → ${voyageComplet.destination}`}
@@ -2259,6 +2269,99 @@ export default function MissionControl() {
                 </button>
               </div>
 
+              {/* Correspondance vol — flag simple et visible pour qu'un
+                  passager ne rate pas son avion apres ce trajet routier.
+                  Techniquement : cree/met a jour une EtapeVoyage
+                  mode_transport="avion" (deja le mecanisme existant
+                  derriere VoyageSerializer.get_a_un_vol - voir manifeste
+                  et impressions JMP) - pas de nouveau champ backend, juste
+                  une facon rapide de la renseigner sans passer par le
+                  systeme complet d'etapes ci-dessous. */}
+              {(() => {
+                const etapeVol = etapesDetail.find(e=>e.mode_transport==='avion')
+                return (
+              <div style={{marginBottom:16,background:etapeVol?'#7c3aed12':C.bg,borderRadius:10,padding:12,border:`1px solid ${etapeVol?'#7c3aed40':C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#7c3aed',marginBottom:4}}>✈️ Correspondance vol à ne pas rater</div>
+                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+                  Si ce passager doit prendre un vol après ce trajet (ou avant, au départ) — affiché en alerte sur le manifeste et le JMP pour que le convoi parte à temps.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>N° de vol</label>
+                    <input defaultValue={etapeVol?.reference||''} id="mc-vol-numero" placeholder="Ex: AF714"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Sens</label>
+                    <select defaultValue={etapeVol?.sens||'aller'} id="mc-vol-sens"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}>
+                      <option value="aller">➡️ Aller (départ)</option>
+                      <option value="retour">⬅️ Retour</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Date du vol</label>
+                    <input type="date" defaultValue={etapeVol?.date_etape||(detailVoyage.date_retour_prevue||detailVoyage.date_depart)} id="mc-vol-date"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Heure de départ du vol</label>
+                    <input type="time" defaultValue={etapeVol?.heure_depart||''} id="mc-vol-heure"
+                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button className="mc-btn" style={{flex:1,fontSize:11,padding:'6px 14px',background:'#7c3aed',color:'#fff',fontWeight:700}}
+                    onClick={async()=>{
+                      const numero_vol = document.getElementById('mc-vol-numero').value
+                      const sens = document.getElementById('mc-vol-sens').value
+                      const date_etape = document.getElementById('mc-vol-date').value
+                      const heure_depart = document.getElementById('mc-vol-heure').value
+                      if (!date_etape) { toast.error('Date du vol requise'); return }
+                      const origine = sens==='retour' ? (detailVoyage.origine||'') : (detailVoyage.destination||'')
+                      const payload = {
+                        voyage: detailVoyage.id, sens, mode_transport:'avion',
+                        origine, destination: numero_vol ? `Vol ${numero_vol}` : 'Vol',
+                        date_etape, heure_depart: heure_depart||null, reference: numero_vol,
+                        ordre: etapeVol ? etapeVol.ordre : etapesDetail.length + 1,
+                      }
+                      try {
+                        const res = etapeVol
+                          ? await api(`/api/etapes-voyage/${etapeVol.id}/`, {method:'PATCH', body:JSON.stringify(payload)})
+                          : await api('/api/etapes-voyage/', {method:'POST', body:JSON.stringify(payload)})
+                        if (res.ok) {
+                          toast.success('Vol enregistré — visible sur le manifeste et le JMP')
+                          const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
+                          setEtapesDetail(r.results || r || [])
+                          load()
+                        } else { const d = await res.json(); toast.error(d.error||d.detail||'Erreur') }
+                      } catch { toast.error('Erreur réseau') }
+                    }}>
+                    💾 {etapeVol ? 'Mettre à jour' : 'Enregistrer'}
+                  </button>
+                  {etapeVol && (
+                    <button className="mc-btn" style={{fontSize:11,padding:'6px 14px',background:C.bg,color:C.red}}
+                      onClick={async()=>{
+                        const ok = await confirmDialog('Retirer la correspondance vol de ce passager ?')
+                        if (!ok) return
+                        try {
+                          const res = await api(`/api/etapes-voyage/${etapeVol.id}/`, {method:'DELETE'})
+                          if (res.ok) {
+                            toast.success('Correspondance vol retirée')
+                            const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
+                            setEtapesDetail(r.results || r || [])
+                            load()
+                          } else toast.error('Erreur')
+                        } catch { toast.error('Erreur réseau') }
+                      }}>
+                      🗑️
+                    </button>
+                  )}
+                </div>
+              </div>
+                )
+              })()}
+
               {/* Evenements REELS de montee/descente - distinct de la
                   planification ci-dessus. Point metier du document de
                   refonte : AFFECTE (voyage cree) ≠ MONTE (evenement reel
@@ -2632,6 +2735,26 @@ export default function MissionControl() {
                         🧭 Trajet aller uniquement (convoi multi-villes) — <span style={{color:C.muted}}>pas de retour couplé au camp. Un éventuel retour se crée comme une nouvelle rotation séparée.</span>
                       </label>
                     </div>
+                    {itineraires.length > 0 && (
+                      <div style={{marginBottom:14}}>
+                        <label style={labelStyle}>🧭 Itinéraire <span style={{fontWeight:400,color:C.muted}}>(optionnel — remplit automatiquement origine/destination et les villes intermédiaires ci-dessous)</span></label>
+                        <select value="" onChange={e=>{
+                            const it = itineraires.find(i=>String(i.id)===e.target.value)
+                            if (!it) return
+                            setFormRot(p=>({...p,
+                              origine: it.origine, destination: it.destination,
+                              villesIntermediaires: (it.etapes||[]).map(et=>({
+                                nom: et.ville, distance_km: et.distance_km||'',
+                                heure_depart: et.heure_depart||'', heure_arrivee: et.heure_arrivee||'',
+                                pause: et.pause_fatigue||'',
+                              })),
+                            }))
+                          }} style={inputStyle}>
+                          <option value="">— Choisir un itinéraire type —</option>
+                          {itineraires.map(it=><option key={it.id} value={it.id}>{it.nom}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <div style={{marginBottom:14}}>
                       <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>(optionnel — trajet {formRot.origine||'origine'} → {formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}{formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)</span></label>
                       {formRot.villesIntermediaires.map((v,i) => (

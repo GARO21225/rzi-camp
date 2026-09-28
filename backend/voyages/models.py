@@ -392,6 +392,50 @@ class EvenementMonteeDescente(models.Model):
         return segments
 
 
+class ItineraireModele(models.Model):
+    """
+    Itinéraire type réutilisable (ex: "Camp → Abidjan", "Abidjan → Camp") —
+    évite de ressaisir manuellement les villes intermédiaires et leurs
+    distances/pauses à chaque création de rotation (elles ne changent pas
+    d'un voyage à l'autre, seules les heures de départ/véhicule/conducteur
+    varient). Purement des DONNÉES éditables (créées/modifiées depuis
+    l'écran Centre de Mobilité ou Paramétrage) — jamais une valeur figée
+    dans le code, conformément à la règle du projet.
+    """
+    nom         = models.CharField(max_length=100, help_text="Ex: Camp → Abidjan")
+    origine     = models.CharField(max_length=200)
+    destination = models.CharField(max_length=200)
+    actif       = models.BooleanField(default=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nom"]
+        verbose_name = "Itinéraire modèle"
+
+    def __str__(self):
+        return self.nom
+
+
+class EtapeItineraireModele(models.Model):
+    """Un tronçon (ville intermédiaire) d'un ItineraireModele — sert de
+    modèle pour pré-remplir les "villes intermédiaires" d'une rotation
+    (tableau "Côte de sécurité de route" du JMP)."""
+    itineraire    = models.ForeignKey(ItineraireModele, on_delete=models.CASCADE, related_name="etapes")
+    ordre         = models.PositiveIntegerField(default=1)
+    ville         = models.CharField(max_length=150)
+    distance_km   = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
+    heure_depart  = models.TimeField(null=True, blank=True)
+    heure_arrivee = models.TimeField(null=True, blank=True)
+    pause_fatigue = models.CharField(max_length=50, blank=True, default="")
+
+    class Meta:
+        ordering = ["itineraire", "ordre"]
+        verbose_name = "Étape d'itinéraire modèle"
+
+    def __str__(self):
+        return f"{self.itineraire.nom} — étape {self.ordre} : {self.ville}"
+
+
 class VehiculeFlotte(models.Model):
     """
     Catalogue des véhicules du camp (partagé, cote serveur) - permet de

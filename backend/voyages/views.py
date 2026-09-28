@@ -1385,3 +1385,23 @@ class VehiculeFlotteViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Admin requis")
         return [IsAuthenticated()]
 
+
+from .models import ItineraireModele
+from .serializers import ItineraireModeleSerializer
+
+class ItineraireModeleViewSet(viewsets.ModelViewSet):
+    """Itinéraires types (ex: "Camp → Abidjan") réutilisables à la création
+    d'une rotation — lecture ouverte à tout connecté, écriture admin (même
+    principe que VehiculeFlotteViewSet)."""
+    queryset = ItineraireModele.objects.filter(actif=True).prefetch_related("etapes")
+    serializer_class = ItineraireModeleSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
+
