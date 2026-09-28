@@ -876,6 +876,40 @@ class VoyageViewSet(viewsets.ModelViewSet):
             if chevauche2:
                 return Response({"error": f"{conducteur_secondaire} est déjà chauffeur (principal ou second) sur un autre convoi actif du {chevauche2.date_depart} au {chevauche2.date_retour_prevue}."}, status=400)
 
+        # Regle manquante jusqu'ici (signalee : "comment le meme vehicule est
+        # utilise pour 3 rotations... a la meme date?") : un vehicule ne peut
+        # pas non plus etre affecte a 2 convois actifs qui se chevauchent,
+        # meme regle de chevauchement que pour le conducteur. On matche en
+        # priorite sur le matricule (identifiant fiable), et a defaut sur le
+        # nom du vehicule (repli texte libre, ancien comportement) - jamais
+        # sur une valeur vide, qui ne veut rien dire ("aucun vehicule
+        # renseigne" ne doit pas se bloquer lui-meme).
+        # Deux sources a verifier : la Rotation elle-meme (existe meme sans
+        # passager, cf. modele Rotation) ET les Voyage individuels (qui n'ont
+        # pas de Rotation associee).
+        if vehicule_matricule or vehicule:
+            filtre_vehicule = Q()
+            if vehicule_matricule:
+                filtre_vehicule |= Q(vehicule_matricule__iexact=vehicule_matricule)
+            if vehicule:
+                filtre_vehicule |= Q(vehicule__iexact=vehicule)
+
+            chevauche_rotation = Rotation.objects.filter(
+                filtre_vehicule,
+                statut__in=("planifie","en_voyage"),
+                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
+            ).exclude(rotation_id=rotation_id).first()
+            if chevauche_rotation:
+                return Response({"error": f"Ce véhicule ({vehicule_matricule or vehicule}) est déjà affecté au convoi {chevauche_rotation.rotation_id} du {chevauche_rotation.date_depart} au {chevauche_rotation.date_retour_prevue}."}, status=400)
+
+            chevauche_voyage = Voyage.objects.filter(
+                filtre_vehicule,
+                statut__in=("planifie","en_voyage"),
+                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
+            ).exclude(rotation_id=rotation_id).first()
+            if chevauche_voyage:
+                return Response({"error": f"Ce véhicule ({vehicule_matricule or vehicule}) est déjà utilisé sur un autre voyage actif du {chevauche_voyage.date_depart} au {chevauche_voyage.date_retour_prevue}."}, status=400)
+
         created = []
         exclus = []
         passagers_valides = []
