@@ -31,6 +31,34 @@ def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=Non
         qs = qs.exclude(pk=exclude_pk)
     return qs.first()
 
+
+def _appliquer_itineraire_a_voyage(voyage, itineraire):
+    """Copie les étapes d'un ItineraireModele sur un Voyage donné - même
+    logique que le sélecteur "Appliquer un itinéraire type" du détail d'un
+    voyage côté frontend (MissionControl.jsx / appliquerItineraire), mais
+    déclenchée automatiquement côté serveur quand un passager rejoint un
+    convoi qui a mémorisé son itinéraire (Rotation.itineraire_modele) sur
+    Rotation.itineraire_modele. N'écrase rien si des étapes "aller" existent
+    déjà sur ce voyage (idempotent, ne duplique pas)."""
+    from .models import EtapeVoyage
+    if EtapeVoyage.objects.filter(voyage=voyage, sens="aller").exists():
+        return
+    # Le tableau JMP "Cote de securite de route" represente le trajet
+    # COMPLET du convoi (ex: CAMP -> ... -> ABIDJAN), independamment du point
+    # de montee/descente propre A CE passager (voyage.origine/destination) -
+    # donc on part de l'origine de l'ITINERAIRE, jamais de celle du voyage.
+    precedente = itineraire.origine or ""
+    for i, et in enumerate(itineraire.etapes.order_by("ordre")):
+        EtapeVoyage.objects.create(
+            voyage=voyage, ordre=i + 1, sens="aller",
+            origine=precedente, destination=et.ville,
+            distance_km=et.distance_km, heure_depart=et.heure_depart, heure_arrivee_prevue=et.heure_arrivee,
+            pause_fatigue=et.pause_fatigue or "", mode_transport="bus",
+            date_etape=voyage.date_depart,
+        )
+        precedente = et.ville
+
+
 class VoyageViewSet(viewsets.ModelViewSet):
     queryset = Voyage.objects.select_related("personnel","batiment","enregistre_par").all()
     serializer_class = VoyageSerializer
@@ -571,9 +599,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
         # rotations a 0 passager s'affichent donc maintenant normalement,
         # pretes a recevoir des personnes ensuite (section 11 du document).
         rotations_qs = list(Rotation.objects.all().order_by("-date_depart").values(
-            "rotation_id","date_depart","date_retour_prevue","destination",
+            "rotation_id","date_depart","date_retour_prevue","destination","origine",
             "vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_secondaire","nb_places_total","heure_depart","point_rdv",
-            "motif","niveau_alerte","trajet_aller_seul"))
+            "motif","niveau_alerte","trajet_aller_seul","itineraire_modele_id"))
 
         # PERFORMANCE : recupere TOUS les passagers de TOUTES les rotations
         # en UNE seule requete, puis regroupe en memoire par rotation_id -
@@ -789,6 +817,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
         vehicule_photo  = data.get("vehicule_photo","")
         conducteur      = data.get("conducteur","")
         conducteur_secondaire = data.get("conducteur_secondaire","")
+        itineraire_id   = data.get("itineraire_id") or None
         # Reference reelle vers Personnel (privilegiee) - le texte libre
         # ci-dessus reste accepte pour compatibilite ascendante (anciens
         # appelants, saisie manuelle exceptionnelle), mais quand un ID est
@@ -978,7 +1007,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 conducteur_secondaire=conducteur_secondaire, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
                 destination=destination, origine=origine, date_depart=date_depart, date_retour_prevue=date_retour,
                 heure_depart=heure_depart, point_rdv=point_rdv, motif=motif, nb_places_total=nb_places,
-                niveau_alerte=niveau_alerte, trajet_aller_seul=trajet_aller_seul,
+                niveau_alerte=niveau_alerte, trajet_aller_seul=trajet_aller_seul, itineraire_modele_id=itineraire_id,
                 statut="planifie", enregistre_par=request.user,
             )
 
@@ -1010,6 +1039,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
         rotation_id  = request.data.get("rotation_id")
         voyage_id    = request.data.get("voyage_id")  # cible un voyage INDIVIDUEL (pas encore de rotation_id)
         personnel_id = request.data.get("personnel_id")
+        # Montee/descente et date de retour PROPRES a ce passager - distinctes
+        # du trajet du convoi lui-meme (signale : "tu donnes au passagers le
+        # monte et descendre du convoi, c'est 2 choses differentes"). Vide/
+        # absent = repli sur les valeurs du convoi (comportement d'avant,
+        # toujours valide pour un passager qui fait le trajet complet).
+        origine_passager      = (request.data.get("origine") or "").strip()
+        destination_passager  = (request.data.get("destination") or "").strip()
+        date_retour_passager  = request.data.get("date_retour_prevue") or None
         if not (rotation_id or voyage_id) or not personnel_id:
             return Response({"error":"rotation_id (ou voyage_id) et personnel_id requis"},status=400)
         # Un non-admin ne peut s'inscrire QUE lui-meme (self-service) -
@@ -1108,15 +1145,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné conducteur de ce convoi — ne peut pas aussi être passager."}, status=400)
                 if not ref_conducteur_secondaire_personnel_id and ref_conducteur_secondaire and ref_conducteur_secondaire.strip().lower() == nom_complet:
                     return Response({"error": f"{pers_cible.nom} {pers_cible.prenom} est déjà désigné second chauffeur de ce convoi — ne peut pas aussi être passager."}, status=400)
+            # Valeurs EFFECTIVES pour ce passager : sa propre montee/descente/
+            # date de retour si fournies, sinon repli sur celles du convoi.
+            date_retour_effectif = date_retour_passager or ref_date_retour
+            origine_effective     = origine_passager or ref_origine
+            destination_effective = destination_passager or ref_destination
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
+            # (avec SA date de retour reelle - c'est elle qui determine s'il
+            # faut lui garder sa chambre, pas la date du convoi/vehicule).
             conflict = _check_voyage_conflit(
-                personnel_id, ref_date_depart, ref_date_retour
+                personnel_id, ref_date_depart, date_retour_effectif
             )
             if conflict and conflict.rotation_id != rotation_id:
                 return Response({"error": f"Cette personne est déjà sur un autre voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}"}, status=400)
             v = Voyage.objects.create(
-                personnel_id=personnel_id, destination=ref_destination, origine=ref_origine,
-                date_depart=ref_date_depart, date_retour_prevue=ref_date_retour,
+                personnel_id=personnel_id, destination=destination_effective, origine=origine_effective,
+                date_depart=ref_date_depart, date_retour_prevue=date_retour_effectif,
                 vehicule=ref_vehicule, nb_places_total=ref_nb_places,
                 vehicule_matricule=ref_vehicule_matricule, vehicule_photo=(rotation_obj.vehicule_photo if rotation_obj else (existing.vehicule_photo if existing else "")),
                 conducteur=ref_conducteur, conducteur_secondaire=ref_conducteur_secondaire,
@@ -1129,6 +1173,15 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 rotation_id=rotation_id, statut="planifie",
                 enregistre_par=request.user,
             )
+            # Le convoi memorise l'itineraire type choisi a sa creation, meme
+            # cree sans aucun passager (Rotation.itineraire_modele) - on
+            # l'applique ici au voyage de CE passager qui rejoint, pour que
+            # le tableau JMP "Cote de securite de route" ne reste pas vide
+            # tant que personne n'a rejoint (bug signale : les villes
+            # intermediaires saisies a la creation d'un convoi vide n'etaient
+            # jamais persistees, faute de voyage auquel les rattacher).
+            if rotation_obj and rotation_obj.itineraire_modele_id:
+                _appliquer_itineraire_a_voyage(v, rotation_obj.itineraire_modele)
             return Response(VoyageSerializer(v).data,status=201)
 
     @action(detail=False, methods=["post"])

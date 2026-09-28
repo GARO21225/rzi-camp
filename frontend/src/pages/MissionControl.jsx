@@ -499,7 +499,7 @@ export default function MissionControl() {
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
     passagers:[],
   })
-  const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'' })
+  const [formJoin, setFormJoin] = useState({ personnel_id:'', rotation_id:'', origine:'', destination:'', date_retour_prevue:'' })
   const [formIndiv, setFormIndiv] = useState({
     personnel_id:'', destination:'Abidjan', origine:'Camp Roxgold Sango',
     date_depart:'', date_retour_prevue:'', heure_depart:'06:00',
@@ -646,13 +646,21 @@ export default function MissionControl() {
     setSaving(false)
   }
 
-  const rejoindreRotation = async (rotationId, personnelId) => {
+  // Montee/descente et date de retour sont PROPRES au passager, distinctes
+  // du trajet du convoi lui-meme (signale : "tu donnes au passagers le
+  // monte et descendre du convoi, c'est 2 choses differentes") - transmises
+  // ici si renseignees dans le formulaire, sinon le backend retombe sur les
+  // valeurs du convoi (comportement precedent, toujours valide pour un
+  // passager qui fait le trajet complet).
+  const rejoindreRotation = async (rotationId, personnelId, { origine, destination, date_retour_prevue } = {}) => {
     if (!personnelId) return flash('Sélectionner un passager',false)
     setSaving(true)
     try {
       const res = await api('/api/voyages/rejoindre_rotation/', {
         method:'POST',
-        body: JSON.stringify({rotation_id:rotationId, personnel_id:personnelId})
+        body: JSON.stringify({rotation_id:rotationId, personnel_id:personnelId,
+          origine: origine||undefined, destination: destination||undefined,
+          date_retour_prevue: date_retour_prevue||undefined})
       })
       const data = await res.json()
       if (res.ok) { flash('Siège réservé ✓'); load() }
@@ -747,7 +755,11 @@ export default function MissionControl() {
       try { await api(`/api/etapes-voyage/${e.id}/`, { method:'DELETE' }) } catch {}
     }
     let reussies = 0
-    let precedente = detailVoyage.origine || it.origine || ''
+    // Le tableau JMP represente le trajet COMPLET du convoi (ex: CAMP -> ...
+    // -> ABIDJAN), independamment du point de montee/descente propre A CE
+    // passager (detailVoyage.origine/destination) - on part donc toujours
+    // de l'origine de l'ITINERAIRE, jamais de celle du voyage.
+    let precedente = it.origine || ''
     const etapesTriees = [...(it.etapes||[])].sort((a,b)=>a.ordre-b.ordre)
     for (let i = 0; i < etapesTriees.length; i++) {
       const et = etapesTriees[i]
@@ -1564,7 +1576,8 @@ export default function MissionControl() {
                                 </button>
                                 <div style={{display:'flex',gap:8}}>
                                   <select
-                                    onChange={e=>setFormJoin({personnel_id:e.target.value,rotation_id:r.rotation_id})}
+                                    onChange={e=>setFormJoin({personnel_id:e.target.value,rotation_id:r.rotation_id,
+                                      origine:r.origine||'',destination:r.destination||'',date_retour_prevue:r.date_retour_prevue||''})}
                                     style={{...inputStyle,flex:1}}>
                                     <option value="">Sélectionner...</option>
                                     {personnel
@@ -1581,10 +1594,29 @@ export default function MissionControl() {
                                   </select>
                                   <button className="mc-btn mc-btn-primary"
                                     disabled={saving||!formJoin.personnel_id||formJoin.rotation_id!==r.rotation_id}
-                                    onClick={()=>rejoindreRotation(r.rotation_id, parseInt(formJoin.personnel_id))}>
+                                    onClick={()=>rejoindreRotation(r.rotation_id, parseInt(formJoin.personnel_id), formJoin)}>
                                     + Ajouter
                                   </button>
                                 </div>
+                                {formJoin.rotation_id===r.rotation_id && formJoin.personnel_id && (
+                                  <div style={{marginTop:8,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                                    <div>
+                                      <label style={{fontSize:10,color:C.muted}}>Il monte où ?</label>
+                                      <input value={formJoin.origine} onChange={e=>setFormJoin(f=>({...f,origine:e.target.value}))}
+                                        placeholder={r.origine||'Point de montée'} style={{...inputStyle,fontSize:12}}/>
+                                    </div>
+                                    <div>
+                                      <label style={{fontSize:10,color:C.muted}}>Il descend où ?</label>
+                                      <input value={formJoin.destination} onChange={e=>setFormJoin(f=>({...f,destination:e.target.value}))}
+                                        placeholder={r.destination||'Point de descente'} style={{...inputStyle,fontSize:12}}/>
+                                    </div>
+                                    <div>
+                                      <label style={{fontSize:10,color:C.muted}}>Il revient quand ? <span title="Sert à garder sa chambre jusqu'à cette date — indépendant de la date du convoi">ℹ️</span></label>
+                                      <input type="date" value={formJoin.date_retour_prevue} onChange={e=>setFormJoin(f=>({...f,date_retour_prevue:e.target.value}))}
+                                        style={{...inputStyle,fontSize:12}}/>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -2928,28 +2960,9 @@ export default function MissionControl() {
                         🧭 Trajet aller uniquement (convoi multi-villes) — <span style={{color:C.muted}}>pas de retour couplé au camp. Un éventuel retour se crée comme une nouvelle rotation séparée.</span>
                       </label>
                     </div>
-                    <div style={{marginBottom:14}}>
-                      <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>{formRot.itineraire_id ? '(remplies par l\'itinéraire choisi ci-dessus — modifiables si besoin)' : `(optionnel — trajet ${formRot.origine||'origine'} → ${formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}${formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)`}</span></label>
-                      {formRot.villesIntermediaires.map((v,i) => (
-                        <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr auto',gap:6,marginBottom:6}}>
-                          <input value={v.nom} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,nom:e.target.value}:vv)}))}
-                            placeholder={`Ville ${i+1}`} style={{...inputStyle,fontSize:12}}/>
-                          <input type="number" step="0.1" value={v.distance_km} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,distance_km:e.target.value}:vv)}))}
-                            placeholder="Km" style={{...inputStyle,fontSize:12}}/>
-                          <input type="time" value={v.heure_arrivee} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,heure_arrivee:e.target.value}:vv)}))}
-                            style={{...inputStyle,fontSize:12}}/>
-                          <input value={v.pause} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,pause:e.target.value}:vv)}))}
-                            placeholder="Pause" style={{...inputStyle,fontSize:12}}/>
-                          <button type="button" onClick={()=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.filter((_,ii)=>ii!==i)}))}
-                            style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:16}}>✕</button>
-                        </div>
-                      ))}
-                      <button type="button" className="mc-btn" style={{fontSize:11,padding:'5px 10px',background:C.bg}}
-                        onClick={()=>setFormRot(p=>({...p,villesIntermediaires:[...p.villesIntermediaires,{nom:'',distance_km:'',heure_depart:'',heure_arrivee:'',pause:''}]}))}>
-                        + Ajouter une ville
-                      </button>
-                    </div>
-                    {/* Capacité */}
+                    {/* Capacité — remontée AVANT les villes intermédiaires pour que
+                        ce tableau (ci-dessous) puisse prendre toute la largeur et
+                        laisser assez de place au réglage des heures/commentaires. */}
                     <div>
                       <label style={labelStyle}>Capacité (sièges) {formRot.vehicule_flotte_id && <span style={{fontWeight:400,color:C.muted}}>(imposée par le véhicule du parc)</span>}</label>
                       <input type="number" min="1" max="60" value={formRot.nb_places_total}
@@ -2962,6 +2975,32 @@ export default function MissionControl() {
                       <input type="time" value={formRot.heure_depart}
                         onChange={e=>setFormRot(p=>({...p,heure_depart:e.target.value}))}
                         style={inputStyle}/>
+                    </div>
+                    <div style={{gridColumn:'span 2',marginBottom:14}}>
+                      <label style={labelStyle}>🗺️ Villes intermédiaires <span style={{fontWeight:400,color:C.muted}}>{formRot.itineraire_id ? '(remplies par l\'itinéraire choisi ci-dessus — modifiables si besoin)' : `(optionnel — trajet ${formRot.origine||'origine'} → ${formRot.villesIntermediaires.length ? formRot.villesIntermediaires.map(v=>v.nom).join(' → ')+' → ' : ''}${formRot.destination||'destination'}, pour le tableau "Côte de sécurité de route" du JMP)`}</span></label>
+                      <div style={{display:'grid',gridTemplateColumns:'2fr 0.8fr 1fr 1fr 1.6fr auto',gap:6,marginBottom:4,fontSize:10,color:C.muted,padding:'0 2px'}}>
+                        <span>Ville</span><span>Distance (km)</span><span>Heure départ</span><span>Heure arrivée</span><span>Gestion fatigue / commentaire</span><span/>
+                      </div>
+                      {formRot.villesIntermediaires.map((v,i) => (
+                        <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 0.8fr 1fr 1fr 1.6fr auto',gap:6,marginBottom:6}}>
+                          <input value={v.nom} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,nom:e.target.value}:vv)}))}
+                            placeholder={`Ville ${i+1}`} style={{...inputStyle,fontSize:12}}/>
+                          <input type="number" step="0.1" value={v.distance_km} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,distance_km:e.target.value}:vv)}))}
+                            placeholder="Km" style={{...inputStyle,fontSize:12}}/>
+                          <input type="time" value={v.heure_depart} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,heure_depart:e.target.value}:vv)}))}
+                            style={{...inputStyle,fontSize:12}}/>
+                          <input type="time" value={v.heure_arrivee} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,heure_arrivee:e.target.value}:vv)}))}
+                            style={{...inputStyle,fontSize:12}}/>
+                          <input value={v.pause} onChange={e=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.map((vv,ii)=>ii===i?{...vv,pause:e.target.value}:vv)}))}
+                            placeholder="Ex: 15 MIN DE PAUSE" style={{...inputStyle,fontSize:12}}/>
+                          <button type="button" onClick={()=>setFormRot(p=>({...p,villesIntermediaires:p.villesIntermediaires.filter((_,ii)=>ii!==i)}))}
+                            style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:16}}>✕</button>
+                        </div>
+                      ))}
+                      <button type="button" className="mc-btn" style={{fontSize:11,padding:'5px 10px',background:C.bg}}
+                        onClick={()=>setFormRot(p=>({...p,villesIntermediaires:[...p.villesIntermediaires,{nom:'',distance_km:'',heure_depart:'',heure_arrivee:'',pause:''}]}))}>
+                        + Ajouter une ville
+                      </button>
                     </div>
                     {/* Dates */}
                     <div>

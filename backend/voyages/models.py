@@ -41,6 +41,11 @@ class Rotation(models.Model):
     nb_places_total = models.PositiveIntegerField(default=15)
     niveau_alerte = models.PositiveSmallIntegerField(default=1)
     trajet_aller_seul = models.BooleanField(default=False)
+    itineraire_modele = models.ForeignKey("ItineraireModele", on_delete=models.SET_NULL, null=True, blank=True,
+                 related_name="rotations",
+                 help_text="Itineraire type choisi a la creation du convoi (memoire meme sans aucun passager) "
+                           "- applique automatiquement aux etapes du voyage de CHAQUE passager qui rejoint "
+                           "ensuite ce convoi, tant que celui-ci n'a pas deja ses propres etapes.")
     statut = models.CharField(max_length=20, default="planifie",
                  help_text="Statut de la rotation elle-meme (independant du statut de chaque Voyage individuel) - utile tant qu'aucun passager n'est encore assigne.")
     enregistre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
