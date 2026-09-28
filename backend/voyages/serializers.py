@@ -20,6 +20,25 @@ class EtapeVoyageSerializer(serializers.ModelSerializer):
                   "date_etape","heure_depart","heure_arrivee_prevue","distance_km","pause_fatigue","point_rdv","reference","notes",
                   "billet_fichier","billet_cout"]
 
+    def to_internal_value(self, data):
+        """Une chaîne vide '' sur heure_depart/heure_arrivee_prevue (au lieu
+        de null) est rejetée par le TimeField DRF ("L'heure n'a pas le bon
+        format") — un appelant qui laisse ces champs vides (au lieu d'omettre
+        la clé ou d'envoyer null) voyait donc l'étape entière échouer en 400,
+        sans que ce soit toujours visible côté appelant (ex: import en masse
+        d'un itinéraire, plusieurs appels dont certains silencieusement
+        ignorés). On normalise ici une fois pour toutes, quel que soit
+        l'appelant, plutôt que de compter sur chaque site d'appel pour le
+        faire correctement."""
+        if hasattr(data, "_mutable"):
+            data = data.copy()
+        else:
+            data = dict(data)
+        for champ in ("heure_depart", "heure_arrivee_prevue"):
+            if data.get(champ) == "":
+                data[champ] = None
+        return super().to_internal_value(data)
+
 class VoyageSerializer(serializers.ModelSerializer):
     personnel_nom      = serializers.SerializerMethodField()
     personnel_societe  = serializers.SerializerMethodField()

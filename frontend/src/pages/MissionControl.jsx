@@ -538,7 +538,7 @@ export default function MissionControl() {
                   origine: precedente, destination: ville.nom,
                   mode_transport: formRot.mode_transport||'bus',
                   date_etape: formRot.date_depart,
-                  heure_depart: ville.heure_depart||'', heure_arrivee_prevue: ville.heure_arrivee||'',
+                  heure_depart: ville.heure_depart||null, heure_arrivee_prevue: ville.heure_arrivee||null,
                   distance_km: ville.distance_km||null, pause_fatigue: ville.pause||'',
                 })
               })
@@ -681,9 +681,18 @@ export default function MissionControl() {
   const soumettreEtape = async () => {
     if (!nouvelleEtape || !detailVoyage) return
     try {
+      // '' -> null pour les champs Heure : l'API rejette une chaine vide
+      // sur un TimeField (400 "L'heure n'a pas le bon format"), silencieux
+      // pour l'utilisateur car l'echec de l'etape n'empechait pas la suite -
+      // heure_depart/heure_arrivee_prevue laisses vides ne creaient donc
+      // jamais l'etape, sans aucun message d'erreur visible.
+      const payload = { ...nouvelleEtape,
+        heure_depart: nouvelleEtape.heure_depart || null,
+        heure_arrivee_prevue: nouvelleEtape.heure_arrivee_prevue || null,
+        voyage: detailVoyage.id, ordre: etapesDetail.length + 1 }
       const res = await api('/api/etapes-voyage/', {
         method:'POST',
-        body: JSON.stringify({ ...nouvelleEtape, voyage: detailVoyage.id, ordre: etapesDetail.length + 1 })
+        body: JSON.stringify(payload)
       })
       if (res.ok) {
         const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
