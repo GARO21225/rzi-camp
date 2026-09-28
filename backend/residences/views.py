@@ -432,7 +432,24 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
 
     def destroy(self, request, *args, **kwargs):
-        """Supprimer un personnel — admin uniquement (SQL direct pour éviter FK)"""
+        """Supprimer un personnel — admin uniquement (SQL direct pour éviter FK).
+
+        Bug corrige ici : cette liste de tables etait incomplete. Django ne
+        pose PAS de clause "ON DELETE CASCADE/SET NULL" au niveau de la base
+        (on_delete= est gere par l'ORM en Python, jamais par une contrainte
+        SQL reelle) - donc un DELETE en SQL direct qui saute une table
+        encore referencee echoue avec une violation de contrainte FK, quel
+        que soit le on_delete= declare dans models.py. Or de nouvelles
+        tables ont ete ajoutees au fil des sessions (InductionRecord,
+        EquipementEPI, Rotation.conducteur_personnel, EtapeVoyage lie a
+        Voyage, etc.) sans jamais etre ajoutees ici - la suppression d'un
+        personnel avec la moindre etape de voyage, un dossier d'induction,
+        un EPI attribue ou designe comme chauffeur echouait silencieusement
+        (message generique "Erreur suppression" cote frontend).
+        Liste reconstituee par introspection de TOUTES les FK reelles vers
+        Personnel (apps.get_models() + f.related_model is Personnel), en
+        excluant les tables "historical*" de simple_history qui n'ont
+        jamais de contrainte reelle (db_constraint=False)."""
         if not self._is_admin(request.user):
             return Response({"error": "Admin requis"}, status=403)
         try:
@@ -442,17 +459,47 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
             from django.db import connection
             with connection.cursor() as cursor:
+                # 0. Dependants des voyages de ce personnel (CASCADE reel sur
+                # voyages_voyage, non nettoyes automatiquement) - a supprimer
+                # AVANT les voyages eux-memes, sinon leur suppression echoue.
+                cursor.execute("""
+                    DELETE FROM voyages_etapevoyage
+                    WHERE voyage_id IN (SELECT id FROM voyages_voyage WHERE personnel_id = %s)
+                """, [pers_id])
+                cursor.execute("""
+                    DELETE FROM voyages_evenementmonteedescente
+                    WHERE voyage_id IN (SELECT id FROM voyages_voyage WHERE personnel_id = %s)
+                """, [pers_id])
+
                 # 1. Tables liées voyages
                 cursor.execute("DELETE FROM voyages_voyage WHERE personnel_id = %s", [pers_id])
+                # Rotation ou ce personnel est designe chauffeur (principal
+                # ou second) - SET NULL, ne supprime pas la rotation.
+                cursor.execute("UPDATE voyages_rotation SET conducteur_personnel_id = NULL WHERE conducteur_personnel_id = %s", [pers_id])
+                cursor.execute("UPDATE voyages_rotation SET conducteur_secondaire_personnel_id = NULL WHERE conducteur_secondaire_personnel_id = %s", [pers_id])
 
                 # 2. Tables liées restauration
                 cursor.execute("DELETE FROM restauration_repaslog WHERE personnel_id = %s", [pers_id])
+                cursor.execute("UPDATE restauration_qrtoken SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
+                cursor.execute("UPDATE restauration_consommationboutique SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
+                cursor.execute("UPDATE restauration_avisrestauration SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM restauration_boncaisse WHERE personnel_id = %s", [pers_id])
 
                 # 3. Tables occupation history
                 cursor.execute("DELETE FROM residences_occupationhistory WHERE personnel_id = %s", [pers_id])
 
                 # 4. Batiments - SET NULL puis DELETE
                 cursor.execute("UPDATE residences_batiment SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM residences_residentprincipal WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM residences_equipementepi WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM residences_plainte WHERE occupant_id = %s", [pers_id])
+                cursor.execute("UPDATE residences_controlechambre SET occupant_id = NULL WHERE occupant_id = %s", [pers_id])
+                cursor.execute("DELETE FROM residences_inductionrecord WHERE personnel_id = %s", [pers_id])
+
+                # 4b. Notifications / QR d'événements
+                cursor.execute("DELETE FROM evenements_notification WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM evenements_simplenotification WHERE personnel_id = %s", [pers_id])
+                cursor.execute("DELETE FROM evenements_qrevenement WHERE personnel_id = %s", [pers_id])
 
                 # 5. Demandes
                 cursor.execute("SELECT user_id FROM residences_personnel WHERE id = %s", [pers_id])

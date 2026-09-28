@@ -215,7 +215,7 @@ export default function Personnel() {
       await personnelAPI.delete(p.id)
       setConfirmDel(null)
       load()
-    } catch(e) { toast.error(e.response?.data?.detail || 'Erreur suppression') }
+    } catch(e) { toast.error(e.response?.data?.error || e.response?.data?.detail || 'Erreur suppression') }
   }
 
   const handleToggleActif = async (p) => {

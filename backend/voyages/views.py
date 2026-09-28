@@ -456,7 +456,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
     def supprimer_rotation(self, request):
         """Supprime un convoi ENTIER (tous ses passagers d'un coup) -
         autorise meme si le convoi a deja ete effectue (en transit/revenu),
-        pour permettre le nettoyage/correction de donnees par un admin."""
+        pour permettre le nettoyage/correction de donnees par un admin.
+
+        Bug corrige ici : ne verifiait/supprimait QUE les lignes Voyage,
+        jamais l'objet Rotation lui-meme - depuis que Rotation existe de
+        facon independante (creee meme avec 0 passager, cf. modele
+        Rotation), un convoi sans aucun passager actif (ou dont tous les
+        passagers ont deja ete retires/annules) repondait "introuvable"
+        alors que la Rotation existait toujours et restait affichee/
+        bloquante (vehicule/conducteur "occupes") sans qu'aucun bouton ne
+        permette de la supprimer."""
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         if not is_admin:
@@ -465,10 +474,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not rotation_id:
             return Response({"error":"rotation_id requis"}, status=400)
         membres = Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule")
-        if not membres.exists():
+        rotation_obj = Rotation.objects.filter(rotation_id=rotation_id).first()
+        if not membres.exists() and not rotation_obj:
             return Response({"error":"Convoi introuvable ou déjà vide"}, status=404)
         nb = membres.count()
         membres.delete()
+        if rotation_obj:
+            rotation_obj.delete()
         return Response({"ok": True, "supprimes": nb})
 
     # ── Stats ──────────────────────────────────────────────────────
