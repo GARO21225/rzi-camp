@@ -2652,8 +2652,15 @@ export default function MissionControl() {
                         const id = e.target.value
                         const it = itineraires.find(i=>String(i.id)===id)
                         if (it) setFormRot(p=>({...p,
+                          // trajet_aller_seul: true — un itinéraire type est une
+                          // route a sens unique parcourue en une journee (le
+                          // retour au camp, s'il a lieu, est un AUTRE trajet, un
+                          // autre jour, avec son propre itineraire "retour"). Pas
+                          // de retour vehicule couple a demander ici - seule la
+                          // date de retour DU PASSAGER (ci-dessous) reste utile,
+                          // pour la detection de chevauchement (voir label).
                           itineraire_id: id, origine: it.origine, destination: it.destination,
-                          _origineValide: true, _destinationValide: true,
+                          _origineValide: true, _destinationValide: true, trajet_aller_seul: true,
                           villesIntermediaires: (it.etapes||[]).map(et=>({
                             nom: et.ville, distance_km: et.distance_km||'',
                             heure_depart: et.heure_depart||'', heure_arrivee: et.heure_arrivee||'',
@@ -2814,7 +2821,12 @@ export default function MissionControl() {
                         style={inputStyle}/>
                     </div>
                     <div>
-                      <label style={labelStyle}>{formRot.trajet_aller_seul ? 'Date de fin du trajet *' : 'Date de retour *'}</label>
+                      <label style={labelStyle}>
+                        {formRot.trajet_aller_seul ? 'Date de retour prévue du passager *' : 'Date de retour *'}
+                        {formRot.trajet_aller_seul && (
+                          <span style={{fontWeight:400,color:C.muted}}> (pas forcément le même jour — trajet aller simple ; sert à détecter les chevauchements avec un autre voyage)</span>
+                        )}
+                      </label>
                       <input type="date" value={formRot.date_retour_prevue}
                         onChange={e=>setFormRot(p=>({...p,date_retour_prevue:e.target.value}))}
                         style={inputStyle}/>
