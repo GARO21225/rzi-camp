@@ -731,6 +731,50 @@ export default function MissionControl() {
     if (echecs.length) toast.error(`${echecs.length} ligne(s) non reconnue(s) : ${echecs.join(' | ')}`)
   }
 
+  // Applique un itinéraire type (géré depuis Paramétrage) à un voyage DÉJÀ
+  // créé — pour les voyages créés avant que les étapes de l'itinéraire
+  // n'existent ou n'aient été correctement enregistrées (bug '' -> null sur
+  // les heures, corrigé par ailleurs), sans avoir à retaper chaque étape à
+  // la main. Ne duplique pas : remplace les étapes "aller" existantes par
+  // celles de l'itinéraire choisi.
+  const appliquerItineraire = async (itineraireId) => {
+    if (!itineraireId || !detailVoyage) return
+    const it = itineraires.find(i=>String(i.id)===String(itineraireId))
+    if (!it) return
+    if (!await confirmDialog(`Remplacer les étapes "aller" de ce voyage par celles de "${it.nom}" ?`)) return
+    const anciennes = etapesDetail.filter(e=>e.sens!=='retour')
+    for (const e of anciennes) {
+      try { await api(`/api/etapes-voyage/${e.id}/`, { method:'DELETE' }) } catch {}
+    }
+    let reussies = 0
+    let precedente = detailVoyage.origine || it.origine || ''
+    const etapesTriees = [...(it.etapes||[])].sort((a,b)=>a.ordre-b.ordre)
+    for (let i = 0; i < etapesTriees.length; i++) {
+      const et = etapesTriees[i]
+      try {
+        const res = await api('/api/etapes-voyage/', {
+          method:'POST',
+          body: JSON.stringify({
+            voyage: detailVoyage.id, ordre: i+1, sens:'aller',
+            origine: precedente, destination: et.ville,
+            distance_km: et.distance_km===''?null:et.distance_km,
+            heure_depart: et.heure_depart || null,
+            heure_arrivee_prevue: et.heure_arrivee || null,
+            pause_fatigue: et.pause_fatigue||'',
+            mode_transport: 'bus',
+            date_etape: detailVoyage.date_depart,
+          })
+        })
+        if (res.ok) reussies++
+      } catch {}
+      precedente = et.ville
+    }
+    const r = await api(`/api/etapes-voyage/?voyage=${detailVoyage.id}`).then(r=>r.json())
+    setEtapesDetail(r.results || r || [])
+    load()
+    toast.success(`${reussies} étape(s) de "${it.nom}" appliquée(s) au voyage.`)
+  }
+
   const soumettreEtape = async () => {
     if (!nouvelleEtape || !detailVoyage) return
     try {
@@ -2610,6 +2654,13 @@ export default function MissionControl() {
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape aller</button>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('retour')}>⬅️ + Étape retour</button>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:'#7c3aed20',color:'#7c3aed'}} onClick={()=>importerEtapesEnMasse('aller')}>📋 Coller un itinéraire</button>
+                    {itineraires.filter(i=>i.actif).length > 0 && (
+                      <select defaultValue="" style={{fontSize:10,padding:'4px 6px',borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text}}
+                        onChange={e=>{ const v = e.target.value; e.target.value=''; if (v) appliquerItineraire(v) }}>
+                        <option value="">🗺️ Appliquer un itinéraire type…</option>
+                        {itineraires.filter(i=>i.actif).map(i=><option key={i.id} value={i.id}>{i.nom}</option>)}
+                      </select>
+                    )}
                   </div>
                   )}
                 </div>
