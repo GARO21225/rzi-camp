@@ -1420,15 +1420,48 @@ class VehiculeFlotteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-from .models import ItineraireModele
-from .serializers import ItineraireModeleSerializer
+from .models import ItineraireModele, EtapeItineraireModele
+from .serializers import ItineraireModeleSerializer, EtapeItineraireModeleSerializer
 
 class ItineraireModeleViewSet(viewsets.ModelViewSet):
     """Itinéraires types (ex: "Camp → Abidjan") réutilisables à la création
     d'une rotation — lecture ouverte à tout connecté, écriture admin (même
-    principe que VehiculeFlotteViewSet)."""
-    queryset = ItineraireModele.objects.filter(actif=True).prefetch_related("etapes")
+    principe que VehiculeFlotteViewSet).
+    Contrairement à VehiculeFlotteViewSet, le queryset ne filtre PAS sur
+    actif=True : l'écran de gestion (Paramétrage) doit pouvoir lister,
+    modifier et réactiver un itinéraire désactivé, pas seulement les
+    itinéraires actifs. Le tri "actif seulement" se fait côté frontend, à
+    l'endroit où l'itinéraire est proposé au choix (création de rotation)."""
+    queryset = ItineraireModele.objects.all().prefetch_related("etapes")
     serializer_class = ItineraireModeleSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
+
+
+class EtapeItineraireModeleViewSet(viewsets.ModelViewSet):
+    """Étapes (villes/horaires/distances) d'un itinéraire type — gérées
+    depuis Paramétrage pour que l'ajout d'un futur itinéraire (ou la
+    correction d'un existant) ne nécessite plus de migration de données
+    (cf. 0031_bootstrap_itineraires_camp_abidjan.py, qui reste le seed
+    initial mais n'est plus le seul moyen d'en ajouter). Même principe de
+    permission que ItineraireModeleViewSet : lecture ouverte, écriture
+    admin uniquement."""
+    queryset = EtapeItineraireModele.objects.all().order_by("itineraire","ordre")
+    serializer_class = EtapeItineraireModeleSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        itineraire_id = self.request.query_params.get("itineraire")
+        if itineraire_id:
+            qs = qs.filter(itineraire_id=itineraire_id)
+        return qs
 
     def get_permissions(self):
         if self.request.method == 'GET':

@@ -219,6 +219,20 @@ class EtapeItineraireModeleSerializer(serializers.ModelSerializer):
         model = EtapeItineraireModele
         fields = ["id","itineraire","ordre","ville","distance_km","heure_depart","heure_arrivee","pause_fatigue"]
 
+    def to_internal_value(self, data):
+        """Même piège TimeField que EtapeVoyageSerializer (voir plus haut) :
+        '' est rejeté, null est accepté. Géré ici en gestion d'itinéraires
+        (Paramétrage) pour ne pas réintroduire le même bug silencieux côté
+        étapes-types."""
+        if hasattr(data, "_mutable"):
+            data = data.copy()
+        else:
+            data = dict(data)
+        for champ in ("heure_depart", "heure_arrivee"):
+            if data.get(champ) == "":
+                data[champ] = None
+        return super().to_internal_value(data)
+
 
 class ItineraireModeleSerializer(serializers.ModelSerializer):
     etapes = EtapeItineraireModeleSerializer(many=True, read_only=True)

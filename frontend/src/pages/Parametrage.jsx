@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI } from '../api'
+import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI, itinerairesModeles as itinerairesAPI, etapesItineraireModele as etapesItineraireAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
@@ -102,6 +102,7 @@ const TABS = [
   ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
+  ['itineraires', '🗺️ Itinéraires (JMP)'],
   ['induction',  '🎓 Induction du Camp'],
   ['catalogue',  '📦 Catalogue Boutique'],
   ['avis',       '⭐ Questions Avis Restauration'],
@@ -229,6 +230,10 @@ export default function Parametrage() {
 
       {tab === 'badges' && (
         <BadgesTab valeurs={valeurs} />
+      )}
+
+      {tab === 'itineraires' && (
+        <ItinerairesTab isAdmin={isAdmin} />
       )}
 
       {tab === 'induction' && (
@@ -404,6 +409,291 @@ function QuestionsAvisTab() {
                   Annuler
                 </button>
                 <button onClick={enregistrer}
+                  style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  💾 Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Itinéraires types (JMP) — Centre de Mobilité ──
+// Gestion des itinéraires réutilisables (ex: "Camp → Abidjan") proposés au
+// choix à la création d'une rotation, avec leurs étapes (villes,
+// distances, heures, pauses) qui remplissent automatiquement le tableau
+// "Côte de sécurité de route" du document JMP. But explicite : pouvoir
+// ajouter/modifier un itinéraire SANS repasser par une migration (le seed
+// initial de "Camp → Abidjan" / "Abidjan → Camp" reste dans
+// 0031_bootstrap_itineraires_camp_abidjan.py, mais ce n'est plus le seul
+// moyen d'en gérer).
+function ItinerairesTab({ isAdmin }) {
+  const [itineraires, setItineraires] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [ouvert, setOuvert] = useState(null) // id de l'itinéraire dont les étapes sont affichées
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ nom:'', origine:'', destination:'', actif:true })
+  const [etapeForm, setEtapeForm] = useState(null) // { itineraire, ordre, ville, distance_km, heure_depart, heure_arrivee, pause_fatigue } ou null
+
+  const charger = () => {
+    setLoading(true)
+    itinerairesAPI.list().then(r => setItineraires(r.data.results || r.data || [])).catch(() => setItineraires([])).finally(() => setLoading(false))
+  }
+  useEffect(charger, [])
+
+  const ouvrirNouveau = () => {
+    setEditing(null)
+    setForm({ nom:'', origine:'', destination:'', actif:true })
+    setShowForm(true)
+  }
+
+  const ouvrirEdition = (it) => {
+    setEditing(it)
+    setForm({ nom:it.nom, origine:it.origine, destination:it.destination, actif:it.actif })
+    setShowForm(true)
+  }
+
+  const enregistrer = async () => {
+    if (!form.nom.trim() || !form.origine.trim() || !form.destination.trim()) {
+      toast.error('Nom, origine et destination sont requis.'); return
+    }
+    try {
+      if (editing) await itinerairesAPI.update(editing.id, form)
+      else await itinerairesAPI.create(form)
+      setShowForm(false)
+      charger()
+    } catch { toast.error("Erreur lors de l'enregistrement") }
+  }
+
+  const supprimer = async (it) => {
+    if (!await confirmDialog(`Supprimer l'itinéraire "${it.nom}" et toutes ses étapes ? Cette action est irréversible.`)) return
+    try { await itinerairesAPI.delete(it.id); charger() } catch { toast.error('Erreur suppression') }
+  }
+
+  const toggleActif = async (it) => {
+    try { await itinerairesAPI.update(it.id, { actif: !it.actif }); charger() } catch { toast.error('Erreur') }
+  }
+
+  const ouvrirNouvelleEtape = (itineraireId, ordreSuivant) => {
+    setEtapeForm({ itineraire:itineraireId, ordre:ordreSuivant, ville:'', distance_km:'', heure_depart:'', heure_arrivee:'', pause_fatigue:'' })
+  }
+
+  const ouvrirEditionEtape = (et) => {
+    setEtapeForm({ ...et, id:et.id })
+  }
+
+  const enregistrerEtape = async () => {
+    if (!etapeForm.ville.trim()) { toast.error('Le nom de la ville est requis.'); return }
+    const payload = {
+      itineraire: etapeForm.itineraire, ordre: Number(etapeForm.ordre)||1,
+      ville: etapeForm.ville, distance_km: etapeForm.distance_km === '' ? null : etapeForm.distance_km,
+      heure_depart: etapeForm.heure_depart || null, heure_arrivee: etapeForm.heure_arrivee || null,
+      pause_fatigue: etapeForm.pause_fatigue || '',
+    }
+    try {
+      if (etapeForm.id) await etapesItineraireAPI.update(etapeForm.id, payload)
+      else await etapesItineraireAPI.create(payload)
+      setEtapeForm(null)
+      charger()
+    } catch { toast.error("Erreur lors de l'enregistrement de l'étape") }
+  }
+
+  const supprimerEtape = async (et) => {
+    if (!await confirmDialog(`Supprimer l'étape "${et.ville}" ?`)) return
+    try { await etapesItineraireAPI.delete(et.id); charger() } catch { toast.error('Erreur suppression') }
+  }
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>🗺️ Itinéraires types — Centre de Mobilité</div>
+          <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
+            Proposés au choix à la création d'une rotation ; leurs étapes remplissent automatiquement le tableau
+            "Côte de sécurité de route" du document JMP. Un itinéraire désactivé n'apparaît plus dans ce choix mais reste modifiable ici.
+          </div>
+        </div>
+        {isAdmin && (
+          <button onClick={ouvrirNouveau}
+            style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700, flexShrink:0 }}>
+            ➕ Nouvel itinéraire
+          </button>
+        )}
+      </div>
+
+      {itineraires.length === 0 ? (
+        <div style={{ textAlign:'center', padding:30, color:'#94a3b8', fontSize:13 }}>
+          Aucun itinéraire type — la création de rotation retombe sur la saisie manuelle d'adresses.
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {itineraires.map(it => (
+            <div key={it.id} style={{ border:'1px solid #e2e8f0', borderRadius:9, opacity: it.actif?1:0.55 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f8fafc' }}>
+                <div style={{ flex:1, cursor:'pointer' }} onClick={()=>setOuvert(ouvert===it.id?null:it.id)}>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{ouvert===it.id?'▾':'▸'} {it.nom}</div>
+                  <div style={{ fontSize:11, color:'#64748b' }}>{it.origine} → {it.destination} · {(it.etapes||[]).length} étape(s)</div>
+                </div>
+                {isAdmin && <>
+                  <button onClick={()=>toggleActif(it)}
+                    style={{ background: it.actif?'#dcfce7':'#f1f5f9', color: it.actif?'#16a34a':'#94a3b8', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                    {it.actif ? 'Actif' : 'Inactif'}
+                  </button>
+                  <button onClick={()=>ouvrirEdition(it)}
+                    style={{ background:'#eff6ff', color:'#2563eb', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✏️</button>
+                  <button onClick={()=>supprimer(it)}
+                    style={{ background:'#fee2e2', color:'#dc2626', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>🗑️</button>
+                </>}
+              </div>
+
+              {ouvert===it.id && (
+                <div style={{ padding:12 }}>
+                  {(it.etapes||[]).length === 0 ? (
+                    <div style={{ fontSize:12, color:'#94a3b8', marginBottom:8 }}>Aucune étape — le tableau JMP restera vide pour cet itinéraire.</div>
+                  ) : (
+                    <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:10 }}>
+                      <thead>
+                        <tr style={{ fontSize:11, color:'#64748b', textAlign:'left' }}>
+                          <th style={{padding:'4px 6px'}}>#</th><th style={{padding:'4px 6px'}}>Ville</th>
+                          <th style={{padding:'4px 6px'}}>Distance (km)</th><th style={{padding:'4px 6px'}}>Départ</th>
+                          <th style={{padding:'4px 6px'}}>Arrivée</th><th style={{padding:'4px 6px'}}>Pause</th>
+                          {isAdmin && <th></th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...(it.etapes||[])].sort((a,b)=>a.ordre-b.ordre).map(et => (
+                          <tr key={et.id} style={{ fontSize:12, borderTop:'1px solid #f1f5f9' }}>
+                            <td style={{padding:'4px 6px', color:'#94a3b8'}}>{et.ordre}</td>
+                            <td style={{padding:'4px 6px', fontWeight:600}}>{et.ville}</td>
+                            <td style={{padding:'4px 6px'}}>{et.distance_km ?? '—'}</td>
+                            <td style={{padding:'4px 6px'}}>{et.heure_depart || '—'}</td>
+                            <td style={{padding:'4px 6px'}}>{et.heure_arrivee || '—'}</td>
+                            <td style={{padding:'4px 6px'}}>{et.pause_fatigue || '—'}</td>
+                            {isAdmin && (
+                              <td style={{padding:'4px 6px', whiteSpace:'nowrap'}}>
+                                <button onClick={()=>ouvrirEditionEtape(et)} style={{background:'none',border:'none',cursor:'pointer',fontSize:12}}>✏️</button>
+                                <button onClick={()=>supprimerEtape(et)} style={{background:'none',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {isAdmin && (
+                    <button onClick={()=>ouvrirNouvelleEtape(it.id, (it.etapes||[]).length+1)}
+                      style={{ background:'#eff6ff', color:'#2563eb', border:'none', padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                      ➕ Ajouter une étape
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setShowForm(false)}>
+          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:420, overflow:'hidden' }}>
+            <div style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', padding:'12px 16px', fontWeight:700 }}>
+              {editing ? "✏️ Modifier l'itinéraire" : '➕ Nouvel itinéraire'}
+            </div>
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>NOM</label>
+                <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}
+                  placeholder="Ex: Camp → Abidjan"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>ORIGINE</label>
+                <input value={form.origine} onChange={e=>setForm(f=>({...f,origine:e.target.value}))}
+                  placeholder="Ex: CAMP"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>DESTINATION</label>
+                <input value={form.destination} onChange={e=>setForm(f=>({...f,destination:e.target.value}))}
+                  placeholder="Ex: ABIDJAN"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, cursor:'pointer' }}>
+                <input type="checkbox" checked={form.actif} onChange={e=>setForm(f=>({...f,actif:e.target.checked}))}/>
+                Actif (proposé au choix à la création d'une rotation)
+              </label>
+              <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                <button onClick={()=>setShowForm(false)}
+                  style={{ flex:1, background:'#f1f5f9', color:'#64748b', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  Annuler
+                </button>
+                <button onClick={enregistrer}
+                  style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  💾 Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {etapeForm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:2001, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setEtapeForm(null)}>
+          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:420, overflow:'hidden' }}>
+            <div style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', padding:'12px 16px', fontWeight:700 }}>
+              {etapeForm.id ? "✏️ Modifier l'étape" : '➕ Nouvelle étape'}
+            </div>
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10}}>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>VILLE ATTEINTE</label>
+                  <input value={etapeForm.ville} onChange={e=>setEtapeForm(f=>({...f,ville:e.target.value}))}
+                    placeholder="Ex: SEGUELA"
+                    style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+                </div>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>ORDRE</label>
+                  <input type="number" value={etapeForm.ordre} onChange={e=>setEtapeForm(f=>({...f,ordre:e.target.value}))}
+                    style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>DISTANCE DEPUIS L'ÉTAPE PRÉCÉDENTE (KM)</label>
+                <input type="number" step="0.1" value={etapeForm.distance_km} onChange={e=>setEtapeForm(f=>({...f,distance_km:e.target.value}))}
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>HEURE DÉPART</label>
+                  <input type="time" value={etapeForm.heure_depart||''} onChange={e=>setEtapeForm(f=>({...f,heure_depart:e.target.value}))}
+                    style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+                </div>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>HEURE ARRIVÉE</label>
+                  <input type="time" value={etapeForm.heure_arrivee||''} onChange={e=>setEtapeForm(f=>({...f,heure_arrivee:e.target.value}))}
+                    style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>PAUSE FATIGUE (optionnel)</label>
+                <input value={etapeForm.pause_fatigue||''} onChange={e=>setEtapeForm(f=>({...f,pause_fatigue:e.target.value}))}
+                  placeholder="Ex: 15 MIN DE PAUSE"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                <button onClick={()=>setEtapeForm(null)}
+                  style={{ flex:1, background:'#f1f5f9', color:'#64748b', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  Annuler
+                </button>
+                <button onClick={enregistrerEtape}
                   style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
                   💾 Enregistrer
                 </button>

@@ -288,6 +288,18 @@ export const etapesVoyage = {
 export const vehiculesFlotte = {
   list: () => api.get('/api/vehicules-flotte/'),
 }
+export const itinerairesModeles = {
+  list:   ()     => api.get('/api/itineraires-modeles/'),
+  create: (d)    => api.post('/api/itineraires-modeles/', d),
+  update: (id,d) => api.patch(`/api/itineraires-modeles/${id}/`, d),
+  delete: (id)   => api.delete(`/api/itineraires-modeles/${id}/`),
+}
+export const etapesItineraireModele = {
+  list:   (itineraireId) => api.get('/api/etapes-itineraires-modeles/', {params:{itineraire:itineraireId}}),
+  create: (d)            => api.post('/api/etapes-itineraires-modeles/', d),
+  update: (id,d)         => api.patch(`/api/etapes-itineraires-modeles/${id}/`, d),
+  delete: (id)           => api.delete(`/api/etapes-itineraires-modeles/${id}/`),
+}
 export const audit = {
   list: (p) => api.get('/api/audit/', {params:p}),
 }

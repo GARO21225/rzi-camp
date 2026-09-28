@@ -2679,7 +2679,7 @@ export default function MissionControl() {
                         else setFormRot(p=>({...p, itineraire_id:''}))
                       }} style={inputStyle}>
                       <option value="">✏️ Autre trajet (saisie libre)</option>
-                      {itineraires.map(it=><option key={it.id} value={it.id}>{it.nom}</option>)}
+                      {itineraires.filter(it=>it.actif).map(it=><option key={it.id} value={it.id}>{it.nom}</option>)}
                     </select>
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
