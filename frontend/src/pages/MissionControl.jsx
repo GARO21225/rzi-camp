@@ -41,6 +41,59 @@ const filtrerFlotteParMode = (flotte, mode) => {
   return flotte.filter(v => cats.includes(v.categorie))
 }
 
+// Detection de chevauchement de dates cote frontend — pour retirer les
+// ressources deja occupees (vehicule, conducteur, personnel) DIRECTEMENT
+// des selecteurs a la creation d'une rotation, au lieu de laisser
+// l'utilisateur les choisir puis echouer a la soumission avec un message
+// d'erreur ("Ce vehicule est deja affecte...", "X ne peut pas etre a la
+// fois conducteur principal et second chauffeur..."). Le backend GARDE ces
+// controles (defense en profondeur, notamment pour la creation via API
+// directe), mais l'utilisateur ne devrait plus jamais les voir en pratique
+// dans ce formulaire.
+const STATUTS_ROTATION_ACTIFS = ['planifie', 'en_voyage']
+const datesChevauchent = (debutA, finA, debutB, finB) => {
+  if (!debutA || !finA || !debutB || !finB) return false
+  return debutA <= finB && finA >= debutB
+}
+
+// Rotations actives (statut derive cote backend) dont la periode croise
+// celle demandee — sert de base commune aux 3 controles (vehicule,
+// conducteur principal, second chauffeur). excludeRotationId permet
+// d'ignorer la rotation en cours de modification, le cas echeant.
+const rotationsEnConflit = (rotations, dateDepart, dateRetour, excludeRotationId) =>
+  (rotations||[]).filter(r =>
+    r.rotation_id !== excludeRotationId &&
+    STATUTS_ROTATION_ACTIFS.includes(r.statut) &&
+    datesChevauchent(dateDepart, dateRetour, r.date_depart, r.date_retour_prevue)
+  )
+
+const vehiculeOccupe = (matricule, rotations, dateDepart, dateRetour, excludeRotationId) => {
+  if (!matricule) return null
+  return rotationsEnConflit(rotations, dateDepart, dateRetour, excludeRotationId)
+    .find(r => (r.vehicule_matricule||'').trim().toLowerCase() === matricule.trim().toLowerCase()) || null
+}
+
+const conducteurOccupe = (nomComplet, rotations, dateDepart, dateRetour, excludeRotationId) => {
+  if (!nomComplet) return null
+  const cible = nomComplet.trim().toLowerCase()
+  return rotationsEnConflit(rotations, dateDepart, dateRetour, excludeRotationId)
+    .find(r => (r.conducteur||'').trim().toLowerCase()===cible || (r.conducteur_secondaire||'').trim().toLowerCase()===cible) || null
+}
+
+// Personnel deja engage sur un AUTRE voyage actif (planifie/en_voyage) qui
+// chevauche la periode demandee — meme regle que la validation backend
+// (VoyageSerializer.validate), appliquee ici en amont pour retirer la
+// personne de la liste des passagers cochables plutot que de la laisser
+// dans la liste "exclus" renvoyee apres coup par creer_rotation.
+const personnelOccupe = (personnelId, voyages, dateDepart, dateRetour) => {
+  if (!personnelId || !dateDepart) return null
+  return (voyages||[]).find(v =>
+    v.personnel === personnelId &&
+    ['planifie','en_voyage'].includes(v.statut) &&
+    datesChevauchent(dateDepart, dateRetour||dateDepart, v.date_depart, v.date_retour_prevue||v.date_depart)
+  ) || null
+}
+
 const ST_CFG = {
   planifie:  { l:'Planifié',     c:C.accent,  dot:'#C9972B' },
   en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
@@ -2723,7 +2776,17 @@ export default function MissionControl() {
                           {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                         </select>
                       </div>
-                      {formRot.mode_transport !== 'a_pied' && (
+                      {formRot.mode_transport !== 'a_pied' && (() => {
+                        // Retire du choix les vehicules du parc deja affectes a un
+                        // AUTRE convoi actif sur des dates qui chevauchent celles
+                        // choisies ici, plutot que de laisser l'utilisateur en
+                        // choisir un puis echouer a la soumission (cf. controle
+                        // backend equivalent dans creer_rotation).
+                        const flotteDuMode = filtrerFlotteParMode(flotte, formRot.mode_transport||'bus')
+                        const flotteLibre = flotteDuMode.filter(v =>
+                          !vehiculeOccupe(v.matricule, rotations, formRot.date_depart, formRot.date_retour_prevue))
+                        const nbMasques = flotteDuMode.length - flotteLibre.length
+                        return (
                       <div>
                         <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
                         <select value={formRot.vehicule_flotte_id}
@@ -2736,8 +2799,13 @@ export default function MissionControl() {
                             else setFormRot(p=>({...p, vehicule_flotte_id:'', vehicule:''}))
                           }} style={inputStyle}>
                           <option value="">— Sélectionner un véhicule du parc —</option>
-                          {filtrerFlotteParMode(flotte, formRot.mode_transport||'bus').map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
+                          {flotteLibre.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                         </select>
+                        {nbMasques > 0 && formRot.date_depart && formRot.date_retour_prevue && (
+                          <div style={{marginTop:4,fontSize:11,color:C.amber}}>
+                            ⚠️ {nbMasques} véhicule(s) masqué(s) — déjà affecté(s) à un autre convoi actif sur ces dates.
+                          </div>
+                        )}
                         {formRot.vehicule_flotte_id ? (
                           <div style={{marginTop:6,display:'flex',alignItems:'center',gap:8,fontSize:11,color:C.muted}}>
                             {formRot.vehicule_photo && <img src={formRot.vehicule_photo} alt="Véhicule" style={{height:36,width:52,objectFit:'cover',borderRadius:6}}/>}
@@ -2749,14 +2817,34 @@ export default function MissionControl() {
                             style={{...inputStyle,marginTop:6,fontSize:11}}/>
                         )}
                       </div>
-                      )}
+                        )
+                      })()}
+                      {(() => {
+                        // Meme principe pour les conducteurs : on retire de chaque
+                        // liste (i) quiconque est deja chauffeur (principal OU
+                        // second) sur un autre convoi actif qui chevauche ces
+                        // dates, ET (ii) la personne deja choisie dans L'AUTRE role
+                        // de CETTE rotation — c'est ce second point qui evitait
+                        // l'erreur "X ne peut pas etre a la fois conducteur
+                        // principal et second chauffeur de la meme rotation".
+                        const librePourConducteur = personnel.filter(p => {
+                          const nom = `${p.nom} ${p.prenom}`
+                          if (nom === formRot.conducteur_secondaire) return false
+                          return !conducteurOccupe(nom, rotations, formRot.date_depart, formRot.date_retour_prevue)
+                        })
+                        const librePourSecondaire = personnel.filter(p => {
+                          const nom = `${p.nom} ${p.prenom}`
+                          if (nom === formRot.conducteur) return false
+                          return !conducteurOccupe(nom, rotations, formRot.date_depart, formRot.date_retour_prevue)
+                        })
+                        return (<>
                       <div>
                         <label style={labelStyle}>Conducteur assigné</label>
                         <select value={formRot.conducteur}
                           onChange={e=>setFormRot(p=>({...p,conducteur:e.target.value}))}
                           style={inputStyle}>
                           <option value="">— Sélectionner dans le personnel —</option>
-                          {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                          {librePourConducteur.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
                         </select>
                       </div>
                       <div>
@@ -2765,9 +2853,11 @@ export default function MissionControl() {
                           onChange={e=>setFormRot(p=>({...p,conducteur_secondaire:e.target.value}))}
                           style={inputStyle}>
                           <option value="">— Aucun —</option>
-                          {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
+                          {librePourSecondaire.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
                         </select>
                       </div>
+                        </>)
+                      })()}
                     </div>
                     <div style={{marginBottom:14}}>
                       <label style={labelStyle}>🛡️ Niveau d'alerte sécurité (pour le JMP)</label>
@@ -2897,14 +2987,22 @@ export default function MissionControl() {
                         const nomComplet = `${p.nom} ${p.prenom}`.trim().toLowerCase()
                         const estChauffeur = (formRot.conducteur||'').trim().toLowerCase()===nomComplet
                           || (formRot.conducteur_secondaire||'').trim().toLowerCase()===nomComplet
-                        const full = !checked && (formRot.passagers.length >= formRot.nb_places_total || estChauffeur)
+                        // Deja engage sur un AUTRE voyage actif qui chevauche ces
+                        // dates — meme regle que la validation backend
+                        // (VoyageSerializer.validate), appliquee ici en amont pour
+                        // ne pas laisser la personne cochable puis rejetee.
+                        const conflitVoyage = !estChauffeur && personnelOccupe(p.id, voyages, formRot.date_depart, formRot.date_retour_prevue)
+                        const full = !checked && (formRot.passagers.length >= formRot.nb_places_total || estChauffeur || !!conflitVoyage)
+                        const titre = estChauffeur ? 'Déjà désigné chauffeur ou second chauffeur de cette rotation'
+                          : conflitVoyage ? `Déjà en voyage du ${conflitVoyage.date_depart} au ${conflitVoyage.date_retour_prevue||conflitVoyage.date_depart}`
+                          : undefined
                         return (
                           <label key={p.id} style={{display:'flex',gap:10,alignItems:'center',
                             padding:'8px 12px',cursor:full?'not-allowed':'pointer',
                             borderBottom:`0.5px solid rgba(255,255,255,.04)`,
                             background:checked?`${C.accent}10`:'transparent',
                             opacity:full?0.4:1}}
-                            title={estChauffeur ? 'Déjà désigné chauffeur ou second chauffeur de cette rotation' : undefined}>
+                            title={titre}>
                             <input type="checkbox" checked={checked} disabled={full}
                               onChange={e=>{
                                 if(e.target.checked) setFormRot(f=>({...f,passagers:[...f.passagers,p.id]}))
@@ -2913,7 +3011,7 @@ export default function MissionControl() {
                               style={{accentColor:C.accent}}/>
                             <div>
                               <div style={{fontSize:13,fontWeight:500,color:checked?C.accent:C.text}}>
-                                {p.nom} {p.prenom}{estChauffeur ? ' 🚗' : ''}
+                                {p.nom} {p.prenom}{estChauffeur ? ' 🚗' : ''}{conflitVoyage ? ' 🔒' : ''}
                               </div>
                               <div style={{fontSize:10,color:C.muted}}>{p.societe||'—'}</div>
                             </div>

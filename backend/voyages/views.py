@@ -894,13 +894,25 @@ class VoyageViewSet(viewsets.ModelViewSet):
             if vehicule:
                 filtre_vehicule |= Q(vehicule__iexact=vehicule)
 
-            chevauche_rotation = Rotation.objects.filter(
+            # Rotation.statut n'est JAMAIS mis a jour apres la creation (ni
+            # par annuler/supprimer_planifie/supprimer_rotation, qui ne
+            # touchent que les lignes Voyage) - filtrer sur ce champ
+            # bloquerait le vehicule INDEFINIMENT, meme des mois apres que
+            # tous les passagers du convoi soient rentres ou que le convoi
+            # ait ete annule. On derive donc le vrai statut a partir des
+            # Voyage rattaches (memes regles que l'action rotations()) :
+            # un convoi sans aucun passager reste actif (vehicule reserve
+            # a l'avance) ; un convoi dont TOUS les passagers sont
+            # rentres/annules ne bloque plus rien.
+            candidats_rotation = Rotation.objects.filter(
                 filtre_vehicule,
-                statut__in=("planifie","en_voyage"),
                 date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
-            ).exclude(rotation_id=rotation_id).first()
-            if chevauche_rotation:
-                return Response({"error": f"Ce véhicule ({vehicule_matricule or vehicule}) est déjà affecté au convoi {chevauche_rotation.rotation_id} du {chevauche_rotation.date_depart} au {chevauche_rotation.date_retour_prevue}."}, status=400)
+            ).exclude(rotation_id=rotation_id)
+            for candidat in candidats_rotation:
+                membres = Voyage.objects.filter(rotation_id=candidat.rotation_id)
+                if membres.exists() and not membres.exclude(statut__in=("retour","annule")).exists():
+                    continue  # convoi termine ou annule - ne bloque plus
+                return Response({"error": f"Ce véhicule ({vehicule_matricule or vehicule}) est déjà affecté au convoi {candidat.rotation_id} du {candidat.date_depart} au {candidat.date_retour_prevue}."}, status=400)
 
             chevauche_voyage = Voyage.objects.filter(
                 filtre_vehicule,
