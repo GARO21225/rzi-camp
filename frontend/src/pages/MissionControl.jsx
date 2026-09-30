@@ -477,7 +477,7 @@ export default function MissionControl() {
   const [rotations,  setRotations] = useState([])
   const [demandesAOrganiser, setDemandesAOrganiser] = useState([])
   const [demandesSelectionnees, setDemandesSelectionnees] = useState([])
-  const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'' })
+  const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'', itineraire_modele_id:'' })
   const [personnel,  setPersonnel] = useState([])
   const [stats,      setStats]     = useState({})
   const [loading,    setLoading]   = useState(true)
@@ -498,6 +498,13 @@ export default function MissionControl() {
   // seulement sur cette liste. Masques par defaut ici, revelable via le
   // bouton ci-dessous (jamais perdus, juste sortis de la vue active).
   const [afficherConvoisTermines, setAfficherConvoisTermines] = useState(false)
+  // Demande explicite : "il faut des filtres" sur l'onglet Rotations —
+  // recherche texte (destination/véhicule/conducteur) + plage de dates de
+  // départ + statut, en plus du toggle "voir les terminés" ci-dessus.
+  const [rotFiltreTexte, setRotFiltreTexte] = useState('')
+  const [rotFiltreDateDebut, setRotFiltreDateDebut] = useState('')
+  const [rotFiltreDateFin, setRotFiltreDateFin] = useState('')
+  const [rotFiltreStatut, setRotFiltreStatut] = useState('tous') // 'tous'|'planifie'|'en_voyage'
   const [showCreate, setShowCreate]= useState(false) // 'rotation' | 'individuel' | null
   const [msg,        setMsg]       = useState(null)
   const [saving,     setSaving]    = useState(false)
@@ -1440,8 +1447,39 @@ export default function MissionControl() {
               </div>
             </div>
 
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+              <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
+                placeholder="🔎 Destination, véhicule, conducteur..."
+                style={{...inputStyle,flex:'1 1 220px',minWidth:180}}/>
+              <input type="date" value={rotFiltreDateDebut} onChange={e=>setRotFiltreDateDebut(e.target.value)}
+                title="Départ à partir du" style={{...inputStyle,width:150}}/>
+              <input type="date" value={rotFiltreDateFin} onChange={e=>setRotFiltreDateFin(e.target.value)}
+                title="Départ jusqu'au" style={{...inputStyle,width:150}}/>
+              <select value={rotFiltreStatut} onChange={e=>setRotFiltreStatut(e.target.value)} style={{...inputStyle,width:160}}>
+                <option value="tous">Tous statuts</option>
+                <option value="planifie">Planifié</option>
+                <option value="en_voyage">En transit</option>
+              </select>
+              {(rotFiltreTexte||rotFiltreDateDebut||rotFiltreDateFin||rotFiltreStatut!=='tous') && (
+                <button className="mc-btn mc-btn-ghost" onClick={()=>{
+                  setRotFiltreTexte('');setRotFiltreDateDebut('');setRotFiltreDateFin('');setRotFiltreStatut('tous')
+                }}>✕ Réinitialiser</button>
+              )}
+            </div>
+
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              {rotations.filter(r=>afficherConvoisTermines || r.statut!=='retour').map(r=>{
+              {rotations
+                .filter(r=>afficherConvoisTermines || r.statut!=='retour')
+                .filter(r=>rotFiltreStatut==='tous' || r.statut===rotFiltreStatut)
+                .filter(r=>!rotFiltreDateDebut || (r.date_depart||'') >= rotFiltreDateDebut)
+                .filter(r=>!rotFiltreDateFin || (r.date_depart||'') <= rotFiltreDateFin)
+                .filter(r=>{
+                  if (!rotFiltreTexte.trim()) return true
+                  const q = rotFiltreTexte.trim().toLowerCase()
+                  return [r.destination,r.origine,r.vehicule,r.vehicule_matricule,r.conducteur,r.conducteur_secondaire,r.rotation_id]
+                    .some(v=>(v||'').toLowerCase().includes(q))
+                })
+                .map(r=>{
                 const total   = r.nb_places_total || 15
                 const prises  = r.nb_passagers
                 const libres  = r.places_libres
@@ -1760,6 +1798,13 @@ export default function MissionControl() {
                                     </div>
                                     <div style={{fontSize:10,color:C.muted}}>
                                       {p.personnel__societe||'—'}{destinationDiffere && ` · → ${voyageComplet.destination}`}
+                                      {/* Demande explicite : "ajouter les chambres d'occupation" au
+                                          manifeste - utile pour savoir quelles chambres se liberent
+                                          quand ce convoi part (residence principale declaree, cf.
+                                          rotations() cote backend). */}
+                                      {p.chambre && (
+                                        <span style={{marginLeft:6,color:C.accent}} title="Chambre (résidence principale)">🏠 {p.chambre}</span>
+                                      )}
                                     </div>
                                   </div>
                                   <StatusBadge statut={p.statut} allerSeul={r.trajet_aller_seul}/>
@@ -1891,6 +1936,19 @@ export default function MissionControl() {
                           {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
                         </select>
                       </div>
+                      <div>
+                        {/* BUG REEL CORRIGE ICI (demande explicite : "voyage en
+                            permettant de choisir l'itinéraire") : cette rotation
+                            organisee depuis des demandes validees se creait
+                            jusqu'ici TOUJOURS sans itineraire (tableau JMP "Cote
+                            de securite de route" vide) - meme selecteur que
+                            "Nouvelle rotation", desormais disponible ici aussi. */}
+                        <label style={labelStyle}>Itinéraire (optionnel)</label>
+                        <select value={organiserForm.itineraire_modele_id} onChange={e=>setOrganiserForm(f=>({...f,itineraire_modele_id:e.target.value}))} style={inputStyle}>
+                          <option value="">Aucun / à définir plus tard</option>
+                          {itineraires.filter(i=>i.actif).map(i=><option key={i.id} value={i.id}>{i.nom}</option>)}
+                        </select>
+                      </div>
                     </div>
                     <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12}}
                       disabled={!organiserForm.vehicule_matricule||!organiserForm.conducteur_id}
@@ -1901,7 +1959,7 @@ export default function MissionControl() {
                         const d = await res.json()
                         if (res.ok) {
                           flash(`Rotation organisée (${d.nb_personnes} personne(s))`)
-                          setDemandesSelectionnees([]); setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:''})
+                          setDemandesSelectionnees([]); setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:'',itineraire_modele_id:''})
                           load()
                         } else { toast.error(d.error || 'Erreur') }
                       }}>

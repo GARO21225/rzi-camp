@@ -699,11 +699,27 @@ class VoyageViewSet(viewsets.ModelViewSet):
         tous_passagers = list(Voyage.objects.filter(rotation_id__in=rotation_ids)
             .exclude(statut="annule")
             .select_related("personnel")
-            .values("id","rotation_id","personnel__nom","personnel__prenom",
+            .values("id","rotation_id","personnel_id","personnel__nom","personnel__prenom",
                     "personnel__societe","statut","statut_validation","destination"))
         passagers_par_rotation = {}
         for p in tous_passagers:
             passagers_par_rotation.setdefault(p["rotation_id"], []).append(p)
+
+        # Chambre (residence principale) de chaque passager - demande
+        # explicite ("ajouter les chambres d'occupation" au manifeste du
+        # convoi) : utile pour savoir quelles chambres se liberent quand ce
+        # convoi part. Meme cache "une seule requete groupee" que
+        # PersonnelSerializer.get_residence_principale, construit ici
+        # directement plutot que de repasser par le serializer Personnel.
+        from residences.models import ResidentPrincipal as _RP
+        personnel_ids_passagers = {p["personnel_id"] for p in tous_passagers if p["personnel_id"]}
+        chambres_par_personnel = {
+            rp.personnel_id: rp.batiment.residence
+            for rp in _RP.objects.filter(personnel_id__in=personnel_ids_passagers, date_fin__isnull=True).select_related("batiment")
+            if rp.batiment_id
+        }
+        for p in tous_passagers:
+            p["chambre"] = chambres_par_personnel.get(p["personnel_id"]) or ""
 
         result = []
         for g in rotations_qs:
@@ -850,6 +866,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
                 conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
         vehicule = data.get("vehicule", "")
         vehicule_matricule = data.get("vehicule_matricule", "")
+        # BUG REEL CORRIGE ICI (demande utilisateur : "voyage en permettant
+        # de choisir l'itinéraire") : cette action n'acceptait pas
+        # d'itineraire_modele_id, contrairement a creer_rotation - un
+        # convoi organise depuis des demandes deja validees se retrouvait
+        # donc TOUJOURS sans itineraire (tableau JMP "Cote de securite de
+        # route" vide, aucun arret intermediaire propose). Meme mecanisme
+        # que creer_rotation : applique a la Rotation ET a chaque voyage
+        # via _appliquer_itineraire_a_voyage.
+        itineraire_id = data.get("itineraire_modele_id") or None
+        itineraire_obj = ItineraireModele.objects.filter(pk=itineraire_id).first() if itineraire_id else None
         if not conducteur or not vehicule_matricule:
             return Response({"error": "Véhicule et chauffeur principal sont obligatoires."}, status=400)
         meme_personne = (conducteur_personnel and conducteur_secondaire_personnel and conducteur_personnel.id == conducteur_secondaire_personnel.id) \
@@ -890,9 +916,17 @@ class VoyageViewSet(viewsets.ModelViewSet):
             rotation_id=nouveau_rotation_id, vehicule=vehicule, vehicule_matricule=vehicule_matricule,
             conducteur=conducteur, conducteur_personnel=conducteur_personnel,
             conducteur_secondaire=conducteur_secondaire, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
-            destination=voyages[0].destination if voyages else "", date_depart=voyages[0].date_depart if voyages else timezone.localdate(),
+            # BUG REEL CORRIGE ICI : "origine" n'etait jamais renseignee (champ
+            # absent de ce create()) - la Rotation se retrouvait avec une
+            # origine vide, ce qui cassait ensuite arrets_itineraire (la liste
+            # deroulante montee/descente, qui exige origine ET destination non
+            # vides pour se construire - voir rotations()).
+            origine=itineraire_obj.origine if itineraire_obj else (voyages[0].origine if voyages else ""),
+            destination=itineraire_obj.destination if itineraire_obj else (voyages[0].destination if voyages else ""),
+            date_depart=voyages[0].date_depart if voyages else timezone.localdate(),
             date_retour_prevue=voyages[0].date_retour_prevue if voyages else timezone.localdate(),
             nb_places_total=len(voyages), statut="planifie", enregistre_par=request.user,
+            itineraire_modele_id=itineraire_id,
         )
         for v in voyages:
             v.vehicule = vehicule
@@ -906,6 +940,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
             v.nb_places_total = len(voyages)
             v.save(update_fields=["vehicule","vehicule_matricule","conducteur","conducteur_secondaire",
                                    "conducteur_personnel","conducteur_secondaire_personnel","rotation_id","type_voyage","nb_places_total"])
+            if itineraire_obj:
+                _appliquer_itineraire_a_voyage(v, itineraire_obj)
 
         return Response({"rotation_id": nouveau_rotation_id, "nb_personnes": len(voyages)}, status=201)
 
