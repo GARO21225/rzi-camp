@@ -605,6 +605,10 @@ export default function Restauration() {
   const [loading, setLoading] = useState(false)
   const [myQR, setMyQR] = useState(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  // Bloc "Amélioration continue" (graphique + détail) : replié par défaut
+  // sur mobile pour garder l'écran centré sur scan + historique — ouvert
+  // par défaut sur desktop où la place ne manque pas.
+  const [avisOpenMobile, setAvisOpenMobile] = useState(false)
 
   const repas = REPAS.find(r => r.key === typeRepas)
 
@@ -710,8 +714,10 @@ export default function Restauration() {
                     <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, color: t.color }}>{stats.byType?.[t.key] || 0}</div>
                     <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: .8, marginTop: 2 }}>{t.label}</div>
                   </div>
-                  {/* Plats du menu sous le compteur */}
-                  {platsRepas.length > 0 && (
+                  {/* Plats du menu + gestion (ajout/modif/suppr) — réservés au
+                      desktop : sur mobile le compteur seul suffit, la gestion
+                      du menu du jour se fait depuis un écran plus large. */}
+                  {!isMobile && platsRepas.length > 0 && (
                     <div style={{ padding:'6px 8px', display:'flex', flexDirection:'column', gap:3 }}>
                       {TYPE_ORDER_LOCAL.map(type => {
                         const items = platsRepas.filter(m => m.type_plat === type)
@@ -744,7 +750,13 @@ export default function Restauration() {
                       })}
                     </div>
                   )}
-                  {/* Bouton Ajouter plat */}
+                  {isMobile && platsRepas.length > 0 && (
+                    <div style={{ padding:'6px 8px', textAlign:'center' }}>
+                      <span style={{ fontSize:10, color:t.color, fontWeight:600 }}>{platsRepas.length} plat(s) au menu</span>
+                    </div>
+                  )}
+                  {/* Bouton Ajouter plat — desktop uniquement (voir ci-dessus) */}
+                  {!isMobile && (
                   <div style={{ padding:'4px 8px 8px' }}>
                     <button onClick={()=>setMenuForm({nom:'',type_plat:'plat',repas:t.menuKey,
                       date_service:menuDate,description:'',disponible:true})}
@@ -754,6 +766,7 @@ export default function Restauration() {
                       ➕ Plat
                     </button>
                   </div>
+                  )}
                 </div>
               )
             })}
@@ -770,16 +783,26 @@ export default function Restauration() {
               <div style={{fontSize:13,fontWeight:700,color:'#7c3aed'}}>📊 Amélioration continue — 30 derniers jours</div>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{fontSize:11,color:'var(--rzc-text-3)'}}>{avisStats.count} avis</div>
+                {!isMobile && (
                 <a href={avisAPI.exportCsv('30j')} target="_blank" rel="noreferrer"
                   style={{fontSize:11,color:'#7c3aed',fontWeight:700,textDecoration:'none',border:'1px solid #ddd6fe',
                     padding:'4px 10px',borderRadius:20,background:'#f5f3ff'}}>
                   ⬇️ Export CSV
                 </a>
+                )}
+                {isMobile && (
+                  <button onClick={()=>setAvisOpenMobile(v=>!v)}
+                    style={{background:'none',border:'1px solid #ddd6fe',color:'#7c3aed',borderRadius:20,
+                      padding:'4px 10px',cursor:'pointer',fontSize:11,fontWeight:700}}>
+                    {avisOpenMobile ? '▲ Masquer' : '▼ Détail'}
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Graphique de tendance — 90 derniers jours */}
-            {avisEvolution.length > 1 && (
+            {/* Graphique de tendance — 90 derniers jours (masqué par défaut
+                sur mobile, derrière le bouton "Détail" ci-dessus) */}
+            {(!isMobile || avisOpenMobile) && avisEvolution.length > 1 && (
               <div style={{height:130,marginBottom:14}}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={avisEvolution}>
@@ -792,7 +815,10 @@ export default function Restauration() {
               </div>
             )}
 
-            {/* Détail par question personnalisée (Paramétrage > Avis Restauration) */}
+            {/* Détail par question, par plat et liste des avis — masqués par
+                défaut sur mobile derrière le bouton "Détail" (voir plus haut) */}
+            {(!isMobile || avisOpenMobile) && (
+            <>
             {avisStats.par_question && avisStats.par_question.length > 0 ? (
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 {avisStats.par_question.map(q => (
@@ -904,6 +930,8 @@ export default function Restauration() {
                   </div>
                 ))}
               </div>
+            )}
+            </>
             )}
           </div>
         )}

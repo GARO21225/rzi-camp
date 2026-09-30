@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupesAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const TYPE_COLORS = {
   reunion:{ bg:'rgba(37,99,235,.12)', color:'var(--rzc-blue)', icon:'👥' },
@@ -118,6 +119,7 @@ const inp = { background:'var(--surface2)', border:'1px solid var(--border)', co
 const todayDT = new Date().toISOString().slice(0,16)
 
 export default function Evenements() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || user?.profile?.role === 'admin'
@@ -272,11 +274,19 @@ export default function Evenements() {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:2, marginBottom:16, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
+      {/* Tabs — chips défilables horizontalement sur mobile (4 onglets ne
+          tiennent pas confortablement sur 390px en largeur égale) */}
+      <div style={{ display:'flex', gap: isMobile ? 8 : 2, marginBottom:16,
+        background: isMobile ? 'transparent' : 'var(--surface2)', borderRadius:10,
+        padding: isMobile ? 0 : 4, border: isMobile ? 'none' : '1px solid var(--border)',
+        overflowX: isMobile ? 'auto' : 'visible' }}>
         {[['agenda','📅 À venir'],['encours','▶️ En cours'],['passes','⏮ Passés'],['tous','📋 Tout']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
-            style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+            style={ isMobile ? {
+              flexShrink:0, padding:'7px 14px', borderRadius:99, border:`1px solid ${tab===k?'var(--rzc-navy,#0F2A5C)':'var(--border)'}`,
+              cursor:'pointer', fontSize:12, fontWeight:600, whiteSpace:'nowrap',
+              background: tab===k ? 'var(--rzc-navy,#0F2A5C)' : '#fff', color: tab===k ? '#fff' : 'var(--text-dim)',
+            } : { flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
               background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
               boxShadow:tab===k?'var(--shadow)':'none', transition:'.2s' }}>
             {l}
@@ -297,66 +307,74 @@ export default function Evenements() {
             const estTermine = evt.statut === 'termine' || evt.statut === 'annule'
             const sc = STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie
             return (
-              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estTermine?0.7:1 }}>
-                {/* Type icon */}
-                <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
-                  {tc.icon}
+              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:14, opacity:estTermine?0.7:1 }}>
+                <div style={{ display:'flex', gap:14 }}>
+                  {/* Type icon */}
+                  <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
+                    {tc.icon}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
+                      <div style={{ fontWeight:700, fontSize:14, color:'var(--blue)' }}>{evt.titre}</div>
+                      {evt.obligatoire && <span style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', fontSize:10, padding:'2px 7px', borderRadius:20, fontWeight:700 }}>OBLIGATOIRE</span>}
+                      <span style={{ background:sc.bg, color:sc.color, fontSize:10, padding:'2px 8px', borderRadius:20, fontWeight:700 }}>{sc.label}</span>
+                      <span style={{ background:tc.bg, color:tc.color, fontSize:10, padding:'2px 8px', borderRadius:20 }}>{evt.type_label}</span>
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{evt.description}</div>
+                    <div style={{ display:'flex', gap:14, fontSize:11, color:'var(--text-dim)', flexWrap:'wrap' }}>
+                      <span>📅 {new Date(evt.date_debut).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à {new Date(evt.date_debut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
+                      {evt.lieu && <span>📍 {evt.lieu}</span>}
+                      {!isMobile && <span>👤 {evt.cree_par_nom}</span>}
+                      {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
+                      {evt.qr_requis && (
+                        isAdmin ? (
+                          <span onClick={()=>{setListeScannesModal(evt); chargerPersonnesScannees(evt.id)}}
+                            style={{ color:'#7c3aed', fontWeight:700, cursor:'pointer', textDecoration:'underline' }}>
+                            🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés{!isMobile && ' — voir la liste'}
+                          </span>
+                        ) : (
+                          <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>
+                        )
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:'var(--blue)' }}>{evt.titre}</div>
-                    {evt.obligatoire && <span style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', fontSize:10, padding:'2px 7px', borderRadius:20, fontWeight:700 }}>OBLIGATOIRE</span>}
-                    <span style={{ background:sc.bg, color:sc.color, fontSize:10, padding:'2px 8px', borderRadius:20, fontWeight:700 }}>{sc.label}</span>
-                    <span style={{ background:tc.bg, color:tc.color, fontSize:10, padding:'2px 8px', borderRadius:20 }}>{evt.type_label}</span>
-                  </div>
-                  <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{evt.description}</div>
-                  <div style={{ display:'flex', gap:14, fontSize:11, color:'var(--text-dim)', flexWrap:'wrap' }}>
-                    <span>📅 {new Date(evt.date_debut).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à {new Date(evt.date_debut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
-                    {evt.lieu && <span>📍 {evt.lieu}</span>}
-                    <span>👤 {evt.cree_par_nom}</span>
-                    {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
-                    {evt.qr_requis && (
-                      isAdmin ? (
-                        <span onClick={()=>{setListeScannesModal(evt); chargerPersonnesScannees(evt.id)}}
-                          style={{ color:'#7c3aed', fontWeight:700, cursor:'pointer', textDecoration:'underline' }}>
-                          🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés — voir la liste
-                        </span>
-                      ) : (
-                        <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>
-                      )
-                    )}
-                  </div>
+
+                {/* Actions — colonne étroite sur desktop, ligne défilante
+                    pleine largeur sous la carte sur mobile (pattern chip) */}
+                <div style={{ display:'flex', flexDirection: isMobile ? 'row' : 'column', gap:6, flexShrink:0,
+                  flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                  {evt.qr_requis && !estTermine && (
+                    <button onClick={()=>{
+                        setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
+                        if (isAdmin && personnelListe.length===0) personnelAPI.list().then(r=>setPersonnelListe(r.data.results||r.data||[])).catch(()=>{})
+                      }}
+                      style={{ background:'rgba(240,165,0,.12)', color:'#d08800', border:'1px solid rgba(240,165,0,.25)',
+                        padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0, alignSelf: isMobile ? 'auto' : 'flex-start' }}>
+                      🎫 Mon QR
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <>
+                      {evt.qr_requis && !estTermine && (
+                        <button onClick={()=>{setScanModal(evt); setScanToken(''); setScanResult(null)}}
+                          style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                          📷 Scanner
+                        </button>
+                      )}
+                      {!estTermine && (
+                        <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                          🔔 Notifier
+                        </button>
+                      )}
+                      {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
+                      {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
+                      {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
+                      style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
+                    {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
+                    </>
+                  )}
                 </div>
-                {evt.qr_requis && !estTermine && (
-                  <button onClick={()=>{
-                      setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
-                      if (isAdmin && personnelListe.length===0) personnelAPI.list().then(r=>setPersonnelListe(r.data.results||r.data||[])).catch(()=>{})
-                    }}
-                    style={{ background:'rgba(240,165,0,.12)', color:'#d08800', border:'1px solid rgba(240,165,0,.25)',
-                      padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0, alignSelf:'flex-start' }}>
-                    🎫 Mon QR
-                  </button>
-                )}
-                {isAdmin && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0 }}>
-                    {evt.qr_requis && !estTermine && (
-                      <button onClick={()=>{setScanModal(evt); setScanToken(''); setScanResult(null)}}
-                        style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                        📷 Scanner
-                      </button>
-                    )}
-                    {!estTermine && (
-                      <button onClick={()=>notifier(evt.id,evt.titre)} style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                        🔔 Notifier
-                      </button>
-                    )}
-                    {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
-                    {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
-                    {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
-                    style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
-                  {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
-                  </div>
-                )}
               </div>
             )
           })}
