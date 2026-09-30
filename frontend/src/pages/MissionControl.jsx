@@ -1594,13 +1594,37 @@ export default function MissionControl() {
                                   <div style={{marginTop:8,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il monte où ?</label>
-                                      <input value={formJoin.origine} onChange={e=>setFormJoin(f=>({...f,origine:e.target.value}))}
-                                        placeholder={r.origine||'Point de montée'} style={{...inputStyle,fontSize:12}}/>
+                                      {/* Liste deroulante respectant l'ordre reel de l'itineraire du
+                                          convoi (origine -> villes intermediaires -> destination) au
+                                          lieu d'un champ texte libre - demande explicite, evite aussi
+                                          une saisie incoherente (ville hors trajet, faute de frappe). */}
+                                      {(r.arrets_itineraire||[]).length > 0 ? (
+                                        <select value={formJoin.origine} onChange={e=>setFormJoin(f=>({...f,origine:e.target.value}))}
+                                          style={{...inputStyle,fontSize:12}}>
+                                          <option value="">— Choisir —</option>
+                                          {r.arrets_itineraire.map((v,i)=>(
+                                            <option key={i} value={v}>{v}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <input value={formJoin.origine} onChange={e=>setFormJoin(f=>({...f,origine:e.target.value}))}
+                                          placeholder={r.origine||'Point de montée'} style={{...inputStyle,fontSize:12}}/>
+                                      )}
                                     </div>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il descend où ?</label>
-                                      <input value={formJoin.destination} onChange={e=>setFormJoin(f=>({...f,destination:e.target.value}))}
-                                        placeholder={r.destination||'Point de descente'} style={{...inputStyle,fontSize:12}}/>
+                                      {(r.arrets_itineraire||[]).length > 0 ? (
+                                        <select value={formJoin.destination} onChange={e=>setFormJoin(f=>({...f,destination:e.target.value}))}
+                                          style={{...inputStyle,fontSize:12}}>
+                                          <option value="">— Choisir —</option>
+                                          {r.arrets_itineraire.map((v,i)=>(
+                                            <option key={i} value={v}>{v}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <input value={formJoin.destination} onChange={e=>setFormJoin(f=>({...f,destination:e.target.value}))}
+                                          placeholder={r.destination||'Point de descente'} style={{...inputStyle,fontSize:12}}/>
+                                      )}
                                     </div>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il revient quand ? <span title="Sert à garder sa chambre jusqu'à cette date — indépendant de la date du convoi">ℹ️</span></label>

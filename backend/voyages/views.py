@@ -680,6 +680,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         # en UNE seule requete, puis regroupe en memoire par rotation_id -
         # au lieu d'une requete SEPAREE par rotation (N+1 classique).
         rotation_ids = [g["rotation_id"] for g in rotations_qs]
+
+        # Villes intermediaires de l'itineraire de chaque convoi (dans
+        # l'ordre) - necessaire pour que le frontend propose une liste
+        # deroulante de points de montee/descente qui respecte l'ordre
+        # REEL du trajet, au lieu d'un champ texte libre ou n'importe quoi
+        # pouvait etre saisi (demande explicite : "qu'une liste deroulante
+        # s'affiche en tenant compte de l'ordre de l'itineraire"). Une
+        # seule requete groupee pour tous les itineraires references,
+        # jamais une par convoi (N+1).
+        itineraire_ids = {g["itineraire_modele_id"] for g in rotations_qs if g["itineraire_modele_id"]}
+        villes_par_itineraire = {}
+        if itineraire_ids:
+            from .models import EtapeItineraireModele as _EIM
+            for e in _EIM.objects.filter(itineraire_id__in=itineraire_ids).order_by("itineraire_id", "ordre"):
+                villes_par_itineraire.setdefault(e.itineraire_id, []).append(e.ville)
+
         tous_passagers = list(Voyage.objects.filter(rotation_id__in=rotation_ids)
             .exclude(statut="annule")
             .select_related("personnel")
@@ -711,6 +727,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
             else:
                 statut_rotation = "planifie"
             g["statut"] = statut_rotation
+            # Points d'arret ordonnes du convoi (origine -> villes
+            # intermediaires -> destination), pour la liste deroulante
+            # montee/descente cote frontend.
+            g["arrets_itineraire"] = (
+                [g["origine"]] + villes_par_itineraire.get(g["itineraire_modele_id"], []) + [g["destination"]]
+                if g["origine"] and g["destination"] else []
+            )
             # Liste nominative des passagers : UNIQUEMENT pour l'admin. Un
             # agent qui consulte les rotations disponibles pour en
             # rejoindre une ne doit voir qu'un nombre de sieges libres,
