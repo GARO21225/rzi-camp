@@ -2,6 +2,7 @@ import GlobalSearch from './GlobalSearch'
 import BottomTabBar from './BottomTabBar'
 import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
+import { useIsMobile } from '../hooks/useIsMobile'
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
@@ -220,6 +221,7 @@ export default function Layout() {
   }, [showWelcome])
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const { isOffline, syncMsg, retry } = useOffline()
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
@@ -320,7 +322,7 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-    const isMobile = window.innerWidth < 768
+    const isMobile = useIsMobile()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', overflowX: 'hidden', maxWidth: '100vw', background: 'var(--rzc-fond-app, #f1f5f9)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
@@ -380,6 +382,13 @@ export default function Layout() {
         {/* ── Recherche globale ── */}
         {!isMobile && <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}><GlobalSearch /></div>}
         {isMobile && <div style={{ flex: 1 }} />}
+
+        {isMobile && (
+          <button onClick={() => setMobileSearchOpen(o => !o)}
+            style={{ background: mobileSearchOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all 150ms' }}>
+            🔍
+          </button>
+        )}
 
         {alertes.length > 0 && !isMobile && (
           <div style={{ background: 'rgba(220,38,38,.18)', border: '1px solid rgba(220,38,38,.35)', borderRadius: 6, padding: '5px 10px', fontSize: 11, color: '#fca5a5', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600 }}>
@@ -443,6 +452,12 @@ export default function Layout() {
 
       </header>
 
+      {isMobile && mobileSearchOpen && (
+        <div style={{ background: 'var(--rzc-navy-dark)', borderBottom: '1px solid rgba(255,255,255,.1)', padding: '10px 16px', zIndex: 499 }}>
+          <GlobalSearch onNavigate={() => setMobileSearchOpen(false)} />
+        </div>
+      )}
+
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Backdrop mobile */}
         {sidebarOpen && isMobile && (
@@ -471,6 +486,25 @@ export default function Layout() {
               pointerEvents: sidebarOpen ? 'auto' : 'none',
             } : {}),
           }}>
+            {isMobile && (
+              <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
+                  {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}{(user?.last_name?.[0] || '').toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(user?.first_name && user?.last_name) ? `${user.first_name} ${user.last_name}` : user?.username || ''}
+                  </div>
+                  <div style={{ color: 'var(--rzc-bright-gold)', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {roleCustomLabel || ROLE_LABELS[role] || role}
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu"
+                  style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
+                  ✕
+                </button>
+              </div>
+            )}
             <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
               <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
@@ -509,11 +543,11 @@ export default function Layout() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        padding: '9px 12px 9px 16px',
+                        padding: isMobile ? '12px 12px 12px 16px' : '9px 12px 9px 16px',
                         margin: '1px 8px',
                         borderRadius: 9,
                         textDecoration: 'none',
-                        fontSize: 13,
+                        fontSize: isMobile ? 14 : 13,
                         fontWeight: isActive ? 700 : 400,
                         background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
                         color: isActive ? '#ffffff' : '#94a3b8',

@@ -9,7 +9,7 @@ const CATEGORIES = [
   { key:'voyages',    label:'Voyages',    icon:'✈️', color:'#f97316' },
 ]
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ onNavigate }) {
   const [q,       setQ]       = useState('')
   const [results, setResults] = useState([])
   const [open,    setOpen]    = useState(false)
@@ -75,10 +75,10 @@ export default function GlobalSearch() {
     }, 320)
   }, [q])
 
-  const go = (url) => { navigate(url); setQ(''); setOpen(false) }
+  const go = (url) => { navigate(url); setQ(''); setOpen(false); onNavigate?.() }
 
   return (
-    <div ref={ref} style={{ position:'relative', flex:1, maxWidth:340 }}>
+    <div ref={ref} style={{ position:'relative', flex:1, maxWidth: onNavigate ? 'none' : 340 }}>
       <div className="global-search">
         <span style={{ fontSize:15, opacity:.7 }}>🔍</span>
         <input

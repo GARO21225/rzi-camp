@@ -3,6 +3,7 @@ import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../ap
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { usePlainteCategories } from '../constants/plaintes'
+import { useIsMobile } from '../hooks/useIsMobile'
 const PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
 const FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
 const EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]
@@ -33,6 +34,7 @@ function Etoiles({ value, onChange, readOnly }) {
 }
 
 export default function Plaintes() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser) || user?.profile?.role === 'admin' || user?.profile?.role === 'manager' || user?.profile?.role === 'superviseur'
   const CATEGORIES = usePlainteCategories()
@@ -120,7 +122,7 @@ export default function Plaintes() {
   )
 
   return (
-    <div style={{padding:20}}>
+    <div style={{padding: isMobile ? 16 : 20, position: isMobile ? 'relative' : 'static', minHeight: isMobile ? '100%' : 'auto'}}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
         <div>
           <h1 style={{fontSize:20, fontWeight:800, margin:0}}>🧹 Gestion des Plaintes</h1>
@@ -128,7 +130,7 @@ export default function Plaintes() {
             {isAdmin ? 'Suivi, qualification et traitement des plaintes des occupants' : 'Ma chambre — contrôle et signalements'}
           </p>
         </div>
-        {!isAdmin && (
+        {!isAdmin && !isMobile && (
           <div style={{display:'flex', gap:8}}>
             <button onClick={()=>setControleModal(true)}
               style={{background:'#f59e0b', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontWeight:700, fontSize:12.5}}>
@@ -143,14 +145,16 @@ export default function Plaintes() {
       </div>
 
       {isAdmin && dashboard && (
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10, marginBottom:16}}>
+        <div style={isMobile
+          ? {display:'flex', gap:10, marginBottom:16, overflowX:'auto', paddingBottom:4}
+          : {display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10, marginBottom:16}}>
           {Object.entries(dashboard.par_statut || {}).map(([s,n]) => (
-            <div key={s} style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:`3px solid ${STATUT_COLORS[s]}`}}>
+            <div key={s} style={{flexShrink:0, minWidth: isMobile?90:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:`3px solid ${STATUT_COLORS[s]}`}}>
               <div style={{fontSize:20, fontWeight:800, color:STATUT_COLORS[s]}}>{n}</div>
               <div style={{fontSize:10, color:'#64748b', textTransform:'uppercase', fontWeight:700}}>{STATUT_LABELS[s]}</div>
             </div>
           ))}
-          <div style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:'3px solid #dc2626'}}>
+          <div style={{flexShrink:0, minWidth: isMobile?90:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:'3px solid #dc2626'}}>
             <div style={{fontSize:20, fontWeight:800, color:'#dc2626'}}>{dashboard.en_retard}</div>
             <div style={{fontSize:10, color:'#64748b', textTransform:'uppercase', fontWeight:700}}>En retard</div>
           </div>
@@ -158,6 +162,19 @@ export default function Plaintes() {
       )}
 
       {isAdmin && (
+        isMobile ? (
+          <div style={{display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4}}>
+            {[['','Toutes'],['a_qualifier','À qualifier'],['en_cours','En cours'],['resolue','Résolues']].map(([v,l])=>(
+              <button key={v||'toutes'} onClick={()=>setFiltreStatut(v)}
+                style={{flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:700,
+                  border:`1px solid ${filtreStatut===v?'#0F2A5C':'#e2e8f0'}`,
+                  background:filtreStatut===v?'#0F2A5C':'#fff',
+                  color:filtreStatut===v?'#fff':'#475569'}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        ) : (
         <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
           <select value={filtreStatut} onChange={e=>setFiltreStatut(e.target.value)} style={{padding:'7px 10px', borderRadius:8, border:'1px solid #e2e8f0', fontSize:12.5}}>
             <option value="">Tous les statuts</option>
@@ -172,6 +189,7 @@ export default function Plaintes() {
             ⬇ Export CSV
           </a>
         </div>
+        )
       )}
 
       {loading ? (
@@ -200,6 +218,19 @@ export default function Plaintes() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {!isAdmin && isMobile && (
+        <div style={{position:'fixed', right:16, bottom:78, display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
+          <button onClick={()=>setControleModal(true)} aria-label="Contrôle de chambre"
+            style={{width:48, height:48, borderRadius:24, background:'#f59e0b', border:'none', boxShadow:'0 6px 16px rgba(245,158,11,.4)', fontSize:20, cursor:'pointer'}}>
+            ⭐
+          </button>
+          <button onClick={()=>setNouvelleModal(true)} aria-label="Déposer une plainte"
+            style={{width:54, height:54, borderRadius:27, background:'#dc2626', border:'none', boxShadow:'0 6px 16px rgba(220,38,38,.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
         </div>
       )}
 

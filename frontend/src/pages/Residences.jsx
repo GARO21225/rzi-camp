@@ -4,11 +4,13 @@ import { batiments, personnel as personnelAPI, occupationHistory, occupationHist
 import { usePlainteCategories } from '../constants/plaintes'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const bcolor = { Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', Maintenance:'var(--rzc-ore-gold)' }
 const today = new Date().toISOString().slice(0,10)
 
 export default function Residences() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
   const PLAINTE_CATEGORIES = usePlainteCategories()
@@ -229,22 +231,41 @@ export default function Residences() {
       )}
 
       {/* Onglets */}
-      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+      <div style={{ display:'flex', gap:2, marginBottom:16, background:isMobile?'#E9EDF3':'transparent', borderRadius:isMobile?10:0, padding:isMobile?4:0 }}>
         <button onClick={()=>setVueOnglet('chambres')}
-          style={{ background: vueOnglet==='chambres' ? 'var(--rzc-navy)' : '#f1f5f9', color: vueOnglet==='chambres' ? '#fff' : '#475569',
+          style={{ flex:isMobile?1:'none', background: vueOnglet==='chambres' ? (isMobile?'#fff':'var(--rzc-navy)') : (isMobile?'transparent':'#f1f5f9'),
+            color: vueOnglet==='chambres' ? (isMobile?'var(--rzc-navy)':'#fff') : '#475569',
             border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
           🏠 Chambres
         </button>
         <button onClick={()=>setVueOnglet('residents')}
-          style={{ background: vueOnglet==='residents' ? 'var(--rzc-navy)' : '#f1f5f9', color: vueOnglet==='residents' ? '#fff' : '#475569',
+          style={{ flex:isMobile?1:'none', background: vueOnglet==='residents' ? (isMobile?'#fff':'var(--rzc-navy)') : (isMobile?'transparent':'#f1f5f9'),
+            color: vueOnglet==='residents' ? (isMobile?'var(--rzc-navy)':'#fff') : '#475569',
             border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
           ⭐ Résidents principaux
         </button>
       </div>
 
-      {vueOnglet==='residents' ? <ResidentsPrincipauxTab isAdmin={isAdmin} personnelList={personnelList} batimentsList={data} /> : <>
+      {vueOnglet==='residents' ? <ResidentsPrincipauxTab isAdmin={isAdmin} personnelList={personnelList} batimentsList={data} isMobile={isMobile} /> : <>
 
       {/* Filtres */}
+      {isMobile ? (
+        <div style={{marginBottom:12}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Résidence, occupant..."
+            style={{...inp,marginBottom:10,boxSizing:'border-box'}}/>
+          <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
+            {[['','Tous'],['Libre','🟢 Libre'],['Occupé','🔴 Occupé'],['Réservé','🔵 Réservé'],['Maintenance','🟠 Maintenance']].map(([v,l])=>(
+              <button key={v||'tous'} onClick={()=>setStatut(v)}
+                style={{flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:700,
+                  border:`1px solid ${statut===v?'var(--rzc-navy)':'var(--rzc-border-light)'}`,
+                  background:statut===v?'var(--rzc-navy)':'#fff',
+                  color:statut===v?'#fff':'var(--rzc-text-3)'}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Résidence, occupant..."
           style={{ ...inp, width:170 }}/>
@@ -269,6 +290,7 @@ export default function Residences() {
           {data.length} résidences
         </span>
       </div>
+      )}
       {/* Warning: filtres sans résultats */}
       {data.length === 0 && (bloc || statut || search) && (
         <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,
@@ -286,7 +308,33 @@ export default function Residences() {
       )}
 
 
-      {/* Table */}
+      {/* Liste */}
+      {isMobile ? (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {loading ? (
+            <div style={{padding:24,textAlign:'center',color:'var(--rzc-text-3)'}}>Chargement...</div>
+          ) : data.map(b=>(
+            <div key={b.id} style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:14,padding:'12px 13px',display:'flex',flexDirection:'column',gap:5}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:13.5,fontWeight:700,color:'var(--rzc-navy)'}}>{b.residence} · Bloc {b.bloc}</span>
+                <span style={{background:`${bcolor[b.statut]}18`,color:bcolor[b.statut],padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700}}>{b.statut}</span>
+              </div>
+              <p style={{margin:0,fontSize:12,color:b.occupant?'var(--rzc-text)':'var(--rzc-text-3)'}}>
+                {b.personnel_detail?`${b.personnel_detail.nom} ${b.personnel_detail.prenom} · ${b.personnel_detail.societe||''}`:(b.occupant||'Aucun occupant')}
+              </p>
+              {(b.date_arrivee||b.date_depart) && (
+                <p style={{margin:0,fontSize:11,color:'var(--rzc-text-3)'}}>
+                  {b.date_arrivee||'—'} → {b.date_depart||'—'}
+                </p>
+              )}
+              <div style={{display:'flex',gap:8,marginTop:4}}>
+                <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>
+                <button onClick={()=>openHistory(b)} style={{background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div style={{ background:'var(--rzc-charcoal-l1)', border:'1px solid var(--rzc-border-light)', borderRadius:12, overflow:'hidden', boxShadow:'var(--rzc-shadow)' }}>
         <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5, minWidth:700 }}>
@@ -326,6 +374,7 @@ export default function Residences() {
           </table>
         </div>
       </div>
+      )}
 
       {/* ── EDIT MODAL ── */}
       {editModal && (
@@ -569,7 +618,7 @@ export default function Residences() {
   )
 }
 
-function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
+function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobile }) {
   const [liste, setListe] = useState([])
   const [loading, setLoading] = useState(true)
   const [voirHistorique, setVoirHistorique] = useState(false)
@@ -701,7 +750,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:isMobile?'stretch':'center', marginBottom:14, flexWrap:'wrap', gap:10, flexDirection:isMobile?'column':'row' }}>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <button onClick={()=>setVoirHistorique(false)}
             style={{ background: !voirHistorique ? 'var(--rzc-navy)' : '#f1f5f9', color: !voirHistorique ? '#fff' : '#475569',
@@ -714,8 +763,8 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
             📜 Historique complet
           </button>
           <input value={rechercheRp} onChange={e=>setRechercheRp(e.target.value)} placeholder="🔍 Rechercher un personnel..."
-            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12.5, width:200 }}/>
-          <button onClick={()=>{
+            style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'7px 12px', fontSize:12.5, width:isMobile?'100%':200, boxSizing:'border-box' }}/>
+          {!isMobile && <button onClick={()=>{
               const rows = [['Nom','Matricule','Resident principal','Chambre','Date affectation','Date fin','Statut','Occupant actuel'],
                 ...listeFiltree.map(rp=>[rp.personnel_nom, rp.personnel_matricule||'', rp.actif?'Oui':'Non', rp.batiment_residence,
                   rp.date_debut, rp.date_fin||'', rp.actif?'Active':'Terminee', rp.occupant_actuel_nom||''])]
@@ -727,17 +776,17 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
             }}
             style={{ background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
             ⬇ Export CSV
-          </button>
+          </button>}
         </div>
         {isAdmin && (
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={()=>{setImportModal(true); setImportResult(null)}}
-              style={{ background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+              style={{ flex:isMobile?1:'none', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
               📤 Importer
             </button>
             <button onClick={ouvrirDeclaration}
-              style={{ background:'#16a34a', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
-              ➕ Déclarer un résident principal
+              style={{ flex:isMobile?1:'none', background:'#16a34a', color:'#fff', border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
+              {isMobile?'➕ Déclarer':'➕ Déclarer un résident principal'}
             </button>
           </div>
         )}
@@ -757,6 +806,53 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList }) {
 
       {loading ? (
         <div style={{ padding:40, textAlign:'center', color:'#94a3b8' }}>⏳ Chargement...</div>
+      ) : isMobile ? (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {listeFiltree.length===0 && (
+            <div style={{padding:30,textAlign:'center',color:'#94a3b8',background:'#fff',borderRadius:12,border:'1px solid #e2e8f0'}}>
+              Aucun résident principal {voirHistorique?'':'actif'}.
+            </div>
+          )}
+          {listeFiltree.map(rp => (
+            <div key={rp.id} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:'12px 13px',display:'flex',flexDirection:'column',gap:5}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span style={{fontSize:13.5,fontWeight:700,color:'#0f172a'}}>{rp.personnel_nom}</span>
+                <span style={{background: rp.actif ? '#dcfce7' : '#f1f5f9', color: rp.actif ? '#15803d' : '#94a3b8',
+                  padding:'2px 9px', borderRadius:20, fontSize:10.5, fontWeight:700}}>
+                  {rp.actif ? 'Active' : 'Terminée'}
+                </span>
+              </div>
+              <p style={{margin:0,fontSize:12,color:'#64748b'}}>{rp.personnel_matricule||'—'} · 🏠 {rp.batiment_residence}</p>
+              <p style={{margin:0,fontSize:11,color:'#94a3b8'}}>
+                {new Date(rp.date_debut).toLocaleDateString('fr-FR')}{rp.date_fin ? ` → ${new Date(rp.date_fin).toLocaleDateString('fr-FR')}` : ''}
+                {rp.occupant_actuel_nom ? ` · Occupant actuel : ${rp.occupant_actuel_nom}` : ''}
+              </p>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>
+                {isAdmin && rp.actif && (
+                  <button onClick={()=>{setModifierModal({rp}); setNouvelleBatimentChoisi('')}}
+                    style={{ flex:1,background:'#eff6ff', color:'#2563eb', border:'1px solid #bfdbfe', padding:'7px 10px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                    ✏️ Modifier
+                  </button>
+                )}
+                <button onClick={()=>{setPlainteModal({rp}); setPlainteForm({description:'',categorie:'Proprete',sous_categorie:'poubelle'})}}
+                  style={{ flex:1,background:'#fff7ed', color:'#c2410c', border:'1px solid #fed7aa', padding:'7px 10px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                  🚨 Signaler
+                </button>
+                {isAdmin && rp.actif && (
+                  <button onClick={()=>mettreFin(rp)} style={{ flex:1,background:'#fef2f2', color:'#dc2626', border:'1px solid #fecaca', padding:'7px 10px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                    Fin
+                  </button>
+                )}
+                {isAdmin && (
+                  <button onClick={()=>supprimer(rp)}
+                    style={{ background:'#fef2f2', color:'#991b1b', border:'1px solid #fecaca', padding:'7px 10px', borderRadius:7, cursor:'pointer', fontSize:13 }}>
+                    🗑️
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div style={{ background:'#fff', borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
