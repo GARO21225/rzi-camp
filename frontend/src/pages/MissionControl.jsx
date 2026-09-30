@@ -558,6 +558,7 @@ export default function MissionControl() {
 
   const creerRotation = async () => {
     if (!formRot.date_depart || !formRot.date_retour_prevue) return flash('Dates requises',false)
+    if (formRot.date_retour_prevue < formRot.date_depart) return flash('La date de retour ne peut pas être avant la date de départ',false)
     if (formRot.mode_transport !== 'a_pied' && !formRot.vehicule) return flash('Véhicule requis (du parc ou saisi librement)',false)
     setSaving(true)
     try {
@@ -613,6 +614,9 @@ export default function MissionControl() {
     if (!formIndiv.personnel_id || !formIndiv.date_depart || !formIndiv.date_retour_prevue) {
       return flash('Personnel et dates requis', false)
     }
+    if (formIndiv.date_retour_prevue < formIndiv.date_depart) {
+      return flash('La date de retour ne peut pas être avant la date de départ', false)
+    }
     setSaving(true)
     try {
       // Traite le voyage individuel comme une rotation a 1 passager -
@@ -654,6 +658,10 @@ export default function MissionControl() {
   // passager qui fait le trajet complet).
   const rejoindreRotation = async (rotationId, personnelId, { origine, destination, date_retour_prevue } = {}) => {
     if (!personnelId) return flash('Sélectionner un passager',false)
+    const rotationParente = rotations.find(r=>r.rotation_id===rotationId)
+    if (date_retour_prevue && rotationParente?.date_depart && date_retour_prevue < rotationParente.date_depart) {
+      return flash('La date de retour ne peut pas être avant la date de départ du convoi',false)
+    }
     setSaving(true)
     try {
       const res = await api('/api/voyages/rejoindre_rotation/', {
@@ -1612,7 +1620,7 @@ export default function MissionControl() {
                                     </div>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il revient quand ? <span title="Sert à garder sa chambre jusqu'à cette date — indépendant de la date du convoi">ℹ️</span></label>
-                                      <input type="date" value={formJoin.date_retour_prevue} onChange={e=>setFormJoin(f=>({...f,date_retour_prevue:e.target.value}))}
+                                      <input type="date" value={formJoin.date_retour_prevue} min={r.date_depart||undefined} onChange={e=>setFormJoin(f=>({...f,date_retour_prevue:e.target.value}))}
                                         style={{...inputStyle,fontSize:12}}/>
                                     </div>
                                   </div>
@@ -2360,32 +2368,22 @@ export default function MissionControl() {
               {/* Montée / Descente en cours de route — edition DIRECTE et
                   simple des points de prise en charge, sans passer par le
                   systeme d'etapes complet (reserve aux vrais trajets
-                  multi-tronçons). S'applique a l'aller (origine/destination
-                  du voyage) ET au retour (champs dedies). */}
+                  multi-tronçons). Uniquement l'aller : les voyages sont
+                  desormais toujours le meme jour, pas de retour distinct. */}
               <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:4}}>📍 Montée / Descente en cours de route</div>
                 <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-                  Si ce passager ne fait pas exactement le même trajet que le reste du convoi — pris en route ou déposé avant l'arrivée, à l'aller ou au retour.
+                  Si ce passager ne fait pas exactement le même trajet que le reste du convoi — pris en route ou déposé avant l'arrivée.
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
                   <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (aller)</label>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée</label>
                     <input defaultValue={detailVoyage.origine||''} id="mc-lieu-montee-aller"
                       style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
                   </div>
                   <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (aller)</label>
+                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente</label>
                     <input defaultValue={detailVoyage.destination||''} id="mc-lieu-descente-aller"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée (retour)</label>
-                    <input defaultValue={detailVoyage.lieu_montee_retour||''} placeholder={detailVoyage.destination||'Même point que le convoi'} id="mc-lieu-montee-retour"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente (retour)</label>
-                    <input defaultValue={detailVoyage.lieu_descente_retour||''} placeholder={detailVoyage.origine||'Destination normale'} id="mc-lieu-descente-retour"
                       style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
                   </div>
                 </div>
@@ -2394,8 +2392,6 @@ export default function MissionControl() {
                     const payload = {
                       origine: document.getElementById('mc-lieu-montee-aller').value,
                       destination: document.getElementById('mc-lieu-descente-aller').value,
-                      lieu_montee_retour: document.getElementById('mc-lieu-montee-retour').value,
-                      lieu_descente_retour: document.getElementById('mc-lieu-descente-retour').value,
                     }
                     try {
                       const res = await api(`/api/voyages/${detailVoyage.id}/`, {method:'PATCH', body:JSON.stringify(payload)})
@@ -2429,17 +2425,10 @@ export default function MissionControl() {
                     <input defaultValue={etapeVol?.reference||''} id="mc-vol-numero" placeholder="Ex: AF714"
                       style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
                   </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Sens</label>
-                    <select defaultValue={etapeVol?.sens||'aller'} id="mc-vol-sens"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}>
-                      <option value="aller">➡️ Aller (départ)</option>
-                      <option value="retour">⬅️ Retour</option>
-                    </select>
-                  </div>
+                  <input type="hidden" id="mc-vol-sens" value="aller" readOnly/>
                   <div>
                     <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Date du vol</label>
-                    <input type="date" defaultValue={etapeVol?.date_etape||(detailVoyage.date_retour_prevue||detailVoyage.date_depart)} id="mc-vol-date"
+                    <input type="date" defaultValue={etapeVol?.date_etape||detailVoyage.date_depart} id="mc-vol-date"
                       style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
                   </div>
                   <div>
@@ -2683,8 +2672,7 @@ export default function MissionControl() {
                   <div style={{fontSize:12,fontWeight:700,color:C.accent}}>🗺️ Trajet sur la carte</div>
                   {detailVoyage.statut !== 'retour' && (
                   <div style={{display:'flex',gap:6}}>
-                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape aller</button>
-                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('retour')}>⬅️ + Étape retour</button>
+                    <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:C.bg}} onClick={()=>initNouvelleEtape('aller')}>➡️ + Étape</button>
                     <button className="mc-btn" style={{fontSize:10,padding:'4px 8px',background:'#7c3aed20',color:'#7c3aed'}} onClick={()=>importerEtapesEnMasse('aller')}>📋 Coller un itinéraire</button>
                     {itineraires.filter(i=>i.actif).length > 0 && (
                       <select defaultValue="" style={{fontSize:10,padding:'4px 6px',borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text}}
@@ -3016,9 +3004,12 @@ export default function MissionControl() {
                           <span style={{fontWeight:400,color:C.muted}}> (pas forcément le même jour — trajet aller simple ; sert à détecter les chevauchements avec un autre voyage)</span>
                         )}
                       </label>
-                      <input type="date" value={formRot.date_retour_prevue}
+                      <input type="date" value={formRot.date_retour_prevue} min={formRot.date_depart||undefined}
                         onChange={e=>setFormRot(p=>({...p,date_retour_prevue:e.target.value}))}
                         style={inputStyle}/>
+                      {formRot.date_depart && formRot.date_retour_prevue && formRot.date_retour_prevue < formRot.date_depart && (
+                        <div style={{fontSize:10,color:C.red,marginTop:3}}>⚠️ La date de retour ne peut pas être avant la date de départ ({fmt(formRot.date_depart)})</div>
+                      )}
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Point de rendez-vous</label>
@@ -3180,8 +3171,11 @@ export default function MissionControl() {
                     </div>
                     <div>
                       <label style={labelStyle}>Retour prévu *</label>
-                      <input type="date" value={formIndiv.date_retour_prevue}
+                      <input type="date" value={formIndiv.date_retour_prevue} min={formIndiv.date_depart||undefined}
                         onChange={e=>setFormIndiv(p=>({...p,date_retour_prevue:e.target.value}))} style={inputStyle}/>
+                      {formIndiv.date_depart && formIndiv.date_retour_prevue && formIndiv.date_retour_prevue < formIndiv.date_depart && (
+                        <div style={{fontSize:10,color:C.red,marginTop:3}}>⚠️ Ne peut pas être avant le départ ({fmt(formIndiv.date_depart)})</div>
+                      )}
                     </div>
                     <div>
                       <label style={labelStyle}>Point de RDV</label>

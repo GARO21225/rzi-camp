@@ -95,6 +95,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         personnel_id = request.data.get("personnel")
         date_depart = request.data.get("date_depart")
         date_retour = request.data.get("date_retour_prevue")
+        if date_depart and date_retour and str(date_retour) < str(date_depart):
+            return Response({"error": "La date de retour ne peut pas être avant la date de départ"}, status=400)
         if personnel_id and date_depart and date_retour:
             conflict = _check_voyage_conflit(personnel_id, date_depart, date_retour)
             if conflict:
@@ -856,6 +858,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Seul un admin peut créer une rotation groupée. Utilisez le voyage individuel pour votre propre déplacement."}, status=403)
         if not date_depart or not date_retour:
             return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
+        if date_retour < date_depart:
+            return Response({"error":"La date de retour ne peut pas être avant la date de départ"},status=400)
 
         # Regle : le conducteur ne peut pas etre aussi passager de la meme
         # rotation - SAUF si c'est un voyage SOLO (une seule personne) : la
@@ -1150,6 +1154,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
             date_retour_effectif = date_retour_passager or ref_date_retour
             origine_effective     = origine_passager or ref_origine
             destination_effective = destination_passager or ref_destination
+            if ref_date_depart and date_retour_effectif and str(date_retour_effectif) < str(ref_date_depart):
+                return Response({"error": "La date de retour ne peut pas être avant la date de départ du convoi"}, status=400)
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
             # (avec SA date de retour reelle - c'est elle qui determine s'il
             # faut lui garder sa chambre, pas la date du convoi/vehicule).
