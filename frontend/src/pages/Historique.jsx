@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI } from '../api'
 import { toast } from '../toast'
 import { useStore } from '../store'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // Un role non-admin qui obtient acces a /historique (via Parametrage ->
 // Roles & Acces) ne voit que l'onglet correspondant a son propre
@@ -44,6 +45,7 @@ function SearchCard({ title, color, children }) {
 }
 
 export default function Historique() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
@@ -433,12 +435,17 @@ export default function Historique() {
       </div>
 
       {/* TABS */}
-      <div style={{display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
+      <div style={isMobile
+        ? {display:'flex',gap:8,marginBottom:16,overflowX:'auto',paddingBottom:4}
+        : {display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
         {TABS.map(([k,l])=>(
           <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='induction') loadInduction(); if(k==='audit' && !auditSearched) loadAudit()}}
-            style={{flex:1,padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
-              background:tab===k?'#fff':'transparent',color:tab===k?'var(--blue)':'var(--text-dim)',
-              boxShadow:tab===k?'var(--shadow)':'none',transition:'.2s'}}>
+            style={isMobile
+              ? {flexShrink:0,padding:'7px 14px',borderRadius:99,border:`1px solid ${tab===k?'var(--blue)':'var(--border)'}`,cursor:'pointer',fontSize:12,fontWeight:700,
+                  background:tab===k?'var(--blue)':'#fff',color:tab===k?'#fff':'var(--text-dim)',whiteSpace:'nowrap'}
+              : {flex:1,padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:600,
+                  background:tab===k?'#fff':'transparent',color:tab===k?'var(--blue)':'var(--text-dim)',
+                  boxShadow:tab===k?'var(--shadow)':'none',transition:'.2s'}}>
             {l}
           </button>
         ))}
@@ -497,7 +504,7 @@ export default function Historique() {
               </button>
             </div>
           )}
-          <ResultsTable results={results} loading={loading} searched={searched} type="chambre"/>
+          <ResultsTable results={results} loading={loading} searched={searched} type="chambre" isMobile={isMobile}/>
         </div>
       )}
 
@@ -530,7 +537,7 @@ export default function Historique() {
               </button>
             </div>
           )}
-          <ResultsTable results={results} loading={loading} searched={searched} type="personne"/>
+          <ResultsTable results={results} loading={loading} searched={searched} type="personne" isMobile={isMobile}/>
         </div>
       )}
 
@@ -584,7 +591,7 @@ export default function Historique() {
                   ⬇ Export CSV
                 </button>
               </div>
-              <VoyageTable voyages={voyData.voyages||[]}/>
+              <VoyageTable voyages={voyData.voyages||[]} isMobile={isMobile}/>
             </div>
           )}
           {!voyData&&!voyLoading&&searched===false&&<EmptyState icon="✈️" text="Sélectionner un personnel et cliquer Voir"/>}
@@ -650,7 +657,7 @@ export default function Historique() {
                   ⬇ Export CSV complet
                 </button>
               </div>
-              <VoyageTable voyages={voyEnsemble.voyages||[]} showPersonnel/>
+              <VoyageTable voyages={voyEnsemble.voyages||[]} showPersonnel isMobile={isMobile}/>
             </div>
           ):<div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div>}
         </div>
@@ -708,6 +715,25 @@ export default function Historique() {
           </SearchCard>
 
           {repasFiltered.length > 0 ? (
+            isMobile ? (
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {repasFiltered.map((r,i)=>{
+                  const dt = r.date_validation ? new Date(r.date_validation) : null
+                  return (
+                    <div key={r.id||i} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{r.resident||'—'}</span>
+                        <span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span>
+                      </div>
+                      <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}</p>
+                      <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
+                        {dt ? dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'} · Validé par {r.valide_par_nom||'—'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
               <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span>📋 {repasFiltered.length}/{repasData.length} scan(s) de repas</span>
@@ -742,6 +768,7 @@ export default function Historique() {
                 </table>
               </div>
             </div>
+            )
           ) : (
             <EmptyState icon="🍽️" text="Aucun scan enregistré. Utilisez la page Restaurant pour scanner les repas."/>
           )}
@@ -786,6 +813,27 @@ export default function Historique() {
           </SearchCard>
 
           {maintFiltered.length > 0 ? (
+            isMobile ? (
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {maintFiltered.map((i,idx)=>{
+                  const dtC = i.date_creation ? new Date(i.date_creation) : null
+                  const dtF = i.date_cloture ? new Date(i.date_cloture) : null
+                  return (
+                    <div key={i.id||idx} onClick={()=>ouvrirDossierMaintenance(i)}
+                      style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)',cursor:'pointer'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{i.titre||'—'}</span>
+                        <span style={{background:'rgba(91,100,114,.12)',color:'#5B6472',padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{i.priorite||'—'}</span>
+                      </div>
+                      <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{i.residence||'—'} · {i.categorie||'—'}</p>
+                      <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
+                        Créé {dtC ? dtC.toLocaleDateString('fr-FR') : '—'} · Clôturé {dtF ? dtF.toLocaleDateString('fr-FR') : '—'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
               <div style={{padding:'10px 16px',background:'#5B6472',color:'#fff',fontWeight:600,fontSize:13}}>
                 📋 {maintFiltered.length}/{maintData.length} dossier(s) clôturé(s)
@@ -823,6 +871,7 @@ export default function Historique() {
                 </table>
               </div>
             </div>
+            )
           ) : (
             <EmptyState icon="🛠️" text={maintLoading ? "Chargement..." : "Aucun dossier de maintenance clôturé."}/>
           )}
@@ -958,6 +1007,31 @@ export default function Historique() {
           </SearchCard>
 
           {inductionFiltered.length > 0 ? (
+            isMobile ? (
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {inductionFiltered.map((r,idx)=>{
+                  const p = r.personnel_detail || {}
+                  const statutStyle = {
+                    en_cours: {bg:'rgba(217,119,6,.12)',color:'#d97706',label:'En cours'},
+                    valide:   {bg:'rgba(22,163,74,.12)',color:'#16a34a',label:'Validé — Induit'},
+                    refuse:   {bg:'rgba(220,38,38,.12)',color:'#dc2626',label:'Refusé'},
+                    expire:   {bg:'rgba(100,116,139,.12)',color:'#64748b',label:'Expiré'},
+                  }[r.statut] || {bg:'rgba(100,116,139,.12)',color:'#64748b',label:r.statut}
+                  return (
+                    <div key={r.id||idx} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{p.nom} {p.prenom}</span>
+                        <span style={{background:statutStyle.bg,color:statutStyle.color,padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{statutStyle.label}</span>
+                      </div>
+                      <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{p.societe||'—'} · {r.progression ?? 0}% · Quiz {r.quiz_score != null ? `${r.quiz_score}%` : '—'}</p>
+                      <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
+                        {r.date_debut ? new Date(r.date_debut).toLocaleDateString('fr-FR') : '—'} → {r.date_fin ? new Date(r.date_fin).toLocaleDateString('fr-FR') : '—'} {r.badge_emis ? '· 🪪 Badge émis' : ''}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
               <div style={{padding:'10px 16px',background:'var(--rzc-navy)',color:'#fff',fontWeight:600,fontSize:13}}>
                 🎓 {inductionFiltered.length}/{inductionData.length} induction(s)
@@ -995,6 +1069,7 @@ export default function Historique() {
                 </table>
               </div>
             </div>
+            )
           ) : (
             <EmptyState icon="🎓" text={inductionLoading ? "Chargement..." : "Aucune induction enregistrée."}/>
           )}
@@ -1090,7 +1165,7 @@ function EmptyState({ icon, text }) {
   )
 }
 
-function ResultsTable({ results, loading, searched, type }) {
+function ResultsTable({ results, loading, searched, type, isMobile }) {
   if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>🔍 Recherche en cours...</div>
   if (!searched) return (
     <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,padding:40,textAlign:'center',color:'var(--text-dim)',boxShadow:'var(--shadow)'}}>
@@ -1116,6 +1191,26 @@ function ResultsTable({ results, loading, searched, type }) {
         <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:8,padding:'6px 14px',fontSize:13}}>Durée totale : <b style={{color:'var(--blue)'}}>{totalJ} jours</b></div>
         {enCours>0 && <div style={{background:'rgba(22,163,74,.1)',border:'1px solid rgba(22,163,74,.3)',borderRadius:8,padding:'6px 14px',fontSize:13,color:'#16a34a',fontWeight:700}}>{enCours} en cours</div>}
       </div>
+      {isMobile ? (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {results.map((r,i)=>(
+            <div key={String(r.id)} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{r.residence}{r.bloc?` · ${r.bloc}`:''}</span>
+                <span style={{background:r.en_cours?'rgba(22,163,74,.12)':'var(--surface2)',color:r.en_cours?'#16a34a':'var(--text-dim)',padding:'2px 8px',borderRadius:20,fontSize:10.5,fontWeight:700}}>
+                  {r.en_cours?'En cours':'Terminé'}
+                </span>
+              </div>
+              {type==='chambre' && <p style={{margin:0,fontSize:12,color:'var(--text-2, #2D3B52)'}}>{r.occupant} {r.societe && `· ${r.societe}`}</p>}
+              {type==='personne' && r.motif_depart && <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{r.motif_depart}</p>}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                <p style={{margin:0,fontSize:11.5,color:'var(--text-dim)'}}>{r.date_arrivee} → {r.date_depart||'En cours'}</p>
+                <Chip jours={r.duree_jours||0}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5,minWidth:600}}>
@@ -1151,12 +1246,36 @@ function ResultsTable({ results, loading, searched, type }) {
           </table>
         </div>
       </div>
+      )}
     </div>
   )
 }
 
-function VoyageTable({ voyages, showPersonnel }) {
+function VoyageTable({ voyages, showPersonnel, isMobile }) {
   if (!voyages||voyages.length===0) return <EmptyState icon="✈️" text="Aucun voyage enregistré"/>
+  if (isMobile) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {voyages.map((v,i)=>{
+          const sc = Object.values(STATUT_V).find(x=>x.label===v.statut_label)||STATUT_V.retour
+          return (
+            <div key={v.id||i} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{showPersonnel ? v.personnel : `Voyage #${i+1}`}</span>
+                <span style={{background:sc.bg,color:sc.color,padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{v.statut_label||v.statut}</span>
+              </div>
+              <p style={{margin:0,fontSize:12,color:'var(--text-2, #2D3B52)'}}>
+                {showPersonnel && v.societe ? `${v.societe} · ` : ''}🏠 {v.chambre||'—'} · 📍 {v.destination||'—'}
+              </p>
+              <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
+                Départ {v.date_depart_effective||v.date_depart||'—'} → Retour {v.date_retour_effective||v.date_retour_prevue||'En cours'}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
   return (
     <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
       <div style={{overflowX:'auto'}}>

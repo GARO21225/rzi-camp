@@ -6,6 +6,7 @@ import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
 import { questionsAvis as questionsAvisAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
@@ -129,10 +130,12 @@ function texteLisibleSur(hex) {
 
 export default function Parametrage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser)
 
   const [tab, setTab] = useState('general')
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [valeurs, setValeurs] = useState({})
   const [descriptions, setDescriptions] = useState({})
   const [loading, setLoading] = useState(true)
@@ -178,8 +181,38 @@ export default function Parametrage() {
 
   if (loading) return <div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement...</div>
 
+  if (isMobile && !mobileOpen) {
+    return (
+      <div style={{ padding:16 }}>
+        <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>⚙️ Paramétrage</h2>
+        <p style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>
+          {!isAdmin && "Lecture seule — réservé aux administrateurs pour la modification."}
+        </p>
+        <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:'4px 14px'}}>
+          {TABS.map(([k,l]) => (
+            <button key={k} onClick={()=>{setTab(k);setMobileOpen(true)}}
+              style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',
+                background:'none',border:'none',borderBottom:'1px solid rgba(15,26,46,.08)',
+                padding:'14px 4px',cursor:'pointer',fontFamily:'inherit'}}>
+              <span style={{flex:1,fontSize:13.5,fontWeight:600,color:'#0F1A2E'}}>{l}</span>
+              <span style={{color:'#8B95A1',fontSize:16}}>›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ padding:20 }}>
+      {isMobile ? (
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+          <button aria-label="Retour" onClick={()=>setMobileOpen(false)}
+            style={{background:'none',border:'none',padding:4,color:'#0F1A2E',fontSize:20,cursor:'pointer'}}>‹</button>
+          <span style={{fontSize:15,fontWeight:700,color:'#0F1A2E'}}>{TABS.find(([k])=>k===tab)?.[1]}</span>
+        </div>
+      ) : (
+      <>
       <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>⚙️ Paramétrage</h2>
       <p style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>
         Réglages centraux de l'application. {!isAdmin && "Lecture seule — réservé aux administrateurs pour la modification."}
@@ -196,6 +229,8 @@ export default function Parametrage() {
             }}>{l}</button>
         ))}
       </div>
+      </>
+      )}
 
       {msg && (
         <div style={{
@@ -214,7 +249,7 @@ export default function Parametrage() {
       )}
 
       {tab === 'roles' && (
-        <RolesTab isAdmin={isAdmin} />
+        <RolesTab isAdmin={isAdmin} isMobile={isMobile} />
       )}
 
       {tab === 'rapports-planifies' && (
@@ -942,13 +977,14 @@ const PAGES_ASSIGNABLES = [
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
 ]
 
-function RolesTab({ isAdmin }) {
+function RolesTab({ isAdmin, isMobile }) {
   const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [nouveauCode, setNouveauCode] = useState('')
   const [nouveauLabel, setNouveauLabel] = useState('')
   const [creating, setCreating] = useState(false)
+  const [selRoleId, setSelRoleId] = useState(null)
 
   const charger = () => {
     setLoading(true)
@@ -1008,6 +1044,81 @@ function RolesTab({ isAdmin }) {
   }
 
   if (loading) return <div style={{padding:20,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement des rôles...</div>
+
+  if (isMobile) {
+    const selRole = roles.find(r => r.id === selRoleId) || roles[0]
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#1e40af'}}>
+          ℹ️ L'admin garde toujours accès à toutes les pages.
+        </div>
+
+        {isAdmin && (
+          <div style={{border:'1px dashed #C9972B',borderRadius:12,padding:14,background:'#fffbeb'}}>
+            <div style={{fontWeight:700,fontSize:13,color:'#92400e',marginBottom:8}}>➕ Créer un nouveau rôle</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <input value={nouveauLabel} onChange={e=>setNouveauLabel(e.target.value)} placeholder="Nom affiché (ex: Chef d'équipe)"
+                style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,boxSizing:'border-box'}}/>
+              <input value={nouveauCode} onChange={e=>setNouveauCode(e.target.value)} placeholder="code_technique"
+                style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,fontFamily:'monospace',boxSizing:'border-box'}}/>
+              <button onClick={creerRole} disabled={creating}
+                style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
+                  cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
+                {creating ? '⏳...' : 'Créer'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <select value={selRole?.id||''} onChange={e=>setSelRoleId(Number(e.target.value))}
+          style={{border:'1px solid #e2e8f0',borderRadius:10,padding:'9px 10px',fontSize:13,color:'#0F1A2E'}}>
+          {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+        </select>
+
+        {selRole && selRole.est_systeme && (
+          <div style={{fontSize:12,color:'#94a3b8',fontStyle:'italic'}}>Rôle système, protégé — accès complet non modifiable.</div>
+        )}
+
+        {selRole && !selRole.est_systeme && (
+          <>
+            <div style={{display:'flex',flexDirection:'column'}}>
+              {PAGES_ASSIGNABLES.map(([path, lbl]) => {
+                const voitPage = selRole.menu_pages.includes(path)
+                const peutEcrire = voitPage && !selRole.pages_readonly.includes(path)
+                return (
+                  <div key={path} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid rgba(15,26,46,.08)'}}>
+                    <span style={{fontSize:12.5,color:'#0F1A2E'}}>{lbl}</span>
+                    <div style={{display:'flex',gap:14}}>
+                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#5B6472'}}>
+                        <input type="checkbox" disabled={!isAdmin} checked={voitPage} onChange={()=>toggle(selRole, path)}/>Voir
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#5B6472'}}>
+                        <input type="checkbox" disabled={!isAdmin||!voitPage} checked={peutEcrire} onChange={()=>toggleEcriture(selRole, path)}/>Modifier
+                      </label>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {isAdmin && (
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>enregistrerRole(selRole)} disabled={savingId===selRole.id}
+                  style={{flex:1,background:'var(--rzc-navy,#0F2A5C)',color:'#fff',border:'none',padding:'10px 16px',
+                    borderRadius:8,cursor:savingId===selRole.id?'not-allowed':'pointer',fontSize:12,fontWeight:700}}>
+                  {savingId===selRole.id ? '⏳...' : '💾 Enregistrer'}
+                </button>
+                <button onClick={()=>supprimerRole(selRole)}
+                  style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',padding:'10px 14px',
+                    borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                  🗑️
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:24}}>

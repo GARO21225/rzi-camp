@@ -1424,7 +1424,8 @@ export default function MissionControl() {
         {/* ══ VUE ROTATIONS ══════════════════════════════════════ */}
         {view==='rotations' && (
           <div className="mc-fade">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'flex-start':'center',
+              flexDirection:isMobile?'column':'row',gap:isMobile?10:0,marginBottom:14}}>
               <div>
                 <div style={{fontSize:16,fontWeight:800,color:C.text}}>Rotations & Convois</div>
                 <div style={{fontSize:12,color:C.muted}}>
@@ -1432,40 +1433,59 @@ export default function MissionControl() {
                   {rotations.some(r=>r.statut==='retour') && ` · ${rotations.filter(r=>r.statut==='retour').length} terminé(s)`}
                 </div>
               </div>
-              <div style={{display:'flex',gap:8}}>
+              <div style={{display:'flex',gap:8,flexWrap:isMobile?'wrap':'nowrap',width:isMobile?'100%':'auto'}}>
                 {rotations.some(r=>r.statut==='retour') && (
                   <button className="mc-btn mc-btn-ghost" onClick={()=>setAfficherConvoisTermines(v=>!v)}>
                     {afficherConvoisTermines ? '🙈 Masquer les terminés' : `👁️ Voir les terminés (${rotations.filter(r=>r.statut==='retour').length})`}
                   </button>
                 )}
-                <button className="mc-btn mc-btn-ghost" onClick={()=>setShowCreate('individuel')}>
-                  + Voyage individuel
+                <button className="mc-btn mc-btn-ghost" style={isMobile?{flex:1}:undefined} onClick={()=>setShowCreate('individuel')}>
+                  {isMobile?'+ Individuel':'+ Voyage individuel'}
                 </button>
-                <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
+                <button className="mc-btn mc-btn-primary" style={isMobile?{flex:1}:undefined} onClick={()=>setShowCreate('rotation')}>
                   ✦ Nouvelle rotation
                 </button>
               </div>
             </div>
 
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
-              <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
-                placeholder="🔎 Destination, véhicule, conducteur..."
-                style={{...inputStyle,flex:'1 1 220px',minWidth:180}}/>
-              <input type="date" value={rotFiltreDateDebut} onChange={e=>setRotFiltreDateDebut(e.target.value)}
-                title="Départ à partir du" style={{...inputStyle,width:150}}/>
-              <input type="date" value={rotFiltreDateFin} onChange={e=>setRotFiltreDateFin(e.target.value)}
-                title="Départ jusqu'au" style={{...inputStyle,width:150}}/>
-              <select value={rotFiltreStatut} onChange={e=>setRotFiltreStatut(e.target.value)} style={{...inputStyle,width:160}}>
-                <option value="tous">Tous statuts</option>
-                <option value="planifie">Planifié</option>
-                <option value="en_voyage">En transit</option>
-              </select>
-              {(rotFiltreTexte||rotFiltreDateDebut||rotFiltreDateFin||rotFiltreStatut!=='tous') && (
-                <button className="mc-btn mc-btn-ghost" onClick={()=>{
-                  setRotFiltreTexte('');setRotFiltreDateDebut('');setRotFiltreDateFin('');setRotFiltreStatut('tous')
-                }}>✕ Réinitialiser</button>
-              )}
-            </div>
+            {isMobile ? (
+              <div>
+                <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
+                  placeholder="🔎 Destination, véhicule, conducteur..."
+                  style={{...inputStyle,width:'100%',marginBottom:10,boxSizing:'border-box'}}/>
+                <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:2}}>
+                {['tous','planifie','en_voyage'].map(s=>(
+                  <button key={s} className="mc-btn" onClick={()=>setRotFiltreStatut(s)}
+                    style={{flexShrink:0,padding:'6px 14px',fontSize:12,
+                      background:rotFiltreStatut===s?C.accent:'transparent',
+                      color:rotFiltreStatut===s?'#000':C.text,
+                      border:`1px solid ${rotFiltreStatut===s?C.accent:C.border}`,fontWeight:700}}>
+                    {s==='tous'?'Tous':s==='planifie'?'Planifié':'En transit'}
+                  </button>
+                ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+                <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
+                  placeholder="🔎 Destination, véhicule, conducteur..."
+                  style={{...inputStyle,flex:'1 1 220px',minWidth:180}}/>
+                <input type="date" value={rotFiltreDateDebut} onChange={e=>setRotFiltreDateDebut(e.target.value)}
+                  title="Départ à partir du" style={{...inputStyle,width:150}}/>
+                <input type="date" value={rotFiltreDateFin} onChange={e=>setRotFiltreDateFin(e.target.value)}
+                  title="Départ jusqu'au" style={{...inputStyle,width:150}}/>
+                <select value={rotFiltreStatut} onChange={e=>setRotFiltreStatut(e.target.value)} style={{...inputStyle,width:160}}>
+                  <option value="tous">Tous statuts</option>
+                  <option value="planifie">Planifié</option>
+                  <option value="en_voyage">En transit</option>
+                </select>
+                {(rotFiltreTexte||rotFiltreDateDebut||rotFiltreDateFin||rotFiltreStatut!=='tous') && (
+                  <button className="mc-btn mc-btn-ghost" onClick={()=>{
+                    setRotFiltreTexte('');setRotFiltreDateDebut('');setRotFiltreDateFin('');setRotFiltreStatut('tous')
+                  }}>✕ Réinitialiser</button>
+                )}
+              </div>
+            )}
 
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {rotations
@@ -1545,7 +1565,8 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {/* Actions */}
-                      <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
+                      <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center',
+                        flexWrap:isMobile?'wrap':'nowrap',width:isMobile?'100%':'auto',order:isMobile?4:0}}>
                         {r.statut==='retour'&&<span style={{padding:'6px 12px',fontSize:11,fontWeight:700,
                           borderRadius:8,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
                         {r.statut==='planifie'&&<button className="mc-btn"
