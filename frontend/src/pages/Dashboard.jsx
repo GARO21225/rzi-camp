@@ -166,6 +166,137 @@ function AlertRow({ icon, title, desc, severity = 'info' }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  DASHBOARD MOBILE — écran dédié (maquette validée) : cartes
+//  compactes, thème clair aligné sur le reste de l'app mobile
+//  (BottomTabBar / header sont déjà rendus par Layout.jsx, donc ce
+//  composant ne fournit que le contenu défilant).
+// ─────────────────────────────────────────────────────────────────
+function MobileKpiCard({ icon, iconBg, label, value, sub }) {
+  return (
+    <div style={{ flex: 1, background: '#fff', border: '1px solid rgba(15,26,46,.12)',
+      borderRadius: 14, padding: 13, display: 'flex', flexDirection: 'column', gap: 8,
+      boxShadow: '0 1px 3px rgba(15,26,46,.05)' }}>
+      <div style={{ width: 32, height: 32, borderRadius: 9, background: iconBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--rzc-text, #0F1A2E)' }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--rzc-text-3, #5B6472)' }}>{label}{sub ? ` · ${sub}` : ''}</div>
+    </div>
+  )
+}
+
+function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, libres,
+  personnelLoge, personnelNonLoge, enVoyage, planifies, notifs, unread, MODULES, nav }) {
+  return (
+    <div style={{ padding: '16px 14px 24px', display: 'flex', flexDirection: 'column', gap: 14,
+      background: 'var(--rzc-fond-app, #f1f5f9)', minHeight: '100%' }}>
+
+      {/* Salutation */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--rzc-text-3, #5B6472)', fontWeight: 500 }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+          <h1 style={{ margin: '3px 0 0', fontSize: 20, color: 'var(--rzc-text, #0F1A2E)', fontWeight: 700 }}>
+            {nomApp} · Roxgold Sango
+          </h1>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--rzc-text-4, #8B95A1)' }}>
+            {sync ? `Synchronisé ${sync.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Chargement...'}
+          </p>
+        </div>
+        <button onClick={load} disabled={loading} aria-label="Actualiser"
+          style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 10,
+            width: 36, height: 36, fontSize: 15, flexShrink: 0, color: 'var(--rzc-navy, #0F2A5C)' }}>
+          {loading ? '⏳' : '🔄'}
+        </button>
+      </div>
+
+      {/* Alertes urgentes — condensées, une carte compacte seulement sur mobile */}
+      {alertes.some(a => a.urgent) && (
+        <div style={{ background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.25)',
+          borderRadius: 14, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13, color: '#DC2626' }}>
+            🚨 {alertes.filter(a => a.urgent).length} alerte(s) urgente(s)
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--rzc-text-2, #2D3B52)' }}>
+            {alertes.find(a => a.urgent)?.titre}
+          </p>
+        </div>
+      )}
+
+      {/* KPI */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <MobileKpiCard icon="🏠" iconBg="rgba(37,99,235,.10)" value={taux !== null ? `${taux}%` : '—'}
+          label="Occupation camp" sub={`${occupes}/${occupes + libres}`} />
+        <MobileKpiCard icon="👥" iconBg="rgba(22,163,74,.10)" value={personnelLoge ?? '—'}
+          label="Personnel logé" sub={`${personnelNonLoge ?? 0} non logé(s)`} />
+      </div>
+
+      {/* Mobilité */}
+      <button onClick={() => nav('/rotations')}
+        style={{ textAlign: 'left', background: '#fff', border: '1px solid rgba(15,26,46,.12)',
+          borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(15,26,46,.05)', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
+          <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>🧭 Centre de mobilité</span>
+          <span style={{ fontSize: 12, color: 'var(--rzc-ore-gold, #C9972B)', fontWeight: 600 }}>Voir tout ›</span>
+        </div>
+        <div style={{ display: 'flex', gap: 18, padding: '11px 14px 14px', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
+          <span>🧳 {planifies} rotation(s) planifiée(s)</span>
+        </div>
+        <div style={{ display: 'flex', gap: 18, padding: '0 14px 14px', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
+          <span>🚐 {enVoyage} personne(s) en transit</span>
+        </div>
+      </button>
+
+      {/* Activité récente */}
+      <section style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 14,
+        padding: 14, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 1px 3px rgba(15,26,46,.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>🔔 Activité récente</span>
+          {unread > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--rzc-blue, #2563EB)',
+            background: 'rgba(37,99,235,.10)', borderRadius: 99, padding: '2px 8px' }}>{unread} nouvelle(s)</span>}
+        </div>
+        {(notifs || []).length === 0
+          ? <p style={{ margin: 0, fontSize: 12, color: 'var(--rzc-text-4, #8B95A1)', textAlign: 'center', padding: '10px 0' }}>Aucune notification</p>
+          : (notifs || []).slice(0, 4).map((n, i, arr) => (
+            <div key={n.id || i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start',
+              paddingBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? '1px solid rgba(15,26,46,.08)' : 'none' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+                background: !n.lu ? 'var(--rzc-blue, #2563EB)' : 'var(--rzc-text-4, #8B95A1)' }} />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {n.evenement_titre || n.message || 'Notification'}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--rzc-text-4, #8B95A1)' }}>
+                  {n.date_envoi ? new Date(n.date_envoi).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                </p>
+              </div>
+            </div>
+          ))}
+      </section>
+
+      {/* Accès rapides */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--rzc-text-2, #2D3B52)', padding: '0 2px' }}>Accès rapides</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {MODULES.map(({ icon, label, path }) => (
+            <button key={path} onClick={() => nav(path)}
+              style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 12,
+                padding: '12px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                cursor: 'pointer' }}>
+              <span style={{ fontSize: 18 }}>{icon}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)', textAlign: 'center' }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  CONFIG API
 //  Chaque appel reste indépendant (Promise.allSettled) afin qu'un
 //  endpoint lent ou en erreur ne bloque jamais l'affichage des
@@ -304,6 +435,18 @@ export default function Dashboard() {
     { icon:'🛠️', label:'Maintenance',   path:'/maintenance',   },
     { icon:'📋', label:'Rapports',      path:'/rapports',     },
   ]
+
+  if (isMobile) {
+    return (
+      <MobileDashboard
+        nomApp={nomApp} sync={sync} loading={loading} load={load}
+        alertes={alertes} taux={taux} occupes={occupes} libres={libres}
+        personnelLoge={personnelLoge} personnelNonLoge={personnelNonLoge}
+        enVoyage={enVoyage} planifies={planifies}
+        notifs={d.notifs} unread={unread} MODULES={MODULES} nav={nav}
+      />
+    )
+  }
 
   return (
     <div className="rzc-dark-scope rzc-fade-in" style={{ padding: 22 }}>
