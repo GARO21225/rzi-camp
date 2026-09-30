@@ -462,9 +462,22 @@ function StatsCard({ count, title, color, icon }) {
 }
 
 // ── Dernier scan ──────────────────────────────────────────────────
-function LastScanCard({ scan }) {
+function LastScanCard({ scan, isMobile, repasLabel }) {
   if (!scan) return null
   const dt = scan.date_validation ? new Date(scan.date_validation) : new Date(scan.cree_le)
+  if (isMobile) {
+    const secs = Math.max(0, Math.round((Date.now() - dt.getTime())/1000))
+    const relatif = secs < 60 ? `il y a ${secs} sec` : secs < 3600 ? `il y a ${Math.round(secs/60)} min` : dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+    return (
+      <div style={{ background:'rgba(22,163,74,.08)', border:'1px solid rgba(22,163,74,.25)', borderRadius:14, padding:'12px 14px', display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+        <div style={{ width:36, height:36, borderRadius:'50%', background:'#16A34A', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✓</div>
+        <div style={{ minWidth:0 }}>
+          <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#0F1A2E' }}>{scan.resident} — {repasLabel} validé</p>
+          <p style={{ margin:'2px 0 0', fontSize:11.5, color:'#5B6472' }}>{scan.societe} · {relatif}</p>
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{ background: 'rgba(22,163,74,.1)', border: '2px solid #16a34a', borderRadius: 14, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 10, color: '#16a34a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Dernier scan</div>
@@ -478,7 +491,7 @@ function LastScanCard({ scan }) {
 }
 
 // ── Liste historique ────────────────────────────────────────────────
-function HistoriqueList({ data, onRefresh, loading }) {
+function HistoriqueList({ data, onRefresh, loading, isMobile }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterJour, setFilterJour] = useState('today')
 
@@ -500,6 +513,44 @@ function HistoriqueList({ data, onRefresh, loading }) {
     today: data.filter(r => (r.date_validation || r.cree_le || '').slice(0, 10) === today).length,
     hier: data.filter(r => (r.date_validation || r.cree_le || '').slice(0, 10) === hier).length,
     total: data.length
+  }
+
+  if (isMobile) {
+    return (
+      <section style={{ background:'#fff', border:'1px solid rgba(15,26,46,.12)', borderRadius:14, padding:14, display:'flex', flexDirection:'column', gap:10 }}>
+        <h2 style={{ margin:0, fontSize:14.5, fontWeight:600, color:'#0F1A2E' }}>Historique</h2>
+        <div style={{ display:'flex', gap:8 }}>
+          {[{ key:'today', label:'Aujourd\'hui' }, { key:'hier', label:'Hier' }].map(f=>(
+            <button key={f.key} onClick={()=>setFilterJour(f.key)}
+              style={{ flexShrink:0, border:'1px solid rgba(15,26,46,.14)', background: filterJour===f.key ? '#0F2A5C' : '#fff',
+                color: filterJour===f.key ? '#fff' : '#2D3B52', borderRadius:99, padding:'6px 13px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+              {f.label} ({f.key==='today'?countByDay.today:countByDay.hier})
+            </button>
+          ))}
+        </div>
+        {loading ? (
+          <div style={{ padding:20, textAlign:'center', color:'#8B95A1' }}>⏳ Chargement...</div>
+        ) : filteredData.length===0 ? (
+          <div style={{ padding:20, textAlign:'center', color:'#8B95A1', fontSize:12 }}>Aucun scan</div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column' }}>
+            {filteredData.slice(0,30).map((r,i)=>{
+              const dt = r.date_validation ? new Date(r.date_validation) : (r.cree_le ? new Date(r.cree_le) : null)
+              return (
+                <div key={r.id||i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'8px 0', borderBottom: i<filteredData.length-1 ? '1px solid rgba(15,26,46,.08)' : 'none' }}>
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#0F1A2E' }}>{r.resident||'—'}</p>
+                    <p style={{ margin:'1px 0 0', fontSize:11, color:'#8B95A1' }}>{r.societe||'—'}</p>
+                  </div>
+                  <span style={{ fontSize:11, color:'#8B95A1', flexShrink:0 }}>{dt?.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})||'—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    )
   }
 
   return (
@@ -650,11 +701,11 @@ export default function Restauration() {
     return (
       <div className="rzc-page-scope" style={{ padding: 16 }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'baseline' : 'flex-start', marginBottom: 16 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#7c3aed', margin: 0 }}>🍽️ Restaurant</h2>
-            <p style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginTop: 4 }}>
-              {repas?.heure || 'Heures de service'}
+            <h2 style={{ fontSize: isMobile ? 20 : 20, fontWeight: 700, color: isMobile ? '#0F1A2E' : '#7c3aed', margin: 0 }}>{isMobile ? 'Restauration' : '🍽️ Restaurant'}</h2>
+            <p style={{ fontSize: isMobile ? 12.5 : 11, color: isMobile ? '#5B6472' : 'var(--rzc-text-3)', marginTop: isMobile ? 3 : 4 }}>
+              {isMobile ? `${stats.today} repas servis aujourd'hui` : (repas?.heure || 'Heures de service')}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -672,7 +723,9 @@ export default function Restauration() {
 
         {/* Stats redesign: TOTAL du jour + breakdown par type */}
         <div style={{ marginBottom: 16 }}>
-          {/* Chiffre principal */}
+          {/* Chiffre principal — masqué sur mobile (la maquette validée met le
+              total dans le sous-titre de l'en-tête, pas dans un bandeau) */}
+          {!isMobile && (
           <div style={{ background: 'linear-gradient(135deg, var(--rzc-navy), #1E3A8A)', borderRadius: 16, padding: '18px 24px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,.65)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>📅 Aujourd'hui — Total</div>
@@ -684,7 +737,10 @@ export default function Restauration() {
               <div style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,.9)' }}>{stats.semaine}</div>
             </div>
           </div>
-          {/* Sélecteur date + menu intégré dans les compteurs */}
+          )}
+          {/* Sélecteur date + menu intégré dans les compteurs — desktop
+              uniquement, cf. gestion du menu déjà réservée au desktop plus bas */}
+          {!isMobile && (
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
             <span style={{ fontSize:11, color:'rgba(255,255,255,.7)', fontWeight:600 }}>🗓️ Menu du</span>
             <input type="date" value={menuDate}
@@ -697,6 +753,7 @@ export default function Restauration() {
                 fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
                 colorScheme:'dark' }}/>
           </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, minmax(0,1fr))' : 'repeat(3, 1fr)', gap: 8 }}>
             {[
               { key:'petit_dejeuner', menuKey:'matin',  icon:'🌅', label:'Petit-déj.', color:'#f97316', bg:'rgba(249,115,22,.1)', border:'rgba(249,115,22,.25)' },
@@ -774,7 +831,7 @@ export default function Restauration() {
         </div>
 
         {/* Dernier scan */}
-        <LastScanCard scan={stats.lastScan} />
+        <LastScanCard scan={stats.lastScan} isMobile={isMobile} repasLabel={repas?.label} />
 
         {/* Amélioration continue — avis du personnel sur les repas */}
         {avisStats && avisStats.count > 0 && (
@@ -964,6 +1021,7 @@ export default function Restauration() {
             data={historique}
             onRefresh={loadHistorique}
               loading={loading}
+            isMobile={isMobile}
           />
         </div>
 

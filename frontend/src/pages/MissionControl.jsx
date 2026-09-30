@@ -1424,8 +1424,44 @@ export default function MissionControl() {
         {/* ══ VUE ROTATIONS ══════════════════════════════════════ */}
         {view==='rotations' && (
           <div className="mc-fade">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'flex-start':'center',
-              flexDirection:isMobile?'column':'row',gap:isMobile?10:0,marginBottom:14}}>
+            {isMobile ? (
+              /* Mobile : en-tête épuré comme la maquette — titre + compteur "X actifs
+                 · Y terminés", chips Actifs/Terminés/Tous (remplacent recherche + dates
+                 + select statut + bouton "voir terminés" du desktop), FAB "+" en bas de
+                 page pour créer une rotation. "+ Voyage individuel" reste accessible en
+                 lien discret pour ne pas perdre la fonctionnalité. */
+              <div style={{marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+                  <div style={{fontSize:16,fontWeight:800,color:C.text}}>Rotations & Convois</div>
+                  <button className="mc-btn mc-btn-ghost" style={{padding:'4px 10px',fontSize:11}}
+                    onClick={()=>setShowCreate('individuel')}>+ Individuel</button>
+                </div>
+                <div style={{fontSize:12,color:C.muted,marginBottom:10}}>
+                  {rotations.filter(r=>r.statut!=='retour').length} actifs
+                  {rotations.some(r=>r.statut==='retour') && ` · ${rotations.filter(r=>r.statut==='retour').length} terminés`}
+                </div>
+                <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
+                  {[
+                    ['actifs','Actifs', !afficherConvoisTermines && rotFiltreStatut==='tous'],
+                    ['termines','Terminés', afficherConvoisTermines && rotFiltreStatut==='retour'],
+                    ['tous','Tous', afficherConvoisTermines && rotFiltreStatut==='tous'],
+                  ].map(([k,l,active])=>(
+                    <button key={k} className="mc-btn" onClick={()=>{
+                        if (k==='actifs') { setAfficherConvoisTermines(false); setRotFiltreStatut('tous') }
+                        else if (k==='termines') { setAfficherConvoisTermines(true); setRotFiltreStatut('retour') }
+                        else { setAfficherConvoisTermines(true); setRotFiltreStatut('tous') }
+                      }}
+                      style={{flexShrink:0,padding:'6px 14px',fontSize:12,borderRadius:99,
+                        background:active?C.accent:'transparent',
+                        color:active?'#000':C.text,
+                        border:`1px solid ${active?C.accent:C.border}`,fontWeight:700}}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (<>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
               <div>
                 <div style={{fontSize:16,fontWeight:800,color:C.text}}>Rotations & Convois</div>
                 <div style={{fontSize:12,color:C.muted}}>
@@ -1433,39 +1469,20 @@ export default function MissionControl() {
                   {rotations.some(r=>r.statut==='retour') && ` · ${rotations.filter(r=>r.statut==='retour').length} terminé(s)`}
                 </div>
               </div>
-              <div style={{display:'flex',gap:8,flexWrap:isMobile?'wrap':'nowrap',width:isMobile?'100%':'auto'}}>
+              <div style={{display:'flex',gap:8,flexWrap:'nowrap'}}>
                 {rotations.some(r=>r.statut==='retour') && (
                   <button className="mc-btn mc-btn-ghost" onClick={()=>setAfficherConvoisTermines(v=>!v)}>
                     {afficherConvoisTermines ? '🙈 Masquer les terminés' : `👁️ Voir les terminés (${rotations.filter(r=>r.statut==='retour').length})`}
                   </button>
                 )}
-                <button className="mc-btn mc-btn-ghost" style={isMobile?{flex:1}:undefined} onClick={()=>setShowCreate('individuel')}>
-                  {isMobile?'+ Individuel':'+ Voyage individuel'}
+                <button className="mc-btn mc-btn-ghost" onClick={()=>setShowCreate('individuel')}>
+                  + Voyage individuel
                 </button>
-                <button className="mc-btn mc-btn-primary" style={isMobile?{flex:1}:undefined} onClick={()=>setShowCreate('rotation')}>
+                <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
                   ✦ Nouvelle rotation
                 </button>
               </div>
             </div>
-
-            {isMobile ? (
-              <div>
-                <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
-                  placeholder="🔎 Destination, véhicule, conducteur..."
-                  style={{...inputStyle,width:'100%',marginBottom:10,boxSizing:'border-box'}}/>
-                <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:2}}>
-                {['tous','planifie','en_voyage'].map(s=>(
-                  <button key={s} className="mc-btn" onClick={()=>setRotFiltreStatut(s)}
-                    style={{flexShrink:0,padding:'6px 14px',fontSize:12,
-                      background:rotFiltreStatut===s?C.accent:'transparent',
-                      color:rotFiltreStatut===s?'#000':C.text,
-                      border:`1px solid ${rotFiltreStatut===s?C.accent:C.border}`,fontWeight:700}}>
-                    {s==='tous'?'Tous':s==='planifie'?'Planifié':'En transit'}
-                  </button>
-                ))}
-                </div>
-              </div>
-            ) : (
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
                 <input value={rotFiltreTexte} onChange={e=>setRotFiltreTexte(e.target.value)}
                   placeholder="🔎 Destination, véhicule, conducteur..."
@@ -1485,7 +1502,7 @@ export default function MissionControl() {
                   }}>✕ Réinitialiser</button>
                 )}
               </div>
-            )}
+            </>)}
 
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {rotations
@@ -1510,11 +1527,73 @@ export default function MissionControl() {
                 const cfg     = ST_CFG[r.statut]||ST_CFG.planifie
                 const isOpen  = selRot?.rotation_id===r.rotation_id
 
+                const supprimerConvoi = async e=>{
+                  e.stopPropagation()
+                  const avert = r.statut!=='planifie' ? '\n\n⚠️ Ce convoi a déjà été effectué (en transit ou revenu) — les données de voyage seront perdues définitivement.' : ''
+                  const ok = await confirmDialog(`Supprimer entièrement le convoi ${r.vehicule||r.rotation_id} et ses ${r.nb_passagers} passager(s) ?${avert}\n\nCette action est irréversible.`)
+                  if (!ok) return
+                  try {
+                    const res = await api('/api/voyages/supprimer_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id})})
+                    const d = await res.json()
+                    if (res.ok) { toast.success(`Convoi supprimé (${d.supprimes} passager(s))`); load() }
+                    else toast.error(d.error||'Erreur')
+                  } catch { toast.error('Erreur réseau') }
+                }
                 return (
                   <Panel key={r.rotation_id} glow={isOpen}
                     style={{overflow:'visible'}}>
                     {/* Header rotation */}
-                    <div style={{padding:'14px 18px',display:'flex',gap:14,flexWrap:isMobile?'wrap':'nowrap',
+                    {isMobile ? (
+                      /* Mobile : carte fidèle à la maquette validée — icône véhicule
+                         inline (pas de pastille), un seul badge de statut, une seule
+                         barre de progression, ligne date/lieu, 2 boutons pleine largeur
+                         (JMP + action dynamique). Suppression/dépliage du manifeste
+                         déplacés dans le détail pour garder la carte fermée identique
+                         à la maquette. */
+                      <div style={{padding:13,display:'flex',flexDirection:'column',gap:8,cursor:'pointer'}}
+                        onClick={()=>setSelRot(isOpen?null:r)}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+                            <span style={{fontSize:16,flexShrink:0}}>{TYPE_VEH.find(t=>r.vehicule?.startsWith(t.id))?.ic||'🚌'}</span>
+                            <span style={{fontSize:13.5,fontWeight:700,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              {r.vehicule||'VEH'}{r.vehicule_matricule?` — ${r.vehicule_matricule}`:''}
+                            </span>
+                          </div>
+                          {libres===0
+                            ? <Badge color={C.red} small>COMPLET</Badge>
+                            : <Badge color={cfg.c} small>{cfg.l}</Badge>}
+                        </div>
+                        <p style={{margin:0,fontSize:12,color:C.muted}}>
+                          {r.origine||'Camp'} → {r.destination} · {actifs}/{total} places
+                        </p>
+                        <div style={{height:6,background:'rgba(15,26,46,.08)',borderRadius:99,overflow:'hidden'}}>
+                          <div style={{width:`${pct}%`,height:'100%',background:pct>=90?C.red:pct>=70?C.amber:C.green}}/>
+                        </div>
+                        <div style={{display:'flex',gap:14,fontSize:11.5,color:C.muted,flexWrap:'wrap'}}>
+                          <span>📅 {fmt(r.date_depart)}{r.heure_depart?` ${r.heure_depart.slice(0,5)}`:''}</span>
+                          {r.point_rdv&&<span>📍 {r.point_rdv}</span>}
+                        </div>
+                        <div style={{display:'flex',gap:8,marginTop:2}}>
+                          {r.statut!=='retour' && (
+                            <button className="mc-btn" style={{flex:1,justifyContent:'center',background:'#7c3aed20',color:'#7c3aed',border:'1px solid #7c3aed40'}}
+                              onClick={async e=>{e.stopPropagation();await genererJMP(r)}}>
+                              📄 JMP
+                            </button>
+                          )}
+                          {r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center'}}
+                            onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
+                            🚦 Partir
+                          </button>}
+                          {r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
+                            onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
+                            {r.trajet_aller_seul ? '🏁 Terminer' : '🏠 Retour'}
+                          </button>}
+                          {r.statut==='retour'&&<span style={{flex:1,textAlign:'center',padding:'9px 12px',fontSize:12,fontWeight:700,
+                            borderRadius:9,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
+                        </div>
+                      </div>
+                    ) : (
+                    <div style={{padding:'14px 18px',display:'flex',gap:14,flexWrap:'nowrap',
                       alignItems:'center',cursor:'pointer'}}
                       onClick={()=>setSelRot(isOpen?null:r)}>
                       {/* Icône véhicule */}
@@ -1550,7 +1629,7 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {/* Jauge remplissage — 3 etats : occupe (confirme) / reserve (en attente) / libre */}
-                      <div style={{width:isMobile?'100%':130,flexShrink:0,order:isMobile?3:0}}>
+                      <div style={{width:130,flexShrink:0}}>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                           <span style={{fontSize:11,color:C.muted}}>{actifs}/{total}</span>
                           <span style={{fontSize:11,fontWeight:700,
@@ -1565,8 +1644,7 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {/* Actions */}
-                      <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center',
-                        flexWrap:isMobile?'wrap':'nowrap',width:isMobile?'100%':'auto',order:isMobile?4:0}}>
+                      <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center',flexWrap:'nowrap'}}>
                         {r.statut==='retour'&&<span style={{padding:'6px 12px',fontSize:11,fontWeight:700,
                           borderRadius:8,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
                         {r.statut==='planifie'&&<button className="mc-btn"
@@ -1590,18 +1668,7 @@ export default function MissionControl() {
                         <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
                           title="Supprimer tout le convoi"
-                          onClick={async e=>{
-                            e.stopPropagation()
-                            const avert = r.statut!=='planifie' ? '\n\n⚠️ Ce convoi a déjà été effectué (en transit ou revenu) — les données de voyage seront perdues définitivement.' : ''
-                            const ok = await confirmDialog(`Supprimer entièrement le convoi ${r.vehicule||r.rotation_id} et ses ${r.nb_passagers} passager(s) ?${avert}\n\nCette action est irréversible.`)
-                            if (!ok) return
-                            try {
-                              const res = await api('/api/voyages/supprimer_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id})})
-                              const d = await res.json()
-                              if (res.ok) { toast.success(`Convoi supprimé (${d.supprimes} passager(s))`); load() }
-                              else toast.error(d.error||'Erreur')
-                            } catch { toast.error('Erreur réseau') }
-                          }}>
+                          onClick={supprimerConvoi}>
                           🗑️
                         </button>
                         <button className="mc-btn mc-btn-ghost"
@@ -1611,13 +1678,18 @@ export default function MissionControl() {
                         </button>
                       </div>
                     </div>
+                    )}
 
                     {/* DÉTAIL ROTATION */}
                     {isOpen && (
                       <div style={{padding:'0 18px 16px',borderTop:`0.5px solid ${C.border}`}}>
                         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginTop:14}}>
 
-                          {/* Plan de cabine */}
+                          {/* Plan de cabine — masqué sur mobile : trop dense pour un écran
+                              étroit (maquette validée ne le montre pas), reste disponible
+                              sur desktop. L'ajout de passager en masse via liste collée
+                              reste accessible sur mobile plus bas (bouton pleine largeur). */}
+                          {!isMobile && (
                           <div>
                             <div style={{fontSize:11,fontWeight:700,color:C.muted,
                               textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>
@@ -1773,13 +1845,59 @@ export default function MissionControl() {
                               </div>
                             )}
                           </div>
+                          )}
 
-                          {/* Liste passagers */}
+                          {/* Liste passagers — sur mobile, style cartes de la maquette
+                              (avatar numéroté + nom + badge), sans le plan de cabine */}
                           <div>
-                            <div style={{fontSize:11,fontWeight:700,color:C.muted,
-                              textTransform:'uppercase',letterSpacing:.5,marginBottom:10}}>
-                              Manifeste ({prises} passager(s))
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                              <span style={{fontSize:isMobile?13:11,fontWeight:isMobile?700:700,color:isMobile?C.text:C.muted,
+                                textTransform:isMobile?'none':'uppercase',letterSpacing:isMobile?0:.5}}>
+                                Manifeste {!isMobile && `(${prises} passager(s))`}
+                              </span>
+                              {isMobile && <span style={{fontSize:11.5,color:C.muted}}>{prises} passager(s)</span>}
                             </div>
+                            {isMobile && libres>0 && r.statut==='planifie' && (
+                              <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
+                                  background:C.accent,color:'#000',fontWeight:800,marginBottom:10,border:'none',borderRadius:9,justifyContent:'center'}}
+                                  onClick={async ()=>{
+                                    const saisie = prompt(`Coller une liste de numéros de téléphone à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
+                                    if (!saisie) return
+                                    const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
+                                    const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
+                                    const dejaPresents = (r.passagers||[]).map(pp=>`${pp.personnel__nom} ${pp.personnel__prenom}`.toLowerCase())
+                                    let placesRestantes = libres
+                                    const trouves = []
+                                    const introuvables = []
+                                    const complets = []
+                                    for (const tel of numeros) {
+                                      const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
+                                      if (!p) { introuvables.push(tel); continue }
+                                      if (dejaPresents.includes(`${p.nom} ${p.prenom}`.toLowerCase())) continue
+                                      if (placesRestantes <= 0) { complets.push(tel); continue }
+                                      trouves.push(p)
+                                      placesRestantes--
+                                    }
+                                    setSaving(true)
+                                    let ok = 0, echoues = []
+                                    for (const p of trouves) {
+                                      try {
+                                        const res = await api('/api/voyages/rejoindre_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id, personnel_id:p.id})})
+                                        if (res.ok) ok++
+                                        else { const d = await res.json(); echoues.push(`${p.nom} ${p.prenom} (${d.error||'erreur'})`) }
+                                      } catch { echoues.push(`${p.nom} ${p.prenom} (réseau)`) }
+                                    }
+                                    setSaving(false)
+                                    let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
+                                    if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s).`
+                                    if (complets.length) msg += ` ${complets.length} refusé(s) — convoi complet.`
+                                    if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
+                                    flash(msg, echoues.length===0 && introuvables.length===0 && complets.length===0)
+                                    load()
+                                  }}>
+                                📋 Importer une liste dans ce convoi
+                              </button>
+                            )}
                             <div style={{maxHeight:180,overflowY:'auto'}}>
                               {(r.passagers||[]).map((p,i)=>{
                                 const voyageComplet = voyages.find(v=>v.id===p.id)
@@ -1863,6 +1981,13 @@ export default function MissionControl() {
                                 </div>
                               )}
                             </div>
+                            {isMobile && (
+                              <button className="mc-btn" style={{width:'100%',marginTop:12,fontSize:12,
+                                  background:`${C.red}18`,color:C.red,justifyContent:'center'}}
+                                title="Supprimer tout le convoi" onClick={supprimerConvoi}>
+                                🗑️ Supprimer ce convoi
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1887,6 +2012,19 @@ export default function MissionControl() {
                 </Panel>
               )}
             </div>
+
+            {/* FAB "+" — créer une rotation, comme sur la maquette validée */}
+            {isMobile && (
+              <button aria-label="Organiser une rotation" onClick={()=>setShowCreate('rotation')}
+                style={{position:'fixed',right:16,bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
+                  width:54,height:54,borderRadius:27,background:C.accent,border:'none',
+                  boxShadow:'0 6px 16px rgba(201,151,43,.4)',display:'flex',alignItems:'center',
+                  justifyContent:'center',cursor:'pointer',zIndex:90}}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F2A5C" strokeWidth="2.4" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            )}
           </div>
         )}
 

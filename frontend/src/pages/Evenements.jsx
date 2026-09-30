@@ -220,21 +220,49 @@ export default function Evenements() {
 
   return (
     <div style={{ padding:'16px' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems: isMobile ? 'baseline' : 'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:19, fontWeight:700, color:'var(--blue)' }}>📅 Événements du Campus</h2>
-          <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications automatiques aux résidents · WebSocket temps réel</p>
+          <h2 style={{ fontSize: isMobile ? 20 : 19, fontWeight:700, color: isMobile ? '#0F1A2E' : 'var(--blue)' }}>{isMobile ? 'Événements' : '📅 Événements du Campus'}</h2>
+          {isMobile ? (
+            <span style={{ fontSize:12.5, color:'#5B6472', fontWeight:600 }}>{events.length} au total</span>
+          ) : (
+            <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications automatiques aux résidents · WebSocket temps réel</p>
+          )}
         </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              ⚠️ Alerte campus
-            </button>
-            <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-              + Créer événement
-            </button>
+            {isMobile ? (
+              isAdmin && (
+                <button onClick={()=>setAlerteModal(true)} aria-label="Déclencher une alerte campus"
+                  style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', width:36, height:36, borderRadius:9, cursor:'pointer', fontSize:15 }}>
+                  🚨
+                </button>
+              )
+            ) : (
+              <>
+                <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                  ⚠️ Alerte campus
+                </button>
+                <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                  + Créer événement
+                </button>
+              </>
+            )}
           </div>
 
       </div>
+
+      {/* FAB "+" — créer un événement, comme sur la maquette validée */}
+      {isMobile && (
+        <button onClick={()=>setModal(true)} aria-label="Créer un événement"
+          style={{ position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
+            width:54, height:54, borderRadius:27, background:'#C9972B', border:'none',
+            boxShadow:'0 6px 16px rgba(201,151,43,.4)', display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', zIndex:90 }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F2A5C" strokeWidth="2.4" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      )}
 
       {/* Alertes actives */}
       {alertes.length > 0 && (
@@ -259,7 +287,9 @@ export default function Evenements() {
         </div>
       )}
 
-      {/* KPIs */}
+      {/* KPIs — masqués sur mobile (la maquette validée n'en montre pas ;
+          le total est déjà affiché dans l'en-tête juste au-dessus) */}
+      {!isMobile && (
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
         {[
           [events.length,'Total','var(--blue)','📅'],
@@ -273,6 +303,7 @@ export default function Evenements() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Tabs — chips défilables horizontalement sur mobile (4 onglets ne
           tiennent pas confortablement sur 390px en largeur égale) */}
@@ -307,13 +338,31 @@ export default function Evenements() {
             const estTermine = evt.statut === 'termine' || evt.statut === 'annule'
             const sc = STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie
             return (
-              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:14, opacity:estTermine?0.7:1 }}>
-                <div style={{ display:'flex', gap:14 }}>
+              <div key={evt.id} style={ isMobile ? {
+                  background:'#fff', border: estTermine ? '1px solid rgba(15,26,46,.10)' : evt.statut==='en_cours' ? '1px solid rgba(22,163,74,.35)' : '1px solid rgba(15,26,46,.10)',
+                  borderRadius:14, padding:13, marginBottom:10, display:'flex', gap:12, opacity:estTermine?0.7:1,
+                } : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection:'row', gap:14, opacity:estTermine?0.7:1 }}>
+                <div style={{ display:'flex', gap: isMobile ? 12 : 14, width: isMobile ? '100%' : 'auto' }}>
                   {/* Type icon */}
-                  <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
+                  <div style={{ width: isMobile ? 40 : 52, height: isMobile ? 40 : 52, borderRadius: isMobile ? 10 : 12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize: isMobile ? 18 : 24, flexShrink:0 }}>
                     {tc.icon}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
+                    {isMobile ? (
+                      <>
+                        <p style={{ margin:0, fontSize:13.5, fontWeight:700, color:'#0F1A2E' }}>{evt.titre}</p>
+                        <p style={{ margin:'3px 0 0', fontSize:11.5, color:'#5B6472', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {new Date(evt.date_debut).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · {new Date(evt.date_debut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}{evt.lieu?` · ${evt.lieu}`:''}
+                        </p>
+                        <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+                          {evt.obligatoire && <span style={{ background:'rgba(220,38,38,.10)', color:'#DC2626', fontSize:10, fontWeight:700, borderRadius:99, padding:'2px 8px' }}>Obligatoire</span>}
+                          {evt.statut==='en_cours' && <span style={{ background:'rgba(22,163,74,.12)', color:'#16A34A', fontSize:10, fontWeight:700, borderRadius:99, padding:'2px 8px' }}>● En cours</span>}
+                          {estTermine && <span style={{ background:'rgba(15,26,46,.08)', color:'#5B6472', fontSize:10, fontWeight:700, borderRadius:99, padding:'2px 8px' }}>{sc.label}</span>}
+                          {evt.qr_requis && !estTermine && <span style={{ background:'rgba(37,99,235,.10)', color:'#2563EB', fontSize:10, fontWeight:700, borderRadius:99, padding:'2px 8px' }}>QR requis</span>}
+                        </div>
+                      </>
+                    ) : (
+                    <>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
                       <div style={{ fontWeight:700, fontSize:14, color:'var(--blue)' }}>{evt.titre}</div>
                       {evt.obligatoire && <span style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', fontSize:10, padding:'2px 7px', borderRadius:20, fontWeight:700 }}>OBLIGATOIRE</span>}
@@ -324,19 +373,21 @@ export default function Evenements() {
                     <div style={{ display:'flex', gap:14, fontSize:11, color:'var(--text-dim)', flexWrap:'wrap' }}>
                       <span>📅 {new Date(evt.date_debut).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à {new Date(evt.date_debut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</span>
                       {evt.lieu && <span>📍 {evt.lieu}</span>}
-                      {!isMobile && <span>👤 {evt.cree_par_nom}</span>}
+                      <span>👤 {evt.cree_par_nom}</span>
                       {evt.nb_notifies>0 && <span style={{ color:'#16a34a', fontWeight:700 }}>🔔 {evt.nb_notifies} résidents notifiés</span>}
                       {evt.qr_requis && (
                         isAdmin ? (
                           <span onClick={()=>{setListeScannesModal(evt); chargerPersonnesScannees(evt.id)}}
                             style={{ color:'#7c3aed', fontWeight:700, cursor:'pointer', textDecoration:'underline' }}>
-                            🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés{!isMobile && ' — voir la liste'}
+                            🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés — voir la liste
                           </span>
                         ) : (
                           <span style={{ color:'#7c3aed', fontWeight:700 }}>🎫 {evt.nb_qr_scannes} / {evt.nb_qr_generes} scannés</span>
                         )
                       )}
                     </div>
+                    </>
+                    )}
                   </div>
                 </div>
 
