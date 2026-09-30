@@ -308,10 +308,18 @@ export default function Personnel() {
   }
 
   const downloadPersonnelTemplate = () => {
-    const csv = 'nom;prenom;telephone;numero_whatsapp;matricule;societe;departement;type_personnel\n' +
-      'KOUAME;Jean;0701234567;0701234567;MAT001;Roxgold;Maintenance;employe\n' +
-      'TRAORE;Marie;0501234567;0501234567;MAT002;SODECI;RH;sous_traitant\n' +
-      'DIALLO;Ibrahim;0102030405;0102030405;MAT003;Roxgold;Logistique;employe'
+    // BUG REEL CORRIGE ICI : la colonne "email" manquait du template
+    // telechargeable - or le backend (valider_contact_selon_canal) exige
+    // l'email quand le canal de connexion configure (Parametrage) est
+    // "email", et l'import_csv_data la lit deja si presente (colonne
+    // "email"/"e-mail"/"mail" cote parsing frontend). Sans cette colonne
+    // dans le template fourni, quiconque le remplit avec canal_otp=email
+    // configure voyait TOUTES ses lignes rejetees silencieusement
+    // ("l'importation ne passe pas").
+    const csv = 'nom;prenom;telephone;numero_whatsapp;email;matricule;societe;departement;type_personnel\n' +
+      'KOUAME;Jean;0701234567;0701234567;jean.kouame@exemple.com;MAT001;Roxgold;Maintenance;employe\n' +
+      'TRAORE;Marie;0501234567;0501234567;marie.traore@exemple.com;MAT002;SODECI;RH;sous_traitant\n' +
+      'DIALLO;Ibrahim;0102030405;0102030405;ibrahim.diallo@exemple.com;MAT003;Roxgold;Logistique;employe'
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
