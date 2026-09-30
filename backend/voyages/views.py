@@ -1539,11 +1539,15 @@ def _generer_billet_html(voyage):
         """
 
     # Points pour la carte : itineraire de la ROTATION (origine/etapes/destination
-    # du voyage - le trajet PREVU) vs points REELS (evenements montee/descente).
+    # du voyage - le trajet PREVU DU CONVOI) vs itineraire PROPRE DU PASSAGER
+    # (sa montee -> sa descente, voyage.origine/voyage.destination - peut
+    # differer du trajet complet du convoi) vs points REELS (evenements
+    # montee/descente).
     points_prevus = [voyage.origine or "Camp Roxgold Sango"] + [e.destination for e in etapes] if etapes else [voyage.origine or "Camp Roxgold Sango", voyage.destination or ""]
+    points_passager = [voyage.origine, voyage.destination] if voyage.origine and voyage.destination else []
     points_reels = [e.lieu for e in evenements]
     carte_html = f"""
-      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Carte — itinéraire prévu vs réel</h2>
+      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Carte — itinéraire du passager, du convoi et réel</h2>
       <div id="billet-map" style="height:320px;border-radius:10px;margin-bottom:24px;background:#f1f5f9"></div>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
@@ -1557,25 +1561,55 @@ def _generer_billet_html(voyage):
             'mine yaouré':[6.85,-5.35],'abidjan':[5.3600,-4.0083],'yamoussoukro':[6.8276,-5.2893],
             'bouaké':[7.6906,-5.0300],'san pedro':[4.7485,-6.6363],'korhogo':[9.4580,-5.6297],'man':[7.4125,-7.5539],
             'daloa':[6.8770,-6.4502],'gagnoa':[6.1319,-5.9506],'séguéla':[7.9611,-6.6731],'mankono':[8.0583,-6.1889],
+            'ferkessédougou':[9.5975,-5.1978],'bouna':[9.2667,-3.0000],'touba':[8.2833,-7.6833],'divo':[5.8372,-5.3572],
+            'odienné':[9.5090,-7.5654],'bondoukou':[8.0402,-2.8000],'abengourou':[6.7297,-3.4964],
         })};
+        function normaliser(s) {{ return s.trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, ''); }}
+        const COORDS_N = Object.fromEntries(Object.entries(COORDS).map(([k,v]) => [normaliser(k), v]));
         function chercherCoords(nom) {{
           if (!nom) return null;
-          const k = nom.trim().toLowerCase();
-          if (COORDS[k]) return COORDS[k];
-          for (const [key, c] of Object.entries(COORDS)) {{ if (k.includes(key) || key.includes(k)) return c; }}
+          const k = normaliser(nom);
+          if (COORDS_N[k]) return COORDS_N[k];
+          for (const [key, c] of Object.entries(COORDS_N)) {{ if (k.includes(key) || key.includes(k)) return c; }}
           return null;
         }}
+        async function routeRoutiere(a, b) {{
+          try {{
+            const url = `https://router.project-osrm.org/route/v1/driving/${{a[1]}},${{a[0]}};${{b[1]}},${{b[0]}}?overview=full&geometries=geojson`;
+            const ctrl = new AbortController(); setTimeout(()=>ctrl.abort(), 6000);
+            const r = await fetch(url, {{signal: ctrl.signal}});
+            const d = await r.json();
+            if (d.routes && d.routes[0] && d.routes[0].geometry && d.routes[0].geometry.coordinates.length > 1) {{
+              return d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }}
+          }} catch (e) {{ /* repli ligne droite */ }}
+          return null;
+        }}
+        async function tracerRoute(map, points, options, popup) {{
+          if (points.length < 2) return;
+          const segments = [];
+          for (let i = 0; i < points.length - 1; i++) {{
+            const seg = await routeRoutiere(points[i], points[i+1]);
+            segments.push(...(seg || [points[i], points[i+1]]));
+          }}
+          L.polyline(segments, options).addTo(map).bindPopup(popup);
+        }}
         const pointsPrevus = {_json.dumps(points_prevus)}.map(chercherCoords).filter(Boolean);
+        const pointsPassager = {_json.dumps(points_passager)}.map(chercherCoords).filter(Boolean);
         const pointsReels = {_json.dumps(points_reels)}.map(chercherCoords).filter(Boolean);
-        if (pointsPrevus.length >= 2 || pointsReels.length >= 2) {{
-          const tous = [...pointsPrevus, ...pointsReels];
+        if (pointsPrevus.length >= 2 || pointsPassager.length >= 2 || pointsReels.length >= 2) {{
+          const tous = [...pointsPrevus, ...pointsPassager, ...pointsReels];
           const lats = tous.map(p=>p[0]), lngs = tous.map(p=>p[1]);
           const centre = [(Math.min(...lats)+Math.max(...lats))/2, (Math.min(...lngs)+Math.max(...lngs))/2];
           const map = L.map('billet-map').setView(centre, 7);
-          L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{attribution:'&copy; OpenStreetMap'}}).addTo(map);
-          if (pointsPrevus.length >= 2) L.polyline(pointsPrevus, {{color:'#94a3b8', weight:3, dashArray:'6 6'}}).addTo(map).bindPopup('Itinéraire prévu (rotation)');
+          L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}}).addTo(map);
+          if (pointsPrevus.length >= 2) L.polyline(pointsPrevus, {{color:'#94a3b8', weight:3, dashArray:'6 6'}}).addTo(map).bindPopup('Itinéraire prévu (convoi)');
           if (pointsReels.length >= 2) L.polyline(pointsReels, {{color:'#16a34a', weight:4}}).addTo(map).bindPopup('Itinéraire réel (passager)');
-          pointsReels.forEach((c,i) => L.marker(c).addTo(map));
+          if (pointsPassager.length >= 2) {{
+            L.circleMarker(pointsPassager[0], {{radius:7, color:'#fff', weight:2, fillColor:'#1d4ed8', fillOpacity:1}}).addTo(map).bindPopup('🟦 Montée : {voyage.origine or ""}');
+            L.circleMarker(pointsPassager[pointsPassager.length-1], {{radius:7, color:'#fff', weight:2, fillColor:'#1d4ed8', fillOpacity:1}}).addTo(map).bindPopup('🟦 Descente : {voyage.destination or ""}');
+            tracerRoute(map, pointsPassager, {{color:'#1d4ed8', weight:5}}, 'Trajet du passager (montée → descente)');
+          }}
           map.fitBounds(L.latLngBounds(tous), {{padding:[20,20]}});
         }} else {{
           document.getElementById('billet-map').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8">Coordonnées non disponibles pour tracer la carte.</div>';
@@ -1585,6 +1619,7 @@ def _generer_billet_html(voyage):
         }}
        }});
       </script>
+      <p style="font-size:11px;color:#64748b;margin-top:-16px">🟦 Trait bleu = trajet du passager (sa montée → sa descente) · Trait gris pointillé = trajet complet du convoi · Trait vert = trajet réellement constaté</p>
     """
 
     return f"""

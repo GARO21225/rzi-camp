@@ -495,7 +495,18 @@ export default function MissionControl() {
     trajet_aller_seul: false,
     villesIntermediaires: [],
     mode_transport:'bus',
-    date_depart:'', date_retour_prevue:'', nb_places_total:15,
+    // BUG REEL CORRIGE ICI : date_depart vide par defaut faisait que le
+    // filtre anti-doublon chauffeur (conducteurOccupe, qui compare des
+    // PERIODES) ne pouvait jamais matcher quoi que ce soit tant que
+    // l'utilisateur n'avait pas encore rempli la date — or "Conducteur
+    // assigné" apparait AVANT "Date de départ" dans le formulaire,
+    // exposant systematiquement la liste complete, non filtree, au
+    // premier affichage (cas exact signale : Dukastel visible/selectable
+    // alors qu'il est deja chauffeur ce jour-la sur un autre convoi).
+    // Date du jour par defaut => le filtre est actif des l'ouverture.
+    date_depart: new Date().toISOString().slice(0,10),
+    date_retour_prevue: new Date().toISOString().slice(0,10),
+    nb_places_total:15,
     heure_depart:'06:00', point_rdv:'Entrée camp', motif:'', type_voyage:'rotation',
     passagers:[],
   })
@@ -586,7 +597,8 @@ export default function MissionControl() {
         setShowCreate(null)
         setFormRot({itineraire_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
-          date_depart:'',date_retour_prevue:'',nb_places_total:15,niveau_alerte:1,villesIntermediaires:[],
+          date_depart:new Date().toISOString().slice(0,10),date_retour_prevue:new Date().toISOString().slice(0,10),
+          nb_places_total:15,niveau_alerte:1,villesIntermediaires:[],
           heure_depart:'06:00',point_rdv:'Entrée camp',motif:'',type_voyage:'rotation',passagers:[]})
         load()
       } else flash(data.error||'Erreur',false)
@@ -843,17 +855,21 @@ export default function MissionControl() {
   }
 
   const genererJMP = async (rotation) => {
-    // Voyage de reference pour ce convoi (vehicule/chauffeur/dates communs) -
-    // le premier passager confirme, ou a defaut n'importe lequel.
+    // Les champs communs du convoi (vehicule/chauffeur/dates/trajet) viennent
+    // TOUJOURS de la rotation elle-meme, jamais d'un voyage passager - le
+    // depart/destination du convoi peut differer de la montee/descente d'un
+    // passager donne. refVoyage ne sert plus qu'a retrouver l'id necessaire
+    // pour charger les etapes detaillees (distance/horaires) du convoi.
     const refVoyageId = rotation.passagers?.[0]?.id
     const refVoyage = refVoyageId ? voyages.find(v=>v.id===refVoyageId) : null
-    if (!refVoyage) { toast.error("Impossible de trouver un voyage de référence pour ce convoi."); return }
 
     let etapes = []
-    try {
-      etapes = await api(`/api/etapes-voyage/?voyage=${refVoyage.id}`).then(r=>r.json())
-      etapes = (etapes.results || etapes || []).filter(e=>e.sens!=='retour').sort((a,b)=>a.ordre-b.ordre)
-    } catch { /* pas d'etapes detaillees - on se contente du trajet global */ }
+    if (refVoyage) {
+      try {
+        etapes = await api(`/api/etapes-voyage/?voyage=${refVoyage.id}`).then(r=>r.json())
+        etapes = (etapes.results || etapes || []).filter(e=>e.sens!=='retour').sort((a,b)=>a.ordre-b.ordre)
+      } catch { /* pas d'etapes detaillees - on se contente du trajet global */ }
+    }
 
     if (etapes.length === 0) {
       const continuer = await confirmDialog(
@@ -872,7 +888,7 @@ export default function MissionControl() {
     } catch { /* champs urgence vides si echec */ }
 
     const passagersDetail = (rotation.passagers||[]).map(p => voyages.find(v=>v.id===p.id)).filter(Boolean)
-    const niveauCourant = refVoyage.niveau_alerte || 1
+    const niveauCourant = rotation.niveau_alerte || 1
     const niveaux = [
       "Aucune restriction de voyage<br>No restrictions",
       "Prudence Coordination entre CCTV<br>Caution Coordination between CCTV",
@@ -927,15 +943,15 @@ export default function MissionControl() {
       <table class="hdr"><tr>
         <td class="lbl">Nom de l'entreprise</td><td>ROXGOLD SANGO</td>
         <td class="lbl">Date de la demande</td><td>${new Date().toLocaleDateString('fr-FR')}</td>
-        <td class="lbl">Type de véhicule</td><td>${refVoyage.vehicule||''}</td>
+        <td class="lbl">Type de véhicule</td><td>${rotation.vehicule||''}</td>
       </tr><tr>
-        <td class="lbl">Voyager à partir de</td><td>${refVoyage.origine||''}</td>
-        <td class="lbl">Destination finale</td><td>${refVoyage.destination||''}</td>
-        <td class="lbl">Numéro de véhicule</td><td>${refVoyage.vehicule||''}</td>
+        <td class="lbl">Voyager à partir de</td><td>${rotation.origine||''}</td>
+        <td class="lbl">Destination finale</td><td>${rotation.destination||''}</td>
+        <td class="lbl">Numéro de véhicule</td><td>${rotation.vehicule||''}</td>
       </tr><tr>
-        <td class="lbl">Date de début du voyage</td><td>${fmt(refVoyage.date_depart)}</td>
-        <td class="lbl">Date de fin de voyage</td><td>${fmt(refVoyage.date_retour_prevue)}</td>
-        <td class="lbl">Immatriculation</td><td>${refVoyage.vehicule_matricule||''}</td>
+        <td class="lbl">Date de début du voyage</td><td>${fmt(rotation.date_depart)}</td>
+        <td class="lbl">Date de fin de voyage</td><td>${fmt(rotation.date_retour_prevue)}</td>
+        <td class="lbl">Immatriculation</td><td>${rotation.vehicule_matricule||''}</td>
       </tr></table>
 
       <table class="hdr equip">
@@ -945,12 +961,12 @@ export default function MissionControl() {
         <tr><td class="lbl">Numéro de téléphone satellite :</td><td style="font-size:10px">${param.jmp_tel_satellite||''}</td><td class="lbl">Trousse de premiers soins ?</td><td class="chk">☐</td></tr>
       </table>
 
-      <div class="trajet">${rotation.rotation_id} — ${refVoyage.origine||''} → ${refVoyage.destination||''}</div>
+      <div class="trajet">${rotation.rotation_id} — ${rotation.origine||''} → ${rotation.destination||''}</div>
 
       <table><thead><tr><td>Ordre</td><td>Passagers</td><td>Société / Département</td><td>N° MTN / Orange</td><td>Lieu de montée</td><td>Lieu de descente</td></tr></thead>
         <tbody>
-          <tr><td class="ord">—</td><td class="pass">${refVoyage.conducteur||''}</td><td colspan="4" style="font-weight:700;background:#fafafa">CHAUFFEUR</td></tr>
-          ${refVoyage.conducteur_secondaire?`<tr><td class="ord">—</td><td class="pass">${refVoyage.conducteur_secondaire}</td><td colspan="4" style="font-weight:700;background:#fafafa">SECOND DRIVER</td></tr>`:''}
+          <tr><td class="ord">—</td><td class="pass">${rotation.conducteur||''}</td><td colspan="4" style="font-weight:700;background:#fafafa">CHAUFFEUR</td></tr>
+          ${rotation.conducteur_secondaire?`<tr><td class="ord">—</td><td class="pass">${rotation.conducteur_secondaire}</td><td colspan="4" style="font-weight:700;background:#fafafa">SECOND DRIVER</td></tr>`:''}
           ${ligneManifeste}
         </tbody>
       </table>
@@ -961,8 +977,8 @@ export default function MissionControl() {
       </table>
 
       <table style="margin-top:14px"><tr>
-        <td style="width:25%">Chauffeur : <b>${refVoyage.conducteur||''}</b></td>
-        <td style="width:25%">Fonction : <b>${(personnel.find(p=>`${p.nom} ${p.prenom}`===refVoyage.conducteur)?.departement) || (personnel.find(p=>`${p.nom} ${p.prenom}`===refVoyage.conducteur)?.profil_label) || '—'}</b></td>
+        <td style="width:25%">Chauffeur : <b>${rotation.conducteur||''}</b></td>
+        <td style="width:25%">Fonction : <b>${(personnel.find(p=>`${p.nom} ${p.prenom}`===rotation.conducteur)?.departement) || (personnel.find(p=>`${p.nom} ${p.prenom}`===rotation.conducteur)?.profil_label) || '—'}</b></td>
         <td style="width:20%">Date : <b>${new Date().toLocaleDateString('fr-FR')}</b></td>
         <td style="width:30%">Signature : ______________________</td>
       </tr><tr>
@@ -1580,6 +1596,14 @@ export default function MissionControl() {
                                         if (r.conducteur_secondaire && r.conducteur_secondaire.trim().toLowerCase()===nomComplet) return false
                                         return true
                                       })
+                                      // BUG REEL CORRIGE ICI : personnelOccupe() existait deja (meme
+                                      // regle que la validation backend - pas de voyages qui se
+                                      // chevauchent) mais n'etait jamais appelee nulle part - la liste
+                                      // proposait donc aussi quelqu'un deja en voyage/planifie ce
+                                      // jour-la sur un AUTRE convoi, pour ensuite echouer cote serveur
+                                      // (ou pire, rester silencieusement incoherent). Filtree ici en
+                                      // amont, comme deja fait pour le chauffeur.
+                                      .filter(p=>!personnelOccupe(p.id, voyages, r.date_depart, r.date_retour_prevue))
                                       .map(p=>(
                                         <option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe||'—'}</option>
                                       ))}
@@ -1590,7 +1614,20 @@ export default function MissionControl() {
                                     + Ajouter
                                   </button>
                                 </div>
-                                {formJoin.rotation_id===r.rotation_id && formJoin.personnel_id && (
+                                {formJoin.rotation_id===r.rotation_id && formJoin.personnel_id && (() => {
+                                  // Montee et descente doivent respecter l'ordre REEL du trajet :
+                                  // (1) la descente ne peut jamais etre a un arret egal ou anterieur
+                                  // a la montee choisie (on retire ces arrets de sa liste au lieu de
+                                  // simplement l'empecher apres coup - demande explicite : "les
+                                  // inférieur doivent disparaitre de la liste") ; (2) la montee ne
+                                  // peut pas etre le tout dernier arret (rien a descendre apres), ni
+                                  // etre egale a la descente deja choisie.
+                                  const arrets = r.arrets_itineraire || []
+                                  const iMontee = formJoin.origine ? arrets.indexOf(formJoin.origine) : -1
+                                  const iDescente = formJoin.destination ? arrets.indexOf(formJoin.destination) : -1
+                                  const optsMontee = arrets.filter((v,i) => i < arrets.length-1 && (iDescente===-1 || i < iDescente))
+                                  const optsDescente = arrets.filter((v,i) => i > 0 && (iMontee===-1 || i > iMontee))
+                                  return (
                                   <div style={{marginTop:8,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il monte où ?</label>
@@ -1598,11 +1635,19 @@ export default function MissionControl() {
                                           convoi (origine -> villes intermediaires -> destination) au
                                           lieu d'un champ texte libre - demande explicite, evite aussi
                                           une saisie incoherente (ville hors trajet, faute de frappe). */}
-                                      {(r.arrets_itineraire||[]).length > 0 ? (
-                                        <select value={formJoin.origine} onChange={e=>setFormJoin(f=>({...f,origine:e.target.value}))}
+                                      {arrets.length > 0 ? (
+                                        <select value={formJoin.origine} onChange={e=>{
+                                            const v = e.target.value
+                                            // Si la descente deja choisie devient invalide (egale ou
+                                            // anterieure a la nouvelle montee), on la reinitialise -
+                                            // "montée ne peut pas être égale à descendre".
+                                            const iv = v ? arrets.indexOf(v) : -1
+                                            setFormJoin(f=>({...f, origine:v,
+                                              destination: (f.destination && arrets.indexOf(f.destination) <= iv) ? '' : f.destination}))
+                                          }}
                                           style={{...inputStyle,fontSize:12}}>
                                           <option value="">— Choisir —</option>
-                                          {r.arrets_itineraire.map((v,i)=>(
+                                          {optsMontee.map((v,i)=>(
                                             <option key={i} value={v}>{v}</option>
                                           ))}
                                         </select>
@@ -1613,11 +1658,11 @@ export default function MissionControl() {
                                     </div>
                                     <div>
                                       <label style={{fontSize:10,color:C.muted}}>Il descend où ?</label>
-                                      {(r.arrets_itineraire||[]).length > 0 ? (
+                                      {arrets.length > 0 ? (
                                         <select value={formJoin.destination} onChange={e=>setFormJoin(f=>({...f,destination:e.target.value}))}
                                           style={{...inputStyle,fontSize:12}}>
                                           <option value="">— Choisir —</option>
-                                          {r.arrets_itineraire.map((v,i)=>(
+                                          {optsDescente.map((v,i)=>(
                                             <option key={i} value={v}>{v}</option>
                                           ))}
                                         </select>
@@ -1632,7 +1677,8 @@ export default function MissionControl() {
                                         style={{...inputStyle,fontSize:12}}/>
                                     </div>
                                   </div>
-                                )}
+                                  )
+                                })()}
                               </div>
                             )}
                           </div>

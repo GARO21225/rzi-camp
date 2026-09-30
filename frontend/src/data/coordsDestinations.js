@@ -71,15 +71,32 @@ export const COORDS_DESTINATIONS = {
   'centre médical (évacuation afrique du sud)': [-26.2041, 28.0473],
 }
 
-/** Cherche des coordonnées pour un nom de lieu — tolérant à la casse et
- * aux variantes partielles (ex: "Abidjan" retrouve la même entrée que
+/** Normalise un nom de lieu pour la comparaison : minuscule + accents retirés
+ * (ex: "BOUAKE" et "bouaké" doivent matcher la même entrée). */
+function normaliser(s) {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // diacritiques (accents, tréma...)
+}
+
+// Index normalisé (calculé une seule fois) : clé sans accent -> coords
+const COORDS_NORMALISEES = Object.entries(COORDS_DESTINATIONS).reduce((acc, [k, v]) => {
+  acc[normaliser(k)] = v
+  return acc
+}, {})
+
+/** Cherche des coordonnées pour un nom de lieu — tolérant à la casse, aux
+ * accents (ex: "BOUAKE" retrouve "bouaké") et aux variantes partielles
+ * (ex: "Abidjan" retrouve la même entrée que
  * "Aéroport FÉLIX HOUPHOUËT-BOIGNY (ABJ)" si le nom contient "abidjan"). */
 export function trouverCoords(nom) {
   if (!nom) return null
-  const key = nom.trim().toLowerCase()
-  if (COORDS_DESTINATIONS[key]) return COORDS_DESTINATIONS[key]
+  const key = normaliser(nom)
+  if (COORDS_NORMALISEES[key]) return COORDS_NORMALISEES[key]
   // Recherche partielle : le nom saisi contient une des clés connues, ou vice versa
-  for (const [k, coords] of Object.entries(COORDS_DESTINATIONS)) {
+  for (const [k, coords] of Object.entries(COORDS_NORMALISEES)) {
     if (key.includes(k) || k.includes(key)) return coords
   }
   return null
