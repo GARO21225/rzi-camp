@@ -276,7 +276,10 @@ export default function Layout() {
       // Filtre la liste canonique (admin) aux seules routes autorisees pour
       // ce role, dans l'ordre configure - garde le libelle/icone canonique.
       const canon = {}
-      ROLE_NAV.admin.forEach(item => { if (item.to) canon[item.to] = item })
+      ROLE_NAV.admin.forEach(item => { if (item.to && item.to !== '/') canon[item.to] = item })
+      // '/' (Dashboard) exclu meme si un menu_pages deja enregistre en base
+      // le contient encore (ancien reglage) : vue camp-wide reservee a l'admin,
+      // et RoleHome redirige de toute facon tout non-admin loin de cette route.
       const filtered = roleMenuOverride.map(to => canon[to]).filter(Boolean)
       if (filtered.length > 0) return filtered
     }

@@ -930,7 +930,10 @@ function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navig
 // deliberement les pages sensibles (Parametrage, Audit, Diagnostic) qui
 // restent reservees a l'admin quoi qu'il arrive, meme depuis cet ecran.
 const PAGES_ASSIGNABLES = [
-  ['/', '📊 Dashboard'], ['/carte', '🗺️ Carte GIS'], ['/mon-compte', '👤 Mon compte'],
+  // '/' (Dashboard) volontairement absent : vue camp-wide reservee a l'admin,
+  // RoleHome (App.jsx) redirige de toute facon tout non-admin vers /carte,
+  // mais on evite deja de pouvoir la cocher pour un role personnalise.
+  ['/carte', '🗺️ Carte GIS'], ['/mon-compte', '👤 Mon compte'],
   ['/personnel', '👤 Personnel'], ['/presences', '🟢 Présences'], ['/induction', '🎓 Induction QHSE'],
   ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
   ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],

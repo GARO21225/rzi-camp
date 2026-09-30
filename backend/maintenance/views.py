@@ -361,6 +361,18 @@ class IncidentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': f'{str(e)} | sub-errors: {errors}'}, status=500)
 
+    def update(self, request, *args, **kwargs):
+        # BUG REEL CORRIGE ICI : seul partial_update() (PATCH) controlait
+        # que le non-admin ne modifie QUE son incident assigne - update()
+        # (PUT) heritait du defaut ModelViewSet (IsAuthenticated tout
+        # court) et laissait donc n'importe quel utilisateur connecte
+        # modifier N'IMPORTE QUEL incident via une requete PUT. On route
+        # PUT vers la meme logique que PATCH (implementation deja
+        # entierement custom, pas d'appel a super().partial_update() donc
+        # pas de risque de boucle).
+        kwargs['partial'] = True
+        return self.partial_update(request, *args, **kwargs)
+
     def partial_update(self, request, *args, **kwargs):
         """Mise à jour SQL directe"""
         from django.db import connection

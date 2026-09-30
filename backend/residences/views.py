@@ -526,6 +526,24 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             return Response({"error": "Admin requis"}, status=403)
         return super().partial_update(request, *args, **kwargs)
 
+    def update(self, request, *args, **kwargs):
+        # BUG REEL CORRIGE ICI : seul partial_update() (PATCH) verifiait
+        # l'admin. ModelViewSet.update() (PUT) n'etait JAMAIS surcharge et
+        # heritait donc du comportement par defaut - IsAuthenticated tout
+        # court - ce qui permettait a N'IMPORTE QUEL utilisateur connecte
+        # (agent, restauration...) de modifier la fiche de N'IMPORTE QUEL
+        # personnel via une simple requete PUT, sans droit d'ecriture
+        # active. IMPORTANT: on n'appelle PAS self.partial_update() ici -
+        # son implementation DRF standard (UpdateModelMixin.partial_update)
+        # appelle elle-meme self.update(), ce qui bouclerait a l'infini.
+        # On refait donc le controle admin ici et on delegue directement a
+        # l'implementation reelle de update() (partial=True pour accepter
+        # une requete PUT partielle sans planter sur des champs absents).
+        if not self._is_admin(request.user):
+            return Response({"error": "Admin requis"}, status=403)
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
     @action(detail=True, methods=["post"])
     def toggle_active(self, request, pk=None):
         """Activer/désactiver le compte User d'un Personnel"""
@@ -1092,6 +1110,24 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis pour créer une résidence"}, status=403)
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        # BUG REEL CORRIGE ICI : seul partial_update() (PATCH) verifiait
+        # l'admin - update() (PUT) n'etait jamais surcharge et heritait du
+        # comportement par defaut de ModelViewSet (IsAuthenticated tout
+        # court), permettant a n'importe quel utilisateur connecte de
+        # modifier n'importe quelle chambre/residence via une requete PUT,
+        # sans droit d'ecriture active. On route PUT vers la meme logique
+        # que PATCH, qui porte deja tout le controle admin + metier.
+        kwargs["partial"] = True
+        return self.partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis pour supprimer une résidence"}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         u = request.user

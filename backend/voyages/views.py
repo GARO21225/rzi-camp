@@ -32,6 +32,60 @@ def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=Non
     return qs.first()
 
 
+def _conducteur_en_conflit(conducteur_id, nom, date_depart, date_retour, exclude_rotation_id=None):
+    """Cherche si cette personne (par ID si fourni, sinon par nom en texte
+    libre) est deja conducteur (principal OU second) d'un AUTRE convoi actif
+    dont la periode chevauche celle demandee.
+
+    BUG REEL CORRIGE ICI : l'ancien controle ne regardait QUE le modele
+    Voyage (les lignes passager). Depuis que "creer_rotation" cree
+    TOUJOURS le convoi sans aucun passager (cf. Rotation.itineraire_modele
+    et la regle "un convoi et un passager sont deux choses differentes"),
+    un convoi tout juste cree n'a plus AUCUNE ligne Voyage tant que
+    personne ne l'a rejoint - le chauffeur qui lui est assigne devenait
+    donc invisible a ce controle, permettant de designer le MEME chauffeur
+    sur 2 convois actifs a la meme date (signale : "dukastel est chauffeur
+    le meme jour sur 2 convois"). Cherche desormais D'ABORD dans Rotation
+    (source de verite, existe meme sans passager - meme raisonnement deja
+    applique au controle du vehicule juste apres celui-ci), avec repli sur
+    Voyage pour les voyages individuels (sans Rotation associee) et les
+    anciennes donnees anterieures a ce modele."""
+    if not (conducteur_id or nom):
+        return None
+    filtre_rot = Q()
+    if conducteur_id:
+        filtre_rot |= Q(conducteur_personnel_id=conducteur_id) | Q(conducteur_secondaire_personnel_id=conducteur_id)
+    if nom:
+        filtre_rot |= Q(conducteur__iexact=nom) | Q(conducteur_secondaire__iexact=nom)
+    candidats = Rotation.objects.filter(
+        filtre_rot, date_depart__lte=date_retour or date_depart, date_retour_prevue__gte=date_depart,
+    )
+    if exclude_rotation_id:
+        candidats = candidats.exclude(rotation_id=exclude_rotation_id)
+    for candidat in candidats:
+        # Meme derivation de statut "reel" que le controle vehicule : un
+        # convoi dont tous les passagers sont rentres/annules ne bloque
+        # plus rien, meme si Rotation.statut (jamais mis a jour) dit
+        # encore "planifie".
+        membres = Voyage.objects.filter(rotation_id=candidat.rotation_id)
+        if membres.exists() and not membres.exclude(statut__in=("retour", "annule")).exists():
+            continue
+        return candidat
+
+    filtre_v = Q()
+    if conducteur_id:
+        filtre_v |= Q(conducteur_personnel_id=conducteur_id) | Q(conducteur_secondaire_personnel_id=conducteur_id)
+    if nom:
+        filtre_v |= Q(conducteur__iexact=nom) | Q(conducteur_secondaire__iexact=nom)
+    qs = Voyage.objects.filter(
+        filtre_v, statut__in=("planifie", "en_voyage"),
+        date_depart__lte=date_retour or date_depart, date_retour_prevue__gte=date_depart,
+    )
+    if exclude_rotation_id:
+        qs = qs.exclude(rotation_id=exclude_rotation_id)
+    return qs.first()
+
+
 def _appliquer_itineraire_a_voyage(voyage, itineraire):
     """Copie les étapes d'un ItineraireModele sur un Voyage donné - même
     logique que le sélecteur "Appliquer un itinéraire type" du détail d'un
@@ -248,13 +302,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
             autres_passagers = Voyage.objects.filter(rotation_id=voyage.rotation_id).exclude(statut="annule").exclude(pk=voyage.pk).exists() if voyage.rotation_id else False
             if autres_passagers and voyage.personnel and f"{voyage.personnel.nom} {voyage.personnel.prenom}".strip().lower() == nouveau_conducteur.strip().lower():
                 return Response({"error": f"{nouveau_conducteur} est le voyageur lui-même : il ne peut pas être son propre conducteur quand d'autres passagers l'accompagnent."}, status=400)
-            chevauche = Voyage.objects.filter(
-                conducteur__iexact=nouveau_conducteur,
-                statut__in=("planifie","en_voyage"),
-                date_depart__lte=voyage.date_retour_prevue, date_retour_prevue__gte=voyage.date_depart,
-            ).exclude(pk=voyage.pk).first()
+            # Meme correctif que creer_rotation (voir _conducteur_en_conflit) :
+            # verifie aussi Rotation, pas seulement Voyage, sinon le
+            # chauffeur d'un convoi tout juste cree (encore sans aucun
+            # passager) reste invisible a ce controle.
+            chevauche = _conducteur_en_conflit(None, nouveau_conducteur, voyage.date_depart, voyage.date_retour_prevue,
+                                                 exclude_rotation_id=voyage.rotation_id)
             if chevauche:
-                return Response({"error": f"{nouveau_conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
+                return Response({"error": f"{nouveau_conducteur} est déjà chauffeur (principal ou second) sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
         voyage.vehicule = vehicule
         voyage.vehicule_matricule = request.data.get("vehicule_matricule", "")
         voyage.vehicule_photo = request.data.get("vehicule_photo", "")
@@ -332,6 +387,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         return super().destroy(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        # BUG REEL CORRIGE ICI : seul partial_update() (PATCH) verifiait
+        # l'admin - update() (PUT) n'etait jamais surcharge et heritait du
+        # comportement par defaut de ModelViewSet (IsAuthenticated tout
+        # court), permettant a n'importe quel utilisateur connecte de
+        # modifier n'importe quel voyage via une requete PUT. On refait le
+        # controle ici et on delegue a l'implementation reelle (pas a
+        # self.partial_update(), dont l'implementation DRF standard
+        # rappelle self.update() - ca boucleraient a l'infini).
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin:
+            return Response({"error":"Admin requis"}, status=403)
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         u = request.user
@@ -908,23 +979,17 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     except Personnel.DoesNotExist:
                         pass
         if conducteur:
-            # Regle : le conducteur ne peut pas deja etre conducteur sur un AUTRE convoi actif qui chevauche les dates
-            chevauche = Voyage.objects.filter(
-                conducteur__iexact=conducteur,
-                statut__in=("planifie","en_voyage"),
-                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
-            ).first()
+            # Regle : le conducteur ne peut pas deja etre conducteur (principal
+            # ou second) sur un AUTRE convoi actif qui chevauche les dates -
+            # verifie desormais Rotation ET Voyage (voir _conducteur_en_conflit).
+            chevauche = _conducteur_en_conflit(conducteur_id, conducteur, date_depart, date_retour)
             if chevauche:
-                return Response({"error": f"{conducteur} est déjà conducteur sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
+                return Response({"error": f"{conducteur} est déjà chauffeur (principal ou second) sur un autre convoi actif du {chevauche.date_depart} au {chevauche.date_retour_prevue}."}, status=400)
         if conducteur_secondaire:
             # Meme controle de chevauchement pour le second chauffeur, sur
             # les DEUX roles a la fois (personne ne peut conduire 2 convois
             # en meme temps, quel que soit le role tenu sur chacun).
-            chevauche2 = Voyage.objects.filter(
-                Q(conducteur__iexact=conducteur_secondaire) | Q(conducteur_secondaire__iexact=conducteur_secondaire),
-                statut__in=("planifie","en_voyage"),
-                date_depart__lte=date_retour, date_retour_prevue__gte=date_depart,
-            ).first()
+            chevauche2 = _conducteur_en_conflit(conducteur_secondaire_id, conducteur_secondaire, date_depart, date_retour)
             if chevauche2:
                 return Response({"error": f"{conducteur_secondaire} est déjà chauffeur (principal ou second) sur un autre convoi actif du {chevauche2.date_depart} au {chevauche2.date_retour_prevue}."}, status=400)
 
@@ -1369,6 +1434,15 @@ class EtapeVoyageViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         if not self._is_admin(request.user):
             return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        # Meme correctif que VoyageViewSet.update() ci-dessus : PUT n'etait
+        # jamais garde. On ne passe pas par self.partial_update() (son
+        # super() rappellerait self.update() -> boucle infinie).
+        if not self._is_admin(request.user):
+            return Response({"error":"Admin requis pour gérer l'itinéraire d'un voyage"}, status=403)
+        kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
