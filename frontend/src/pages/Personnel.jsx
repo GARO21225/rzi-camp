@@ -611,10 +611,126 @@ export default function Personnel() {
     input.click()
   }
 
+  // ── Chip actif (mobile) — dérivé des filtres existants plutôt qu'un
+  // état séparé, pour ne jamais désynchroniser chip affiché / filtre réel.
+  const mobileChip =
+    typeFilter==='roxgold'       ? 'roxgold' :
+    typeFilter==='sous_traitant' ? 'sous_traitant' :
+    inductionFilter==='non_commence' ? 'induction' :
+    actifFilter==='actif'        ? 'actifs' : 'tous'
+  const setMobileChip = (chip) => {
+    setTypeFilter(chip==='roxgold' ? 'roxgold' : chip==='sous_traitant' ? 'sous_traitant' : '')
+    setActifFilter(chip==='actifs' ? 'actif' : '')
+    setInductionFilter(chip==='induction' ? 'non_commence' : '')
+  }
+  const MOBILE_CHIPS = [
+    {v:'tous', l:'Tous'}, {v:'actifs', l:'Actifs'}, {v:'roxgold', l:'Roxgold'},
+    {v:'sous_traitant', l:'Sous-traitants'}, {v:'induction', l:'Induction à faire'},
+  ]
+
   return (
     <PersonnelBoundary>
-      <div className="page rzc-dark-scope" style={{padding:'20px 22px'}}>
+      <div className="page rzc-dark-scope" style={{padding: isMobile ? '16px 16px 90px' : '20px 22px', position:'relative'}}>
 
+      {isMobile ? (
+      <>
+        {/* ── MOBILE : en-tête + recherche + chips + cartes ── */}
+        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+          <h1 style={{margin:0,fontSize:20,fontWeight:700,color:'var(--rzc-text,#0F1A2E)'}}>Personnel</h1>
+          <span style={{fontSize:12.5,color:'var(--rzc-text-3,#5B6472)',fontWeight:600}}>{filtered.length} membre(s)</span>
+        </div>
+
+        <div style={{marginTop:12,background:'#fff',border:'1px solid rgba(15,26,46,.12)',borderRadius:12,
+          display:'flex',alignItems:'center',gap:8,padding:'0 12px',height:42}}>
+          <span aria-hidden="true">🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Nom, société, matricule…" aria-label="Rechercher un membre du personnel"
+            style={{border:'none',outline:'none',fontSize:13.5,color:'var(--rzc-text,#0F1A2E)',width:'100%',
+              fontFamily:'inherit',background:'transparent'}}/>
+        </div>
+
+        <div style={{display:'flex',gap:8,overflowX:'auto',marginTop:10,paddingBottom:4}}>
+          {MOBILE_CHIPS.map(c => (
+            <button key={c.v} onClick={()=>setMobileChip(c.v)} aria-pressed={mobileChip===c.v}
+              style={{border:'1px solid rgba(15,26,46,.14)',
+                background: mobileChip===c.v ? 'var(--rzc-navy,#0F2A5C)' : '#fff',
+                color: mobileChip===c.v ? '#fff' : 'var(--rzc-text-2,#2D3B52)',
+                borderRadius:99,padding:'7px 14px',fontSize:12.5,fontWeight:600,whiteSpace:'nowrap',
+                flexShrink:0,cursor:'pointer'}}>
+              {c.l}
+            </button>
+          ))}
+        </div>
+
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:14}}>
+          {loading ? (
+            <div style={{textAlign:'center',padding:40,fontSize:32}}>⏳</div>
+          ) : filtered.length === 0 ? (
+            <div style={{textAlign:'center',padding:40,color:'var(--rzc-text-4,#8B95A1)'}}>
+              <div style={{fontSize:40,marginBottom:10}}>👤</div>
+              Aucun membre trouvé
+            </div>
+          ) : filtered.map(p => {
+            const initiales = `${(p.nom||'?')[0]||''}${(p.prenom||'')[0]||''}`.toUpperCase()
+            const chambre = p.residence_principale?.residence || p.chambre
+            return (
+              <button key={p.id} onClick={() => {
+                  setForm({
+                    nom:p.nom, prenom:p.prenom, email:p.email||'',
+                    telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
+                    type_personnel:p.type_personnel||'employe',
+                    numero:p.numero||'', actif:p.actif,
+                    est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite
+                  })
+                  setErr(''); setModal(p)
+                }}
+                style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',
+                  background:'#fff',border:'1px solid rgba(15,26,46,.10)',borderRadius:14,padding:12,
+                  boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit'}}>
+                <div style={{width:42,height:42,borderRadius:'50%',background:'var(--rzc-navy,#0F2A5C)',color:'#fff',
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:600,flexShrink:0}}>
+                  {initiales || '?'}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{margin:0,fontSize:13.5,fontWeight:700,color:'var(--rzc-text,#0F1A2E)',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.nom} {p.prenom}</p>
+                  <p style={{margin:'2px 0 0',fontSize:11.5,color:'var(--rzc-text-3,#5B6472)',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {p.societe || '—'}{p.poste ? ` · ${p.poste}` : ''}{chambre ? ` · 🏠 ${chambre}` : ''}
+                  </p>
+                </div>
+                {p.qr_code_data && (
+                  <span onClick={e=>{e.stopPropagation(); setQrModal(p)}}
+                    style={{fontSize:16,flexShrink:0,padding:4}} role="button" aria-label="Voir le QR code" tabIndex={0}
+                    onKeyDown={e=>{if(e.key==='Enter'){e.stopPropagation(); setQrModal(p)}}}>
+                    🔲
+                  </span>
+                )}
+                <span className="rzc-badge" style={{fontSize:10.5,fontWeight:700,borderRadius:99,padding:'2px 9px',
+                  flexShrink:0, background: p.actif ? 'rgba(22,163,74,.12)' : 'rgba(220,38,38,.10)',
+                  color: p.actif ? '#16A34A' : '#DC2626'}}>
+                  {p.actif ? 'Actif' : 'Inactif'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {!lectureSeule && (
+          <button onClick={()=>{
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+              setErr(''); setModal('new')
+            }}
+            aria-label="Ajouter un membre du personnel"
+            style={{position:'fixed',right:16,bottom:'calc(20px + env(safe-area-inset-bottom, 0px) + 62px)',
+              width:54,height:54,borderRadius:27,background:'var(--rzc-ore-gold,#C9972B)',border:'none',
+              boxShadow:'0 6px 16px rgba(201,151,43,.4)',fontSize:24,color:'#1A1206',cursor:'pointer',zIndex:90}}>
+            +
+          </button>
+        )}
+      </>
+      ) : (
+      <>
         {/* ── HEADER ── */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
           <div>
@@ -955,6 +1071,8 @@ export default function Personnel() {
             </table>
           </div>
         )}
+      </>
+      )}
 
         {/* ══ MODAL CRÉER/MODIFIER ══ */}
         {modal && (

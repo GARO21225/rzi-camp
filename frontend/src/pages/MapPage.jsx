@@ -6,6 +6,7 @@ import L from 'leaflet'
 import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI, parametres as paramAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -200,6 +201,9 @@ function NavLayer({userPos, route, target, targetName}){
 }
 
 export default function MapPage() {
+  const isMobile = useIsMobile()
+  const [legendOpenMobile, setLegendOpenMobile] = useState(false)
+  const [tilePickerOpenMobile, setTilePickerOpenMobile] = useState(false)
   const [geojson,setGeojson]=useState(null)
   const [geoKey,setGeoKey]=useState(0)
   const [stats,setStats]=useState(null)
@@ -428,8 +432,10 @@ export default function MapPage() {
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - 54px)',overflow:'hidden',position:'relative'}}>
-      {/* TOOLBAR */}
-      <div style={{background:'var(--rzc-white)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
+      {/* TOOLBAR — desktop uniquement ; sur mobile, une barre flottante
+          compacte (recherche + chips statut) est posée directement sur la
+          carte, voir plus bas, pour laisser un maximum d'espace à la carte. */}
+      {!isMobile && <div style={{background:'var(--rzc-white)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 10px',gap:6,flexShrink:0,flexWrap:'wrap',minHeight:46,zIndex:10}}>
         <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)}
           style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'4px 8px',borderRadius:6,fontSize:11,outline:'none'}}>
           <option value="">Tous statuts</option>
@@ -501,7 +507,7 @@ export default function MapPage() {
             </span>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* NAV INFO BAR */}
       {navMode&&(
@@ -531,8 +537,10 @@ export default function MapPage() {
 
       {/* MAP */}
       <div style={{flex:1,position:'relative',minHeight:0,overflow:'hidden'}}>
-        {/* Bouton Import GIS */}
-      <button onClick={()=>{
+        {/* Bouton Import GIS — masqué sur mobile (fonctions superuser peu
+            utilisées au tap ; réservées au desktop pour ne pas encombrer
+            l'écran, sans rien retirer côté fonctionnel) */}
+      {!isMobile && <button onClick={()=>{
         // Export des données de la carte en GeoJSON
         const data = JSON.stringify(geojson || {type:'FeatureCollection',features:[]}, null, 2)
         const blob = new Blob([data], {type:'application/json'})
@@ -551,14 +559,75 @@ export default function MapPage() {
           display:'flex', alignItems:'center', gap:6
         }}>
         📤 Extraire
-      </button>
+      </button>}
 
-      <button onClick={()=>setShowImport(true)}
+      {!isMobile && <button onClick={()=>setShowImport(true)}
         style={{position:'absolute',top:54,right:12,zIndex:500,background:'var(--rzc-navy)',color:'var(--rzc-white)',
           border:'none',padding:'8px 14px',borderRadius:10,cursor:'pointer',fontSize:12,
           fontWeight:700,boxShadow:'0 2px 8px rgba(0,0,0,.2)',display:'flex',alignItems:'center',gap:6}}>
         📥 Importer données
-      </button>
+      </button>}
+
+      {/* ── Barre flottante mobile : recherche + chips statut, posées
+          directement sur la carte (maquette validée) ── */}
+      {isMobile && (
+        <div style={{position:'absolute',top:10,left:10,right:10,zIndex:1000,display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{background:'#fff',borderRadius:12,boxShadow:'0 2px 10px rgba(15,26,46,.14)',
+            display:'flex',alignItems:'center',gap:8,padding:'0 12px',height:42}}>
+            <span aria-hidden="true">🔍</span>
+            <input value={filterRes} onChange={e=>setFilterRes(e.target.value)}
+              placeholder="Résidence, bloc…" aria-label="Rechercher une résidence ou un bloc"
+              style={{border:'none',outline:'none',fontSize:13.5,color:'#0F1A2E',width:'100%',
+                fontFamily:'inherit',background:'transparent'}}/>
+          </div>
+          <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
+            {[['','Tous'],['Libre','🟢 Libre'],['Occupé','🔴 Occupé'],['Réservé','🔵 Réservé'],['Maintenance','🟡 Maintenance']].map(([v,l])=>(
+              <button key={v||'tous'} onClick={()=>setFilterStatut(v)} aria-pressed={filterStatut===v}
+                style={{border:'1px solid rgba(15,26,46,.14)',
+                  background: filterStatut===v ? '#0F2A5C' : '#fff',
+                  color: filterStatut===v ? '#fff' : '#2D3B52',
+                  borderRadius:99,padding:'7px 14px',fontSize:12.5,fontWeight:600,whiteSpace:'nowrap',
+                  flexShrink:0,cursor:'pointer'}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Boutons flottants mobile : fond de carte / couches / navigation ── */}
+      {isMobile && (
+        <div style={{position:'absolute',right:10,top:110,zIndex:1000,display:'flex',flexDirection:'column',gap:10}}>
+          <button onClick={()=>setTilePickerOpenMobile(v=>!v)} aria-label="Changer le fond de carte"
+            style={{width:44,height:44,borderRadius:22,background:'#fff',border:'1px solid rgba(15,26,46,.14)',
+              boxShadow:'0 4px 12px rgba(15,26,46,.18)',fontSize:18,cursor:'pointer'}}>
+            {TILES.find(t=>t.id===tileId)?.label.slice(0,2) || '🗺️'}
+          </button>
+          {tilePickerOpenMobile && (
+            <div style={{position:'absolute',right:50,top:0,background:'#fff',borderRadius:12,
+              boxShadow:'0 4px 16px rgba(15,26,46,.2)',padding:6,display:'flex',flexDirection:'column',gap:2,minWidth:120}}>
+              {TILES.map(t=>(
+                <button key={t.id} onClick={()=>{setTileId(t.id);setTilePickerOpenMobile(false)}}
+                  style={{background: tileId===t.id ? 'rgba(15,26,46,.06)' : 'transparent', border:'none',
+                    borderRadius:8,padding:'8px 10px',textAlign:'left',fontSize:12.5,fontWeight:600,
+                    color:'#2D3B52',cursor:'pointer'}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={()=>setLegendOpenMobile(v=>!v)} aria-label="Couches de la carte"
+            style={{width:44,height:44,borderRadius:22,background:'#fff',border:'1px solid rgba(15,26,46,.14)',
+              boxShadow:'0 4px 12px rgba(15,26,46,.18)',fontSize:18,cursor:'pointer'}}>
+            📊
+          </button>
+          <button onClick={toggleNav} aria-label={navMode ? 'Désactiver la navigation' : 'Activer la navigation'}
+            style={{width:44,height:44,borderRadius:22,background: navMode ? '#0F2A5C' : '#fff',
+              border:'1px solid rgba(15,26,46,.14)',boxShadow:'0 4px 12px rgba(15,26,46,.18)',fontSize:18,cursor:'pointer'}}>
+            {gpsLoading ? '📡' : '🧭'}
+          </button>
+        </div>
+      )}
 
       <MapContainer center={[8.111,-6.822]} zoom={17}
           style={{width:'100%',height:'100%',zIndex:0}}>
@@ -908,8 +977,16 @@ export default function MapPage() {
           </div>
         )}
 
-        {/* Légende */}
-        <div style={{position:'absolute',bottom:20,right:10,background:'rgba(255,255,255,.97)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',zIndex:900,fontSize:12,boxShadow:'var(--shadow-md)'}}>
+        {/* Légende — repliée par défaut sur mobile (ouverte via le bouton
+            flottant 📊), toujours visible sur desktop */}
+        {(!isMobile || legendOpenMobile) && (
+        <div style={{position:'absolute',bottom: isMobile ? 76 : 20,right:10,background:'rgba(255,255,255,.97)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',zIndex:900,fontSize:12,boxShadow:'var(--shadow-md)',maxWidth: isMobile ? 'calc(100vw - 30px)' : undefined}}>
+          {isMobile && (
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:4}}>
+              <button onClick={()=>setLegendOpenMobile(false)} aria-label="Fermer"
+                style={{background:'none',border:'none',fontSize:14,cursor:'pointer',color:'var(--text-dim)'}}>✕</button>
+            </div>
+          )}
           <div style={{fontFamily:'monospace',fontSize:9,color:'var(--text-dim)',letterSpacing:2,marginBottom:8,textTransform:'uppercase'}}>Légende</div>
           {[['Libre','var(--rzc-green)'],['Occupé','var(--rzc-red)'],['Réservé','var(--rzc-blue)'],['Maintenance','var(--rzc-ore-gold)']].map(([l,c])=>(
             <div key={l} style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0',cursor:'pointer'}}
@@ -931,6 +1008,7 @@ export default function MapPage() {
             ))}
           </div>
         </div>
+        )}
       </div>
 
       {/* Modal Import GIS */}
