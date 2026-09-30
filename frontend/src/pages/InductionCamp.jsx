@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // ─────────────────────────────────────────────
 //  DONNÉES CAMP
@@ -91,6 +92,7 @@ function Particle({ x, y, color, size, delay }) {
 //  COMPOSANT PRINCIPAL
 // ─────────────────────────────────────────────
 export default function InductionCamp() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const BASE = import.meta.env.VITE_API_URL || window.location.origin
   const tok  = () => localStorage.getItem('access_token') || ''
@@ -474,7 +476,58 @@ export default function InductionCamp() {
           ))}
         </div>
 
-        {/* Tableau */}
+        {/* Liste */}
+        {isMobile ? (
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {allInductions.length===0 && (
+              <div style={{padding:30,textAlign:'center',color:'#64748b',background:'rgba(255,255,255,.04)',borderRadius:12}}>
+                Aucune induction enregistrée
+              </div>
+            )}
+            {allInductions.map(r=>{
+              const pct = r.progression || 0
+              const statusColor = r.statut==='valide'?'#34d399':r.statut==='en_cours'?'#fbbf24':'#64748b'
+              return (
+                <div key={r.id} style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,padding:'12px 13px',display:'flex',flexDirection:'column',gap:7}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{fontWeight:700,color:'#e2eaf6',fontSize:13.5}}>{r.personnel_nom || `Personnel #${r.personnel}`}</span>
+                    <span style={{background:`${statusColor}20`,color:statusColor,padding:'2px 9px',borderRadius:99,fontSize:10.5,fontWeight:700}}>
+                      {r.statut==='valide'?'✓ Validé':r.statut==='en_cours'?'En cours':'—'}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{height:5,flex:1,background:'rgba(255,255,255,.1)',borderRadius:99,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${pct}%`,borderRadius:99,background:pct===100?'#34d399':pct>50?'#fbbf24':'#64748b'}}/>
+                    </div>
+                    <span style={{fontSize:11,color:'#94a3b8',fontFamily:'monospace'}}>{pct}%</span>
+                  </div>
+                  <p style={{margin:0,fontSize:11.5,color:'#94a3b8'}}>
+                    {r.etapes_data?.appareils?.length||0} appareil(s) · {r.date_validation
+                      ? new Date(r.date_validation).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})
+                      : r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'}
+                  </p>
+                  {r.statut!=='valide' && (
+                    <button onClick={async()=>{
+                        await fetch(`${BASE}/api/induction-records/${r.id}/`, {
+                          method:'PATCH',
+                          headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
+                          body: JSON.stringify({statut:'valide'})
+                        })
+                        const d2 = await fetch(`${BASE}/api/induction-records/?page_size=200`,
+                          {headers:{Authorization:`Bearer ${tok()}`}}).then(r=>r.json())
+                        setAllInductions(d2.results||d2||[])
+                      }}
+                      style={{background:'rgba(52,211,153,.15)',color:'#10b981',
+                        border:'1px solid rgba(52,211,153,.3)',borderRadius:8,
+                        padding:'8px 12px',fontSize:12,cursor:'pointer',fontWeight:700}}>
+                      ✓ Valider
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : (
         <div style={{background:'rgba(255,255,255,.04)',borderRadius:12,overflow:'hidden',
           border:'1px solid rgba(255,255,255,.08)'}}>
           <div style={{overflowX:'auto'}}>
@@ -554,6 +607,7 @@ export default function InductionCamp() {
             </table>
           </div>
         </div>
+        )}
       </div>
     </div>
   )
@@ -684,6 +738,36 @@ export default function InductionCamp() {
           </div>
 
           {/* Stepper */}
+          {isMobile ? (
+            <div>
+              <div style={{display:'flex',alignItems:'center',gap:6,overflowX:'auto',paddingBottom:2}}>
+                {ETAPES.map((e,i)=>{
+                  const done  = i < etape
+                  const actif = i === etape
+                  return (
+                    <div key={i} style={{display:'flex',alignItems:'center',flexShrink:0}}>
+                      <div onClick={()=>done&&setEtape(i)}
+                        style={{width:26,height:26,borderRadius:'50%',flexShrink:0,
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:11,fontWeight:700,cursor:done?'pointer':'default',
+                          background: done?'#10b981':actif?'#F0A500':'rgba(255,255,255,.1)',
+                          color:'#fff',
+                          border: actif?'2px solid rgba(240,165,0,.6)':'2px solid transparent'}}>
+                        {done ? '✓' : i+1}
+                      </div>
+                      {i < ETAPES.length-1 && (
+                        <div style={{width:18,height:2,flexShrink:0,margin:'0 4px',
+                          background:done?'#10b981':'rgba(255,255,255,.1)'}}/>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <p style={{margin:'8px 0 0',fontSize:12.5,fontWeight:700,color:'#ffd97a'}}>
+                Étape {etape+1}/{ETAPES.length} · {ETAPES[etape]}
+              </p>
+            </div>
+          ) : (
           <div style={{display:'flex',alignItems:'center',gap:0}}>
             {ETAPES.map((e,i)=>{
               const done  = i < etape
@@ -721,6 +805,7 @@ export default function InductionCamp() {
               )
             })}
           </div>
+          )}
         </div>
 
         {/* ══ ÉTAPE 0: BIENVENUE ═══════════════════════════════ */}

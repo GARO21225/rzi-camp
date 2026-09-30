@@ -775,6 +775,7 @@ export default function Maintenance() {
               Workflow · SLA · Assignation · Historique
             </p>
           </div>
+          {!isMobile && (
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setShowPeriodeModal(true)}
               style={{ background:'var(--rzc-green)', color:'#fff', border:'none',
@@ -788,7 +789,21 @@ export default function Maintenance() {
               + Déclarer un incident
             </button>
           </div>
+          )}
         </div>
+
+        {isMobile && (
+          <div style={{position:'fixed', right:16, bottom:78, display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
+            <button onClick={()=>setShowPeriodeModal(true)} aria-label="Rapport PDF"
+              style={{width:46, height:46, borderRadius:23, background:'var(--rzc-green)', border:'none', boxShadow:'0 6px 16px rgba(22,163,74,.4)', fontSize:18, cursor:'pointer'}}>
+              📄
+            </button>
+            <button onClick={() => { setForm(EMPTY); setErr(''); setShowNew(true) }} aria-label="Déclarer un incident"
+              style={{width:54, height:54, borderRadius:27, background:'#C9972B', border:'none', boxShadow:'0 6px 16px rgba(201,151,43,.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F2A5C" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+        )}
 
         {/* ── KPIs enrichis ── */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
@@ -1039,6 +1054,54 @@ export default function Maintenance() {
           )
         })()}
 
+        {isMobile ? (
+          <div style={{marginBottom:14}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="🔍 Rechercher..."
+              style={{ ...inp, width:'100%', marginBottom:10, boxSizing:'border-box' }} />
+            <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4,marginBottom:8}}>
+              {[['','Tous'],['declare','📢 Déclaré'],['assigne','👷 Assigné'],['en_cours','⚙️ En cours']].map(([v,l])=>(
+                <button key={v||'tous'} onClick={()=>setStatFilter(v)}
+                  style={{flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:700,
+                    border:`1px solid ${statFilter===v?'var(--rzc-navy)':'#e2e8f0'}`,
+                    background:statFilter===v?'var(--rzc-navy)':'#fff',
+                    color:statFilter===v?'#fff':'#475569'}}>
+                  {l}
+                </button>
+              ))}
+              <button onClick={()=>setSlaOnly(v=>!v)}
+                style={{flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:700,
+                  border:`1px solid ${slaOnly?'#dc2626':'#e2e8f0'}`,
+                  background:slaOnly?'rgba(220,38,38,.1)':'#fff',
+                  color:slaOnly?'#dc2626':'#475569'}}>
+                ⚠️ SLA
+              </button>
+            </div>
+            <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
+              <a onClick={(e)=>{e.preventDefault(); navigate('/historique')}} href="/historique" style={{ flexShrink:0,padding:'7px 12px', borderRadius:8, textDecoration:'none',
+                  fontSize:11.5, fontWeight:700, background:'#e2e8f0', color:'#475569', display:'flex', alignItems:'center', gap:5 }}>
+                🗂️ Clôturés
+              </a>
+              {isAdmin && <>
+                <button onClick={()=>downloadTemplate()}
+                  style={{ flexShrink:0,background:'#7c3aed', color:'#fff', border:'none',
+                    padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                  📋 Modèle
+                </button>
+                <button onClick={()=>importCSV()}
+                  style={{ flexShrink:0,background:'#2563eb', color:'#fff', border:'none',
+                    padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                  📤 Importer
+                </button>
+                <button onClick={()=>exportCSV(filtered)}
+                  style={{ flexShrink:0,background:'#16a34a', color:'#fff', border:'none',
+                    padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>
+                  📥 CSV ({filtered.length})
+                </button>
+              </>}
+            </div>
+          </div>
+        ) : (
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
           <input type="checkbox"
@@ -1091,6 +1154,7 @@ export default function Maintenance() {
             </button>
           </div>
         </div>
+        )}
 
         {loading ? (
           <div style={{ textAlign:'center', padding:60, fontSize:32 }}>⏳</div>
@@ -1119,8 +1183,8 @@ export default function Maintenance() {
                       setSelected(r.data)
                     } catch(e) { console.warn('detail load failed', e) }
                   }}>
-                  <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-                    <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                    <div style={{ flex:1, minWidth: isMobile ? '100%' : 0 }}>
                       <div style={{ fontWeight:700, fontSize:14, color:'#1e293b', marginBottom:3 }}>
                         {inc.titre}
                         {inc.sla_depasse && <span style={{ background:'#fef2f2', color:'#dc2626',
@@ -1285,7 +1349,7 @@ export default function Maintenance() {
           <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.5)',
             display:'flex', alignItems:'center', justifyContent:'flex-end', zIndex:900 }}
             onClick={e=>e.target===e.currentTarget&&setSelected(null)}>
-            <div style={{ background:'#fff', width:'100%', maxWidth:460,
+            <div style={{ background:'#fff', width:'100%', maxWidth: isMobile ? '100%' : 460,
               height:'100%', overflow:'auto', boxShadow:'-4px 0 30px rgba(0,0,0,.2)' }}>
               <div style={{ background:`linear-gradient(135deg,${STATUTS[selected.statut]?.c||'var(--rzc-navy)'},var(--rzc-navy))`,
                 color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
