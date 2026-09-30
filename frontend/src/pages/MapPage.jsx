@@ -222,7 +222,11 @@ export default function MapPage() {
   const [routeLoading,setRouteLoading]=useState(false)
   const watchId=useRef(null)
   const { user } = useStore()
-  const isAdmin = !!(user?.is_staff || user?.is_superuser)
+  // Carte SIG : demande explicite - a part le superuser, personne
+  // (meme un autre admin is_staff) ne doit pouvoir creer/modifier/
+  // supprimer un point/chemin. Renomme en isSuperuser pour ne pas
+  // induire en erreur (ce n'est PLUS 'is_staff OU is_superuser').
+  const isSuperuser = !!user?.is_superuser
 
   // ── Points d'intérêt ──
   const [pois, setPois] = useState([])
@@ -455,7 +459,7 @@ export default function MapPage() {
           {gpsLoading?'📡 GPS...' : navMode?'🧭 NAV ON':'🧭 Navigation'}
         </button>
 
-        {isAdmin && (
+        {isSuperuser && (
           <button onClick={()=>{setAddingPoi(a=>!a); setPoiDraft(null)}}
             title="Cliquez ensuite sur la carte pour placer le point"
             style={{padding:'5px 12px',borderRadius:8,border:`2px solid ${addingPoi?'#7c3aed':'var(--border)'}`,
@@ -465,7 +469,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {isAdmin && (
+        {isSuperuser && (
           <button onClick={()=>{
             if (drawingChemin) { setDrawingChemin(false); setCheminPoints([]) }
             else { setDrawingChemin(true); setAddingPoi(false); setPoiDraft(null) }
@@ -478,7 +482,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {isAdmin && chemins.length > 0 && (
+        {isSuperuser && chemins.length > 0 && (
           <button onClick={()=>setGererCheminsOuvert(v=>!v)}
             title="Liste de tous les chemins tracés, avec suppression directe — utile quand cliquer sur un tracé précis sur la carte est difficile"
             style={{padding:'5px 12px',borderRadius:8,border:`2px solid ${gererCheminsOuvert?'#dc2626':'var(--border)'}`,
@@ -604,10 +608,10 @@ export default function MapPage() {
                 <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
                 {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
                 <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
-                  style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isAdmin?6:0}}>
+                  style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isSuperuser?6:0}}>
                   🧭 Aller à ce point
                 </button>
-                {isAdmin && (
+                {isSuperuser && (
                   <button onClick={()=>deletePoi(poi.id)}
                     style={{width:'100%',background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
                     🗑️ Supprimer
@@ -683,7 +687,7 @@ export default function MapPage() {
                   <div style={{fontFamily:'sans-serif'}}>
                     <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL[COUCHE_SIG[c.type_chemin]] || 'Circulation / Aménagements'}</div>
                     <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
-                    {isAdmin && (
+                    {isSuperuser && (
                       <div style={{marginTop:6}}>
                         <button onClick={()=>supprimerChemin(c.id)}
                           style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
@@ -709,7 +713,7 @@ export default function MapPage() {
                 <div style={{fontFamily:'sans-serif'}}>
                   <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.relief}</div>
                   <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
-                  {isAdmin && (
+                  {isSuperuser && (
                     <div style={{marginTop:6}}>
                       <button onClick={()=>supprimerChemin(c.id)}
                         style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
@@ -738,7 +742,7 @@ export default function MapPage() {
                 <div style={{fontFamily:'sans-serif'}}>
                   <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.circulation}</div>
                   <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
-                  {isAdmin && (
+                  {isSuperuser && (
                     <div style={{marginTop:6}}>
                       <button onClick={()=>supprimerChemin(c.id)}
                         style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
@@ -770,7 +774,7 @@ export default function MapPage() {
                   <div style={{fontFamily:'sans-serif'}}>
                     <div style={{fontSize:11,color:'#64748b',marginBottom:2}}>{GROUPE_LABEL.securite_delim}</div>
                     <b style={{color:st.color}}>{st.label}</b>{c.nom && <> — {c.nom}</>}
-                    {isAdmin && (
+                    {isSuperuser && (
                       <div style={{marginTop:6}}>
                         <button onClick={()=>supprimerChemin(c.id)}
                           style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>

@@ -730,7 +730,7 @@ class PointInteretViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):
-            return [IsAuthenticated(), _IsAdmin()]
+            return [IsAuthenticated(), _IsSuperuser()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -745,8 +745,8 @@ class PointInteretViewSet(viewsets.ModelViewSet):
         catégorie est déduite du texte (nom/description) si absente, avec
         repli sur 'autre'.
         """
-        if not (request.user.is_staff or request.user.is_superuser):
-            return Response({'error': "Réservé aux administrateurs."}, status=403)
+        if not request.user.is_superuser:
+            return Response({'error': "Réservé au superuser."}, status=403)
 
         data = request.data
         raw_items = []
@@ -823,6 +823,17 @@ class _IsAdmin(BasePermission):
         return bool(request.user and (request.user.is_staff or request.user.is_superuser))
 
 
+class _IsSuperuser(BasePermission):
+    """Reservee aux objets de la Carte SIG (points d'interet, chemins de
+    circulation) : contrairement a _IsAdmin ci-dessus (is_staff OU
+    is_superuser, utilise par le reste de l'app), ici SEUL le superuser
+    peut creer/modifier/supprimer - demande explicite : un admin "normal"
+    (is_staff) ne doit plus voir/utiliser ces boutons, seul le compte
+    superuser du camp."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_superuser)
+
+
 class CheminCirculationViewSet(viewsets.ModelViewSet):
     """
     Réseau de circulation piéton (rampes, galeries, dallettes...). Lecture
@@ -844,7 +855,7 @@ class CheminCirculationViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):
-            return [IsAuthenticated(), _IsAdmin()]
+            return [IsAuthenticated(), _IsSuperuser()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
