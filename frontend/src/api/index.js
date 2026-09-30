@@ -164,6 +164,7 @@ export const personnel = {
   declarerMasse: (d) => api.post('/api/declarer-soustraitants/', d),
   list: (p) => api.get('/api/personnel/', {params:p}),
   exportCsv: (p) => withToken(`${BASE}/api/personnel/export_csv/?${new URLSearchParams(p||{})}`),
+  importCsvData: (rows) => api.post('/api/personnel/import_csv_data/', { rows }),
   monProfil: () => api.get('/api/personnel/mon_profil/'),
   create: (d) => api.post('/api/personnel/', d),
   update: (id,d) => api.patch(`/api/personnel/${id}/`, d),
@@ -315,7 +316,12 @@ export const evenements = {
   genererQr: (id, preference_boisson, personnel_id) => api.post(`/api/evenements/${id}/generer_qr/`, {preference_boisson, personnel_id}),
   scannerQr: (id, token) => api.post(`/api/evenements/${id}/scanner_qr/`, {token}),
   personnesScannees: (id) => api.get(`/api/evenements/${id}/personnes_scannees/`),
-  exportScannesCsvUrl: (id) => `${BASE}/api/evenements/${id}/export_scannes_csv/`,
+  // withToken() : un <a href=...> ne peut pas envoyer le header
+  // Authorization (contrairement a Axios) - le token doit voyager dans
+  // l'URL (?token=), meme motif que les autres exports CSV de l'app.
+  // Avant ce correctif, le lien pointait sans token -> 401 systematique,
+  // "le telechargement ne passe pas".
+  exportScannesCsvUrl: (id) => withToken(`${BASE}/api/evenements/${id}/export_scannes_csv/`),
 }
 export const groupesDiffusion = {
   list: () => api.get('/api/groupes-diffusion/'),

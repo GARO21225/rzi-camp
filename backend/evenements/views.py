@@ -50,6 +50,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import TokenInQueryOrHeader
 from .models import Evenement, Notification, AlerteCampus, SimpleNotification, GroupeDiffusion
 from .serializers import EvenementSerializer, NotificationSerializer, AlerteSerializer, GroupeDiffusionSerializer
 import datetime
@@ -247,9 +248,19 @@ class EvenementViewSet(viewsets.ModelViewSet):
         total_generes = QREvenement.objects.filter(evenement_id=pk).count()
         return Response({"nb_scannes": len(result), "nb_generes": total_generes, "personnes": result})
 
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_scannes_csv(self, request, pk=None):
-        """Meme personnes_scannees, au format CSV - reutilise le meme motif d'export deja utilise ailleurs (Personnel, Residents principaux, Plaintes)."""
+        """Meme personnes_scannees, au format CSV - reutilise le meme motif d'export deja utilise ailleurs (Personnel, Residents principaux, Plaintes).
+
+        BUG REEL CORRIGE ICI : cette action utilisait la permission par
+        defaut (IsAuthenticated, via le header Authorization classique).
+        Le bouton de telechargement cote frontend est un <a href=...>
+        (navigation directe du navigateur, pas un appel Axios) - un <a>
+        n'envoie JAMAIS de header Authorization, donc request.user etait
+        toujours AnonymousUser et la requete echouait en 401 avant meme
+        d'atteindre _is_admin(). Meme motif que Personnel/Batiment/Plaintes
+        export_csv (TokenInQueryOrHeader, accounts/permissions.py) : le
+        token JWT voyage via ?token= dans l'URL pour ce cas precis."""
         if not self._is_admin(request.user):
             return Response({"error":"Non habilité."}, status=403)
         import csv

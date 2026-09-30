@@ -3,10 +3,11 @@
  * Version stable - Erreurs gérées par Error Boundary
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
+import { useStore } from '../store'
 
 // ── Error Boundary ───────────────────────────────────────
 class PersonnelBoundary extends React.Component {
@@ -36,6 +37,7 @@ class PersonnelBoundary extends React.Component {
 export default function Personnel() {
   const isMobile = useIsMobile()
   const lectureSeule = useReadOnly()
+  const setUser = useStore(s => s.setUser)
   const [data,         setData]         = useState([])
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
@@ -236,6 +238,17 @@ export default function Personnel() {
       }
       if (newLoginRole) {
         await personnelAPI.assigRole(roleModal.id, newLoginRole)
+        // BUG REEL CORRIGE ICI : changer le rôle (ex: admin -> agent) mettait
+        // bien à jour la base, mais la bannière/le contenu affichés restaient
+        // sur l'ancien rôle tant que la page n'était pas rechargée - le store
+        // Zustand (user/role, qui pilote isAdmin()/le menu) n'était jamais
+        // réactualisé après ce changement, seule la liste du personnel l'était
+        // (load()). On ne sait pas ici si la personne modifiée est l'utilisateur
+        // connecté lui-même (l'id du compte User lié n'est pas exposé par ce
+        // serializer) - un simple re-fetch de /api/auth/me/ est sans risque
+        // dans tous les cas (no-op si ce n'est pas soi-même) et résout le cas
+        // exact signalé (un admin qui se rétrograde lui-même en agent).
+        try { const me = await authAPI.me(); setUser(me.data) } catch {}
       }
       if (Object.keys(payload).length === 0 && !newLoginRole) { setRoleModal(null); return }
       setRoleModal(null); setNewProfil(''); setNewLoginRole(''); load()
@@ -533,30 +546,29 @@ export default function Personnel() {
 
         console.log('IMPORT PERSONNEL — payload:', rows)
 
-        const BASE = (
-          import.meta?.env?.VITE_API_URL || window.location.origin
-        ).replace(/\/+$/, '')
-
-        const token = localStorage.getItem('access_token') || ''
-
-        const r = await fetch(`${BASE}/api/personnel/import_csv_data/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          credentials: 'include',
-          body: JSON.stringify({ rows })
-        })
-
-        const d = await r.json()
-
-        if (!r.ok) {
+        // BUG REEL CORRIGE ICI : cet appel utilisait un fetch() maison,
+        // avec credentials:'include' et sa PROPRE reconstruction de BASE -
+        // different de tout le reste de l'app, qui passe par l'instance
+        // axios partagee (api/index.js), configuree explicitement
+        // withCredentials:false ("évite les preflight complexes"). Ce
+        // fetch etait le SEUL appel de toute l'app a envoyer des
+        // cookies (credentials:'include') sur une requete CORS -
+        // incoherent avec la configuration voulue, et source plausible
+        // d'un echec CORS silencieux specifique a cette seule fonctionnalite
+        // (import CSV) alors que le reste de l'app, via axios, fonctionne.
+        // Remplace par l'instance api partagee, prouvee fonctionnelle
+        // partout ailleurs dans l'app.
+        let d
+        try {
+          const res = await personnelAPI.importCsvData(rows)
+          d = res.data
+        } catch (err) {
           throw new Error(
-            d.detail ||
-            d.error ||
-            JSON.stringify(d) ||
-            `HTTP ${r.status}`
+            err.response?.data?.detail ||
+            err.response?.data?.error ||
+            (err.response?.data ? JSON.stringify(err.response.data) : '') ||
+            err.message ||
+            'Erreur réseau'
           )
         }
 

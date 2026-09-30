@@ -380,8 +380,21 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             prof, _ = Profile.objects.get_or_create(user=p.user)
             prof.role = role
             prof.save(update_fields=["role"])
+            # BUG REEL CORRIGE ICI : is_staff n'etait mis a jour QUE lors
+            # d'une promotion vers 'admin' - jamais remis a False lors
+            # d'une retrogradation (admin -> agent, par ex). Or le
+            # frontend (store.js isAdmin()) regarde is_staff EN PREMIER,
+            # avant meme profile.role - une personne retrogradee gardait
+            # donc tous ses acces/bannière admin jusqu'a ce que quelqu'un
+            # pense a decocher is_staff a la main. On ne touche jamais
+            # is_superuser (compte technique, jamais gere par ce role
+            # metier).
             if role == "admin":
-                p.user.is_staff = True
+                if not p.user.is_staff:
+                    p.user.is_staff = True
+                    p.user.save(update_fields=["is_staff"])
+            elif p.user.is_staff and not p.user.is_superuser:
+                p.user.is_staff = False
                 p.user.save(update_fields=["is_staff"])
         return Response({"ok":True,"role":role,"message":f"Role '{role}' attribué à {p.nom} {p.prenom}"})
 
