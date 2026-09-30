@@ -428,6 +428,12 @@ export const plaintes = {
   dashboard: () => api.get('/api/plaintes/dashboard/'),
   exportCsv: (params) => `${BASE}/api/plaintes/export_csv/?${new URLSearchParams(params).toString()}`,
 }
+export const plaintesCategories = {
+  list: (params) => api.get('/api/plaintes-categories/', {params}),
+  create: (d) => api.post('/api/plaintes-categories/', d),
+  update: (id, d) => api.patch(`/api/plaintes-categories/${id}/`, d),
+  delete: (id) => api.delete(`/api/plaintes-categories/${id}/`),
+}
 export const controlesChambre = {
   list: (params) => api.get('/api/controles-chambre/', {params}),
   creer: (d) => api.post('/api/controles-chambre/', d),

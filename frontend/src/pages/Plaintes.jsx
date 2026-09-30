@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
-import { PLAINTE_CATEGORIES as CATEGORIES } from '../constants/plaintes'
+import { usePlainteCategories } from '../constants/plaintes'
 const PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
 const FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
 const EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]
@@ -35,6 +35,7 @@ function Etoiles({ value, onChange, readOnly }) {
 export default function Plaintes() {
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser) || user?.profile?.role === 'admin' || user?.profile?.role === 'manager' || user?.profile?.role === 'superviseur'
+  const CATEGORIES = usePlainteCategories()
 
   const [tab, setTab] = useState(isAdmin ? 'toutes' : 'mes_plaintes')
   const [liste, setListe] = useState([])

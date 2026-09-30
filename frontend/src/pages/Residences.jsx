@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI, plaintes as plaintesAPI } from '../api'
-import { PLAINTE_CATEGORIES } from '../constants/plaintes'
+import { usePlainteCategories } from '../constants/plaintes'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 
@@ -11,6 +11,7 @@ const today = new Date().toISOString().slice(0,10)
 export default function Residences() {
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
+  const PLAINTE_CATEGORIES = usePlainteCategories()
   const [data, setData] = useState([])
   const [personnelList, setPersonnelList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -203,13 +204,17 @@ export default function Residences() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:19, fontWeight:700, color:'var(--rzc-navy)' }}>🏠 Gestion des Résidences</h2>
-          <p style={{ fontSize:12, color:'var(--rzc-text-3)', marginTop:3 }}>{data.length} bâtiments · {blocs.length} blocs · Confirmation avant historisation</p>
+          <h2 style={{ fontSize:19, fontWeight:700, color:'var(--rzc-navy)' }}>🏠 {isAdmin ? 'Gestion des Résidences' : 'Ma résidence'}</h2>
+          <p style={{ fontSize:12, color:'var(--rzc-text-3)', marginTop:3 }}>
+            {isAdmin ? `${data.length} bâtiments · ${blocs.length} blocs · Confirmation avant historisation` : 'Votre chambre / bâtiment attribué'}
+          </p>
         </div>
+        {isAdmin && (
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={batiments.exportCsv({})} style={{ background:'var(--rzc-green)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ CSV</a>
           <a href={batiments.exportBlocs()} style={{ background:'var(--rzc-navy)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
         </div>
+        )}
       </div>
 
       {sansPosition.length > 0 && (

@@ -410,7 +410,7 @@ export default function Maintenance() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user } = useStore()
-  const isAdmin = !!(user?.is_staff || user?.is_superuser)
+  const isAdmin = !!(user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin')
   const [incidents, setIncidents] = useState([])
   const [stats,     setStats]     = useState({})
   const [techns,    setTechns]    = useState([])

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal, Plainte, ControleChambre,
+from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal, Plainte, PlainteCategorie, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI)
 
 class PointInteretSerializer(serializers.ModelSerializer):
@@ -257,7 +257,11 @@ class PlainteSerializer(serializers.ModelSerializer):
     affecte_a_nom = serializers.SerializerMethodField()
     prise_en_charge_par_nom = serializers.SerializerMethodField()
     resolu_par_nom = serializers.SerializerMethodField()
-    categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
+    # Categorie n'a plus de "choices=" en dur (voir models.py) - son
+    # libelle affichable est desormais juste la valeur elle-meme
+    # (categorie.replace("_"," ")), comme avant pour les categories issues
+    # du seed historique ; plus besoin de get_categorie_display().
+    categorie_label = serializers.SerializerMethodField()
     statut_label = serializers.CharField(source="get_statut_display", read_only=True)
     priorite_label = serializers.CharField(source="get_priorite_display", read_only=True)
     incident_lie_statut = serializers.CharField(source="incident_lie.get_statut_display", read_only=True, default=None)
@@ -274,6 +278,22 @@ class PlainteSerializer(serializers.ModelSerializer):
                   "date_confirmation","motif_reouverture","motif_rejet","date_cloture",
                   "date_creation","date_qualification","date_affectation"]
         read_only_fields = ["occupant","utilisateur","batiment","type_occupant","statut","date_creation"]
+
+    def get_categorie_label(self, obj):
+        return (obj.categorie or "").replace("_"," ")
+
+    def validate_categorie(self, value):
+        from .models import PlainteCategorie
+        actives = set(PlainteCategorie.objects.filter(actif=True).values_list("nom", flat=True))
+        # Si aucune categorie n'est encore configuree en base (avant que la
+        # migration de seed ait tourne, ou base fraiche), on n'exclut
+        # personne - mieux vaut accepter que bloquer toute creation de
+        # plainte. Une fois des categories actives existent, la valeur doit
+        # en faire partie.
+        if actives and value not in actives:
+            raise serializers.ValidationError(
+                f"Catégorie inconnue ou désactivée : {value}")
+        return value
 
     def get_occupant_nom(self, obj):
         return f"{obj.occupant.nom} {obj.occupant.prenom}" if obj.occupant else "—"
@@ -421,3 +441,9 @@ class InductionQuizQuestionPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = InductionQuizQuestion
         fields = ["id", "question", "options", "ordre"]
+
+
+class PlainteCategorieSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlainteCategorie
+        fields = ["id", "nom", "sous_categories", "actif", "ordre"]

@@ -489,6 +489,35 @@ class Demande(models.Model):
             pass
 
 
+class PlainteCategorie(models.Model):
+    """
+    Categories/sous-categories de Plainte, rendues configurables depuis
+    Parametrage (demande : "mettre a jour les parametres : gestion des
+    plaintes") - avant ce modele, Plainte.CATEGORIES etait un dict Python
+    en dur, duplique cote frontend dans constants/plaintes.js, et modifier
+    la liste necessitait un deploiement. Meme principe que ItineraireModele
+    (voyages/models.py) : lecture ouverte a tout connecte, ecriture admin
+    uniquement (voir PlainteCategorieViewSet).
+
+    Le champ Plainte.categorie n'a PLUS de "choices=" fige en dur (voir
+    plus bas) - la validation se fait desormais contre les categories
+    actives ici, cote serializer.
+    """
+    nom = models.CharField(max_length=50, unique=True)
+    sous_categories = models.JSONField(default=list, blank=True,
+        help_text="Liste de sous-categories (texte libre), ex: ['sol','plafond','autre']")
+    actif = models.BooleanField(default=True)
+    ordre = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["ordre", "nom"]
+        verbose_name = "Catégorie de plainte"
+        verbose_name_plural = "Catégories de plainte"
+
+    def __str__(self):
+        return self.nom
+
+
 class Plainte(models.Model):
     """
     Fonctionnalite DISTINCTE de Maintenance (regle absolue du document,
@@ -510,6 +539,10 @@ class Plainte(models.Model):
         ("visiteur", "Visiteur hébergé"),
         ("autre", "Autre occupant hébergé"),
     ]
+    # Seed historique uniquement (migration 00XX_seed_plainte_categories) -
+    # la source de verite pour l'admin est desormais PlainteCategorie
+    # (ci-dessus), plus ce dict. Conserve pour ne rien casser sur les
+    # plaintes deja enregistrees avec l'une de ces valeurs.
     CATEGORIES = {
         "Proprete": ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir","autre"],
         "Fournitures": ["couverture","drap","serviette","savon","gel_lave_mains","serpillere","insecticide","desodorisant","autre"],
@@ -520,7 +553,6 @@ class Plainte(models.Model):
         "Etat_chambre": ["peinture","humidite","degradation","autre"],
         "Autre": ["autre"],
     }
-    CATEGORIE_CHOICES = [(c, c.replace("_"," ")) for c in CATEGORIES.keys()]
 
     STATUT_CHOICES = [
         ("nouvelle", "Nouvelle"),
@@ -551,7 +583,11 @@ class Plainte(models.Model):
     batiment = models.ForeignKey(Batiment, on_delete=models.PROTECT, related_name="plaintes")
     type_occupant = models.CharField(max_length=30, choices=TYPE_OCCUPANT_CHOICES)
 
-    categorie = models.CharField(max_length=30, choices=CATEGORIE_CHOICES)
+    # Plus de "choices=" fige en dur : validee cote serializer contre
+    # PlainteCategorie.objects.filter(actif=True) (voir PlainteSerializer),
+    # pour que l'ajout d'une categorie depuis Parametrage soit immediat,
+    # sans migration ni redeploiement.
+    categorie = models.CharField(max_length=30)
     sous_categorie = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField()
     commentaire = models.TextField(blank=True, default="")

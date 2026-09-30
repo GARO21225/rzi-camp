@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI, itinerairesModeles as itinerairesAPI, etapesItineraireModele as etapesItineraireAPI } from '../api'
+import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI, itinerairesModeles as itinerairesAPI, etapesItineraireModele as etapesItineraireAPI, plaintesCategories as plaintesCategoriesAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import Boutique from './Boutique'
@@ -103,6 +103,7 @@ const TABS = [
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
   ['itineraires', '🗺️ Itinéraires (JMP)'],
+  ['plaintes', '🚨 Gestion des plaintes'],
   ['induction',  '🎓 Induction du Camp'],
   ['catalogue',  '📦 Catalogue Boutique'],
   ['avis',       '⭐ Questions Avis Restauration'],
@@ -234,6 +235,10 @@ export default function Parametrage() {
 
       {tab === 'itineraires' && (
         <ItinerairesTab isAdmin={isAdmin} />
+      )}
+
+      {tab === 'plaintes' && (
+        <PlaintesConfigTab isAdmin={isAdmin} />
       )}
 
       {tab === 'induction' && (
@@ -694,6 +699,158 @@ function ItinerairesTab({ isAdmin }) {
                   Annuler
                 </button>
                 <button onClick={enregistrerEtape}
+                  style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  💾 Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Gestion des catégories/sous-catégories de Plainte (module "Gestion des
+// plaintes", distinct de Maintenance) - avant ce tab, ces listes étaient
+// figées en dur dans Plainte.CATEGORIES (backend/residences/models.py) et
+// dupliquées dans constants/plaintes.js côté frontend ; modifier une
+// catégorie nécessitait un déploiement. Même principe de permission que
+// ItinerairesTab ci-dessus : lecture ouverte, écriture admin uniquement
+// (voir PlainteCategorieViewSet côté backend).
+function PlaintesConfigTab({ isAdmin }) {
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ nom:'', sousCategoriesTexte:'', actif:true, ordre:0 })
+
+  const charger = () => {
+    setLoading(true)
+    plaintesCategoriesAPI.list().then(r => {
+      const items = r.data.results || r.data || []
+      items.sort((a,b)=>(a.ordre-b.ordre) || a.nom.localeCompare(b.nom))
+      setCategories(items)
+    }).catch(() => setCategories([])).finally(() => setLoading(false))
+  }
+  useEffect(charger, [])
+
+  const ouvrirNouveau = () => {
+    setEditing(null)
+    setForm({ nom:'', sousCategoriesTexte:'autre', actif:true, ordre:categories.length })
+    setShowForm(true)
+  }
+
+  const ouvrirEdition = (c) => {
+    setEditing(c)
+    setForm({ nom:c.nom, sousCategoriesTexte:(c.sous_categories||[]).join(', '), actif:c.actif, ordre:c.ordre })
+    setShowForm(true)
+  }
+
+  const enregistrer = async () => {
+    if (!form.nom.trim()) { toast.error('Le nom de la catégorie est requis.'); return }
+    const sous_categories = form.sousCategoriesTexte.split(',').map(s=>s.trim()).filter(Boolean)
+    if (sous_categories.length === 0) { toast.error('Au moins une sous-catégorie est requise.'); return }
+    const payload = { nom: form.nom.trim(), sous_categories, actif: form.actif, ordre: Number(form.ordre)||0 }
+    try {
+      if (editing) await plaintesCategoriesAPI.update(editing.id, payload)
+      else await plaintesCategoriesAPI.create(payload)
+      setShowForm(false)
+      charger()
+    } catch (e) { toast.error(e.response?.data?.nom?.[0] || e.response?.data?.detail || "Erreur lors de l'enregistrement") }
+  }
+
+  const toggleActif = async (c) => {
+    try { await plaintesCategoriesAPI.update(c.id, { actif: !c.actif }); charger() } catch { toast.error('Erreur') }
+  }
+
+  const supprimer = async (c) => {
+    if (!await confirmDialog(`Supprimer la catégorie "${c.nom}" ? Les plaintes déjà enregistrées avec cette catégorie ne seront pas affectées, mais elle ne sera plus proposée. Préférez la désactiver si vous n'êtes pas sûr.`)) return
+    try { await plaintesCategoriesAPI.delete(c.id); charger() } catch { toast.error('Erreur suppression') }
+  }
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'#94a3b8'}}>⏳ Chargement...</div>
+
+  return (
+    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>🚨 Catégories de plaintes</div>
+          <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
+            Proposées au choix dans le formulaire de plainte (module Résidences / Plaintes, distinct de Maintenance).
+            Une catégorie désactivée n'apparaît plus dans ce choix mais reste visible sur les plaintes déjà déposées.
+          </div>
+        </div>
+        {isAdmin && (
+          <button onClick={ouvrirNouveau}
+            style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700, flexShrink:0 }}>
+            ➕ Nouvelle catégorie
+          </button>
+        )}
+      </div>
+
+      {categories.length === 0 ? (
+        <div style={{ textAlign:'center', padding:30, color:'#94a3b8', fontSize:13 }}>
+          Aucune catégorie configurée — le formulaire de plainte retombe sur une liste par défaut intégrée à l'application.
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {categories.map(c => (
+            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:9, opacity: c.actif?1:0.55 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{c.nom.replace('_',' ')}</div>
+                <div style={{ fontSize:11, color:'#64748b' }}>{(c.sous_categories||[]).join(', ')}</div>
+              </div>
+              {isAdmin && <>
+                <button onClick={()=>toggleActif(c)}
+                  style={{ background: c.actif?'#dcfce7':'#f1f5f9', color: c.actif?'#16a34a':'#94a3b8', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                  {c.actif ? 'Active' : 'Inactive'}
+                </button>
+                <button onClick={()=>ouvrirEdition(c)}
+                  style={{ background:'#eff6ff', color:'#2563eb', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✏️</button>
+                <button onClick={()=>supprimer(c)}
+                  style={{ background:'#fee2e2', color:'#dc2626', border:'none', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>🗑️</button>
+              </>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e=>e.target===e.currentTarget && setShowForm(false)}>
+          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:420, overflow:'hidden' }}>
+            <div style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', padding:'12px 16px', fontWeight:700 }}>
+              {editing ? '✏️ Modifier la catégorie' : '➕ Nouvelle catégorie'}
+            </div>
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>NOM</label>
+                <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))}
+                  placeholder="Ex: Proprete"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>SOUS-CATÉGORIES (séparées par des virgules)</label>
+                <input value={form.sousCategoriesTexte} onChange={e=>setForm(f=>({...f,sousCategoriesTexte:e.target.value}))}
+                  placeholder="Ex: sol, plafond, murs, autre"
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>ORDRE D'AFFICHAGE</label>
+                <input type="number" value={form.ordre} onChange={e=>setForm(f=>({...f,ordre:e.target.value}))}
+                  style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, cursor:'pointer' }}>
+                <input type="checkbox" checked={form.actif} onChange={e=>setForm(f=>({...f,actif:e.target.checked}))}/>
+                Active (proposée dans le formulaire de plainte)
+              </label>
+              <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                <button onClick={()=>setShowForm(false)}
+                  style={{ flex:1, background:'#f1f5f9', color:'#64748b', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
+                  Annuler
+                </button>
+                <button onClick={enregistrer}
                   style={{ flex:1, background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:10, borderRadius:9, cursor:'pointer', fontWeight:700 }}>
                   💾 Enregistrer
                 </button>

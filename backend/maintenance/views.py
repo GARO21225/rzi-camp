@@ -312,15 +312,17 @@ class IncidentViewSet(viewsets.ModelViewSet):
         if sla_only:  qs = qs.filter(sla_depasse=True)
         if assigne:   qs = qs.filter(assigne_a_id=assigne)
 
-        # Un non-admin ne voit que ses propres incidents (assignes a lui,
-        # ou qu'il a lui-meme declares/pas encore attribues) - jamais tout
-        # le camp. S'applique a TOUT role non-admin (technicien, hse, etc.),
-        # pas seulement 'technicien' comme avant - un role recemment ajoute
-        # avec acces a Maintenance (ex: HSE) voyait sinon tout sans filtre.
+        # Un non-admin ne voit QUE ses propres incidents (assignes a lui, ou
+        # qu'il a lui-meme declares) - jamais tout le camp. Avant ce
+        # correctif, tout incident au statut "declare" (pas encore attribue)
+        # etait aussi visible par n'importe quel non-admin, meme sans lien
+        # avec lui - "il ne voit plus qu'il ne doit voir" (demande
+        # explicite). S'applique a TOUT role non-admin (technicien, hse,
+        # etc.), pas seulement 'technicien'.
         role = getattr(getattr(req.user, 'profile', None), 'role', None)
         is_admin = req.user.is_staff or req.user.is_superuser or role == 'admin'
         if not is_admin:
-            qs = qs.filter(Q(assigne_a=req.user) | Q(statut='declare') | Q(auteur=req.user))
+            qs = qs.filter(Q(assigne_a=req.user) | Q(auteur=req.user))
 
         return qs
 

@@ -7,14 +7,14 @@ from accounts.permissions import TokenInQueryOrHeader
 from django.db import transaction
 
 from .models import (
-    InductionRecord, Batiment, Personnel, OccupationHistory, Demande, Plainte, ControleChambre,
+    InductionRecord, Batiment, Personnel, OccupationHistory, Demande, Plainte, PlainteCategorie, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, ResidentPrincipal,
     InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI
 )
 
 from .serializers import (
     BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
-    DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer, PlainteSerializer, ControleChambreSerializer,
+    DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer, PlainteSerializer, PlainteCategorieSerializer, ControleChambreSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
     InductionRegleSerializer, InductionQuizQuestionSerializer,
     InductionQuizQuestionPublicSerializer, PointInteretSerializer, CheminCirculationSerializer,
@@ -987,7 +987,23 @@ class BatimentViewSet(viewsets.ModelViewSet):
     def _build_qs(self, request=None):
         """Build filtered QuerySet — always returns a real QuerySet"""
         qs = Batiment.objects.select_related("personnel").all()
-        params = (request or self.request).query_params
+        req = request or self.request
+        params = req.query_params
+        u = req.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        # Un non-admin ne doit voir QUE sa propre chambre/bâtiment - pas la
+        # liste complète du camp (avant ce correctif, "mon_residence=1" était
+        # un simple filtre optionnel que seul le frontend appliquait ; un
+        # appel direct à l'API sans ce paramètre renvoyait tout le camp à
+        # n'importe quel utilisateur connecté). Ici c'est imposé côté
+        # backend, indépendamment de ce que demande le frontend.
+        if not is_admin:
+            from residences.models import Personnel
+            pers = Personnel.objects.filter(user=u).first()
+            if pers:
+                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+            return Batiment.objects.none()
         statut = params.get("statut")
         bloc = params.get("bloc")
         residence = params.get("residence")
@@ -996,12 +1012,6 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if statut: qs = qs.filter(statut=statut)
         if bloc: qs = qs.filter(bloc=bloc)
         if residence: qs = qs.filter(residence__icontains=residence)
-        # Filter for own residence
-        mon_residence = self.request.query_params.get("mon_residence")
-        if mon_residence == "1":
-            user = self.request.user
-            if hasattr(user, "personnel"):
-                qs = qs.filter(personnel=user.personnel)
         if futur_depart == "s1":
             today = datetime.date.today()
             qs = qs.filter(date_depart__gte=today, date_depart__lte=today+datetime.timedelta(days=7))
@@ -1011,7 +1021,18 @@ class BatimentViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_queryset(self):
-        # For single-object operations (retrieve, update, destroy), return full QuerySet
+        # For single-object operations (retrieve, update, destroy). Un
+        # non-admin reste limité à sa propre chambre même en accès direct
+        # par ID (même règle que _build_qs pour la liste).
+        u = self.request.user
+        role = getattr(getattr(u, "profile", None), "role", None)
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin:
+            from residences.models import Personnel
+            pers = Personnel.objects.filter(user=u).first()
+            if pers:
+                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+            return Batiment.objects.none()
         return Batiment.objects.select_related("personnel").all()
 
     def list(self, request, *args, **kwargs):
@@ -1538,6 +1559,26 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
         return Response(ResidentPrincipalSerializer(rp).data)
 
 
+class PlainteCategorieViewSet(viewsets.ModelViewSet):
+    """Catégories/sous-catégories de Plainte, gérées depuis Paramétrage —
+    même principe que ItineraireModeleViewSet (voyages/views.py) : lecture
+    ouverte à tout connecté (le formulaire de plainte en a besoin pour
+    n'importe quel occupant), écriture réservée à l'admin. Pas de filtre
+    actif=True par défaut : l'écran de gestion doit pouvoir lister et
+    réactiver une catégorie désactivée."""
+    queryset = PlainteCategorie.objects.all()
+    serializer_class = PlainteCategorieSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
+
+
 class PlainteViewSet(viewsets.ModelViewSet):
     """
     Gestion des plaintes (fonctionnalite DISTINCTE de Maintenance,
@@ -1627,7 +1668,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
         description = request.data.get("description", "").strip()
         if not categorie or not description:
             return Response({"error":"Catégorie et description requises."}, status=400)
-        if categorie not in Plainte.CATEGORIES:
+        if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
 
         plainte = Plainte.objects.create(
@@ -1681,7 +1722,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
         description = request.data.get("description", "").strip()
         if not categorie or not description:
             return Response({"error":"Catégorie et description requises."}, status=400)
-        if categorie not in Plainte.CATEGORIES:
+        if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
 
         plainte = Plainte.objects.create(
@@ -1913,7 +1954,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
         for p in qs:
             writer.writerow([
                 p.id, p.date_creation.strftime("%d/%m/%Y %H:%M"), f"{p.occupant.nom} {p.occupant.prenom}",
-                p.get_type_occupant_display(), p.batiment.residence, p.get_categorie_display(), p.sous_categorie,
+                p.get_type_occupant_display(), p.batiment.residence, (p.categorie or "").replace("_"," "), p.sous_categorie,
                 p.description, p.get_priorite_display(), p.get_statut_display(), p.service,
                 (p.affecte_a.get_full_name() or p.affecte_a.username) if p.affecte_a else "",
                 (p.prise_en_charge_par.get_full_name() or p.prise_en_charge_par.username) if p.prise_en_charge_par else "",
