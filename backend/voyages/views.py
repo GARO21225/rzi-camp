@@ -813,7 +813,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
         destination     = data.get("destination","")
         origine         = data.get("origine","Camp Roxgold Sango")
         date_depart     = data.get("date_depart")
-        date_retour     = data.get("date_retour_prevue")
+        # Le convoi se deroule sur UN SEUL jour (aller uniquement, retour
+        # supprime du modele) - il n'y a plus de champ "date de retour" a
+        # saisir a la creation du convoi lui-meme (demande explicite :
+        # "il faut differentier passager a convoi" - la date de retour est
+        # desormais UNIQUEMENT un attribut du PASSAGER, saisie quand il
+        # rejoint le convoi via rejoindre_rotation, jamais ici). On replie
+        # sur date_depart par defaut, uniquement pour satisfaire le champ
+        # NOT NULL de Rotation.date_retour_prevue - purement technique,
+        # sans signification metier propre au convoi.
+        date_retour     = data.get("date_retour_prevue") or date_depart
         vehicule        = data.get("vehicule","")
         vehicule_matricule = data.get("vehicule_matricule","")
         vehicule_photo  = data.get("vehicule_photo","")
@@ -856,10 +865,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
             # d'autres personnes) est une action de dispatch admin - meme
             # regle que partout ailleurs dans Centre de Mobilite.
             return Response({"error":"Seul un admin peut créer une rotation groupée. Utilisez le voyage individuel pour votre propre déplacement."}, status=403)
-        if not date_depart or not date_retour:
-            return Response({"error":"date_depart et date_retour_prevue requis"},status=400)
-        if date_retour < date_depart:
-            return Response({"error":"La date de retour ne peut pas être avant la date de départ"},status=400)
+        if not date_depart:
+            return Response({"error":"date_depart requis"},status=400)
 
         # Regle : le conducteur ne peut pas etre aussi passager de la meme
         # rotation - SAUF si c'est un voyage SOLO (une seule personne) : la
@@ -995,6 +1002,50 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if is_admin and type_voyage != "individuel":
             from django.utils import timezone as tz2
             extra_validation = {"statut_validation":"valide", "valide_par":u, "date_validation":tz2.now()}
+
+        # Villes intermediaires saisies LIBREMENT a la creation (sans
+        # choisir un itineraire existant dans le selecteur) - avant ce
+        # correctif, elles n'etaient jamais sauvegardees nulle part cote
+        # backend : le frontend les postait comme EtapeVoyage directement
+        # sur le voyage du PREMIER PASSAGER cree (data.ids[0]), qui
+        # n'existe plus puisqu'un convoi se cree desormais TOUJOURS sans
+        # passager (cf. plus haut). On les transforme ici en ItineraireModele
+        # ad-hoc (inactif = n'apparait pas dans le selecteur d'itineraires
+        # existants, purement usage interne a CE convoi), rattache a la
+        # Rotation via itineraire_modele - exactement le meme mecanisme
+        # que pour un itineraire existant choisi dans le selecteur, deja
+        # applique automatiquement a chaque passager qui rejoint ensuite
+        # (_appliquer_itineraire_a_voyage). Ceci corrige AUSSI la confusion
+        # signalee entre le lieu de descente du PASSAGER et le lieu de fin
+        # du CONVOI : le JMP part desormais toujours de l'origine du
+        # convoi/itineraire, jamais du point de descente propre a un
+        # passager individuel.
+        villes_intermediaires = data.get("villesIntermediaires") or data.get("villes_intermediaires") or []
+        if not itineraire_id and villes_intermediaires and destination:
+            noms_valides = [v for v in villes_intermediaires if (v.get("nom") or "").strip()]
+            if noms_valides:
+                itineraire_adhoc = ItineraireModele.objects.create(
+                    nom=f"{origine} → {destination} (convoi {rotation_id})",
+                    origine=origine, destination=destination, actif=False,
+                )
+                ordre = 0
+                precedente = origine
+                for v in noms_valides:
+                    ordre += 1
+                    EtapeItineraireModele.objects.create(
+                        itineraire=itineraire_adhoc, ordre=ordre, ville=v["nom"].strip(),
+                        distance_km=v.get("distance_km") or None,
+                        heure_depart=v.get("heure_depart") or None, heure_arrivee=v.get("heure_arrivee") or None,
+                        pause_fatigue=v.get("pause") or v.get("pause_fatigue") or "",
+                    )
+                    precedente = v["nom"].strip()
+                # Etape finale jusqu'a la destination du convoi elle-meme,
+                # sauf si la derniere ville deja saisie EST cette destination.
+                if precedente.strip().lower() != destination.strip().lower():
+                    ordre += 1
+                    EtapeItineraireModele.objects.create(
+                        itineraire=itineraire_adhoc, ordre=ordre, ville=destination)
+                itineraire_id = itineraire_adhoc.id
 
         # Bug reel corrige ici : la Rotation elle-meme (vehicule, chauffeur,
         # dates) est desormais toujours enregistree, MEME avec 0 passager -

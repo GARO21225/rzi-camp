@@ -935,7 +935,7 @@ const PAGES_ASSIGNABLES = [
   ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
   ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],
   ['/restauration', '🍽️ Restauration'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
-  ['/maintenance', '🛠️ Maintenance'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
+  ['/maintenance', '🛠️ Maintenance'], ['/plaintes', '🚨 Plaintes'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
 ]
 

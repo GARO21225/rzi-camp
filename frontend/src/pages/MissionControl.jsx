@@ -557,48 +557,32 @@ export default function MissionControl() {
   }
 
   const creerRotation = async () => {
-    if (!formRot.date_depart || !formRot.date_retour_prevue) return flash('Dates requises',false)
-    if (formRot.date_retour_prevue < formRot.date_depart) return flash('La date de retour ne peut pas être avant la date de départ',false)
+    if (!formRot.date_depart) return flash('Date de départ requise',false)
     if (formRot.mode_transport !== 'a_pied' && !formRot.vehicule) return flash('Véhicule requis (du parc ou saisi librement)',false)
     setSaving(true)
     try {
+      // Le convoi se cree TOUJOURS sans passager (jamais de champ "date de
+      // retour" ni de selection de passagers ici - ce sont des attributs du
+      // PASSAGER, demandes un par un quand il rejoint le convoi via
+      // rejoindreRotation). Les villes intermediaires eventuellement
+      // saisies a la main (sans itineraire existant choisi) sont
+      // transformees cote backend en itineraire ad-hoc rattache au convoi
+      // (Rotation.itineraire_modele) - meme mecanisme qu'un itineraire
+      // existant, applique automatiquement a chaque passager qui rejoint
+      // ensuite (_appliquer_itineraire_a_voyage), pour que le JMP reflete
+      // toujours le trajet COMPLET du convoi, jamais le point de descente
+      // propre a un passager individuel.
       const res = await api('/api/voyages/creer_rotation/', {
         method:'POST',
         body: JSON.stringify({
           ...formRot,
-          passagers: formRot.passagers,
+          date_retour_prevue: formRot.date_depart,
+          trajet_aller_seul: true,
         })
       })
       const data = await res.json()
       if (res.ok) {
-        flash(`Rotation ${data.rotation_id} créée · ${data.voyages_crees} passager(s)`)
-        if (data.exclus && data.exclus.length > 0) {
-          setTimeout(() => toast.warning(`⚠️ ${data.exclus.length} personne(s) retirée(s) automatiquement (déjà en voyage) : ${data.exclus.join(' | ')}`, 8000), 400)
-        }
-        // Villes intermediaires saisies a la creation -> sauvegardees comme
-        // etapes du voyage de reference (le premier cree), pour que le
-        // tableau "Cote de securite de route" du JMP soit rempli sans
-        // repasser une par une par le detail de chaque voyage apres coup.
-        if (formRot.villesIntermediaires.length > 0 && data.ids?.length > 0) {
-          const refId = data.ids[0]
-          for (let i = 0; i < formRot.villesIntermediaires.length; i++) {
-            const ville = formRot.villesIntermediaires[i]
-            const precedente = i === 0 ? formRot.origine : formRot.villesIntermediaires[i-1].nom
-            try {
-              await api('/api/etapes-voyage/', {
-                method:'POST',
-                body: JSON.stringify({
-                  voyage: refId, ordre: i+1, sens:'aller',
-                  origine: precedente, destination: ville.nom,
-                  mode_transport: formRot.mode_transport||'bus',
-                  date_etape: formRot.date_depart,
-                  heure_depart: ville.heure_depart||null, heure_arrivee_prevue: ville.heure_arrivee||null,
-                  distance_km: ville.distance_km||null, pause_fatigue: ville.pause||'',
-                })
-              })
-            } catch { /* etape individuelle en echec - rotation deja creee, non bloquant */ }
-          }
-        }
+        flash(`Convoi ${data.rotation_id} créé — ajoutez les passagers depuis sa fiche`)
         setShowCreate(null)
         setFormRot({itineraire_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
@@ -2940,14 +2924,6 @@ export default function MissionControl() {
                         <option value={5}>5 — Aucun voyage n'est autorisé</option>
                       </select>
                     </div>
-                    <div style={{marginBottom:14,display:'flex',alignItems:'center',gap:10,background:C.bg,padding:'10px 12px',borderRadius:8}}>
-                      <input type="checkbox" id="trajet-aller-seul" checked={formRot.trajet_aller_seul}
-                        onChange={e=>setFormRot(p=>({...p,trajet_aller_seul:e.target.checked}))}
-                        style={{width:16,height:16}}/>
-                      <label htmlFor="trajet-aller-seul" style={{fontSize:12,cursor:'pointer'}}>
-                        🧭 Trajet aller uniquement (convoi multi-villes) — <span style={{color:C.muted}}>pas de retour couplé au camp. Un éventuel retour se crée comme une nouvelle rotation séparée.</span>
-                      </label>
-                    </div>
                     {/* Capacité — remontée AVANT les villes intermédiaires pour que
                         ce tableau (ci-dessous) puisse prendre toute la largeur et
                         laisser assez de place au réglage des heures/commentaires. */}
@@ -2997,20 +2973,6 @@ export default function MissionControl() {
                         onChange={e=>setFormRot(p=>({...p,date_depart:e.target.value}))}
                         style={inputStyle}/>
                     </div>
-                    <div>
-                      <label style={labelStyle}>
-                        {formRot.trajet_aller_seul ? 'Date de retour prévue du passager *' : 'Date de retour *'}
-                        {formRot.trajet_aller_seul && (
-                          <span style={{fontWeight:400,color:C.muted}}> (pas forcément le même jour — trajet aller simple ; sert à détecter les chevauchements avec un autre voyage)</span>
-                        )}
-                      </label>
-                      <input type="date" value={formRot.date_retour_prevue} min={formRot.date_depart||undefined}
-                        onChange={e=>setFormRot(p=>({...p,date_retour_prevue:e.target.value}))}
-                        style={inputStyle}/>
-                      {formRot.date_depart && formRot.date_retour_prevue && formRot.date_retour_prevue < formRot.date_depart && (
-                        <div style={{fontSize:10,color:C.red,marginTop:3}}>⚠️ La date de retour ne peut pas être avant la date de départ ({fmt(formRot.date_depart)})</div>
-                      )}
-                    </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Point de rendez-vous</label>
                       <input value={formRot.point_rdv}
@@ -3030,105 +2992,23 @@ export default function MissionControl() {
                     </div>
                   </div>
 
-                  {/* Sélection passagers */}
-                  <div>
-                    <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
-                        background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
-                        onClick={()=>{
-                          const saisie = prompt("Coller une liste de numéros de téléphone (un par ligne, ou séparés par des virgules) :")
-                          if (!saisie) return
-                          const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
-                          const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
-                          const dejaPresents = new Set(formRot.passagers)
-                          const trouves = []
-                          const introuvables = []
-                          const complets = []
-                          for (const tel of numeros) {
-                            const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
-                            if (!p) { introuvables.push(tel); continue }
-                            if (dejaPresents.has(p.id)) continue
-                            if (dejaPresents.size + trouves.length >= formRot.nb_places_total) { complets.push(tel); continue }
-                            trouves.push(p.id)
-                          }
-                          if (trouves.length) setFormRot(prev=>({...prev, passagers:[...prev.passagers, ...trouves]}))
-                          let msg = `${trouves.length} passager(s) ajouté(s).`
-                          if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s) : ${introuvables.join(', ')}.`
-                          if (complets.length) msg += ` ${complets.length} non ajouté(s) — rotation déjà complète.`
-                          toast[introuvables.length||complets.length ? 'error' : 'success'](msg)
-                        }}>
-                      📋 Importer une liste de numéros
-                    </button>
-                    <label style={labelStyle}>
-                      Passagers ({formRot.passagers.length}/{formRot.nb_places_total})
-                    </label>
-                    <div style={{border:`0.5px solid ${C.border}`,borderRadius:8,
-                      maxHeight:200,overflowY:'auto',background:'rgba(0,0,0,.2)'}}>
-                      {personnel.map(p=>{
-                        const checked = formRot.passagers.includes(p.id)
-                        const nomComplet = `${p.nom} ${p.prenom}`.trim().toLowerCase()
-                        const estChauffeur = (formRot.conducteur||'').trim().toLowerCase()===nomComplet
-                          || (formRot.conducteur_secondaire||'').trim().toLowerCase()===nomComplet
-                        // Deja engage sur un AUTRE voyage actif qui chevauche ces
-                        // dates — meme regle que la validation backend
-                        // (VoyageSerializer.validate), appliquee ici en amont pour
-                        // ne pas laisser la personne cochable puis rejetee.
-                        const conflitVoyage = !estChauffeur && personnelOccupe(p.id, voyages, formRot.date_depart, formRot.date_retour_prevue)
-                        const full = !checked && (formRot.passagers.length >= formRot.nb_places_total || estChauffeur || !!conflitVoyage)
-                        const titre = estChauffeur ? 'Déjà désigné chauffeur ou second chauffeur de cette rotation'
-                          : conflitVoyage ? `Déjà en voyage du ${conflitVoyage.date_depart} au ${conflitVoyage.date_retour_prevue||conflitVoyage.date_depart}`
-                          : undefined
-                        return (
-                          <label key={p.id} style={{display:'flex',gap:10,alignItems:'center',
-                            padding:'8px 12px',cursor:full?'not-allowed':'pointer',
-                            borderBottom:`0.5px solid rgba(255,255,255,.04)`,
-                            background:checked?`${C.accent}10`:'transparent',
-                            opacity:full?0.4:1}}
-                            title={titre}>
-                            <input type="checkbox" checked={checked} disabled={full}
-                              onChange={e=>{
-                                if(e.target.checked) setFormRot(f=>({...f,passagers:[...f.passagers,p.id]}))
-                                else setFormRot(f=>({...f,passagers:f.passagers.filter(x=>x!==p.id)}))
-                              }}
-                              style={{accentColor:C.accent}}/>
-                            <div>
-                              <div style={{fontSize:13,fontWeight:500,color:checked?C.accent:C.text}}>
-                                {p.nom} {p.prenom}{estChauffeur ? ' 🚗' : ''}{conflitVoyage ? ' 🔒' : ''}
-                              </div>
-                              <div style={{fontSize:10,color:C.muted}}>{p.societe||'—'}</div>
-                            </div>
-                          </label>
-                        )
-                      })}
-                    </div>
-                    {/* Plan cabine preview */}
-                    {formRot.nb_places_total > 0 && (
-                      <div style={{marginTop:10,padding:10,background:'rgba(0,0,0,.2)',
-                        borderRadius:8,border:`0.5px solid ${C.border}`}}>
-                        <div style={{fontSize:10,color:C.muted,marginBottom:8}}>
-                          Aperçu cabine — {formRot.passagers.length}/{formRot.nb_places_total}
-                        </div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-                          {Array.from({length:formRot.nb_places_total},(_,i)=>(
-                            <div key={i} style={{
-                              width:20,height:20,borderRadius:4,
-                              background: i<formRot.passagers.length ? `${C.accent}25` : 'transparent',
-                              border: `1.5px solid ${i<formRot.passagers.length ? C.accent : C.border}`,
-                              display:'flex',alignItems:'center',justifyContent:'center',
-                              fontSize:8,color: i<formRot.passagers.length ? C.accent : C.muted,
-                            }}>
-                              {i<formRot.passagers.length ? '●' : '○'}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  {/* Le convoi (véhicule, chauffeur, date, itinéraire) se crée
+                      D'ABORD, sans aucun passager - un convoi et un passager
+                      sont 2 choses différentes : le convoi a une date de
+                      départ (même jour, aller uniquement), chaque passager a
+                      SON PROPRE point de montée/descente et sa propre date de
+                      retour prévue (pour garder sa chambre), demandés un par
+                      un lorsqu'il rejoint le convoi une fois celui-ci créé et
+                      validé (bouton "+ Ajouter" dans la fiche du convoi). */}
+                  <div style={{padding:'10px 12px',background:`${C.accent}12`,border:`1px solid ${C.accent}40`,borderRadius:8,fontSize:12,color:C.text}}>
+                    ℹ️ Le convoi se crée d'abord sans passager. Une fois créé, ajoutez les passagers un par un depuis sa fiche — chacun avec son propre point de montée/descente et sa date de retour (pour garder sa chambre).
                   </div>
 
                   <button className="mc-btn mc-btn-primary"
                     style={{width:'100%',justifyContent:'center',padding:13,fontSize:14}}
-                    disabled={saving||!formRot.date_depart||!formRot.date_retour_prevue||formRot._origineValide===false||formRot._destinationValide===false}
+                    disabled={saving||!formRot.date_depart||formRot._origineValide===false||formRot._destinationValide===false}
                     onClick={creerRotation}>
-                    {saving ? '⏳ Création...' : `✦ Créer rotation ${formRot.vehicule||'—'} · ${formRot.passagers.length} passager(s)`}
+                    {saving ? '⏳ Création...' : `✦ Créer le convoi ${formRot.vehicule||'—'}`}
                   </button>
                 </div>
               )}

@@ -199,34 +199,19 @@ export default function Evenements() {
   }
 
   const now = new Date()
-  // Un evenement dont la date est passee (date_fin si renseignee, sinon
-  // date_debut) mais dont le statut est reste sur 'planifie' ou 'en_cours'
-  // (jamais cloture manuellement) est considere echu - partage entre le
-  // badge/boutons de chaque carte ET le compteur KPI "En cours", pour que
-  // les deux restent coherents (sinon le compteur continuait a inclure un
-  // evenement deja marque "Échu" sur sa carte).
-  const estEvenementEchu = (e) => {
-    // 'planifie' : la date prevue de DEBUT est passee et l'evenement
-    // n'a jamais ete demarre -> echu des que la date est depassee, sans
-    // delai de grace (il devait commencer a cette date-la et ne l'a
-    // jamais fait).
-    // 'en_cours' : par definition, sa date de debut est TOUJOURS dans le
-    // passe des qu'il a demarre - la seule question pertinente est s'il
-    // dure depuis trop longtemps sans avoir ete cloture manuellement.
-    // Bug reel trouve et corrige ici : sans delai de grace, un evenement
-    // demarre il y a seulement 1h se faisait deja marquer "Echu", alors
-    // qu'il est legitimement toujours en cours. Delai de grace de 24h
-    // apres sa date de FIN (ou de debut si pas de fin renseignee).
-    if (e.statut === 'planifie') return new Date(e.date_debut) < now
-    if (e.statut === 'en_cours') {
-      const dateReference = e.date_fin || e.date_debut
-      const echeanceAvecGrace = new Date(dateReference).getTime() + 24*60*60*1000
-      return echeanceAvecGrace < now.getTime()
-    }
-    return false
-  }
-  const upcoming = events.filter(e => new Date(e.date_debut) >= now && e.statut !== 'annule')
-  const past = events.filter(e => new Date(e.date_debut) < now || e.statut === 'termine')
+  // Le statut ('planifie'/'en_cours'/'termine'/'annule') est desormais
+  // TOUJOURS a jour : le backend cloture automatiquement tout evenement
+  // planifie/en_cours dont la fin (reelle si "date_fin" renseignee, sinon
+  // 4h apres le debut par defaut) est depassee, a chaque fois que la liste
+  // des evenements est chargee (voir EvenementViewSet._cloturer_evenements_perimes
+  // cote backend). Avant ce correctif backend, un "delai de grace" de 24h
+  // etait recalcule ICI cote frontend, et seulement applique a CERTAINS
+  // ecrans (le compteur KPI "En cours" l'appliquait, l'onglet "En cours"
+  // lui-meme non) - un evenement de la veille au soir restait donc affiche
+  // "En cours" le lendemain apres-midi. Plus besoin de dupliquer cette
+  // logique ici : on se fie simplement au champ statut renvoye par l'API.
+  const upcoming = events.filter(e => e.statut === 'planifie')
+  const past = events.filter(e => e.statut === 'termine' || e.statut === 'annule')
   const enCoursListe = events.filter(e => e.statut === 'en_cours')
 
   const ALERTE_COLORS = { info:'var(--rzc-blue)', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
@@ -277,7 +262,7 @@ export default function Evenements() {
         {[
           [events.length,'Total','var(--blue)','📅'],
           [upcoming.length,'À venir','#16a34a','🗓️'],
-          [events.filter(e=>e.statut==='en_cours' && !estEvenementEchu(e)).length,'En cours','#ea580c','▶️'],
+          [enCoursListe.length,'En cours','#ea580c','▶️'],
           [alertes.length,'Alertes actives','#dc2626','⚠️'],
         ].map(([v,l,c,ic])=>(
           <div key={l} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
@@ -304,32 +289,15 @@ export default function Evenements() {
         <div>
           {(tab==='agenda'?upcoming : tab==='passes'?past : tab==='encours'?enCoursListe : events).map(evt => {
             const tc = TYPE_COLORS[evt.type_event] || TYPE_COLORS.autre
-            // Un evenement dont la date est passee mais dont le statut est
-            // reste sur 'planifie' (jamais demarre/termine manuellement)
-            // s'affichait auparavant EXACTEMENT comme un evenement a venir -
-            // meme badge "Planifie", boutons Demarrer/Notifier toujours
-            // actifs. Calcule ici un etat d'affichage distinct, sans forcer
-            // de changement en base (l'historique du statut choisi reste
-            // intact) - "Passes" utilise deja ce meme critere de date.
-            // Un evenement "en_cours" (demarre mais jamais cloture
-            // manuellement) etait exclu de cette detection - ne
-            // couvrait que 'planifie'. Corrige : les DEUX statuts non
-            // definitifs (planifie ET en_cours) sont concernes des que
-            // la date de FIN (ou de debut si pas de fin renseignee) est
-            // clairement passee. Reutilise estEvenementEchu (partagee
-            // avec le compteur KPI "En cours" ci-dessus) plutot que de
-            // recalculer la meme chose ici.
-            const estEchu = estEvenementEchu(evt)
-            // Un evenement deja marque Termine manuellement (via
-            // Historiser ou Terminer) n'est PAS "echu" au sens de
-            // estEvenementEchu (qui ne concerne que planifie/en_cours non
-            // clos) - mais il est tout aussi termine, donc les boutons QR/
-            // Scanner/Notifier n'ont pas plus de sens pour lui. Les deux
-            // cas partagent donc cette meme exclusion.
-            const estTermine = estEchu || evt.statut === 'termine'
-            const sc = estEchu ? { bg:'rgba(100,116,139,.12)', color:'var(--rzc-text-3)', label:'⏱ Échu (non démarré)' } : (STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie)
+            // Le statut renvoye par l'API est toujours a jour (cloture
+            // automatique cote backend - voir le commentaire sur `past` /
+            // `enCoursListe` plus haut) : plus besoin de recalculer un etat
+            // "echu" ici, ni de bouton "Historiser" separe du "Terminer"
+            // normal - un evenement en retard apparait directement "Terminé".
+            const estTermine = evt.statut === 'termine' || evt.statut === 'annule'
+            const sc = STATUT_COLORS[evt.statut] || STATUT_COLORS.planifie
             return (
-              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estEchu?0.7:1 }}>
+              <div key={evt.id} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', gap:14, opacity:estTermine?0.7:1 }}>
                 {/* Type icon */}
                 <div style={{ width:52, height:52, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
                   {tc.icon}
@@ -382,12 +350,11 @@ export default function Evenements() {
                         🔔 Notifier
                       </button>
                     )}
-                    {evt.statut==='planifie' && !estEchu && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
-                    {evt.statut==='en_cours' && !estEchu && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
-                    {estEchu && <button onClick={()=>{changerStatut(evt.id,'termine'); setTab('passes')}} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>📥 Historiser</button>}
+                    {evt.statut==='planifie' && <button onClick={()=>changerStatut(evt.id,'en_cours')} style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>▶ Démarrer</button>}
+                    {evt.statut==='en_cours' && <button onClick={()=>changerStatut(evt.id,'termine')} style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:11 }}>⏹ Terminer</button>}
                     {isAdmin && <button onClick={()=>deleteEvt(evt.id,evt.titre)}
                     style={{background:'rgba(220,38,38,.08)',color:'#dc2626',border:'1px solid rgba(220,38,38,.15)',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11}}>🗑 Suppr.</button>}
-                  {['planifie','en_cours'].includes(evt.statut) && !estEchu && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
+                  {['planifie','en_cours'].includes(evt.statut) && <button onClick={()=>changerStatut(evt.id,'annule')} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>✕ Annuler</button>}
                   </div>
                 )}
               </div>

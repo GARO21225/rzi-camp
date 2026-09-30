@@ -60,8 +60,42 @@ class EvenementViewSet(viewsets.ModelViewSet):
     queryset = Evenement.objects.all()  # requis par DRF pour déduire le basename du router
                                           # (get_queryset() ci-dessous prime à l'exécution réelle)
 
+    # Duree PAR DEFAUT d'un evenement dont l'admin n'a pas renseigne de
+    # "date_fin" (le formulaire le laisse optionnel) - utilisee pour savoir
+    # quand un evenement jamais cloture manuellement doit etre considere
+    # termine. Avant ce correctif, ce delai etait un "grace period" fixe de
+    # 24h applique cote FRONTEND uniquement (Evenements.jsx), sur SEULEMENT
+    # certains ecrans (le compteur KPI "En cours" l'appliquait, l'onglet
+    # "En cours" lui-meme NE L'APPLIQUAIT PAS - un evenement de la veille
+    # au soir restait donc affiche "En cours" le lendemain apres-midi,
+    # exactement le bug signale). 24h etait de toute facon disproportionne
+    # pour un evenement social de quelques heures. Corrige EN PROFONDEUR
+    # ici cote backend : des qu'une requete liste/consulte les evenements,
+    # tout evenement planifie/en_cours dont la fin (reelle ou par defaut)
+    # est depassee bascule automatiquement en "termine" - une seule source
+    # de verite (le champ statut lui-meme, toujours a jour), plus besoin
+    # de dupliquer une logique de "peremption" a chaque endroit qui affiche
+    # un evenement (JMP, notifications, autres ecrans...).
+    DUREE_PAR_DEFAUT_H = 4
+
+    def _cloturer_evenements_perimes(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Q
+        maintenant = timezone.now()
+        seuil_sans_date_fin = maintenant - timedelta(hours=self.DUREE_PAR_DEFAUT_H)
+        Evenement.objects.filter(statut__in=["planifie", "en_cours"]).filter(
+            Q(date_fin__isnull=False, date_fin__lt=maintenant) |
+            Q(date_fin__isnull=True, date_debut__lt=seuil_sans_date_fin)
+        ).update(statut="termine")
+
     def get_queryset(self):
         from django.db.models import Count
+        # Auto-cloture d'abord (voir _cloturer_evenements_perimes) pour que
+        # la liste renvoyee reflete toujours des statuts a jour, quel que
+        # soit l'ecran/onglet qui consulte cette API - correctif "en
+        # profondeur" plutot qu'un simple filtre d'affichage.
+        self._cloturer_evenements_perimes()
         # select_related('cree_par') + annotation Count : élimine le N+1
         # (était 2 requêtes par événement avant ce fix, voir ERROR_LOG.md #7 pour le pattern jumeau)
         return (Evenement.objects
