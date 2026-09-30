@@ -205,9 +205,14 @@ function Badge({ children, color=C.accent, small=false }) {
   )
 }
 
-function StatusBadge({ statut }) {
+function StatusBadge({ statut, allerSeul=false }) {
   const cfg = ST_CFG[statut] || ST_CFG.planifie
-  return <Badge color={cfg.c}>{cfg.l}</Badge>
+  // BUG REEL CORRIGE ICI : "Retour camp" ne veut rien dire pour un trajet
+  // ALLER SEUL (trajet_aller_seul) - il n'y a justement pas de retour dans
+  // ce cas (voir Voyage.revenir(), qui saute la restitution de chambre),
+  // le meme statut "retour" signifie simplement "arrivé à destination".
+  const label = (statut==='retour' && allerSeul) ? 'Arrivé' : cfg.l
+  return <Badge color={cfg.c}>{label}</Badge>
 }
 
 function LiveDot({ color=C.green }) {
@@ -456,7 +461,7 @@ function GanttBar({ voyage, days, onClick }) {
         )
       })}
       <td style={{padding:'7px 10px',whiteSpace:'nowrap'}}>
-        <StatusBadge statut={voyage.statut}/>
+        <StatusBadge statut={voyage.statut} allerSeul={voyage.trajet_aller_seul}/>
       </td>
     </tr>
   )
@@ -1049,12 +1054,19 @@ export default function MissionControl() {
   }
 
   const retourRotation = async (rotId) => {
+    // BUG REEL CORRIGE ICI : le bouton "Terminer" d'un convoi ALLER SEUL
+    // (trajet_aller_seul) ne signifie PAS "de retour au camp" - il signifie
+    // "arrivé à destination" (un aller seul n'a justement pas de retour,
+    // voir Voyage.revenir() qui saute la restitution de chambre dans ce
+    // cas). Les messages parlaient pourtant toujours de "retour"/"rentré"
+    // meme pour ce cas, ce qui laissait croire a un aller-retour classique.
+    const estAllerSeul = rotations.find(r=>r.rotation_id===rotId)?.trajet_aller_seul
     try {
       const res = await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
-      flash(`Rotation revenue 🏠 (${d.rentres} rentré(s))`)
+      flash(estAllerSeul ? `Convoi arrivé à destination ✅ (${d.rentres} arrivé(s))` : `Rotation revenue 🏠 (${d.rentres} rentré(s))`)
       if (d.echecs && d.echecs.length > 0) {
-        toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu revenir : ${d.echecs.join(' | ')}`, 8000)
+        toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu ${estAllerSeul ? 'arriver' : 'revenir'} : ${d.echecs.join(' | ')}`, 8000)
       }
       if (d.alertes_chambre && d.alertes_chambre.length > 0) {
         // Conflit resident principal / occupant temporaire au retour
@@ -1750,7 +1762,7 @@ export default function MissionControl() {
                                       {p.personnel__societe||'—'}{destinationDiffere && ` · → ${voyageComplet.destination}`}
                                     </div>
                                   </div>
-                                  <StatusBadge statut={p.statut}/>
+                                  <StatusBadge statut={p.statut} allerSeul={r.trajet_aller_seul}/>
                                   {p.statut==='planifie' && (
                                     <button onClick={async ev=>{
                                         ev.stopPropagation()
@@ -1767,7 +1779,16 @@ export default function MissionControl() {
                                       🗑️
                                     </button>
                                   )}
-                                  <span style={{fontSize:10,color:C.muted}} title="Cliquer la ligne pour modifier">⚙️</span>
+                                  {/* BUG REEL CORRIGE ICI : cette icone/infobulle disait "modifier"
+                                      pour TOUT passager, meme sur un convoi deja termine (r.statut
+                                      ==='retour') - alors que le detail vehicule/actions y est deja
+                                      correctement verrouille en lecture seule (voir plus bas,
+                                      detailVoyage.statut !== 'retour'). L'icone mentait donc sur ce
+                                      qui allait se passer au clic. */}
+                                  <span style={{fontSize:10,color:C.muted}}
+                                    title={r.statut==='retour' ? 'Cliquer la ligne pour voir le détail (convoi terminé — lecture seule)' : 'Cliquer la ligne pour modifier'}>
+                                    {r.statut==='retour' ? '👁️' : '⚙️'}
+                                  </span>
                                 </div>
                               )})}
                               {(r.passagers||[]).length===0&&(
@@ -2227,7 +2248,7 @@ export default function MissionControl() {
                           <td style={{padding:'7px 10px',color:C.muted,fontFamily:'JetBrains Mono,monospace',fontSize:11}}>{v.personnel_telephone||'—'}</td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.origine||'—'} <span style={{opacity:.4,fontSize:10}} title="Cliquer la ligne pour modifier montée/descente">✏️</span></td>
                           <td style={{padding:'7px 10px',color:C.text}}>{v.destination||'—'}</td>
-                          <td style={{padding:'7px 10px'}}><StatusBadge statut={v.statut}/></td>
+                          <td style={{padding:'7px 10px'}}><StatusBadge statut={v.statut} allerSeul={v.trajet_aller_seul}/></td>
                         </tr>
                       ))}
                       {lignes.length===0 && (

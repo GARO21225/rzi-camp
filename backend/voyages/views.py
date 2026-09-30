@@ -1523,9 +1523,12 @@ def _generer_billet_html(voyage):
     # Trajet PLANIFIE du passager (sa propre montee -> descente, voyage.origine/
     # voyage.destination) - affiche ICI de facon bien visible, car des
     # utilisateurs confondaient ce champ, deja rempli a la reservation, avec
-    # la section "suivi terrain" ci-dessous (qui, elle, ne se remplit QUE par
-    # des scans reels et reste donc a juste titre vide tant qu'aucun scan n'a
-    # eu lieu - ce n'est pas un bug, ce sont deux notions distinctes).
+    # la section "montee/descente reelles" ci-dessous (qui, elle, ne se
+    # remplit QUE quand un admin clique explicitement "Enregistrer
+    # montée"/"Enregistrer descente" dans le detail du voyage - AUCUN
+    # scanner materiel n'existe dans l'app, "scan" etait un mot trompeur
+    # employe ici a tort la fois precedente - et reste donc a juste titre
+    # vide tant que personne n'a clique ces boutons).
     trajet_passager_html = f"""
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin:16px 0">
         <div style="font-size:11px;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">🧍 Trajet de ce passager (prévu à la réservation)</div>
@@ -1533,11 +1536,13 @@ def _generer_billet_html(voyage):
       </div>
     """
 
-    # Suivi terrain REEL du passager (section 21-22 du document de refonte) -
-    # construit UNIQUEMENT a partir des evenements montee/descente
-    # REELLEMENT SCANNES (QR/pointage), jamais saisi manuellement a la
-    # reservation - distinct du trajet PREVU ci-dessus. Reste normalement
-    # vide tant qu'aucun scan de montee/descente n'a eu lieu sur le terrain.
+    # Montee/descente REELLES du passager (section 21-22 du document de
+    # refonte) - construit UNIQUEMENT a partir des evenements enregistres
+    # MANUELLEMENT par un admin via les boutons "Enregistrer montée" /
+    # "Enregistrer descente" du detail du voyage (PAS un scan materiel -
+    # aucun lecteur QR/badge n'existe dans cette app), jamais saisi
+    # automatiquement a la reservation - distinct du trajet PREVU ci-dessus.
+    # Reste normalement vide tant que personne n'a clique ces boutons.
     segments = EvenementMonteeDescente.itineraire_reel(voyage)
     evenements = list(voyage.evenements_montee_descente.order_by("date_heure"))
     if evenements:
@@ -1549,8 +1554,8 @@ def _generer_billet_html(voyage):
             </tr>
         """ for e in evenements])
         itineraire_reel_html = f"""
-          <h2 style="color:#0F2A5C;font-size:16px">🛰️ Suivi terrain (scans montée/descente)</h2>
-          <p style="color:#64748b;font-size:12px;margin-top:-8px">Horodatage des montées/descentes réellement scannées sur le terrain — distinct du trajet prévu ci-dessus, qui lui est renseigné à la réservation.</p>
+          <h2 style="color:#0F2A5C;font-size:16px">🟢 Montée / descente réelles</h2>
+          <p style="color:#64748b;font-size:12px;margin-top:-8px">Horodatage des montées/descentes enregistrées manuellement (bouton "Enregistrer montée/descente") — distinct du trajet prévu ci-dessus, qui lui est renseigné à la réservation.</p>
           <table style="margin-bottom:16px">
             <thead><tr><th>Événement</th><th>Lieu</th><th>Date / Heure</th></tr></thead>
             <tbody>{evenements_html}</tbody>
@@ -1558,8 +1563,8 @@ def _generer_billet_html(voyage):
         """
     else:
         itineraire_reel_html = """
-          <h2 style="color:#0F2A5C;font-size:16px">🛰️ Suivi terrain (scans montée/descente)</h2>
-          <p style="color:#94a3b8;font-size:12px">Aucun scan de montée/descente enregistré sur le terrain pour l'instant — le trajet prévu du passager reste visible ci-dessus.</p>
+          <h2 style="color:#0F2A5C;font-size:16px">🟢 Montée / descente réelles</h2>
+          <p style="color:#94a3b8;font-size:12px">Aucune montée/descente encore enregistrée pour ce voyage (bouton "Enregistrer montée/descente" dans le détail du voyage) — le trajet prévu du passager reste visible ci-dessus.</p>
         """
 
     # Points pour la carte : itineraire de la ROTATION (origine/etapes/destination
