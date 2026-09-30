@@ -939,12 +939,22 @@ export default function Personnel() {
         {/* ══ MODAL CRÉER/MODIFIER ══ */}
         {modal && (
           <div style={{position:'fixed',inset:0,background:'rgba(11,15,20,.82)',
-            display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}}
+            display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,padding:16,overflowY:'auto'}}
             onClick={e=>e.target===e.currentTarget&&setModal(null)}>
+            {/* Formulaire long (9+ champs) : sans maxHeight+overflowY sur le
+                corps, le clic sur "Enregistrer" tombait hors-écran sur
+                mobile, sans aucun moyen de scroller pour l'atteindre
+                (l'overlay lui-meme n'avait pas overflowY, et alignItems:
+                'center' sur un contenu plus haut que l'ecran coupe le
+                debut du contenu de facon inaccessible au scroll sur
+                mobile - d'ou le passage a alignItems:'flex-start'). ──
+                display:flex column ici pour garder le header colore fixe
+                et ne faire defiler QUE le corps du formulaire. */}
             <div className="rzc-card" style={{width:'100%',maxWidth:500,
-              overflow:'hidden'}}>
+              overflow:'hidden',marginTop:isMobile?8:'5vh',marginBottom:8,
+              maxHeight:'92vh',display:'flex',flexDirection:'column'}}>
               <div style={{background:'linear-gradient(135deg,var(--rzc-ore-gold),var(--rzc-copper))',color:'#1A1206',
-                padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
                 <div style={{fontWeight:700,fontSize:15}}>
                   {modal==='new' ? '➕ Nouveau membre' : `✏️ Modifier — ${modal.nom} ${modal.prenom}`}
                 </div>
@@ -952,7 +962,7 @@ export default function Personnel() {
                   style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',
                     width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
               </div>
-              <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{padding:20,display:'flex',flexDirection:'column',gap:12,overflowY:'auto'}}>
                 {err && (
                   <div style={{background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:8,
                     padding:'8px 12px',color:'#dc2626',fontSize:12}}>

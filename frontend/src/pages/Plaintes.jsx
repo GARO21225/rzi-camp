@@ -205,9 +205,9 @@ export default function Plaintes() {
 
       {/* Modale : nouvelle plainte */}
       {nouvelleModal && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16}}
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
           onClick={e=>e.target===e.currentTarget && setNouvelleModal(false)}>
-          <div style={{background:'#fff', borderRadius:14, maxWidth:440, width:'100%', padding:20}}>
+          <div style={{background:'#fff', borderRadius:14, maxWidth:440, width:'100%', padding:20, marginTop:8, marginBottom:8, maxHeight:'92vh', overflowY:'auto'}}>
             <div style={{fontWeight:700, fontSize:15, marginBottom:14}}>🧹 Déposer une plainte</div>
             <div style={{fontSize:11, color:'#94a3b8', marginBottom:10}}>Votre chambre actuelle sera associée automatiquement.</div>
             <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Catégorie</label>
@@ -232,9 +232,16 @@ export default function Plaintes() {
 
       {/* Modale : contrôle de chambre (étoiles) */}
       {controleModal && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
           onClick={e=>e.target===e.currentTarget && setControleModal(false)}>
-          <div style={{background:'#fff', borderRadius:14, maxWidth:480, width:'100%', padding:20, maxHeight:'85vh', overflowY:'auto'}}>
+          {/* alignItems:'flex-start' (au lieu de 'center') : avec un
+              contenu (11 criteres a noter) plus haut que l'ecran, un
+              flex container centre verticalement coupe le debut du
+              contenu de facon inaccessible au scroll sur mobile - bug
+              CSS connu du couple align-items:center + overflow. C'est
+              la cause reelle du "impossible de scroller pour donner les
+              etoiles". */}
+          <div style={{background:'#fff', borderRadius:14, maxWidth:480, width:'100%', padding:20, marginTop:8, marginBottom:8, maxHeight:'92vh', overflowY:'auto'}}>
             <div style={{fontWeight:700, fontSize:15, marginBottom:4}}>⭐ Contrôle de chambre — Propreté</div>
             <div style={{fontSize:11, color:'#94a3b8', marginBottom:14}}>Une note inférieure à 2 sur un critère envoie automatiquement un signal de mécontentement.</div>
             {PROPRETE_CRITERES.map(c => (
@@ -252,9 +259,9 @@ export default function Plaintes() {
 
       {/* Modale : détail + actions superviseur */}
       {detailModal && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
           onClick={e=>e.target===e.currentTarget && setDetailModal(null)}>
-          <div style={{background:'#fff', borderRadius:14, maxWidth:520, width:'100%', padding:20, maxHeight:'85vh', overflowY:'auto'}}>
+          <div style={{background:'#fff', borderRadius:14, maxWidth:520, width:'100%', padding:20, marginTop:8, marginBottom:8, maxHeight:'92vh', overflowY:'auto'}}>
             <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
               <div style={{fontWeight:700, fontSize:15}}>{detailModal.categorie_label} — {detailModal.sous_categorie}</div>
               {badge(detailModal.statut)}
