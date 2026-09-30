@@ -926,7 +926,7 @@ function ArticleCard({ a, qty, onAdd }) {
 // ════════════════════════════════════════════════════════════
 export default function Boutique({ embedded = false } = {}) {
   const {user} = useStore()
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const isMobile = useIsMobile()
   const [stockFilter,           setStockFilter]          = useState('')
   const [stockCatFilter,        setStockCatFilter]       = useState('')
   const [exclureAchatsInternes, setExclureAchatsInternes] = useState(false)
@@ -935,11 +935,6 @@ export default function Boutique({ embedded = false } = {}) {
   const [stockQte,     setStockQte]     = useState(0)
   const [stockOp,      setStockOp]      = useState('add')
   const [stockRaison,  setStockRaison]  = useState('')
-  useEffect(()=>{
-    const h = ()=>setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize',h)
-    return ()=>window.removeEventListener('resize',h)
-  },[])
   const isAdmin = !!(user?.is_staff || user?.is_superuser ||
     user?.profile?.role === 'admin' || user?.role === 'admin' ||
     user?.username === 'admin')
@@ -1434,9 +1429,18 @@ export default function Boutique({ embedded = false } = {}) {
               </div>
             </div>
 
-            {/* Panier */}
-            <div style={{background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0',flex:1}}>
-              <div style={{padding:'11px 14px',background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            {/* Panier — bascule en bottom-sheet flottant sur mobile (au-dessus de la barre
+                de navigation) une fois qu'il contient au moins un article, pour éviter de
+                devoir descendre sous toute la grille produits pour encaisser. Sur desktop,
+                comportement et style inchangés (colonne de droite classique). */}
+            {(!isMobile || panier.length>0) && (
+            <div style={isMobile ? {
+                position:'fixed', left:12, right:12, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
+                maxHeight:'72vh', overflowY:'auto', background:'var(--rzc-white)', borderRadius:18,
+                border:'1px solid #e2e8f0', boxShadow:'0 -8px 28px rgba(15,26,46,.22)', zIndex:90,
+              } : {background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0',flex:1}}>
+              <div style={{padding:'11px 14px',background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',display:'flex',justifyContent:'space-between',alignItems:'center',
+                borderRadius: isMobile ? '18px 18px 0 0' : 0, position: isMobile ? 'sticky' : 'static', top:0, zIndex:1}}>
                 <span style={{fontWeight:700,fontSize:13}}>🛒 Panier ({panier.length})</span>
                 {panier.length>0&&<button onClick={()=>setPanier([])} style={{background:'rgba(220,38,38,.35)',border:'none',color:'var(--rzc-white)',padding:'3px 10px',borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700}}>Vider</button>}
               </div>
@@ -1539,6 +1543,7 @@ export default function Boutique({ embedded = false } = {}) {
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
       )}

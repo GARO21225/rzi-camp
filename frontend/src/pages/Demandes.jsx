@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
@@ -22,6 +23,7 @@ const inp = { background:'var(--surface2)', border:'1px solid var(--border)', co
 const today = new Date().toISOString().slice(0,10)
 
 export default function Demandes() {
+  const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
@@ -230,7 +232,7 @@ export default function Demandes() {
             {isAdmin ? 'Validation admin · Suivi complet des demandes' : 'Soumettez vos demandes · Suivez leur statut'}
           </p>
         </div>
-        {!isAdmin && (
+        {!isAdmin && !isMobile && (
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={()=>setCreateModal('reservation_residence')}
               style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.25)', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
@@ -244,9 +246,25 @@ export default function Demandes() {
         )}
       </div>
 
+      {/* FABs mobile — remplacent les 2 boutons d'action agent, cachés dans le header exigu */}
+      {!isAdmin && isMobile && (
+        <div style={{ position:'fixed', right:16, bottom:100, display:'flex', flexDirection:'column', gap:10, zIndex:80 }}>
+          <button onClick={()=>setCreateModal('reservation_residence')} aria-label="Réserver résidence"
+            style={{ width:46, height:46, borderRadius:23, background:'#2563EB', border:'none', boxShadow:'0 6px 16px rgba(37,99,235,.4)', fontSize:19, cursor:'pointer' }}>
+            🏠
+          </button>
+          <button onClick={()=>setCreateModal('voyage')} aria-label="Planifier voyage"
+            style={{ width:54, height:54, borderRadius:27, background:'#C9972B', border:'none', boxShadow:'0 6px 16px rgba(201,151,43,.4)', fontSize:22, cursor:'pointer' }}>
+            ✈️
+          </button>
+        </div>
+      )}
+
       {/* Admin KPIs */}
       {isAdmin && stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
+        <div style={isMobile
+          ? { display:'flex', gap:8, overflowX:'auto', marginBottom:16, paddingBottom:4 }
+          : { display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
           {[
             [(stats.en_attente||0) + voyagesEnAttente.length + inductionsEnAttente.length + incidentsEnAttente.length,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
@@ -254,21 +272,27 @@ export default function Demandes() {
             [stats.rejetees,'Rejetées','#dc2626','❌'],
             [stats.total,'Total','var(--blue)','📋'],
           ].map(([v,l,c,ic])=>(
-            <div key={l} style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:24, fontWeight:700, color:c }}>{v}</div>
-              <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1 }}>{ic} {l}</div>
+            <div key={l} style={isMobile
+              ? { flexShrink:0, minWidth:88, background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }
+              : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
+              <div style={{ fontFamily:'monospace', fontSize:isMobile?18:24, fontWeight:700, color:c }}>{v}</div>
+              <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1, whiteSpace:'nowrap' }}>{ic} {l}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Tabs */}
-      <div style={{ display:'flex', gap:2, marginBottom:14, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
+      <div style={isMobile
+        ? { display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4 }
+        : { display:'flex', gap:2, marginBottom:14, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
         {(isAdmin ? ADMIN_TABS : AGENT_TABS).map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
-            style={{ flex:1, padding:'8px 4px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-              background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
-              boxShadow:tab===k?'var(--shadow)':'none' }}>
+            style={isMobile
+              ? { flexShrink:0, padding:'7px 14px', borderRadius:99, border:tab===k?'1px solid #0F2A5C':'1px solid rgba(15,26,46,.14)', cursor:'pointer', fontSize:12, fontWeight:600, background:tab===k?'#0F2A5C':'#fff', color:tab===k?'#fff':'#2D3B52' }
+              : { flex:1, padding:'8px 4px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+                  background:tab===k?'var(--rzc-white)':'transparent', color:tab===k?'var(--blue)':'var(--text-dim)',
+                  boxShadow:tab===k?'var(--shadow)':'none' }}>
             {l}
           </button>
         ))}
@@ -288,11 +312,11 @@ export default function Demandes() {
             const tc = TYPE_COLORS[d.type_demande] || TYPE_COLORS.maintenance
             const sc = STATUT_STYLES[d.statut] || STATUT_STYLES.en_attente
             return (
-              <div key={d.id} style={{ background:'var(--rzc-white)', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:16, boxShadow:'var(--shadow)', display:'flex', gap:14, alignItems:'flex-start' }}>
-                <div style={{ width:50, height:50, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
+              <div key={d.id} style={{ background:'var(--rzc-white)', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:isMobile?13:16, boxShadow:'var(--shadow)', display:'flex', gap:isMobile?12:14, alignItems:'flex-start', flexWrap:isMobile?'wrap':'nowrap' }}>
+                <div style={{ width:isMobile?44:50, height:isMobile?44:50, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:isMobile?20:22, flexShrink:0 }}>
                   {tc.icon}
                 </div>
-                <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ flex:1, minWidth:isMobile?'70%':0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
                     <span style={{ fontWeight:700, fontSize:14, color:'var(--blue)' }}>{tc.label}</span>
                     <span style={{ background:sc.bg, color:sc.color, padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>{sc.label}</span>
@@ -323,17 +347,25 @@ export default function Demandes() {
                 </div>
 
                 {/* Actions */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6, flexShrink:0, minWidth:120 }}>
+                <div style={isMobile
+                  ? { display:'flex', gap:8, width:'100%', marginTop:2 }
+                  : { display:'flex', flexDirection:'column', gap:6, flexShrink:0, minWidth:120 }}>
                   {isAdmin && d.statut === 'en_attente' && (
                     <>
                       <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-                        style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
+                        style={isMobile
+                          ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                          : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
                       {!['induction','incident'].includes(d._source) && (
                         <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-                          style={{ background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
+                          style={isMobile
+                            ? { flex:1, background:'rgba(124,58,237,.10)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.25)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                            : { background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
                       )}
                       <button onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
-                        style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Rejeter</button>
+                        style={isMobile
+                          ? { background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
+                          : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌{isMobile?'':' Rejeter'}</button>
                     </>
                   )}
                   {isAdmin && d.statut === 'proposition' && (
@@ -342,18 +374,26 @@ export default function Demandes() {
                   {!isAdmin && d.statut === 'proposition' && (
                     <>
                       <button onClick={()=>doAgentAction(d,'accepter')}
-                        style={{ background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Accepter</button>
+                        style={isMobile
+                          ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                          : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Accepter</button>
                       <button onClick={()=>doAgentAction(d,'refuser')}
-                        style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Refuser</button>
+                        style={isMobile
+                          ? { flex:1, background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                          : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Refuser</button>
                     </>
                   )}
                   {!isAdmin && d.statut === 'en_attente' && (
                     <button onClick={()=>doAgentAction(d,'annuler')}
-                      style={{ background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
+                      style={isMobile
+                        ? { flex:1, background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', borderRadius:8, padding:8, fontSize:11.5, cursor:'pointer' }
+                        : { background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
                   )}
                   {isAdmin && (
                     <button onClick={()=>deleteDemande(d)}
-                      style={{ background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>🗑</button>
+                      style={isMobile
+                        ? { background:'rgba(220,38,38,.06)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
+                        : { background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>🗑</button>
                   )}
                 </div>
               </div>

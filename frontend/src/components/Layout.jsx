@@ -562,7 +562,7 @@ export default function Layout() {
             </div>
           </nav>
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 62 : 0 }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 100 : 0 }}>
             <Outlet />
           </main>
       </div>
