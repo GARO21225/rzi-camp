@@ -11,12 +11,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
 })
 
-// Fond de carte CARTO (gratuit, sans clé) à la place des tuiles OSM brutes —
-// tile.openstreetmap.org applique une politique d'usage stricte (User-Agent/
-// referrer, volumétrie) et renvoie une tuile "blocked" dès qu'elle est
-// dépassée, ce qui affichait une carte illisible ("access blocked").
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+// Fond de carte Esri World Street Map (gratuit, SANS clé API requise) à la
+// place des tuiles OSM brutes. Deux essais precedents ont echoue : (1)
+// tile.openstreetmap.org applique une politique d'usage stricte et renvoie
+// une tuile "blocked" en cas de depassement ("access blocked" signale) ; (2)
+// les tuiles CARTO (basemaps.cartocdn.com) exigent desormais une cle API
+// (CARTO a ferme l'acces anonyme gratuit - tuiles affichant "API KEY
+// REQUIRED" signale). Esri reste accessible sans cle pour ce niveau d'usage.
+const TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+const TILE_ATTRIBUTION = 'Tiles &copy; Esri — Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors, GIS User Community'
 
 /** Trace un vrai itinéraire routier (OSRM, profil "driving") entre deux
  * points GPS. Retourne null si indisponible — l'appelant retombe alors sur

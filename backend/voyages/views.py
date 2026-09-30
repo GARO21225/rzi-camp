@@ -708,13 +708,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         result = []
         for g in rotations_qs:
             passagers = passagers_par_rotation.get(g["rotation_id"], [])
-            # Destination "de reference" affichee sur la carte du convoi :
-            # celle du plus grand nombre de passagers si assignes, sinon
-            # celle enregistree sur la Rotation elle-meme (rotation encore
-            # sans personne).
+            # BUG REEL CORRIGE ICI : g["destination"] etait ECRASEE par la
+            # destination la plus frequente parmi les PASSAGERS (leur propre
+            # lieu de descente), au lieu de rester la destination FINALE de
+            # l'itineraire enregistree sur la Rotation elle-meme. Consequence
+            # concrete signalee : un convoi Abidjan -> ... -> Camp (dernier
+            # arret reel de l'itineraire) affichait "BOUAKE" comme
+            # "destination finale" sur le JMP des qu'une majorite de
+            # passagers descendait a Bouake - alors que Bouake n'est qu'une
+            # ETAPE intermediaire, pas la fin du trajet du convoi. Ca
+            # faussait aussi arrets_itineraire (tronque a Bouake) et le
+            # badge "destinationDiffere" cote frontend (qui compare la
+            # destination du passager a celle, censee etre fixe, du convoi).
+            # g["destination"] reste donc TOUJOURS la valeur enregistree sur
+            # la Rotation (deja presente via le values() plus haut) - ne
+            # jamais la deriver des voyages passagers.
             if passagers:
-                destinations = [p["destination"] for p in passagers if p["destination"]]
-                g["destination"] = max(set(destinations), key=destinations.count) if destinations else ""
                 statuts_presents = {p["statut"] for p in passagers}
                 if statuts_presents == {"retour"}:
                     statut_rotation = "retour"
@@ -1511,9 +1520,24 @@ def _generer_billet_html(voyage):
         </tr>
     """ for e in etapes]) or '<tr><td colspan="8" style="padding:16px;text-align:center;color:#94a3b8">Aucune étape détaillée — voyage simple</td></tr>'
 
-    # Itineraire REEL du passager (section 21-22 du document de refonte) -
+    # Trajet PLANIFIE du passager (sa propre montee -> descente, voyage.origine/
+    # voyage.destination) - affiche ICI de facon bien visible, car des
+    # utilisateurs confondaient ce champ, deja rempli a la reservation, avec
+    # la section "suivi terrain" ci-dessous (qui, elle, ne se remplit QUE par
+    # des scans reels et reste donc a juste titre vide tant qu'aucun scan n'a
+    # eu lieu - ce n'est pas un bug, ce sont deux notions distinctes).
+    trajet_passager_html = f"""
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin:16px 0">
+        <div style="font-size:11px;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">🧍 Trajet de ce passager (prévu à la réservation)</div>
+        <div style="font-size:15px;font-weight:700;color:#0F2A5C;margin-top:4px">{voyage.origine or '—'} → {voyage.destination or '—'}</div>
+      </div>
+    """
+
+    # Suivi terrain REEL du passager (section 21-22 du document de refonte) -
     # construit UNIQUEMENT a partir des evenements montee/descente
-    # reellement enregistres, jamais saisi manuellement.
+    # REELLEMENT SCANNES (QR/pointage), jamais saisi manuellement a la
+    # reservation - distinct du trajet PREVU ci-dessus. Reste normalement
+    # vide tant qu'aucun scan de montee/descente n'a eu lieu sur le terrain.
     segments = EvenementMonteeDescente.itineraire_reel(voyage)
     evenements = list(voyage.evenements_montee_descente.order_by("date_heure"))
     if evenements:
@@ -1525,8 +1549,8 @@ def _generer_billet_html(voyage):
             </tr>
         """ for e in evenements])
         itineraire_reel_html = f"""
-          <h2 style="color:#0F2A5C;font-size:16px">🧭 Itinéraire réel du passager</h2>
-          <p style="color:#64748b;font-size:12px;margin-top:-8px">Construit à partir des montées/descentes réellement enregistrées — distinct de l'itinéraire prévu de la rotation ci-dessus.</p>
+          <h2 style="color:#0F2A5C;font-size:16px">🛰️ Suivi terrain (scans montée/descente)</h2>
+          <p style="color:#64748b;font-size:12px;margin-top:-8px">Horodatage des montées/descentes réellement scannées sur le terrain — distinct du trajet prévu ci-dessus, qui lui est renseigné à la réservation.</p>
           <table style="margin-bottom:16px">
             <thead><tr><th>Événement</th><th>Lieu</th><th>Date / Heure</th></tr></thead>
             <tbody>{evenements_html}</tbody>
@@ -1534,8 +1558,8 @@ def _generer_billet_html(voyage):
         """
     else:
         itineraire_reel_html = """
-          <h2 style="color:#0F2A5C;font-size:16px">🧭 Itinéraire réel du passager</h2>
-          <p style="color:#94a3b8;font-size:12px">Aucune montée/descente encore enregistrée pour ce voyage.</p>
+          <h2 style="color:#0F2A5C;font-size:16px">🛰️ Suivi terrain (scans montée/descente)</h2>
+          <p style="color:#94a3b8;font-size:12px">Aucun scan de montée/descente enregistré sur le terrain pour l'instant — le trajet prévu du passager reste visible ci-dessus.</p>
         """
 
     # Points pour la carte : itineraire de la ROTATION (origine/etapes/destination
@@ -1602,7 +1626,7 @@ def _generer_billet_html(voyage):
           const lats = tous.map(p=>p[0]), lngs = tous.map(p=>p[1]);
           const centre = [(Math.min(...lats)+Math.max(...lats))/2, (Math.min(...lngs)+Math.max(...lngs))/2];
           const map = L.map('billet-map').setView(centre, 7);
-          L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}}).addTo(map);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}', {{attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors'}}).addTo(map);
           if (pointsPrevus.length >= 2) L.polyline(pointsPrevus, {{color:'#94a3b8', weight:3, dashArray:'6 6'}}).addTo(map).bindPopup('Itinéraire prévu (convoi)');
           if (pointsReels.length >= 2) L.polyline(pointsReels, {{color:'#16a34a', weight:4}}).addTo(map).bindPopup('Itinéraire réel (passager)');
           if (pointsPassager.length >= 2) {{
@@ -1654,7 +1678,8 @@ def _generer_billet_html(voyage):
         <tr><td style="padding:6px 0;color:#64748b">Statut</td><td>{voyage.get_statut_display()} — {voyage.get_statut_validation_display()}</td></tr>
         {f'<tr><td style="padding:6px 0;color:#64748b">Validé par</td><td>{voyage.valide_par.get_full_name() or voyage.valide_par.username} le {voyage.date_validation.strftime("%d/%m/%Y à %H:%M")}</td></tr>' if voyage.valide_par and voyage.date_validation else ''}
       </table>
-      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire prévu (rotation)</h2>
+      {trajet_passager_html}
+      <h2 style="color:#0F2A5C;font-size:16px">🗺️ Itinéraire complet du convoi (toutes étapes)</h2>
       <table>
         <thead><tr><th>Étape</th><th>Sens</th><th>Mode</th><th>Trajet</th><th>Date / Heure</th><th>Véhicule / Conducteur</th><th>Référence</th><th>Coût</th></tr></thead>
         <tbody>{etapes_html}</tbody>
