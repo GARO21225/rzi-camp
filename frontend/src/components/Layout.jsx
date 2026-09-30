@@ -4,6 +4,7 @@ import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import { useIsMobile } from '../hooks/useIsMobile'
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
@@ -562,11 +563,19 @@ export default function Layout() {
             </div>
           </nav>
 
-        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 100 : 0 }}>
+        <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
             <Outlet />
           </main>
       </div>
-      {isMobile && <BottomTabBar role={isAdmin ? 'admin' : 'agent'} onOpenMenu={() => setSidebarOpen(true)} />}
+      {/* Rendu via portail dans <body> : la barre est en position:fixed, donc elle doit
+          échapper à TOUT ancêtre qui établirait un containing block différent du viewport
+          (transform/filter/backdrop-filter/overflow:hidden sur un conteneur en 100dvh comme
+          ci-dessus) — sinon elle peut se retrouver clipée/masquée selon le navigateur mobile,
+          ce qui masquait la barre (et ce qu'elle devait montrer) chez l'utilisateur. */}
+      {isMobile && createPortal(
+        <BottomTabBar role={isAdmin ? 'admin' : 'agent'} onOpenMenu={() => setSidebarOpen(true)} />,
+        document.body
+      )}
       <ConfirmDialogContainer />
     </div>
   )

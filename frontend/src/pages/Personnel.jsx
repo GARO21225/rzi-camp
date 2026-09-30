@@ -722,7 +722,7 @@ export default function Personnel() {
               setErr(''); setModal('new')
             }}
             aria-label="Ajouter un membre du personnel"
-            style={{position:'fixed',right:16,bottom:'calc(20px + env(safe-area-inset-bottom, 0px) + 62px)',
+            style={{position:'fixed',right:16,bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
               width:54,height:54,borderRadius:27,background:'var(--rzc-ore-gold,#C9972B)',border:'none',
               boxShadow:'0 6px 16px rgba(201,151,43,.4)',fontSize:24,color:'#1A1206',cursor:'pointer',zIndex:90}}>
             +

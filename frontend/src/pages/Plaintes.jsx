@@ -222,7 +222,7 @@ export default function Plaintes() {
       )}
 
       {!isAdmin && isMobile && (
-        <div style={{position:'fixed', right:16, bottom:100, display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
+        <div style={{position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))', display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
           <button onClick={()=>setControleModal(true)} aria-label="Contrôle de chambre"
             style={{width:48, height:48, borderRadius:24, background:'#f59e0b', border:'none', boxShadow:'0 6px 16px rgba(245,158,11,.4)', fontSize:20, cursor:'pointer'}}>
             ⭐

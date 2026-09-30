@@ -248,7 +248,7 @@ export default function Demandes() {
 
       {/* FABs mobile — remplacent les 2 boutons d'action agent, cachés dans le header exigu */}
       {!isAdmin && isMobile && (
-        <div style={{ position:'fixed', right:16, bottom:100, display:'flex', flexDirection:'column', gap:10, zIndex:80 }}>
+        <div style={{ position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))', display:'flex', flexDirection:'column', gap:10, zIndex:80 }}>
           <button onClick={()=>setCreateModal('reservation_residence')} aria-label="Réserver résidence"
             style={{ width:46, height:46, borderRadius:23, background:'#2563EB', border:'none', boxShadow:'0 6px 16px rgba(37,99,235,.4)', fontSize:19, cursor:'pointer' }}>
             🏠

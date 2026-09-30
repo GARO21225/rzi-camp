@@ -793,7 +793,7 @@ export default function Maintenance() {
         </div>
 
         {isMobile && (
-          <div style={{position:'fixed', right:16, bottom:100, display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
+          <div style={{position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))', display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
             <button onClick={()=>setShowPeriodeModal(true)} aria-label="Rapport PDF"
               style={{width:46, height:46, borderRadius:23, background:'var(--rzc-green)', border:'none', boxShadow:'0 6px 16px rgba(22,163,74,.4)', fontSize:18, cursor:'pointer'}}>
               📄
