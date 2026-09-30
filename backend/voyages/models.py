@@ -168,14 +168,34 @@ class Voyage(models.Model):
         return f"{self.personnel} - depart {self.date_depart}"
 
     def partir(self, date_depart=None):
-        """Libere la chambre au depart"""
-        from residences.models import OccupationHistory
+        """Libere la chambre au depart.
+
+        BUG REEL CORRIGE ICI : cette methode ne liberait QUE self.batiment -
+        or ce champ n'est JAMAIS renseigne par le flux de creation de voyage
+        du Centre de Mobilite (creation de rotation, "rejoindre un convoi",
+        demandes validees - aucune de ces voies n'assigne voyage.batiment).
+        Consequence concrete signalee : un aller enregistre et meme "parti"
+        ne liberait donc RIEN, la chambre restait marquee occupee alors que
+        la personne etait en voyage. revenir() (ci-dessous), lui, resout
+        deja correctement la VRAIE chambre a restituer via ResidentPrincipal
+        (residence principale declaree) avec repli sur self.batiment si
+        absent - meme resolution reprise ici a l'identique, pour que depart
+        et retour utilisent la meme source de verite.
+        """
+        from residences.models import OccupationHistory, ResidentPrincipal
         import datetime
         reel = date_depart or datetime.date.today()
         self.date_depart_effective = reel
-        if self.batiment:
-            b = self.batiment
-            # Clore historique occupation
+
+        rp = None
+        if self.personnel_id:
+            rp = ResidentPrincipal.objects.filter(personnel_id=self.personnel_id, date_fin__isnull=True).select_related("batiment").first()
+        b = rp.batiment if rp else self.batiment
+
+        # Ne libere que si la chambre est bien occupee par CETTE personne -
+        # jamais l'occupation (potentiellement temporaire) de quelqu'un
+        # d'autre, meme si elle est rattachee comme residence principale.
+        if b and b.personnel_id == self.personnel_id:
             OccupationHistory.objects.filter(batiment=b, personnel=self.personnel, date_depart__isnull=True).update(
                 date_depart=reel, motif_depart="Voyage"
             )

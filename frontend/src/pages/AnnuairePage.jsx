@@ -4,6 +4,24 @@ import { useIsMobile } from '../hooks/useIsMobile'
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')||''}` })
 
+// BUG REEL CORRIGE ICI : les numeros sont enregistres au format LOCAL
+// ivoirien avec le 0 initial (ex: "0749543183", voir normalizePhone() dans
+// Personnel.jsx) - le lien wa.me se contentait de retirer les caracteres
+// non numeriques et gardait donc ce 0 initial ("wa.me/0749543183"), un
+// format que l'app WhatsApp mobile refuse d'ouvrir (elle exige le format
+// international complet, sans le 0, prefixe par l'indicatif pays : ici
+// 225 pour la Cote d'Ivoire -> "225749543183"). Fonctionnait par hasard sur
+// certains navigateurs desktop qui retombent sur web.whatsapp.com et
+// laissent l'utilisateur corriger le numero a la main, jamais sur mobile.
+function versLienWhatsApp(numero) {
+  let v = (numero || '').replace(/\D/g, '')
+  if (!v) return null
+  if (v.startsWith('00')) v = v.slice(2)          // 00225... -> 225...
+  if (/^225\d{9,10}$/.test(v)) return `https://wa.me/${v}`      // déjà international
+  if (v.startsWith('0') && v.length === 10) v = v.slice(1)      // 0749543183 -> 749543183
+  return `https://wa.me/225${v}`
+}
+
 export default function AnnuairePage() {
   const isMobile = useIsMobile()
   const [search,    setSearch]    = useState('')
@@ -185,7 +203,7 @@ export default function AnnuairePage() {
                   </a>
                 )}
                 {selected.numero_whatsapp && (
-                  <a href={`https://wa.me/${selected.numero_whatsapp.replace(/[^0-9]/g,'')}`} target="_blank" rel="noreferrer"
+                  <a href={versLienWhatsApp(selected.numero_whatsapp)} target="_blank" rel="noreferrer"
                     style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
                       gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
                       fontSize:14,background:'#16a34a',color:'var(--rzc-white)',

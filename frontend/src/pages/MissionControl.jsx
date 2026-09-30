@@ -483,6 +483,16 @@ export default function MissionControl() {
   const [manifFiltreDestination, setManifFiltreDestination] = useState('')
   const [manifFiltreDateDebut, setManifFiltreDateDebut] = useState('')
   const [manifFiltreDateFin, setManifFiltreDateFin] = useState('')
+  // BUG REEL CORRIGE ICI : l'onglet "Rotations" (vue de travail des convois
+  // ACTIFS) affichait aussi, pele-mele et pour toujours, les convois deja
+  // termines (statut "retour" - tout le monde rentre, ou fin d'un trajet
+  // aller-seul). Les boutons Partir/Terminer disparaissaient bien une fois
+  // le convoi termine (deja correct), mais la carte elle-meme restait
+  // affichee indefiniment dans la liste de travail, meme cote KPI le code
+  // excluait deja `statut!=='retour'` (cf. lignes ~1358+) - l'oubli portait
+  // seulement sur cette liste. Masques par defaut ici, revelable via le
+  // bouton ci-dessous (jamais perdus, juste sortis de la vue active).
+  const [afficherConvoisTermines, setAfficherConvoisTermines] = useState(false)
   const [showCreate, setShowCreate]= useState(false) // 'rotation' | 'individuel' | null
   const [msg,        setMsg]       = useState(null)
   const [saving,     setSaving]    = useState(false)
@@ -1398,9 +1408,17 @@ export default function MissionControl() {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
               <div>
                 <div style={{fontSize:16,fontWeight:800,color:C.text}}>Rotations & Convois</div>
-                <div style={{fontSize:12,color:C.muted}}>{rotations.length} rotation(s) · gestion des convois groupe</div>
+                <div style={{fontSize:12,color:C.muted}}>
+                  {rotations.filter(r=>r.statut!=='retour').length} convoi(s) actif(s)
+                  {rotations.some(r=>r.statut==='retour') && ` · ${rotations.filter(r=>r.statut==='retour').length} terminé(s)`}
+                </div>
               </div>
               <div style={{display:'flex',gap:8}}>
+                {rotations.some(r=>r.statut==='retour') && (
+                  <button className="mc-btn mc-btn-ghost" onClick={()=>setAfficherConvoisTermines(v=>!v)}>
+                    {afficherConvoisTermines ? '🙈 Masquer les terminés' : `👁️ Voir les terminés (${rotations.filter(r=>r.statut==='retour').length})`}
+                  </button>
+                )}
                 <button className="mc-btn mc-btn-ghost" onClick={()=>setShowCreate('individuel')}>
                   + Voyage individuel
                 </button>
@@ -1411,7 +1429,7 @@ export default function MissionControl() {
             </div>
 
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              {rotations.map(r=>{
+              {rotations.filter(r=>afficherConvoisTermines || r.statut!=='retour').map(r=>{
                 const total   = r.nb_places_total || 15
                 const prises  = r.nb_passagers
                 const libres  = r.places_libres
@@ -1477,7 +1495,9 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {/* Actions */}
-                      <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
+                        {r.statut==='retour'&&<span style={{padding:'6px 12px',fontSize:11,fontWeight:700,
+                          borderRadius:8,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
                         {r.statut==='planifie'&&<button className="mc-btn"
                           style={{padding:'6px 12px',fontSize:11,background:'#7c3aed20',color:'#7c3aed',border:'1px solid #7c3aed40'}}
                           onClick={async e=>{
