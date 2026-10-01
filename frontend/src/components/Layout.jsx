@@ -227,6 +227,7 @@ export default function Layout() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
+  const isMobile = useIsMobile()
 
   // Apply theme
   useEffect(() => {
@@ -335,8 +336,6 @@ export default function Layout() {
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
-
-    const isMobile = useIsMobile()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', overflowX: 'hidden', maxWidth: '100vw', background: 'var(--rzc-fond-app, #f1f5f9)', colorScheme: theme === 'dark' ? 'dark' : 'light' }}>
