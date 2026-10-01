@@ -3,6 +3,7 @@
  * Répond aux questions sur le camp en utilisant l'API Anthropic
  */
 import React, { useState, useEffect, useRef } from 'react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({ 'Content-Type':'application/json', 'Authorization':`Bearer ${localStorage.getItem('access_token')||''}` })
@@ -130,6 +131,7 @@ const SUGGESTIONS = [
 ]
 
 export default function AssistantIA() {
+  const isMobile = useIsMobile()
   const [messages, setMessages] = useState([{
     role: 'assistant',
     content: "Bonjour ! Je suis l'assistant IA du camp Roxgold Sango. Je suis connecté à toutes vos données en temps réel.\n\nJe peux vous aider avec :\n• 📊 Statistiques et rapports du camp\n• 🏠 État des résidences et occupation\n• 👤 Suivi du personnel et des inducti\ons\n• 🛠️ Maintenance et incidents\n• ✈️ Rotations et voyages\n\nQue puis-je faire pour vous ?"
@@ -192,36 +194,40 @@ export default function AssistantIA() {
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'var(--rzc-charcoal)' }}>
       {/* Header */}
       <div style={{ background:'linear-gradient(135deg,#1e3a8a,#7c3aed)', color:'var(--rzc-white)',
-        padding:'16px 20px', display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:44, height:44, borderRadius:14, background:'rgba(255,255,255,.2)',
-          display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🤖</div>
-        <div>
-          <div style={{ fontWeight:800, fontSize:16 }}>Assistant IA — Roxgold SiteLife</div>
-          <div style={{ fontSize:12, opacity:.8 }}>
-            {campData ? '🟢 Connecté aux données en temps réel' : '⏳ Chargement des données...'}
+        padding: isMobile ? '12px 14px' : '16px 20px', display:'flex', alignItems:'center', gap: isMobile ? 10 : 12 }}>
+        <div style={{ width: isMobile?36:44, height: isMobile?36:44, borderRadius:14, background:'rgba(255,255,255,.2)',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize: isMobile?18:24, flexShrink:0 }}>🤖</div>
+        <div style={{ minWidth:0, flex:1 }}>
+          <div style={{ fontWeight:800, fontSize: isMobile?14:16, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {isMobile ? 'Assistant IA' : 'Assistant IA — Roxgold SiteLife'}
+          </div>
+          <div style={{ fontSize: isMobile?10.5:12, opacity:.8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {campData ? (isMobile ? '🟢 Données en temps réel' : '🟢 Connecté aux données en temps réel') : '⏳ Chargement des données...'}
           </div>
         </div>
         <button onClick={()=>collectCampData().then(setCampData)}
-          style={{ marginLeft:'auto', background:'rgba(255,255,255,.2)', border:'none',
-            borderRadius:8, padding:'6px 12px', color:'var(--rzc-white)', cursor:'pointer', fontSize:12 }}>
-          🔄 Sync
+          style={{ marginLeft:'auto', background:'rgba(255,255,255,.2)', border:'none', flexShrink:0,
+            borderRadius:8, padding: isMobile?'8px':'6px 12px', color:'var(--rzc-white)', cursor:'pointer', fontSize:12 }}>
+          {isMobile ? '🔄' : '🔄 Sync'}
         </button>
       </div>
 
       {/* Messages */}
-      <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+      <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '12px 14px' : '16px 20px' }}>
         {messages.map((m, i) => <MessageBubble key={i} msg={m}/>)}
         <div ref={bottomRef}/>
       </div>
 
       {/* Suggestions */}
       {messages.length <= 2 && (
-        <div style={{ padding:'0 20px 10px', display:'flex', gap:8, flexWrap:'wrap' }}>
+        <div style={isMobile
+          ? { padding:'0 14px 10px', display:'flex', gap:8, overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }
+          : { padding:'0 20px 10px', display:'flex', gap:8, flexWrap:'wrap' }}>
           {SUGGESTIONS.map(s => (
             <button key={s} onClick={() => send(s)}
               style={{ background:'var(--rzc-white)', border:'1.5px solid #e2e8f0', borderRadius:99,
                 padding:'6px 14px', cursor:'pointer', fontSize:11, color:'var(--rzc-navy)',
-                fontWeight:600, transition:'all .15s' }}>
+                fontWeight:600, transition:'all .15s', flexShrink:0, whiteSpace:'nowrap' }}>
               {s}
             </button>
           ))}
@@ -229,7 +235,7 @@ export default function AssistantIA() {
       )}
 
       {/* Input */}
-      <div style={{ padding:'12px 20px', background:'var(--rzc-white)', borderTop:'1px solid #e2e8f0',
+      <div style={{ padding: isMobile ? '10px 14px' : '12px 20px', background:'var(--rzc-white)', borderTop:'1px solid #e2e8f0',
         display:'flex', gap:10, alignItems:'flex-end' }}>
         <textarea
           ref={inputRef}
