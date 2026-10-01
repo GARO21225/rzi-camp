@@ -292,6 +292,11 @@ export default function Layout() {
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre
   // de vue où l'on se trouve.
+  // Recherche dans le menu — sur mobile, le menu admin dépasse 25 liens
+  // répartis en 6 groupes ; retrouver un lien enfoui tout en bas (ex:
+  // "Paramétrage", le tout dernier) oblige à défiler toute la liste.
+  // Ce champ filtre à plat, groupes ignorés, dès que l'utilisateur tape.
+  const [navSearch, setNavSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rzc_collapsed_groups') || '{}') } catch { return {} }
   })
@@ -313,7 +318,7 @@ export default function Layout() {
   })()
 
   useEffect(() => {
-    if (window.innerWidth < 768) setSidebarOpen(false)
+    if (window.innerWidth < 768) { setSidebarOpen(false); setNavSearch('') }
     setNotifOpen(false)
   }, [location.pathname])
 
@@ -500,10 +505,25 @@ export default function Layout() {
                     {roleCustomLabel || ROLE_LABELS[role] || role}
                   </div>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu"
+                <button onClick={() => { setSidebarOpen(false); setNavSearch('') }} aria-label="Fermer le menu"
                   style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
                   ✕
                 </button>
+              </div>
+            )}
+            {isMobile && nav.length > 10 && (
+              <div style={{ padding: '10px 14px 0' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.08)',
+                  border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'8px 12px' }}>
+                  <span style={{ fontSize:13, opacity:.7 }}>🔎</span>
+                  <input value={navSearch} onChange={e=>setNavSearch(e.target.value)}
+                    placeholder="Rechercher une page (ex: paramètre)..."
+                    style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'#F1F5F9', fontSize:13 }}/>
+                  {navSearch && (
+                    <button onClick={()=>setNavSearch('')} aria-label="Effacer"
+                      style={{ background:'none', border:'none', color:'#94A3B8', cursor:'pointer', fontSize:13 }}>✕</button>
+                  )}
+                </div>
               </div>
             )}
             <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
@@ -512,7 +532,32 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {(() => {
+              {isMobile && navSearch.trim() ? (() => {
+                const q = navSearch.trim().toLowerCase()
+                let currentGroup = null
+                const matches = []
+                nav.forEach(item => {
+                  if (item.group) { currentGroup = item.group; return }
+                  if (item.label.toLowerCase().includes(q)) matches.push({ ...item, _group: currentGroup })
+                })
+                if (matches.length === 0) {
+                  return <div style={{ padding:'16px 10px', color:'#64748b', fontSize:12, textAlign:'center' }}>Aucune page ne correspond à « {navSearch} »</div>
+                }
+                return matches.map(item => (
+                  <NavLink key={item.to} to={item.to} end={item.exact}
+                    style={({ isActive }) => ({
+                      display:'flex', flexDirection:'column', gap:1,
+                      padding:'12px 12px 12px 16px', margin:'1px 8px', borderRadius:9,
+                      textDecoration:'none', fontSize:14, fontWeight: isActive?700:400,
+                      background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
+                    })}>
+                    {item.label}
+                    {item._group && <span style={{ fontSize:10, color:'#64748b', fontWeight:400 }}>{item._group}</span>}
+                  </NavLink>
+                ))
+              })() : (() => {
                 let currentGroup = null
                 return nav.map((item, i) => {
                   if (item.group) {
