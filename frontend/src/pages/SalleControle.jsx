@@ -53,10 +53,11 @@ export default function SalleControle() {
   return (
     <div style={{
       minHeight:'100dvh', background:'#050b1a', color:'#e2e8f0',
-      fontFamily:'var(--rzc-font, sans-serif)', padding:'28px 36px',
-      display:'flex', flexDirection:'column', gap:24,
+      fontFamily:'var(--rzc-font, sans-serif)', padding:'20px 16px',
+      display:'flex', flexDirection:'column', gap:20,
+      boxSizing:'border-box',
     }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:14 }}>
         <div>
           <div style={{ fontSize:26, fontWeight:900, letterSpacing:.5 }}>🛡️ ROXGOLD SITELIFE — SALLE DE CONTRÔLE</div>
           <div style={{ fontSize:13, color:'#64748b', marginTop:2 }}>

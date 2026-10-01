@@ -19,7 +19,8 @@ export default function AuditPage() {
       <h2 style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>📋 Audit Trail — Aujourd'hui</h2>
       <p style={{ fontSize:13, color:'var(--text-dim)', marginBottom:20 }}>Connexions + actions tracées (django-simple-history) · Pour les autres dates, avec filtres : Historique → onglet « Audit (archive) »</p>
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+        <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+        <table style={{ width:'100%', minWidth:640, borderCollapse:'collapse', fontSize:12 }}>
           <thead>
             <tr style={{ background:'var(--surface2)' }}>
               {['Horodatage','Utilisateur','Action','Module','Détail','IP'].map(h => (
@@ -40,6 +41,7 @@ export default function AuditPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

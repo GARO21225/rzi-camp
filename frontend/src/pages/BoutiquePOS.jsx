@@ -409,7 +409,8 @@ export default function BoutiquePOS() {
             </div>
           ) : (
             <div style={{ background: 'var(--rzc-white)', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'linear-gradient(135deg,#0f2447,#1e3a8a)' }}>
                     {['Heure', 'Client', 'Article', 'Qté', 'Montant', 'Mode'].map(h => (
@@ -442,6 +443,7 @@ export default function BoutiquePOS() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
