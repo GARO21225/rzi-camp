@@ -525,7 +525,7 @@ export default function Layout() {
                 Navigation
               </div>
             </div>
-            <div style={{ padding: 8, flex: 1 }}>
+            <div style={{ padding: 8, paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 8, flex: 1 }}>
               {(() => {
                 let currentGroup = null
                 return nav.map((item, i) => {
