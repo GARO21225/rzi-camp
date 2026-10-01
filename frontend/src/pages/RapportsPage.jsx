@@ -82,6 +82,12 @@ function buildHTML(d, periode) {
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',Arial,sans-serif;color:#0f172a;background:#fff;font-size:13px;line-height:1.5}
+@media screen and (max-width:700px) {
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+  .two-col{grid-template-columns:1fr!important}
+  .header{padding:24px 20px 20px}
+}
 
 /* Header */
 .header{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#1d4ed8 100%);color:#fff;padding:36px 48px 28px}
