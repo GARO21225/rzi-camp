@@ -1175,7 +1175,7 @@ export default function Boutique({ embedded = false } = {}) {
   const catOrder = ['gazeuse','jus','energie','eau','biere','vin_rouge','vin_blanc','vin_rose','champagne','spiritueux','liqueur','cafe','the',...allCatsPresent.filter(c=>!Object.keys(CAT_DEFAULTS).includes(c)),'autre']
 
   return (
-    <div style={{padding:20,background:'var(--rzc-charcoal)',minHeight:'100dvh'}}>
+    <div style={{padding:20,background:'var(--rzc-charcoal)',minHeight:'100dvh',overflowX:'hidden',boxSizing:'border-box'}}>
 
       {/* HEADER */}
       {!embedded && (
@@ -1468,25 +1468,26 @@ export default function Boutique({ embedded = false } = {}) {
             {(!isMobile || panier.length>0) && (
             <div style={isMobile ? {
                 position:'fixed', left:12, right:12, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
-                maxHeight:'72vh', overflowY:'auto', background:'var(--rzc-white)', borderRadius:18,
+                maxWidth:'calc(100vw - 24px)', boxSizing:'border-box',
+                maxHeight:'72vh', overflowY:'auto', overflowX:'hidden', background:'var(--rzc-white)', borderRadius:18,
                 border:'1px solid #e2e8f0', boxShadow:'0 -8px 28px rgba(15,26,46,.22)', zIndex:90,
               } : {background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0',flex:1}}>
               {isMobile ? (
-                <div style={{padding:'10px 16px 16px'}}>
+                <div style={{padding:'10px 16px 16px',minWidth:0}}>
                   <div style={{width:36,height:4,background:'rgba(15,26,46,.14)',borderRadius:99,margin:'0 auto 10px'}}/>
                   {panier.length===0 ? (
                     <div style={{textAlign:'center',color:'var(--rzc-text-4)',fontSize:12,padding:'10px 0'}}>Cliquez sur un article</div>
                   ) : (
                     <>
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                        <span style={{fontSize:13,fontWeight:700,color:'#0F1A2E'}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,gap:8}}>
+                        <span style={{fontSize:13,fontWeight:700,color:'#0F1A2E',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           🛒 Panier · {panier.reduce((s,x)=>s+x.q,0)} article{panier.reduce((s,x)=>s+x.q,0)>1?'s':''}
                         </span>
-                        <span style={{fontSize:15,fontWeight:800,color:'#0F2A5C'}}>{totalP.toLocaleString()} FCFA</span>
+                        <span style={{fontSize:15,fontWeight:800,color:'#0F2A5C',flexShrink:0,whiteSpace:'nowrap'}}>{totalP.toLocaleString()} FCFA</span>
                       </div>
 
-                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:10}}>
-                        <div style={{display:'flex',gap:6,overflowX:'auto',flex:1,WebkitOverflowScrolling:'touch'}}>
+                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:10,minWidth:0}}>
+                        <div style={{display:'flex',gap:6,overflowX:'auto',flex:'1 1 0%',minWidth:0,WebkitOverflowScrolling:'touch'}}>
                           {panier.map(({a,q})=>(
                             <span key={a.id} style={{flexShrink:0,fontSize:11,fontWeight:700,color:'#2D3B52',
                               background:'#F1F5F9',border:'1px solid rgba(15,26,46,.10)',borderRadius:99,padding:'4px 10px',whiteSpace:'nowrap'}}>
