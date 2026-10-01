@@ -292,11 +292,6 @@ export default function Layout() {
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre
   // de vue où l'on se trouve.
-  // Recherche dans le menu — sur mobile, le menu admin dépasse 25 liens
-  // répartis en 6 groupes ; retrouver un lien enfoui tout en bas (ex:
-  // "Paramétrage", le tout dernier) oblige à défiler toute la liste.
-  // Ce champ filtre à plat, groupes ignorés, dès que l'utilisateur tape.
-  const [navSearch, setNavSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rzc_collapsed_groups') || '{}') } catch { return {} }
   })
@@ -318,9 +313,22 @@ export default function Layout() {
   })()
 
   useEffect(() => {
-    if (window.innerWidth < 768) { setSidebarOpen(false); setNavSearch('') }
+    if (window.innerWidth < 768) { setSidebarOpen(false) }
     setNotifOpen(false)
   }, [location.pathname])
+
+  // Bloque le défilement de la page derrière le menu mobile — sans ça, un
+  // geste de scroll qui commence sur le menu peut "traverser" et faire
+  // défiler <main> en dessous, ce qui donnait l'impression d'un menu qui
+  // scrolle bizarrement et rendait les taps sur les groupes peu fiables
+  // (le navigateur interprète parfois le tap comme un scroll raté).
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [isMobile, sidebarOpen])
 
   useEffect(() => {
     const h = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false) }
@@ -477,6 +485,8 @@ export default function Layout() {
             borderRight: 'none',
             overflowY: 'auto',
             overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -505,25 +515,10 @@ export default function Layout() {
                     {roleCustomLabel || ROLE_LABELS[role] || role}
                   </div>
                 </div>
-                <button onClick={() => { setSidebarOpen(false); setNavSearch('') }} aria-label="Fermer le menu"
+                <button onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu"
                   style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
                   ✕
                 </button>
-              </div>
-            )}
-            {isMobile && nav.length > 10 && (
-              <div style={{ padding: '10px 14px 0' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,.08)',
-                  border:'1px solid rgba(255,255,255,.12)', borderRadius:10, padding:'8px 12px' }}>
-                  <span style={{ fontSize:13, opacity:.7 }}>🔎</span>
-                  <input value={navSearch} onChange={e=>setNavSearch(e.target.value)}
-                    placeholder="Rechercher une page (ex: paramètre)..."
-                    style={{ flex:1, background:'transparent', border:'none', outline:'none', color:'#F1F5F9', fontSize:13 }}/>
-                  {navSearch && (
-                    <button onClick={()=>setNavSearch('')} aria-label="Effacer"
-                      style={{ background:'none', border:'none', color:'#94A3B8', cursor:'pointer', fontSize:13 }}>✕</button>
-                  )}
-                </div>
               </div>
             )}
             <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
@@ -532,42 +527,22 @@ export default function Layout() {
               </div>
             </div>
             <div style={{ padding: 8, flex: 1 }}>
-              {isMobile && navSearch.trim() ? (() => {
-                const q = navSearch.trim().toLowerCase()
-                let currentGroup = null
-                const matches = []
-                nav.forEach(item => {
-                  if (item.group) { currentGroup = item.group; return }
-                  if (item.label.toLowerCase().includes(q)) matches.push({ ...item, _group: currentGroup })
-                })
-                if (matches.length === 0) {
-                  return <div style={{ padding:'16px 10px', color:'#64748b', fontSize:12, textAlign:'center' }}>Aucune page ne correspond à « {navSearch} »</div>
-                }
-                return matches.map(item => (
-                  <NavLink key={item.to} to={item.to} end={item.exact}
-                    style={({ isActive }) => ({
-                      display:'flex', flexDirection:'column', gap:1,
-                      padding:'12px 12px 12px 16px', margin:'1px 8px', borderRadius:9,
-                      textDecoration:'none', fontSize:14, fontWeight: isActive?700:400,
-                      background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                      color: isActive ? '#ffffff' : '#94a3b8',
-                      borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
-                    })}>
-                    {item.label}
-                    {item._group && <span style={{ fontSize:10, color:'#64748b', fontWeight:400 }}>{item._group}</span>}
-                  </NavLink>
-                ))
-              })() : (() => {
+              {(() => {
                 let currentGroup = null
                 return nav.map((item, i) => {
                   if (item.group) {
                     currentGroup = item.group
-                    const isCollapsed = !!collapsedGroups[item.group] && item.group !== activeGroup
+                    // Sur mobile, les groupes restent toujours dépliés — le
+                    // toggle plier/déplier était peu fiable au tap (confondu
+                    // avec un scroll) et donnait l'impression que certains
+                    // groupes "refusaient" de s'ouvrir. Sur desktop (souris),
+                    // le pli reste disponible, ça fonctionne bien là.
+                    const isCollapsed = !isMobile && !!collapsedGroups[item.group] && item.group !== activeGroup
                     return (
                       <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
-                        <div onClick={() => toggleGroup(item.group)} style={{
+                        <div onClick={isMobile ? undefined : () => toggleGroup(item.group)} style={{
                           fontSize:10, fontWeight:800, letterSpacing:1.5,
-                          textTransform:'uppercase', color:'#64748b', cursor:'pointer',
+                          textTransform:'uppercase', color:'#64748b', cursor: isMobile ? 'default' : 'pointer',
                           padding:'4px 10px', display:'flex', alignItems:'center', gap:6, justifyContent:'space-between',
                           borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                         }}>
@@ -576,12 +551,14 @@ export default function Layout() {
                               background:'#f0a500',borderRadius:99}}/>
                             {item.group}
                           </span>
-                          <span style={{fontSize:9, transition:'transform .15s', transform: isCollapsed ? 'rotate(-90deg)' : 'none'}}>▼</span>
+                          {!isMobile && (
+                            <span style={{fontSize:9, transition:'transform .15s', transform: isCollapsed ? 'rotate(-90deg)' : 'none'}}>▼</span>
+                          )}
                         </div>
                       </div>
                     )
                   }
-                  const isCollapsed = !!collapsedGroups[currentGroup] && currentGroup !== activeGroup
+                  const isCollapsed = !isMobile && !!collapsedGroups[currentGroup] && currentGroup !== activeGroup
                   if (isCollapsed) return null
                   return (
                     <NavLink key={item.to} to={item.to} end={item.exact}
