@@ -853,12 +853,52 @@ function ArticleModal({ article, categories, onSave, onClose }) {
 }
 
 // ── Carte Article avec actions Admin ────────────────────────
-function ArticleCard({ a, qty, onAdd }) {
+function ArticleCard({ a, qty, onAdd, compact=false }) {
   const [err, setErr] = useState(false)
-  const [showActions, setShowActions] = useState(false)
   const url = getPhoto(a)
   const cfg = getCatCfg(a.categorie)
   const inCart = qty > 0
+
+  // Version compacte mobile — reprend fidèlement la maquette BoutiqueMobile :
+  // vignette basse (56px), badge de stock unique, pas d'habillage desktop
+  // (pas de hover, pas de bandeau "Stock limité" séparé, pas de 2e ligne infos).
+  if (compact) {
+    const rupture = (a.stock||0)===0
+    const bas = !rupture && (a.stock||0) <= (a.stock_min||5)
+    return (
+      <div onClick={()=>onAdd(a)} style={{
+        background:'var(--rzc-white)', border:`1px solid ${inCart?cfg.c:'rgba(15,26,46,.10)'}`,
+        borderRadius:14, padding:10, display:'flex', flexDirection:'column', gap:6,
+        position:'relative', cursor:'pointer', opacity: rupture?.55:1, minWidth:0,
+        boxShadow: inCart ? `0 0 0 2px ${cfg.c}30` : 'none',
+      }}>
+        <div style={{height:56,borderRadius:10,background:cfg.bg,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+          {url&&!err ? (
+            <img src={url} alt={a.nom} onError={()=>setErr(true)} style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}/>
+          ) : (
+            <span style={{fontSize:26}}>{getEmoji(a.nom)}</span>
+          )}
+        </div>
+        <span style={{fontSize:12,fontWeight:700,color:'#0F1A2E',lineHeight:1.3,
+          display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden',minHeight:30}}>
+          {a.nom}
+        </span>
+        <span style={{fontSize:13,fontWeight:700,color:'#0F2A5C'}}>{parseInt(a.prix).toLocaleString()} FCFA</span>
+        <span style={{alignSelf:'flex-start',fontSize:10,fontWeight:700,borderRadius:99,padding:'2px 8px',whiteSpace:'nowrap',
+          background: rupture?'rgba(220,38,38,.12)':bas?'rgba(234,179,8,.14)':'rgba(22,163,74,.12)',
+          color: rupture?'#DC2626':bas?'#b45309':'#16a34a'}}>
+          {rupture?'🔴 Rupture':bas?`⚠️ ${a.stock||0} restant${(a.stock||0)>1?'s':''}`:`📦 ${a.stock||0} restant${(a.stock||0)>1?'s':''}`}
+        </span>
+        {inCart && (
+          <div style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:'50%',
+            background:'#0F2A5C',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:11,fontWeight:900}}>
+            {qty}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{background:'var(--rzc-white)',borderRadius:16,overflow:'hidden',border:`2px solid ${inCart?cfg.c:'var(--rzc-charcoal)'}`,
@@ -1270,27 +1310,37 @@ export default function Boutique({ embedded = false } = {}) {
 
       {/* ══ CAISSE ══ */}
       {tab==='caisse'&&(
-        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 310px',gap:16}}>
-          <div>
-            {/* Filtres */}
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'minmax(0,1fr)':'1fr 310px',gap:16,minWidth:0}}>
+          <div style={{minWidth:0}}>
+            {/* Filtres — sur mobile : chips pilule sobres (navy actif / blanc inactif),
+                à l'identique de la maquette, plutôt que les couleurs par catégorie. */}
             <div style={isMobile
-              ? {display:'flex',gap:6,overflowX:'auto',WebkitOverflowScrolling:'touch',marginBottom:14,paddingBottom:2,flexWrap:'nowrap'}
+              ? {display:'flex',gap:8,overflowX:'auto',WebkitOverflowScrolling:'touch',marginBottom:14,paddingBottom:2,flexWrap:'nowrap',minWidth:0}
               : {display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
               {!isMobile && (
                 <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
                   style={{...inp,maxWidth:180,padding:'7px 12px',fontSize:12,width:'auto'}}/>
               )}
               <button onClick={()=>setCatFilter('')}
-                style={{padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
+                style={isMobile ? {
+                  padding:'6px 13px',borderRadius:99,border:`1px solid ${!catFilter?'#0F2A5C':'rgba(15,26,46,.14)'}`,
+                  cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
+                  background:!catFilter?'#0F2A5C':'#fff',color:!catFilter?'#fff':'#2D3B52',
+                } : {padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
                   background:!catFilter?'var(--rzc-navy)':'var(--rzc-white)',color:!catFilter?'var(--rzc-white)':'var(--rzc-text-2)',borderColor:!catFilter?'var(--rzc-navy)':'var(--rzc-border-light)'}}>
                 Tout
               </button>
               {catOrder.filter(k=>articles.some(a=>a.categorie===k)).map(k=>{
                 const cfg=getCatCfg(k)
+                const active = catFilter===k
                 return (
                   <button key={k} onClick={()=>setCatFilter(catFilter===k?'':k)}
-                    style={{padding:'6px 12px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
-                      background:catFilter===k?cfg.c:'var(--rzc-white)',color:catFilter===k?'var(--rzc-white)':cfg.c,borderColor:cfg.c}}>
+                    style={isMobile ? {
+                      padding:'6px 13px',borderRadius:99,border:`1px solid ${active?'#0F2A5C':'rgba(15,26,46,.14)'}`,
+                      cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
+                      background:active?'#0F2A5C':'#fff',color:active?'#fff':'#2D3B52',
+                    } : {padding:'6px 12px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
+                      background:active?cfg.c:'var(--rzc-white)',color:active?'var(--rzc-white)':cfg.c,borderColor:cfg.c}}>
                     {cfg.icon} {cfg.label}
                   </button>
                 )
@@ -1313,9 +1363,9 @@ export default function Boutique({ embedded = false } = {}) {
                 <div style={{fontSize:12,marginTop:4}}>Allez dans Diagnostic → Initialiser les données</div>
               </div>
             ) : isMobile ? (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:10,minWidth:0}}>
                 {arts.map(a=>(
-                  <ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo}/>
+                  <ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo} compact/>
                 ))}
               </div>
             ) : (
