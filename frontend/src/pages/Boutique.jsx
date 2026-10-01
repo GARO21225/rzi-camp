@@ -950,6 +950,8 @@ export default function Boutique({ embedded = false } = {}) {
   const [agentId,    setAgentId]    = useState('')
   const [agentInfo,  setAgentInfo]  = useState(null)
   const [panier,     setPanier]     = useState([])
+  const [showAgentMobile, setShowAgentMobile] = useState(false)
+  const [showDetailMobile, setShowDetailMobile] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [msg,        setMsg]        = useState(null)
   const [scanning,   setScanning]   = useState(false)
@@ -1147,6 +1149,15 @@ export default function Boutique({ embedded = false } = {}) {
   }
 
   const inp = {width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:14,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}
+  // Pastille de mode de paiement — style "maquette" (pilule unie, actif = navy)
+  // utilisé uniquement dans le panier mobile.
+  const payChip = (active, disabled) => ({
+    display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+    padding:'9px 4px', borderRadius:99, border:`1px solid ${active?'#0F2A5C':'rgba(15,26,46,.14)'}`,
+    background: disabled ? 'var(--rzc-charcoal)' : active ? '#0F2A5C' : '#fff',
+    color: disabled ? '#B9C0CA' : active ? '#fff' : '#2D3B52',
+    cursor: disabled ? 'not-allowed' : 'pointer', fontSize:11, fontWeight:700, fontFamily:'inherit', opacity: disabled?.7:1,
+  })
   const arts = useMemo(() =>
     articles.filter(a=>(!catFilter||a.categorie===catFilter)&&(!search||a.nom.toLowerCase().includes(search.toLowerCase()))),
     [articles, catFilter, search]
@@ -1262,11 +1273,15 @@ export default function Boutique({ embedded = false } = {}) {
         <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 310px',gap:16}}>
           <div>
             {/* Filtres */}
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
-                style={{...inp,maxWidth:180,padding:'7px 12px',fontSize:12,width:'auto'}}/>
+            <div style={isMobile
+              ? {display:'flex',gap:6,overflowX:'auto',WebkitOverflowScrolling:'touch',marginBottom:14,paddingBottom:2,flexWrap:'nowrap'}
+              : {display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+              {!isMobile && (
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher..."
+                  style={{...inp,maxWidth:180,padding:'7px 12px',fontSize:12,width:'auto'}}/>
+              )}
               <button onClick={()=>setCatFilter('')}
-                style={{padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                style={{padding:'6px 13px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
                   background:!catFilter?'var(--rzc-navy)':'var(--rzc-white)',color:!catFilter?'var(--rzc-white)':'var(--rzc-text-2)',borderColor:!catFilter?'var(--rzc-navy)':'var(--rzc-border-light)'}}>
                 Tout
               </button>
@@ -1274,22 +1289,34 @@ export default function Boutique({ embedded = false } = {}) {
                 const cfg=getCatCfg(k)
                 return (
                   <button key={k} onClick={()=>setCatFilter(catFilter===k?'':k)}
-                    style={{padding:'6px 12px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+                    style={{padding:'6px 12px',borderRadius:99,border:'2px solid',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',flexShrink:0,whiteSpace:'nowrap',
                       background:catFilter===k?cfg.c:'var(--rzc-white)',color:catFilter===k?'var(--rzc-white)':cfg.c,borderColor:cfg.c}}>
                     {cfg.icon} {cfg.label}
                   </button>
                 )
               })}
             </div>
+            {isMobile && (
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Rechercher un article..."
+                style={{...inp,marginBottom:14,fontSize:13}}/>
+            )}
 
-            {/* Grille */}
+            {/* Grille — sur mobile : grille plate 2 colonnes sans en-têtes de
+                catégorie (la chip au-dessus fait déjà le tri), comme dans la
+                maquette. Sur desktop : regroupement par catégorie inchangé. */}
             {loading ? (
               <div style={{textAlign:'center',padding:60,fontSize:36}}>⏳</div>
-            ) : Object.keys(byCat).length===0 ? (
+            ) : arts.length===0 ? (
               <div style={{textAlign:'center',padding:60,color:'var(--rzc-text-4)'}}>
                 <div style={{fontSize:56,marginBottom:12}}>🛒</div>
                 <div style={{fontWeight:700,color:'var(--rzc-text-3)',fontSize:15}}>Aucun article</div>
                 <div style={{fontSize:12,marginTop:4}}>Allez dans Diagnostic → Initialiser les données</div>
+              </div>
+            ) : isMobile ? (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+                {arts.map(a=>(
+                  <ArticleCard key={a.id} a={a} qty={qty(a)} onAdd={addTo}/>
+                ))}
               </div>
             ) : (
               catOrder.filter(cat=>byCat[cat]?.length).map(cat=>{
@@ -1354,7 +1381,11 @@ export default function Boutique({ embedded = false } = {}) {
 
           {/* Panneau droit */}
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
-            {/* Agent */}
+            {/* Agent — panneau complet sur desktop uniquement ; sur mobile,
+                repris en compact à l'intérieur du panier (voir plus bas),
+                pour rester fidèle à la maquette qui ne montre pas de bloc
+                séparé occupant tout l'écran. */}
+            {!isMobile && (
             <div style={{background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0'}}>
               <div style={{padding:'11px 14px',background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',fontWeight:700,fontSize:13}}>
                 👤 Agent (optionnel)
@@ -1428,6 +1459,7 @@ export default function Boutique({ embedded = false } = {}) {
                 )}
               </div>
             </div>
+            )}
 
             {/* Panier — bascule en bottom-sheet flottant sur mobile (au-dessus de la barre
                 de navigation) une fois qu'il contient au moins un article, pour éviter de
@@ -1439,8 +1471,154 @@ export default function Boutique({ embedded = false } = {}) {
                 maxHeight:'72vh', overflowY:'auto', background:'var(--rzc-white)', borderRadius:18,
                 border:'1px solid #e2e8f0', boxShadow:'0 -8px 28px rgba(15,26,46,.22)', zIndex:90,
               } : {background:'var(--rzc-white)',borderRadius:14,overflow:'hidden',border:'1px solid #e2e8f0',flex:1}}>
-              <div style={{padding:'11px 14px',background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',display:'flex',justifyContent:'space-between',alignItems:'center',
-                borderRadius: isMobile ? '18px 18px 0 0' : 0, position: isMobile ? 'sticky' : 'static', top:0, zIndex:1}}>
+              {isMobile ? (
+                <div style={{padding:'10px 16px 16px'}}>
+                  <div style={{width:36,height:4,background:'rgba(15,26,46,.14)',borderRadius:99,margin:'0 auto 10px'}}/>
+                  {panier.length===0 ? (
+                    <div style={{textAlign:'center',color:'var(--rzc-text-4)',fontSize:12,padding:'10px 0'}}>Cliquez sur un article</div>
+                  ) : (
+                    <>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                        <span style={{fontSize:13,fontWeight:700,color:'#0F1A2E'}}>
+                          🛒 Panier · {panier.reduce((s,x)=>s+x.q,0)} article{panier.reduce((s,x)=>s+x.q,0)>1?'s':''}
+                        </span>
+                        <span style={{fontSize:15,fontWeight:800,color:'#0F2A5C'}}>{totalP.toLocaleString()} FCFA</span>
+                      </div>
+
+                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:10}}>
+                        <div style={{display:'flex',gap:6,overflowX:'auto',flex:1,WebkitOverflowScrolling:'touch'}}>
+                          {panier.map(({a,q})=>(
+                            <span key={a.id} style={{flexShrink:0,fontSize:11,fontWeight:700,color:'#2D3B52',
+                              background:'#F1F5F9',border:'1px solid rgba(15,26,46,.10)',borderRadius:99,padding:'4px 10px',whiteSpace:'nowrap'}}>
+                              {q}× {a.nom}
+                            </span>
+                          ))}
+                        </div>
+                        <button onClick={()=>setShowDetailMobile(s=>!s)}
+                          style={{flexShrink:0,background:'none',border:'none',color:'var(--rzc-navy)',fontSize:11,fontWeight:700,cursor:'pointer',textDecoration:'underline',padding:0}}>
+                          {showDetailMobile?'Réduire':'Détails'}
+                        </button>
+                      </div>
+
+                      {showDetailMobile && (
+                        <div style={{maxHeight:220,overflowY:'auto',display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+                          {panier.map(({a,q})=>{
+                            const url=getPhoto(a); const cfg=getCatCfg(a.categorie)
+                            return (
+                              <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--rzc-charcoal)',borderRadius:10,padding:'6px 10px'}}>
+                                <div style={{width:36,height:36,borderRadius:9,overflow:'hidden',background:cfg.bg,flexShrink:0}}>
+                                  {url?<img src={url} alt={a.nom} style={{width:'100%',height:'100%',objectFit:'contain',padding:3}} onError={e=>e.target.style.display='none'}/>
+                                    :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{getEmoji(a.nom)}</div>}
+                                </div>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:11,fontWeight:700,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nom}</div>
+                                  <div style={{fontSize:10,color:'var(--rzc-text-4)'}}>{parseInt(a.prix).toLocaleString()} × {q}</div>
+                                </div>
+                                <div style={{display:'flex',gap:2}}>
+                                  <button onClick={()=>decFrom(a.id)} style={{width:22,height:22,borderRadius:6,border:'1.5px solid #e2e8f0',background:'var(--rzc-white)',cursor:'pointer',fontWeight:900,fontSize:14}}>-</button>
+                                  <button onClick={()=>addTo(a)} style={{width:22,height:22,borderRadius:6,border:'none',background:'var(--rzc-navy)',color:'var(--rzc-white)',cursor:'pointer',fontWeight:900,fontSize:14}}>+</button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <button onClick={()=>setPanier([])}
+                            style={{background:'none',border:'none',color:'#dc2626',fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 0',textAlign:'left'}}>
+                            🗑️ Vider le panier
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Agent — compact, repliable (fonctionnalité nécessaire au
+                          paiement par bon, absente de la maquette car non montrée
+                          à cet état, mais gardée accessible sans alourdir l'écran) */}
+                      <div style={{marginBottom:10}}>
+                        {agentInfo ? (
+                          <div style={{display:'flex',alignItems:'center',gap:8,background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,padding:'6px 10px'}}>
+                            <span style={{fontSize:16}}>✅</span>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:12,fontWeight:700,color:'#166534',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{agentInfo.nom} {agentInfo.prenom}</div>
+                              {bonAgent && <div style={{fontSize:10,color:'#16a34a'}}>Bon : {parseInt(bonAgent.credit_restant).toLocaleString()} FCFA restants</div>}
+                            </div>
+                            <button onClick={()=>{setAgentId('');setAgentInfo(null)}}
+                              style={{background:'none',border:'none',color:'#16a34a',cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={()=>setShowAgentMobile(s=>!s)}
+                            style={{width:'100%',background:'#fff',border:'1px solid rgba(15,26,46,.14)',borderRadius:99,
+                              padding:'7px 13px',fontSize:12,fontWeight:600,color:'#2D3B52',cursor:'pointer',textAlign:'center'}}>
+                            👤 {showAgentMobile?'Fermer':'Agent (optionnel)'}
+                          </button>
+                        )}
+                        {showAgentMobile && !agentInfo && (
+                          <div style={{marginTop:8,background:'var(--rzc-charcoal)',borderRadius:10,padding:10}}>
+                            <button onClick={scanning?stopScan:startScan}
+                              style={{width:'100%',background:scanning?'#dc2626':'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',padding:9,borderRadius:9,cursor:'pointer',fontSize:12,fontWeight:700,marginBottom:8}}>
+                              {scanning?'⏹ Arrêter':'📷 Scanner QR Agent'}
+                            </button>
+                            {scanning&&<div id="qr_b" style={{borderRadius:8,overflow:'hidden',marginBottom:8}}/>}
+                            {scanErr&&<div style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:8,padding:'8px 10px',fontSize:11,marginBottom:8,lineHeight:1.4}}>⚠️ {scanErr}</div>}
+                            <div style={{display:'flex',gap:6}}>
+                              <input value={agentId} onChange={e=>setAgentId(e.target.value)} placeholder="Login ou ID..."
+                                style={{...inp,fontSize:12,padding:'7px 10px'}}/>
+                              <button onClick={()=>{setAgentId('');setAgentInfo(null)}} style={{background:'var(--rzc-white)',border:'1px solid #e2e8f0',borderRadius:8,padding:'7px 10px',cursor:'pointer'}}>✕</button>
+                            </div>
+                          </div>
+                        )}
+                        {totalP > (bonAgent?.credit_restant ?? Infinity) && bonAgent?.credit_restant > 0 && (
+                          <div style={{marginTop:6,background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:7,
+                            padding:'5px 8px',fontSize:10,color:'#dc2626',fontWeight:600}}>
+                            ⚠️ Panier ({totalP.toLocaleString()} FCFA) dépasse le solde
+                          </div>
+                        )}
+                      </div>
+
+                      {msg&&<div style={{padding:'8px 12px',borderRadius:8,marginBottom:10,fontSize:12,fontWeight:600,
+                        background:msg.type==='success'?'#f0fdf4':'#fef2f2',
+                        color:msg.type==='success'?'#166534':'#991b1b',
+                        border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`}}>{msg.text}</div>}
+
+                      {/* Modes de paiement — grille 3 colonnes, comme la maquette */}
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:10}}>
+                        <button onClick={()=>setModePaiement('especes')} style={payChip(modePaiement==='especes')}>💵 Espèces</button>
+                        <button onClick={()=>agentInfo&&setModePaiement('bon')} disabled={!agentInfo}
+                          title={!agentInfo?"Scanner un agent d'abord":"Payer par bon de caisse"}
+                          style={payChip(modePaiement==='bon', !agentInfo)}>🎫 Bon</button>
+                        {['om','wave','mtn','moov'].map(v=>(
+                          <button key={v} onClick={()=>setModePaiement(v)} style={payChip(modePaiement===v)}>
+                            <MobileMoneyBadge operateur={v} size={14} showLabel={false}/>{MOBILE_MONEY_LABELS[v]}
+                          </button>
+                        ))}
+                      </div>
+                      {['om','wave','mtn','moov'].includes(modePaiement) && (
+                        <div style={{marginBottom:10,background:'#fffbeb',border:'1px solid #fde68a',borderRadius:8,padding:'8px 10px',
+                          display:'flex',alignItems:'center',gap:8,fontSize:12}}>
+                          <MobileMoneyBadge operateur={modePaiement} size={18} showLabel={false}/>
+                          {numerosMarchands[modePaiement] ? (
+                            <span>Envoyer à : <b style={{fontFamily:'monospace'}}>{numerosMarchands[modePaiement]}</b></span>
+                          ) : (
+                            <span style={{color:'#b45309'}}>Numéro marchand non configuré — Paramétrage &gt; Mobile Money</span>
+                          )}
+                        </div>
+                      )}
+
+                      <button onClick={()=>valider(modePaiement)} disabled={submitting||!modePaiement}
+                        style={{width:'100%',
+                          background:submitting||!modePaiement?'var(--rzc-border-light)':'#C9972B',
+                          color: submitting||!modePaiement?'var(--rzc-text-4)':'#0F2A5C',
+                          border:'none',padding:13,borderRadius:12,
+                          cursor:submitting||!modePaiement?'not-allowed':'pointer',fontSize:14,fontWeight:800}}>
+                        {submitting?'⏳...'
+                          :!modePaiement?'Choisir un mode de paiement'
+                          :modePaiement==='especes'?`✅ Encaisser ${totalP.toLocaleString()} FCFA`
+                          :modePaiement==='bon'?`✅ Débiter bon — ${totalP.toLocaleString()} FCFA`
+                          :`✅ Valider la vente — ${totalP.toLocaleString()} FCFA`}
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+              <>
+              <div style={{padding:'11px 14px',background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontWeight:700,fontSize:13}}>🛒 Panier ({panier.length})</span>
                 {panier.length>0&&<button onClick={()=>setPanier([])} style={{background:'rgba(220,38,38,.35)',border:'none',color:'var(--rzc-white)',padding:'3px 10px',borderRadius:99,cursor:'pointer',fontSize:12,fontWeight:700}}>Vider</button>}
               </div>
@@ -1484,7 +1662,7 @@ export default function Boutique({ embedded = false } = {}) {
                     <div style={{marginBottom:8}}>
                       <div style={{fontSize:10,color:'var(--rzc-text-4)',fontWeight:700,textTransform:'uppercase',
                         letterSpacing:.8,marginBottom:6}}>Mode de paiement</div>
-                      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:6}}>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                         <button onClick={()=>setModePaiement('especes')}
                           style={{padding:'10px 6px',borderRadius:9,border:`2px solid ${modePaiement==='especes'?'#16a34a':'var(--rzc-border-light)'}`,
                             background:modePaiement==='especes'?'#f0fdf4':'var(--rzc-white)',
@@ -1542,6 +1720,8 @@ export default function Boutique({ embedded = false } = {}) {
                   </>
                 )}
               </div>
+              </>
+              )}
             </div>
             )}
           </div>
