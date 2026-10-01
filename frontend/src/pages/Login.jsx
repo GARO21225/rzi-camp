@@ -149,7 +149,7 @@ export default function Login() {
           .login-brand { display: none !important; }
           .login-form-panel {
             flex: 1 !important;
-            padding: 24px 20px !important;
+            padding: 90px 20px 24px !important;
             justify-content: flex-start !important;
           }
           .login-mobile-header {
@@ -226,7 +226,6 @@ export default function Login() {
         justifyContent:'center', alignItems:'center',
         background:'#080f20', padding:'40px 32px',
         overflowY:'auto',
-        paddingTop: 80, // espace pour header mobile
       }}>
         <div style={{ width:'100%', maxWidth:400 }}>
           <div style={{ marginBottom:32, textAlign:'center' }}>
