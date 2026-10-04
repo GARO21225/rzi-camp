@@ -1020,6 +1020,38 @@ class EquipementEPIViewSet(viewsets.ModelViewSet):
         return Response({'expires': expires, 'bientot': bientot, 'total_suivis': tous.count()})
 
 
+def _cloturer_sejour_personnel(personnel, date_dep):
+    """
+    Libère toute chambre physiquement occupée par ce personnel et clôture
+    son mandat de résident principal actif (ResidentPrincipal.date_fin).
+
+    Factorisé ici car DEUX chemins indépendants peuvent faire passer un
+    personnel en voyage et doivent aboutir au même état cohérent :
+      1. BatimentViewSet.confirmer_depart (relance J-1 / Dashboard,
+         "1 clic") ;
+      2. DemandeViewSet.valider pour une Demande type_demande="voyage"
+         (page "📝 Demandes" — plus ancien, créé indépendamment par le
+         résident, sans lien avec confirmer_depart). Ce 2e chemin créait
+         un Voyage sans jamais toucher au Batiment ni au
+         ResidentPrincipal - cause réelle du cas Edgar : sa demande a été
+         validée via CE chemin, pas via confirmer_depart, donc la chambre
+         ne s'est jamais libérée.
+    """
+    from .models import ResidentPrincipal
+    chambres = list(Batiment.objects.filter(personnel=personnel, statut="Occupé"))
+    for b in chambres:
+        OccupationHistory.objects.filter(
+            batiment=b, personnel=personnel, date_depart__isnull=True
+        ).update(date_depart=date_dep, motif_depart="Voyage")
+        Batiment.objects.filter(pk=b.pk).update(
+            personnel=None, occupant=None, societe=None,
+            date_arrivee=None, date_depart=None, statut="Libre"
+        )
+    ResidentPrincipal.objects.filter(
+        personnel=personnel, date_fin__isnull=True
+    ).update(date_fin=date_dep, motif_fin="Départ en voyage confirmé")
+
+
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
     queryset = Batiment.objects.select_related("personnel").all()
@@ -1418,7 +1450,6 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if decision == "confirme":
             from django.utils import timezone as djtz
             from voyages.models import Voyage
-            from .models import ResidentPrincipal
             today = datetime.date.today()
             date_dep = b.date_depart or today
             personnel_obj = b.personnel
@@ -1438,31 +1469,12 @@ class BatimentViewSet(viewsets.ModelViewSet):
             # Filet de sécurité : voyage.partir() libère la chambre du
             # ResidentPrincipal actif s'il existe, qui peut être une AUTRE
             # ligne Batiment que celle sur laquelle l'admin/le résident a
-            # cliqué ici (ex: la chambre affichée dans l'onglet "Chambres"
-            # peut différer de residents_principaux si les deux n'ont
-            # jamais été synchronisés). On force donc explicitement la
-            # libération de LA chambre cliquée (b) si elle est toujours
-            # occupée par ce même personnel après partir(), pour que
-            # l'onglet "Chambres" reflète toujours la décision prise ici —
-            # sans ça "Edgar reste dans sa chambre" malgré un Voyage créé.
-            b.refresh_from_db()
-            if b.personnel_id == personnel_obj.id:
-                OccupationHistory.objects.filter(
-                    batiment=b, personnel=personnel_obj, date_depart__isnull=True
-                ).update(date_depart=date_dep, motif_depart="Voyage")
-                Batiment.objects.filter(pk=b.pk).update(
-                    personnel=None, occupant=None, societe=None,
-                    date_arrivee=None, date_depart=None, statut="Libre"
-                )
-
-            # Idem pour le statut "résident principal" : clore le mandat
-            # actif de ce personnel (quelle que soit la chambre visée par
-            # cette ligne), sinon il reste affiché dans l'onglet "⭐
-            # Résidents principaux" comme si de rien n'était, alors que
-            # son départ vient d'être confirmé.
-            ResidentPrincipal.objects.filter(
-                personnel=personnel_obj, date_fin__isnull=True
-            ).update(date_fin=date_dep, motif_fin="Départ en voyage confirmé")
+            # cliqué ici. _cloturer_sejour_personnel() reprend TOUTES les
+            # chambres occupées par ce personnel (pas seulement celle
+            # cliquée) et clôture aussi son mandat de résident principal,
+            # pour que "Chambres" et "Résidents principaux" reflètent
+            # toujours la décision prise ici.
+            _cloturer_sejour_personnel(personnel_obj, date_dep)
 
             try:
                 from evenements.models import SimpleNotification
@@ -2547,7 +2559,7 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # que Voyage.objects.create() brut qui contournait
                             # tout le workflow (pas de rotation_id, pas de
                             # verification de chevauchement).
-                            Voyage.objects.create(
+                            voyage_cree = Voyage.objects.create(
                                 personnel=p,
                                 destination=data.get("destination",""),
                                 motif=data.get("motif",""),
@@ -2562,6 +2574,19 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 enregistre_par=request.user,
                                 demande_origine=demande,
                             )
+                            # BUG REEL CORRIGE ICI : ce chemin (validation
+                            # d'une Demande "voyage" depuis la page
+                            # Demandes) creait le Voyage mais ne liberait
+                            # JAMAIS la chambre ni ne cloturait le mandat
+                            # de resident principal - a la difference du
+                            # Voyage cree depuis confirmer_depart (relance
+                            # Dashboard), qui appelle deja partir(). Les
+                            # deux chemins doivent produire le meme etat
+                            # coherent : c'est exactement ce qui laissait
+                            # Edgar affiche "toujours dans sa chambre"
+                            # malgre sa demande validee et son voyage cree.
+                            voyage_cree.partir(dd)
+                            _cloturer_sejour_personnel(p, dd)
                         except Exception as ve:
                             pass  # Continue even if voyage creation fails
         
