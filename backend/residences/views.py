@@ -1316,6 +1316,24 @@ class BatimentViewSet(viewsets.ModelViewSet):
                                .select_related("personnel")
                                .values("residence","occupant","date_depart","personnel__nom","personnel__prenom"))
 
+        # Depart annonce (date_depart) depasse sans decision : ni voyage/demande
+        # cree au Centre de Mobilite, ni nouvelle date redefinie sur la chambre.
+        # cf. residences/management/commands/verifier_departs_residence.py pour
+        # la notification admin equivalente, meme regle d'exclusion ici.
+        from voyages.models import Voyage
+        candidats_retard = list(qs.filter(statut="Occupé", personnel__isnull=False, date_depart__lt=today)
+                                 .select_related("personnel"))
+        personnels_couverts = set(Voyage.objects.filter(
+            personnel_id__in=[b.personnel_id for b in candidats_retard],
+            statut__in=["planifie","en_voyage"],
+        ).values_list("personnel_id", flat=True))
+        departs_en_retard_list = [
+            {"residence":b.residence,"occupant":b.occupant,"date_depart":b.date_depart,
+             "personnel__nom":b.personnel.nom,"personnel__prenom":b.personnel.prenom}
+            for b in candidats_retard if b.personnel_id not in personnels_couverts
+        ]
+        departs_en_retard = len(departs_en_retard_list)
+
         # Règle métier camp minier : une personne peut être hébergée (chambre affectée)
         # ou non hébergée (pas de chambre, prise en compte uniquement en restauration).
         # On expose les deux comptes séparément pour ne jamais les confondre côté frontend.
@@ -1330,6 +1348,8 @@ class BatimentViewSet(viewsets.ModelViewSet):
             "taux_occupation":round(par_statut.get("Occupé",0)/total*100,1) if total else 0,
             "departs_s1":departs_s1,
             "departs_s1_list":departs_s1_list,
+            "departs_en_retard":departs_en_retard,
+            "departs_en_retard_list":departs_en_retard_list,
             "personnel_total": personnel_total,
             "personnel_loge": personnel_loge,
             "personnel_non_loge": personnel_non_loge,

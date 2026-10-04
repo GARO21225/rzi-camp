@@ -399,6 +399,7 @@ export default function Dashboard() {
   if (critiques > 0) alertes.push({ type:'incident', titre:`${critiques} incident(s) critique(s)`, desc:'Nécessite intervention immédiate', temps:'Maintenant', urgent:true })
   if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
   if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
+  if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dépassé(s)`, desc:'Date de départ passée, encore logé — demander : il part (créer une demande de voyage) ou nouvelle date de départ ?', temps:'En retard', urgent:true })
   if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
   if (d.epi?.expires > 0) alertes.push({ type:'epi', titre:`${d.epi.expires} EPI expiré(s)`, desc:'Renouvellement urgent — conformité QHSE', temps:'Maintenant', urgent:true })
   if (d.epi?.bientot > 0) alertes.push({ type:'epi', titre:`${d.epi.bientot} EPI à renouveler`, desc:'Expiration sous 30 jours', temps:'30 jours', urgent:false })
@@ -590,6 +591,9 @@ export default function Dashboard() {
             title={`${enVoyage} personne(s) hors camp`} desc={`${planifies} rotation(s) planifiée(s)`} />}
           {(d.bat?.departs_s1 || 0) > 0 && <AlertRow icon="🗓️" severity="info"
             title={`${d.bat.departs_s1} départ(s) cette semaine`} desc="Libérations de chambres à planifier" />}
+          {(d.bat?.departs_en_retard || 0) > 0 && <AlertRow icon="🏠" severity="alert"
+            title={`${d.bat.departs_en_retard} départ(s) résidence dépassé(s)`}
+            desc="Date de départ passée, encore logé — à trancher : il part (demande de voyage) ou nouvelle date" />}
           {critiques === 0 && sla === 0 && !stockCritiqueCount && (
             <div style={{ textAlign: 'center', padding: '28px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
