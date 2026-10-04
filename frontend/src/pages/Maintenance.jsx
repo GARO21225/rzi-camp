@@ -784,12 +784,18 @@ export default function Maintenance() {
           </div>
           {!isMobile && (
           <div style={{display:'flex',gap:8}}>
+            {/* Rapport PDF (sur periode) : admin + technicien uniquement -
+                un agent qui declare ses propres incidents n'a aucun usage
+                d'un rapport agrege sur une periode (reste du menage
+                demande par Edgar). */}
+            {isGestionnaire && (
             <button onClick={()=>setShowPeriodeModal(true)}
               style={{ background:'var(--rzc-green)', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
                 display:'flex', alignItems:'center', gap:6 }}>
               📄 Rapport PDF
             </button>
+            )}
             <button onClick={() => { setForm(EMPTY); setErr(''); setShowNew(true) }}
               style={{ background:'var(--rzc-navy)', color:'#fff', border:'none',
                 padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }}>
@@ -801,10 +807,12 @@ export default function Maintenance() {
 
         {isMobile && (
           <div style={{position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))', display:'flex', flexDirection:'column', gap:10, zIndex:80}}>
+            {isGestionnaire && (
             <button onClick={()=>setShowPeriodeModal(true)} aria-label="Rapport PDF"
               style={{width:46, height:46, borderRadius:23, background:'var(--rzc-green)', border:'none', boxShadow:'0 6px 16px rgba(22,163,74,.4)', fontSize:18, cursor:'pointer'}}>
               📄
             </button>
+            )}
             <button onClick={() => { setForm(EMPTY); setErr(''); setShowNew(true) }} aria-label="Déclarer un incident"
               style={{width:54, height:54, borderRadius:27, background:'#C9972B', border:'none', boxShadow:'0 6px 16px rgba(201,151,43,.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F2A5C" strokeWidth="2.4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1081,6 +1089,7 @@ export default function Maintenance() {
                   {l}
                 </button>
               ))}
+              {isGestionnaire && (
               <button onClick={()=>setSlaOnly(v=>!v)}
                 style={{flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:700,
                   border:`1px solid ${slaOnly?'#dc2626':'#e2e8f0'}`,
@@ -1088,6 +1097,7 @@ export default function Maintenance() {
                   color:slaOnly?'#dc2626':'#475569'}}>
                 ⚠️ SLA
               </button>
+              )}
             </div>
             <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
               <a onClick={(e)=>{e.preventDefault(); navigate('/historique')}} href="/historique" style={{ flexShrink:0,padding:'7px 12px', borderRadius:8, textDecoration:'none',
@@ -1138,6 +1148,11 @@ export default function Maintenance() {
               fontSize:12, fontWeight:700, background:'#e2e8f0', color:'#475569', display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
             🗂️ Voir les dossiers clôturés (Historique)
           </a>
+          {/* Priorite/SLA/periode : filtres de gestion de file, sans usage
+              pour un agent qui ne voit que ses 1-2 incidents declares
+              (reste du menage demande par Edgar - le statut + la
+              recherche ci-dessus restent utiles a tous). */}
+          {isGestionnaire && <>
           <select value={prioFilter} onChange={e=>setPrioFilter(e.target.value)} style={{ ...inp, maxWidth:130 }}>
             <option value="">Toutes priorités</option>
             {Object.entries(PRIOS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
@@ -1153,6 +1168,7 @@ export default function Maintenance() {
           <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)}
             title="Date fin"
             style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
+          </>}
           {/* BUG REEL CORRIGE ICI : ces 3 boutons n'etaient PAS filtres par
               isAdmin cote desktop (seule la version mobile, plus haut, les
               cachait deja correctement) - un simple agent voyait donc

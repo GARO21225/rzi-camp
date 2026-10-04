@@ -221,6 +221,8 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
           <div style={{ fontWeight: 700, fontSize: 13, color: '#0F1A2E' }}>
             {monDepart.en_retard
               ? `🧳 Départ prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — toujours logé`
+              : monDepart.aujourdhui
+              ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
               : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
           </div>
           <p style={{ margin: '4px 0 10px', fontSize: 11.5, color: 'var(--rzc-text-3,#5B6472)' }}>
@@ -600,6 +602,8 @@ export default function Dashboard() {
             <div style={{ fontWeight: 800, fontSize: 13 }}>
               {monDepart.en_retard
                 ? `Votre départ était prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — vous êtes toujours logé`
+                : monDepart.aujourdhui
+                ? `Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
                 : `Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--rzc-text-3)', marginTop: 2 }}>

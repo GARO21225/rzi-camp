@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI, itinerairesModeles as itinerairesAPI } from '../api'
+import { useNavigate } from 'react-router-dom'
+import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI, itinerairesModeles as itinerairesAPI, plaintes as plaintesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -8,6 +9,7 @@ const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
   voyage:{ bg:'rgba(234,88,12,.1)', color:'#ea580c', icon:'✈️', label:'Voyage' },
   maintenance:{ bg:'rgba(220,38,38,.1)', color:'#dc2626', icon:'🛠️', label:'Maintenance' },
+  plainte:{ bg:'rgba(220,38,38,.1)', color:'#b91c1c', icon:'🧹', label:'Plainte' },
   induction:{ bg:'rgba(124,58,237,.1)', color:'#7c3aed', icon:'🎓', label:'Induction' },
 }
 const STATUT_STYLES = {
@@ -23,6 +25,7 @@ const inp = { background:'var(--surface2)', border:'1px solid var(--border)', co
 const today = new Date().toISOString().slice(0,10)
 
 export default function Demandes() {
+  const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
@@ -63,6 +66,17 @@ export default function Demandes() {
   const [voyagesEnAttente, setVoyagesEnAttente] = useState([])
   const [inductionsEnAttente, setInductionsEnAttente] = useState([])
   const [incidentsEnAttente, setIncidentsEnAttente] = useState([])
+  const [plaintesEnAttente, setPlaintesEnAttente] = useState([])
+  // Boutons de filtre par type (demande d'Edgar : "quand je clique sur
+  // voyage je ne vois que les demandes de voyage") - Maintenance et
+  // Plaintes regroupes sous un seul bouton (meme nature : signalement a
+  // router vers son propre module, pas une validation admin classique).
+  const [typeFilter, setTypeFilter] = useState('')
+  const TYPE_FILTER_BTNS = [
+    ['reservation_residence','🏠 Résidence'],
+    ['voyage','✈️ Voyage'],
+    ['maintenance_plaintes','🛠️🧹 Maintenance & Plaintes'],
+  ]
 
   const load = () => {
     setLoading(true)
@@ -88,8 +102,15 @@ export default function Demandes() {
       incidentsAPI.list({statut:'declare', page_size:100}).then(r => {
         setIncidentsEnAttente((r.data.results||r.data||[]).map(inc=>({..._m_to_demande(inc)})))
       }).catch(()=>setIncidentsEnAttente([]))
+      // Plaintes pas encore closes - mêmes données que le bouton de filtre
+      // "Maintenance & Plaintes" doit pouvoir montrer (bouton demandé par
+      // Edgar, sinon il ne montrerait que la maintenance, pas les plaintes).
+      plaintesAPI.list({page_size:200}).then(r => {
+        const items = (r.data.results||r.data||[]).filter(p=>!['cloturee','rejetee'].includes(p.statut))
+        setPlaintesEnAttente(items.map(p=>({..._p_to_demande(p)})))
+      }).catch(()=>setPlaintesEnAttente([]))
     } else {
-      setVoyagesEnAttente([]); setInductionsEnAttente([]); setIncidentsEnAttente([])
+      setVoyagesEnAttente([]); setInductionsEnAttente([]); setIncidentsEnAttente([]); setPlaintesEnAttente([])
     }
     // BUG REEL CORRIGE ICI : batAPI.list() (BatimentViewSet.list) est
     // volontairement restreint côté backend pour qu'un non-admin ne voie
@@ -139,6 +160,19 @@ export default function Demandes() {
     demandeur_nom: inc.auteur_nom || '—',
     date_creation: inc.date_creation,
     message_demandeur: `${inc.titre} — ${inc.categorie||''} (${inc.priorite||'moyenne'})`,
+  })
+
+  // Plainte pas encore close - affichee ici pour le filtre groupe
+  // "Maintenance & Plaintes", mais PAS de Valider/Rejeter generique : le
+  // workflow d'une plainte (qualifier/affecter/prendre en charge/resoudre)
+  // est deja entierement gere par la page Plaintes (reutiliser, pas
+  // reinventer un 2e circuit ici) - un lien y renvoie directement.
+  const _p_to_demande = (p) => ({
+    id: `plainte-${p.id}`, _plainteId: p.id, _source: 'plainte',
+    type_demande: 'plainte', statut: 'en_attente',
+    demandeur_nom: p.occupant_nom || '—',
+    date_creation: p.date_creation,
+    message_demandeur: `${p.categorie_label || p.categorie}${p.sous_categorie ? ' — '+p.sous_categorie : ''} (${p.statut_label || p.statut})`,
   })
 
   useEffect(()=>{ load() }, [tab])
@@ -228,12 +262,16 @@ export default function Demandes() {
   const AGENT_TABS = [['mes_demandes','📋 Mes demandes'],['proposition_recue','💬 Propositions reçues']]
 
   const filterData = () => {
-    if (!isAdmin && tab === 'proposition_recue') return data.filter(d=>d.statut==='proposition')
-    if (isAdmin && tab === 'pending') {
-      // Fusionne demandes classiques + voyages + inductions + incidents en attente, tries par date
-      return [...data, ...voyagesEnAttente, ...inductionsEnAttente, ...incidentsEnAttente].sort((a,b)=>new Date(b.date_creation||0)-new Date(a.date_creation||0))
+    let base
+    if (!isAdmin && tab === 'proposition_recue') base = data.filter(d=>d.statut==='proposition')
+    else if (isAdmin && tab === 'pending') {
+      // Fusionne demandes classiques + voyages + inductions + incidents + plaintes en attente, tries par date
+      base = [...data, ...voyagesEnAttente, ...inductionsEnAttente, ...incidentsEnAttente, ...plaintesEnAttente].sort((a,b)=>new Date(b.date_creation||0)-new Date(a.date_creation||0))
     }
-    return data
+    else base = data
+    if (!typeFilter) return base
+    if (typeFilter === 'maintenance_plaintes') return base.filter(d=>['maintenance','plainte'].includes(d.type_demande))
+    return base.filter(d=>d.type_demande===typeFilter)
   }
 
   return (
@@ -257,6 +295,30 @@ export default function Demandes() {
               ✈️ Planifier voyage
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Filtre par type (demande d'Edgar : cliquer sur "Voyage" ne montre
+          plus que les demandes de voyage) - place au-dessus des KPI/onglets
+          (Propositions, etc.) pour filtrer tout ce qui suit. */}
+      <div style={isMobile
+        ? { display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4 }
+        : { display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+        {TYPE_FILTER_BTNS.map(([v,l])=>(
+          <button key={v} onClick={()=>setTypeFilter(f=>f===v?'':v)}
+            style={{flexShrink:0, padding:'7px 14px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
+              border:`1px solid ${typeFilter===v?'#0F2A5C':'var(--border)'}`,
+              background:typeFilter===v?'#0F2A5C':'var(--rzc-white)',
+              color:typeFilter===v?'#fff':'var(--text-dim)'}}>
+            {l}
+          </button>
+        ))}
+        {typeFilter && (
+          <button onClick={()=>setTypeFilter('')}
+            style={{flexShrink:0, padding:'7px 12px', borderRadius:99, fontSize:12, fontWeight:600, cursor:'pointer',
+              border:'1px solid var(--border)', background:'transparent', color:'var(--text-dim)'}}>
+            ✕ Tous types
+          </button>
         )}
       </div>
 
@@ -364,7 +426,19 @@ export default function Demandes() {
                 <div style={isMobile
                   ? { display:'flex', gap:8, width:'100%', marginTop:2 }
                   : { display:'flex', flexDirection:'column', gap:6, flexShrink:0, minWidth:120 }}>
-                  {isAdmin && d.statut === 'en_attente' && (
+                  {/* Plainte : pas de Valider/Rejeter generique ici - son
+                      workflow (qualifier/affecter/prendre en charge/
+                      resoudre) vit deja entierement dans la page Plaintes,
+                      qu'on reutilise plutot que de le reimplementer ici. */}
+                  {isAdmin && d._source === 'plainte' && (
+                    <button onClick={()=>navigate('/plaintes')}
+                      style={isMobile
+                        ? { flex:1, background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                        : { background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                      🧹 Traiter dans Plaintes →
+                    </button>
+                  )}
+                  {isAdmin && d._source !== 'plainte' && d.statut === 'en_attente' && (
                     <>
                       <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
                         style={isMobile
@@ -403,7 +477,7 @@ export default function Demandes() {
                         ? { flex:1, background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', borderRadius:8, padding:8, fontSize:11.5, cursor:'pointer' }
                         : { background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
                   )}
-                  {isAdmin && (
+                  {isAdmin && d._source !== 'plainte' && (
                     <button onClick={()=>deleteDemande(d)}
                       style={isMobile
                         ? { background:'rgba(220,38,38,.06)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
@@ -34,15 +35,12 @@ function Etoiles({ value, onChange, readOnly }) {
 }
 
 export default function Plaintes() {
+  const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser) || user?.profile?.role === 'admin' || user?.profile?.role === 'manager' || user?.profile?.role === 'superviseur'
   const CATEGORIES = usePlainteCategories()
 
-  // "tab" réutilisé comme bascule Actives/Historique (demande d'Edgar :
-  // les dossiers clôturés/rejetés ne doivent plus encombrer la vue
-  // courante) — il n'avait jamais été câblé à quoi que ce soit avant.
-  const [tab, setTab] = useState('actives')
   const [liste, setListe] = useState([])
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -110,10 +108,6 @@ export default function Plaintes() {
       await plaintesAPI.confirmer(id, resolu, motif)
       toast.success(resolu ? 'Plainte clôturée' : 'Plainte réouverte')
       setDetailModal(null); charger()
-      // Clôturer fait sortir le dossier de la vue Actives (demande
-      // d'Edgar) - bascule sur Historique pour qu'il ne semble pas
-      // avoir disparu.
-      if (resolu) setTab('historique')
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -123,9 +117,6 @@ export default function Plaintes() {
       toast.success(successMsg)
       setActionForm({}); charger()
       if (detailModal) setDetailModal(null)
-      // Meme logique que la cloture (ci-dessus) : un rejet sort aussi
-      // le dossier de la vue Actives.
-      if (action === 'rejeter') setTab('historique')
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -226,18 +217,19 @@ export default function Plaintes() {
         </div>
       )}
 
-      {/* Actives / Historique : les dossiers clôturés/rejetés n'encombrent
-          plus la vue par défaut (demande d'Edgar) — ils restent accessibles
-          dans Historique plutôt que disparaître. */}
-      <div style={{display:'flex', gap:8, marginBottom:14}}>
-        {[['actives','📋 Actives'],['historique','🗄️ Historique']].map(([v,l])=>(
-          <button key={v} onClick={()=>{setTab(v); setSelection(new Set())}}
-            style={{padding:'7px 16px',borderRadius:9,fontSize:12.5,fontWeight:700,border:'none',cursor:'pointer',
-              background:tab===v?'#0F2A5C':'#f1f5f9', color:tab===v?'#fff':'#475569'}}>
-            {l}
-          </button>
-        ))}
-      </div>
+      {/* Actives / Historique : l'onglet Historique vit maintenant dans la
+          page Historique commune à tout le reste du module (demande
+          d'Edgar), pas ici en doublon - cette page ne montre plus que les
+          dossiers actifs, un simple lien renvoie vers l'historique. */}
+      {isAdmin && (
+        <div style={{display:'flex', justifyContent:'flex-end', marginBottom:10}}>
+          <a onClick={(e)=>{e.preventDefault(); navigate('/historique')}} href="/historique"
+            style={{padding:'6px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700,
+              background:'#e2e8f0', color:'#475569', display:'flex', alignItems:'center', gap:6, cursor:'pointer'}}>
+            🗂️ Voir les dossiers clôturés/rejetés (Historique)
+          </a>
+        </div>
+      )}
 
       {isAdmin && (
         isMobile ? (
@@ -273,7 +265,7 @@ export default function Plaintes() {
       {/* Bouton de masse (demande d'Edgar) : apparaît dès qu'au moins une
           plainte est cochée, uniquement vue Actives (une plainte déjà
           clôturée/rejetée n'a plus d'action de masse pertinente). */}
-      {isAdmin && tab==='actives' && selection.size > 0 && (
+      {isAdmin && selection.size > 0 && (
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12, background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:10, padding:'8px 12px', flexWrap:'wrap'}}>
           <span style={{fontSize:12.5, fontWeight:700, color:'#1e3a8a'}}>{selection.size} sélectionnée(s)</span>
           <button disabled={bulkRunning} onClick={()=>actionMasse('affecter', {affecte_a:user.id}, 'Affectées à moi')}
@@ -293,17 +285,17 @@ export default function Plaintes() {
 
       {loading ? (
         <div style={{padding:40, textAlign:'center', color:'#94a3b8'}}>⏳ Chargement...</div>
-      ) : liste.filter(p => tab==='historique' ? STATUTS_CLOTURES.includes(p.statut) : !STATUTS_CLOTURES.includes(p.statut)).length === 0 ? (
+      ) : liste.filter(p => !STATUTS_CLOTURES.includes(p.statut)).length === 0 ? (
         <div style={{padding:40, textAlign:'center', color:'#94a3b8', background:'#fff', borderRadius:10}}>
-          {tab==='historique' ? 'Aucun dossier clôturé/rejeté.' : 'Aucune plainte.'}
+          Aucune plainte active.
         </div>
       ) : (
         <div style={{display:'flex', flexDirection:'column', gap:8}}>
-          {liste.filter(p => tab==='historique' ? STATUTS_CLOTURES.includes(p.statut) : !STATUTS_CLOTURES.includes(p.statut)).map(p => (
+          {liste.filter(p => !STATUTS_CLOTURES.includes(p.statut)).map(p => (
             <div key={p.id} onClick={()=>setDetailModal(p)}
               style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:14, cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
-                {isAdmin && tab==='actives' && (
+                {isAdmin && (
                   <input type="checkbox" checked={selection.has(p.id)} onClick={e=>e.stopPropagation()}
                     onChange={()=>toggleSelection(p.id)} style={{marginTop:3, width:16, height:16, cursor:'pointer'}}/>
                 )}

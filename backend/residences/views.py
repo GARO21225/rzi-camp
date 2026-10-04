@@ -1420,9 +1420,17 @@ class BatimentViewSet(viewsets.ModelViewSet):
         today = datetime.date.today()
         if b.date_depart > today + datetime.timedelta(days=1):
             return Response({"depart": None})
+        # BUG REEL CORRIGE ICI : seul "en_retard" (date_depart < today) etait
+        # expose - un depart fixe a AUJOURD'HUI meme (cas d'Edgar, ni en
+        # retard ni "demain") ne matchait aucun des deux cas cote frontend,
+        # qui affichait alors a tort "Vous partez demain" le jour meme du
+        # depart. Meme trou deja corrige cote commande verifier_departs_
+        # residence (relance J-1 ET jour J) - ajoute ici "aujourdhui" pour
+        # que la carte "Mon depart" affiche le bon message desormais.
         return Response({"depart": {
             "batiment_id": b.id, "residence": b.residence,
             "date_depart": b.date_depart, "en_retard": b.date_depart < today,
+            "aujourdhui": b.date_depart == today,
         }})
 
     @action(detail=True, methods=["post"])
