@@ -103,17 +103,32 @@ class PersonnelSerializer(serializers.ModelSerializer):
         except Exception:
             return 'agent'
 
+    def _avec_fallback_email(self, data, instance):
+        # BUG REEL CORRIGE ICI : Personnel.email (saisi a la creation de la
+        # fiche) et User.email (compte de connexion) sont deux champs
+        # distincts - une fiche creee/importee sans email explicite
+        # affichait "vide" meme quand le compte utilisateur associe EN A
+        # bien un (cas d'Edgar). Fallback d'affichage uniquement (ne
+        # modifie jamais la valeur reellement enregistree sur Personnel).
+        if not data.get('email'):
+            try:
+                if instance.user_id and instance.user.email:
+                    data['email'] = instance.user.email
+            except Exception:
+                pass
+        return data
+
     def to_representation(self, instance):
         """Gère le cas où la colonne profil n'existe pas encore en DB."""
         try:
-            return super().to_representation(instance)
+            return self._avec_fallback_email(super().to_representation(instance), instance)
         except Exception as e:
             if 'profil' in str(e).lower():
                 # Retourner les données sans profil si la colonne manque
                 data = super(PersonnelSerializer, self).to_representation(instance)
                 data['profil'] = 'agent'
                 data['profil_label'] = 'Agent'
-                return data
+                return self._avec_fallback_email(data, instance)
             raise
 
     def get_user_role(self, obj):

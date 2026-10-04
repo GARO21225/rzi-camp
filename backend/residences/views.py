@@ -1354,12 +1354,18 @@ class BatimentViewSet(viewsets.ModelViewSet):
                                .select_related("personnel")
                                .values("residence","occupant","date_depart","personnel__nom","personnel__prenom"))
 
-        # Depart annonce (date_depart) depasse sans decision : ni voyage/demande
-        # cree au Centre de Mobilite, ni nouvelle date redefinie sur la chambre.
+        # Depart annonce (date_depart) du jour meme OU deja depasse, sans
+        # decision : ni voyage/demande cree au Centre de Mobilite, ni nouvelle
+        # date redefinie sur la chambre. BUG REEL CORRIGE ICI : le filtre
+        # etait strictement "< today" (en retard uniquement), donc un depart
+        # fixe a AUJOURD'HUI (cas d'Edgar) n'apparaissait dans aucune liste
+        # actionnable cote admin avant le lendemain - admin ne pouvait confirmer
+        # "il part"/"il reste" pour un résident que lorsque c'etait deja trop
+        # tard. Desormais "lte" (<=) : inclut le jour J, pas seulement apres.
         # cf. residences/management/commands/verifier_departs_residence.py pour
         # la notification admin equivalente, meme regle d'exclusion ici.
         from voyages.models import Voyage
-        candidats_retard = list(qs.filter(statut="Occupé", personnel__isnull=False, date_depart__lt=today)
+        candidats_retard = list(qs.filter(statut="Occupé", personnel__isnull=False, date_depart__lte=today)
                                  .select_related("personnel"))
         personnels_couverts = set(Voyage.objects.filter(
             personnel_id__in=[b.personnel_id for b in candidats_retard],

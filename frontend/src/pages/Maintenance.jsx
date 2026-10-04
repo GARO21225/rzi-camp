@@ -1516,7 +1516,17 @@ export default function Maintenance() {
                     👷 Assigner à un technicien
                   </button>
                 )}
-                {selected.statut==='assigne' && (
+                {/* BUG REEL CORRIGE ICI : le bouton s'affichait pour N'IMPORTE
+                    QUI voyant l'incident (ex: l'agent qui l'a declare, qui le
+                    voit toujours dans sa liste via auteur=lui) des que le
+                    statut etait "assigne", sans verifier que c'est bien LUI
+                    le technicien assigne - un agent non-technicien pouvait
+                    donc voir (et cliquer, pour un 403 confus) le bouton
+                    "Commencer l'intervention" sur un incident qui n'est pas
+                    le sien. Le backend (_refuse_si_pas_titulaire) refusait
+                    deja l'action reelle, mais le bouton ne devait jamais
+                    etre visible dans ce cas. */}
+                {selected.statut==='assigne' && (isAdmin || selected.assigne_a === user?.id) && (
                   <button onClick={()=>setActionModal('commencer')}
                     style={{ width:'100%', background:'#eab308', color:'#fff', border:'none',
                       padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700,
@@ -1524,7 +1534,7 @@ export default function Maintenance() {
                     ⚙️ Commencer l'intervention
                   </button>
                 )}
-                {selected.statut==='en_cours' && (
+                {selected.statut==='en_cours' && (isAdmin || selected.assigne_a === user?.id) && (
                   <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
                     <div style={{ display:'flex', gap:8 }}>
                       <button onClick={()=>uploadPhoto('photo_avant')}

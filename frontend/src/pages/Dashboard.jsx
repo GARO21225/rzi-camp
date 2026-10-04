@@ -437,7 +437,7 @@ export default function Dashboard() {
   if (critiques > 0) alertes.push({ type:'incident', titre:`${critiques} incident(s) critique(s)`, desc:'Nécessite intervention immédiate', temps:'Maintenant', urgent:true })
   if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
   if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
-  if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dépassé(s)`, desc:'Date de départ passée, encore logé — confirmer son départ (chambre libérée, voyage créé) ou donner une nouvelle date', temps:'En retard', urgent:true })
+  if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dû(s) aujourd'hui ou dépassé(s)`, desc:'Date de départ atteinte ou passée, encore logé — confirmer son départ (chambre libérée, voyage créé) ou donner une nouvelle date', temps:"Aujourd'hui / en retard", urgent:true })
   if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
   if (d.epi?.expires > 0) alertes.push({ type:'epi', titre:`${d.epi.expires} EPI expiré(s)`, desc:'Renouvellement urgent — conformité QHSE', temps:'Maintenant', urgent:true })
   if (d.epi?.bientot > 0) alertes.push({ type:'epi', titre:`${d.epi.bientot} EPI à renouveler`, desc:'Expiration sous 30 jours', temps:'30 jours', urgent:false })
@@ -801,7 +801,7 @@ export default function Dashboard() {
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
           <div style={{ background:'var(--rzc-white,#fff)', color:'#0F1A2E', borderRadius:16, width:'100%', maxWidth:560, maxHeight:'85vh', overflowY:'auto' }}>
             <div style={{ padding:'16px 20px', background:'#0F2A5C', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🏠 Départs résidence dépassés — décider pour le résident</h3>
+              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🏠 Départs résidence dus / dépassés — décider pour le résident</h3>
               <button onClick={()=>setDeptModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:18 }}>
@@ -810,7 +810,7 @@ export default function Dashboard() {
               ) : departsRetardList.map(r => (
                 <div key={r.batiment_id} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:12, marginBottom:10 }}>
                   <div style={{ fontWeight:700, fontSize:13 }}>{r.personnel__nom} {r.personnel__prenom} — {r.residence}</div>
-                  <div style={{ fontSize:11.5, color:'#64748b', marginBottom:8 }}>Devait partir le {new Date(r.date_depart).toLocaleDateString('fr-FR')}</div>
+                  <div style={{ fontSize:11.5, color:'#64748b', marginBottom:8 }}>Doit/devait partir le {new Date(r.date_depart).toLocaleDateString('fr-FR')}</div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                     <button onClick={()=>confirmerDepartPourAdmin(r.batiment_id)} disabled={deptBusy===r.batiment_id}
                       style={{ background:'#16A34A', color:'#fff', border:'none', borderRadius:99, padding:'6px 14px', cursor:deptBusy===r.batiment_id?'wait':'pointer', fontSize:11.5, fontWeight:700 }}>
