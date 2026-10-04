@@ -5,15 +5,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useStore } from '../store'
-import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI } from '../api'
+import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI, parametres as parametresAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { toast, confirmDialog } from '../toast'
 
 // ── Configuration repas ───────────────────────────────────────────
+// Valeurs par défaut (repli si le paramétrage n'a pas pu être chargé) —
+// les horaires réels affichés viennent de /api/parametres/ (clés
+// repas_xxx_debut/fin, modifiables dans Paramétrage), via heureRepas()
+// ci-dessous plutôt que ces chaînes figées.
 const REPAS = [
-  { key: 'petit_dejeuner', label: 'Petit-déjeuner', emoji: '🌅', color: '#f97316', heure: '06:00 - 10:00' },
-  { key: 'dejeuner',        label: 'Déjeuner',       emoji: '☀️',  color: '#2563eb', heure: '11:00 - 14:30' },
-  { key: 'diner',           label: 'Dîner',          emoji: '🌙',  color: '#7c3aed', heure: '18:30 - 21:00' },
+  { key: 'petit_dejeuner', label: 'Petit-déjeuner', emoji: '🌅', color: '#f97316', heure: '06:00 - 10:00', cleDebut: 'repas_petit_dej_debut', cleFin: 'repas_petit_dej_fin' },
+  { key: 'dejeuner',        label: 'Déjeuner',       emoji: '☀️',  color: '#2563eb', heure: '11:00 - 14:30', cleDebut: 'repas_dejeuner_debut', cleFin: 'repas_dejeuner_fin' },
+  { key: 'diner',           label: 'Dîner',          emoji: '🌙',  color: '#7c3aed', heure: '18:30 - 21:00', cleDebut: 'repas_diner_debut', cleFin: 'repas_diner_fin' },
 ]
 
 // ── Sons feedback ─────────────────────────────────────────────────
@@ -660,6 +664,22 @@ export default function Restauration() {
   // sur mobile pour garder l'écran centré sur scan + historique — ouvert
   // par défaut sur desktop où la place ne manque pas.
   const [avisOpenMobile, setAvisOpenMobile] = useState(false)
+  const [paramHoraires, setParamHoraires] = useState({})
+  useEffect(() => {
+    parametresAPI.list().then(r => {
+      const liste = r.data.results || r.data || []
+      const map = {}
+      liste.forEach(p => { map[p.cle] = p.valeur })
+      setParamHoraires(map)
+    }).catch(() => {})
+  }, [])
+  // Heure réelle du repas — paramétrage (Paramétrage > Horaires Repas &
+  // Boutique) si renseigné, sinon la valeur par défaut codée en dur.
+  const heureRepas = (r) => {
+    const debut = paramHoraires[r.cleDebut]
+    const fin = paramHoraires[r.cleFin]
+    return (debut && fin) ? `${debut} - ${fin}` : r.heure
+  }
 
   const repas = REPAS.find(r => r.key === typeRepas)
 
@@ -705,7 +725,7 @@ export default function Restauration() {
           <div>
             <h2 style={{ fontSize: isMobile ? 20 : 20, fontWeight: 700, color: isMobile ? '#0F1A2E' : '#7c3aed', margin: 0 }}>{isMobile ? 'Restauration' : '🍽️ Restaurant'}</h2>
             <p style={{ fontSize: isMobile ? 12.5 : 11, color: isMobile ? '#5B6472' : 'var(--rzc-text-3)', marginTop: isMobile ? 3 : 4 }}>
-              {isMobile ? `${stats.today} repas servis aujourd'hui` : (repas?.heure || 'Heures de service')}
+              {isMobile ? `${stats.today} repas servis aujourd'hui` : (repas ? heureRepas(repas) : 'Heures de service')}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1069,7 +1089,7 @@ export default function Restauration() {
                 <span>{r.emoji}</span>
                 <span style={{ fontSize: 13 }}>{r.label}</span>
               </div>
-              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--rzc-text-3)' }}>{r.heure}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--rzc-text-3)' }}>{heureRepas(r)}</span>
             </div>
           ))}
         </div>

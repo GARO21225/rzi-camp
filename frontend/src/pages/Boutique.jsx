@@ -1016,11 +1016,15 @@ export default function Boutique({ embedded = false } = {}) {
   const [showGererBons,setShowGererBons]= useState(false)
   const [modePaiement, setModePaiement] = useState(null)   // 'especes' | 'bon'
   const [numerosMarchands, setNumerosMarchands] = useState({})
+  const [horairesBoutique, setHorairesBoutique] = useState(null) // {debut, fin} — Paramétrage > Horaires Repas & Boutique
   useEffect(() => {
     parametresAPI.list().then(r => {
       const m = {}
       for (const p of r.data) if (p.cle.startsWith('mm_numero_')) m[p.cle.replace('mm_numero_','')] = p.valeur
       setNumerosMarchands(m)
+      const debut = r.data.find(p => p.cle === 'boutique_ouverture_debut')?.valeur
+      const fin = r.data.find(p => p.cle === 'boutique_ouverture_fin')?.valeur
+      if (debut && fin) setHorairesBoutique({ debut, fin })
     }).catch(() => {})
   }, [])
   const [showPayModal, setShowPayModal] = useState(false)
@@ -1224,6 +1228,7 @@ export default function Boutique({ embedded = false } = {}) {
           <h2 style={{fontSize:22,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>🛒 Bar & Boutique</h2>
           <p style={{fontSize:12,color:'var(--rzc-text-3)',margin:'3px 0 0'}}>
             {loading?'...':`${articles.length} articles · ${allCatsPresent.length} catégories · ${statsJour?.total||0} ventes aujourd'hui`}
+            {horairesBoutique && ` · 🕐 ${horairesBoutique.debut} - ${horairesBoutique.fin}`}
           </p>
         </div>
         {isAdmin && tab === 'catalogue' && (
