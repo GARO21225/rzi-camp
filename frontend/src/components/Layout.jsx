@@ -9,7 +9,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
-import { rolesAPI } from '../api'
+import { rolesAPI, batiments } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -203,6 +203,80 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
         </div>
       </div>
       <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16, padding:0, flexShrink:0 }}>✕</button>
+    </div>
+  )
+}
+
+// BUG REEL CORRIGE ICI : la carte "Mon départ" (confirmer/reporter son
+// propre départ depuis l'app) n'existait que sur Dashboard.jsx - or
+// RoleHome() (App.jsx) redirige TOUT utilisateur dont le role est
+// agent/restauration/technicien/menage vers /carte, JAMAIS vers Dashboard,
+// et aucune autre route n'affiche ce composant. Un résident avec un de ces
+// roles (cas d'Edgar : role "agent") ne pouvait donc STRUCTURELLEMENT
+// jamais voir ni utiliser cette carte, quel que soit l'etat des donnees
+// cote backend (deja verifie correct) - "Edgar ne voit rien" avait donc
+// raison depuis le debut, sur TOUTES les iterations precedentes de ce
+// correctif cote Dashboard.jsx/backend, qui ne pouvaient mecaniquement
+// jamais s'appliquer a lui. Remonte ici, dans Layout (rendu pour TOUTE
+// page, tout role), pour que ce genre de role la voie enfin, peu importe
+// sur quelle page il atterrit.
+const ROLES_SANS_DASHBOARD = ['agent', 'restauration', 'technicien', 'menage']
+
+function MonDepartBanner({ role }) {
+  const [monDepart, setMonDepart] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [date, setDate] = useState('')
+
+  useEffect(() => {
+    if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
+    let cancelled = false
+    batiments.monDepart().then(r => { if (!cancelled) setMonDepart(r.data?.depart || null) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [role])
+
+  if (!monDepart) return null
+
+  const confirmer = async () => {
+    setBusy(true)
+    try {
+      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'confirme' })
+      setMonDepart(null)
+    } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
+  }
+  const reporter = async () => {
+    if (!date) return
+    setBusy(true)
+    try {
+      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'reporte', nouvelle_date: date })
+      setMonDepart(null)
+    } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ background: monDepart.en_retard ? '#fef2f2' : '#fffbeb',
+      border: `1px solid ${monDepart.en_retard ? '#fecaca' : '#fde68a'}`,
+      borderRadius: 10, padding: '10px 14px', margin: '12px 16px 0',
+      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+      <div style={{ flex: 1, minWidth: 220, fontSize: 13, fontWeight: 600, color: '#0F1A2E' }}>
+        {monDepart.en_retard
+          ? `🧳 Votre départ était prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — vous êtes toujours logé, confirmez-vous ?`
+          : monDepart.aujourdhui
+          ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
+          : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
+      </div>
+      <button onClick={confirmer} disabled={busy}
+        style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
+          fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
+        ✅ Je confirme mon départ
+      </button>
+      <input type="date" value={date} onChange={e => setDate(e.target.value)}
+        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
+      <button onClick={reporter} disabled={busy || !date}
+        style={{ background: (!date || busy) ? '#e2e8f0' : '#0F2A5C', color: '#fff', border: 'none',
+          borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
+          cursor: (!date || busy) ? 'not-allowed' : 'pointer' }}>
+        📅 Je reste — nouvelle date
+      </button>
     </div>
   )
 }
@@ -583,6 +657,7 @@ export default function Layout() {
           </nav>
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
+            <MonDepartBanner role={role} />
             <Outlet />
           </main>
       </div>
