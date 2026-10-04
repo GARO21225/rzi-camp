@@ -56,6 +56,8 @@ export default function Plaintes() {
   const [actionForm, setActionForm] = useState({})
   const [selection, setSelection] = useState(new Set())
   const [bulkRunning, setBulkRunning] = useState(false)
+  const [editModal, setEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({categorie:'', sous_categorie:'', description:'', commentaire:''})
   const STATUTS_CLOTURES = ['cloturee','rejetee']
 
   const charger = useCallback(async () => {
@@ -108,6 +110,10 @@ export default function Plaintes() {
       await plaintesAPI.confirmer(id, resolu, motif)
       toast.success(resolu ? 'Plainte clôturée' : 'Plainte réouverte')
       setDetailModal(null); charger()
+      // Clôturer fait sortir le dossier de la vue Actives (demande
+      // d'Edgar) - bascule sur Historique pour qu'il ne semble pas
+      // avoir disparu.
+      if (resolu) setTab('historique')
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -117,6 +123,34 @@ export default function Plaintes() {
       toast.success(successMsg)
       setActionForm({}); charger()
       if (detailModal) setDetailModal(null)
+      // Meme logique que la cloture (ci-dessus) : un rejet sort aussi
+      // le dossier de la vue Actives.
+      if (action === 'rejeter') setTab('historique')
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
+
+  const ouvrirEdition = (p) => {
+    setEditForm({categorie: p.categorie, sous_categorie: p.sous_categorie || '', description: p.description || '', commentaire: p.commentaire || ''})
+    setEditModal(true)
+  }
+
+  const enregistrerEdition = async () => {
+    if (!editForm.description.trim()) return toast.error('Description requise')
+    try {
+      await plaintesAPI.modifier(detailModal.id, editForm)
+      toast.success('Plainte modifiée')
+      setEditModal(false)
+      const maj = { ...detailModal, ...editForm }
+      setDetailModal(maj); charger()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+  }
+
+  const supprimerPlainte = async (id) => {
+    if (!await confirmDialog('Supprimer définitivement cette plainte ? Cette action est irréversible.')) return
+    try {
+      await plaintesAPI.supprimer(id)
+      toast.success('Plainte supprimée')
+      setDetailModal(null); charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -361,6 +395,33 @@ export default function Plaintes() {
         </div>
       )}
 
+      {/* Modale : modification d'une plainte existante */}
+      {editModal && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:1100, padding:16, overflowY:'auto'}}
+          onClick={e=>e.target===e.currentTarget && setEditModal(false)}>
+          <div style={{background:'#fff', borderRadius:14, maxWidth:440, width:'100%', padding:20, marginTop:8, marginBottom:8, maxHeight:'92vh', overflowY:'auto'}}>
+            <div style={{fontWeight:700, fontSize:15, marginBottom:14}}>✏️ Modifier la plainte</div>
+            <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Catégorie</label>
+            <select value={editForm.categorie} onChange={e=>setEditForm(f=>({...f, categorie:e.target.value, sous_categorie:CATEGORIES[e.target.value]?.[0] || ''}))}
+              style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:10, marginTop:4}}>
+              {Object.keys(CATEGORIES).map(c=><option key={c} value={c}>{c.replace('_',' ')}</option>)}
+            </select>
+            <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Sous-catégorie</label>
+            <select value={editForm.sous_categorie} onChange={e=>setEditForm(f=>({...f, sous_categorie:e.target.value}))}
+              style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:10, marginTop:4}}>
+              {(CATEGORIES[editForm.categorie]||[]).map(sc=><option key={sc} value={sc}>{sc}</option>)}
+            </select>
+            <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Description</label>
+            <textarea value={editForm.description} onChange={e=>setEditForm(f=>({...f, description:e.target.value}))}
+              rows={3} style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:14, marginTop:4}}/>
+            <div style={{display:'flex', gap:8}}>
+              <button onClick={()=>setEditModal(false)} style={{flex:1, background:'#f1f5f9', color:'#475569', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700}}>Annuler</button>
+              <button onClick={enregistrerEdition} style={{flex:1, background:'#0F2A5C', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700}}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modale : détail + actions superviseur */}
       {detailModal && (
         <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:1000, padding:16, overflowY:'auto'}}
@@ -374,6 +435,24 @@ export default function Plaintes() {
             <div style={{fontSize:11, color:'#94a3b8', marginBottom:14}}>
               {detailModal.occupant_nom} · {detailModal.batiment_residence} · {new Date(detailModal.date_creation).toLocaleString('fr-FR')}
             </div>
+
+            {/* Modifier/Supprimer : admin toujours (correction d'une
+                erreur de saisie, meme tardive) ; occupant uniquement tant
+                que sa plainte n'a pas encore ete traitee ("nouvelle") -
+                au-dela un traitement est deja engage, modifier le contenu
+                sous le traitant n'a plus de sens. */}
+            {(isAdmin || detailModal.statut === 'nouvelle') && (
+              <div style={{display:'flex', gap:6, marginBottom:12}}>
+                <button onClick={()=>ouvrirEdition(detailModal)}
+                  style={{background:'#f1f5f9', color:'#334155', border:'1px solid #e2e8f0', padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:12}}>
+                  ✏️ Modifier
+                </button>
+                <button onClick={()=>supprimerPlainte(detailModal.id)}
+                  style={{background:'#fee2e2', color:'#dc2626', border:'1px solid #fecaca', padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:12}}>
+                  🗑 Supprimer
+                </button>
+              </div>
+            )}
 
             {isAdmin && detailModal.statut === 'nouvelle' && (
               <div style={{background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12}}>

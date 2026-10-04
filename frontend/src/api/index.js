@@ -424,6 +424,11 @@ export const plaintes = {
   get: (id) => api.get(`/api/plaintes/${id}/`),
   creer: (d) => api.post('/api/plaintes/', d),
   creerPourOccupant: (d) => api.post('/api/plaintes/creer_pour_occupant/', d),
+  // Modification/suppression : le ModelViewSet DRF expose deja PATCH/DELETE
+  // sur /api/plaintes/<id>/ (get_queryset scope deja l'acces : admin = tout,
+  // occupant = ses propres plaintes uniquement) - pas de route a inventer.
+  modifier: (id, d) => api.patch(`/api/plaintes/${id}/`, d),
+  supprimer: (id) => api.delete(`/api/plaintes/${id}/`),
   qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
   affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
   prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
