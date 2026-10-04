@@ -1327,8 +1327,17 @@ class BatimentViewSet(viewsets.ModelViewSet):
             personnel_id__in=[b.personnel_id for b in candidats_retard],
             statut__in=["planifie","en_voyage"],
         ).values_list("personnel_id", flat=True))
+        # Egalement couvert : une demande de voyage deja soumise (confirmee
+        # depuis l'app via confirmer_depart, ou creee normalement) et pas
+        # encore traitee/rejetee - la decision a ete prise, en attente de
+        # validation admin, inutile de la re-signaler comme "en retard".
+        users_couverts = set(Demande.objects.filter(
+            demandeur__personnel__id__in=[b.personnel_id for b in candidats_retard],
+            type_demande="voyage", statut__in=["en_attente","validee","proposition"],
+        ).values_list("demandeur__personnel__id", flat=True))
+        personnels_couverts |= users_couverts
         departs_en_retard_list = [
-            {"residence":b.residence,"occupant":b.occupant,"date_depart":b.date_depart,
+            {"batiment_id":b.id,"residence":b.residence,"occupant":b.occupant,"date_depart":b.date_depart,
              "personnel__nom":b.personnel.nom,"personnel__prenom":b.personnel.prenom}
             for b in candidats_retard if b.personnel_id not in personnels_couverts
         ]
@@ -1354,6 +1363,76 @@ class BatimentViewSet(viewsets.ModelViewSet):
             "personnel_loge": personnel_loge,
             "personnel_non_loge": personnel_non_loge,
         })
+
+    @action(detail=False, methods=["get"])
+    def mon_depart(self, request):
+        """
+        Pour le resident connecte : sa chambre si une decision est requise
+        sur sa date de depart annoncee (J-1 ou deja depassee), pour lui
+        permettre de confirmer son depart ou proposer une nouvelle date
+        directement depuis l'app. cf. verifier_departs_residence qui le
+        notifie au prealable (relance J-1, puis alerte admin si depasse).
+        """
+        p = Personnel.objects.filter(user=request.user).first()
+        if not p:
+            return Response({"depart": None})
+        b = Batiment.objects.filter(personnel=p, statut="Occupé", date_depart__isnull=False).first()
+        if not b:
+            return Response({"depart": None})
+        today = datetime.date.today()
+        if b.date_depart > today + datetime.timedelta(days=1):
+            return Response({"depart": None})
+        return Response({"depart": {
+            "batiment_id": b.id, "residence": b.residence,
+            "date_depart": b.date_depart, "en_retard": b.date_depart < today,
+        }})
+
+    @action(detail=True, methods=["post"])
+    def confirmer_depart(self, request, pk=None):
+        """
+        Reponse a la relance de depart (resident lui-meme, ou admin pour
+        son compte - cf. demande d'Edgar). Deux issues :
+          - "confirme" : cree une demande de voyage Camp -> Abidjan, meme
+            circuit standard que Demandes (DemandeViewSet.valider deja
+            existant) - PAS de contournement du controle de conflit
+            habituel, elle rejoint "A organiser" des sa validation admin
+            comme n'importe quelle autre demande de voyage.
+          - "reporte" : le resident reste, nouvelle date de depart sur la
+            chambre.
+        """
+        b = Batiment.objects.filter(pk=pk).select_related("personnel").first()
+        if not b or not b.personnel:
+            return Response({"error":"Chambre ou occupant introuvable."}, status=404)
+        is_admin = request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and getattr(request.user.profile,"role","")=="admin")
+        is_self = b.personnel.user_id == request.user.id
+        if not (is_admin or is_self):
+            return Response({"error":"Non habilité."}, status=403)
+        if not b.personnel.user_id:
+            return Response({"error":"Ce résident n'a pas de compte utilisateur — à traiter manuellement."}, status=400)
+
+        decision = request.data.get("action")
+        if decision == "confirme":
+            from .models import Demande
+            demande = Demande.objects.create(
+                demandeur_id=b.personnel.user_id, type_demande="voyage",
+                date_debut_souhaitee=b.date_depart,
+                donnees={"destination":"Abidjan","motif":"Départ résidence confirmé"},
+                message_demandeur=f"Départ confirmé depuis {b.residence} (relance automatique du {datetime.date.today()}).",
+                statut="en_attente",
+            )
+            demande.notifier_admin()
+            return Response({"ok": True, "demande_id": demande.id})
+        elif decision == "reporte":
+            nouvelle_date = request.data.get("nouvelle_date")
+            if not nouvelle_date:
+                return Response({"error":"nouvelle_date requise."}, status=400)
+            try:
+                b.date_depart = datetime.date.fromisoformat(str(nouvelle_date))
+            except ValueError:
+                return Response({"error":"Date invalide."}, status=400)
+            b.save(update_fields=["date_depart"])
+            return Response({"ok": True, "date_depart": b.date_depart})
+        return Response({"error":"action invalide (confirme|reporte)"}, status=400)
 
     @action(detail=False, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_csv(self, request):

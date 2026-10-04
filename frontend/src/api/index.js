@@ -100,6 +100,8 @@ export const batiments = {
   exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
   chambresDisponibles: (date_debut, date_fin) => api.get('/api/batiments/chambres_disponibles/', {params:{date_debut, date_fin}}),
+  monDepart: () => api.get('/api/batiments/mon_depart/'),
+  confirmerDepart: (id, d) => api.post(`/api/batiments/${id}/confirmer_depart/`, d),
 }
 
 // ── Points d'intérêt carte (restaurant, sport, rampe, etc.) ──────────

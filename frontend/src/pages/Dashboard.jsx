@@ -187,7 +187,8 @@ function MobileKpiCard({ icon, iconBg, label, value, sub }) {
 }
 
 function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, libres,
-  personnelLoge, personnelNonLoge, enVoyage, planifies, notifs, unread, MODULES, nav }) {
+  personnelLoge, personnelNonLoge, enVoyage, planifies, notifs, unread, MODULES, nav,
+  monDepart, monDepartBusy, monDepartDate, setMonDepartDate, confirmerMonDepart, reporterMonDepart }) {
   return (
     <div style={{ padding: '16px 14px 24px', display: 'flex', flexDirection: 'column', gap: 14,
       background: 'var(--rzc-fond-app, #f1f5f9)', minHeight: '100%' }}>
@@ -211,6 +212,34 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
           {loading ? '⏳' : '🔄'}
         </button>
       </div>
+
+      {/* Mon départ — relance J-1/en retard pour le résident connecté lui-même */}
+      {monDepart && (
+        <div style={{ background: monDepart.en_retard ? 'rgba(220,38,38,.08)' : 'rgba(240,165,0,.10)',
+          border: `1px solid ${monDepart.en_retard ? 'rgba(220,38,38,.3)' : 'rgba(240,165,0,.3)'}`,
+          borderRadius: 14, padding: '12px 14px' }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#0F1A2E' }}>
+            {monDepart.en_retard
+              ? `🧳 Départ prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — toujours logé`
+              : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
+          </div>
+          <p style={{ margin: '4px 0 10px', fontSize: 11.5, color: 'var(--rzc-text-3,#5B6472)' }}>
+            Confirmez votre départ ou indiquez une nouvelle date si vous restez.
+          </p>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={confirmerMonDepart} disabled={monDepartBusy}
+              style={{ flex:1, background:'#16A34A', color:'#fff', border:'none', borderRadius:10, padding:'8px 10px', fontSize:12, fontWeight:700 }}>
+              ✅ Je confirme
+            </button>
+            <input type="date" value={monDepartDate} onChange={e=>setMonDepartDate(e.target.value)}
+              style={{ flex:1, minWidth:120, border:'1px solid rgba(15,26,46,.14)', borderRadius:10, padding:'7px 8px', fontSize:12 }}/>
+            <button onClick={reporterMonDepart} disabled={monDepartBusy || !monDepartDate}
+              style={{ flex:1, background:'#0F2A5C', color:'#fff', border:'none', borderRadius:10, padding:'8px 10px', fontSize:12, fontWeight:700, opacity: !monDepartDate?.6:1 }}>
+              📅 Je reste
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Alertes urgentes — condensées, une carte compacte seulement sur mobile */}
       {alertes.some(a => a.urgent) && (
@@ -317,6 +346,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [sync, setSync]     = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [monDepartBusy, setMonDepartBusy] = useState(false)
+  const [monDepartDate, setMonDepartDate] = useState('')
+  const [deptModal, setDeptModal] = useState(false)
+  const [deptDates, setDeptDates] = useState({})
+  const [deptBusy, setDeptBusy] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -324,7 +358,7 @@ export default function Dashboard() {
       // Endpoints d'agrégats légers — jamais l'historique complet au chargement.
       // /personnel/ reste nécessaire en liste pour le calcul de conformité par société
       // (pas d'endpoint d'agrégat dédié côté backend actuellement) mais reste borné à 500.
-      const [rB, rI, rV, rN, rRepas, rStock, rEpi] = await Promise.allSettled([
+      const [rB, rI, rV, rN, rRepas, rStock, rEpi, rMD] = await Promise.allSettled([
         fetch(`${BASE}/api/batiments/stats/`,           { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/incidents/stats-sql/`,       { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/voyages/stats/`,             { headers: hdrs() }).then(r => r.json()),
@@ -332,6 +366,7 @@ export default function Dashboard() {
         fetch(`${BASE}/api/repas/stats_jour/`,          { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/boutique/articles/alertes_stock/?seuil=20`, { headers: hdrs() }).then(r => r.json()),
         fetch(`${BASE}/api/epi/alertes/`,               { headers: hdrs() }).then(r => r.json()),
+        fetch(`${BASE}/api/batiments/mon_depart/`,      { headers: hdrs() }).then(r => r.json()),
       ])
       const merged = {}
       if (rB.status === 'fulfilled')     merged.bat    = rB.value
@@ -341,6 +376,7 @@ export default function Dashboard() {
       if (rRepas.status === 'fulfilled') merged.repas  = rRepas.value
       if (rStock.status === 'fulfilled') merged.stock  = Array.isArray(rStock.value) ? rStock.value : []
       if (rEpi.status === 'fulfilled')   merged.epi    = rEpi.value
+      if (rMD.status === 'fulfilled')    merged.mondepart = rMD.value?.depart || null
       setD(merged)
 
       // Personnel : champ minimal nécessaire seulement (pas de page_size énorme à l'avenir
@@ -406,6 +442,61 @@ export default function Dashboard() {
   if (d.voy?.retours_en_retard > 0) alertes.push({ type:'voyage', titre:`${d.voy.retours_en_retard} retour(s) de rotation en retard`, desc:'Retour prévu dépassé, non enregistré', temps:'En retard', urgent:true })
   if (d.voy?.retours_proches > 0) alertes.push({ type:'voyage', titre:`${d.voy.retours_proches} retour(s) de rotation sous 3 jours`, desc:'Anticiper la relève', temps:'3 jours', urgent:false })
 
+  // ── Mon départ — relance J-1/en retard pour le RÉSIDENT connecté lui-même
+  // (cf. commande verifier_departs_residence qui le notifie, et l'action
+  // BatimentViewSet.confirmer_depart appelée ici) ──
+  const monDepart = d.mondepart || null
+  const confirmerMonDepart = async () => {
+    if (!monDepart) return
+    setMonDepartBusy(true)
+    try {
+      const r = await fetch(`${BASE}/api/batiments/${monDepart.batiment_id}/confirmer_depart/`, {
+        method: 'POST', headers: hdrs(), body: JSON.stringify({ action: 'confirme' }),
+      })
+      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'Erreur')
+      await load()
+    } catch (e) { alert(e.message) } finally { setMonDepartBusy(false) }
+  }
+  const reporterMonDepart = async () => {
+    if (!monDepart || !monDepartDate) return
+    setMonDepartBusy(true)
+    try {
+      const r = await fetch(`${BASE}/api/batiments/${monDepart.batiment_id}/confirmer_depart/`, {
+        method: 'POST', headers: hdrs(), body: JSON.stringify({ action: 'reporte', nouvelle_date: monDepartDate }),
+      })
+      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'Erreur')
+      setMonDepartDate('')
+      await load()
+    } catch (e) { alert(e.message) } finally { setMonDepartBusy(false) }
+  }
+
+  // ── Décision de départ pour le compte d'un résident — admin uniquement,
+  // depuis la liste déjà exposée par /api/batiments/stats/ ──
+  const departsRetardList = d.bat?.departs_en_retard_list || []
+  const confirmerDepartPourAdmin = async (batimentId) => {
+    setDeptBusy(batimentId)
+    try {
+      const r = await fetch(`${BASE}/api/batiments/${batimentId}/confirmer_depart/`, {
+        method: 'POST', headers: hdrs(), body: JSON.stringify({ action: 'confirme' }),
+      })
+      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'Erreur')
+      await load()
+    } catch (e) { alert(e.message) } finally { setDeptBusy(null) }
+  }
+  const reporterDepartPourAdmin = async (batimentId) => {
+    const nouvelle_date = deptDates[batimentId]
+    if (!nouvelle_date) return
+    setDeptBusy(batimentId)
+    try {
+      const r = await fetch(`${BASE}/api/batiments/${batimentId}/confirmer_depart/`, {
+        method: 'POST', headers: hdrs(), body: JSON.stringify({ action: 'reporte', nouvelle_date }),
+      })
+      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'Erreur')
+      setDeptDates(s => ({ ...s, [batimentId]: '' }))
+      await load()
+    } catch (e) { alert(e.message) } finally { setDeptBusy(null) }
+  }
+
   const bySoc = {}
   perso.forEach(p => {
     const s = p.societe || 'Autre'
@@ -445,6 +536,8 @@ export default function Dashboard() {
         personnelLoge={personnelLoge} personnelNonLoge={personnelNonLoge}
         enVoyage={enVoyage} planifies={planifies}
         notifs={d.notifs} unread={unread} MODULES={MODULES} nav={nav}
+        monDepart={monDepart} monDepartBusy={monDepartBusy} monDepartDate={monDepartDate}
+        setMonDepartDate={setMonDepartDate} confirmerMonDepart={confirmerMonDepart} reporterMonDepart={reporterMonDepart}
       />
     )
   }
@@ -497,6 +590,40 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── MON DÉPART — relance J-1/en retard pour le résident connecté lui-même ── */}
+      {monDepart && (
+        <div style={{ background: monDepart.en_retard ? 'var(--rzc-red-l)' : 'var(--rzc-gold-l,#3a2f12)',
+          border: `1.5px solid ${monDepart.en_retard ? 'rgba(220,38,38,.35)' : 'rgba(240,165,0,.35)'}`,
+          borderRadius: 14, padding: 16, marginBottom: 18, display:'flex', gap:14, flexWrap:'wrap', alignItems:'center' }}>
+          <span style={{ fontSize: 26 }}>🧳</span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontWeight: 800, fontSize: 13 }}>
+              {monDepart.en_retard
+                ? `Votre départ était prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — vous êtes toujours logé`
+                : `Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--rzc-text-3)', marginTop: 2 }}>
+              Confirmez votre départ (une demande de voyage Camp → Abidjan sera créée), ou indiquez une nouvelle date si vous restez.
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+            <button onClick={confirmerMonDepart} disabled={monDepartBusy}
+              style={{ background:'#16A34A', color:'#fff', border:'none', borderRadius:99, padding:'7px 16px',
+                cursor: monDepartBusy ? 'wait':'pointer', fontSize:12, fontWeight:700 }}>
+              ✅ Je confirme mon départ
+            </button>
+            <input type="date" value={monDepartDate} onChange={e=>setMonDepartDate(e.target.value)}
+              style={{ border:'1px solid var(--rzc-border)', borderRadius:8, padding:'6px 8px', fontSize:12 }}/>
+            <button onClick={reporterMonDepart} disabled={monDepartBusy || !monDepartDate}
+              style={{ background: (!monDepartDate||monDepartBusy) ? 'var(--rzc-charcoal-l2)' : 'var(--rzc-navy)',
+                color:'#fff', border:'none', borderRadius:99, padding:'7px 16px',
+                cursor: (!monDepartDate||monDepartBusy) ? 'not-allowed':'pointer', fontSize:12, fontWeight:700 }}>
+              📅 Je reste — nouvelle date
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── ALERTES ACTIVES ── fusionné depuis Centre Opérationnel */}
       {alertes.length > 0 && (
         <div style={{ background:'var(--rzc-charcoal-l1)', borderRadius:14, padding:16, marginBottom:18,
@@ -510,13 +637,16 @@ export default function Dashboard() {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:8 }}>
             {alertes.map((a,i) => (
-              <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
+              <div key={i} onClick={a.type==='residence' ? ()=>setDeptModal(true) : undefined}
+                style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
                 background: a.urgent ? 'var(--rzc-red-l)' : 'var(--rzc-charcoal-l2)',
+                cursor: a.type==='residence' ? 'pointer' : 'default',
                 border:`1.5px solid ${a.urgent ? 'rgba(220,38,38,.25)' : 'var(--rzc-border-light)'}` }}>
-                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'🧳',epi:'🦺'}[a.type]||'📋'}</span>
+                <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'🧳',residence:'🏠',epi:'🦺'}[a.type]||'📋'}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:12, color: a.urgent ? 'var(--rzc-red)' : 'var(--rzc-text)' }}>{a.titre}</div>
                   <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1 }}>{a.desc}</div>
+                  {a.type==='residence' && <div style={{ fontSize:10, color:'var(--rzc-navy)', marginTop:4, fontWeight:700 }}>Cliquer pour confirmer/reporter à sa place →</div>}
                 </div>
                 <div style={{ fontSize:10, color:'var(--rzc-text-4)', flexShrink:0 }}>{a.temps}</div>
               </div>
@@ -660,6 +790,43 @@ export default function Dashboard() {
           </div>
         </Panel>
       </div>
+
+      {/* ── Modal admin : décider pour le compte d'un résident ── */}
+      {deptModal && (
+        <div onClick={e=>e.target===e.currentTarget && setDeptModal(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+          <div style={{ background:'var(--rzc-white,#fff)', color:'#0F1A2E', borderRadius:16, width:'100%', maxWidth:560, maxHeight:'85vh', overflowY:'auto' }}>
+            <div style={{ padding:'16px 20px', background:'#0F2A5C', borderRadius:'16px 16px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ color:'#fff', fontSize:15, margin:0 }}>🏠 Départs résidence dépassés — décider pour le résident</h3>
+              <button onClick={()=>setDeptModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
+            </div>
+            <div style={{ padding:18 }}>
+              {departsRetardList.length === 0 ? (
+                <div style={{ textAlign:'center', color:'#64748b', padding:20 }}>Aucun départ en retard restant.</div>
+              ) : departsRetardList.map(r => (
+                <div key={r.batiment_id} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:12, marginBottom:10 }}>
+                  <div style={{ fontWeight:700, fontSize:13 }}>{r.personnel__nom} {r.personnel__prenom} — {r.residence}</div>
+                  <div style={{ fontSize:11.5, color:'#64748b', marginBottom:8 }}>Devait partir le {new Date(r.date_depart).toLocaleDateString('fr-FR')}</div>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                    <button onClick={()=>confirmerDepartPourAdmin(r.batiment_id)} disabled={deptBusy===r.batiment_id}
+                      style={{ background:'#16A34A', color:'#fff', border:'none', borderRadius:99, padding:'6px 14px', cursor:deptBusy===r.batiment_id?'wait':'pointer', fontSize:11.5, fontWeight:700 }}>
+                      ✅ Il part — créer la demande
+                    </button>
+                    <input type="date" value={deptDates[r.batiment_id]||''} onChange={e=>setDeptDates(s=>({...s,[r.batiment_id]:e.target.value}))}
+                      style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 8px', fontSize:11.5 }}/>
+                    <button onClick={()=>reporterDepartPourAdmin(r.batiment_id)} disabled={deptBusy===r.batiment_id || !deptDates[r.batiment_id]}
+                      style={{ background: (!deptDates[r.batiment_id]||deptBusy===r.batiment_id) ? '#e2e8f0' : '#0F2A5C',
+                        color:'#fff', border:'none', borderRadius:99, padding:'6px 14px',
+                        cursor: (!deptDates[r.batiment_id]||deptBusy===r.batiment_id) ? 'not-allowed':'pointer', fontSize:11.5, fontWeight:700 }}>
+                      📅 Il reste — nouvelle date
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
