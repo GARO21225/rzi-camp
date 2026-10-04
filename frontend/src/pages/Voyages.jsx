@@ -390,10 +390,17 @@ export default function Voyages() {
             style={{ background:'#16a34a', color:'#fff', border:'none', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, width:isMobile?'100%':'auto' }}>
             📥 Export CSV ({filtered.length})
           </button>
+          {/* "Déclarer mon voyage" retiré de la vue agent (choix d'Edgar) :
+              faisait doublon avec la Demande type "Voyage" (page
+              Demandes) — les deux aboutissaient à la même file de
+              validation admin, un seul circuit suffit. L'admin garde sa
+              création directe, qui ne passe jamais par Demandes. */}
+          {isAdmin && (
           <button onClick={() => setModal(true)}
             style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'10px 20px', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:700, width:isMobile?'100%':'auto' }}>
-            + {isAdmin ? 'Nouveau voyage' : 'Déclarer mon voyage'}
+            + Nouveau voyage
           </button>
+          )}
         </div>
       </div>
 
@@ -471,7 +478,15 @@ export default function Voyages() {
         </div>
       )}
 
-      {/* ── KPIs ── */}
+      {/* ── KPIs + filtres par statut ── */}
+      {/* Vue admin : dashboard complet (cartes KPI + boutons par statut),
+          utile pour une vue d'ensemble du camp entier. Vue agent
+          (!isAdmin) simplifiée à la demande d'Edgar : juste 3 contrôles
+          sur une ligne — un menu déroulant pour le statut, Liste,
+          Calendrier — ses propres voyages se comptent sur les doigts
+          d'une main, la grille de cartes + boutons-compteurs faisait
+          double emploi et n'avait pas sa place dans sa vue. */}
+      {isAdmin && (
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
         {[
           ['Total',     '📋', stats.total||data.length, '#2563eb'],
@@ -485,15 +500,20 @@ export default function Voyages() {
           </div>
         ))}
       </div>
+      )}
 
       {/* ── Filtres ── */}
       <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-        {filterBtns.map(([val, label, count]) => (
+        {isAdmin ? filterBtns.map(([val, label, count]) => (
           <button key={val} onClick={() => setFilterStatut(val)}
             style={{ ...S_BTN(filterStatut===val?'var(--rzc-navy)':'var(--rzc-white)', filterStatut===val?'var(--rzc-white)':'var(--rzc-text-2)', filterStatut===val?'var(--rzc-navy)':'var(--rzc-border-light)'), fontSize:12 }}>
             {label} <span style={{ background: filterStatut===val?'rgba(255,255,255,.25)':'var(--rzc-charcoal)', borderRadius:99, padding:'1px 7px', marginLeft:4, fontSize:11, fontWeight:700 }}>{count}</span>
           </button>
-        ))}
+        )) : (
+          <select value={filterStatut} onChange={e=>setFilterStatut(e.target.value)} style={{...inp, width:'auto', minWidth:150}}>
+            {filterBtns.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+          </select>
+        )}
         <div style={{marginLeft:'auto',display:'flex',gap:4,background:'#f1f5f9',borderRadius:9,padding:3}}>
           <button onClick={()=>setVue('liste')} style={{background:vue==='liste'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='liste'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='liste'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📋 Liste</button>
           <button onClick={()=>setVue('calendrier')} style={{background:vue==='calendrier'?'#fff':'transparent',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:700,color:vue==='calendrier'?'var(--rzc-navy)':'var(--rzc-text-3)',boxShadow:vue==='calendrier'?'0 1px 3px rgba(0,0,0,.1)':'none'}}>📅 Calendrier</button>
@@ -675,7 +695,7 @@ export default function Voyages() {
           onClick={e=>e.target===e.currentTarget&&setModal(false)}>
           <div style={{ background:'var(--rzc-white)',width:'100%',maxWidth:540,maxHeight:'92dvh',overflow:'auto',borderRadius:'18px 18px 0 0',boxShadow:'0 -8px 40px rgba(0,0,0,.2)' }}>
             <div style={{ position:'sticky',top:0,background:'linear-gradient(135deg,#0f2447,#1e3a8a)',color:'var(--rzc-white)',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderRadius:'18px 18px 0 0',zIndex:10 }}>
-              <span style={{ fontWeight:700,fontSize:15 }}>🧳 {isAdmin?'Nouveau voyage':'Déclarer mon voyage'}</span>
+              <span style={{ fontWeight:700,fontSize:15 }}>🧳 Nouveau voyage</span>
               <button onClick={()=>setModal(false)} style={{ background:'rgba(255,255,255,.2)',border:'none',color:'var(--rzc-white)',width:30,height:30,borderRadius:8,cursor:'pointer',fontSize:18 }}>✕</button>
             </div>
             <div style={{ padding:20,display:'flex',flexDirection:'column',gap:14 }}>

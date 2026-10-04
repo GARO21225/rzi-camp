@@ -589,7 +589,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         from django.utils import timezone
         from datetime import timedelta
-        qs = Voyage.objects.all()
+        # BUG REEL CORRIGE ICI : Voyage.objects.all() ignorait la
+        # restriction "un non-admin ne voit que ses propres voyages" déjà
+        # appliquée par get_queryset() (utilisée par list()) - un agent
+        # recevait donc les statistiques de TOUT le camp (tableau de bord
+        # admin), pas les siennes. get_queryset() applique déjà la bonne
+        # règle, on la réutilise au lieu de la dupliquer.
+        qs = self.get_queryset()
         today = timezone.now().date()
         # Rappels de fin de rotation : personnes en voyage dont le retour
         # prévu approche (3 jours) ou est déjà dépassé sans avoir été
