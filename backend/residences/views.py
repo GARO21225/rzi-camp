@@ -1418,12 +1418,14 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if decision == "confirme":
             from django.utils import timezone as djtz
             from voyages.models import Voyage
+            from .models import ResidentPrincipal
             today = datetime.date.today()
             date_dep = b.date_depart or today
-            personnel_nom = f"{b.personnel.nom} {b.personnel.prenom}"
+            personnel_obj = b.personnel
+            personnel_nom = f"{personnel_obj.nom} {personnel_obj.prenom}"
             residence_nom = b.residence
             voyage = Voyage.objects.create(
-                personnel=b.personnel, batiment=b,
+                personnel=personnel_obj, batiment=b,
                 destination="Abidjan", origine=residence_nom or "Camp Roxgold Sango",
                 motif=f"Départ résidence confirmé depuis {residence_nom}",
                 date_depart=date_dep, date_retour_prevue=date_dep,
@@ -1431,7 +1433,37 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 statut_validation="valide", valide_par=request.user, date_validation=djtz.now(),
                 enregistre_par=request.user,
             )
-            voyage.partir(date_dep)  # libère la chambre + passe le voyage en "en_voyage"
+            voyage.partir(date_dep)  # libère la chambre (via ResidentPrincipal si Edgar en a un) + passe le voyage en "en_voyage"
+
+            # Filet de sécurité : voyage.partir() libère la chambre du
+            # ResidentPrincipal actif s'il existe, qui peut être une AUTRE
+            # ligne Batiment que celle sur laquelle l'admin/le résident a
+            # cliqué ici (ex: la chambre affichée dans l'onglet "Chambres"
+            # peut différer de residents_principaux si les deux n'ont
+            # jamais été synchronisés). On force donc explicitement la
+            # libération de LA chambre cliquée (b) si elle est toujours
+            # occupée par ce même personnel après partir(), pour que
+            # l'onglet "Chambres" reflète toujours la décision prise ici —
+            # sans ça "Edgar reste dans sa chambre" malgré un Voyage créé.
+            b.refresh_from_db()
+            if b.personnel_id == personnel_obj.id:
+                OccupationHistory.objects.filter(
+                    batiment=b, personnel=personnel_obj, date_depart__isnull=True
+                ).update(date_depart=date_dep, motif_depart="Voyage")
+                Batiment.objects.filter(pk=b.pk).update(
+                    personnel=None, occupant=None, societe=None,
+                    date_arrivee=None, date_depart=None, statut="Libre"
+                )
+
+            # Idem pour le statut "résident principal" : clore le mandat
+            # actif de ce personnel (quelle que soit la chambre visée par
+            # cette ligne), sinon il reste affiché dans l'onglet "⭐
+            # Résidents principaux" comme si de rien n'était, alors que
+            # son départ vient d'être confirmé.
+            ResidentPrincipal.objects.filter(
+                personnel=personnel_obj, date_fin__isnull=True
+            ).update(date_fin=date_dep, motif_fin="Départ en voyage confirmé")
+
             try:
                 from evenements.models import SimpleNotification
                 from django.contrib.auth.models import User
