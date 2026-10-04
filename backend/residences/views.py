@@ -1475,9 +1475,15 @@ class BatimentViewSet(viewsets.ModelViewSet):
             personnel_obj = b.personnel
             personnel_nom = f"{personnel_obj.nom} {personnel_obj.prenom}"
             residence_nom = b.residence
+            # Point de descente choisi par le résident (liste déroulante côté
+            # app, cf. Layout.jsx MonDepartBanner) - avant ce correctif
+            # "Abidjan" était fige en dur, sans jamais demander où la
+            # personne descend reellement une fois arrivee (utile au Centre
+            # de Mobilite pour organiser la suite du trajet).
+            destination = (request.data.get("destination") or "Abidjan").strip() or "Abidjan"
             voyage = Voyage.objects.create(
                 personnel=personnel_obj, batiment=b,
-                destination="Abidjan", origine=residence_nom or "Camp Roxgold Sango",
+                destination=destination, origine=residence_nom or "Camp Roxgold Sango",
                 motif=f"Départ résidence confirmé depuis {residence_nom}",
                 date_depart=date_dep, date_retour_prevue=date_dep,
                 type_voyage="individuel",

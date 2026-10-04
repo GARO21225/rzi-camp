@@ -1521,6 +1521,49 @@ export default function MissionControl() {
               </div>
             </>)}
 
+            {/* BUG REEL CORRIGE ICI : un voyage individuel sans convoi (ex: le
+                depart "confirme" par un resident lui-meme depuis la carte
+                "Mon depart", rotation_id jamais renseigne dans ce flux) etait
+                invisible dans TOUTE cette page - ni ici (cette liste ne
+                vient que de /api/voyages/rotations/, qui ne groupe QUE les
+                voyages AYANT un rotation_id), ni ailleurs cote admin de
+                facon suffisamment visible. Reutilise directement `voyages`
+                (deja charge, liste brute complete) plutot qu'un nouvel
+                appel reseau. */}
+            {(() => {
+              const individuels = voyages.filter(v => !v.rotation_id && ['planifie','en_voyage'].includes(v.statut))
+              if (individuels.length === 0) return null
+              return (
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:.5}}>
+                    🧳 Départs individuels hors convoi ({individuels.length})
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {individuels.map(v=>(
+                      <div key={v.id} onClick={()=>setDetailVoyage(v)}
+                        style={{display:'flex',alignItems:'center',gap:10,background:C.surface,
+                          border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px',cursor:'pointer'}}>
+                        <span style={{fontSize:16}}>{v.statut==='en_voyage'?'🚐':'📅'}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:C.text}}>{v.personnel_nom||'—'}</div>
+                          <div style={{fontSize:11,color:C.muted}}>
+                            {v.origine} → {v.destination} · {fmt(v.date_depart)}
+                            {v.statut==='en_voyage' ? ' · En transit' : ' · Planifié'}
+                          </div>
+                        </div>
+                        {isAdmin && v.statut==='en_voyage' && (
+                          <button className="mc-btn mc-btn-success" style={{padding:'5px 12px',fontSize:11}}
+                            onClick={e=>{e.stopPropagation();changerStatut(v.id,'revenir')}}>
+                            ⬇ Retour
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {rotations
                 .filter(r=>afficherConvoisTermines || r.statut!=='retour')

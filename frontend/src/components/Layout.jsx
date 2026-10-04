@@ -222,10 +222,24 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
 // sur quelle page il atterrit.
 const ROLES_SANS_DASHBOARD = ['agent', 'restauration', 'technicien', 'menage']
 
+// Points de descente courants pour le trajet Camp -> Abidjan - évite de
+// laisser "Abidjan" fige en dur (demande explicite : le résident doit
+// pouvoir dire où il descend, pour que le Centre de Mobilité organise la
+// suite). Simple liste editable ici en attendant un catalogue dedie
+// (ItineraireModele existe deja pour les villes INTERMEDIAIRES d'un
+// trajet, pas pour le point de descente final du passager - portee
+// volontairement limitee a ce qui est demande).
+const POINTS_DESCENTE_ABIDJAN = [
+  'Adjamé', 'Plateau', 'Cocody', 'Yopougon', 'Marcory', 'Treichville',
+  'Abobo', 'Koumassi', 'Gare routière Abidjan', 'Autre (préciser)',
+]
+
 function MonDepartBanner({ role }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
+  const [destination, setDestination] = useState(POINTS_DESCENTE_ABIDJAN[0])
+  const [destinationAutre, setDestinationAutre] = useState('')
 
   useEffect(() => {
     if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
@@ -237,9 +251,10 @@ function MonDepartBanner({ role }) {
   if (!monDepart) return null
 
   const confirmer = async () => {
+    const dest = destination === 'Autre (préciser)' ? (destinationAutre.trim() || 'Abidjan') : destination
     setBusy(true)
     try {
-      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'confirme' })
+      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'confirme', destination: dest })
       setMonDepart(null)
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
@@ -264,6 +279,15 @@ function MonDepartBanner({ role }) {
           ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
           : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
       </div>
+      <select value={destination} onChange={e => setDestination(e.target.value)}
+        title="Où descendez-vous à Abidjan ?"
+        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }}>
+        {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+      {destination === 'Autre (préciser)' && (
+        <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
+          placeholder="Précisez le lieu" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
+      )}
       <button onClick={confirmer} disabled={busy}
         style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
           fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
