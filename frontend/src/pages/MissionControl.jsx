@@ -481,6 +481,13 @@ export default function MissionControl() {
   const [rotations,  setRotations] = useState([])
   const [demandesAOrganiser, setDemandesAOrganiser] = useState([])
   const [demandesSelectionnees, setDemandesSelectionnees] = useState([])
+  // Demandes de voyage (page Demandes) encore en_attente - affichees ICI
+  // AUSSI dans l'onglet Validations (demande d'Edgar : pouvoir valider
+  // depuis Centre de Mobilite sans devoir changer de page), mais le bouton
+  // appelle le MEME endpoint /api/demandes/<id>/valider/ que la page
+  // Demandes - une seule et unique validation, juste accessible des deux
+  // endroits.
+  const [demandesVoyageEnAttente, setDemandesVoyageEnAttente] = useState([])
   const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'', itineraire_modele_id:'' })
   const [personnel,  setPersonnel] = useState([])
   const [stats,      setStats]     = useState({})
@@ -560,7 +567,7 @@ export default function MissionControl() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [rv, rs, rp, rr, rrap, rvf, rra, rorg, rit] = await Promise.allSettled([
+      const [rv, rs, rp, rr, rrap, rvf, rra, rorg, rit, rdv] = await Promise.allSettled([
         api('/api/voyages/?page_size=200').then(r=>r.json()),
         api('/api/voyages/stats/').then(r=>r.json()),
         api('/api/personnel/?page_size=500&actif=true&droit_mobilite=true').then(r=>r.json()),
@@ -570,6 +577,7 @@ export default function MissionControl() {
         api('/api/voyages/retours_anticipes/').then(r=>r.json()),
         api('/api/voyages/demandes_a_organiser/').then(r=>r.json()),
         api('/api/itineraires-modeles/').then(r=>r.json()),
+        api('/api/demandes/?type_demande=voyage&statut=en_attente&page_size=200').then(r=>r.json()),
       ])
       if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
       if (rs.status==='fulfilled') setStats(rs.value||{})
@@ -580,6 +588,7 @@ export default function MissionControl() {
       if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
       if (rra.status==='fulfilled') setRetoursAnticipes(Array.isArray(rra.value) ? rra.value : [])
       if (rit.status==='fulfilled') setItineraires(rit.value?.results||rit.value||[])
+      if (rdv.status==='fulfilled') setDemandesVoyageEnAttente(rdv.value?.results||rdv.value||[])
     } catch(e) {}
     setLoading(false)
   }, [])
@@ -1207,7 +1216,7 @@ export default function MissionControl() {
               ...(isAdmin ? [['validations','✅ Validations']] : []),
               ['liste','🎫 Tous les voyages'],
             ].map(([v,l])=>{
-              const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : (v==='organiser' ? demandesAOrganiser.length : 0)
+              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length : 0)
               return (
                 <button key={v} className={`mc-tab ${view===v?'active':''}`}
                   onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
@@ -2502,14 +2511,52 @@ export default function MissionControl() {
         {/* ══ VUE VALIDATIONS EN ATTENTE ═══════════════════════════ */}
         {view==='validations' && isAdmin && (
           <div className="mc-fade">
+            {/* Demandes de voyage (page Demandes) encore en_attente :
+                meme bouton Valider/Rejeter que sur la page Demandes
+                (memes endpoints /api/demandes/<id>/valider|rejeter/) -
+                une seule validation, juste accessible aussi d'ici. */}
+            {demandesVoyageEnAttente.length > 0 && (
+              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>
+                  📨 Demandes de voyage ({demandesVoyageEnAttente.length})
+                </div>
+                {demandesVoyageEnAttente.map(d=>(
+                  <Panel key={`d${d.id}`} style={{padding:16}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:14,color:C.text}}>{d.demandeur_nom}</div>
+                        <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                          🧳 {d.donnees?.destination || '—'} · {fmt(d.date_debut_souhaitee)} → {fmt(d.date_fin_souhaitee)}
+                        </div>
+                        {d.message_demandeur && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {d.message_demandeur}</div>}
+                      </div>
+                      <div style={{display:'flex',gap:8}}>
+                        <button className="mc-btn" style={{background:C.green,color:'#fff'}}
+                          onClick={async()=>{
+                            try{ await api(`/api/demandes/${d.id}/valider/`,{method:'POST',body:JSON.stringify({})}); toast.success('Demande validée'); load() }
+                            catch{ toast.error('Erreur') }
+                          }}>✅ Valider</button>
+                        <button className="mc-btn" style={{background:C.red,color:'#fff'}}
+                          onClick={async()=>{
+                            const motif = prompt(`Motif du rejet de la demande de ${d.demandeur_nom} (obligatoire) :`)
+                            if(!motif) return
+                            try{ await api(`/api/demandes/${d.id}/rejeter/`,{method:'POST',body:JSON.stringify({commentaire:motif})}); toast.success('Demande rejetée'); load() }
+                            catch{ toast.error('Erreur') }
+                          }}>❌ Rejeter</button>
+                      </div>
+                    </div>
+                  </Panel>
+                ))}
+              </div>
+            )}
             {(() => {
               const enAttente = voyages.filter(v=>v.statut_validation==='en_attente')
-              return enAttente.length===0 ? (
+              return (enAttente.length===0 && demandesVoyageEnAttente.length===0) ? (
                 <Panel style={{padding:40,textAlign:'center'}}>
                   <div style={{fontSize:40,marginBottom:10}}>✅</div>
                   <div style={{color:C.muted,fontSize:13}}>Aucune demande en attente de validation.</div>
                 </Panel>
-              ) : (
+              ) : enAttente.length===0 ? null : (
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {enAttente.map(v=>(
                     <Panel key={v.id} style={{padding:16}}>

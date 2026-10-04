@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI } from '../api'
+import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI, plaintes as plaintesAPI } from '../api'
 import { toast } from '../toast'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -188,6 +188,63 @@ export default function Historique() {
       .then(r => setMaintData(r.data.results || r.data || []))
       .catch(() => setMaintData([]))
       .finally(() => setMaintLoading(false))
+  }
+
+  // ── Plaintes clôturées/rejetées (demande d'Edgar : les retrouver ICI,
+  // dans la page Historique commune à tout le reste, pas seulement via
+  // l'onglet Actives/Historique interne à la page Plaintes) ──
+  const [plaintesHistData, setPlaintesHistData] = useState([])
+  const [plaintesHistLoading, setPlaintesHistLoading] = useState(false)
+  const [plaintesHistSearch, setPlaintesHistSearch] = useState('')
+  const [plaintesHistDateDebut, setPlaintesHistDateDebut] = useState('')
+  const [plaintesHistDateFin, setPlaintesHistDateFin] = useState('')
+  const [plainteSelectionnee, setPlainteSelectionnee] = useState(null)
+  const PLAINTE_STATUT_V = {
+    cloturee: { bg:'rgba(100,116,139,.12)', color:'#64748b', label:'Clôturée' },
+    rejetee:  { bg:'rgba(239,68,68,.12)',  color:'#ef4444', label:'Rejetée' },
+  }
+
+  const loadPlaintesHistorique = () => {
+    setPlaintesHistLoading(true)
+    // Le filtre "statut" de /api/plaintes/ n'accepte qu'une seule valeur -
+    // deux appels (cloturee + rejetee) plutot que d'ajouter un filtre
+    // multi-valeurs cote backend juste pour cet usage.
+    Promise.all([
+      plaintesAPI.list({ statut: 'cloturee', page_size: 2000 }),
+      plaintesAPI.list({ statut: 'rejetee', page_size: 2000 }),
+    ])
+      .then(([a, b]) => {
+        const combinees = [...(a.data?.results || a.data || []), ...(b.data?.results || b.data || [])]
+        combinees.sort((x, y) => new Date(y.date_cloture || y.date_creation) - new Date(x.date_cloture || x.date_creation))
+        setPlaintesHistData(combinees)
+      })
+      .catch(() => setPlaintesHistData([]))
+      .finally(() => setPlaintesHistLoading(false))
+  }
+
+  const plaintesHistFiltered = React.useMemo(() => {
+    let f = plaintesHistData
+    if (plaintesHistSearch) {
+      const s = plaintesHistSearch.toLowerCase()
+      f = f.filter(p => [p.occupant_nom, p.batiment_residence, p.categorie_label, p.description].some(v => (v||'').toLowerCase().includes(s)))
+    }
+    if (plaintesHistDateDebut) f = f.filter(p => p.date_cloture && p.date_cloture.slice(0,10) >= plaintesHistDateDebut)
+    if (plaintesHistDateFin) f = f.filter(p => p.date_cloture && p.date_cloture.slice(0,10) <= plaintesHistDateFin)
+    return f
+  }, [plaintesHistData, plaintesHistSearch, plaintesHistDateDebut, plaintesHistDateFin])
+
+  const exportPlaintesCSV = () => {
+    if (!plaintesHistFiltered.length) return
+    telechargerCSV(
+      ['Catégorie', 'Sous-catégorie', 'Résidence', 'Occupant', 'Statut', 'Créé le', 'Clôturé le'],
+      plaintesHistFiltered.map(p => [
+        p.categorie_label || p.categorie || '', p.sous_categorie || '', p.batiment_residence || '', p.occupant_nom || '',
+        PLAINTE_STATUT_V[p.statut]?.label || p.statut || '',
+        p.date_creation ? new Date(p.date_creation).toLocaleDateString('fr-FR') : '',
+        p.date_cloture ? new Date(p.date_cloture).toLocaleDateString('fr-FR') : '',
+      ]),
+      `plaintes_historique_${new Date().toISOString().slice(0,10)}.csv`
+    )
   }
 
   // ── Induction QHSE ──
@@ -414,6 +471,7 @@ export default function Historique() {
     ['ensemble','🌍 Tous les voyages'],
     ['repas','🍽️ Restaurant'],
     ['maintenance','🛠️ Maintenance (clôturés)'],
+    ['plaintes','🧹 Plaintes (historique)'],
     ['induction','🎓 Induction QHSE'],
     ['audit','🛡️ Audit (archive)'],
   ]
@@ -439,7 +497,7 @@ export default function Historique() {
         ? {display:'flex',gap:8,marginBottom:16,overflowX:'auto',paddingBottom:4}
         : {display:'flex',gap:2,marginBottom:16,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
         {TABS.map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='induction') loadInduction(); if(k==='audit' && !auditSearched) loadAudit()}}
+          <button key={k} onClick={()=>{setTab(k);setResults([]);setVoyData(null);setSearched(false); if(k==='maintenance') loadMaintenance(); if(k==='plaintes') loadPlaintesHistorique(); if(k==='induction') loadInduction(); if(k==='audit' && !auditSearched) loadAudit()}}
             style={isMobile
               ? {flexShrink:0,padding:'7px 14px',borderRadius:99,border:`1px solid ${tab===k?'var(--blue)':'var(--border)'}`,cursor:'pointer',fontSize:12,fontWeight:700,
                   background:tab===k?'var(--blue)':'#fff',color:tab===k?'#fff':'var(--text-dim)',whiteSpace:'nowrap'}
@@ -968,6 +1026,134 @@ export default function Historique() {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PLAINTES (historique) ── */}
+      {tab==='plaintes' && (
+        <div>
+          <SearchCard title="🧹 Historique des plaintes clôturées/rejetées" color="#5B6472">
+            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
+              <input type="date" value={plaintesHistDateDebut||''} onChange={e=>setPlaintesHistDateDebut(e.target.value)}
+                placeholder="Date clôture début"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              <input type="date" value={plaintesHistDateFin||''} onChange={e=>setPlaintesHistDateFin(e.target.value)}
+                placeholder="Date clôture fin"
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 10px',borderRadius:8,fontSize:13}} />
+
+              <input type="text" value={plaintesHistSearch||''} onChange={e=>setPlaintesHistSearch(e.target.value)}
+                placeholder="🔍 Occupant, résidence, catégorie..."
+                style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
+
+              <button onClick={loadPlaintesHistorique} disabled={plaintesHistLoading}
+                style={{background:'#5B6472',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                {plaintesHistLoading?'⏳ Recherche...':'🔍 Actualiser'}
+              </button>
+
+              {(plaintesHistDateDebut||plaintesHistDateFin||plaintesHistSearch) && (
+                <button onClick={()=>{setPlaintesHistDateDebut('');setPlaintesHistDateFin('');setPlaintesHistSearch('')}}
+                  style={{background:'rgba(100,116,139,.1)',color:'#64748b',border:'1px solid rgba(100,116,139,.2)',padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600}}>
+                  ✕ Reset
+                </button>
+              )}
+
+              {plaintesHistFiltered.length > 0 && (
+                <button onClick={exportPlaintesCSV}
+                  style={{background:'rgba(22,163,74,.1)',color:'#16a34a',border:'1px solid rgba(22,163,74,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  ⬇ Export CSV ({plaintesHistFiltered.length})
+                </button>
+              )}
+            </div>
+          </SearchCard>
+
+          {plaintesHistFiltered.length > 0 ? (
+            <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+              <div style={{padding:'10px 16px',background:'#5B6472',color:'#fff',fontWeight:600,fontSize:13}}>
+                📋 {plaintesHistFiltered.length}/{plaintesHistData.length} dossier(s) clôturé(s)/rejeté(s)
+              </div>
+              <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr style={{background:'var(--surface2)'}}>
+                    {['Catégorie','Résidence','Occupant','Statut','Créé le','Clôturé le',''].map(h=>(
+                      <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {plaintesHistFiltered.map((p,idx)=>{
+                      const dtC = p.date_creation ? new Date(p.date_creation) : null
+                      const dtF = p.date_cloture ? new Date(p.date_cloture) : null
+                      const v = PLAINTE_STATUT_V[p.statut] || {bg:'var(--surface2)',color:'var(--text-dim)',label:p.statut}
+                      return (
+                        <tr key={p.id||idx} onClick={()=>setPlainteSelectionnee(p)}
+                          style={{borderTop:'1px solid var(--border)',background:idx%2?'var(--surface2)':'#fff',cursor:'pointer'}}>
+                          <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{p.categorie_label || p.categorie}{p.sous_categorie?` — ${p.sous_categorie}`:''}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{p.batiment_residence||'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{p.occupant_nom||'—'}</td>
+                          <td style={{padding:'9px 12px'}}><span style={{background:v.bg,color:v.color,padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{v.label}</span></td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtC ? dtC.toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>{dtF ? dtF.toLocaleDateString('fr-FR') : '—'}</td>
+                          <td style={{padding:'9px 12px'}}>
+                            <button onClick={(e)=>{e.stopPropagation(); setPlainteSelectionnee(p)}}
+                              style={{background:'rgba(91,100,114,.1)',color:'#5B6472',border:'1px solid rgba(91,100,114,.25)',padding:'4px 10px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>
+                              📄 Détail
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon="🧹" text={plaintesHistLoading ? "Chargement..." : "Aucune plainte clôturée/rejetée."}/>
+          )}
+
+          {plainteSelectionnee && (
+            <div style={{ position:'fixed', inset:0, background:'rgba(15,36,71,.5)', zIndex:900,
+              display:'flex', alignItems:'center', justifyContent:'flex-end' }}
+              onClick={e=>e.target===e.currentTarget && setPlainteSelectionnee(null)}>
+              <div style={{ background:'#fff', width:'100%', maxWidth:460, height:'100%', overflow:'auto', boxShadow:'-4px 0 30px rgba(0,0,0,.2)' }}>
+                <div style={{ background:'linear-gradient(135deg,#5B6472,#3a4048)', color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:15 }}>{plainteSelectionnee.categorie_label} — {plainteSelectionnee.sous_categorie}</div>
+                    <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{plainteSelectionnee.batiment_residence} · {PLAINTE_STATUT_V[plainteSelectionnee.statut]?.label || plainteSelectionnee.statut}</div>
+                  </div>
+                  <button onClick={()=>setPlainteSelectionnee(null)}
+                    style={{ background:'rgba(255,255,255,.2)', border:'none', color:'#fff', width:28, height:28, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
+                </div>
+
+                <div style={{ padding:16 }}>
+                  <div style={{ background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>DESCRIPTION</div>
+                    <div style={{ fontSize:13 }}>{plainteSelectionnee.description || '—'}</div>
+                  </div>
+
+                  {plainteSelectionnee.resultat_resolution && (
+                    <div style={{ background:'rgba(22,163,74,.06)', border:'1px solid rgba(22,163,74,.2)', borderRadius:10, padding:12, marginBottom:12 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#16a34a', marginBottom:4 }}>✅ RÉSOLUTION</div>
+                      <div style={{ fontSize:13 }}>{plainteSelectionnee.resultat_resolution}</div>
+                      {plainteSelectionnee.date_resolution && <div style={{fontSize:11,color:'var(--text-dim)',marginTop:6}}>Résolu le {new Date(plainteSelectionnee.date_resolution).toLocaleString('fr-FR')}</div>}
+                    </div>
+                  )}
+
+                  {plainteSelectionnee.motif_rejet && (
+                    <div style={{ background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)', borderRadius:10, padding:12, marginBottom:12 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#ef4444', marginBottom:4 }}>✕ MOTIF DU REJET</div>
+                      <div style={{ fontSize:13 }}>{plainteSelectionnee.motif_rejet}</div>
+                    </div>
+                  )}
+
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:8, fontSize:12 }}>
+                    <div><span style={{color:'var(--text-dim)'}}>Occupant :</span> <b>{plainteSelectionnee.occupant_nom || '—'}</b></div>
+                    <div><span style={{color:'var(--text-dim)'}}>Créé le :</span> <b>{plainteSelectionnee.date_creation ? new Date(plainteSelectionnee.date_creation).toLocaleDateString('fr-FR') : '—'}</b></div>
+                    <div><span style={{color:'var(--text-dim)'}}>Clôturé le :</span> <b>{plainteSelectionnee.date_cloture ? new Date(plainteSelectionnee.date_cloture).toLocaleDateString('fr-FR') : '—'}</b></div>
+                  </div>
                 </div>
               </div>
             </div>

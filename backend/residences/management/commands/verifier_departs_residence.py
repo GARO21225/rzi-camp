@@ -69,7 +69,16 @@ class Command(BaseCommand):
 
         today = datetime.date.today()
         demain = today + datetime.timedelta(days=1)
-        admins = User.objects.filter(is_staff=True)
+        # BUG REEL CORRIGE ICI : ne couvrait que is_staff=True, pas un
+        # compte dont le SEUL marqueur admin est profile.role=="admin"
+        # (meme bug deja rencontre et corrige sur PlainteViewSet et
+        # confirmer_depart) - un tel compte admin ne recevait donc JAMAIS
+        # la notification "Départ prévu" ni l'alerte de retard, meme si
+        # un resident, lui, recevait bien sa relance (compteur "relance(s)"
+        # correct cote resident, mais 0 cote admin silencieusement).
+        admins = (set(User.objects.filter(is_staff=True))
+                  | set(User.objects.filter(is_superuser=True))
+                  | set(User.objects.filter(profile__role="admin")))
         relances, alertes = 0, 0
 
         # ── J-1 ET jour J : relance le resident, info l'admin ──
