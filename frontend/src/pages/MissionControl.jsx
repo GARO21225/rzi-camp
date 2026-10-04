@@ -3,6 +3,7 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
+import { useStore } from '../store'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
 const tok  = () => localStorage.getItem('access_token') || ''
@@ -472,6 +473,9 @@ function GanttBar({ voyage, days, onClick }) {
 // ════════════════════════════════════════════════════════════════════
 export default function MissionControl() {
   const isMobile = useIsMobile()
+  const { user } = useStore()
+  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
+  const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
   const [view,       setView]      = useState('command')
   const [voyages,    setVoyages]   = useState([])
   const [rotations,  setRotations] = useState([])
@@ -1196,11 +1200,11 @@ export default function MissionControl() {
             {[
               ['command','🛰️ Command'],
               ['rotations','🚀 Rotations'],
-              ['organiser','📋 À organiser'],
+              ...(isAdmin ? [['organiser','📋 À organiser']] : []),
               ['gantt','📅 Gantt'],
               ['manifest','📋 Manifest'],
               ['calendrier','🗓️ Calendrier'],
-              ['validations','✅ Validations'],
+              ...(isAdmin ? [['validations','✅ Validations']] : []),
               ['liste','🎫 Tous les voyages'],
             ].map(([v,l])=>{
               const nbPending = v==='validations' ? voyages.filter(x=>x.statut_validation==='en_attente').length : (v==='organiser' ? demandesAOrganiser.length : 0)
@@ -1224,9 +1228,11 @@ export default function MissionControl() {
               <LiveDot/>LIVE
             </div>
             <Clock/>
-            <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
-              ✦ Nouvelle rotation
-            </button>
+            {isAdmin && (
+              <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
+                ✦ Nouvelle rotation
+              </button>
+            )}
           </div>
         </div>
 
@@ -1327,10 +1333,10 @@ export default function MissionControl() {
                 })}
                 {rotations.length===0&&(
                   <div style={{textAlign:'center',padding:'20px 0',color:C.muted,fontSize:12}}>
-                    Aucune rotation · <button className="mc-btn mc-btn-ghost"
+                    Aucune rotation{isAdmin && (<> · <button className="mc-btn mc-btn-ghost"
                       style={{marginLeft:8}} onClick={()=>setShowCreate('rotation')}>
                       + Créer
-                    </button>
+                    </button></>)}
                   </div>
                 )}
               </Panel>
@@ -1363,11 +1369,11 @@ export default function MissionControl() {
                           → {v.destination} · Retour {fmt(v.date_retour_prevue)}
                         </div>
                       </div>
-                      <button className="mc-btn mc-btn-success" style={{padding:'4px 10px',fontSize:10}}
+                      {isAdmin && <button className="mc-btn mc-btn-success" style={{padding:'4px 10px',fontSize:10}}
                         onClick={async()=>{
                           const ok = await confirmDialog(`Confirmer le retour de ${v.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(v.date_retour_prevue)}.`)
                           if(ok) changerStatut(v.id,'revenir')
-                        }}>⬇ Retour</button>
+                        }}>⬇ Retour</button>}
                     </div>
                   ))}
                   {absents.length===0&&(
@@ -1478,9 +1484,11 @@ export default function MissionControl() {
                 <button className="mc-btn mc-btn-ghost" onClick={()=>setShowCreate('individuel')}>
                   + Voyage individuel
                 </button>
-                <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
-                  ✦ Nouvelle rotation
-                </button>
+                {isAdmin && (
+                  <button className="mc-btn mc-btn-primary" onClick={()=>setShowCreate('rotation')}>
+                    ✦ Nouvelle rotation
+                  </button>
+                )}
               </div>
             </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
@@ -1580,11 +1588,11 @@ export default function MissionControl() {
                               📄 JMP
                             </button>
                           )}
-                          {r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center'}}
+                          {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
                             🚦 Partir
                           </button>}
-                          {r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
+                          {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
                             {r.trajet_aller_seul ? '🏁 Terminer' : '🏠 Retour'}
                           </button>}
@@ -1655,22 +1663,22 @@ export default function MissionControl() {
                           }}>
                           🛡️ JMP
                         </button>}
-                        {r.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
+                        {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
                           🧳 Partir
                         </button>}
-                        {r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
+                        {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
                           {r.trajet_aller_seul ? '✅ Terminer' : '🏠 Retour'}
                         </button>}
-                        <button className="mc-btn"
+                        {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
                           title="Supprimer tout le convoi"
                           onClick={supprimerConvoi}>
                           🗑️
-                        </button>
+                        </button>}
                         <button className="mc-btn mc-btn-ghost"
                           style={{padding:'6px 10px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();setSelRot(isOpen?null:r)}}>
@@ -1701,7 +1709,7 @@ export default function MissionControl() {
                               canBook={libres>0 && r.statut==='planifie'}
                               onBook={()=>{}}
                             />
-                            {libres>0 && r.statut==='planifie' && (
+                            {isAdmin && libres>0 && r.statut==='planifie' && (
                               <div style={{marginTop:12}}>
                                 <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
                                   ➕ Ajouter un passager <b style={{color:C.text}}>à CE convoi</b> ({r.vehicule||r.rotation_id}) — pour un voyage séparé, utilise plutôt « + Voyage individuel »
@@ -1857,7 +1865,7 @@ export default function MissionControl() {
                               </span>
                               {isMobile && <span style={{fontSize:11.5,color:C.muted}}>{prises} passager(s)</span>}
                             </div>
-                            {isMobile && libres>0 && r.statut==='planifie' && (
+                            {isAdmin && isMobile && libres>0 && r.statut==='planifie' && (
                               <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
                                   background:C.accent,color:'#000',fontWeight:800,marginBottom:10,border:'none',borderRadius:9,justifyContent:'center'}}
                                   onClick={async ()=>{
@@ -1947,7 +1955,7 @@ export default function MissionControl() {
                                     </div>
                                   </div>
                                   <StatusBadge statut={p.statut} allerSeul={r.trajet_aller_seul}/>
-                                  {p.statut==='planifie' && (
+                                  {isAdmin && p.statut==='planifie' && (
                                     <button onClick={async ev=>{
                                         ev.stopPropagation()
                                         const ok = await confirmDialog(`Retirer ${p.personnel__nom} ${p.personnel__prenom} de cette rotation ?`)
@@ -1981,7 +1989,7 @@ export default function MissionControl() {
                                 </div>
                               )}
                             </div>
-                            {isMobile && (
+                            {isMobile && isAdmin && (
                               <button className="mc-btn" style={{width:'100%',marginTop:12,fontSize:12,
                                   background:`${C.red}18`,color:C.red,justifyContent:'center'}}
                                 title="Supprimer tout le convoi" onClick={supprimerConvoi}>
@@ -2005,16 +2013,18 @@ export default function MissionControl() {
                   <div style={{fontSize:12,color:C.muted,marginBottom:20}}>
                     Créez votre première rotation pour commencer
                   </div>
-                  <button className="mc-btn mc-btn-primary"
-                    onClick={()=>setShowCreate('rotation')}>
-                    ✦ Créer une rotation
-                  </button>
+                  {isAdmin && (
+                    <button className="mc-btn mc-btn-primary"
+                      onClick={()=>setShowCreate('rotation')}>
+                      ✦ Créer une rotation
+                    </button>
+                  )}
                 </Panel>
               )}
             </div>
 
             {/* FAB "+" — créer une rotation, comme sur la maquette validée */}
-            {isMobile && (
+            {isMobile && isAdmin && (
               <button aria-label="Organiser une rotation" onClick={()=>setShowCreate('rotation')}
                 style={{position:'fixed',right:16,bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
                   width:54,height:54,borderRadius:27,background:C.accent,border:'none',
@@ -2029,7 +2039,7 @@ export default function MissionControl() {
         )}
 
         {/* ══ VUE À ORGANISER (demandes validees pas encore en rotation) ══ */}
-        {view==='organiser' && (
+        {view==='organiser' && isAdmin && (
           <div className="mc-fade" style={{padding:16}}>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Demandes validées à organiser</div>
@@ -2229,6 +2239,7 @@ export default function MissionControl() {
                         overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v}</span>
                     </div>
                   ))}
+                  {isAdmin && (
                   <div style={{marginTop:10,display:'flex',gap:6}}>
                     {selVoyage.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
                       style={{flex:1,fontSize:11}}
@@ -2254,6 +2265,7 @@ export default function MissionControl() {
                       Annuler
                     </button>
                   </div>
+                  )}
                 </Panel>
               </div>
             )}
@@ -2488,7 +2500,7 @@ export default function MissionControl() {
         )}
 
         {/* ══ VUE VALIDATIONS EN ATTENTE ═══════════════════════════ */}
-        {view==='validations' && (
+        {view==='validations' && isAdmin && (
           <div className="mc-fade">
             {(() => {
               const enAttente = voyages.filter(v=>v.statut_validation==='en_attente')
@@ -2540,7 +2552,7 @@ export default function MissionControl() {
                 placeholder="🔍 Rechercher un nom, une destination…"
                 style={{flex:1,minWidth:220,maxWidth:320,padding:'9px 14px',borderRadius:9,
                   border:`1px solid ${C.border}`,background:C.panel,color:C.text,fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-              {selectionListe.size > 0 && (
+              {isAdmin && selectionListe.size > 0 && (
                 <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:`${C.red}12`,borderRadius:9,border:`1px solid ${C.red}30`}}>
                   <span style={{fontSize:12,color:C.text,fontWeight:700}}>{selectionListe.size} sélectionné(s)</span>
                   <button className="mc-btn" style={{fontSize:11,background:C.red,color:'#fff',padding:'5px 10px'}}
@@ -2576,6 +2588,7 @@ export default function MissionControl() {
                   <Panel key={v.id} style={{padding:0,overflow:'hidden',outline:estSelectionne?`2px solid ${C.red}`:'none'}}>
                     {/* Bandeau façon billet — talon perforé stylisé */}
                     <div style={{display:'flex',alignItems:'stretch'}}>
+                      {isAdmin && (
                       <div style={{display:'flex',alignItems:'center',padding:'0 4px 0 12px'}}>
                         <input type="checkbox" checked={estSelectionne}
                           onChange={()=>setSelectionListe(prev=>{
@@ -2585,6 +2598,7 @@ export default function MissionControl() {
                           })}
                           style={{width:16,height:16,cursor:'pointer'}}/>
                       </div>
+                      )}
                       <div style={{flex:1,padding:16,borderRight:`1.5px dashed ${C.border}`}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                           <div>
@@ -2610,7 +2624,7 @@ export default function MissionControl() {
                         <a href={`${BASE}/api/voyages/${v.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                           className="mc-btn mc-btn-primary" style={{fontSize:11,textDecoration:'none',justifyContent:'center'}}>🎫 Billet</a>
                         <button className="mc-btn" style={{fontSize:11,background:C.border,color:C.text}} onClick={()=>ouvrirDetail(v)}>Détails</button>
-                        <button className="mc-btn" style={{fontSize:11,background:`${C.red}18`,color:C.red}}
+                        {isAdmin && <button className="mc-btn" style={{fontSize:11,background:`${C.red}18`,color:C.red}}
                           onClick={async ()=>{
                             const ok = await confirmDialog(`Supprimer définitivement le voyage de ${v.personnel_nom} vers ${v.destination} ? Cette action est irréversible.`)
                             if (!ok) return
@@ -2621,7 +2635,7 @@ export default function MissionControl() {
                             } catch { toast.error('Erreur réseau') }
                           }}>
                           🗑️ Supprimer
-                        </button>
+                        </button>}
                       </div>
                     </div>
                   </Panel>
@@ -2677,6 +2691,7 @@ export default function MissionControl() {
                 {detailVoyage.motif_refus && <div style={{fontSize:11,color:C.red,marginTop:4}}>Motif : {detailVoyage.motif_refus}</div>}
               </div>
 
+              {isAdmin && (<>
               {/* Montée / Descente en cours de route — edition DIRECTE et
                   simple des points de prise en charge, sans passer par le
                   systeme d'etapes complet (reserve aux vrais trajets
@@ -3050,6 +3065,7 @@ export default function MissionControl() {
                   </div>
                 </div>
               )}
+              </>)}
 
               <a href={`${BASE}/api/voyages/${detailVoyage.id}/billet/?token=${tok()}`} target="_blank" rel="noreferrer"
                 className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',textDecoration:'none',boxSizing:'border-box'}}>
