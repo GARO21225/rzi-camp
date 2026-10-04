@@ -2475,12 +2475,36 @@ class DemandeViewSet(viewsets.ModelViewSet):
             qs = Demande.objects.select_related("demandeur","traite_par").all()
         else:
             qs = Demande.objects.select_related("demandeur","traite_par").filter(demandeur=user)
-        
+
         statut = self.request.query_params.get("statut")
         type_d = self.request.query_params.get("type_demande")
         if statut: qs = qs.filter(statut=statut)
         if type_d: qs = qs.filter(type_demande=type_d)
         return qs
+
+    def create(self, request, *args, **kwargs):
+        # BUG REEL CORRIGE ICI : la regle "demande de voyage envoyee au
+        # moins 48h avant le depart" existe deja pour la creation DIRECTE
+        # d'un Voyage (VoyageViewSet.create) mais n'a jamais existe ici -
+        # or depuis que "Declarer mon voyage" a ete retire de la vue agent
+        # (un seul circuit : Demandes), c'est maintenant le SEUL chemin par
+        # lequel un agent demande un voyage, donc la regle doit s'y
+        # appliquer aussi, sous peine d'avoir ete silencieusement supprimee
+        # par la simplification plutot que deplacee.
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        if not is_admin and request.data.get("type_demande") == "voyage":
+            date_debut = request.data.get("date_debut_souhaitee")
+            if date_debut:
+                try:
+                    dd = datetime.date.fromisoformat(str(date_debut))
+                except ValueError:
+                    dd = None
+                if dd and dd < datetime.date.today() + datetime.timedelta(days=2):
+                    return Response({
+                        "error": "Les demandes de voyage doivent être envoyées au moins 48h avant la date de départ. Pour un départ plus proche, contactez l'administrateur directement."
+                    }, status=400)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         # "demandeur" existe reellement sur Demande (contrairement aux 2

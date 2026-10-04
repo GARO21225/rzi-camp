@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI } from '../api'
+import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI, itinerairesModeles as itinerairesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -51,6 +51,8 @@ export default function Demandes() {
   const [actionSaving, setActionSaving] = useState(false)
   const [bats, setBats] = useState([])
   const [batsLoading, setBatsLoading] = useState(false)
+  const [itineraires, setItineraires] = useState([])
+  const dansAuMoins48h = new Date(Date.now()+48*3600*1000).toISOString().slice(0,10)
   const [form, setForm] = useState({
     message_demandeur:'', residence_souhaitee:'',
     date_debut_souhaitee:today, date_fin_souhaitee:'',
@@ -101,6 +103,10 @@ export default function Demandes() {
       const items = r.data.compatibles||[]
       setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
     }).catch(()=>setBats([]))
+    itinerairesAPI.list().then(r => {
+      const items = r.data.results||r.data||[]
+      setItineraires(items.filter(i=>i.actif))
+    }).catch(()=>setItineraires([]))
   }
 
   // Adapte un Voyage au meme "gabarit" visuel qu'une Demande, pour
@@ -435,15 +441,30 @@ export default function Demandes() {
 
               {createModal === 'voyage' && (
                 <div style={{ marginBottom:12 }}>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Destination</label>
-                  <input value={form.donnees?.destination||''} onChange={e=>setForm({...form,donnees:{...form.donnees,destination:e.target.value}})} style={inp} placeholder="Ville, pays..."/>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Itinéraire</label>
+                  <select value={form.donnees?.itineraire_modele||''} onChange={e=>{
+                    const it = itineraires.find(i=>String(i.id)===e.target.value)
+                    setForm({...form, donnees:{...form.donnees, itineraire_modele:e.target.value, destination:it?.destination||'', origine:it?.origine||''}})
+                  }} style={inp}>
+                    <option value="">— Sélectionner un itinéraire —</option>
+                    {itineraires.map(i=><option key={i.id} value={i.id}>{i.nom} ({i.origine} → {i.destination})</option>)}
+                  </select>
                 </div>
               )}
 
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10, marginBottom:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Date départ':'Date arrivée'}</label>
-                  <input type="date" value={form.date_debut_souhaitee} min={today} onChange={e=>setForm({...form,date_debut_souhaitee:e.target.value})} style={inp}/>
+                  {/* Une demande de voyage doit arriver au moins 48h avant le
+                      départ (même règle que la création directe d'un Voyage,
+                      maintenant le seul chemin restant depuis que "Déclarer
+                      mon voyage" a été retiré de la vue agent — sans ce
+                      min, la contrainte aurait disparu avec lui plutôt que
+                      d'être déplacée ici). */}
+                  <input type="date" value={form.date_debut_souhaitee} min={createModal==='voyage' && !isAdmin ? dansAuMoins48h : today} onChange={e=>setForm({...form,date_debut_souhaitee:e.target.value})} style={inp}/>
+                  {createModal==='voyage' && !isAdmin && (
+                    <div style={{fontSize:10,color:'var(--text-dim)',marginTop:3}}>Au moins 48h à l'avance — pour un départ plus proche, contactez l'admin directement.</div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Retour prévu':'Date départ'}</label>

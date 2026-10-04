@@ -61,15 +61,24 @@ class Command(BaseCommand):
         admins = User.objects.filter(is_staff=True)
         relances, alertes = 0, 0
 
-        # ── J-1 : relance le resident, info l'admin ──
+        # ── J-1 ET jour J : relance le resident, info l'admin ──
+        # BUG REEL CORRIGE ICI : la relance ne couvrait QUE date_depart ==
+        # demain. Un depart fixe a AUJOURD'HUI meme (date_depart == today)
+        # ne correspondait a aucun des deux filtres (ni "= demain", ni
+        # "< today" pour le retard) - trou silencieux ou le resident ET
+        # l'admin ne recevaient jamais rien le jour meme du depart annonce,
+        # avant qu'il ne bascule en retard le lendemain. Couvre maintenant
+        # aujourd'hui ET demain, avec un message adapte au cas.
         a_relancer = Batiment.objects.filter(
-            statut="Occupé", personnel__isnull=False, date_depart=demain,
+            statut="Occupé", personnel__isnull=False, date_depart__in=[today, demain],
         ).select_related("personnel")
         for b in a_relancer:
             if self._deja_pris_en_charge(b.personnel, Voyage, Demande):
                 continue
+            est_aujourdhui = b.date_depart == today
+            quand = "aujourd'hui" if est_aujourdhui else "demain"
             message = (
-                f"Vous deviez partir demain ({b.date_depart.strftime('%d/%m/%Y')}) — "
+                f"Vous deviez partir {quand} ({b.date_depart.strftime('%d/%m/%Y')}) — "
                 f"confirmez-vous votre départ ? Rendez-vous sur Résidences pour répondre : "
                 f"départ confirmé (demande de voyage Camp → Abidjan) ou nouvelle date."
             )
@@ -78,11 +87,11 @@ class Command(BaseCommand):
             ):
                 SimpleNotification.objects.create(
                     user_id=b.personnel.user_id, personnel=b.personnel,
-                    titre="🧳 Confirmez-vous votre départ demain ?", message=message, type_notif="demande",
+                    titre=f"🧳 Confirmez-vous votre départ {quand} ?", message=message, type_notif="demande",
                 )
                 relances += 1
             message_admin = (
-                f"{b.personnel.nom} {b.personnel.prenom} ({b.residence}) part demain "
+                f"{b.personnel.nom} {b.personnel.prenom} ({b.residence}) part {quand} "
                 f"({b.date_depart.strftime('%d/%m/%Y')}) — relance envoyée au résident. "
                 f"Vous pouvez aussi confirmer ou reporter à sa place depuis Résidences."
             )
@@ -91,7 +100,7 @@ class Command(BaseCommand):
             ):
                 for admin in admins:
                     SimpleNotification.objects.create(
-                        user=admin, titre="🧳 Départ prévu demain", message=message_admin, type_notif="info",
+                        user=admin, titre=f"🧳 Départ prévu {quand}", message=message_admin, type_notif="info",
                     )
 
         # ── Date depassee sans reponse : alerte admin (filet de secours) ──
