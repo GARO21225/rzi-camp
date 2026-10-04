@@ -1865,9 +1865,17 @@ class PlainteViewSet(viewsets.ModelViewSet):
             pass
 
     def _notifier_habilites(self, titre, message):
+        # BUG REEL CORRIGE ICI : ne couvrait que is_staff/is_superuser,
+        # pas un compte dont le SEUL marqueur admin est profile.role=="admin"
+        # (c'est le cas ailleurs dans le projet, ex: confirmer_depart) - un
+        # tel compte ne recevait donc JAMAIS la notification "Nouvelle
+        # plainte", silencieusement, exactement le symptôme signalé pour
+        # la plainte déposée par Edgar.
         try:
             from evenements.models import SimpleNotification
-            admins = set(User.objects.filter(is_staff=True)) | set(User.objects.filter(is_superuser=True))
+            admins = (set(User.objects.filter(is_staff=True))
+                      | set(User.objects.filter(is_superuser=True))
+                      | set(User.objects.filter(profile__role="admin")))
             for a in admins:
                 SimpleNotification.objects.create(user=a, titre=titre, message=message, type_notif="alerte")
         except Exception:
@@ -2566,8 +2574,8 @@ class DemandeViewSet(viewsets.ModelViewSet):
                     pass
         
         elif demande.type_demande == "voyage":
-            from voyages.models import Voyage
-            from voyages.views import _check_voyage_conflit
+            from voyages.models import Voyage, Rotation, ItineraireModele
+            from voyages.views import _check_voyage_conflit, _appliquer_itineraire_a_voyage
             import uuid as _uuid
             data = demande.donnees
             if demande.demandeur:
@@ -2581,6 +2589,32 @@ class DemandeViewSet(viewsets.ModelViewSet):
                         demande.commentaire_admin = (demande.commentaire_admin or "") + f" ⚠️ Voyage non créé : {p.nom} {p.prenom} a déjà un voyage actif du {conflict.date_depart} au {conflict.date_retour_prevue}."
                     else:
                         try:
+                            # Regroupe les voyageurs ayant choisi le MEME
+                            # itineraire (champ ajoute au formulaire de
+                            # Demande) pour la MEME date de depart dans un
+                            # seul convoi (Rotation) - demande explicite
+                            # d'Edgar, au lieu d'un rotation_id isole genere
+                            # au hasard pour chaque demande. Reutilise
+                            # Rotation, deja le mecanisme standard de convoi
+                            # (cf. creer_rotation/rejoindre_rotation), plutot
+                            # que d'inventer un autre systeme de groupage.
+                            itineraire_obj = ItineraireModele.objects.filter(
+                                pk=data.get("itineraire_modele") or None
+                            ).first()
+                            rotation_obj = None
+                            if itineraire_obj:
+                                rotation_obj = Rotation.objects.filter(
+                                    itineraire_modele=itineraire_obj, date_depart=dd, statut="planifie",
+                                ).first()
+                                if rotation_obj and Voyage.objects.filter(rotation_id=rotation_obj.rotation_id).exclude(statut="annule").count() >= rotation_obj.nb_places_total:
+                                    rotation_obj = None  # convoi complet : on en ouvre un nouveau plutôt que de bloquer la validation
+                                if not rotation_obj:
+                                    rotation_obj = Rotation.objects.create(
+                                        rotation_id=str(_uuid.uuid4())[:8].upper(),
+                                        destination=itineraire_obj.destination, origine=itineraire_obj.origine,
+                                        date_depart=dd, date_retour_prevue=df,
+                                        itineraire_modele=itineraire_obj, enregistre_par=request.user,
+                                    )
                             # Meme traitement qu'un voyage individuel cree
                             # depuis Centre de Mobilite (rotation_id genere,
                             # statut_validation en_attente meme si valide ici -
@@ -2591,19 +2625,22 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # verification de chevauchement).
                             voyage_cree = Voyage.objects.create(
                                 personnel=p,
-                                destination=data.get("destination",""),
+                                destination=data.get("destination","") or (itineraire_obj.destination if itineraire_obj else ""),
+                                origine=data.get("origine","") or (itineraire_obj.origine if itineraire_obj else "Camp Roxgold Sango"),
                                 motif=data.get("motif",""),
                                 date_depart=dd,
                                 date_retour_prevue=df,
-                                rotation_id=str(_uuid.uuid4())[:8].upper(),
-                                nb_places_total=1,
-                                type_voyage="individuel",
+                                rotation_id=rotation_obj.rotation_id if rotation_obj else str(_uuid.uuid4())[:8].upper(),
+                                nb_places_total=rotation_obj.nb_places_total if rotation_obj else 1,
+                                type_voyage="rotation" if rotation_obj else "individuel",
                                 statut_validation="valide",
                                 valide_par=request.user,
                                 date_validation=timezone.now(),
                                 enregistre_par=request.user,
                                 demande_origine=demande,
                             )
+                            if itineraire_obj:
+                                _appliquer_itineraire_a_voyage(voyage_cree, itineraire_obj)
                             # BUG REEL CORRIGE ICI : ce chemin (validation
                             # d'une Demande "voyage" depuis la page
                             # Demandes) creait le Voyage mais ne liberait
