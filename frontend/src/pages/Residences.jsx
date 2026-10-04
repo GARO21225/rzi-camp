@@ -328,8 +328,8 @@ export default function Residences() {
                 </p>
               )}
               <div style={{display:'flex',gap:8,marginTop:4}}>
-                <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>
-                <button onClick={()=>openHistory(b)} style={{background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋</button>
+                {isAdmin && <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>}
+                <button onClick={()=>openHistory(b)} style={{flex:isAdmin?'none':1,background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋{!isAdmin && ' Historique'}</button>
               </div>
             </div>
           ))}
@@ -363,8 +363,8 @@ export default function Residences() {
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontSize:11, color:b.date_depart?'var(--rzc-red)':'var(--rzc-text-3)' }}>{b.date_depart||'—'}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <div style={{ display:'flex', gap:5 }}>
-                        <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>
-                        <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋</button>
+                        {isAdmin && <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>}
+                        <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋{!isAdmin && ' Historique'}</button>
                       </div>
                     </td>
                   </tr>
