@@ -80,6 +80,18 @@ def liste_parametres(request):
         'sms_hsms_password': ('', 'HSMS — Mot de passe du compte (optionnel, utilisé uniquement pour renouveler le token)'),
         'sms_at_username': ("", "Africa's Talking — Username"),
         'sms_at_api_key': ("", "Africa's Talking — API Key"),
+        # Horaires repas / boutique - purement informatif/configurable pour
+        # l'instant (affichage) : aucune restriction horaire n'est encore
+        # appliquee aux scans Restauration ni aux ventes Boutique, ce
+        # serait une 2e etape distincte si demandee.
+        'repas_petit_dej_debut': ('06:00', 'Repas — Petit-déjeuner, heure de début'),
+        'repas_petit_dej_fin':   ('09:00', 'Repas — Petit-déjeuner, heure de fin'),
+        'repas_dejeuner_debut':  ('12:00', 'Repas — Déjeuner, heure de début'),
+        'repas_dejeuner_fin':    ('14:30', 'Repas — Déjeuner, heure de fin'),
+        'repas_diner_debut':     ('19:00', 'Repas — Dîner, heure de début'),
+        'repas_diner_fin':       ('21:30', 'Repas — Dîner, heure de fin'),
+        'boutique_ouverture_debut': ('07:00', "Bar & Boutique — heure d'ouverture"),
+        'boutique_ouverture_fin':   ('22:00', 'Bar & Boutique — heure de fermeture'),
         # Icônes des points d'intérêt sur la Carte SIG (MapPage.jsx) -
         # personnalisables sans redéploiement, en remplacement des
         # étiquettes de nom débordantes retirées de la carte (demande

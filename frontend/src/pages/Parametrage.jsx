@@ -27,6 +27,16 @@ const CHAMPS = [
     { cle: 'jmp_securite_nom', label: 'Nom du responsable sécurité', suffix: '', type: 'text', hint: 'Approuve chaque document JMP' },
     { cle: 'jmp_securite_fonction', label: 'Fonction du responsable sécurité', suffix: '', type: 'text', hint: '' },
   ]},
+  { section: '🍽️🛒 Horaires — Repas & Boutique', items: [
+    { cle: 'repas_petit_dej_debut', label: 'Petit-déjeuner — début', suffix: '', type: 'time', hint: '' },
+    { cle: 'repas_petit_dej_fin',   label: 'Petit-déjeuner — fin',   suffix: '', type: 'time', hint: '' },
+    { cle: 'repas_dejeuner_debut',  label: 'Déjeuner — début', suffix: '', type: 'time', hint: '' },
+    { cle: 'repas_dejeuner_fin',    label: 'Déjeuner — fin',   suffix: '', type: 'time', hint: '' },
+    { cle: 'repas_diner_debut',     label: 'Dîner — début', suffix: '', type: 'time', hint: '' },
+    { cle: 'repas_diner_fin',       label: 'Dîner — fin',   suffix: '', type: 'time', hint: '' },
+    { cle: 'boutique_ouverture_debut', label: 'Bar & Boutique — ouverture', suffix: '', type: 'time', hint: '' },
+    { cle: 'boutique_ouverture_fin',   label: 'Bar & Boutique — fermeture', suffix: '', type: 'time', hint: '' },
+  ]},
   { section: '📱 Mobile Money — Numéros marchands du camp', items: [
     { cle: 'mm_numero_om',   label: 'Orange Money', suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Orange Money' },
     { cle: 'mm_numero_wave', label: 'Wave',         suffix: '', type: 'text', hint: 'Numéro qui reçoit/envoie les paiements Wave' },
