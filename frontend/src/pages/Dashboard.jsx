@@ -435,7 +435,7 @@ export default function Dashboard() {
   if (critiques > 0) alertes.push({ type:'incident', titre:`${critiques} incident(s) critique(s)`, desc:'Nécessite intervention immédiate', temps:'Maintenant', urgent:true })
   if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
   if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
-  if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dépassé(s)`, desc:'Date de départ passée, encore logé — demander : il part (créer une demande de voyage) ou nouvelle date de départ ?', temps:'En retard', urgent:true })
+  if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dépassé(s)`, desc:'Date de départ passée, encore logé — confirmer son départ (chambre libérée, voyage créé) ou donner une nouvelle date', temps:'En retard', urgent:true })
   if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
   if (d.epi?.expires > 0) alertes.push({ type:'epi', titre:`${d.epi.expires} EPI expiré(s)`, desc:'Renouvellement urgent — conformité QHSE', temps:'Maintenant', urgent:true })
   if (d.epi?.bientot > 0) alertes.push({ type:'epi', titre:`${d.epi.bientot} EPI à renouveler`, desc:'Expiration sous 30 jours', temps:'30 jours', urgent:false })
@@ -603,7 +603,7 @@ export default function Dashboard() {
                 : `Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--rzc-text-3)', marginTop: 2 }}>
-              Confirmez votre départ (une demande de voyage Camp → Abidjan sera créée), ou indiquez une nouvelle date si vous restez.
+              Confirmez votre départ (votre chambre sera libérée et un voyage Camp → Abidjan créé immédiatement), ou indiquez une nouvelle date si vous restez.
             </div>
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
@@ -810,7 +810,7 @@ export default function Dashboard() {
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                     <button onClick={()=>confirmerDepartPourAdmin(r.batiment_id)} disabled={deptBusy===r.batiment_id}
                       style={{ background:'#16A34A', color:'#fff', border:'none', borderRadius:99, padding:'6px 14px', cursor:deptBusy===r.batiment_id?'wait':'pointer', fontSize:11.5, fontWeight:700 }}>
-                      ✅ Il part — créer la demande
+                      ✅ Il part — libérer la chambre
                     </button>
                     <input type="date" value={deptDates[r.batiment_id]||''} onChange={e=>setDeptDates(s=>({...s,[r.batiment_id]:e.target.value}))}
                       style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 8px', fontSize:11.5 }}/>

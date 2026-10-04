@@ -712,6 +712,11 @@ export default function Restauration() {
           .then(r => setMyQR(r.data))
           .catch(() => {})
       })
+      // Menu du jour — lecture seule, pour que n'importe quel agent voie
+      // ce qui est servi (demande explicite : "voir les noms des repas").
+      menuAPI.list({date_service: new Date().toISOString().slice(0,10), disponible: true})
+        .then(r => setMenuItems(r.data.results || r.data || []))
+        .catch(() => {})
     }
   }, [typeRepas])
 
@@ -808,6 +813,10 @@ export default function Restauration() {
                             {items.map(m => (
                               <div key={m.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                                 background:'rgba(255,255,255,0.6)', borderRadius:5, padding:'3px 6px', marginBottom:2 }}>
+                                {m.photo_base64 && (
+                                  <img src={`data:image/jpeg;base64,${String(m.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
+                                    alt="" style={{ width:16, height:16, objectFit:'cover', borderRadius:3, marginRight:4, flexShrink:0 }}/>
+                                )}
                                 <span style={{ fontSize:10, fontWeight:600, color:'#1e293b', flex:1,
                                   whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.nom}</span>
                                 <div style={{ display:'flex', gap:2, marginLeft:4, flexShrink:0 }}>
@@ -1080,6 +1089,38 @@ export default function Restauration() {
           )}
         </div>
 
+        {/* Menu du jour — lecture seule pour l'agent, avec photo si renseignée */}
+        {menuItems.length > 0 && (
+          <div style={{ marginTop: 16, background: 'var(--rzc-charcoal-l1)', borderRadius: 12, padding: 14, border: '1px solid var(--rzc-border-light)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--rzc-text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>🍽️ Menu du jour</div>
+            {REPAS.map(r => {
+              const menuKey = { petit_dejeuner:'matin', dejeuner:'midi', diner:'soir' }[r.key]
+              const plats = menuItems.filter(m => m.repas === menuKey)
+              if (plats.length === 0) return null
+              return (
+                <div key={r.key} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: r.color, marginBottom: 5 }}>{r.emoji} {r.label}</div>
+                  {plats.map(m => (
+                    <div key={m.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0' }}>
+                      {m.photo_base64 ? (
+                        <img src={`data:image/jpeg;base64,${String(m.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
+                          alt={m.nom} style={{ width:36, height:36, objectFit:'cover', borderRadius:7, flexShrink:0 }}/>
+                      ) : (
+                        <span style={{ width:36, height:36, borderRadius:7, background:'var(--rzc-charcoal-l2)',
+                          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>🍽️</span>
+                      )}
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:'var(--rzc-text)' }}>{m.nom}</div>
+                        {m.description && <div style={{ fontSize:10.5, color:'var(--rzc-text-4)' }}>{m.description}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Horaires repas */}
         <div style={{ marginTop: 16, background: 'var(--rzc-charcoal-l1)', borderRadius: 12, padding: 14, border: '1px solid var(--rzc-border-light)' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--rzc-text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Horaires des repas</div>
@@ -1242,6 +1283,29 @@ function MenuFormModal({ menuForm, setMenuForm, menuDate, setMenuItems }) {
             onChange={e=>setMenuForm(f=>({...f,date_service:e.target.value}))}
             style={{border:'2px solid var(--rzc-border-light)',borderRadius:8,padding:'8px 10px',
               fontSize:13,outline:'none',width:'100%',boxSizing:'border-box'}}/>
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:'var(--rzc-text-3)',display:'block',marginBottom:5}}>📷 Photo du plat (optionnel)</label>
+            {menuForm.photo_base64 ? (
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <img src={`data:image/jpeg;base64,${String(menuForm.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
+                  alt="Photo du plat" style={{width:56,height:56,objectFit:'cover',borderRadius:8,border:'1px solid var(--rzc-border-light)'}}/>
+                <button type="button" onClick={()=>setMenuForm(f=>({...f,photo_base64:''}))}
+                  style={{background:'none',border:'1px solid var(--rzc-border-light)',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:11,color:'#dc2626'}}>
+                  🗑️ Retirer
+                </button>
+              </div>
+            ) : (
+              <input type="file" accept="image/*" onChange={e=>{
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  if (f.size > 3*1024*1024) { toast.error('Photo trop lourde (max 3 Mo)'); return }
+                  const reader = new FileReader()
+                  reader.onload = () => setMenuForm(ff=>({...ff, photo_base64: reader.result}))
+                  reader.readAsDataURL(f)
+                }}
+                style={{fontSize:12,width:'100%'}}/>
+            )}
+          </div>
           <button onClick={async()=>{
             if(!menuForm.nom||!menuForm.date_service){toast.success('Nom et date requis');return}
             try{

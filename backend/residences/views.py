@@ -1392,11 +1392,15 @@ class BatimentViewSet(viewsets.ModelViewSet):
         """
         Reponse a la relance de depart (resident lui-meme, ou admin pour
         son compte - cf. demande d'Edgar). Deux issues :
-          - "confirme" : cree une demande de voyage Camp -> Abidjan, meme
-            circuit standard que Demandes (DemandeViewSet.valider deja
-            existant) - PAS de contournement du controle de conflit
-            habituel, elle rejoint "A organiser" des sa validation admin
-            comme n'importe quelle autre demande de voyage.
+          - "confirme" : cree DIRECTEMENT le Voyage (deja valide) et appelle
+            Voyage.partir() - qui existe deja et fait exactement ce qu'il
+            faut ici : liberer la chambre (statut Libre, occupant efface)
+            ET passer le voyage en statut "en_voyage", visible aussitot
+            dans Centre de Mobilite. Version initiale passait par une
+            Demande a valider manuellement dans "Demandes" avant qu'un
+            Voyage n'existe meme - etape jugee inutile (retour explicite
+            d'Edgar) puisque confirmer EST deja la decision/validation,
+            qu'elle vienne du resident ou de l'admin pour son compte.
           - "reporte" : le resident reste, nouvelle date de depart sur la
             chambre.
         """
@@ -1412,16 +1416,35 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
         decision = request.data.get("action")
         if decision == "confirme":
-            from .models import Demande
-            demande = Demande.objects.create(
-                demandeur_id=b.personnel.user_id, type_demande="voyage",
-                date_debut_souhaitee=b.date_depart,
-                donnees={"destination":"Abidjan","motif":"Départ résidence confirmé"},
-                message_demandeur=f"Départ confirmé depuis {b.residence} (relance automatique du {datetime.date.today()}).",
-                statut="en_attente",
+            from django.utils import timezone as djtz
+            from voyages.models import Voyage
+            today = datetime.date.today()
+            date_dep = b.date_depart or today
+            personnel_nom = f"{b.personnel.nom} {b.personnel.prenom}"
+            residence_nom = b.residence
+            voyage = Voyage.objects.create(
+                personnel=b.personnel, batiment=b,
+                destination="Abidjan", origine=residence_nom or "Camp Roxgold Sango",
+                motif=f"Départ résidence confirmé depuis {residence_nom}",
+                date_depart=date_dep, date_retour_prevue=date_dep,
+                type_voyage="individuel",
+                statut_validation="valide", valide_par=request.user, date_validation=djtz.now(),
+                enregistre_par=request.user,
             )
-            demande.notifier_admin()
-            return Response({"ok": True, "demande_id": demande.id})
+            voyage.partir(date_dep)  # libère la chambre + passe le voyage en "en_voyage"
+            try:
+                from evenements.models import SimpleNotification
+                from django.contrib.auth.models import User
+                admins = set(User.objects.filter(is_staff=True)) | set(User.objects.filter(profile__role="admin"))
+                for admin in admins:
+                    SimpleNotification.objects.create(
+                        user=admin, titre="Centre de mobilité — départ confirmé",
+                        message=f"{personnel_nom} — départ confirmé vers Abidjan, chambre {residence_nom} libérée.",
+                        type_notif="info",
+                    )
+            except Exception:
+                pass
+            return Response({"ok": True, "voyage_id": voyage.id})
         elif decision == "reporte":
             nouvelle_date = request.data.get("nouvelle_date")
             if not nouvelle_date:

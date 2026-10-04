@@ -183,6 +183,10 @@ class MenuJour(models.Model):
     ], default='midi')
     disponible  = models.BooleanField(default=True)
     image_url   = models.URLField(blank=True)
+    photo_base64 = models.TextField(blank=True, default='',
+        help_text="Photo du plat en base64 — même mécanisme que les autres photos de "
+                   "l'application (Maintenance, Voyages), plus simple ici qu'exiger une "
+                   "URL d'image déjà hébergée ailleurs (image_url, gardé pour compatibilité).")
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
