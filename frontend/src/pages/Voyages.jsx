@@ -525,7 +525,7 @@ export default function Voyages() {
       </div>
 
       {vue === 'calendrier' ? (
-        <VueCalendrier voyages={filtered} mois={moisCalendrier} setMois={setMoisCalendrier} onSelectVoyage={openEdit} />
+        <VueCalendrier voyages={filtered} mois={moisCalendrier} setMois={setMoisCalendrier} onSelectVoyage={isAdmin ? openEdit : ()=>{}} />
       ) : (
       <>
       {/* ── Tableau ── */}
@@ -614,38 +614,42 @@ export default function Voyages() {
                                 style={S_BTN('#fef2f2','#dc2626','#fca5a5')} title="Refuser">❌</button>
                             </>
                           )}
-                          {/* Modifier */}
+                          {/* Modifier — admin uniquement (backend : update/partial_update 403 sinon) */}
+                          {isAdmin && (
                           <button onClick={()=>openEdit(v)}
                             style={S_BTN('#eff6ff','#2563eb','#bfdbfe')} title="Modifier">
                             ✏️
                           </button>
+                          )}
                           {/* Partir */}
-                          {v.statut==='planifie' && (
+                          {isAdmin && v.statut==='planifie' && (
                             <button onClick={()=>partir(v.id)}
                               style={S_BTN('#fff7ed','#f97316','#fed7aa')} title="Marquer en voyage">
                               🚀 Partir
                             </button>
                           )}
                           {/* Retour */}
-                          {v.statut==='en_voyage' && (
+                          {isAdmin && v.statut==='en_voyage' && (
                             <button onClick={()=>revenir(v)}
                               style={S_BTN('#f0fdf4','#16a34a','#86efac')} title="Retour au camp">
                               🏠 Retour
                             </button>
                           )}
                           {/* Annuler */}
-                          {v.statut==='planifie' && (
+                          {isAdmin && v.statut==='planifie' && (
                             <button onClick={()=>annulerVoyage(v)}
                               style={S_BTN('#f8fafc','var(--rzc-text-3)','var(--rzc-border-light)')} title="Annuler">
                               ✕
                             </button>
                           )}
-                          {/* 🗑️ SUPPRIMER — TOUJOURS VISIBLE */}
+                          {/* 🗑️ Supprimer — admin uniquement (backend : 403 sinon) */}
+                          {isAdmin && (
                           <button onClick={()=>supprimerVoyage(v)}
                             style={{ ...S_BTN('#fef2f2','#dc2626','#fca5a5'), minWidth:80 }}
                             title="Supprimer ce voyage">
                             🗑️ Suppr.
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>
