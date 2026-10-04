@@ -224,17 +224,26 @@ export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const { isOffline, syncMsg, retry } = useOffline()
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'auto')
+  // Thème forcé en clair : la quasi-totalité des pages est en CSS-in-JS
+  // inline avec des fonds clairs codés en dur (#fff, #f8fafc, etc.) sans
+  // `color` explicite. Le mode sombre ne couvrait que quelques classes CSS
+  // (.card, .table, .badge-*, modals) dans theme.css, alors que `--text`
+  // passait à #FAFAFA globalement (héritage CSS normal) -> texte blanc sur
+  // fond clair partout ailleurs, et ce dès que l'OS/navigateur préfère le
+  // mode sombre (theme 'auto' par défaut, sans action de l'utilisateur).
+  // Tant que les pages ne sont pas toutes auditées pour le dark mode, on
+  // neutralise le mode sombre pour éviter ce bug d'illisibilité.
+  const theme = 'light'
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
   const isMobile = useIsMobile()
 
-  // Apply theme
+  // Applique toujours le thème clair, quoi qu'il y ait en localStorage
+  // (anciens réglages 'dark'/'auto' d'utilisateurs qui avaient basculé).
   useEffect(() => {
-    const t = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
-    document.documentElement.setAttribute('data-theme', t)
-    localStorage.setItem('theme', theme)
-  }, [theme])
+    document.documentElement.setAttribute('data-theme', 'light')
+    try { localStorage.removeItem('theme') } catch {}
+  }, [])
 
   // is_staff/is_superuser (verite Django) prime TOUJOURS sur profile.role
   // (simple champ metier, qui vaut 'agent' par defaut et peut ne jamais
@@ -409,17 +418,6 @@ export default function Layout() {
           </div>
         )}
 
-        {/* Bascule thème */}
-          <button
-            onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); localStorage.setItem('theme', t) }}
-            title="Basculer thème"
-            style={{ background:'transparent', border:'none', color:'#374151',
-              width:36, height:36, borderRadius:6, cursor:'pointer', flexShrink:0,
-              display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, transition: 'all 150ms' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' }}>
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
             style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#374151', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
