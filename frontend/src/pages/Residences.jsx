@@ -238,15 +238,21 @@ export default function Residences() {
             border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
           🏠 Chambres
         </button>
+        {isAdmin && (
         <button onClick={()=>setVueOnglet('residents')}
           style={{ flex:isMobile?1:'none', background: vueOnglet==='residents' ? (isMobile?'#fff':'var(--rzc-navy)') : (isMobile?'transparent':'#f1f5f9'),
             color: vueOnglet==='residents' ? (isMobile?'var(--rzc-navy)':'#fff') : '#475569',
             border:'none', padding:'8px 16px', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>
           ⭐ Résidents principaux
         </button>
+        )}
       </div>
 
-      {vueOnglet==='residents' ? <ResidentsPrincipauxTab isAdmin={isAdmin} personnelList={personnelList} batimentsList={data} isMobile={isMobile} /> : <>
+      {/* Onglet "Résidents principaux" réservé à l'admin (droit de
+          délégation non implémenté) — un non-admin ne doit jamais voir
+          cette vue, même si vueOnglet valait 'residents' avant un
+          changement de rôle (session qui redevient non-admin, etc.). */}
+      {vueOnglet==='residents' && isAdmin ? <ResidentsPrincipauxTab isAdmin={isAdmin} personnelList={personnelList} batimentsList={data} isMobile={isMobile} /> : <>
 
       {/* Filtres */}
       {isMobile ? (

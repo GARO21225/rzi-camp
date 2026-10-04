@@ -1,17 +1,19 @@
 """
 Répare les cas où un personnel a déjà un Voyage validé/en cours
 (statut_validation="valide", statut in planifie/en_voyage) alors que sa
-chambre (Batiment.statut="Occupé") et/ou son mandat de résident principal
-(ResidentPrincipal.date_fin__isnull=True) n'ont jamais été clôturés.
+chambre (Batiment.statut="Occupé") n'a jamais été libérée.
 
 Cas réel ayant motivé cette commande : la validation d'une Demande de
 type "voyage" (page "📝 Demandes") créait le Voyage mais ne touchait
-jamais au Batiment ni au ResidentPrincipal — contrairement au Voyage créé
-depuis confirmer_depart (relance Dashboard), qui le fait déjà. Les deux
-chemins ont été corrigés pour l'avenir (DemandeViewSet.valider appelle
-maintenant _cloturer_sejour_personnel), mais les enregistrements déjà
-coincés AVANT ce correctif doivent être rattrapés une fois, manuellement :
-d'où cette commande, à lancer une seule fois après déploiement.
+jamais au Batiment — contrairement au Voyage créé depuis confirmer_depart
+(relance Dashboard), qui le fait déjà. Les deux chemins ont été corrigés
+pour l'avenir (DemandeViewSet.valider appelle maintenant
+_cloturer_sejour_personnel), mais les enregistrements déjà coincés AVANT
+ce correctif doivent être rattrapés une fois, manuellement : d'où cette
+commande, à lancer une seule fois après déploiement.
+
+NE touche PAS à ResidentPrincipal (droit persistant sur la chambre, qui
+survit volontairement à un voyage — voir _cloturer_sejour_personnel).
 
 Usage :
     docker compose exec -T backend python manage.py reparer_sejours_bloques
@@ -23,13 +25,13 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = "Libère les chambres/résidents principaux restés bloqués malgré un Voyage déjà validé."
+    help = "Libère les chambres restées bloquées malgré un Voyage déjà validé."
 
     def add_arguments(self, parser):
         parser.add_argument("--appliquer", action="store_true", help="Applique réellement la correction (sinon dry-run).")
 
     def handle(self, *args, **options):
-        from residences.models import Batiment, ResidentPrincipal
+        from residences.models import Batiment
         from residences.views import _cloturer_sejour_personnel
         from voyages.models import Voyage
 

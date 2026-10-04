@@ -89,9 +89,17 @@ export default function Demandes() {
     } else {
       setVoyagesEnAttente([]); setInductionsEnAttente([]); setIncidentsEnAttente([])
     }
-    batAPI.list({page_size:300}).then(r => {
-      const items = r.data.results||r.data
-      setBats([...items].filter(b=>b.statut==='Libre').sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
+    // BUG REEL CORRIGE ICI : batAPI.list() (BatimentViewSet.list) est
+    // volontairement restreint côté backend pour qu'un non-admin ne voie
+    // QUE sa propre chambre (règle ajoutée pour empêcher un agent de lister
+    // l'occupation de tout le camp) — ce qui, par effet de bord, vidait
+    // aussi cette liste de "résidences libres" du formulaire de demande
+    // pour tout le monde sauf l'admin. chambres_disponibles est l'endpoint
+    // dédié à cet usage précis (section 12), ouvert à tout utilisateur
+    // connecté, donc on l'utilise ici à la place.
+    batAPI.chambresDisponibles(today).then(r => {
+      const items = r.data.compatibles||[]
+      setBats([...items].sort((a,b)=>a.residence.localeCompare(b.residence,undefined,{numeric:true})))
     }).catch(()=>setBats([]))
   }
 

@@ -505,11 +505,17 @@ export default function Voyages() {
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="🔍 Rechercher un nom, une destination…"
           style={{...inp, maxWidth:isMobile?'100%':260, width:isMobile?'100%':'auto', padding:'8px 12px', fontSize:13}}/>
-        <select value={filterSociete} onChange={e=>setFilterSociete(e.target.value)}
-          style={{...inp, maxWidth:170, padding:'8px 12px', fontSize:13}}>
-          <option value="">Toutes sociétés</option>
-          {societesDisponibles.map(s=><option key={s} value={s}>{s}</option>)}
-        </select>
+        {isAdmin && (
+          // Filtre "société" sans intérêt pour un agent : ses voyages
+          // n'appartiennent qu'à sa propre société (données déjà scopées
+          // à lui côté API pour un non-admin) — n'a de sens que pour
+          // l'admin qui voit tout le camp, toutes sociétés confondues.
+          <select value={filterSociete} onChange={e=>setFilterSociete(e.target.value)}
+            style={{...inp, maxWidth:170, padding:'8px 12px', fontSize:13}}>
+            <option value="">Toutes sociétés</option>
+            {societesDisponibles.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <div style={{display:'flex',alignItems:'center',gap:6}}>
           <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)} title="Départ à partir du" style={{...inp,maxWidth:145,padding:'8px 10px',fontSize:12}}/>
           <span style={{fontSize:11,color:'var(--rzc-text-4)'}}>→</span>

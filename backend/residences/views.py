@@ -1022,8 +1022,19 @@ class EquipementEPIViewSet(viewsets.ModelViewSet):
 
 def _cloturer_sejour_personnel(personnel, date_dep):
     """
-    Libère toute chambre physiquement occupée par ce personnel et clôture
-    son mandat de résident principal actif (ResidentPrincipal.date_fin).
+    Libère toute chambre PHYSIQUEMENT occupée par ce personnel (Batiment),
+    pour qu'elle redevienne assignable temporairement le temps du voyage.
+
+    Ne touche volontairement PAS à ResidentPrincipal : ce mandat est un
+    droit persistant sur la chambre (cf. docstring du modèle), qui doit
+    justement survivre à un voyage — "un résident principal absent du
+    camp... garde son droit sur sa chambre même si quelqu'un d'autre
+    l'occupe temporairement entre-temps". Clôturer ResidentPrincipal ici
+    serait mélanger deux notions distinctes : occupation physique courante
+    (ce que cette fonction corrige) et droit de résidence principale (qui
+    ne change que sur décision explicite de changement/fin de résidence,
+    jamais sur un simple départ en voyage) — erreur commise puis corrigée
+    suite au retour d'Edgar.
 
     Factorisé ici car DEUX chemins indépendants peuvent faire passer un
     personnel en voyage et doivent aboutir au même état cohérent :
@@ -1032,12 +1043,10 @@ def _cloturer_sejour_personnel(personnel, date_dep):
       2. DemandeViewSet.valider pour une Demande type_demande="voyage"
          (page "📝 Demandes" — plus ancien, créé indépendamment par le
          résident, sans lien avec confirmer_depart). Ce 2e chemin créait
-         un Voyage sans jamais toucher au Batiment ni au
-         ResidentPrincipal - cause réelle du cas Edgar : sa demande a été
-         validée via CE chemin, pas via confirmer_depart, donc la chambre
-         ne s'est jamais libérée.
+         un Voyage sans jamais toucher au Batiment - cause réelle du cas
+         Edgar : sa demande a été validée via CE chemin, pas via
+         confirmer_depart, donc la chambre ne s'est jamais libérée.
     """
-    from .models import ResidentPrincipal
     chambres = list(Batiment.objects.filter(personnel=personnel, statut="Occupé"))
     for b in chambres:
         OccupationHistory.objects.filter(
@@ -1047,9 +1056,6 @@ def _cloturer_sejour_personnel(personnel, date_dep):
             personnel=None, occupant=None, societe=None,
             date_arrivee=None, date_depart=None, statut="Libre"
         )
-    ResidentPrincipal.objects.filter(
-        personnel=personnel, date_fin__isnull=True
-    ).update(date_fin=date_dep, motif_fin="Départ en voyage confirmé")
 
 
 class BatimentViewSet(viewsets.ModelViewSet):
@@ -1471,9 +1477,9 @@ class BatimentViewSet(viewsets.ModelViewSet):
             # ligne Batiment que celle sur laquelle l'admin/le résident a
             # cliqué ici. _cloturer_sejour_personnel() reprend TOUTES les
             # chambres occupées par ce personnel (pas seulement celle
-            # cliquée) et clôture aussi son mandat de résident principal,
-            # pour que "Chambres" et "Résidents principaux" reflètent
-            # toujours la décision prise ici.
+            # cliquée), pour que l'onglet "Chambres" reflète toujours la
+            # décision prise ici (le mandat de résident principal, lui,
+            # n'est volontairement pas touché — voir sa docstring).
             _cloturer_sejour_personnel(personnel_obj, date_dep)
 
             try:
