@@ -4,21 +4,21 @@ import { useIsMobile } from '../hooks/useIsMobile'
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')||''}` })
 
-// BUG REEL CORRIGE ICI : les numeros sont enregistres au format LOCAL
-// ivoirien avec le 0 initial (ex: "0749543183", voir normalizePhone() dans
-// Personnel.jsx) - le lien wa.me se contentait de retirer les caracteres
-// non numeriques et gardait donc ce 0 initial ("wa.me/0749543183"), un
-// format que l'app WhatsApp mobile refuse d'ouvrir (elle exige le format
-// international complet, sans le 0, prefixe par l'indicatif pays : ici
-// 225 pour la Cote d'Ivoire -> "225749543183"). Fonctionnait par hasard sur
-// certains navigateurs desktop qui retombent sur web.whatsapp.com et
-// laissent l'utilisateur corriger le numero a la main, jamais sur mobile.
+// BUG REEL CORRIGE ICI (2e fois) : le premier correctif retirait le "0"
+// initial avant de prefixer 225, en appliquant l'ANCIENNE regle ivoirienne
+// (numeros 9 chiffres, le "0" etait un simple prefixe reseau a retirer a
+// l'international : 0749543183 -> +225749543183). Mais depuis la reforme
+// de numerotation de janvier 2021, les numeros ivoiriens comptent 10
+// chiffres et ce "0" initial fait desormais partie INTEGRANTE du numero
+// - il doit etre CONSERVE a l'international (0749543183 -> +2250749543183,
+// pas +225749543183). normalizePhone() (Personnel.jsx) stocke deja les
+// numeros au format local 10 chiffres avec le 0 : il suffit de prefixer
+// 225 sans rien retirer.
 function versLienWhatsApp(numero) {
   let v = (numero || '').replace(/\D/g, '')
   if (!v) return null
   if (v.startsWith('00')) v = v.slice(2)          // 00225... -> 225...
   if (/^225\d{9,10}$/.test(v)) return `https://wa.me/${v}`      // déjà international
-  if (v.startsWith('0') && v.length === 10) v = v.slice(1)      // 0749543183 -> 749543183
   return `https://wa.me/225${v}`
 }
 
