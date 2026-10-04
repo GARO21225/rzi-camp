@@ -386,10 +386,16 @@ export default function Voyages() {
               🚌 {rotationsDispo.length} rotation(s) disponible(s)
             </button>
           )}
+          {/* Export CSV : admin uniquement (demande d'Edgar) - un agent
+              n'a besoin que de SES voyages, deja visibles dans sa liste,
+              un export CSV n'a de sens que pour l'admin qui gere
+              l'ensemble du camp. */}
+          {isAdmin && (
           <button onClick={() => exportVoyagesCSV(filtered)}
             style={{ background:'#16a34a', color:'#fff', border:'none', padding:'10px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, width:isMobile?'100%':'auto' }}>
             📥 Export CSV ({filtered.length})
           </button>
+          )}
           {/* "Déclarer mon voyage" retiré de la vue agent (choix d'Edgar) :
               faisait doublon avec la Demande type "Voyage" (page
               Demandes) — les deux aboutissaient à la même file de

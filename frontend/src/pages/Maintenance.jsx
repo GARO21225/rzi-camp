@@ -411,6 +411,13 @@ export default function Maintenance() {
   const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = !!(user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin')
+  // Un simple agent qui vient de declarer un incident n'a aucun usage des
+  // tableaux de bord/graphiques (charge par technicien, top residences,
+  // import/export CSV en masse...) concus pour qui GERE une file de
+  // tickets - uniquement admin et technicien (demande d'Edgar : s'assurer
+  // que l'affichage reste necessaire pour un simple agent).
+  const isTechnicien = user?.profile?.role === 'technicien'
+  const isGestionnaire = isAdmin || isTechnicien
   const [incidents, setIncidents] = useState([])
   const [stats,     setStats]     = useState({})
   const [techns,    setTechns]    = useState([])
@@ -805,6 +812,10 @@ export default function Maintenance() {
           </div>
         )}
 
+        {/* ── Tableaux de bord/graphiques : admin + technicien uniquement
+            (demande d'Edgar) - un simple agent qui consulte ses 1-2
+            incidents declares n'en a aucun usage. ── */}
+        {isGestionnaire && <>
         {/* ── KPIs enrichis ── */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
           {[
@@ -1053,6 +1064,7 @@ export default function Maintenance() {
             </div>
           )
         })()}
+        </>}
 
         {isMobile ? (
           <div style={{marginBottom:14}}>
@@ -1103,6 +1115,10 @@ export default function Maintenance() {
           </div>
         ) : (
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+          {/* Selection de masse : admin uniquement, comme la case a cocher
+              par ligne plus bas - sinon un agent voyait "Tout selectionner"
+              sans aucune action de masse correspondante accessible. */}
+          {isAdmin && (
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12,color:'#64748b',fontWeight:600}}>
           <input type="checkbox"
             checked={selIds.size===filtered.length && filtered.length>0}
@@ -1110,6 +1126,7 @@ export default function Maintenance() {
             style={{width:16,height:16,accentColor:'var(--rzc-navy)',cursor:'pointer'}}/>
           Tout sélectionner
         </label>
+          )}
         <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="🔍 Rechercher..."
             style={{ ...inp, maxWidth:220 }} />
@@ -1136,6 +1153,13 @@ export default function Maintenance() {
           <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)}
             title="Date fin"
             style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 10px', fontSize:12, fontFamily:'inherit' }}/>
+          {/* BUG REEL CORRIGE ICI : ces 3 boutons n'etaient PAS filtres par
+              isAdmin cote desktop (seule la version mobile, plus haut, les
+              cachait deja correctement) - un simple agent voyait donc
+              Template/Import/Export CSV, des operations d'administration
+              en masse sans aucun rapport avec son usage (consulter ses
+              propres incidents declares). */}
+          {isAdmin && (
           <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
             <button onClick={()=>downloadTemplate()}
               style={{ background:'#7c3aed', color:'#fff', border:'none',
@@ -1153,6 +1177,7 @@ export default function Maintenance() {
               📥 Export CSV ({filtered.length})
             </button>
           </div>
+          )}
         </div>
         )}
 

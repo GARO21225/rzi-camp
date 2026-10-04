@@ -4,9 +4,13 @@ saisie manuellement a l'affectation) et pousse la decision au bon moment,
 au lieu de laisser un resident logé indefiniment sans que personne ne
 tranche :
 
-  - J-1 (veille du depart) : relance le RESIDENT lui-meme (SimpleNotification
-    sur son compte) pour qu'il confirme depuis l'app, via
-    BatimentViewSet.confirmer_depart :
+  - J-1 (veille du depart) : relance le RESIDENT lui-meme - SimpleNotification
+    sur son compte (visible dans l'app) ET SMS/WhatsApp reel (via le point
+    d'entree unique accounts/sms.py::envoyer_sms, meme canal/numero que les
+    identifiants de connexion - cf. _envoyer_sms_personnel ci-dessous ;
+    AVANT ce correctif, seule la SimpleNotification in-app existait, donc
+    personne ne recevait jamais rien tant qu'il ne consultait pas l'app) -
+    pour qu'il confirme depuis l'app, via BatimentViewSet.confirmer_depart :
       - il part  -> une demande de voyage (Camp -> Abidjan) est creee,
         meme circuit standard que Demandes (validation admin puis
         "A organiser" au Centre de Mobilite, aucun contournement).
@@ -62,6 +66,36 @@ class Command(BaseCommand):
     def _deja_envoyee_aujourdhui(self, SimpleNotification, today, **kwargs):
         return SimpleNotification.objects.filter(date_envoi__date=today, **kwargs).exists()
 
+    def _envoyer_sms_personnel(self, personnel, texte):
+        """
+        BUG REEL CORRIGE ICI : cette commande ne faisait QUE creer une
+        SimpleNotification (in-app) - jamais de SMS/WhatsApp reel, alors
+        que le projet a DEJA un point d'entree unique pour ca
+        (accounts/sms.py::envoyer_sms, deja utilise pour les identifiants
+        et l'OTP - accounts/notifications.py::envoyer_identifiants suit
+        exactement le meme canal/numero ci-dessous). Resultat : "0
+        relance(s)" affichait bien un chiffre et une ligne en base, mais
+        PERSONNE ne recevait jamais rien sur son telephone - exactement le
+        signalement ("ni Edgar ni moi n'avons rien reçu"), une relance
+        qui n'existe que dans une table que personne ne consulte n'a
+        aucune valeur operationnelle sur le terrain.
+
+        Ne leve jamais d'exception - un echec d'envoi SMS ne doit jamais
+        faire planter la commande ni bloquer les autres residents/admins.
+        """
+        if not personnel or not personnel.user_id:
+            return
+        try:
+            from accounts.models import Parametre
+            from accounts.sms import envoyer_sms
+            canal = Parametre.get('canal_otp', 'sms')
+            numero = (personnel.numero_whatsapp if canal == 'whatsapp' else personnel.telephone) or personnel.telephone
+            if not numero:
+                return
+            envoyer_sms(numero, texte, canal=canal, type_message='relance_depart')
+        except Exception:
+            pass
+
     def handle(self, *args, **options):
         from residences.models import Batiment, Demande
         from voyages.models import Voyage
@@ -109,6 +143,7 @@ class Command(BaseCommand):
                     user_id=b.personnel.user_id, personnel=b.personnel,
                     titre=f"🧳 Confirmez-vous votre départ {quand} ?", message=message, type_notif="demande",
                 )
+                self._envoyer_sms_personnel(b.personnel, f"🧳 {message}")
                 relances += 1
             message_admin = (
                 f"{b.personnel.nom} {b.personnel.prenom} ({b.residence}) part {quand} "
@@ -122,6 +157,7 @@ class Command(BaseCommand):
                     SimpleNotification.objects.create(
                         user=admin, titre=f"🧳 Départ prévu {quand}", message=message_admin, type_notif="info",
                     )
+                    self._envoyer_sms_personnel(getattr(admin, "personnel", None), f"🧳 {message_admin}")
 
         # ── Date depassee sans reponse : alerte admin (filet de secours) ──
         en_retard = Batiment.objects.filter(
@@ -142,6 +178,7 @@ class Command(BaseCommand):
                     user=admin, titre="🏠 Départ résidence dépassé — décision requise",
                     message=message, type_notif="alerte",
                 )
+                self._envoyer_sms_personnel(getattr(admin, "personnel", None), f"🏠 {message}")
             alertes += 1
 
         self.stdout.write(self.style.SUCCESS(
