@@ -238,21 +238,25 @@ export default function Evenements() {
                 </button>
               )
             ) : (
-              <>
-                <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-                  ⚠️ Alerte campus
-                </button>
-                <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
-                  + Créer événement
-                </button>
-              </>
+              isAdmin && (
+                <>
+                  <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                    ⚠️ Alerte campus
+                  </button>
+                  <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
+                    + Créer événement
+                  </button>
+                </>
+              )
             )}
           </div>
 
       </div>
 
-      {/* FAB "+" — créer un événement, comme sur la maquette validée */}
-      {isMobile && (
+      {/* FAB "+" — créer un événement, comme sur la maquette validée (admin uniquement :
+          la création est réservée aux admins côté backend, le bouton ne doit pas
+          apparaître pour les autres rôles sous peine de mener à un 403). */}
+      {isMobile && isAdmin && (
         <button onClick={()=>setModal(true)} aria-label="Créer un événement"
           style={{ position:'fixed', right:16, bottom:'calc(98px + env(safe-area-inset-bottom, 0px))',
             width:54, height:54, borderRadius:27, background:'#C9972B', border:'none',
@@ -567,7 +571,7 @@ export default function Evenements() {
                     <div style={{ marginBottom:16, textAlign:'left' }}>
                       <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Votre préférence :</label>
                       <div style={{ display:'flex', gap:8 }}>
-                        {[['alcool','🍺 Alcool'],['sucrerie','🥤 Sucrerie']].map(([v,l])=>(
+                        {[['alcool','🍺 Alcool'],['sucrerie','🥤 Sucrerie'],['alcool_sucrerie','🍺🥤 Les deux']].map(([v,l])=>(
                           <button key={v} onClick={()=>setBoissonChoix(v)}
                             style={{ flex:1, padding:'10px 4px', borderRadius:8, border:`2px solid ${boissonChoix===v?'#d08800':'var(--border)'}`,
                               background:boissonChoix===v?'#d0880015':'var(--surface2)', color:boissonChoix===v?'#d08800':'var(--text-dim)', cursor:'pointer', fontSize:12, fontWeight:700 }}>
@@ -665,7 +669,7 @@ export default function Evenements() {
                     <div style={{fontSize:13, fontWeight:700}}>{personnesScannees.nb_scannes} / {personnesScannees.nb_generes} scannés</div>
                     <a href={evtAPI.exportScannesCsvUrl(listeScannesModal.id)} target="_blank" rel="noreferrer"
                       style={{background:'#f1f5f9', color:'#475569', border:'1px solid var(--border)', padding:'6px 12px', borderRadius:8, textDecoration:'none', fontSize:11.5, fontWeight:700}}>
-                      ⬇ Export CSV
+                      ⬇ Export Excel
                     </a>
                   </div>
                   {personnesScannees.personnes.length === 0 ? (

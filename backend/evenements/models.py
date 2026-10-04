@@ -162,7 +162,7 @@ class QREvenement(models.Model):
     token par personne, marque "utilise" des le premier scan, tout scan
     suivant du meme code est refuse ("deja scanne").
     """
-    BOISSON_CHOICES = [("alcool","🍺 Alcool"),("sucrerie","🥤 Sucrerie / Sans alcool")]
+    BOISSON_CHOICES = [("alcool","🍺 Alcool"),("sucrerie","🥤 Sucrerie / Sans alcool"),("alcool_sucrerie","🍺🥤 Alcool + Sucrerie")]
 
     evenement   = models.ForeignKey(Evenement, on_delete=models.CASCADE, related_name="qr_codes")
     personnel   = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name="qr_evenements")

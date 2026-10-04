@@ -161,8 +161,8 @@ class EvenementViewSet(viewsets.ModelViewSet):
                 return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=404)
 
         preference = request.data.get("preference_boisson", "")
-        if evenement.propose_boisson and preference not in ("alcool", "sucrerie"):
-            return Response({"error":"Merci de choisir une préférence : alcool ou sucrerie."}, status=400)
+        if evenement.propose_boisson and preference not in ("alcool", "sucrerie", "alcool_sucrerie"):
+            return Response({"error":"Merci de choisir une préférence : alcool, sucrerie, ou les deux."}, status=400)
 
         qr, cree = QREvenement.objects.get_or_create(
             evenement=evenement, personnel=pers,
@@ -250,37 +250,59 @@ class EvenementViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], permission_classes=[TokenInQueryOrHeader])
     def export_scannes_csv(self, request, pk=None):
-        """Meme personnes_scannees, au format CSV - reutilise le meme motif d'export deja utilise ailleurs (Personnel, Residents principaux, Plaintes).
+        """Meme personnes_scannees, au format Excel (.xlsx) - reutilise le
+        meme motif d'export deja utilise par induction/api/views.py
+        (ExportView : openpyxl, en-tete stylee bleu marine/blanc).
 
-        BUG REEL CORRIGE ICI : cette action utilisait la permission par
-        defaut (IsAuthenticated, via le header Authorization classique).
-        Le bouton de telechargement cote frontend est un <a href=...>
-        (navigation directe du navigateur, pas un appel Axios) - un <a>
-        n'envoie JAMAIS de header Authorization, donc request.user etait
-        toujours AnonymousUser et la requete echouait en 401 avant meme
-        d'atteindre _is_admin(). Meme motif que Personnel/Batiment/Plaintes
-        export_csv (TokenInQueryOrHeader, accounts/permissions.py) : le
-        token JWT voyage via ?token= dans l'URL pour ce cas precis."""
+        BUG REEL CORRIGE ICI (toujours valable avec openpyxl) : cette
+        action utilisait la permission par defaut (IsAuthenticated, via
+        le header Authorization classique). Le bouton de telechargement
+        cote frontend est un <a href=...> (navigation directe du
+        navigateur, pas un appel Axios) - un <a> n'envoie JAMAIS de header
+        Authorization, donc request.user etait toujours AnonymousUser et
+        la requete echouait en 401 avant meme d'atteindre _is_admin().
+        Meme motif que Personnel/Batiment/Plaintes export_csv
+        (TokenInQueryOrHeader, accounts/permissions.py) : le token JWT
+        voyage via ?token= dans l'URL pour ce cas precis. Nom de la
+        methode/action/URL conserve (export_scannes_csv) malgre le format
+        Excel pour ne pas casser le lien deja genere cote frontend."""
         if not self._is_admin(request.user):
             return Response({"error":"Non habilité."}, status=403)
-        import csv
+        import io
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
         from django.http import HttpResponse
         from .models import QREvenement, Evenement
         evt = Evenement.objects.filter(pk=pk).first()
         if not evt:
             return Response({"error":"Événement introuvable."}, status=404)
         qs = QREvenement.objects.filter(evenement_id=pk, utilise=True).select_related("personnel","valide_par").order_by("utilise_le")
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="scannes_{evt.titre}.csv"'
-        writer = csv.writer(response)
-        writer.writerow(["Nom","Société","Préférence boisson","Heure de scan","Scanné par"])
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Scannés"
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(fgColor="1E3A8A", fill_type="solid")
+        headers = ["Nom", "Société", "Préférence boisson", "Heure de scan", "Scanné par"]
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font, cell.fill = header_font, header_fill
         for q in qs:
-            writer.writerow([
+            ws.append([
                 f"{q.personnel.nom} {q.personnel.prenom}", q.personnel.societe,
                 q.get_preference_boisson_display() if q.preference_boisson else "",
                 q.utilise_le.strftime("%d/%m/%Y %H:%M") if q.utilise_le else "",
                 (q.valide_par.get_full_name() or q.valide_par.username) if q.valide_par else "",
             ])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="scannes_{evt.titre}.xlsx"'
         return response
 
     @action(detail=True, methods=["post"])
