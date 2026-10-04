@@ -42,8 +42,19 @@ class Command(BaseCommand):
     def _deja_pris_en_charge(self, personnel, Voyage, Demande):
         if Voyage.objects.filter(personnel=personnel, statut__in=["planifie", "en_voyage"]).exists():
             return True
+        # BUG REEL CORRIGE ICI : "validee" est un statut TERMINAL - une
+        # fois une Demande de voyage validee, c'est le Voyage qui en
+        # resulte (verifie juste au-dessus) qui fait foi de l'etat reel,
+        # pas la Demande elle-meme, qui ne change plus jamais ensuite. En
+        # incluant "validee" ici, une demande validee il y a des semaines
+        # (voire sans Voyage reellement cree, ex: conflit ou erreur a la
+        # validation) bloquait TOUTE relance future pour cette personne,
+        # pour toujours, meme pour un depart totalement sans rapport - cas
+        # reel observe (Demande #6 d'Edgar, validee, aucun Voyage associe).
+        # Seuls "en_attente"/"proposition" sont de vraies decisions encore
+        # EN COURS qui justifient de ne pas relancer.
         if Demande.objects.filter(
-            demandeur=personnel.user, type_demande="voyage", statut__in=["en_attente", "validee", "proposition"],
+            demandeur=personnel.user, type_demande="voyage", statut__in=["en_attente", "proposition"],
         ).exists():
             return True
         return False

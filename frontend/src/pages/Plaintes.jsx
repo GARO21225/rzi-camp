@@ -39,7 +39,10 @@ export default function Plaintes() {
   const isAdmin = !!(user?.is_staff || user?.is_superuser) || user?.profile?.role === 'admin' || user?.profile?.role === 'manager' || user?.profile?.role === 'superviseur'
   const CATEGORIES = usePlainteCategories()
 
-  const [tab, setTab] = useState(isAdmin ? 'toutes' : 'mes_plaintes')
+  // "tab" réutilisé comme bascule Actives/Historique (demande d'Edgar :
+  // les dossiers clôturés/rejetés ne doivent plus encombrer la vue
+  // courante) — il n'avait jamais été câblé à quoi que ce soit avant.
+  const [tab, setTab] = useState('actives')
   const [liste, setListe] = useState([])
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -51,6 +54,9 @@ export default function Plaintes() {
   const [controleModal, setControleModal] = useState(false)
   const [notesProprete, setNotesProprete] = useState({})
   const [actionForm, setActionForm] = useState({})
+  const [selection, setSelection] = useState(new Set())
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const STATUTS_CLOTURES = ['cloturee','rejetee']
 
   const charger = useCallback(async () => {
     setLoading(true)
@@ -114,6 +120,31 @@ export default function Plaintes() {
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
+  const toggleSelection = (id) => setSelection(s => {
+    const n = new Set(s)
+    n.has(id) ? n.delete(id) : n.add(id)
+    return n
+  })
+
+  // Actions de masse : réutilise les mêmes endpoints que les actions à
+  // l'unité (pas de route backend dédiée à inventer) — chaque plainte
+  // sélectionnée reçoit l'action individuellement ; celles dont le statut
+  // ne permet pas l'action échouent isolément sans bloquer les autres.
+  const actionMasse = async (action, data, successMsg) => {
+    if (selection.size === 0) return
+    setBulkRunning(true)
+    const ids = [...selection]
+    const resultats = await Promise.allSettled(ids.map(id => plaintesAPI[action](id, data)))
+    const ok = resultats.filter(r => r.status === 'fulfilled').length
+    const echecs = resultats.length - ok
+    toast[echecs ? 'warning' : 'success'](
+      echecs ? `${successMsg} : ${ok} ok, ${echecs} échec(s) (statut incompatible)` : `${successMsg} (${ok})`
+    )
+    setSelection(new Set())
+    setBulkRunning(false)
+    charger()
+  }
+
   const badge = (statut) => (
     <span style={{background:`${STATUT_COLORS[statut]}20`, color:STATUT_COLORS[statut], padding:'3px 10px',
       borderRadius:20, fontSize:11, fontWeight:700}}>
@@ -161,6 +192,19 @@ export default function Plaintes() {
         </div>
       )}
 
+      {/* Actives / Historique : les dossiers clôturés/rejetés n'encombrent
+          plus la vue par défaut (demande d'Edgar) — ils restent accessibles
+          dans Historique plutôt que disparaître. */}
+      <div style={{display:'flex', gap:8, marginBottom:14}}>
+        {[['actives','📋 Actives'],['historique','🗄️ Historique']].map(([v,l])=>(
+          <button key={v} onClick={()=>{setTab(v); setSelection(new Set())}}
+            style={{padding:'7px 16px',borderRadius:9,fontSize:12.5,fontWeight:700,border:'none',cursor:'pointer',
+              background:tab===v?'#0F2A5C':'#f1f5f9', color:tab===v?'#fff':'#475569'}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
       {isAdmin && (
         isMobile ? (
           <div style={{display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4}}>
@@ -192,23 +236,52 @@ export default function Plaintes() {
         )
       )}
 
+      {/* Bouton de masse (demande d'Edgar) : apparaît dès qu'au moins une
+          plainte est cochée, uniquement vue Actives (une plainte déjà
+          clôturée/rejetée n'a plus d'action de masse pertinente). */}
+      {isAdmin && tab==='actives' && selection.size > 0 && (
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12, background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:10, padding:'8px 12px', flexWrap:'wrap'}}>
+          <span style={{fontSize:12.5, fontWeight:700, color:'#1e3a8a'}}>{selection.size} sélectionnée(s)</span>
+          <button disabled={bulkRunning} onClick={()=>actionMasse('affecter', {affecte_a:user.id}, 'Affectées à moi')}
+            style={{background:'#06b6d4', color:'#fff', border:'none', padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700}}>
+            Affecter à moi
+          </button>
+          <button disabled={bulkRunning} onClick={()=>{
+              const motif = prompt('Motif du rejet, appliqué à toute la sélection (obligatoire) :')
+              if (motif) actionMasse('rejeter', motif, 'Rejetées')
+            }}
+            style={{background:'#fee2e2', color:'#dc2626', border:'1px solid #fecaca', padding:'6px 12px', borderRadius:7, cursor:'pointer', fontSize:11.5, fontWeight:700}}>
+            Rejeter
+          </button>
+          <button onClick={()=>setSelection(new Set())} style={{background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:11.5, marginLeft:'auto'}}>✕ Annuler</button>
+        </div>
+      )}
+
       {loading ? (
         <div style={{padding:40, textAlign:'center', color:'#94a3b8'}}>⏳ Chargement...</div>
-      ) : liste.length === 0 ? (
-        <div style={{padding:40, textAlign:'center', color:'#94a3b8', background:'#fff', borderRadius:10}}>Aucune plainte.</div>
+      ) : liste.filter(p => tab==='historique' ? STATUTS_CLOTURES.includes(p.statut) : !STATUTS_CLOTURES.includes(p.statut)).length === 0 ? (
+        <div style={{padding:40, textAlign:'center', color:'#94a3b8', background:'#fff', borderRadius:10}}>
+          {tab==='historique' ? 'Aucun dossier clôturé/rejeté.' : 'Aucune plainte.'}
+        </div>
       ) : (
         <div style={{display:'flex', flexDirection:'column', gap:8}}>
-          {liste.map(p => (
+          {liste.filter(p => tab==='historique' ? STATUTS_CLOTURES.includes(p.statut) : !STATUTS_CLOTURES.includes(p.statut)).map(p => (
             <div key={p.id} onClick={()=>setDetailModal(p)}
               style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:14, cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <div>
-                <div style={{display:'flex', gap:8, alignItems:'center', marginBottom:4}}>
-                  <span style={{fontWeight:700, fontSize:13}}>{p.categorie_label || p.categorie}{p.sous_categorie ? ` — ${p.sous_categorie}` : ''}</span>
-                  {badge(p.statut)}
-                  {isAdmin && <span style={{fontSize:11, color:'#64748b'}}>📍 {p.batiment_residence}</span>}
+              <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
+                {isAdmin && tab==='actives' && (
+                  <input type="checkbox" checked={selection.has(p.id)} onClick={e=>e.stopPropagation()}
+                    onChange={()=>toggleSelection(p.id)} style={{marginTop:3, width:16, height:16, cursor:'pointer'}}/>
+                )}
+                <div>
+                  <div style={{display:'flex', gap:8, alignItems:'center', marginBottom:4}}>
+                    <span style={{fontWeight:700, fontSize:13}}>{p.categorie_label || p.categorie}{p.sous_categorie ? ` — ${p.sous_categorie}` : ''}</span>
+                    {badge(p.statut)}
+                    {isAdmin && <span style={{fontSize:11, color:'#64748b'}}>📍 {p.batiment_residence}</span>}
+                  </div>
+                  <div style={{fontSize:12, color:'#64748b'}}>{p.description}</div>
+                  {isAdmin && <div style={{fontSize:11, color:'#94a3b8', marginTop:2}}>{p.occupant_nom} · {new Date(p.date_creation).toLocaleDateString('fr-FR')}</div>}
                 </div>
-                <div style={{fontSize:12, color:'#64748b'}}>{p.description}</div>
-                {isAdmin && <div style={{fontSize:11, color:'#94a3b8', marginTop:2}}>{p.occupant_nom} · {new Date(p.date_creation).toLocaleDateString('fr-FR')}</div>}
               </div>
               {!isAdmin && p.statut === 'resolue' && (
                 <div style={{display:'flex', gap:6}} onClick={e=>e.stopPropagation()}>
@@ -318,7 +391,13 @@ export default function Plaintes() {
             {isAdmin && ['a_qualifier','affectee'].includes(detailModal.statut) && (
               <div style={{background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12}}>
                 <div style={{fontSize:12, fontWeight:700, marginBottom:8}}>Affecter / Prendre en charge</div>
-                <button onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: actionForm.affecte_a || null}, 'Affectée')} style={{background:'#06b6d4', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, marginRight:6}}>Affecter à moi</button>
+                {/* BUG REEL CORRIGE ICI : envoyait actionForm.affecte_a, qui
+                    n'est JAMAIS renseigné nulle part dans ce formulaire (aucun
+                    champ ne l'alimente) — le bouton envoyait donc toujours
+                    affecte_a:null, et le backend (qui l'exige) répondait
+                    systématiquement "affecte_a requis." Pour "Affecter à moi",
+                    la bonne valeur est l'id de l'utilisateur CONNECTÉ. */}
+                <button onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: user.id}, 'Affectée')} style={{background:'#06b6d4', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, marginRight:6}}>Affecter à moi</button>
                 <button onClick={()=>actionAdmin(detailModal.id, 'prendreEnCharge', {}, 'Prise en charge')} style={{background:'#f97316', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700}}>Prendre en charge</button>
               </div>
             )}
