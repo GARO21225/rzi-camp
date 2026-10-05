@@ -124,7 +124,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
     search_fields = ["personnel__nom","personnel__prenom","destination"]
 
     def get_queryset(self):
-        qs = Voyage.objects.select_related("personnel","batiment").all()
+        # PERFORMANCE : sans ces préchargements, le serializer refaisait ~6
+        # requêtes SQL PAR voyage (étapes, véhicule de chaque étape, validé
+        # par...) - 1 200 requêtes pour la liste du Centre de Mobilité,
+        # rechargée toutes les 30 s par chaque admin qui a la page ouverte.
+        qs = (Voyage.objects
+              .select_related("personnel", "batiment", "valide_par", "enregistre_par",
+                              "conducteur_personnel", "conducteur_secondaire_personnel")
+              .prefetch_related("etapes__vehicule_flotte"))
         statut = self.request.query_params.get("statut")
         statut_validation = self.request.query_params.get("statut_validation")
         personnel = self.request.query_params.get("personnel")
@@ -829,19 +836,22 @@ class VoyageViewSet(viewsets.ModelViewSet):
         from residences.models import Demande
         demandes = (Demande.objects
             .filter(type_demande="voyage", statut="validee")
-            .select_related("demandeur")
+            .select_related("demandeur", "demandeur__personnel")
             .prefetch_related("voyages_generes"))
-        rotations = {}
+        # Voyages préchargés (prefetch_related) : filtrés en Python pour ne pas
+        # refaire une requête par demande ; convois chargés en une fois.
+        voyages_par_demande = {}
+        for d in demandes:
+            vs = [v for v in d.voyages_generes.all() if v.statut != "annule"]
+            voyages_par_demande[d.id] = max(vs, key=lambda v: v.id) if vs else None
+        rids = {v.rotation_id for v in voyages_par_demande.values() if v and v.rotation_id}
+        rotations = {r.rotation_id: r for r in Rotation.objects.select_related("itineraire_modele").filter(rotation_id__in=rids)}
         result = []
         for d in demandes:
-            voyage = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
+            voyage = voyages_par_demande[d.id]
             if not voyage or voyage.vehicule_matricule or voyage.vehicule_personnel:
                 continue  # deja organisee (vehicule assigne), vehicule perso, ou voyage introuvable
-            rot = None
-            if voyage.rotation_id:
-                if voyage.rotation_id not in rotations:
-                    rotations[voyage.rotation_id] = Rotation.objects.select_related("itineraire_modele").filter(rotation_id=voyage.rotation_id).first()
-                rot = rotations[voyage.rotation_id]
+            rot = rotations.get(voyage.rotation_id) if voyage.rotation_id else None
             p = getattr(d.demandeur, "personnel", None)
             result.append({
                 "demande_id": d.id,

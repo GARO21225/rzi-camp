@@ -602,7 +602,8 @@ export default function MissionControl() {
   }, [])
 
   useEffect(()=>{ load() },[load])
-  useEffect(()=>{ const iv=setInterval(load,30000); return()=>clearInterval(iv) },[load])
+  // Pas de rechargement quand l'onglet est en arrière-plan (PC laissé ouvert, téléphone verrouillé)
+  useEffect(()=>{ const iv=setInterval(()=>{ if(!document.hidden) load() },30000); return()=>clearInterval(iv) },[load])
 
   // ── Actions ───────────────────────────────────────────────────────
   const flash = (text, ok=true) => {

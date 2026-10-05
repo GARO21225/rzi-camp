@@ -402,7 +402,7 @@ export default function Dashboard() {
   useEffect(() => { load(); loadMap() }, [load, loadMap])
   useEffect(() => {
     if (!autoRefresh) return
-    const iv = setInterval(load, 60000)
+    const iv = setInterval(() => { if (!document.hidden) load() }, 60000) // rien en arrière-plan
     return () => clearInterval(iv)
   }, [load, autoRefresh])
 

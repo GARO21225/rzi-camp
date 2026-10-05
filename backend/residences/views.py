@@ -1060,13 +1060,13 @@ def _cloturer_sejour_personnel(personnel, date_dep):
 
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
-    queryset = Batiment.objects.select_related("personnel").all()
+    queryset = Batiment.objects.select_related("personnel__user__profile").all()
     serializer_class = BatimentSerializer
     filter_backends = []  # disable DRF filters, we do it manually
 
     def _build_qs(self, request=None):
         """Build filtered QuerySet — always returns a real QuerySet"""
-        qs = Batiment.objects.select_related("personnel").all()
+        qs = Batiment.objects.select_related("personnel__user__profile").all()
         req = request or self.request
         params = req.query_params
         u = req.user
@@ -1082,7 +1082,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
             from residences.models import Personnel
             pers = Personnel.objects.filter(user=u).first()
             if pers:
-                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+                return Batiment.objects.select_related("personnel__user__profile").filter(personnel=pers)
             return Batiment.objects.none()
         statut = params.get("statut")
         bloc = params.get("bloc")
@@ -1111,9 +1111,9 @@ class BatimentViewSet(viewsets.ModelViewSet):
             from residences.models import Personnel
             pers = Personnel.objects.filter(user=u).first()
             if pers:
-                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+                return Batiment.objects.select_related("personnel__user__profile").filter(personnel=pers)
             return Batiment.objects.none()
-        return Batiment.objects.select_related("personnel").all()
+        return Batiment.objects.select_related("personnel__user__profile").all()
 
     def list(self, request, *args, **kwargs):
         qs = self._build_qs(request)

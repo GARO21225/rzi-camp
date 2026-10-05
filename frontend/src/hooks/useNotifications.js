@@ -34,7 +34,7 @@ export function useNotifications() {
     if (!token) return
     fetch()
     connectWS()
-    pollRef.current = setInterval(fetch, 20000) // Poll every 20s
+    pollRef.current = setInterval(() => { if (!document.hidden) fetch() }, 20000) // toutes les 20 s, seulement si l'app est à l'écran
     if (window.Notification?.permission === 'default') {
       window.Notification.requestPermission().catch(() => {})
     }
