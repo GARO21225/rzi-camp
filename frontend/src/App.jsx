@@ -41,6 +41,7 @@ const Presences = lazy(() => import('./pages/Presences'))
 
 const Demandes = lazy(() => import('./pages/Demandes'))
 const Conduite = lazy(() => import('./pages/Conduite'))
+const Accueil = lazy(() => import('./pages/Accueil'))
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 import { useTheme } from './hooks/useTheme'
@@ -108,7 +109,7 @@ function PrivateRoute({ children }) {
 // atterrissaient sur le Dashboard admin).
 function RoleHome() {
   const { user } = useStore()
-  if (user && !isAdminUser(user)) return <Navigate to="/carte" replace />
+  if (user && !isAdminUser(user)) return <Navigate to="/accueil" replace />
   return <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>}><Dashboard /></Suspense>
 }
 
@@ -247,6 +248,7 @@ export default function App() {
           <Route path="epi" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><EquipementsEPI /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><BoutiquePOS /></Suspense>} />
+          <Route path="accueil" element={<Suspense fallback={<div style={{minHeight:"100%",background:"#06142E"}}/>}><Accueil /></Suspense>} />
           <Route path="conduite" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Conduite /></Suspense>} />
           <Route path="rotations" element={<Suspense fallback={<div style={{background:'#060d1f',minHeight:'100vh'}}/>}><MissionControl /></Suspense>} />
           <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />

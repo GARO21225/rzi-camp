@@ -9,6 +9,7 @@ import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-route
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
+import { MobileHeader, MobileDrawer } from './MobileChrome'
 import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
@@ -368,9 +369,13 @@ export default function Layout() {
   }, [userCharge, isAdmin])
 
   const navRole = buildNav(role, isAdmin, roleMenuOverride)
-  const nav = estConducteur && !navRole.some(i => i.to === '/conduite')
+  const navAvecConduite = estConducteur && !navRole.some(i => i.to === '/conduite')
     ? [{ to:'/conduite', label:'🚐 Ma conduite' }, ...navRole]
     : navRole
+  // Espace personnel en tête du menu de tout non-admin
+  const nav = isAdmin || navAvecConduite.some(i => i.to === '/accueil')
+    ? navAvecConduite
+    : [{ to:'/accueil', label:'🏠 Accueil', exact:true }, ...navAvecConduite]
 
   // Separation admin / utilisateur : avant, seul le MENU differait selon
   // le role - n'importe quel utilisateur pouvait ouvrir /parametrage,
@@ -456,6 +461,14 @@ export default function Layout() {
         button:active{transform:scale(.97)}
       `}</style>
 
+      {isMobile ? (<>
+        <MobileHeader user={user} logoUrl={logoUrl} nav={nav}
+          notifRef={notifRef} notifOpen={notifOpen} onNotif={() => setNotifOpen(o => !o)} notifCount={notifCount}
+          notifPanel={notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
+          searchOpen={mobileSearchOpen} onSearch={() => setMobileSearchOpen(o => !o)}
+          onMenu={() => setSidebarOpen(true)} />
+        {showWelcome && <WelcomeToast user={user} roleCustomLabel={roleCustomLabel} onClose={() => setShowWelcome(false)} />}
+      </>) : (
       <header style={{
         height: 56,
         background: 'var(--rzc-navy-dark)',
@@ -544,20 +557,24 @@ export default function Layout() {
         </button>
 
       </header>
+      )}
 
       {isMobile && mobileSearchOpen && (
-        <div style={{ background: 'var(--rzc-navy-dark)', borderBottom: '1px solid rgba(255,255,255,.1)', padding: '10px 16px', zIndex: 499 }}>
+        <div style={{ background: '#06142E', borderBottom: '1px solid rgba(227,178,60,.22)', padding: '10px 14px', zIndex: 499 }}>
           <GlobalSearch onNavigate={() => setMobileSearchOpen(false)} />
         </div>
       )}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Backdrop mobile */}
-        {sidebarOpen && isMobile && (
-          <div onClick={() => setSidebarOpen(false)}
-            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
+        {isMobile && (
+          <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user}
+            roleLabel={roleCustomLabel || ROLE_LABELS[role] || role} nav={nav}
+            onCompte={() => { setSidebarOpen(false); navigate('/mon-compte') }}
+            onLogout={() => { logout(); navigate('/login') }} />
         )}
 
+        {!isMobile && (
         <nav style={{
             width: isMobile ? 'min(300px, 86vw)' : 240,
             background: 'var(--rzc-navy-dark)',
@@ -663,13 +680,15 @@ export default function Layout() {
               })()}
             </div>
           </nav>
+        )}
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
-            <MonDepartBanner role={role} isMobile={isMobile} />
+            {/* Sur l'accueil résident, la bannière est placée sous le hero (par l'écran lui-même) */}
+            {location.pathname !== '/accueil' && <MonDepartBanner role={role} isMobile={isMobile} />}
             {!accesPret
               ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement...</div>
               : pageAutorisee
-              ? <Outlet />
+              ? <Outlet context={{ nav, banniereDepart: <MonDepartBanner role={role} isMobile={isMobile} /> }} />
               : <Navigate to={homePathFor(nav)} replace />}
           </main>
       </div>

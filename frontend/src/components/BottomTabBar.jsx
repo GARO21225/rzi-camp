@@ -1,5 +1,6 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { iconeEtLibelle } from '../constants/roleNav'
 
 // Barre de navigation mobile en bas d'ecran, style application native —
 // les destinations les plus utilisees restent accessibles en un tap
@@ -21,7 +22,7 @@ const TABS = {
     { to:'/demandes', label:'Demandes', icon:'📝' },
   ],
   agent: [
-    { to:'/mon-compte', label:'Accueil', icon:'👤', exact:true },
+    { to:'/accueil', label:'Accueil', icon:'🏠', exact:true },
     { to:'/voyages', label:'Voyages', icon:'✈️' },
     { to:'/demandes', label:'Demandes', icon:'📝' },
     { to:'/restauration', label:'Repas', icon:'🍽️' },
@@ -31,18 +32,6 @@ const TABS = {
 
 const CENTER_INDEX = 2
 
-// Libelles courts pour la barre (le libelle du menu est trop long sous
-// une icone de 20px).
-const LIBELLES_COURTS = {
-  '/carte':'Carte', '/evenements':'Événements', '/restauration':'Repas',
-  '/maintenance':'Maintenance', '/induction':'Induction', '/epi':'EPI',
-  '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Boutique',
-  '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
-  '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
-  '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',
-  '/reservations':'Réservations', '/induction-camp':'Induction',
-}
-
 // Onglets d'un non-admin : la liste "curated" si toutes ses pages sont
 // dans son menu (cas agent), sinon construite a partir de SON menu reel
 // - "Moi" en premier, puis ses premieres pages. Avant, tout non-admin
@@ -51,15 +40,13 @@ const LIBELLES_COURTS = {
 function tabsUtilisateur(nav) {
   const autorises = new Set(nav.filter(i => i.to).map(i => i.to))
   autorises.add('/mon-compte')
+  autorises.add('/accueil')
   if (TABS.agent.every(t => autorises.has(t.to))) return avecConduite(TABS.agent, autorises)
   const pages = nav
-    .filter(i => i.to && i.to !== '/' && i.to !== '/mon-compte')
+    .filter(i => i.to && i.to !== '/' && i.to !== '/mon-compte' && i.to !== '/accueil')
     .slice(0, 4)
-    .map(i => {
-      const [icon, ...reste] = i.label.split(' ')
-      return { to: i.to, icon, label: LIBELLES_COURTS[i.to] || reste.join(' ') }
-    })
-  return avecConduite([{ to:'/mon-compte', label:'Moi', icon:'👤', exact:true }, ...pages.filter(p => p.to !== '/conduite')], autorises)
+    .map(i => ({ to: i.to, ...iconeEtLibelle(i) }))
+  return avecConduite([{ to:'/accueil', label:'Accueil', icon:'🏠', exact:true }, ...pages.filter(p => p.to !== '/conduite')], autorises)
 }
 
 // Conducteur : "Conduite" prend le bouton central (le plus visible), c'est
@@ -88,9 +75,9 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
     <nav style={{
       position:'fixed', left:14, right:14, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))',
       zIndex:100, height:66, display:'flex', alignItems:'stretch', padding:'0 6px',
-      background:'rgba(11,15,20,.78)',
+      background:'rgba(6,20,46,.88)',
       backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
-      border:'1px solid rgba(255,255,255,.09)', borderRadius:26,
+      border:'1px solid rgba(227,178,60,.18)', borderRadius:26,
       boxShadow:'0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
     }}>
       {tabs.map((t, i) => {
@@ -107,7 +94,7 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
                 position:'absolute', top:-26, width:58, height:58, borderRadius:'50%',
                 background:'radial-gradient(circle at 32% 28%, #F4D26B, #C9972B 65%, #A9791E)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                border:'4px solid #0B1628',
+                border:'4px solid #06142E',
                 boxShadow: active
                   ? '0 0 0 6px rgba(212,160,23,.28), 0 8px 18px rgba(201,151,43,.45)'
                   : '0 8px 18px rgba(201,151,43,.35)',
@@ -144,7 +131,8 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
             }}>{t.icon}</span>
             <span style={{
               position:'relative', zIndex:1, fontSize:9, fontWeight: active ? 700 : 600,
-              letterSpacing:.2, color: active ? '#F0C445' : '#7E8AA3',
+              letterSpacing:.2, color: active ? '#F0C445' : '#8E9AB3',
+              fontFamily:"'Archivo', 'IBM Plex Sans', sans-serif", fontStretch:'95%',
             }}>{t.label}</span>
           </NavLink>
         )

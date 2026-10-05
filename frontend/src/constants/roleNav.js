@@ -128,7 +128,7 @@ export const ROLE_LABELS = {
 // menu configuré ne les liste pas (profil, mot de passe).
 // '/conduite' : la page n'affiche que les convois dont l'utilisateur est
 // lui-même le conducteur (contrôlé côté API), donc sans risque.
-export const PAGES_TOUJOURS_AUTORISEES = ['/mon-compte', '/conduite']
+export const PAGES_TOUJOURS_AUTORISEES = ['/accueil', '/mon-compte', '/conduite']
 
 // is_staff/is_superuser (vérité Django) prime toujours sur profile.role.
 export function getRole(user) {
@@ -163,9 +163,26 @@ export function isPathAllowed(pathname, nav) {
     : pathname === to || pathname.startsWith(to + '/'))
 }
 
-// Page d'accueil d'un non-admin : la carte si son menu la contient
-// (comportement historique de RoleHome), sinon la première page du menu.
-export function homePathFor(nav) {
-  if (nav.some(i => i.to === '/carte')) return '/carte'
-  return nav.find(i => i.to && i.to !== '/')?.to || '/mon-compte'
+// Page d'accueil d'un non-admin : son espace personnel (/accueil) -
+// chambre, prochain trajet, raccourcis vers les pages de SON menu.
+export function homePathFor() {
+  return '/accueil'
+}
+
+// Libellés courts (barre du bas, tuiles de l'accueil) — le libellé du menu
+// est trop long sous une icône.
+const LIBELLES_COURTS = {
+  '/carte':'Carte', '/evenements':'Événements', '/restauration':'Repas',
+  '/maintenance':'Maintenance', '/induction':'Induction', '/epi':'EPI',
+  '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Boutique',
+  '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
+  '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
+  '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',
+  '/reservations':'Réservations', '/induction-camp':'Induction', '/conduite':'Conduite',
+  '/mon-compte':'Mon compte',
+}
+
+export function iconeEtLibelle(item) {
+  const [icon, ...reste] = item.label.split(' ')
+  return { icon, label: LIBELLES_COURTS[item.to] || reste.join(' ') }
 }
