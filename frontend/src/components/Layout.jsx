@@ -9,7 +9,7 @@ import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-route
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
-import { rolesAPI, batiments, suiviConvois } from '../api'
+import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -106,24 +106,38 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
 // sur quelle page il atterrit.
 const ROLES_SANS_DASHBOARD = ['agent', 'restauration', 'technicien', 'menage']
 
-// Points de descente courants pour le trajet Camp -> Abidjan - évite de
-// laisser "Abidjan" fige en dur (demande explicite : le résident doit
-// pouvoir dire où il descend, pour que le Centre de Mobilité organise la
-// suite). Simple liste editable ici en attendant un catalogue dedie
-// (ItineraireModele existe deja pour les villes INTERMEDIAIRES d'un
-// trajet, pas pour le point de descente final du passager - portee
-// volontairement limitee a ce qui est demande).
-const POINTS_DESCENTE_ABIDJAN = [
-  'Adjamé', 'Plateau', 'Cocody', 'Yopougon', 'Marcory', 'Treichville',
-  'Abobo', 'Koumassi', 'Gare routière Abidjan', 'Autre (préciser)',
-]
+// Lieu de descente = une ville de l'itineraire choisi (ItineraireModele,
+// editable dans Parametrage), au lieu d'une liste de quartiers d'Abidjan
+// figee en dur. Meme regle que ItineraireModele.villes_descente() cote
+// serveur : etapes dans l'ordre (hors ville d'origine), destination en
+// dernier, sans doublon.
+function villesDescente(itin) {
+  if (!itin) return []
+  const vus = new Set([(itin.origine || '').trim().toLowerCase()])
+  const villes = []
+  ;[...(itin.etapes || [])].sort((x, y) => x.ordre - y.ordre).map(e => e.ville).concat(itin.destination)
+    .forEach(v => {
+      v = (v || '').trim()
+      if (v && !vus.has(v.toLowerCase())) { villes.push(v); vus.add(v.toLowerCase()) }
+    })
+  return villes
+}
+
+// Itineraire propose par defaut a un resident qui quitte le camp :
+// Camp -> Abidjan (meme choix que ItineraireModele.par_defaut_depart_camp).
+function itineraireParDefaut(liste) {
+  return liste.find(i => /^camp$/i.test(i.origine?.trim()) && /^abidjan$/i.test(i.destination?.trim()))
+    || liste.find(i => /camp/i.test(i.origine || ''))
+    || liste[0] || null
+}
 
 function MonDepartBanner({ role, isMobile }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
-  const [destination, setDestination] = useState(POINTS_DESCENTE_ABIDJAN[0])
-  const [destinationAutre, setDestinationAutre] = useState('')
+  const [itineraires, setItineraires] = useState([])
+  const [itineraireId, setItineraireId] = useState('')
+  const [destination, setDestination] = useState('')
 
   useEffect(() => {
     if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
@@ -132,13 +146,47 @@ function MonDepartBanner({ role, isMobile }) {
     return () => { cancelled = true }
   }, [role])
 
+  // Itineraires proposes au depart : ceux qui partent du camp (un depart
+  // de residence part forcement du camp), sinon tous les actifs.
+  useEffect(() => {
+    if (!monDepart) return
+    let cancelled = false
+    itinerairesModeles.list().then(r => {
+      if (cancelled) return
+      const actifs = (r.data?.results || r.data || []).filter(i => i.actif !== false)
+      const depuisCamp = actifs.filter(i => /camp/i.test(i.origine || ''))
+      const liste = depuisCamp.length ? depuisCamp : actifs
+      setItineraires(liste)
+      const defaut = itineraireParDefaut(liste)
+      if (defaut) {
+        setItineraireId(String(defaut.id))
+        const villes = villesDescente(defaut)
+        setDestination(villes[villes.length - 1] || '')
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [monDepart])
+
   if (!monDepart) return null
 
+  const itineraire = itineraires.find(i => String(i.id) === itineraireId) || null
+  const villes = villesDescente(itineraire)
+
+  const changerItineraire = (id) => {
+    setItineraireId(id)
+    const v = villesDescente(itineraires.find(i => String(i.id) === id))
+    // Garde la ville choisie si le nouvel itineraire y passe aussi, sinon destination finale
+    setDestination(d => v.includes(d) ? d : (v[v.length - 1] || ''))
+  }
+
   const confirmer = async () => {
-    const dest = destination === 'Autre (préciser)' ? (destinationAutre.trim() || 'Abidjan') : destination
     setBusy(true)
     try {
-      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'confirme', destination: dest })
+      await batiments.confirmerDepart(monDepart.batiment_id, {
+        action: 'confirme',
+        ...(itineraire ? { itineraire_id: itineraire.id } : {}),
+        ...(destination ? { destination } : {}),
+      })
       setMonDepart(null)
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
@@ -167,16 +215,25 @@ function MonDepartBanner({ role, isMobile }) {
           ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
           : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
       </div>
-      <select value={destination} onChange={e => setDestination(e.target.value)}
-        title="Où descendez-vous à Abidjan ?"
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }}>
-        {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
-      </select>
-      {destination === 'Autre (préciser)' && (
-        <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
-          placeholder="Précisez le lieu" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
+      {itineraires.length > 0 && (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+          Itinéraire
+          <select value={itineraireId} onChange={e => changerItineraire(e.target.value)}
+            style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }}>
+            {itineraires.map(i => <option key={i.id} value={String(i.id)}>{i.nom}</option>)}
+          </select>
+        </label>
       )}
-      <button onClick={confirmer} disabled={busy}
+      {villes.length > 0 && (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+          Je descends à
+          <select value={destination} onChange={e => setDestination(e.target.value)}
+            style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }}>
+            {villes.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </label>
+      )}
+      <button onClick={confirmer} disabled={busy || (itineraires.length > 0 && !destination)}
         style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
           fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', ...mob }}>
         ✅ Je confirme mon départ

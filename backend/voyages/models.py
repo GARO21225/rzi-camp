@@ -440,6 +440,27 @@ class ItineraireModele(models.Model):
     def __str__(self):
         return self.nom
 
+    def villes_descente(self):
+        """Villes où un passager peut descendre, dans l'ordre du trajet :
+        les étapes (hors ville d'origine), terminées par la destination.
+        Même règle que villesDescente() côté frontend (Layout.jsx)."""
+        villes, vus = [], {(self.origine or "").strip().lower()}
+        for v in [e.ville for e in self.etapes.order_by("ordre")] + [self.destination]:
+            v = (v or "").strip()
+            if v and v.lower() not in vus:
+                villes.append(v)
+                vus.add(v.lower())
+        return villes
+
+    @classmethod
+    def par_defaut_depart_camp(cls):
+        """Itinéraire proposé par défaut à un résident qui quitte le camp :
+        Camp → Abidjan (créé par la migration 0031), sinon le premier
+        itinéraire actif partant du camp."""
+        actifs = cls.objects.filter(actif=True)
+        return (actifs.filter(origine__iexact="CAMP", destination__iexact="ABIDJAN").first()
+                or actifs.filter(origine__icontains="camp").first())
+
 
 class EtapeItineraireModele(models.Model):
     """Un tronçon (ville intermédiaire) d'un ItineraireModele — sert de

@@ -90,3 +90,47 @@ class SuiviConvoiTests(TestCase):
     def test_admin_peut_demarrer(self):
         self.c.force_authenticate(self.admin)
         self.assertEqual(self.c.post(self.url("partir"), {}, format="json").status_code, 201)
+
+
+class ConfirmerDepartItineraireTests(TestCase):
+    """Départ résidence confirmé par le résident : choix de l'itinéraire + lieu de descente parmi ses villes."""
+
+    def setUp(self):
+        from residences.models import Batiment
+        from .models import ItineraireModele
+        User.objects.create_user("admin", password="x", is_staff=True)
+        self.u = User.objects.create_user("edgar", password="x")
+        self.p = Personnel.objects.create(nom="Kouamé", prenom="Edgar", societe="ROXGOLD", user=self.u)
+        self.b = Batiment.objects.create(residence="A2", bloc="A", statut="Occupé", personnel=self.p,
+                                         date_depart=datetime.date.today())
+        # Camp → Abidjan est créé par la migration 0031
+        self.camp_abj = ItineraireModele.objects.get(nom="Camp → Abidjan")
+        self.c = APIClient()
+        self.c.force_authenticate(self.u)
+
+    def url(self):
+        return f"/api/batiments/{self.b.id}/confirmer_depart/"
+
+    def test_villes_de_l_itineraire_par_defaut(self):
+        self.assertEqual(self.camp_abj.villes_descente(),
+                         ["SEGUELA", "MANKONO", "TIENINGBOUE", "BOUAKE", "YAMOUSSOUKRO", "ABIDJAN"])
+
+    def test_descente_dans_une_ville_de_l_itineraire(self):
+        r = self.c.post(self.url(), {"action": "confirme", "itineraire_id": self.camp_abj.id, "destination": "bouake"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        v = Voyage.objects.get(pk=r.data["voyage_id"])
+        self.assertEqual(v.destination, "BOUAKE")
+        self.assertEqual(v.origine, "CAMP")
+        self.assertEqual(v.statut, "en_voyage")
+        self.assertEqual(v.etapes.filter(sens="aller").count(), 6)
+
+    def test_ville_hors_itineraire_refusee(self):
+        r = self.c.post(self.url(), {"action": "confirme", "itineraire_id": self.camp_abj.id, "destination": "Korhogo"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(Voyage.objects.exists())
+
+    def test_sans_itineraire_defaut_camp_abidjan(self):
+        r = self.c.post(self.url(), {"action": "confirme"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["destination"], "ABIDJAN")
+        self.assertEqual(r.data["itineraire"], "Camp → Abidjan")

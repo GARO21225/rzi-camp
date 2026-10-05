@@ -1480,16 +1480,42 @@ class BatimentViewSet(viewsets.ModelViewSet):
             # "Abidjan" était fige en dur, sans jamais demander où la
             # personne descend reellement une fois arrivee (utile au Centre
             # de Mobilite pour organiser la suite du trajet).
-            destination = (request.data.get("destination") or "Abidjan").strip() or "Abidjan"
+            #
+            # Itineraire choisi par le resident (defaut : Camp -> Abidjan) et
+            # lieu de descente pris parmi les villes de CET itineraire. Sans
+            # itineraire_id (bouton admin du Dashboard, ou ancienne version
+            # de l'app encore en cache), on applique l'itineraire par defaut
+            # sans contraindre la destination, pour rester compatible.
+            from voyages.models import ItineraireModele
+            from voyages.views import _appliquer_itineraire_a_voyage
+            itineraire = None
+            itineraire_id = request.data.get("itineraire_id")
+            if itineraire_id:
+                itineraire = ItineraireModele.objects.filter(pk=itineraire_id, actif=True).first()
+                if not itineraire:
+                    return Response({"error":"Itinéraire introuvable ou désactivé."}, status=400)
+            else:
+                itineraire = ItineraireModele.par_defaut_depart_camp()
+            villes = itineraire.villes_descente() if itineraire else []
+            destination = (request.data.get("destination") or "").strip() or (villes[-1] if villes else "Abidjan")
+            if itineraire_id and villes:
+                correspondance = next((v for v in villes if v.lower() == destination.lower()), None)
+                if not correspondance:
+                    return Response({"error":f"Le lieu de descente doit être une ville de l'itinéraire {itineraire.nom} : {', '.join(villes)}."}, status=400)
+                destination = correspondance
             voyage = Voyage.objects.create(
                 personnel=personnel_obj, batiment=b,
-                destination=destination, origine=residence_nom or "Camp Roxgold Sango",
-                motif=f"Départ résidence confirmé depuis {residence_nom}",
+                destination=destination,
+                origine=(itineraire.origine if itineraire else None) or residence_nom or "Camp Roxgold Sango",
+                motif=f"Départ résidence confirmé depuis {residence_nom}" + (f" — itinéraire {itineraire.nom}, descente à {destination}" if itineraire else ""),
                 date_depart=date_dep, date_retour_prevue=date_dep,
                 type_voyage="individuel",
                 statut_validation="valide", valide_par=request.user, date_validation=djtz.now(),
                 enregistre_par=request.user,
             )
+            if itineraire:
+                # Étapes du trajet (tableau JMP + carte d'itinéraire du voyage)
+                _appliquer_itineraire_a_voyage(voyage, itineraire)
             voyage.partir(date_dep)  # libère la chambre (via ResidentPrincipal si Edgar en a un) + passe le voyage en "en_voyage"
 
             # Filet de sécurité : voyage.partir() libère la chambre du
@@ -1509,12 +1535,15 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 for admin in admins:
                     SimpleNotification.objects.create(
                         user=admin, titre="Centre de mobilité — départ confirmé",
-                        message=f"{personnel_nom} — départ confirmé vers Abidjan, chambre {residence_nom} libérée.",
+                        message=f"{personnel_nom} — départ confirmé, descente à {destination}"
+                                + (f" (itinéraire {itineraire.nom})" if itineraire else "")
+                                + f", chambre {residence_nom} libérée.",
                         type_notif="info",
                     )
             except Exception:
                 pass
-            return Response({"ok": True, "voyage_id": voyage.id})
+            return Response({"ok": True, "voyage_id": voyage.id, "destination": destination,
+                             "itineraire": itineraire.nom if itineraire else None})
         elif decision == "reporte":
             nouvelle_date = request.data.get("nouvelle_date")
             if not nouvelle_date:
