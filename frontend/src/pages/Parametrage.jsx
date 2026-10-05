@@ -8,6 +8,18 @@ import { questionsAvis as questionsAvisAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
 
+// Coordonnées imprimées sur chaque Plan de gestion de voyage - affichées dans
+// l'onglet « JMP » (avec les itinéraires), plus dans « Général & SLA ».
+const CHAMPS_JMP = [
+  { section: '🛡️ Plan de gestion de voyage (JMP) — coordonnées d\'urgence', items: [
+    { cle: 'jmp_tel_satellite', label: 'Téléphone satellite d\'urgence', suffix: '', type: 'text', hint: 'Imprimé en en-tête de chaque document JMP' },
+    { cle: 'jmp_tel_mtn', label: 'Numéro MTN du centre d\'urgence', suffix: '', type: 'text', hint: '' },
+    { cle: 'jmp_tel_orange', label: 'Numéro Orange du centre d\'urgence', suffix: '', type: 'text', hint: '' },
+    { cle: 'jmp_securite_nom', label: 'Nom du responsable sécurité', suffix: '', type: 'text', hint: 'Approuve chaque document JMP' },
+    { cle: 'jmp_securite_fonction', label: 'Fonction du responsable sécurité', suffix: '', type: 'text', hint: '' },
+  ]},
+]
+
 const CHAMPS = [
   { section: 'Maintenance — Délais SLA', items: [
     { cle: 'sla_critique_h', label: 'Priorité Critique', suffix: 'heures', type: 'number' },
@@ -19,13 +31,6 @@ const CHAMPS = [
     { cle: 'nom_application', label: "Nom de l'application", suffix: '', type: 'text', hint: 'Affiché dans le menu, l\'écran de connexion et le titre d\'onglet — un changement ne nécessite plus de redéploiement' },
     { cle: 'societe_defaut', label: 'Société par défaut', suffix: '', type: 'text', hint: 'Utilisée pour l\'auto-remplissage "Employé Roxgold" dans Personnel' },
     { cle: 'nom_camp',       label: 'Nom du camp',        suffix: '', type: 'text' },
-  ]},
-  { section: '🛡️ Plan de gestion de voyage (JMP) — coordonnées d\'urgence', items: [
-    { cle: 'jmp_tel_satellite', label: 'Téléphone satellite d\'urgence', suffix: '', type: 'text', hint: 'Imprimé en en-tête de chaque document JMP' },
-    { cle: 'jmp_tel_mtn', label: 'Numéro MTN du centre d\'urgence', suffix: '', type: 'text', hint: '' },
-    { cle: 'jmp_tel_orange', label: 'Numéro Orange du centre d\'urgence', suffix: '', type: 'text', hint: '' },
-    { cle: 'jmp_securite_nom', label: 'Nom du responsable sécurité', suffix: '', type: 'text', hint: 'Approuve chaque document JMP' },
-    { cle: 'jmp_securite_fonction', label: 'Fonction du responsable sécurité', suffix: '', type: 'text', hint: '' },
   ]},
   { section: '🍽️🛒 Horaires — Repas & Boutique', items: [
     { cle: 'repas_petit_dej_debut', label: 'Petit-déjeuner — début', suffix: '', type: 'time', hint: '' },
@@ -113,7 +118,7 @@ const TABS = [
   ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],
   ['badges',     '🪪 Badges QR — Personnel'],
-  ['itineraires', '🗺️ Itinéraires (JMP)'],
+  ['itineraires', '🛡️ JMP'],
   ['plaintes', '🚨 Gestion des plaintes'],
   ['induction',  '🎓 Induction du Camp'],
   ['catalogue',  '📦 Catalogue Boutique'],
@@ -279,7 +284,17 @@ export default function Parametrage() {
       )}
 
       {tab === 'itineraires' && (
-        <ItinerairesTab isAdmin={isAdmin} />
+        <>
+          <ChampsSections sections={CHAMPS_JMP} isAdmin={isAdmin} valeurs={valeurs} handleChange={handleChange} />
+          {isAdmin && (
+            <button onClick={()=>sauvegarder()} disabled={saving}
+              style={{ background:'var(--rzc-navy, #1E3A8A)', color:'#fff', border:'none', padding:'11px 22px', borderRadius:9,
+                cursor: saving ? 'not-allowed' : 'pointer', fontSize:13, fontWeight:700, opacity: saving ? .6 : 1, marginBottom:24 }}>
+              {saving ? '⏳ Enregistrement...' : '💾 Enregistrer les coordonnées JMP'}
+            </button>
+          )}
+          <ItinerairesTab isAdmin={isAdmin} />
+        </>
       )}
 
       {tab === 'plaintes' && (
@@ -908,10 +923,10 @@ function PlaintesConfigTab({ isAdmin }) {
   )
 }
 
-function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navigate }) {
+function ChampsSections({ sections, isAdmin, valeurs, handleChange }) {
   return (
     <>
-      {CHAMPS.map(sec => (
+      {sections.map(sec => (
         <div key={sec.section} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:18, marginBottom:16 }}>
           <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:14 }}>{sec.section}</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:14 }}>
@@ -936,6 +951,15 @@ function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navig
           </div>
         </div>
       ))}
+
+    </>
+  )
+}
+
+function GeneralTab({ isAdmin, valeurs, handleChange, saving, sauvegarder, navigate }) {
+  return (
+    <>
+      <ChampsSections sections={CHAMPS} isAdmin={isAdmin} valeurs={valeurs} handleChange={handleChange} />
 
       {isAdmin && (
         <button onClick={()=>sauvegarder()} disabled={saving}
