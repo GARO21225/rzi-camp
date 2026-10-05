@@ -258,6 +258,10 @@ class Voyage(models.Model):
                 b.occupant = f"{self.personnel.nom} {self.personnel.prenom}"
                 b.societe = self.personnel.societe
                 b.date_arrivee = today
+                # Trajet X -> Camp : date_retour_prevue = « je repars du camp le » -> date
+                # de départ de l'hébergement (relance J-1 « Vous partez demain ? »).
+                if self.date_retour_prevue and self.date_retour_prevue > today:
+                    b.date_depart = self.date_retour_prevue
                 b.save()
                 OccupationHistory.objects.create(
                     batiment=b, personnel=self.personnel,

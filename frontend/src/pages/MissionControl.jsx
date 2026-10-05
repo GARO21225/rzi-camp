@@ -99,7 +99,7 @@ const personnelOccupe = (personnelId, voyages, dateDepart, dateRetour) => {
 const ST_CFG = {
   planifie:  { l:'Planifié',     c:C.accent,  dot:'#C9972B' },
   en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
-  retour:    { l:'Retour camp',  c:C.green,   dot:C.green   },
+  retour:    { l:'Arrivé',       c:C.green,   dot:C.green   },
   annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
 }
 
@@ -494,6 +494,7 @@ export default function MissionControl() {
   // résident) sélectionnés pour être rattachés à une rotation, et mode
   // d'organisation : nouvelle rotation OU compléter une rotation existante.
   const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
+  const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
   const [organiserMode, setOrganiserMode] = useState('nouvelle')
   const [organiserRotationCible, setOrganiserRotationCible] = useState('')
   const [personnel,  setPersonnel] = useState([])
@@ -715,14 +716,30 @@ export default function MissionControl() {
     setSaving(false)
   }
 
-  const changerStatut = async (id, action) => {
+  const changerStatut = async (id, action, body) => {
     try {
-      const res = await api(`/api/voyages/${id}/${action}/`, {method:'POST'})
+      const res = await api(`/api/voyages/${id}/${action}/`, {method:'POST', ...(body ? {body: JSON.stringify(body)} : {})})
       const d = await res.json()
       flash(`Statut mis à jour`)
       if (d.alerte_chambre) toast.warning(`🏠 ${d.alerte_chambre}`, 10000)
       load()
     } catch(e) { flash('Erreur',false) }
+  }
+
+  // Trajets en ALLER SIMPLE (cf. backend voyages/trajets.py) : l'ancien
+  // bouton « Retour » supposait un aller-retour. Un trajet vers une ville
+  // se clôt par « Arrivé à X » (la chambre n'est pas touchée) ; un trajet
+  // VERS le camp par « Arrivé au camp » (chambre restituée) + la date à
+  // laquelle la personne repart (date de départ de son hébergement).
+  const versCamp = v => /camp/i.test(v?.destination||'') && !v?.trajet_aller_seul
+  const libelleArrivee = v => versCamp(v) ? '🏠 Arrivé au camp' : `🏁 Arrivé${v?.destination ? ` à ${v.destination}` : ''}`
+  const marquerArrivee = async (v) => {
+    if (versCamp(v)) {
+      setArriveeModal({ voyage: v, prochain: (v.date_retour_prevue && v.date_retour_prevue > v.date_depart) ? v.date_retour_prevue : '' })
+      return
+    }
+    const ok = await confirmDialog(`Confirmer l'arrivée de ${v.personnel_nom} à ${v.destination||'destination'} ?${v.trajet_aller_seul && v.date_retour_prevue ? `\n\nRetour au camp prévu le ${fmt(v.date_retour_prevue)}.` : ''}`, { titre:'🏁 Arrivée', danger:false })
+    if (ok) changerStatut(v.id,'revenir')
   }
 
   const ouvrirDetail = async (v) => {
@@ -1087,7 +1104,8 @@ export default function MissionControl() {
     // voir Voyage.revenir() qui saute la restitution de chambre dans ce
     // cas). Les messages parlaient pourtant toujours de "retour"/"rentré"
     // meme pour ce cas, ce qui laissait croire a un aller-retour classique.
-    const estAllerSeul = rotations.find(r=>r.rotation_id===rotId)?.trajet_aller_seul
+    const rotRef = rotations.find(r=>r.rotation_id===rotId)
+    const estAllerSeul = rotRef?.trajet_aller_seul || !/camp/i.test(rotRef?.destination||'')
     try {
       const res = await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
@@ -1387,10 +1405,7 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {isAdmin && <button className="mc-btn mc-btn-success" style={{padding:'4px 10px',fontSize:10}}
-                        onClick={async()=>{
-                          const ok = await confirmDialog(`Confirmer le retour de ${v.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(v.date_retour_prevue)}.`)
-                          if(ok) changerStatut(v.id,'revenir')
-                        }}>⬇ Retour</button>}
+                        onClick={()=>marquerArrivee(v)}>{libelleArrivee(v)}</button>}
                     </div>
                   ))}
                   {absents.length===0&&(
@@ -1569,8 +1584,8 @@ export default function MissionControl() {
                         )}
                         {isAdmin && v.statut==='en_voyage' && (
                           <button className="mc-btn mc-btn-success" style={{padding:'5px 12px',fontSize:11}}
-                            onClick={e=>{e.stopPropagation();changerStatut(v.id,'revenir')}}>
-                            ⬇ Retour
+                            onClick={e=>{e.stopPropagation();marquerArrivee(v)}}>
+                            {libelleArrivee(v)}
                           </button>
                         )}
                       </div>
@@ -1662,7 +1677,7 @@ export default function MissionControl() {
                           </button>}
                           {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                            {r.trajet_aller_seul ? '🏁 Terminer' : '🏠 Retour'}
+                            {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : `🏁 Arrivé${r.destination ? ` à ${r.destination}` : ''}`}
                           </button>}
                           {r.statut==='retour'&&<span style={{flex:1,textAlign:'center',padding:'9px 12px',fontSize:12,fontWeight:700,
                             borderRadius:9,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
@@ -1739,7 +1754,7 @@ export default function MissionControl() {
                         {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                          {r.trajet_aller_seul ? '✅ Terminer' : '🏠 Retour'}
+                          {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : '🏁 Arrivé'}
                         </button>}
                         {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
@@ -2380,11 +2395,8 @@ export default function MissionControl() {
                     </button>}
                     {selVoyage.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                       style={{flex:1,fontSize:11}}
-                      onClick={async()=>{
-                        const ok = await confirmDialog(`Confirmer le retour de ${selVoyage.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(selVoyage.date_retour_prevue)}.`)
-                        if(ok){ changerStatut(selVoyage.id,'revenir'); setSelVoyage(null) }
-                      }}>
-                      🏠 Retour
+                      onClick={()=>{ marquerArrivee(selVoyage); setSelVoyage(null) }}>
+                      {libelleArrivee(selVoyage)}
                     </button>}
                     <button className="mc-btn mc-btn-danger" style={{fontSize:11}}
                       onClick={async()=>{
@@ -2618,6 +2630,28 @@ export default function MissionControl() {
                 </>)
               })()}
             </Panel>
+          </div>
+        )}
+
+        {arriveeModal && (
+          <div onClick={()=>setArriveeModal(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:420}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:4}}>🏠 Arrivée au camp</div>
+              <div style={{fontSize:13,color:C.muted,marginBottom:14}}>
+                {arriveeModal.voyage.personnel_nom} est arrivé au camp : sa chambre principale lui est restituée.
+              </div>
+              <label style={labelStyle}>Il repart du camp le (date de départ de son hébergement)</label>
+              <input type="date" value={arriveeModal.prochain} min={new Date().toISOString().slice(0,10)}
+                onChange={e=>setArriveeModal(m=>({...m, prochain:e.target.value}))} style={inputStyle}/>
+              <div style={{fontSize:11,color:C.muted,marginTop:6}}>Facultatif — il sera relancé la veille (« Vous partez demain ? ») pour confirmer et choisir son trajet.</div>
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button className="mc-btn" style={{flex:1,justifyContent:'center'}} onClick={()=>setArriveeModal(null)}>Annuler</button>
+                <button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
+                  onClick={()=>{ const m = arriveeModal; setArriveeModal(null); changerStatut(m.voyage.id,'revenir', m.prochain ? {prochain_depart:m.prochain} : undefined) }}>
+                  ✓ Confirmer l'arrivée
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -3034,7 +3068,7 @@ export default function MissionControl() {
                   ['📅 Date de départ (prévue)', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
                   ['🧳 Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
-                  ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
+                  [versCamp(detailVoyage) ? '📅 Repart du camp le' : '🏠 Retour au camp prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   [detailVoyage.statut_validation==='refuse' ? '🚗 Véhicule prévu (non confirmé)' : '🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
                   ['🔖 Matricule', detailVoyage.vehicule_matricule||'—'],

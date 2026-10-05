@@ -210,3 +210,87 @@ class OrganiserRotationTests(TestCase):
         d1, d2 = self.demande_validee("Kone"), self.demande_validee("Yao")
         r = self.organiser(demande_ids=[d1.id, d2.id], vehicule_matricule="2222", conducteur_id=self.chauffeur.id)
         self.assertEqual(r.status_code, 400)
+
+
+class TrajetsAllerSimpleTests(TestCase):
+    """Camp → X : « je reviens le » + trajet retour automatique ; X → Camp : « je repars le » -> date d'hébergement."""
+
+    def setUp(self):
+        from residences.models import Batiment, ResidentPrincipal
+        from .models import ItineraireModele
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True)
+        self.u = User.objects.create_user("edgar", password="x")
+        self.p = Personnel.objects.create(nom="Kouamé", prenom="Edgar", societe="ROXGOLD", user=self.u)
+        self.today = datetime.date.today()
+        self.b = Batiment.objects.create(residence="A2", bloc="A", statut="Occupé", personnel=self.p, date_depart=self.today)
+        ResidentPrincipal.objects.create(personnel=self.p, batiment=self.b, date_debut=self.today - datetime.timedelta(days=30))
+        self.camp_abj = ItineraireModele.objects.get(nom="Camp → Abidjan")
+        self.c = APIClient()
+
+    def confirmer(self, **extra):
+        self.c.force_authenticate(self.u)
+        return self.c.post(f"/api/batiments/{self.b.id}/confirmer_depart/",
+                           {"action": "confirme", "itineraire_id": self.camp_abj.id, "destination": "BOUAKE", **extra}, format="json")
+
+    def test_depart_avec_date_de_retour_cree_le_trajet_retour(self):
+        retour = self.today + datetime.timedelta(days=14)
+        r = self.confirmer(date_retour=str(retour))
+        self.assertEqual(r.status_code, 200, r.data)
+        aller = Voyage.objects.get(pk=r.data["voyage_id"])
+        self.assertTrue(aller.trajet_aller_seul)
+        self.assertEqual(aller.date_retour_prevue, retour)
+        v = Voyage.objects.get(pk=r.data["retour_voyage_id"])
+        self.assertEqual((v.origine, v.destination, v.date_depart, v.statut), ("BOUAKE", "CAMP", retour, "planifie"))
+        self.assertFalse(v.trajet_aller_seul)
+        rot = Rotation.objects.get(rotation_id=v.rotation_id)
+        self.assertEqual(rot.itineraire_modele.nom, "Abidjan → Camp")
+        self.assertEqual(rot.date_depart, retour)
+
+    def test_date_de_retour_avant_le_depart_refusee(self):
+        r = self.confirmer(date_retour=str(self.today))
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(Voyage.objects.exists())
+
+    def test_arrivee_au_camp_restitue_la_chambre_et_fixe_le_prochain_depart(self):
+        retour = self.today + datetime.timedelta(days=14)
+        r = self.confirmer(date_retour=str(retour))
+        v = Voyage.objects.get(pk=r.data["retour_voyage_id"])
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.post(f"/api/voyages/{v.id}/partir/", {}, format="json").status_code, 200)
+        prochain = self.today + datetime.timedelta(days=40)
+        r = self.c.post(f"/api/voyages/{v.id}/revenir/", {"prochain_depart": str(prochain)}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.statut, self.b.personnel_id, self.b.date_depart), ("Occupé", self.p.id, prochain))
+
+    def test_arrivee_a_abidjan_ne_touche_pas_a_la_chambre(self):
+        r = self.confirmer(date_retour=str(self.today + datetime.timedelta(days=14)))
+        self.c.force_authenticate(self.admin)
+        r = self.c.post(f"/api/voyages/{r.data['voyage_id']}/revenir/", {}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.b.refresh_from_db()
+        self.assertEqual(self.b.statut, "Libre")
+
+    def test_demande_vers_le_camp_ne_libere_pas_la_chambre(self):
+        from residences.models import Demande
+        from .models import ItineraireModele
+        abj_camp = ItineraireModele.objects.get(nom="Abidjan → Camp")
+        dd = self.today + datetime.timedelta(days=3)
+        d = Demande.objects.create(type_demande="voyage", demandeur=self.u, message_demandeur="retour",
+                                   date_debut_souhaitee=dd, date_fin_souhaitee=dd + datetime.timedelta(days=28),
+                                   donnees={"itineraire_modele": abj_camp.id})
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.post(f"/api/demandes/{d.id}/valider/", {}, format="json").status_code, 200)
+        v = Voyage.objects.get(demande_origine=d)
+        self.assertEqual((v.destination, v.statut, v.trajet_aller_seul), ("CAMP", "planifie", False))
+        self.assertEqual(v.date_retour_prevue, dd + datetime.timedelta(days=28))
+        self.b.refresh_from_db()
+        self.assertEqual(self.b.statut, "Occupé")  # pas libérée par un trajet VERS le camp
+
+    def test_trajets_qui_se_touchent_ne_sont_pas_en_conflit(self):
+        from .views import _check_voyage_conflit
+        j = self.today + datetime.timedelta(days=5)
+        Voyage.objects.create(personnel=self.p, destination="ABIDJAN", date_depart=self.today, date_retour_prevue=j)
+        self.assertIsNone(_check_voyage_conflit(self.p.id, j, j))
+        self.assertIsNotNone(_check_voyage_conflit(self.p.id, j - datetime.timedelta(days=1), j))
+        self.assertIsNotNone(_check_voyage_conflit(self.p.id, self.today, self.today))

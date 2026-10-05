@@ -567,8 +567,16 @@ export default function Demandes() {
                   )}
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Retour prévu':'Date départ'}</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage' ? (/camp/i.test(form.donnees?.destination||'') ? 'Je repars du camp le' : 'Je reviens au camp le') : 'Date départ'}</label>
                   <input type="date" value={form.date_fin_souhaitee} min={form.date_debut_souhaitee||today} onChange={e=>setForm({...form,date_fin_souhaitee:e.target.value})} style={inp}/>
+                  {/* Trajets en aller simple : la 2e date n'a pas le même sens selon le sens du trajet */}
+                  {createModal==='voyage' && (
+                    <div style={{fontSize:10,color:'var(--text-dim)',marginTop:3}}>
+                      {/camp/i.test(form.donnees?.destination||'')
+                        ? 'Date de départ de votre hébergement — vous serez relancé la veille.'
+                        : 'Votre chambre est libérée jusque-là ; le trajet retour vers le camp sera planifié automatiquement.'}
+                    </div>
+                  )}
                 </div>
               </div>
 

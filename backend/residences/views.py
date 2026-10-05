@@ -1475,6 +1475,25 @@ class BatimentViewSet(viewsets.ModelViewSet):
             personnel_obj = b.personnel
             personnel_nom = f"{personnel_obj.nom} {personnel_obj.prenom}"
             residence_nom = b.residence
+            # « Vous revenez quand ? » - trajet en ALLER SIMPLE (cf.
+            # voyages/trajets.py) : la date de retour bloque les
+            # chevauchements et sert à planifier automatiquement le trajet
+            # retour X -> Camp. Avant, elle n'était jamais demandée
+            # (date_retour_prevue = date de départ). Absente (bouton admin du
+            # Dashboard, app en cache) : ancien fonctionnement aller-retour.
+            from voyages.views import _check_voyage_conflit
+            from voyages.trajets import creer_trajet_retour
+            date_retour = None
+            if request.data.get("date_retour"):
+                try:
+                    date_retour = datetime.date.fromisoformat(str(request.data.get("date_retour")))
+                except ValueError:
+                    return Response({"error":"Date de retour invalide."}, status=400)
+                if date_retour <= max(date_dep, today):
+                    return Response({"error":"La date de retour doit être postérieure au départ."}, status=400)
+                conflit = _check_voyage_conflit(personnel_obj.id, date_dep, date_retour)
+                if conflit:
+                    return Response({"error": f"Un autre voyage est déjà prévu du {conflit.date_depart:%d/%m/%Y} au {conflit.date_retour_prevue:%d/%m/%Y} sur cette période."}, status=400)
             # Point de descente choisi par le résident (liste déroulante côté
             # app, cf. Layout.jsx MonDepartBanner) - avant ce correctif
             # "Abidjan" était fige en dur, sans jamais demander où la
@@ -1516,7 +1535,8 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 vehicule_matricule=(request.data.get("immatriculation") or "").strip()[:30] if perso else "",
                 origine=(itineraire.origine if itineraire else None) or residence_nom or "Camp Roxgold Sango",
                 motif=f"Départ résidence confirmé depuis {residence_nom}" + (f" — itinéraire {itineraire.nom}, descente à {destination}" if itineraire else ""),
-                date_depart=date_dep, date_retour_prevue=date_dep,
+                date_depart=date_dep, date_retour_prevue=date_retour or date_dep,
+                trajet_aller_seul=bool(date_retour),
                 type_voyage="individuel",
                 statut_validation="valide", valide_par=request.user, date_validation=djtz.now(),
                 enregistre_par=request.user,
@@ -1545,13 +1565,17 @@ class BatimentViewSet(viewsets.ModelViewSet):
                         user=admin, titre="Centre de mobilité — départ confirmé",
                         message=f"{personnel_nom} — départ confirmé" + (" en véhicule personnel" if perso else "") + f", descente à {destination}"
                                 + (f" (itinéraire {itineraire.nom})" if itineraire else "")
-                                + f", chambre {residence_nom} libérée.",
+                                + f", chambre {residence_nom} libérée."
+                                + (f" Retour au camp prévu le {date_retour:%d/%m/%Y} (trajet planifié)." if date_retour else ""),
                         type_notif="info",
                     )
             except Exception:
                 pass
+            retour = creer_trajet_retour(voyage, itineraire, request.user) if date_retour else None
             return Response({"ok": True, "voyage_id": voyage.id, "destination": destination,
-                             "itineraire": itineraire.nom if itineraire else None})
+                             "itineraire": itineraire.nom if itineraire else None,
+                             "retour_voyage_id": retour.id if retour else None,
+                             "retour_rotation_id": retour.rotation_id if retour else None})
         elif decision == "reporte":
             nouvelle_date = request.data.get("nouvelle_date")
             if not nouvelle_date:
@@ -2683,9 +2707,19 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # que Voyage.objects.create() brut qui contournait
                             # tout le workflow (pas de rotation_id, pas de
                             # verification de chevauchement).
+                            # Trajets en ALLER SIMPLE (voyages/trajets.py) :
+                            #  - Camp -> X : date de fin = « je reviens le »,
+                            #    trajet retour X -> Camp créé automatiquement ;
+                            #  - X -> Camp : date de fin = « je repars du camp
+                            #    le » (date de départ de l'hébergement à
+                            #    l'arrivée), et la chambre n'est PAS libérée.
+                            from voyages.trajets import est_camp, creer_trajet_retour
+                            destination_v = data.get("destination","") or (itineraire_obj.destination if itineraire_obj else "")
+                            vers_camp = est_camp(destination_v)
                             voyage_cree = Voyage.objects.create(
                                 personnel=p,
-                                destination=data.get("destination","") or (itineraire_obj.destination if itineraire_obj else ""),
+                                trajet_aller_seul=not vers_camp,
+                                destination=destination_v,
                                 origine=data.get("origine","") or (itineraire_obj.origine if itineraire_obj else "Camp Roxgold Sango"),
                                 motif=data.get("motif",""),
                                 date_depart=dd,
@@ -2720,8 +2754,11 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # coherent : c'est exactement ce qui laissait
                             # Edgar affiche "toujours dans sa chambre"
                             # malgre sa demande validee et son voyage cree.
-                            voyage_cree.partir(dd)
-                            _cloturer_sejour_personnel(p, dd)
+                            if not vers_camp:
+                                voyage_cree.partir(dd)
+                                _cloturer_sejour_personnel(p, dd)
+                                if demande.date_fin_souhaitee:
+                                    creer_trajet_retour(voyage_cree, itineraire_obj, request.user)
                         except Exception as ve:
                             pass  # Continue even if voyage creation fails
         

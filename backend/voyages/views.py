@@ -21,11 +21,15 @@ STATUT_MAP = {
 def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=None):
     """Retourne True si la personne est déjà sur un voyage actif
     qui chevauche la période [date_depart, date_retour]."""
+    fin = date_retour or date_depart
+    # Trajets en aller simple : un trajet qui se termine le jour J et le
+    # suivant qui commence le jour J se TOUCHENT sans se chevaucher
+    # (ex : Camp -> Abidjan « je reviens le 20 », puis Abidjan -> Camp le 20).
     qs = Voyage.objects.filter(
         personnel_id=personnel_id,
         statut__in=("planifie", "en_voyage"),
-        date_depart__lte=date_retour or date_depart,
-        date_retour_prevue__gte=date_depart,
+    ).filter(
+        Q(date_depart__lt=fin, date_retour_prevue__gt=date_depart) | Q(date_depart=date_depart)
     )
     if exclude_pk:
         qs = qs.exclude(pk=exclude_pk)
@@ -496,6 +500,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Personnel pas en voyage"}, status=400)
         date_str = request.data.get("date_retour")
         date = datetime.date.fromisoformat(date_str) if date_str else None
+        # Arrivée au camp (trajet X -> Camp) : « repart du camp le » -> date de
+        # départ de l'hébergement restitué (cf. Voyage.revenir), qui déclenche
+        # la relance J-1 « Vous partez demain ? ».
+        prochain = request.data.get("prochain_depart")
+        if prochain:
+            try:
+                voyage.date_retour_prevue = datetime.date.fromisoformat(str(prochain))
+            except ValueError:
+                return Response({"error": "Date de prochain départ invalide"}, status=400)
+            voyage.save(update_fields=["date_retour_prevue"])
         info_chambre = voyage.revenir(date)
         # Vehicule/conducteur du retour, si different de l'aller (ex: agent
         # regroupe dans un autre vehicule suite a un retour anticipe)

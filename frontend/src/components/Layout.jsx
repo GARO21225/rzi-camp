@@ -9,6 +9,7 @@ import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-route
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
+import { toast } from '../toast'
 import { MobileHeader, MobileDrawer } from './MobileChrome'
 import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
@@ -136,6 +137,9 @@ function MonDepartBanner({ role, isMobile }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
+  // « Vous revenez quand ? » - obligatoire : bloque les chevauchements et
+  // planifie automatiquement le trajet retour X -> Camp ce jour-là.
+  const [dateRetour, setDateRetour] = useState('')
   const [itineraires, setItineraires] = useState([])
   const [itineraireId, setItineraireId] = useState('')
   const [destination, setDestination] = useState('')
@@ -193,7 +197,9 @@ function MonDepartBanner({ role, isMobile }) {
         ...(destination ? { destination } : {}),
         vehicule_personnel: vehiculePerso,
         ...(vehiculePerso && immatriculation.trim() ? { immatriculation: immatriculation.trim() } : {}),
+        date_retour: dateRetour,
       })
+      toast.success(`Bon voyage ! Votre retour au camp est planifié le ${new Date(dateRetour + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`, 7000)
       try {
         localStorage.setItem('rzc_vehicule_perso', vehiculePerso ? '1' : '0')
         if (vehiculePerso) localStorage.setItem('rzc_immatriculation', immatriculation.trim())
@@ -259,13 +265,23 @@ function MonDepartBanner({ role, isMobile }) {
           </select>
         </label>
       )}
-      <button onClick={confirmer} disabled={busy || (itineraires.length > 0 && !destination)}
-        style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        Je reviens au camp le *
+        <input type="date" value={dateRetour} onChange={e => setDateRetour(e.target.value)}
+          min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()}
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }} />
+      </label>
+      <button onClick={confirmer} disabled={busy || !dateRetour || (itineraires.length > 0 && !destination)}
+        title={!dateRetour ? 'Indiquez d\'abord votre date de retour au camp' : undefined}
+        style={{ background: (!dateRetour || busy) ? '#94A3B8' : '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
           fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', ...mob }}>
         ✅ Je confirme mon départ
       </button>
-      <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        Ou je reste — nouvelle date de départ
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }} />
+      </label>
       <button onClick={reporter} disabled={busy || !date}
         style={{ background: (!date || busy) ? '#e2e8f0' : '#0F2A5C', color: '#fff', border: 'none',
           borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
