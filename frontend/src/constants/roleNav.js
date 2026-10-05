@@ -54,6 +54,8 @@ export const ROLE_NAV = {
     { to:'/voyages', label:'🧳 Voyages' },
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/boutique', label:'🍹 Mon bar' },
+    { to:'/induction-camp', label:'🏕️ Induction Camp' },
+    { to:'/induction', label:'🎓 Mon induction QHSE' },
     { to:'/maintenance', label:'🛠️ Signaler Incident' },
     { to:'/plaintes', label:'🧹 Ma chambre / Plaintes' },
   ],
@@ -131,7 +133,8 @@ export const ROLE_LABELS = {
 // lui-même le conducteur (contrôlé côté API), donc sans risque. Idem
 // '/boutique' pour un résident : vue « Mon bar » (sa carte, SON bon, SES
 // consommations - filtré côté API, cf. restauration/views.py _profil_bar).
-export const PAGES_TOUJOURS_AUTORISEES = ['/accueil', '/mon-compte', '/conduite', '/boutique']
+// '/induction' et '/induction-camp' : un agent n'y voit que SA propre induction.
+export const PAGES_TOUJOURS_AUTORISEES = ['/accueil', '/mon-compte', '/conduite', '/boutique', '/induction', '/induction-camp']
 
 // is_staff/is_superuser (vérité Django) prime toujours sur profile.role.
 export function getRole(user) {

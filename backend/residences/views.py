@@ -3013,7 +3013,7 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         u = self.request.user
         role = getattr(getattr(u, "profile", None), "role", None)
         is_admin = u.is_staff or u.is_superuser or role == "admin"
-        if not is_admin:
+        if not is_admin and role not in ("hse", "medical"):
             qs = qs.filter(personnel__user=u)
         return qs
 
@@ -3059,15 +3059,26 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
             return Response({'error': 'etape requise'}, status=400)
 
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
-        if not is_admin:
-            # Un employe ne peut mettre a jour QUE sa propre progression
-            # d'induction - sans ca, n'importe qui pouvait falsifier
-            # l'induction (etapes/quiz) de n'importe quel autre employe en
-            # passant simplement un personnel_id different.
-            own_personnel = getattr(u, "personnel", None)
-            if not own_personnel or str(own_personnel.id) != str(personnel_id):
-                return Response({'error': "Vous ne pouvez mettre à jour que votre propre induction."}, status=403)
+        role = getattr(getattr(u, "profile", None), "role", "")
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin and role != "hse":
+            if role == "medical":
+                # Service médical : l'étape médicale de n'importe qui, rien d'autre
+                if etape_key != "medical":
+                    return Response({'error': "Le service médical ne valide que l'étape médicale."}, status=403)
+            else:
+                # Un employe ne peut mettre a jour QUE sa propre progression
+                # d'induction - sans ca, n'importe qui pouvait falsifier
+                # l'induction (etapes/quiz) de n'importe quel autre employe en
+                # passant simplement un personnel_id different.
+                own_personnel = getattr(u, "personnel", None)
+                if not own_personnel or str(own_personnel.id) != str(personnel_id):
+                    return Response({'error': "Vous ne pouvez mettre à jour que votre propre induction."}, status=403)
+                # ... et uniquement les étapes qu'il remplit lui-même : la visite
+                # médicale et le badge sont validés par le service concerné
+                # (avant : un agent pouvait s'auto-valider médical + badge).
+                if etape_key not in ("accueil", "documents", "formation", "quiz"):
+                    return Response({'error': "Cette étape est validée par le service HSE / médical."}, status=403)
 
         try:
             from residences.models import Personnel, InductionRecord

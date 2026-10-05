@@ -100,9 +100,11 @@ export default function InductionCamp() {
   // Vérification induction existante
   const [dejaComplete, setDejaComplete] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
-  const [adminView,    setAdminView]    = useState(false)
   const [allInductions,setAllInductions]= useState([])
   const isAdmin = user?.is_superuser || user?.is_staff || user?.profile?.role === 'admin'
+  // Admin : arrive directement sur le suivi de toutes les inductions (il peut
+  // basculer sur l'aperçu « participant ») ; un agent ne voit que SON parcours.
+  const [adminView,    setAdminView]    = useState(isAdmin)
 
   // Contenu administrable — chargé depuis l'API, avec fallback si réseau indisponible
   const [CAMP,   setCAMP]   = useState(CAMP_FALLBACK)

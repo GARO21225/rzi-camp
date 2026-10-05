@@ -11,11 +11,21 @@ import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
 import { toast } from '../toast'
 import { MobileHeader, MobileDrawer } from './MobileChrome'
+import { prechargerPages } from '../prechargement'
 import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
 import { ROLE_LABELS, getRole, isAdminUser, buildNav, isPathAllowed, homePathFor } from '../constants/roleNav'
+
+// Page à ouvrir pour une notification système, d'après son titre
+function pageNotif(n) {
+  const t = (n.evenement_titre || '').toLowerCase()
+  if (t.includes('maintenance')) return '/maintenance'
+  if (t.includes('demande')) return '/demandes'
+  if (t.includes('convoi') || t.includes('départ') || t.includes('mobilit') || t.includes('voyage')) return '/rotations'
+  return '/accueil'
+}
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
@@ -38,13 +48,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
           ? <div style={{ padding: '32px 16px', textAlign: 'center', color: '#525252' }}><div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>Aucune notification</div>
           : items.map(n => (
             <div key={n.id}
-              onClick={() => { onClose(); navigate('/evenements') }}
+              onClick={() => { onClose(); navigate(n.source === 'system' ? pageNotif(n) : '/evenements') }}
               style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: n.lu ? '#ffffff' : 'rgba(37,99,235,.04)', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = n.lu ? '#ffffff' : 'rgba(37,99,235,.04)'}>
-              <div style={{ fontSize: 22, flexShrink: 0 }}>📅</div>
+              <div style={{ fontSize: 22, flexShrink: 0 }}>{n.source === 'system' ? '🔔' : '📅'}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: 'var(--rzc-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
+                {n.source === 'system' && n.message && <div style={{ fontSize: 11.5, color: '#334155', marginBottom: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</div>}
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: '#525252', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: '#525252' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
@@ -393,9 +404,12 @@ export default function Layout() {
     : navRole
   // Espace personnel en tête du menu de tout non-admin, et « Mon bar »
   // (même si le menu configuré dans Paramétrage ne le liste pas)
-  const navAvecBar = isAdmin || navAvecConduite.some(i => i.to === '/boutique')
+  // Pages personnelles toujours présentes pour un résident, même si le menu
+  // configuré dans Paramétrage ne les liste pas : son bar, ses inductions.
+  const PERSO = [{ to:'/boutique', label:'🍹 Mon bar' }, { to:'/induction-camp', label:'🏕️ Induction Camp' }, { to:'/induction', label:'🎓 Mon induction QHSE' }]
+  const navAvecBar = isAdmin
     ? navAvecConduite
-    : [...navAvecConduite, { to:'/boutique', label:'🍹 Mon bar' }]
+    : [...navAvecConduite, ...PERSO.filter(x => !navAvecConduite.some(i => i.to === x.to))]
   const nav = isAdmin || navAvecBar.some(i => i.to === '/accueil')
     ? navAvecBar
     : [{ to:'/accueil', label:'🏠 Accueil', exact:true }, ...navAvecBar]
@@ -412,6 +426,14 @@ export default function Layout() {
   // soit - sensible en 3G au camp.
   const pageAutorisee = isAdmin || isPathAllowed(location.pathname, nav)
   const accesPret = !!user && (isAdmin || pageAutorisee || roleMenuChargePour === role)
+
+  // Code des pages du menu téléchargé en arrière-plan une fois l'app au
+  // repos : changer de page n'attend plus ce téléchargement (cf. prechargement.js)
+  useEffect(() => {
+    if (!accesPret) return
+    prechargerPages(['/accueil', '/mon-compte', ...nav.filter(i => i.to).map(i => i.to)],
+      { gestionBar: isAdmin || role === 'boutique' })
+  }, [accesPret])
 
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre

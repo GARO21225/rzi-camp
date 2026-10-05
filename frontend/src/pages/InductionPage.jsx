@@ -6,6 +6,16 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
+import { useStore } from '../store'
+import { getRole, isAdminUser } from '../constants/roleNav'
+
+// Vues de l'induction QHSE :
+//  - GESTION (admin, HSE) : tout le personnel, toutes les étapes ;
+//  - service MÉDICAL : tout le personnel, uniquement l'étape médicale ;
+//  - AGENT : uniquement SON induction ; il remplit lui-même ses étapes
+//    (infos, documents, formation, quiz) - la visite médicale et le badge
+//    restent validés par le service concerné. Même règle côté API.
+const ETAPES_AGENT = ['accueil', 'documents', 'formation', 'quiz']
 
 class InductionErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null } }
@@ -435,6 +445,14 @@ function EtapeQuiz({ etape, wf, onValider, onEchec }) {
 
 // ─── Composant principal ───────────────────────────────────────────
 function InductionPageInner() {
+  const { user } = useStore()
+  const roleU = getRole(user)
+  const estAdmin = isAdminUser(user)
+  const gestion = estAdmin || roleU === 'hse' || roleU === 'medical'
+  const monPersonnelId = user?.profile?.personnel_id
+  const peutAgir = key => estAdmin || roleU === 'hse' ? true
+    : roleU === 'medical' ? key === 'medical'
+    : ETAPES_AGENT.includes(key)
   const [personnel,   setPersonnel]   = useState([])
   const [loading,     setLoading]     = useState(true)
   const [search,      setSearch]      = useState('')
@@ -481,7 +499,13 @@ function InductionPageInner() {
   }, [])
 
   // Charger le personnel par profil pour les assignations
+  // Agent : sa propre induction s'ouvre directement
   useEffect(() => {
+    if (!gestion && !selected && personnel.length === 1) setSelected(personnel[0])
+  }, [personnel])
+
+  useEffect(() => {
+    if (!gestion) return // liste des formateurs : utile à la vue gestion seulement
     const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
     const token = localStorage.getItem('access_token') || ''
     fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
@@ -504,8 +528,10 @@ function InductionPageInner() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      // 1. Charger le personnel
-      const r = await personnelAPI.list({page_size:500})
+      // 1. Charger le personnel (un agent : uniquement sa propre fiche)
+      const r = gestion
+        ? await personnelAPI.list({page_size:500})
+        : await personnelAPI.monProfil().then(x => ({ data: x.data ? [x.data] : [] }))
       const list = r.data.results || r.data || []
       setPersonnel(list)
       
@@ -716,6 +742,7 @@ function InductionPageInner() {
 
   // Réinitialiser une étape (modifier ou supprimer)
   const resetEtape = async (key) => {
+    if (!gestion) return
     if (!selected) return
     if (!await confirmDialog(`Réinitialiser l'étape "${ETAPES.find(e=>e.key===key)?.titre}" ? Les données seront effacées.`)) return
     const curr = getWF(selected.id)
@@ -736,6 +763,7 @@ function InductionPageInner() {
 
   const validerEtape = async (key, extraData={}) => {
     if (!selected) return
+    if (!peutAgir(key)) { toast.warning('Cette étape est validée par le service concerné (HSE / médical).'); return }
     const curr = getWF(selected.id)
     const newWf = {
       ...curr,
@@ -816,6 +844,7 @@ function InductionPageInner() {
   }
 
   const filtered = personnel.filter(p => {
+    if (!gestion) return p.id === monPersonnelId
     if (hideNoInduction && p.induction_requise === false) return false
     if (statutFilter) {
       const rec = p.inductionrecord
@@ -853,7 +882,7 @@ function InductionPageInner() {
         boxShadow:'0 8px 24px rgba(15,36,71,.25)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div>
-            <h1 style={{fontSize:22,fontWeight:900,margin:0}}>Induction QHSE - Roxgold Sango</h1>
+            <h1 style={{fontSize:22,fontWeight:900,margin:0}}>{gestion ? 'Induction QHSE - Roxgold Sango' : 'Mon induction QHSE'}</h1>
             <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
               Workflow sequentiel en 6 etapes - Chaque etape debloque la suivante
             </p>
@@ -884,8 +913,8 @@ function InductionPageInner() {
         </div>
       </div>
 
-      {/* KPIs Induction */}
-      {!loading && (() => {
+      {/* KPIs Induction - vue gestion uniquement */}
+      {!loading && gestion && (() => {
         const total = personnel.length
         const induits = personnel.filter(p => {
           if (p.inductionrecord?.statut==='valide') return true
@@ -1480,6 +1509,13 @@ function InductionPageInner() {
                         </div>
                       </div>
 
+                      {!peutAgir(etape.key) && (
+                        <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:10,padding:'12px 14px',fontSize:13,color:'#92400e',marginBottom:14}}>
+                          🔒 Cette étape est validée par {etape.key==='medical' ? 'le service médical' : 'le service HSE / l\'administration'}.
+                          {wf(selected)?.etapes?.[etape.key]?.done ? ' ✅ Elle est déjà validée.' : ' Elle apparaîtra comme validée dès qu\'ils l\'auront fait.'}
+                        </div>
+                      )}
+                      {peutAgir(etape.key) && <>
                       {/* Assignation responsable AVANT l'étape */}
                       {etape.assignRole && !(etape.type==='form') && (
                         <div style={{background:'#f0f9ff',border:'1px solid #bae6fd',
@@ -1775,6 +1811,7 @@ function InductionPageInner() {
                           </button>
                         </div>
                       )}
+                      </>}
                     </div>
                   )
                 })()}
