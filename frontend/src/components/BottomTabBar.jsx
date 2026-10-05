@@ -75,8 +75,7 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
     <nav style={{
       position:'fixed', left:14, right:14, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))',
       zIndex:100, height:66, display:'flex', alignItems:'stretch', padding:'0 6px',
-      background:'rgba(6,20,46,.88)',
-      backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
+      background:'#0A1A3A',
       border:'1px solid rgba(227,178,60,.18)', borderRadius:26,
       boxShadow:'0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
     }}>
@@ -132,7 +131,6 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
             <span style={{
               position:'relative', zIndex:1, fontSize:9, fontWeight: active ? 700 : 600,
               letterSpacing:.2, color: active ? '#F0C445' : '#8E9AB3',
-              fontFamily:"'Archivo', 'IBM Plex Sans', sans-serif", fontStretch:'95%',
             }}>{t.label}</span>
           </NavLink>
         )

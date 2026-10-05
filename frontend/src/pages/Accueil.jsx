@@ -8,7 +8,7 @@ import { nomAffiche } from '../components/MobileChrome'
 // ════════════════════════════════════════════════════════════════
 // Accueil résident — direction « Filon d'or » : nuit marine profonde
 // traversée de courbes de niveau dorées (la géologie du site), typo
-// industrielle étendue (Archivo), chiffres en mono. Le hero sombre est
+// industrielle (IBM Plex Sans, largeur normale), chiffres en mono. Le hero sombre est
 // réservé à cet écran d'accueil ; les cartes en dessous restent claires
 // et lisibles en plein soleil sur le terrain.
 // ════════════════════════════════════════════════════════════════
@@ -19,8 +19,9 @@ const OR = '#E3B23C'
 const OR_PROFOND = '#C9972B'
 const ENCRE = '#0F1A2E'
 const GRIS = '#5B6472'
-const DISPLAY = "'Archivo', 'IBM Plex Sans', system-ui, sans-serif"
+const DISPLAY = "'IBM Plex Sans', system-ui, sans-serif"
 const MONO = "'JetBrains Mono', ui-monospace, monospace"
+const CLE_CACHE = 'rzc_accueil' // effacé à la déconnexion (localStorage.clear())
 
 function salutation() {
   const h = new Date().getHours()
@@ -49,7 +50,7 @@ function CourbesDeNiveau() {
         </linearGradient>
       </defs>
       {lignes.map(i => (
-        <path key={i} className="acc-courbe" style={{ animationDelay: `${-i * 2.2}s` }}
+        <path key={i}
           d={`M -40 ${40 + i * 26} C 60 ${10 + i * 24}, 140 ${90 + i * 22}, 230 ${50 + i * 25} S 380 ${20 + i * 27}, 460 ${70 + i * 23}`}
           fill="none" stroke="url(#filon)" strokeWidth={i === 4 ? 1.6 : .8} />
       ))}
@@ -86,8 +87,8 @@ function LigneDeRoute({ voyage }) {
                 boxShadow: estDescente ? `0 0 0 5px ${OR}33` : 'none' }} />
               <span style={{ marginTop: 6, fontSize: 9.5, fontWeight: estDescente ? 800 : 600, letterSpacing: .3,
                 color: parcouru ? ENCRE : '#94A3B8', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2, maxWidth: 80, overflowWrap: 'anywhere',
-                fontFamily: DISPLAY, fontStretch: '90%' }}>{v}</span>
-              {estDescente && <span style={{ fontSize: 8.5, color: OR_PROFOND, fontWeight: 800, marginTop: 3, letterSpacing: .4, whiteSpace: 'nowrap' }}>⬇ DESCENTE</span>}
+                fontFamily: DISPLAY }}>{v}</span>
+              {estDescente && <span style={{ fontSize: 8.5, color: OR_PROFOND, fontWeight: 700, marginTop: 3, letterSpacing: .4, whiteSpace: 'nowrap' }}>⬇ DESCENTE</span>}
             </div>
           )
         })}
@@ -99,8 +100,8 @@ function LigneDeRoute({ voyage }) {
 function Carte({ children, delai = 0, style = {}, onClick }) {
   return (
     <div className="acc-reveal" onClick={onClick}
-      style={{ animationDelay: `${delai}ms`, background: '#fff', borderRadius: 22, padding: 18,
-        boxShadow: '0 1px 0 rgba(15,26,46,.04), 0 10px 30px -12px rgba(6,20,46,.28)',
+      style={{ animationDelay: `${Math.min(delai, 200)}ms`, background: '#fff', borderRadius: 18, padding: 16,
+        boxShadow: '0 1px 2px rgba(6,20,46,.06), 0 6px 18px -10px rgba(6,20,46,.22)',
         border: '1px solid rgba(15,26,46,.06)', cursor: onClick ? 'pointer' : 'default', ...style }}>
       {children}
     </div>
@@ -110,7 +111,7 @@ function Carte({ children, delai = 0, style = {}, onClick }) {
 function Surtitre({ children, droite }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontFamily: DISPLAY, fontStretch: '115%', fontSize: 10.5, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase', color: GRIS }}>
+      <span style={{ fontFamily: DISPLAY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', color: GRIS }}>
         {children}
       </span>
       {droite}
@@ -123,16 +124,23 @@ export default function Accueil() {
   const { user } = useStore()
   const { nav = [], banniereDepart = null } = useOutletContext() || {}
   const role = getRole(user)
-  const [profil, setProfil] = useState(null)
-  const [mesVoyages, setMesVoyages] = useState(null)
-  const [agenda, setAgenda] = useState([])
-  const [mesDemandes, setMesDemandes] = useState([])
+  // Dernières données connues affichées IMMÉDIATEMENT (réseau lent au camp),
+  // puis rafraîchies en arrière-plan.
+  const cache = useMemo(() => { try { return JSON.parse(localStorage.getItem(CLE_CACHE) || '{}') } catch { return {} } }, [])
+  const [profil, setProfil] = useState(cache.profil || null)
+  const [mesVoyages, setMesVoyages] = useState(cache.voyages || null)
+  const [agenda, setAgenda] = useState(cache.agenda || [])
+  const [mesDemandes, setMesDemandes] = useState(cache.demandes || [])
 
   useEffect(() => {
-    personnelAPI.monProfil().then(r => setProfil(r.data)).catch(() => {})
-    voyagesAPI.list().then(r => setMesVoyages(r.data?.results || r.data || [])).catch(() => setMesVoyages([]))
-    evenementsAPI.agenda().then(r => setAgenda((r.data?.results || r.data || []).slice(0, 3))).catch(() => {})
-    demandesAPI.list().then(r => setMesDemandes(r.data?.results || r.data || [])).catch(() => {})
+    const maj = (cle, set) => v => {
+      set(v)
+      try { localStorage.setItem(CLE_CACHE, JSON.stringify({ ...JSON.parse(localStorage.getItem(CLE_CACHE) || '{}'), [cle]: v })) } catch {}
+    }
+    personnelAPI.monProfil().then(r => maj('profil', setProfil)(r.data)).catch(() => {})
+    voyagesAPI.list().then(r => maj('voyages', setMesVoyages)(r.data?.results || r.data || [])).catch(() => setMesVoyages(v => v || []))
+    evenementsAPI.agenda().then(r => maj('agenda', setAgenda)((r.data?.results || r.data || []).slice(0, 3))).catch(() => {})
+    demandesAPI.list().then(r => maj('demandes', setMesDemandes)(r.data?.results || r.data || [])).catch(() => {})
   }, [])
 
   // Trajet à mettre en avant : en cours, sinon le prochain planifié
@@ -153,17 +161,14 @@ export default function Accueil() {
   return (
     <div style={{ minHeight: '100%', background: '#EEF1F6', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
       <style>{`
-        @keyframes accDerive { from { transform: translateX(0) } to { transform: translateX(-40px) } }
-        .acc-courbe { animation: accDerive 14s ease-in-out infinite alternate; }
-        @keyframes accReveal { from { opacity: 0; transform: translateY(14px) scale(.985) } to { opacity: 1; transform: none } }
-        .acc-reveal { animation: accReveal .55s cubic-bezier(.2,.8,.2,1) both; }
-        @keyframes accPouls { 0%,100% { box-shadow: 0 0 0 0 rgba(227,178,60,.55) } 50% { box-shadow: 0 0 0 7px rgba(227,178,60,0) } }
+        @keyframes accReveal { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+        .acc-reveal { animation: accReveal .35s ease-out both; }
         .acc-tuile:active { transform: scale(.96); }
-        @media (prefers-reduced-motion: reduce) { .acc-courbe, .acc-reveal { animation: none !important } }
+        @media (prefers-reduced-motion: reduce) { .acc-reveal { animation: none !important } }
       `}</style>
 
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 20px 74px',
+      <div style={{ position: 'relative', overflow: 'hidden', padding: '22px 18px 64px',
         background: `radial-gradient(120% 90% at 85% 0%, ${NUIT_2} 0%, ${NUIT} 60%)`, color: '#fff' }}>
         <CourbesDeNiveau />
         <div style={{ position: 'absolute', width: 220, height: 220, right: -70, top: -90, borderRadius: '50%',
@@ -172,19 +177,18 @@ export default function Accueil() {
           <div className="acc-reveal" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: OR, textTransform: 'uppercase' }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
-          <h1 className="acc-reveal" style={{ animationDelay: '60ms', margin: '8px 0 0', fontFamily: DISPLAY, fontStretch: '112%',
-            fontWeight: 800, fontSize: 30, lineHeight: 1.05, letterSpacing: -.5, color: '#fff' }}>
+          <h1 className="acc-reveal" style={{ animationDelay: '60ms', margin: '8px 0 0', fontFamily: DISPLAY,
+            fontWeight: 700, fontSize: 26, lineHeight: 1.15, letterSpacing: -.3, color: '#fff' }}>
             {salutation()},<br /><span style={{ color: OR }}>{prenom}</span>
           </h1>
-          <div className="acc-reveal" style={{ animationDelay: '120ms', display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+          <div className="acc-reveal" style={{ animationDelay: '120ms', display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
             {[
               chambre && ['🏠', `Chambre ${chambre}`],
               ['⛏️', ROLE_LABELS[role] || role],
               profil?.societe && ['🏢', profil.societe],
             ].filter(Boolean).map(([ic, t]) => (
-              <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 99,
-                background: 'rgba(255,255,255,.08)', border: '1px solid rgba(227,178,60,.28)', fontSize: 12, fontWeight: 600,
-                backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
+              <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 99,
+                background: 'rgba(255,255,255,.08)', border: '1px solid rgba(227,178,60,.28)', fontSize: 11.5, fontWeight: 600 }}>
                 <span>{ic}</span>{t}
               </span>
             ))}
@@ -192,7 +196,7 @@ export default function Accueil() {
         </div>
       </div>
 
-      <div style={{ padding: '0 14px 24px', marginTop: -52, position: 'relative', display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
+      <div style={{ padding: '0 14px 24px', marginTop: -44, position: 'relative', display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
 
         {banniereDepart && <div className="acc-reveal" style={{ animationDelay: '140ms', margin: '0 -10px' }}>{banniereDepart}</div>}
 
@@ -201,7 +205,7 @@ export default function Accueil() {
           trajet ? (
             <Carte delai={160} onClick={() => navigate(nav.some(i => i.to === '/voyages') ? '/voyages' : '/demandes')}>
               <Surtitre droite={
-                <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 99,
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99,
                   background: trajet.statut === 'en_voyage' ? '#DCFCE7' : '#FEF3C7',
                   color: trajet.statut === 'en_voyage' ? '#166534' : '#92400E' }}>
                   {trajet.statut === 'en_voyage' ? '● En route' : 'Planifié'}
@@ -209,7 +213,7 @@ export default function Accueil() {
               }>{trajet.statut === 'en_voyage' ? 'Trajet en cours' : 'Prochain trajet'}</Surtitre>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: DISPLAY, fontStretch: '108%', fontWeight: 800, fontSize: 22, color: ENCRE, lineHeight: 1.1 }}>
+                  <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 20, color: ENCRE, lineHeight: 1.15 }}>
                     {trajet.destination || '—'}
                   </div>
                   <div style={{ fontSize: 12.5, color: GRIS, marginTop: 4 }}>
@@ -244,8 +248,8 @@ export default function Accueil() {
               {nav.some(i => i.to === '/demandes') && (
                 <button onClick={() => navigate('/demandes')}
                   style={{ marginTop: 14, width: '100%', border: 'none', borderRadius: 14, padding: '13px 16px', cursor: 'pointer',
-                    background: `linear-gradient(135deg, ${OR}, ${OR_PROFOND})`, color: NUIT, fontWeight: 800, fontSize: 14,
-                    fontFamily: DISPLAY, fontStretch: '110%', letterSpacing: .3 }}>
+                    background: `linear-gradient(135deg, ${OR}, ${OR_PROFOND})`, color: NUIT, fontWeight: 700, fontSize: 14,
+                    fontFamily: DISPLAY, letterSpacing: .3 }}>
                   ✈  Demander un voyage
                 </button>
               )}
@@ -257,18 +261,19 @@ export default function Accueil() {
         {raccourcis.length > 0 && (
           <div>
             <div style={{ padding: '4px 4px 0' }}><Surtitre>Raccourcis</Surtitre></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
               {raccourcis.map((item, i) => {
                 const { icon, label } = iconeEtLibelle(item)
                 return (
                   <button key={item.to} className="acc-reveal acc-tuile" onClick={() => navigate(item.to)}
-                    style={{ animationDelay: `${240 + i * 55}ms`, border: '1px solid rgba(15,26,46,.06)', background: '#fff',
-                      borderRadius: 20, padding: '16px 6px 13px', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', gap: 9, boxShadow: '0 8px 22px -14px rgba(6,20,46,.35)', transition: 'transform .15s' }}>
-                    <span style={{ width: 46, height: 46, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 22, background: `linear-gradient(150deg, ${NUIT_2}, ${NUIT})`,
-                      boxShadow: `inset 0 0 0 1px ${OR}55, 0 6px 14px -6px ${NUIT}` }}>{icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: ENCRE, fontFamily: DISPLAY, fontStretch: '95%' }}>{label}</span>
+                    style={{ animationDelay: `${120 + i * 30}ms`, border: '1px solid rgba(15,26,46,.07)', background: '#fff',
+                      borderRadius: 16, padding: '12px 4px 10px', minHeight: 0, minWidth: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', gap: 7, boxShadow: '0 2px 8px rgba(6,20,46,.06)', transition: 'transform .15s' }}>
+                    <span style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 19, background: `linear-gradient(150deg, ${NUIT_2}, ${NUIT})`,
+                      boxShadow: `inset 0 0 0 1px ${OR}55` }}>{icon}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: ENCRE, fontFamily: DISPLAY, maxWidth: '100%',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{label}</span>
                   </button>
                 )
               })}
@@ -279,7 +284,7 @@ export default function Accueil() {
         {/* ── MES DEMANDES ──────────────────────────────────── */}
         {mesDemandes.length > 0 && (
           <Carte delai={420} onClick={() => navigate('/demandes')}>
-            <Surtitre droite={<span style={{ color: OR_PROFOND, fontWeight: 800, fontSize: 18 }}>›</span>}>Mes demandes</Surtitre>
+            <Surtitre droite={<span style={{ color: OR_PROFOND, fontWeight: 700, fontSize: 18 }}>›</span>}>Mes demandes</Surtitre>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[[demandesEnAttente, 'En attente', '#D97706'], [demandesValidees, 'Validées', '#16A34A']].map(([n, l, c]) => (
                 <div key={l} style={{ background: '#F8FAFC', borderRadius: 14, padding: '12px 14px' }}>
@@ -295,7 +300,7 @@ export default function Accueil() {
         {agenda.length > 0 && (
           <Carte delai={480}>
             <Surtitre droite={nav.some(i => i.to === '/evenements') && (
-              <button onClick={() => navigate('/evenements')} style={{ background: 'none', border: 'none', color: OR_PROFOND, fontWeight: 800, fontSize: 12, cursor: 'pointer', padding: 0, minHeight: 0, minWidth: 0 }}>Tout voir ›</button>
+              <button onClick={() => navigate('/evenements')} style={{ background: 'none', border: 'none', color: OR_PROFOND, fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: 0, minHeight: 0, minWidth: 0 }}>Tout voir ›</button>
             )}>Au camp prochainement</Surtitre>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {agenda.map(ev => {
@@ -305,7 +310,7 @@ export default function Accueil() {
                     <div style={{ width: 50, flexShrink: 0, textAlign: 'center', borderRadius: 14, padding: '7px 0',
                       background: '#FFF8E6', border: `1px solid ${OR}55` }}>
                       <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 19, color: ENCRE, lineHeight: 1 }}>{d.getDate()}</div>
-                      <div style={{ fontSize: 9.5, fontWeight: 800, color: OR_PROFOND, letterSpacing: .8, textTransform: 'uppercase', marginTop: 2 }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: OR_PROFOND, letterSpacing: .8, textTransform: 'uppercase', marginTop: 2 }}>
                         {d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}
                       </div>
                     </div>

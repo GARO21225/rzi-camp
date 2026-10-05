@@ -380,7 +380,16 @@ export const parametres = {
   save: (parametres) => api.post('/api/parametres/sauver/', { parametres }),
 }
 
+// Cache court : Layout ET useReadOnly (à chaque changement de page)
+// interrogeaient /api/roles/ - une seule requête partagée pendant 5 min.
+let _rolesCache = null
 export const rolesAPI = {
+  listCached: () => {
+    if (!_rolesCache || Date.now() - _rolesCache.t > 5 * 60000) {
+      _rolesCache = { t: Date.now(), p: api.get('/api/roles/').catch(e => { _rolesCache = null; throw e }) }
+    }
+    return _rolesCache.p
+  },
   list:   ()      => api.get('/api/roles/'),
   create: (d)     => api.post('/api/roles/', d),
   update: (id, d) => api.patch(`/api/roles/${id}/`, d),

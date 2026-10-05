@@ -9,7 +9,7 @@ import { iconeEtLibelle } from '../constants/roleNav'
 const NUIT = '#06142E'
 const NUIT_2 = '#0B2350'
 const OR = '#E3B23C'
-const DISPLAY = "'Archivo', 'IBM Plex Sans', system-ui, sans-serif"
+const DISPLAY = "'IBM Plex Sans', system-ui, sans-serif"
 
 // /api/auth/me/ ne renvoie pas toujours first_name/last_name : le nom
 // complet est alors dans profile.nom (« Edgar Kouamé »).
@@ -53,11 +53,12 @@ export function MobileHeader({ user, logoUrl, nav, notifRef, notifOpen, onNotif,
       </div>
       <div style={{ flex: 1, minWidth: 0, paddingLeft: 4 }}>
         {titre ? (
-          <div style={{ fontFamily: DISPLAY, fontStretch: '108%', fontWeight: 800, fontSize: 17, color: '#fff',
+          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 17, color: '#fff',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: -.2 }}>{titre}</div>
         ) : (
-          <div style={{ fontFamily: DISPLAY, fontStretch: '120%', fontWeight: 700, fontSize: 10, letterSpacing: 2, color: OR, textTransform: 'uppercase', lineHeight: 1.3 }}>
-            Résidence<br /><span style={{ color: '#fff' }}>Roxgold Sango</span>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 9.5, letterSpacing: 1.2, color: OR, textTransform: 'uppercase', lineHeight: 1.35,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Résidence<br /><span style={{ color: '#fff', fontSize: 11, letterSpacing: .3 }}>Roxgold Sango</span>
           </div>
         )}
       </div>
@@ -67,7 +68,7 @@ export function MobileHeader({ user, logoUrl, nav, notifRef, notifOpen, onNotif,
           🔔
           {notifCount > 0 && (
             <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 19, height: 19, padding: '0 4px', borderRadius: 10,
-              background: OR, color: NUIT, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: OR, color: NUIT, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: `2px solid ${NUIT}` }}>{notifCount > 9 ? '9+' : notifCount}</span>
           )}
         </button>
@@ -75,7 +76,7 @@ export function MobileHeader({ user, logoUrl, nav, notifRef, notifOpen, onNotif,
       </div>
       <button onClick={onMenu} aria-label="Menu et profil"
         style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, borderRadius: '50%', border: `2px solid ${OR}`, padding: 0, cursor: 'pointer',
-          background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 800, fontSize: 13, fontFamily: DISPLAY, flexShrink: 0 }}>
+          background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 700, fontSize: 13, fontFamily: DISPLAY, flexShrink: 0 }}>
         {initiales(user)}
       </button>
     </header>
@@ -102,16 +103,14 @@ export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, on
       <style>{`
         @keyframes mdUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
         @keyframes mdFade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes mdTile { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
         .md-tile:active { transform: scale(.95); }
       `}</style>
       {open && (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(3,10,24,.55)',
-          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', animation: 'mdFade .2s ease both' }}>
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(3,10,24,.6)', animation: 'mdFade .2s ease both' }}>
           <div onClick={e => e.stopPropagation()} style={{
             position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92dvh', display: 'flex', flexDirection: 'column',
             background: '#EEF1F6', borderRadius: '28px 28px 0 0', overflow: 'hidden',
-            boxShadow: '0 -20px 60px -10px rgba(0,0,0,.5)', animation: 'mdUp .32s cubic-bezier(.2,.9,.25,1) both',
+            boxShadow: '0 -20px 60px -10px rgba(0,0,0,.5)', animation: 'mdUp .24s ease-out both',
           }}>
             {/* Carte profil */}
             <div style={{ position: 'relative', padding: '12px 18px 20px', color: '#fff', flexShrink: 0,
@@ -119,10 +118,10 @@ export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, on
               <div style={{ width: 42, height: 5, borderRadius: 3, background: 'rgba(255,255,255,.25)', margin: '0 auto 14px' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 800, fontSize: 18, fontFamily: DISPLAY,
+                  background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 700, fontSize: 18, fontFamily: DISPLAY,
                   boxShadow: `0 0 0 4px ${OR}30` }}>{initiales(user)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: DISPLAY, fontStretch: '108%', fontWeight: 800, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {nomAffiche(user)}
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: OR, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 2 }}>{roleLabel}</div>
@@ -137,27 +136,27 @@ export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, on
               {groupes.map((g, gi) => (
                 <div key={g.titre || gi} style={{ marginBottom: 16 }}>
                   {g.titre && (
-                    <div style={{ fontFamily: DISPLAY, fontStretch: '115%', fontSize: 10, fontWeight: 800, letterSpacing: 1.6,
+                    <div style={{ fontFamily: DISPLAY, fontSize: 10, fontWeight: 700, letterSpacing: 1.6,
                       textTransform: 'uppercase', color: '#5B6472', margin: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 14, height: 2, background: OR, borderRadius: 2 }} />{g.titre}
                     </div>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                     {g.items.map((item, i) => {
                       const { icon, label } = iconeEtLibelle(item)
                       return (
                         <NavLink key={item.to} to={item.to} end={item.exact || item.to === '/'} onClick={onClose} className="md-tile"
                           style={({ isActive }) => ({
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '13px 4px 11px',
-                            borderRadius: 18, textDecoration: 'none', transition: 'transform .15s',
-                            animation: `mdTile .35s ease both ${80 + (gi * 4 + i) * 25}ms`,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '11px 4px 9px', minWidth: 0,
+                            borderRadius: 14, textDecoration: 'none', transition: 'transform .15s',
                             background: isActive ? `linear-gradient(150deg, ${NUIT_2}, ${NUIT})` : '#fff',
                             border: isActive ? `1px solid ${OR}` : '1px solid rgba(15,26,46,.06)',
-                            boxShadow: isActive ? `0 8px 20px -10px ${NUIT}` : '0 6px 16px -12px rgba(6,20,46,.4)',
+                            boxShadow: isActive ? `0 4px 12px -6px ${NUIT}` : '0 1px 4px rgba(6,20,46,.07)',
                           })}>
                           {({ isActive }) => (<>
-                            <span style={{ fontSize: 23, lineHeight: 1 }}>{icon}</span>
-                            <span style={{ fontSize: 11.5, fontWeight: 700, textAlign: 'center', lineHeight: 1.15, fontFamily: DISPLAY, fontStretch: '95%',
+                            <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+                            <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.15, fontFamily: DISPLAY,
+                              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px',
                               color: isActive ? OR : '#0F1A2E' }}>{label}</span>
                           </>)}
                         </NavLink>

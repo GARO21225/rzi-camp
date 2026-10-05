@@ -344,7 +344,7 @@ export default function Layout() {
     }
     if (!userCharge) return
     setRoleMenuOverride(null); setRoleCustomLabel(null)
-    rolesAPI.list().then(r => {
+    rolesAPI.listCached().then(r => {
       // 'annule' capture l'etat isAdmin du moment ou CETTE requete a ete
       // lancee - si isAdmin est repasse a true entre-temps (ex: user
       // charge juste apres un premier rendu ou il etait encore absent),
@@ -383,8 +383,12 @@ export default function Layout() {
   // Un non-admin est maintenant renvoye vers sa page d'accueil s'il ouvre
   // une page absente de son menu. (Rappel : la vraie protection des
   // DONNEES reste cote API Django - ceci protege l'interface.)
-  const accesPret = !!user && (isAdmin || roleMenuChargePour === role)
+  // N'attend la config Paramétrage QUE si la page n'est pas déjà autorisée
+  // par le menu connu : avant, chaque ouverture de l'app attendait un
+  // aller-retour réseau de plus (/api/roles/) avant d'afficher quoi que ce
+  // soit - sensible en 3G au camp.
   const pageAutorisee = isAdmin || isPathAllowed(location.pathname, nav)
+  const accesPret = !!user && (isAdmin || pageAutorisee || roleMenuChargePour === role)
 
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre

@@ -41,7 +41,14 @@ const Presences = lazy(() => import('./pages/Presences'))
 
 const Demandes = lazy(() => import('./pages/Demandes'))
 const Conduite = lazy(() => import('./pages/Conduite'))
-const Accueil = lazy(() => import('./pages/Accueil'))
+const chargerAccueil = () => import('./pages/Accueil')
+const Accueil = lazy(chargerAccueil)
+// Résident déjà connu sur cet appareil : on précharge son écran d'accueil
+// en parallèle du reste, au lieu d'attendre la fin du Layout.
+try {
+  const u = JSON.parse(localStorage.getItem('rzc_user') || 'null')
+  if (u && !(u.is_staff || u.is_superuser) && localStorage.getItem('access_token')) chargerAccueil()
+} catch {}
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 import { useTheme } from './hooks/useTheme'
