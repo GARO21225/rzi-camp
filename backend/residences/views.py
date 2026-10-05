@@ -1503,9 +1503,17 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 if not correspondance:
                     return Response({"error":f"Le lieu de descente doit être une ville de l'itinéraire {itineraire.nom} : {', '.join(villes)}."}, status=400)
                 destination = correspondance
+            # Véhicule personnel : le résident fait sa rotation avec sa propre
+            # voiture (pas le car du camp) - même voyage individuel, marqué
+            # comme tel pour que le Centre de Mobilité ne cherche pas à
+            # l'organiser dans un convoi.
+            perso = str(request.data.get("vehicule_personnel", "")).lower() in ("1", "true", "oui")
             voyage = Voyage.objects.create(
                 personnel=personnel_obj, batiment=b,
                 destination=destination,
+                vehicule_personnel=perso,
+                vehicule="Véhicule personnel" if perso else "",
+                vehicule_matricule=(request.data.get("immatriculation") or "").strip()[:30] if perso else "",
                 origine=(itineraire.origine if itineraire else None) or residence_nom or "Camp Roxgold Sango",
                 motif=f"Départ résidence confirmé depuis {residence_nom}" + (f" — itinéraire {itineraire.nom}, descente à {destination}" if itineraire else ""),
                 date_depart=date_dep, date_retour_prevue=date_dep,
@@ -1535,7 +1543,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 for admin in admins:
                     SimpleNotification.objects.create(
                         user=admin, titre="Centre de mobilité — départ confirmé",
-                        message=f"{personnel_nom} — départ confirmé, descente à {destination}"
+                        message=f"{personnel_nom} — départ confirmé" + (" en véhicule personnel" if perso else "") + f", descente à {destination}"
                                 + (f" (itinéraire {itineraire.nom})" if itineraire else "")
                                 + f", chambre {residence_nom} libérée.",
                         type_notif="info",
@@ -2651,7 +2659,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 pk=data.get("itineraire_modele") or None
                             ).first()
                             rotation_obj = None
-                            if itineraire_obj:
+                            # Résident qui part avec SON véhicule : voyage
+                            # individuel, jamais regroupé dans un convoi.
+                            perso = str(data.get("vehicule_personnel", "")).lower() in ("1", "true", "oui")
+                            if itineraire_obj and not perso:
                                 rotation_obj = Rotation.objects.filter(
                                     itineraire_modele=itineraire_obj, date_depart=dd, statut="planifie",
                                 ).first()
@@ -2679,9 +2690,17 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 motif=data.get("motif",""),
                                 date_depart=dd,
                                 date_retour_prevue=df,
-                                rotation_id=rotation_obj.rotation_id if rotation_obj else str(_uuid.uuid4())[:8].upper(),
+                                # Sans convoi : PAS de rotation_id aléatoire. Avant, chaque
+                                # demande sans itinéraire devenait un « convoi » fantôme d'une
+                                # seule place (nb_places_total=1) auquel personne ne pouvait
+                                # être ajouté - le voyage reste désormais un départ individuel,
+                                # à rattacher à une rotation depuis « À organiser ».
+                                rotation_id=rotation_obj.rotation_id if rotation_obj else None,
                                 nb_places_total=rotation_obj.nb_places_total if rotation_obj else 1,
                                 type_voyage="rotation" if rotation_obj else "individuel",
+                                vehicule_personnel=perso,
+                                vehicule="Véhicule personnel" if perso else "",
+                                vehicule_matricule=(data.get("immatriculation") or "").strip()[:30] if perso else "",
                                 statut_validation="valide",
                                 valide_par=request.user,
                                 date_validation=timezone.now(),

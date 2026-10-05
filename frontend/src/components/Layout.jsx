@@ -138,6 +138,10 @@ function MonDepartBanner({ role, isMobile }) {
   const [itineraires, setItineraires] = useState([])
   const [itineraireId, setItineraireId] = useState('')
   const [destination, setDestination] = useState('')
+  // Car du camp ou véhicule personnel - mémorisé sur l'appareil : un
+  // résident qui fait ses rotations en voiture le fait en général à chaque fois.
+  const [vehiculePerso, setVehiculePerso] = useState(() => { try { return localStorage.getItem('rzc_vehicule_perso') === '1' } catch { return false } })
+  const [immatriculation, setImmatriculation] = useState(() => { try { return localStorage.getItem('rzc_immatriculation') || '' } catch { return '' } })
 
   useEffect(() => {
     if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
@@ -186,7 +190,13 @@ function MonDepartBanner({ role, isMobile }) {
         action: 'confirme',
         ...(itineraire ? { itineraire_id: itineraire.id } : {}),
         ...(destination ? { destination } : {}),
+        vehicule_personnel: vehiculePerso,
+        ...(vehiculePerso && immatriculation.trim() ? { immatriculation: immatriculation.trim() } : {}),
       })
+      try {
+        localStorage.setItem('rzc_vehicule_perso', vehiculePerso ? '1' : '0')
+        if (vehiculePerso) localStorage.setItem('rzc_immatriculation', immatriculation.trim())
+      } catch {}
       setMonDepart(null)
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
@@ -215,6 +225,21 @@ function MonDepartBanner({ role, isMobile }) {
           ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
           : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
       </div>
+      <div style={{ display: 'flex', gap: 6, ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        {[[false, '🚌 Car du camp'], [true, '🚗 Mon véhicule']].map(([perso, l]) => (
+          <button key={l} type="button" onClick={() => setVehiculePerso(perso)}
+            style={{ flex: 1, border: vehiculePerso === perso ? '2px solid #C9972B' : '1px solid #e2e8f0',
+              background: vehiculePerso === perso ? '#FFF8E6' : '#fff', color: '#0F1A2E', borderRadius: 8,
+              padding: '6px 10px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', ...mob }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {vehiculePerso && (
+        <input type="text" value={immatriculation} onChange={e => setImmatriculation(e.target.value)}
+          placeholder="Immatriculation (facultatif)"
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
+      )}
       {itineraires.length > 0 && (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
           Itinéraire

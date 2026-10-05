@@ -490,6 +490,12 @@ export default function MissionControl() {
   // endroits.
   const [demandesVoyageEnAttente, setDemandesVoyageEnAttente] = useState([])
   const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'', itineraire_modele_id:'' })
+  // Départs individuels hors convoi (ex: "Mon départ" confirmé par le
+  // résident) sélectionnés pour être rattachés à une rotation, et mode
+  // d'organisation : nouvelle rotation OU compléter une rotation existante.
+  const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
+  const [organiserMode, setOrganiserMode] = useState('nouvelle')
+  const [organiserRotationCible, setOrganiserRotationCible] = useState('')
   const [personnel,  setPersonnel] = useState([])
   const [stats,      setStats]     = useState({})
   const [loading,    setLoading]   = useState(true)
@@ -1218,7 +1224,7 @@ export default function MissionControl() {
               ...(isAdmin ? [['validations','✅ Validations']] : []),
               ['liste','🎫 Tous les voyages'],
             ].map(([v,l])=>{
-              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length : 0)
+              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length + voyages.filter(x=>!x.rotation_id && !x.vehicule_personnel && ['planifie','en_voyage'].includes(x.statut) && !demandesAOrganiser.some(d=>d.voyage_id===x.id)).length : 0)
               return (
                 <button key={v} className={`mc-tab ${view===v?'active':''}`}
                   onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
@@ -1545,14 +1551,22 @@ export default function MissionControl() {
                       <div key={v.id} onClick={()=>setDetailVoyage(v)}
                         style={{display:'flex',alignItems:'center',gap:10,background:C.surface,
                           border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px',cursor:'pointer'}}>
-                        <span style={{fontSize:16}}>{v.statut==='en_voyage'?'🚐':'📅'}</span>
+                        <span style={{fontSize:16}}>{v.vehicule_personnel?'🚗':(v.statut==='en_voyage'?'🚐':'📅')}</span>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:13,fontWeight:700,color:C.text}}>{v.personnel_nom||'—'}</div>
                           <div style={{fontSize:11,color:C.muted}}>
                             {v.origine} → {v.destination} · {fmt(v.date_depart)}
                             {v.statut==='en_voyage' ? ' · En transit' : ' · Planifié'}
+                            {v.vehicule_personnel && <b style={{color:C.text}}> · 🚗 Véhicule personnel{v.vehicule_matricule ? ` (${v.vehicule_matricule})` : ''}</b>}
                           </div>
                         </div>
+                        {isAdmin && !v.vehicule_personnel && (
+                          <button className="mc-btn" style={{padding:'5px 12px',fontSize:11}}
+                            title="Rattacher ce voyageur à une rotation (convoi)"
+                            onClick={e=>{e.stopPropagation();setVoyagesSelectionnes([v.id]);setDemandesSelectionnees([]);setOrganiserMode('existante');setView('organiser')}}>
+                            🔗 Ajouter à un convoi
+                          </button>
+                        )}
                         {isAdmin && v.statut==='en_voyage' && (
                           <button className="mc-btn mc-btn-success" style={{padding:'5px 12px',fontSize:11}}
                             onClick={e=>{e.stopPropagation();changerStatut(v.id,'revenir')}}>
@@ -2093,47 +2107,108 @@ export default function MissionControl() {
         )}
 
         {/* ══ VUE À ORGANISER (demandes validees pas encore en rotation) ══ */}
-        {view==='organiser' && isAdmin && (
+        {view==='organiser' && isAdmin && (() => {
+          // Départs individuels sans convoi (pas en véhicule personnel, pas
+          // déjà listés via leur demande) : à rattacher eux aussi.
+          const idsVoyagesDemandes = new Set(demandesAOrganiser.map(d=>d.voyage_id))
+          const individuelsARattacher = voyages.filter(v => !v.rotation_id && !v.vehicule_personnel
+            && ['planifie','en_voyage'].includes(v.statut) && !idsVoyagesDemandes.has(v.id))
+          const nbSel = demandesSelectionnees.length + voyagesSelectionnes.length
+          const selection = [
+            ...demandesAOrganiser.filter(d=>demandesSelectionnees.includes(d.demande_id)),
+            ...individuelsARattacher.filter(v=>voyagesSelectionnes.includes(v.id)).map(v=>({rotation_id:null,destination:v.destination,date_depart:v.date_depart})),
+          ]
+          // Toutes dans le même convoi automatique (même itinéraire + même date) :
+          // il sera complété, jamais recréé.
+          const convoiAuto = selection.length>0 && selection.every(x=>x.rotation_id && x.rotation_id===selection[0].rotation_id) ? selection[0] : null
+          const ref = selection[0]
+          const rotationsOuvertes = rotations
+            .filter(r=>['planifie','en_voyage'].includes(r.statut))
+            .map(r=>({...r, _score:(ref && (r.destination||'').toLowerCase()===(ref.destination||'').toLowerCase() ? 0 : 1)*1000
+              + (ref ? Math.abs((new Date(r.date_depart)-new Date(ref.date_depart))/86400000) : 0)}))
+            .sort((x,y)=>x._score-y._score)
+          const cible = organiserMode==='existante' ? rotations.find(r=>r.rotation_id===organiserRotationCible) : null
+          const vehiculeRequis = organiserMode==='nouvelle' ? true : !(cible?.vehicule_matricule)
+          const pret = organiserMode==='existante'
+            ? !!cible && (!vehiculeRequis || (organiserForm.vehicule_matricule && organiserForm.conducteur_id))
+            : !!(organiserForm.vehicule_matricule && organiserForm.conducteur_id)
+          const ligne = (key, checked, onChange, titre, sousTitre, badge) => (
+            <label key={key} style={{display:'flex',alignItems:'center',gap:10,
+              padding:'10px 14px',borderRadius:9,cursor:'pointer',background:checked?`${C.accent}15`:C.panel,
+              border:`1px solid ${checked?C.accent:C.border}`}}>
+              <input type="checkbox" checked={checked} style={{accentColor:C.accent}} onChange={e=>onChange(e.target.checked)}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text}}>{titre}</div>
+                <div style={{fontSize:11,color:C.muted}}>{sousTitre}</div>
+              </div>
+              {badge && <span style={{fontSize:10,fontWeight:700,color:C.accent,background:`${C.accent}15`,border:`1px solid ${C.accent}40`,borderRadius:99,padding:'2px 8px',whiteSpace:'nowrap'}}>{badge}</span>}
+            </label>
+          )
+          const reinitialiser = () => {
+            setDemandesSelectionnees([]); setVoyagesSelectionnes([]); setOrganiserRotationCible('')
+            setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:'',itineraire_modele_id:''})
+          }
+          return (
           <div className="mc-fade" style={{padding:16}}>
             <div style={{marginBottom:14}}>
-              <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Demandes validées à organiser</div>
+              <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Voyageurs à organiser</div>
               <div style={{fontSize:12,color:C.muted}}>
-                {demandesAOrganiser.length} demande(s) de voyage déjà validées par l'admin, en attente d'un véhicule et d'un chauffeur — sélectionnez-en une ou plusieurs pour les regrouper dans une même rotation.
+                {demandesAOrganiser.length + individuelsARattacher.length} voyageur(s) validé(s) sans véhicule ni chauffeur — sélectionnez-les pour créer une rotation ou <b>compléter une rotation existante</b> du même itinéraire. Les départs en véhicule personnel n'apparaissent pas ici.
               </div>
             </div>
 
-            {demandesAOrganiser.length===0 ? (
+            {demandesAOrganiser.length + individuelsARattacher.length === 0 ? (
               <div style={{padding:30,textAlign:'center',color:C.muted,background:C.panel,borderRadius:10}}>
-                Aucune demande validée en attente d'organisation.
+                Aucun voyageur en attente d'organisation.
               </div>
             ) : (
               <>
                 <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
-                  {demandesAOrganiser.map(d=>{
-                    const checked = demandesSelectionnees.includes(d.demande_id)
-                    return (
-                      <label key={d.demande_id} style={{display:'flex',alignItems:'center',gap:10,
-                        padding:'10px 14px',borderRadius:9,cursor:'pointer',background:checked?`${C.accent}15`:C.panel,
-                        border:`1px solid ${checked?C.accent:C.border}`}}>
-                        <input type="checkbox" checked={checked} style={{accentColor:C.accent}}
-                          onChange={e=>{
-                            if(e.target.checked) setDemandesSelectionnees(s=>[...s,d.demande_id])
-                            else setDemandesSelectionnees(s=>s.filter(x=>x!==d.demande_id))
-                          }}/>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:700,color:C.text}}>{d.personnel_nom}</div>
-                          <div style={{fontSize:11,color:C.muted}}>→ {d.destination||'—'} · {d.date_depart} → {d.date_retour_prevue}</div>
-                        </div>
-                      </label>
-                    )
-                  })}
+                  {demandesAOrganiser.map(d=>ligne(`d${d.demande_id}`, demandesSelectionnees.includes(d.demande_id),
+                    on=>setDemandesSelectionnees(s=>on?[...s,d.demande_id]:s.filter(x=>x!==d.demande_id)),
+                    d.personnel_nom, `${d.origine||'—'} → ${d.destination||'—'} · ${d.date_depart} → ${d.date_retour_prevue}`,
+                    d.rotation_id ? `🧭 Convoi ${d.itineraire_nom||d.rotation_id}` : null))}
+                  {individuelsARattacher.map(v=>ligne(`v${v.id}`, voyagesSelectionnes.includes(v.id),
+                    on=>setVoyagesSelectionnes(s=>on?[...s,v.id]:s.filter(x=>x!==v.id)),
+                    v.personnel_nom||'—', `${v.origine||'—'} → ${v.destination||'—'} · ${v.date_depart}${v.statut==='en_voyage'?' · déjà parti':''}`,
+                    '🧳 Départ individuel'))}
                 </div>
 
-                {demandesSelectionnees.length > 0 && (
+                {nbSel > 0 && (
                   <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:C.text}}>
-                      Organiser {demandesSelectionnees.length} demande(s) en une rotation
+                    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+                      {[['nouvelle','✦ Nouvelle rotation'],['existante','🔗 Ajouter à une rotation existante']].map(([m,l])=>(
+                        <button key={m} className={`mc-tab ${organiserMode===m?'active':''}`} onClick={()=>setOrganiserMode(m)}>{l}</button>
+                      ))}
                     </div>
+
+                    {organiserMode==='nouvelle' && convoiAuto && (
+                      <div style={{fontSize:12,color:C.text,background:`${C.green}10`,border:`1px solid ${C.green}40`,borderRadius:8,padding:'8px 12px',marginBottom:12}}>
+                        Ces voyageurs sont déjà regroupés dans le convoi <b>{convoiAuto.itineraire_nom||convoiAuto.rotation_id}</b> (même itinéraire, même date) : il sera <b>complété</b> avec ce véhicule et ce chauffeur, pas recréé — d'autres passagers pourront toujours y être ajoutés.
+                      </div>
+                    )}
+
+                    {organiserMode==='existante' && (
+                      <div style={{marginBottom:12}}>
+                        <label style={labelStyle}>Rotation à compléter *</label>
+                        <select value={organiserRotationCible} onChange={e=>setOrganiserRotationCible(e.target.value)} style={inputStyle}>
+                          <option value="">Sélectionner...</option>
+                          {rotationsOuvertes.map(r=>(
+                            <option key={r.rotation_id} value={r.rotation_id}>
+                              {fmt(r.date_depart)} · {r.origine||'—'} → {r.destination||'—'} · {r.vehicule_matricule ? `${r.vehicule||''} ${r.vehicule_matricule}` : 'sans véhicule'} · {r.places_libres ?? '?'} place(s) libre(s)
+                            </option>
+                          ))}
+                        </select>
+                        {cible && (
+                          <div style={{fontSize:11,color:C.muted,marginTop:6}}>
+                            {cible.nb_passagers} passager(s) déjà à bord · chauffeur : {cible.conducteur||'à désigner'}
+                            {cible.vehicule_matricule && ' — le véhicule et le chauffeur du convoi sont conservés (la capacité est celle du véhicule de la flotte).'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {vehiculeRequis && (
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
                       <div>
                         <label style={labelStyle}>Véhicule *</label>
@@ -2142,7 +2217,7 @@ export default function MissionControl() {
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
                           }} style={inputStyle}>
                           <option value="">Sélectionner...</option>
-                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule}</option>)}
+                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                         </select>
                       </div>
                       <div>
@@ -2159,41 +2234,41 @@ export default function MissionControl() {
                           {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
                         </select>
                       </div>
+                      {organiserMode==='nouvelle' && (
                       <div>
-                        {/* BUG REEL CORRIGE ICI (demande explicite : "voyage en
-                            permettant de choisir l'itinéraire") : cette rotation
-                            organisee depuis des demandes validees se creait
-                            jusqu'ici TOUJOURS sans itineraire (tableau JMP "Cote
-                            de securite de route" vide) - meme selecteur que
-                            "Nouvelle rotation", desormais disponible ici aussi. */}
-                        <label style={labelStyle}>Itinéraire (optionnel)</label>
+                        <label style={labelStyle}>Itinéraire {convoiAuto ? '(celui du convoi par défaut)' : '(optionnel)'}</label>
                         <select value={organiserForm.itineraire_modele_id} onChange={e=>setOrganiserForm(f=>({...f,itineraire_modele_id:e.target.value}))} style={inputStyle}>
-                          <option value="">Aucun / à définir plus tard</option>
+                          <option value="">{convoiAuto ? 'Garder celui du convoi' : 'Aucun / à définir plus tard'}</option>
                           {itineraires.filter(i=>i.actif).map(i=><option key={i.id} value={i.id}>{i.nom}</option>)}
                         </select>
                       </div>
+                      )}
                     </div>
+                    )}
                     <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12}}
-                      disabled={!organiserForm.vehicule_matricule||!organiserForm.conducteur_id}
+                      disabled={!pret}
                       onClick={async()=>{
-                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify({
-                          demande_ids: demandesSelectionnees, ...organiserForm,
-                        })})
+                        const body = {
+                          demande_ids: demandesSelectionnees, voyage_ids: voyagesSelectionnes,
+                          ...(organiserMode==='existante' ? { rotation_id: organiserRotationCible } : {}),
+                          ...organiserForm,
+                        }
+                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify(body)})
                         const d = await res.json()
                         if (res.ok) {
-                          flash(`Rotation organisée (${d.nb_personnes} personne(s))`)
-                          setDemandesSelectionnees([]); setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:'',itineraire_modele_id:''})
-                          load()
+                          flash(`Rotation ${d.rotation_id} : ${d.nb_passagers_total}/${d.nb_places_total} places occupées`)
+                          reinitialiser(); load()
                         } else { toast.error(d.error || 'Erreur') }
                       }}>
-                      ✦ Créer la rotation
+                      {organiserMode==='existante' ? `🔗 Ajouter ${nbSel} voyageur(s) à la rotation` : (convoiAuto ? `✦ Organiser le convoi (${nbSel} voyageur(s))` : `✦ Créer la rotation (${nbSel} voyageur(s))`)}
                     </button>
                   </div>
                 )}
               </>
             )}
           </div>
-        )}
+          )
+        })()}
 
         {/* ══ VUE GANTT ══════════════════════════════════════════ */}
         {view==='gantt' && (
@@ -2579,6 +2654,7 @@ export default function MissionControl() {
                         <div style={{fontWeight:800,fontSize:14,color:C.text}}>{d.demandeur_nom}</div>
                         <div style={{fontSize:11,color:C.muted,marginTop:2}}>
                           🧳 {d.donnees?.destination || '—'} · {fmt(d.date_debut_souhaitee)} → {fmt(d.date_fin_souhaitee)}
+                          {d.donnees?.vehicule_personnel && <> · <b>🚗 Véhicule personnel{d.donnees?.immatriculation ? ` (${d.donnees.immatriculation})` : ''}</b></>}
                         </div>
                         {d.message_demandeur && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {d.message_demandeur}</div>}
                       </div>

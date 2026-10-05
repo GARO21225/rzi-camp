@@ -134,3 +134,79 @@ class ConfirmerDepartItineraireTests(TestCase):
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(r.data["destination"], "ABIDJAN")
         self.assertEqual(r.data["itineraire"], "Camp → Abidjan")
+
+
+class OrganiserRotationTests(TestCase):
+    """« À organiser » : compléter un convoi existant, capacité du véhicule, véhicule personnel."""
+
+    def setUp(self):
+        from residences.models import Demande
+        from .models import ItineraireModele, VehiculeFlotte
+        self.Demande = Demande
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True)
+        self.c = APIClient()
+        self.c.force_authenticate(self.admin)
+        self.itin = ItineraireModele.objects.get(nom="Camp → Abidjan")
+        self.bus = VehiculeFlotte.objects.create(nom="Coaster", categorie="bus", matricule="1111AA01", capacite=20)
+        self.chauffeur = Personnel.objects.create(nom="Traoré", prenom="Moussa", societe="ROXGOLD")
+        self.dd = datetime.date.today() + datetime.timedelta(days=3)
+
+    def demande_validee(self, nom, **donnees):
+        u = User.objects.create_user(nom.lower(), password="x")
+        Personnel.objects.create(nom=nom, prenom="X", societe="ROXGOLD", user=u)
+        d = self.Demande.objects.create(type_demande="voyage", demandeur=u, message_demandeur="rotation",
+                                        date_debut_souhaitee=self.dd, date_fin_souhaitee=self.dd + datetime.timedelta(days=14),
+                                        donnees=donnees)
+        r = self.c.post(f"/api/demandes/{d.id}/valider/", {}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        return d
+
+    def organiser(self, **body):
+        return self.c.post("/api/voyages/organiser_demandes_en_rotation/", body, format="json")
+
+    def test_une_demande_organisee_reste_un_convoi_extensible(self):
+        d1 = self.demande_validee("Kone", itineraire_modele=self.itin.id)
+        r = self.organiser(demande_ids=[d1.id], vehicule_matricule="1111AA01", vehicule="Coaster", conducteur_id=self.chauffeur.id)
+        self.assertEqual(r.status_code, 201, r.data)
+        rid = r.data["rotation_id"]
+        self.assertEqual(r.data["nb_places_total"], 20)  # capacité du véhicule, pas 1
+        # Le convoi formé automatiquement à la validation est conservé (pas un nouveau)
+        self.assertEqual(Voyage.objects.get(demande_origine=d1).rotation_id, rid)
+        # Une 2e demande validée plus tard s'ajoute au MÊME convoi
+        d2 = self.demande_validee("Yao")
+        r = self.organiser(demande_ids=[d2.id], rotation_id=rid)
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data["nb_passagers_total"], 2)
+        v2 = Voyage.objects.get(demande_origine=d2)
+        self.assertEqual((v2.rotation_id, v2.vehicule_matricule, v2.conducteur_personnel_id), (rid, "1111AA01", self.chauffeur.id))
+        self.assertEqual(v2.etapes.filter(sens="aller").count(), 6)  # itinéraire du convoi appliqué
+        # Et un passager peut encore rejoindre (le convoi n'est pas « complet »)
+        p3 = Personnel.objects.create(nom="Bamba", prenom="I", societe="ROXGOLD")
+        r = self.c.post("/api/voyages/rejoindre_rotation/", {"rotation_id": rid, "personnel_id": p3.id}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_demande_sans_itineraire_n_est_plus_un_convoi_fantome(self):
+        d = self.demande_validee("Kone")
+        v = Voyage.objects.get(demande_origine=d)
+        self.assertIsNone(v.rotation_id)
+        self.assertEqual(v.type_voyage, "individuel")
+        ids = [x["demande_id"] for x in self.c.get("/api/voyages/demandes_a_organiser/").data["demandes_a_organiser"]]
+        self.assertIn(d.id, ids)
+
+    def test_vehicule_personnel(self):
+        d = self.demande_validee("Kone", itineraire_modele=self.itin.id, vehicule_personnel=True, immatriculation="7788 BB 01")
+        v = Voyage.objects.get(demande_origine=d)
+        self.assertTrue(v.vehicule_personnel)
+        self.assertIsNone(v.rotation_id)
+        self.assertEqual(v.vehicule_matricule, "7788 BB 01")
+        self.assertEqual(v.etapes.count(), 6)
+        ids = [x["demande_id"] for x in self.c.get("/api/voyages/demandes_a_organiser/").data["demandes_a_organiser"]]
+        self.assertNotIn(d.id, ids)
+        self.assertEqual(self.organiser(voyage_ids=[v.id], vehicule_matricule="1111AA01", conducteur_id=self.chauffeur.id).status_code, 400)
+
+    def test_capacite_du_vehicule_respectee(self):
+        from .models import VehiculeFlotte
+        VehiculeFlotte.objects.create(nom="4x4", categorie="4x4", matricule="2222", capacite=1)
+        d1, d2 = self.demande_validee("Kone"), self.demande_validee("Yao")
+        r = self.organiser(demande_ids=[d1.id, d2.id], vehicule_matricule="2222", conducteur_id=self.chauffeur.id)
+        self.assertEqual(r.status_code, 400)

@@ -109,6 +109,10 @@ class Voyage(models.Model):
                                     "Un eventuel retour doit etre cree comme une NOUVELLE rotation separee, independante. "
                                     "Quand actif, la fin du trajet ne tente jamais de restituer une chambre au camp "
                                     "(la destination n'est pas forcement le camp).")
+    vehicule_personnel = models.BooleanField(default=False,
+                         help_text="Le voyageur part avec SON propre véhicule (résident qui fait ses rotations "
+                                    "en voiture personnelle) : voyage individuel, jamais à organiser dans un convoi. "
+                                    "L'immatriculation éventuelle est dans vehicule_matricule.")
     demande_origine = models.ForeignKey("residences.Demande", on_delete=models.SET_NULL, null=True, blank=True,
                          related_name="voyages_generes",
                          help_text="Demande de voyage a l'origine de ce voyage, si cree depuis une demande validee "
