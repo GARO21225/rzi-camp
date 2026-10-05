@@ -53,6 +53,7 @@ export const ROLE_NAV = {
     { to:'/evenements', label:'📅 Événements' },
     { to:'/voyages', label:'🧳 Voyages' },
     { to:'/restauration', label:'🍽️ Restauration' },
+    { to:'/boutique', label:'🍹 Mon bar' },
     { to:'/maintenance', label:'🛠️ Signaler Incident' },
     { to:'/plaintes', label:'🧹 Ma chambre / Plaintes' },
   ],
@@ -127,8 +128,10 @@ export const ROLE_LABELS = {
 // Pages personnelles accessibles à TOUT utilisateur connecté, même si son
 // menu configuré ne les liste pas (profil, mot de passe).
 // '/conduite' : la page n'affiche que les convois dont l'utilisateur est
-// lui-même le conducteur (contrôlé côté API), donc sans risque.
-export const PAGES_TOUJOURS_AUTORISEES = ['/accueil', '/mon-compte', '/conduite']
+// lui-même le conducteur (contrôlé côté API), donc sans risque. Idem
+// '/boutique' pour un résident : vue « Mon bar » (sa carte, SON bon, SES
+// consommations - filtré côté API, cf. restauration/views.py _profil_bar).
+export const PAGES_TOUJOURS_AUTORISEES = ['/accueil', '/mon-compte', '/conduite', '/boutique']
 
 // is_staff/is_superuser (vérité Django) prime toujours sur profile.role.
 export function getRole(user) {
@@ -139,19 +142,30 @@ export function isAdminUser(user) {
   return !!(user?.is_staff || user?.is_superuser || getRole(user) === 'admin')
 }
 
-// Menu effectif d'un non-admin : menu configuré dans Paramétrage
-// (menu_pages) s'il est valide, sinon le menu codé en dur du rôle.
-export function buildNav(role, isAdmin, roleMenuOverride) {
+// Menu configuré dans Paramétrage (menu_pages) -> entrées canoniques.
+function depuisMenuPages(menuPages) {
+  if (!menuPages?.length) return null
+  const canon = {}
+  ;[...ROLE_NAV.admin, ...ROLE_NAV.agent].forEach(item => { if (item.to && item.to !== '/' && !canon[item.to]) canon[item.to] = item })
+  // '/' (Dashboard) exclu même si un ancien menu_pages le contient encore :
+  // vue camp-wide réservée à l'admin.
+  const filtered = menuPages.map(to => canon[to]).filter(Boolean)
+  return filtered.length ? filtered : null
+}
+
+// Menu effectif d'un non-admin = pages de SON MÉTIER (gérant du bar,
+// technicien, HSE...) + pages de RÉSIDENT (demandes, voyages, repas...).
+// Jusqu'ici /api/auth/me/ renvoyait « agent » pour tout le monde (bug
+// corrigé côté serveur) : chacun avait donc le menu résident. Maintenant
+// que le vrai rôle arrive, un technicien ne doit pas PERDRE ses pages de
+// résident pour autant.
+export function buildNav(role, isAdmin, roleMenuOverride, agentMenuOverride) {
   if (isAdmin) return ROLE_NAV.admin
-  if (roleMenuOverride) {
-    const canon = {}
-    ROLE_NAV.admin.forEach(item => { if (item.to && item.to !== '/') canon[item.to] = item })
-    // '/' (Dashboard) exclu même si un ancien menu_pages le contient encore :
-    // vue camp-wide réservée à l'admin.
-    const filtered = roleMenuOverride.map(to => canon[to]).filter(Boolean)
-    if (filtered.length > 0) return filtered
-  }
-  return ROLE_NAV[role] || ROLE_NAV.agent
+  const resident = depuisMenuPages(agentMenuOverride) || ROLE_NAV.agent
+  if (role === 'agent') return depuisMenuPages(roleMenuOverride) || resident
+  const metier = depuisMenuPages(roleMenuOverride) || ROLE_NAV[role] || []
+  const vus = new Set()
+  return [...metier, ...resident].filter(i => i.to && !vus.has(i.to) && vus.add(i.to))
 }
 
 // Une page est autorisée si elle (ou une de ses sous-routes) figure dans le
@@ -174,7 +188,7 @@ export function homePathFor() {
 const LIBELLES_COURTS = {
   '/carte':'Carte', '/evenements':'Événements', '/restauration':'Repas',
   '/maintenance':'Maintenance', '/induction':'Induction', '/epi':'EPI',
-  '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Boutique',
+  '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Bar',
   '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
   '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
   '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',

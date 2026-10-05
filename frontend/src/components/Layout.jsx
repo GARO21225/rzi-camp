@@ -106,7 +106,6 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
 // jamais s'appliquer a lui. Remonte ici, dans Layout (rendu pour TOUTE
 // page, tout role), pour que ce genre de role la voie enfin, peu importe
 // sur quelle page il atterrit.
-const ROLES_SANS_DASHBOARD = ['agent', 'restauration', 'technicien', 'menage']
 
 // Lieu de descente = une ville de l'itineraire choisi (ItineraireModele,
 // editable dans Parametrage), au lieu d'une liste de quartiers d'Abidjan
@@ -149,7 +148,8 @@ function MonDepartBanner({ role, isMobile }) {
   const [immatriculation, setImmatriculation] = useState(() => { try { return localStorage.getItem('rzc_immatriculation') || '' } catch { return '' } })
 
   useEffect(() => {
-    if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
+    // Tout résident (agent, gérant du bar, technicien, HSE...) - l'admin la voit déjà via le Dashboard
+    if (role === 'admin') return
     let cancelled = false
     batiments.monDepart().then(r => { if (!cancelled) setMonDepart(r.data?.depart || null) }).catch(() => {})
     return () => { cancelled = true }
@@ -341,6 +341,7 @@ export default function Layout() {
   // repli sur ROLE_NAV code en dur si le role custom est absent/invalide,
   // pour ne jamais casser l'affichage meme en cas de donnee corrompue.
   const [roleMenuOverride, setRoleMenuOverride] = useState(null)
+  const [agentMenuOverride, setAgentMenuOverride] = useState(null) // pages « résident » configurées dans Paramétrage
   const [roleCustomLabel, setRoleCustomLabel] = useState(null)
   // Role pour lequel la config Parametrage a fini de charger (succes OU
   // echec) - la garde de routes attend ce signal, sinon un menu custom
@@ -371,6 +372,8 @@ export default function Layout() {
       const liste = r.data?.results || r.data || []
       const roleCustom = liste.find(x => x.code === role)
       if (roleCustom?.menu_pages?.length) setRoleMenuOverride(roleCustom.menu_pages)
+      const agentCustom = liste.find(x => x.code === 'agent')
+      if (agentCustom?.menu_pages?.length) setAgentMenuOverride(agentCustom.menu_pages)
       if (roleCustom?.label) setRoleCustomLabel(roleCustom.label)
     }).catch(() => {}).finally(() => { if (!annule) setRoleMenuChargePour(role) })
     return () => { annule = true }
@@ -384,14 +387,18 @@ export default function Layout() {
     suiviConvois.mesConvois().then(r => setEstConducteur((r.data || []).length > 0)).catch(() => {})
   }, [userCharge, isAdmin])
 
-  const navRole = buildNav(role, isAdmin, roleMenuOverride)
+  const navRole = buildNav(role, isAdmin, roleMenuOverride, agentMenuOverride)
   const navAvecConduite = estConducteur && !navRole.some(i => i.to === '/conduite')
     ? [{ to:'/conduite', label:'🚐 Ma conduite' }, ...navRole]
     : navRole
-  // Espace personnel en tête du menu de tout non-admin
-  const nav = isAdmin || navAvecConduite.some(i => i.to === '/accueil')
+  // Espace personnel en tête du menu de tout non-admin, et « Mon bar »
+  // (même si le menu configuré dans Paramétrage ne le liste pas)
+  const navAvecBar = isAdmin || navAvecConduite.some(i => i.to === '/boutique')
     ? navAvecConduite
-    : [{ to:'/accueil', label:'🏠 Accueil', exact:true }, ...navAvecConduite]
+    : [...navAvecConduite, { to:'/boutique', label:'🍹 Mon bar' }]
+  const nav = isAdmin || navAvecBar.some(i => i.to === '/accueil')
+    ? navAvecBar
+    : [{ to:'/accueil', label:'🏠 Accueil', exact:true }, ...navAvecBar]
 
   // Separation admin / utilisateur : avant, seul le MENU differait selon
   // le role - n'importe quel utilisateur pouvait ouvrir /parametrage,

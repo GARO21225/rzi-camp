@@ -28,6 +28,7 @@ const MonCompte = lazy(() => import('./pages/MonCompte'))
 const Analytics   = lazy(() => import('./pages/Analytics'))
 const RapportsPage = lazy(() => import('./pages/RapportsPage'))
 const Boutique = lazy(() => import('./pages/Boutique'))
+const BarClient = lazy(() => import('./pages/BarClient'))
 const AuditPage = lazy(() => import('./pages/AuditPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
 const InductionPage = lazy(() => import('./pages/InductionPage'))
@@ -118,6 +119,15 @@ function RoleHome() {
   const { user } = useStore()
   if (user && !isAdminUser(user)) return <Navigate to="/accueil" replace />
   return <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>}><Dashboard /></Suspense>
+}
+
+// Bar & Boutique : vue de gestion (caisse, stock...) pour l'admin et le
+// gérant du bar (rôle 'boutique') ; vue « Mon bar » (carte, mon bon, mes
+// consommations) pour tous les autres résidents.
+function BoutiqueSelonProfil() {
+  const { user } = useStore()
+  const gestion = isAdminUser(user) || user?.profile?.role === 'boutique'
+  return gestion ? <Boutique /> : <BarClient />
 }
 
 // Pages hors Layout (plein ecran) reservees a l'admin.
@@ -243,7 +253,7 @@ export default function App() {
           <Route path="analytics" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Analytics /></Suspense>} />
           <Route path="demandes" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Demandes /></Suspense>}/>
           <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
-          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Boutique /></Suspense>} />
+          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><BoutiqueSelonProfil /></Suspense>} />
           <Route path="mon-compte" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><MonCompte /></Suspense>} />
           <Route path="parametrage" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Parametrage /></Suspense>} />
           <Route path="status"     element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><StatusPage /></Suspense>} />
