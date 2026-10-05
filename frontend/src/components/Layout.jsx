@@ -5,7 +5,7 @@ import { useSessionGuard } from '../hooks/useSessionGuard'
 import { useIsMobile } from '../hooks/useIsMobile'
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
@@ -13,123 +13,7 @@ import { rolesAPI, batiments } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
-const ROLE_NAV = {
-  admin: [
-    // ── Vue principale
-    { to:'/', label:'📊 Dashboard', exact:true },
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    // ── Personnel & Conformité
-    { group:'Personnel & Conformité' },
-    { to:'/personnel', label:'👤 Personnel' },
-    { to:'/presences', label:'🟢 Présences' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/induction-camp', label:'🏕️ Induction Camp' },
-    { to:'/epi', label:'🦺 Équipements EPI' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-    // ── Hébergement & Mobilité
-    { group:'Hébergement & Mobilité' },
-    { to:'/residences', label:'🏠 Résidences' },
-    { to:'/rotations', label:'🧭 Centre de Mobilité' },
-    // ── Services
-    { group:'Services aux Résidents' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/boutique', label:'🛒 Bar & Boutique' },
-    { to:'/reservations', label:'📅 Réservations' },
-    // ── Exploitation
-    { group:'Exploitation' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/plaintes', label:'🧹 Plaintes' },
-    { to:'/evenements', label:'📡 Événements' },
-    { to:'/demandes', label:'📝 Demandes' },
-    // ── Pilotage
-    { group:'Pilotage & Analyse' },
-    { to:'/analytics', label:'📈 Analytics' },
-    { to:'/rapports', label:'📄 Rapports' },
-    { to:'/historique', label:'📋 Historique' },
-    { to:'/audit', label:'🔍 Audit' },
-    { to:'/assistant', label:'🤖 Assistant IA' },
-    { to:'/status', label:'🔧 Diagnostic' },
-    // ── Système
-    { group:'Système' },
-    { to:'/parametrage', label:'⚙️ Paramétrage' },
-  ],
-  agent: [
-    { to:'/mon-compte', label:'👤 Mon compte' },
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/demandes', label:'📝 Mes demandes' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/voyages', label:'🧳 Voyages' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/maintenance', label:'🛠️ Signaler Incident' },
-    { to:'/plaintes', label:'🧹 Ma chambre / Plaintes' },
-  ],
-  restauration: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-  ],
-  technicien: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-  ],
-  menage: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/maintenance', label:'🛠️ Signaler' },
-  ],
-  boutique: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/boutique', label:'🛒 Bar & Boutique' },
-  ],
-  securite: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-  ],
-  medical: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-  ],
-  hse: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/epi', label:'🦺 Équipements EPI' },
-  ],
-  accueil: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-    { to:'/residences', label:'🏠 Résidences' },
-  ],
-  manager: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/demandes', label:'📝 Demandes' },
-    { to:'/rapports', label:'📄 Rapports' },
-    { to:'/analytics', label:'📈 Analytics' },
-    { to:'/historique', label:'📋 Historique' },
-  ],
-}
-
-const ROLE_LABELS = {
-  admin: 'Administrateur',
-  agent: 'Agent',
-  restauration: 'Restauration',
-  technicien: 'Technicien',
-  menage: 'Ménage',
-  boutique: 'Bar & Boutique',
-  securite: 'Sécurité',
-  medical: 'Médical',
-  hse: 'HSE / QHSE',
-  accueil: "Agent d'accueil",
-  manager: 'Manager',
-}
+import { ROLE_LABELS, getRole, isAdminUser, buildNav, isPathAllowed, homePathFor } from '../constants/roleNav'
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   return (
@@ -234,7 +118,7 @@ const POINTS_DESCENTE_ABIDJAN = [
   'Abobo', 'Koumassi', 'Gare routière Abidjan', 'Autre (préciser)',
 ]
 
-function MonDepartBanner({ role }) {
+function MonDepartBanner({ role, isMobile }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
@@ -267,10 +151,14 @@ function MonDepartBanner({ role }) {
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
 
+  // Sur mobile : chaque controle prend toute la largeur (cibles tactiles
+  // de 44px) au lieu d'une ligne de 5 elements qui deborde.
+  const mob = isMobile ? { flex: '1 1 100%', minHeight: 44, fontSize: 15 } : {}
+
   return (
     <div style={{ background: monDepart.en_retard ? '#fef2f2' : '#fffbeb',
       border: `1px solid ${monDepart.en_retard ? '#fecaca' : '#fde68a'}`,
-      borderRadius: 10, padding: '10px 14px', margin: '12px 16px 0',
+      borderRadius: 10, padding: '10px 14px', margin: isMobile ? '10px 10px 0' : '12px 16px 0',
       display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
       <div style={{ flex: 1, minWidth: 220, fontSize: 13, fontWeight: 600, color: '#0F1A2E' }}>
         {monDepart.en_retard
@@ -281,24 +169,24 @@ function MonDepartBanner({ role }) {
       </div>
       <select value={destination} onChange={e => setDestination(e.target.value)}
         title="Où descendez-vous à Abidjan ?"
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }}>
+        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }}>
         {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
       </select>
       {destination === 'Autre (préciser)' && (
         <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
-          placeholder="Précisez le lieu" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
+          placeholder="Précisez le lieu" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
       )}
       <button onClick={confirmer} disabled={busy}
         style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
-          fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
+          fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', ...mob }}>
         ✅ Je confirme mon départ
       </button>
       <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
+        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
       <button onClick={reporter} disabled={busy || !date}
         style={{ background: (!date || busy) ? '#e2e8f0' : '#0F2A5C', color: '#fff', border: 'none',
           borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
-          cursor: (!date || busy) ? 'not-allowed' : 'pointer' }}>
+          cursor: (!date || busy) ? 'not-allowed' : 'pointer', ...mob }}>
         📅 Je reste — nouvelle date
       </button>
     </div>
@@ -347,14 +235,20 @@ export default function Layout() {
   // (simple champ metier, qui vaut 'agent' par defaut et peut ne jamais
   // avoir ete mis a jour) - un compte reellement admin ne doit jamais
   // pouvoir s'afficher comme 'Agent Terrain' a cause d'un profil oublie.
-  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const role = getRole(user)
+  const isAdmin = isAdminUser(user)
 
   // Menu par role configurable depuis Parametrage (sans toucher au code) -
   // repli sur ROLE_NAV code en dur si le role custom est absent/invalide,
   // pour ne jamais casser l'affichage meme en cas de donnee corrompue.
   const [roleMenuOverride, setRoleMenuOverride] = useState(null)
   const [roleCustomLabel, setRoleCustomLabel] = useState(null)
+  // Role pour lequel la config Parametrage a fini de charger (succes OU
+  // echec) - la garde de routes attend ce signal, sinon un menu custom
+  // plus large que le menu par defaut ferait rediriger a tort pendant
+  // le chargement.
+  const [roleMenuChargePour, setRoleMenuChargePour] = useState(null)
+  const userCharge = !!user
   useEffect(() => {
     let annule = false
     if (isAdmin) {
@@ -365,6 +259,8 @@ export default function Layout() {
       setRoleMenuOverride(null); setRoleCustomLabel(null)
       return
     }
+    if (!userCharge) return
+    setRoleMenuOverride(null); setRoleCustomLabel(null)
     rolesAPI.list().then(r => {
       // 'annule' capture l'etat isAdmin du moment ou CETTE requete a ete
       // lancee - si isAdmin est repasse a true entre-temps (ex: user
@@ -377,25 +273,20 @@ export default function Layout() {
       const roleCustom = liste.find(x => x.code === role)
       if (roleCustom?.menu_pages?.length) setRoleMenuOverride(roleCustom.menu_pages)
       if (roleCustom?.label) setRoleCustomLabel(roleCustom.label)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { if (!annule) setRoleMenuChargePour(role) })
     return () => { annule = true }
-  }, [isAdmin, role])
+  }, [isAdmin, role, userCharge])
 
-  const nav = (() => {
-    if (isAdmin) return ROLE_NAV.admin
-    if (roleMenuOverride) {
-      // Filtre la liste canonique (admin) aux seules routes autorisees pour
-      // ce role, dans l'ordre configure - garde le libelle/icone canonique.
-      const canon = {}
-      ROLE_NAV.admin.forEach(item => { if (item.to && item.to !== '/') canon[item.to] = item })
-      // '/' (Dashboard) exclu meme si un menu_pages deja enregistre en base
-      // le contient encore (ancien reglage) : vue camp-wide reservee a l'admin,
-      // et RoleHome redirige de toute facon tout non-admin loin de cette route.
-      const filtered = roleMenuOverride.map(to => canon[to]).filter(Boolean)
-      if (filtered.length > 0) return filtered
-    }
-    return ROLE_NAV[role] || ROLE_NAV.agent
-  })()
+  const nav = buildNav(role, isAdmin, roleMenuOverride)
+
+  // Separation admin / utilisateur : avant, seul le MENU differait selon
+  // le role - n'importe quel utilisateur pouvait ouvrir /parametrage,
+  // /personnel, /audit... en tapant l'URL (ou via la recherche globale).
+  // Un non-admin est maintenant renvoye vers sa page d'accueil s'il ouvre
+  // une page absente de son menu. (Rappel : la vraie protection des
+  // DONNEES reste cote API Django - ceci protege l'interface.)
+  const accesPret = !!user && (isAdmin || roleMenuChargePour === role)
+  const pageAutorisee = isAdmin || isPathAllowed(location.pathname, nav)
 
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre
@@ -518,9 +409,9 @@ export default function Layout() {
 
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
-            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#374151', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
+            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#CBD5E1', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
             onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' } }}
-            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' } }}>
+            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#CBD5E1' } }}>
             🔔
             {notifCount > 0 && (
               <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
@@ -554,7 +445,7 @@ export default function Layout() {
         <button onClick={() => { logout(); navigate('/login') }}
           style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
           title="Déconnexion">
           {isMobile ? '⎋' : '⎋ Déconnexion'}
         </button>
@@ -575,7 +466,7 @@ export default function Layout() {
         )}
 
         <nav style={{
-            width: 240,
+            width: isMobile ? 'min(300px, 86vw)' : 240,
             background: 'var(--rzc-navy-dark)',
             borderRight: 'none',
             overflowY: 'auto',
@@ -616,7 +507,7 @@ export default function Layout() {
                 </button>
               </div>
             )}
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
               <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
               </div>
@@ -681,8 +572,12 @@ export default function Layout() {
           </nav>
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
-            <MonDepartBanner role={role} />
-            <Outlet />
+            <MonDepartBanner role={role} isMobile={isMobile} />
+            {!accesPret
+              ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement...</div>
+              : pageAutorisee
+              ? <Outlet />
+              : <Navigate to={homePathFor(nav)} replace />}
           </main>
       </div>
       {/* Rendu via portail dans <body> : la barre est en position:fixed, donc elle doit
@@ -691,7 +586,7 @@ export default function Layout() {
           ci-dessus) — sinon elle peut se retrouver clipée/masquée selon le navigateur mobile,
           ce qui masquait la barre (et ce qu'elle devait montrer) chez l'utilisateur. */}
       {isMobile && createPortal(
-        <BottomTabBar role={isAdmin ? 'admin' : 'agent'} onOpenMenu={() => setSidebarOpen(true)} />,
+        <BottomTabBar isAdmin={isAdmin} nav={nav} onOpenMenu={() => setSidebarOpen(true)} />,
         document.body
       )}
       <ConfirmDialogContainer />

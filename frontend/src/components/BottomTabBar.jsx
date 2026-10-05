@@ -31,12 +31,46 @@ const TABS = {
 
 const CENTER_INDEX = 2
 
+// Libelles courts pour la barre (le libelle du menu est trop long sous
+// une icone de 20px).
+const LIBELLES_COURTS = {
+  '/carte':'Carte', '/evenements':'Événements', '/restauration':'Repas',
+  '/maintenance':'Maintenance', '/induction':'Induction', '/epi':'EPI',
+  '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Boutique',
+  '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
+  '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
+  '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',
+  '/reservations':'Réservations', '/induction-camp':'Induction',
+}
+
+// Onglets d'un non-admin : la liste "curated" si toutes ses pages sont
+// dans son menu (cas agent), sinon construite a partir de SON menu reel
+// - "Moi" en premier, puis ses premieres pages. Avant, tout non-admin
+// recevait les onglets agent (Voyages, Repas, Signaler...) meme quand
+// ces pages n'etaient pas les siennes.
+function tabsUtilisateur(nav) {
+  const autorises = new Set(nav.filter(i => i.to).map(i => i.to))
+  autorises.add('/mon-compte')
+  if (TABS.agent.every(t => autorises.has(t.to))) return TABS.agent
+  const pages = nav
+    .filter(i => i.to && i.to !== '/' && i.to !== '/mon-compte')
+    .slice(0, 4)
+    .map(i => {
+      const [icon, ...reste] = i.label.split(' ')
+      return { to: i.to, icon, label: LIBELLES_COURTS[i.to] || reste.join(' ') }
+    })
+  return [{ to:'/mon-compte', label:'Moi', icon:'👤', exact:true }, ...pages]
+}
+
 function isTabActive(tab, pathname) {
   return tab.exact ? pathname === tab.to : pathname.startsWith(tab.to)
 }
 
-export default function BottomTabBar({ role, onOpenMenu }) {
-  const tabs = TABS[role] || TABS.agent
+export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
+  const tabs = isAdmin ? TABS.admin : tabsUtilisateur(nav)
+  // Le bouton central eleve n'a de sens qu'avec un nombre impair d'onglets
+  // (sinon il n'est pas au centre visuel de la barre).
+  const centre = tabs.length === 5 ? CENTER_INDEX : -1
   const { pathname } = useLocation()
 
   return (
@@ -51,7 +85,7 @@ export default function BottomTabBar({ role, onOpenMenu }) {
       {tabs.map((t, i) => {
         const active = isTabActive(t, pathname)
 
-        if (i === CENTER_INDEX) {
+        if (i === centre) {
           return (
             <NavLink key={t.to} to={t.to} end={t.exact}
               style={{
