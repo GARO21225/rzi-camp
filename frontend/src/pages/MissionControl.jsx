@@ -3,6 +3,7 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
+import CarteConvoisDirect from '../components/CarteConvoisDirect'
 import { useStore } from '../store'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
@@ -1208,6 +1209,7 @@ export default function MissionControl() {
             WebkitOverflowScrolling:'touch'}}>
             {[
               ['command','🛰️ Command'],
+              ...(isAdmin ? [['direct','📡 En direct']] : []),
               ['rotations','🚀 Rotations'],
               ...(isAdmin ? [['organiser','📋 À organiser']] : []),
               ['gantt','📅 Gantt'],
@@ -2541,6 +2543,13 @@ export default function MissionControl() {
                 </>)
               })()}
             </Panel>
+          </div>
+        )}
+
+        {/* ══ VUE EN DIRECT (suivi GPS des convois) ════════════════ */}
+        {view==='direct' && isAdmin && (
+          <div className="mc-fade">
+            <CarteConvoisDirect/>
           </div>
         )}
 

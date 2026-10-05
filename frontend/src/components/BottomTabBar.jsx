@@ -51,7 +51,7 @@ const LIBELLES_COURTS = {
 function tabsUtilisateur(nav) {
   const autorises = new Set(nav.filter(i => i.to).map(i => i.to))
   autorises.add('/mon-compte')
-  if (TABS.agent.every(t => autorises.has(t.to))) return TABS.agent
+  if (TABS.agent.every(t => autorises.has(t.to))) return avecConduite(TABS.agent, autorises)
   const pages = nav
     .filter(i => i.to && i.to !== '/' && i.to !== '/mon-compte')
     .slice(0, 4)
@@ -59,7 +59,18 @@ function tabsUtilisateur(nav) {
       const [icon, ...reste] = i.label.split(' ')
       return { to: i.to, icon, label: LIBELLES_COURTS[i.to] || reste.join(' ') }
     })
-  return [{ to:'/mon-compte', label:'Moi', icon:'👤', exact:true }, ...pages]
+  return avecConduite([{ to:'/mon-compte', label:'Moi', icon:'👤', exact:true }, ...pages.filter(p => p.to !== '/conduite')], autorises)
+}
+
+// Conducteur : "Conduite" prend le bouton central (le plus visible), c'est
+// là qu'il appuie sur PARTIR puis signale ses arrêts.
+const ONGLET_CONDUITE = { to:'/conduite', label:'Conduite', icon:'🚐' }
+function avecConduite(tabs, autorises) {
+  if (!autorises.has('/conduite')) return tabs
+  const t = tabs.filter(x => x.to !== '/conduite')
+  if (t.length >= 5) t.splice(CENTER_INDEX, 1, ONGLET_CONDUITE)
+  else t.splice(Math.min(CENTER_INDEX, t.length), 0, ONGLET_CONDUITE)
+  return t
 }
 
 function isTabActive(tab, pathname) {

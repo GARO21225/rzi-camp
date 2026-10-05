@@ -9,7 +9,7 @@ import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-route
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
-import { rolesAPI, batiments } from '../api'
+import { rolesAPI, batiments, suiviConvois } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -277,7 +277,18 @@ export default function Layout() {
     return () => { annule = true }
   }, [isAdmin, role, userCharge])
 
-  const nav = buildNav(role, isAdmin, roleMenuOverride)
+  // Conducteur d'un convoi (hier -> demain) : "Ma conduite" en tête de son
+  // menu, quel que soit son rôle - c'est là qu'il clique sur PARTIR.
+  const [estConducteur, setEstConducteur] = useState(false)
+  useEffect(() => {
+    if (!userCharge || isAdmin) return
+    suiviConvois.mesConvois().then(r => setEstConducteur((r.data || []).length > 0)).catch(() => {})
+  }, [userCharge, isAdmin])
+
+  const navRole = buildNav(role, isAdmin, roleMenuOverride)
+  const nav = estConducteur && !navRole.some(i => i.to === '/conduite')
+    ? [{ to:'/conduite', label:'🚐 Ma conduite' }, ...navRole]
+    : navRole
 
   // Separation admin / utilisateur : avant, seul le MENU differait selon
   // le role - n'importe quel utilisateur pouvait ouvrir /parametrage,

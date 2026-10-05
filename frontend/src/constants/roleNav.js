@@ -22,6 +22,7 @@ export const ROLE_NAV = {
     { group:'Hébergement & Mobilité' },
     { to:'/residences', label:'🏠 Résidences' },
     { to:'/rotations', label:'🧭 Centre de Mobilité' },
+    { to:'/conduite', label:'🚐 Ma conduite' },
     // ── Services
     { group:'Services aux Résidents' },
     { to:'/restauration', label:'🍽️ Restauration' },
@@ -125,7 +126,9 @@ export const ROLE_LABELS = {
 
 // Pages personnelles accessibles à TOUT utilisateur connecté, même si son
 // menu configuré ne les liste pas (profil, mot de passe).
-export const PAGES_TOUJOURS_AUTORISEES = ['/mon-compte']
+// '/conduite' : la page n'affiche que les convois dont l'utilisateur est
+// lui-même le conducteur (contrôlé côté API), donc sans risque.
+export const PAGES_TOUJOURS_AUTORISEES = ['/mon-compte', '/conduite']
 
 // is_staff/is_superuser (vérité Django) prime toujours sur profile.role.
 export function getRole(user) {

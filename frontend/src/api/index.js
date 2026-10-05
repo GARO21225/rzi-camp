@@ -282,6 +282,17 @@ export const voyages = {
   rejoindreRotation: (rotation_id, personnel_id) => api.post('/api/voyages/rejoindre_rotation/', {rotation_id, personnel_id}),
   retoursAnticipes: () => api.get('/api/voyages/retours_anticipes/'),
 }
+// Suivi en direct des convois (conducteur -> Centre de Mobilité)
+export const suiviConvois = {
+  mesConvois: ()            => api.get('/api/suivi-convois/mes_convois/'),
+  actifs:     ()            => api.get('/api/suivi-convois/actifs/'),
+  get:        (rid)         => api.get(`/api/suivi-convois/${encodeURIComponent(rid)}/`),
+  partir:     (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/partir/`, d),
+  position:   (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/position/`, d),
+  arret:      (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arret/`, d),
+  reprendre:  (rid)         => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/reprendre/`),
+  arriver:    (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arriver/`, d),
+}
 export const etapesVoyage = {
   list: (voyageId) => api.get('/api/etapes-voyage/', {params:{voyage:voyageId}}),
   create: (d) => api.post('/api/etapes-voyage/', d),

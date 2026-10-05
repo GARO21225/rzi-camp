@@ -40,6 +40,7 @@ const Parametrage = lazy(() => import('./pages/Parametrage'))
 const Presences = lazy(() => import('./pages/Presences'))
 
 const Demandes = lazy(() => import('./pages/Demandes'))
+const Conduite = lazy(() => import('./pages/Conduite'))
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 import { useTheme } from './hooks/useTheme'
@@ -246,6 +247,7 @@ export default function App() {
           <Route path="epi" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><EquipementsEPI /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><BoutiquePOS /></Suspense>} />
+          <Route path="conduite" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Conduite /></Suspense>} />
           <Route path="rotations" element={<Suspense fallback={<div style={{background:'#060d1f',minHeight:'100vh'}}/>}><MissionControl /></Suspense>} />
           <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
           <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />
