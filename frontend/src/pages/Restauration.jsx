@@ -645,6 +645,9 @@ export default function Restauration() {
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
+  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const importMenuInputRef = useRef(null)
+  const [importingMenu, setImportingMenu] = useState(false)
 
   const [typeRepas, setTypeRepas] = useState('dejeuner')
   const [showAvis, setShowAvis] = useState(false)
@@ -777,6 +780,32 @@ export default function Restauration() {
               style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 7px',
                 fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
                 colorScheme:'dark' }}/>
+            {isAdmin && (
+              <>
+                <input type="file" accept=".docx" ref={importMenuInputRef} style={{ display:'none' }}
+                  onChange={async e=>{
+                    const f = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!f) return
+                    if (!await confirmDialog(`Importer "${f.name}" ?\n\nTout menu déjà enregistré sur la semaine couverte par ce fichier sera remplacé.`)) return
+                    setImportingMenu(true)
+                    try {
+                      const r = await menuAPI.importerSemaine(f)
+                      toast.success(`Menu importé : ${r.data.crees} plat(s), période ${r.data.periode}`)
+                      const rr = await menuAPI.list({date_service:menuDate}); setMenuItems(rr.data.results||rr.data||[])
+                    } catch (err) {
+                      toast.error(err?.response?.data?.error || "Erreur d'import")
+                    } finally { setImportingMenu(false) }
+                  }}/>
+                <button onClick={()=>importMenuInputRef.current?.click()} disabled={importingMenu}
+                  title="Importer le menu de la semaine depuis le fichier .docx du prestataire"
+                  style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 10px',
+                    fontSize:11, fontWeight:600, background:'rgba(255,255,255,.15)', color:'#fff',
+                    cursor: importingMenu ? 'wait' : 'pointer' }}>
+                  {importingMenu ? '⏳ Import...' : '📥 Importer la semaine (.docx)'}
+                </button>
+              </>
+            )}
           </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, minmax(0,1fr))' : 'repeat(3, 1fr)', gap: 8 }}>

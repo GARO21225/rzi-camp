@@ -1360,3 +1360,44 @@ class MenuJourViewSet(viewsets.ModelViewSet):
             date_service=timezone.now().date(), disponible=True
         )
         return Response(self.get_serializer(menus, many=True).data)
+
+    @action(detail=False, methods=['post'])
+    def importer_semaine(self, request):
+        """
+        Importe le menu de la semaine depuis le fichier .docx fourni chaque
+        semaine par le prestataire (demande explicite : "c'est ce fichier
+        que j'importerais chaque semaine pour écrire les plats"). Voir
+        restauration/menu_import.py pour le détail de ce qui est/n'est pas
+        extrait et pourquoi.
+
+        Ré-import idempotent : pour éviter les doublons quand le même
+        fichier (ou une semaine déjà importée) est réimporté, TOUT menu
+        existant sur les dates couvertes par le fichier est remplacé, pas
+        cumulé.
+        """
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")
+        if not is_admin:
+            return Response({"error": "Admin requis."}, status=403)
+
+        fichier = request.FILES.get('fichier')
+        if not fichier:
+            return Response({"error": "Fichier .docx requis (champ 'fichier')."}, status=400)
+
+        from .menu_import import extraire_menu_semaine, MenuImportError
+        try:
+            entries, dates = extraire_menu_semaine(fichier)
+        except MenuImportError as e:
+            return Response({"error": str(e)}, status=400)
+        except Exception as e:
+            return Response({"error": f"Erreur d'import inattendue : {e}"}, status=400)
+
+        supprimes = MenuJour.objects.filter(date_service__in=dates).count()
+        MenuJour.objects.filter(date_service__in=dates).delete()
+        MenuJour.objects.bulk_create([MenuJour(**e) for e in entries])
+
+        return Response({
+            "crees": len(entries),
+            "remplaces": supprimes,
+            "periode": f"{min(dates)} → {max(dates)}",
+        })

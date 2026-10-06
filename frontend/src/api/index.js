@@ -96,6 +96,7 @@ export const batiments = {
   stats: () => api.get('/api/batiments/stats/'),
   update: (id,d,confirm=false) => api.patch(`/api/batiments/${id}/`, {...d, confirm}),
   updateDraft: (id,d) => api.patch(`/api/batiments/${id}/`, {...d, confirm:false}),
+  delete: (id) => api.delete(`/api/batiments/${id}/`),
   exportCsv: (p) => withToken(`${BASE}/api/batiments/export_csv/?${new URLSearchParams(p)}`),
   exportBlocs: () => withToken(`${BASE}/api/batiments/export_par_bloc/`),
   history: (residence) => api.get('/api/occupation-history/', {params:{batiment:residence}}),
@@ -203,6 +204,11 @@ export const menu = {
   update: (id,d) => api.patch(`/api/menu/${id}/`, d),
   delete: (id) => api.delete(`/api/menu/${id}/`),
   today:  () => api.get('/api/menu/today/'),
+  importerSemaine: (fichier) => {
+    const fd = new FormData()
+    fd.append('fichier', fichier)
+    return api.post('/api/menu/importer_semaine/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
 }
 
 export const incidents = {

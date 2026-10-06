@@ -16,4 +16,5 @@ channels_redis>=4.2
 uvicorn>=0.23
 daphne>=4.0
 openpyxl
+python-docx>=1.1
 requests>=2.31

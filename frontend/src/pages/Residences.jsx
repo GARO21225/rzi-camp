@@ -13,6 +13,10 @@ export default function Residences() {
   const isMobile = useIsMobile()
   const { user } = useStore()
   const isAdmin = user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin'
+  // Suppression d'une chambre réservée au superuser explicitement (demande :
+  // "pour moi le superuser") - plus restreint que isAdmin (modifier reste
+  // ouvert à tout admin, supprimer une fiche définitivement non).
+  const isSuperuser = !!user?.is_superuser
   const PLAINTE_CATEGORIES = usePlainteCategories()
   const [data, setData] = useState([])
   const [personnelList, setPersonnelList] = useState([])
@@ -67,6 +71,22 @@ export default function Residences() {
       occupant:b.occupant||'', societe:b.societe||'',
       date_arrivee:b.date_arrivee||today, date_depart:b.date_depart||''
     })
+  }
+
+  // BUG REEL CORRIGE ICI : "Modifier" existait déjà pour une chambre, mais
+  // aucun moyen de supprimer purement et simplement une entrée erronée
+  // (ex: "B196" créée par erreur, qui ne correspond à aucune chambre
+  // réelle du camp) - le backend (BatimentViewSet.destroy) le permettait
+  // déjà pour un admin, seul le bouton manquait côté interface.
+  const supprimerBatiment = async (b) => {
+    if (!await confirmDialog(`Supprimer définitivement "${b.residence}" (bloc ${b.bloc}) ?\n\nCeci efface la fiche de cette chambre/bâtiment — à réserver à la correction d'une entrée créée par erreur (ex: une chambre qui n'existe pas réellement).\n\nCette action est irréversible.`)) return
+    try {
+      await batiments.delete(b.id)
+      setData(d => d.filter(x => x.id !== b.id))
+      toast.success('Supprimé')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Erreur suppression')
+    }
   }
 
   // Step 1: Preview (no history created)
@@ -336,6 +356,7 @@ export default function Residences() {
               <div style={{display:'flex',gap:8,marginTop:4}}>
                 {isAdmin && <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>}
                 <button onClick={()=>openHistory(b)} style={{flex:isAdmin?'none':1,background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋{!isAdmin && ' Historique'}</button>
+                {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{background:'var(--rzc-red)',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Supprimer définitivement">🗑️</button>}
               </div>
             </div>
           ))}
@@ -371,6 +392,7 @@ export default function Residences() {
                       <div style={{ display:'flex', gap:5 }}>
                         {isAdmin && <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>}
                         <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋{!isAdmin && ' Historique'}</button>
+                        {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{ background:'var(--rzc-red)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Supprimer définitivement">🗑️</button>}
                       </div>
                     </td>
                   </tr>
