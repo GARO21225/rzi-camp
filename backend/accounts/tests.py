@@ -666,3 +666,29 @@ class AuthMeRoleTests(TestCase):
         d = c.get("/api/auth/me/").data
         self.assertEqual(d["profile"]["role"], "boutique")
         self.assertEqual((d["first_name"], d["last_name"]), ("Koffi", "Bar"))
+
+
+class SynchroniserProfilsTests(TestCase):
+    def test_alignement_sans_toucher_aux_admins(self):
+        from django.contrib.auth.models import User
+        from accounts.models import Profile, RoleCustom
+        from accounts.profils import synchroniser_profils
+        from residences.models import Personnel
+        for code in ("hse", "restauration"):
+            RoleCustom.objects.get_or_create(code=code, defaults={"label": code})
+        def perso(nom, profil, role, staff=False):
+            u = User.objects.create_user(nom, password="x", is_staff=staff)
+            Profile.objects.update_or_create(user=u, defaults={"role": role})
+            return Personnel.objects.create(nom=nom, prenom="T", societe="S", profil=profil, user=u), u
+        a, ua = perso("a", "hse", "agent")                 # nouveau profil, rôle par défaut -> rôle = hse
+        b, ub = perso("b", "agent", "restauration")        # rôle explicite, profil défaut -> profil = restauration
+        c, uc = perso("c", "restaurant", "agent")          # ancien code -> restauration
+        d, ud = perso("d", "hse", "agent", staff=True)     # admin : intact
+        r = synchroniser_profils()
+        for u in (ua, ub, uc, ud): u.profile.refresh_from_db()
+        for x in (a, b, c, d): x.refresh_from_db()
+        self.assertEqual(ua.profile.role, "hse")
+        self.assertEqual((ub.profile.role, b.profil), ("restauration", "restauration"))
+        self.assertEqual(uc.profile.role, "restauration")
+        self.assertEqual((ud.profile.role, d.profil), ("agent", "hse"))
+        self.assertEqual(synchroniser_profils()["role_mis_a_jour"], 0)  # idempotent

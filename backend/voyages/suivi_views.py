@@ -175,12 +175,16 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
             return err
         if hasattr(rotation, "suivi"):
             return Response({"error": "Ce convoi est déjà parti"}, status=400)
+        en_attente = [_nom(v.personnel) for v in _passagers(rotation).filter(statut="planifie", statut_validation="en_attente")]
+        if en_attente:
+            return Response({"error": "Départ impossible : demande(s) sans décision (validez ou refusez) — " + ", ".join(en_attente),
+                             "en_attente": en_attente}, status=400)
         now = timezone.now()
         echecs = []
         with transaction.atomic():
             # Même effet que "Départ" côté Centre de Mobilité (partir_rotation) :
             # les passagers encore "planifiés" passent "en voyage".
-            for v in _passagers(rotation).filter(statut="planifie"):
+            for v in _passagers(rotation).filter(statut="planifie").exclude(statut_validation="refuse"):
                 try:
                     v.partir(None)
                 except Exception as e:

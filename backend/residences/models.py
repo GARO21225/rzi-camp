@@ -134,7 +134,12 @@ class Personnel(models.Model):
                 first_name=self.prenom, last_name=self.nom
             )
             from accounts.models import Profile
-            Profile.objects.get_or_create(user=u, defaults={"role": "agent", "societe": self.societe})
+            from accounts.profils import code_role
+            from accounts.models import RoleCustom
+            role_init = code_role(self.profil)
+            if role_init == "admin" or not RoleCustom.objects.filter(code=role_init).exists():
+                role_init = "agent"  # jamais d'admin implicite, ni de rôle inexistant
+            Profile.objects.get_or_create(user=u, defaults={"role": role_init, "societe": self.societe})
             self.user = u
         self.login_genere = username
         self.password_genere = password

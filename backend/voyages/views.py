@@ -783,8 +783,11 @@ class VoyageViewSet(viewsets.ModelViewSet):
             # g["destination"] reste donc TOUJOURS la valeur enregistree sur
             # la Rotation (deja presente via le values() plus haut) - ne
             # jamais la deriver des voyages passagers.
-            if passagers:
-                statuts_presents = {p["statut"] for p in passagers}
+            # Un passager refusé ne voyage pas : il ne doit ni garder le convoi
+            # « planifié » alors que tous les autres sont arrivés, ni occuper une place.
+            passagers_effectifs = [p for p in passagers if p["statut_validation"] != "refuse"]
+            if passagers_effectifs:
+                statuts_presents = {p["statut"] for p in passagers_effectifs}
                 if statuts_presents == {"retour"}:
                     statut_rotation = "retour"
                 elif "en_voyage" in statuts_presents:
@@ -817,7 +820,7 @@ class VoyageViewSet(viewsets.ModelViewSet):
             # deja rentree a termine son aller-retour, elle ne doit plus
             # bloquer une place pour de nouvelles demandes (sinon le convoi
             # reste "COMPLET" indefiniment meme quand tout le monde est revenu).
-            actifs = [p for p in passagers if p["statut"] != "retour"]
+            actifs = [p for p in passagers_effectifs if p["statut"] != "retour"]
             occupees = sum(1 for p in actifs if p["statut_validation"]=="valide")
             reservees = sum(1 for p in actifs if p["statut_validation"]=="en_attente")
             g["places_occupees"] = occupees
@@ -1499,15 +1502,50 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"rotation_id requis"},status=400)
         date_str = request.data.get("date_depart_reelle")
         date_reelle = datetime.date.fromisoformat(date_str) if date_str else None
+        # Départ impossible tant qu'un voyageur n'a pas de décision : chacun doit être
+        # « validé » (il voyage) ou « refusé » (il ne fait pas partie du convoi).
+        en_attente = [f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
+                      for v in Voyage.objects.select_related("personnel")
+                      .filter(rotation_id=rotation_id, statut="planifie", statut_validation="en_attente")]
+        if en_attente:
+            return Response({"error": "Départ impossible : demande(s) sans décision (validez ou refusez) — " + ", ".join(en_attente),
+                             "en_attente": en_attente}, status=400)
         count = 0
         echecs = []
-        for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="planifie"):
+        for v in Voyage.objects.select_related("personnel").filter(rotation_id=rotation_id,statut="planifie").exclude(statut_validation="refuse"):
             try:
                 v.partir(date_reelle); count+=1
             except Exception as e:
                 nom = f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else f"#{v.id}"
                 echecs.append(f"{nom}: {e}")
         return Response({"ok":True,"partis":count,"echecs":echecs})
+
+    @action(detail=False, methods=["get"], url_path="jmp")
+    def jmp(self, request):
+        """JMP du convoi, rempli dans le fichier modèle : ?rotation_id=…&type=docx|pdf"""
+        from django.http import HttpResponse
+        from . import jmp_docx
+        u = request.user
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")
+        if not is_admin:
+            return Response({"error": "Admin requis"}, status=403)
+        rotation_id = request.query_params.get("rotation_id")
+        if not rotation_id:
+            return Response({"error": "rotation_id requis"}, status=400)
+        try:
+            contenu, rot = jmp_docx.generer_docx(rotation_id)
+            fmt = (request.query_params.get("type") or "docx").lower()
+            if fmt == "pdf":
+                contenu = jmp_docx.docx_vers_pdf(contenu)
+                ctype, ext = "application/pdf", "pdf"
+            else:
+                ctype, ext = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"
+        except jmp_docx.JMPErreur as e:
+            return Response({"error": str(e)}, status=400)
+        nom = f"JMP_{rot.origine}-{rot.destination}_{rot.date_depart}".replace(" ", "_")
+        resp = HttpResponse(contenu, content_type=ctype)
+        resp["Content-Disposition"] = f'attachment; filename="{nom}.{ext}"'
+        return resp
 
     @action(detail=False, methods=["post"])
     def retour_rotation(self, request):

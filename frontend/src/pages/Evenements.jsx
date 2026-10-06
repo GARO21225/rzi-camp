@@ -344,7 +344,7 @@ export default function Evenements() {
             return (
               <div key={evt.id} style={ isMobile ? {
                   background:'#fff', border: estTermine ? '1px solid rgba(15,26,46,.10)' : evt.statut==='en_cours' ? '1px solid rgba(22,163,74,.35)' : '1px solid rgba(15,26,46,.10)',
-                  borderRadius:14, padding:13, marginBottom:10, display:'flex', gap:12, opacity:estTermine?0.7:1,
+                  borderRadius:14, padding:13, marginBottom:10, display:'flex', flexDirection:'column', gap:12, opacity:estTermine?0.7:1, minWidth:0, maxWidth:'100%', boxSizing:'border-box', overflow:'hidden',
                 } : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection:'row', gap:14, opacity:estTermine?0.7:1 }}>
                 <div style={{ display:'flex', gap: isMobile ? 12 : 14, width: isMobile ? '100%' : 'auto' }}>
                   {/* Type icon */}
@@ -570,7 +570,7 @@ export default function Evenements() {
                   {qrModal.evt.propose_boisson && (
                     <div style={{ marginBottom:16, textAlign:'left' }}>
                       <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:6, fontWeight:700 }}>Votre préférence :</label>
-                      <div style={{ display:'flex', gap:8 }}>
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                         {[['alcool','🍺 Alcool'],['sucrerie','🥤 Sucrerie'],['alcool_sucrerie','🍺🥤 Les deux']].map(([v,l])=>(
                           <button key={v} onClick={()=>setBoissonChoix(v)}
                             style={{ flex:1, padding:'10px 4px', borderRadius:8, border:`2px solid ${boissonChoix===v?'#d08800':'var(--border)'}`,

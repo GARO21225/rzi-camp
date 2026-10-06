@@ -317,7 +317,7 @@ export default function Voyages() {
   const chargerRotationsDispo = useCallback(() => {
     voyages.rotationsDisponibles().then(r => {
       const today = new Date().toISOString().slice(0,10)
-      setRotationsDispo((r.data.rotations||[]).filter(rot => rot.date_depart >= today && rot.places_libres > 0))
+      setRotationsDispo((r.data.rotations||[]).filter(rot => rot.date_depart >= today && rot.statut === 'planifie' && rot.places_libres > 0))
     }).catch(() => {})
   }, [])
   useEffect(() => { chargerRotationsDispo() }, [chargerRotationsDispo])

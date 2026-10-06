@@ -917,243 +917,38 @@ export default function MissionControl() {
     } catch { toast.error('Erreur réseau') }
   }
 
-  const genererJMP = async (rotation) => {
-    // Les champs communs du convoi (vehicule/chauffeur/dates/trajet) viennent
-    // TOUJOURS de la rotation elle-meme, jamais d'un voyage passager - le
-    // depart/destination du convoi peut differer de la montee/descente d'un
-    // passager donne. refVoyage ne sert plus qu'a retrouver l'id necessaire
-    // pour charger les etapes detaillees (distance/horaires) du convoi.
-    const refVoyageId = rotation.passagers?.[0]?.id
-    const refVoyage = refVoyageId ? voyages.find(v=>v.id===refVoyageId) : null
-
-    let etapes = []
-    if (refVoyage) {
-      try {
-        etapes = await api(`/api/etapes-voyage/?voyage=${refVoyage.id}`).then(r=>r.json())
-        etapes = (etapes.results || etapes || []).filter(e=>e.sens!=='retour').sort((a,b)=>a.ordre-b.ordre)
-      } catch { /* pas d'etapes detaillees - on se contente du trajet global */ }
-    }
-
-    if (etapes.length === 0) {
-      const continuer = await confirmDialog(
-        "Aucune ville intermédiaire ni distance n'a encore été renseignée pour ce convoi.\n\n" +
-        "Pour les faire apparaître sur le JMP : ouvrez le voyage (clic sur une ligne du Manifeste), " +
-        "puis « + Étape aller » pour chaque ville du trajet (avec distance et horaires).\n\n" +
-        "Générer quand même le JMP sans le détail des étapes ?"
-      )
-      if (!continuer) return
-    }
-
-    let param = {}
+  // JMP : généré côté serveur à partir du fichier modèle (Word), puis converti en PDF.
+  const [jmpChoix, setJmpChoix] = useState(null)     // rotation dont on télécharge le JMP
+  const [jmpBusy, setJmpBusy] = useState('')
+  const genererJMP = async (rotation) => setJmpChoix(rotation)
+  const telechargerJMP = async (format) => {
+    if (!jmpChoix) return
+    setJmpBusy(format)
     try {
-      const liste = await api('/api/parametres/').then(r=>r.json())
-      liste.forEach(p => { param[p.cle] = p.valeur })
-    } catch { /* champs urgence vides si echec */ }
-
-    const passagersDetail = (rotation.passagers||[]).map(p => voyages.find(v=>v.id===p.id)).filter(Boolean)
-    const niveauCourant = rotation.niveau_alerte || 1
-    const niveaux = [
-      "Aucune restriction de voyage<br>No restrictions",
-      "Prudence Coordination entre CCTV<br>Caution Coordination between CCTV",
-      "Minimum de 2 convois de véhicules<br>Min. of 2 vehicles convoys",
-      "Escorte gendarme/policière requise.<br>Gendarme/police escort required",
-      "Aucun voyage n'est autorisé<br>No travel is authorized",
-    ]
-
-    // ── Données du document (fidèle au modèle papier Roxgold / Fortuna) ──
-    const parNom = nom => personnel.find(p => `${p.nom} ${p.prenom}`.trim().toLowerCase() === (nom||'').trim().toLowerCase())
-    const telDe = p => p ? (p.numero || p.telephone || '') : ''
-    const chauffeurP = parNom(rotation.conducteur)
-    const secondP = parNom(rotation.conducteur_secondaire)
-    const vf = flotte.find(v => v.matricule && v.matricule === rotation.vehicule_matricule)
-    const villesTrajet = etapes.length
-      ? [etapes[0].origine, ...etapes.map(e => e.destination)].filter(Boolean)
-      : [rotation.origine, rotation.destination].filter(Boolean)
-    const trajetTexte = villesTrajet.map(v => String(v).toUpperCase()).join('-')
-    const esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    const dNum = d => d ? new Date(String(d).slice(0,10) + 'T00:00:00').toLocaleDateString('fr-FR') : ''
-
-    const ligneManifeste = passagersDetail.map((v,i) => `
-      <tr>
-        <td class="ord">${i + 1}</td>
-        <td>${esc(v.personnel_nom)}</td>
-        <td>${esc(v.personnel_departement || v.personnel_societe)}</td>
-        <td>${esc(v.personnel_telephone)}</td>
-        <td>${esc(v.origine || rotation.origine || '')}</td>
-        <td>${esc(v.destination || rotation.destination || '')}</td>
-      </tr>`).join('')
-
-    const ligneEtapes = etapes.length ? etapes.map(e => `
-      <tr>
-        <td>${e.ordre}</td><td>${e.origine}</td><td>${e.destination}</td>
-        <td>${e.distance_km ? e.distance_km+' Kms' : '—'}</td>
-        <td>${e.heure_depart||'—'}</td><td>${e.heure_arrivee_prevue||'—'}</td>
-        <td>${e.pause_fatigue||'N/A'}</td>
-      </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:#888">Aucune étape détaillée renseignée pour ce voyage</td></tr>`
-
-    // Logo d'en-tête : une seule image Fortuna Mining + Roxgold Sango (Paramétrage
-    // > JMP / Apparence) affichée en deux moitiés, titre au centre, comme le modèle.
-    const logo = param.jmp_logo_base64 ? `data:${param.jmp_logo_mime||'image/jpeg'};base64,${param.jmp_logo_base64}` : ''
-    const w = window.open('', '_blank')
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>JMP ${rotation.rotation_id}</title>
-      <style>
-        @page{size:A4 landscape;margin:12mm 10mm 16mm}
-        body{font-family:Calibri,Arial,sans-serif;font-size:11.5px;margin:14px 18px 40px;color:#111}
-        table{width:100%;border-collapse:collapse}
-        td,th{border:1px solid #555;padding:2px 6px}
-        .entete{display:flex;align-items:center;justify-content:space-between;gap:12px}
-        .logo{height:58px;overflow:hidden;flex-shrink:0}
-        .logo img{height:58px;display:block}
-        .titre{flex:1;text-align:center}
-        .titre h1{font-size:26px;margin:0;font-weight:800;color:#111}
-        .urgence{font-size:15px;font-weight:700;margin-top:4px}
-        .urgence .rouge{color:#e00}
-        .koace{font-weight:700;font-size:11.5px;margin:12px 0 2px}
-        .info td{font-size:12px;padding:1px 6px}
-        .info .lbl{background:#d9d9d9;font-style:italic;text-align:center;color:#222}
-        .info .v{font-weight:700;color:#1f3c88}
-        .info .r{font-weight:700;color:#e00}
-        .info .n{font-weight:700;color:#111}
-        .bloc2{margin-top:14px}
-        .bloc2 .hd{background:#bfbfbf;text-align:center;font-weight:700;font-size:12px}
-        .trajet{text-align:center;color:#e00;font-weight:800;font-style:italic;font-size:19px;line-height:1.35;padding:6px 10px;width:38%}
-        .hl{background:#ffff00}
-        .equip td{font-size:11.5px;font-style:italic}
-        .equip .chk{text-align:center;width:24px;font-style:normal;font-size:14px}
-        .pass{font-family:'Times New Roman',Times,serif;font-size:13px}
-        .pass thead td{background:#d9d9d9;color:#e00;font-weight:700;text-align:center;font-size:13px;padding:1px 4px}
-        .pass .ordh{color:#e00;font-weight:700;text-align:center;vertical-align:middle;background:#fff}
-        .pass .ord{text-align:center;color:#111}
-        .pass .chauf td{background:#d9d9d9;font-weight:700;color:#111}
-        .pass .second td{font-weight:700}
-        .pass .second .ord{color:#e00}
-        .rouge{color:#e00}
-        .pied{text-align:center;font-family:'Times New Roman',Times,serif;font-weight:700;font-size:13px;margin-top:40px}
-        @media print{.pied{position:fixed;bottom:0;left:0;right:0;margin:0}}
-        .page2{page-break-before:always;break-before:page;margin-top:24px}
-        .page2 table{margin-top:8px}
-        .page2 thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:10.5px}
-        .print-btn{background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:12px}
-        @media print{.print-btn{display:none}}
-        h3{font-size:13px;margin:16px 0 4px}
-        ul{font-size:11px;margin:4px 0}
-      </style></head><body>
-      <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
-
-      <div class="entete">
-        ${logo ? `<div class="logo" style="width:150px"><img src="${logo}"/></div>` : '<div style="width:150px"></div>'}
-        <div class="titre">
-          <h1>Plan de gestion de voyage</h1>
-          <div class="urgence"><span class="rouge">URGENCE/EMERGENCY :</span> Sat Téléphone : ${esc(param.jmp_tel_satellite)} &nbsp;&nbsp; MTN / Orange : ${esc([param.jmp_tel_mtn, param.jmp_tel_orange].filter(Boolean).join(' / '))}</div>
-        </div>
-        ${logo ? `<div class="logo" style="width:102px"><img src="${logo}" style="margin-left:-165px"/></div>` : '<div style="width:102px"></div>'}
-      </div>
-
-      <div class="koace">KOACe formulaire doit être rempli pour tous les déplacements (à l'exception de la zone de localité et des environs immédiats) à destination et en provenance de tous les sites ROXGOLD.</div>
-      <table class="info">
-        <tr><td class="lbl">Nom de l'entreprise</td><td class="v">ROXGOLD SANGO</td>
-            <td class="lbl">Date de la demande</td><td class="n">${new Date().toLocaleDateString('fr-FR')}</td>
-            <td class="lbl">Type de véhicule</td><td class="v">${esc(String(vf?.categorie_label || '').replace(/^[^\p{L}]+/u, '').toUpperCase())}</td></tr>
-        <tr><td class="lbl">Voyager à partir de :</td><td class="r">${esc(String(rotation.origine||'').toUpperCase())}</td>
-            <td class="lbl">Destination finale :</td><td class="r">${esc(String(rotation.destination||'').toUpperCase())}</td>
-            <td class="lbl">Numéro de véhicule</td><td class="r">${esc(String(rotation.vehicule||'').toUpperCase())}</td></tr>
-        <tr><td class="lbl">Date de début du voyage</td><td class="n">${dNum(rotation.date_depart)}</td>
-            <td class="lbl">Date de fin de voyage</td><td class="n">${dNum(rotation.trajet_aller_seul || !rotation.date_retour_prevue ? rotation.date_depart : rotation.date_retour_prevue)}</td>
-            <td class="lbl">Immatriculation du véhicule Numbers</td><td class="n">${esc(rotation.vehicule_matricule)}</td></tr>
-      </table>
-
-      <table class="bloc2">
-        <tr><td class="hd">TRAJET</td><td class="hd" colspan="4" style="font-size:14px;font-weight:400">Équipement <b>du véhicule</b></td></tr>
-        <tr>
-          <td class="trajet" rowspan="4">${esc(trajetTexte)}${rotation.vehicule ? `<br><span class="hl">${esc(String(rotation.vehicule).toUpperCase())}</span>` : ''}</td>
-          <td class="equip">Bouton de panique in véhicule ?</td><td class="equip chk">☐</td><td class="equip">Eau</td><td class="equip chk">☐</td>
-        </tr>
-        <tr><td class="equip">Emplacement du bouton connu ?</td><td class="equip chk">☐</td><td class="equip">Carte</td><td class="equip chk">☐</td></tr>
-        <tr><td class="equip">Téléphone satellite</td><td class="equip chk">☐</td><td class="equip">Lire et comprendre JMP ?</td><td class="equip chk">☐</td></tr>
-        <tr><td class="equip">Numéro de téléphone satellite : ${esc(param.jmp_tel_satellite)}</td><td class="equip chk"></td><td class="equip">Trousse de premiers soins ?</td><td class="equip chk">☐</td></tr>
-      </table>
-
-      <table class="pass">
-        <thead><tr>
-          <td class="ordh" rowspan="2" style="background:#fff">ORDRE</td>
-          <td>PASSAGERS</td><td>CIE / DEPARTEMENTS</td><td>NUMEROS MTN / ORANGE</td><td>LIEU DE MONTEE</td><td>LIEU DE DESCENTE</td>
-        </tr>
-        <tr class="chauf">
-          <td>${esc(String(rotation.conducteur||'').toUpperCase())}</td><td>CHAUFFEUR</td><td>${esc(telDe(chauffeurP))}</td>
-          <td>${esc(rotation.origine)}</td><td>${esc(rotation.destination)}</td>
-        </tr></thead>
-        <tbody>
-          ${rotation.conducteur_secondaire ? `<tr class="second">
-            <td class="ord">0</td><td>${esc(String(rotation.conducteur_secondaire).toUpperCase())}</td><td><span class="hl">SECOND DRIVER</span></td>
-            <td><span class="hl rouge" style="font-size:11px">Chef de parcours ${esc(telDe(secondP))}</span></td>
-            <td>${esc(rotation.origine)}</td><td>${esc(rotation.destination)}</td></tr>` : ''}
-          ${ligneManifeste}
-        </tbody>
-      </table>
-
-      <div class="pied">JMP - Journey Management Plan</div>
-
-      <div class="page2">
-      <h3>Côte de sécurité de route</h3>
-      <table><thead><tr><td>Étape</td><td>De</td><td>À</td><td>Distance (km)</td><td>Heure de départ</td><td>Heure d'arrivée</td><td>Gestion fatigue</td></tr></thead>
-        <tbody>${ligneEtapes}</tbody>
-      </table>
-
-      <table style="margin-top:14px"><tr>
-        <td style="width:25%">Chauffeur : <b>${rotation.conducteur||''}</b></td>
-        <td style="width:25%">Fonction : <b>${(personnel.find(p=>`${p.nom} ${p.prenom}`===rotation.conducteur)?.departement) || (personnel.find(p=>`${p.nom} ${p.prenom}`===rotation.conducteur)?.profil_label) || '—'}</b></td>
-        <td style="width:20%">Date : <b>${new Date().toLocaleDateString('fr-FR')}</b></td>
-        <td style="width:30%">Signature : ______________________</td>
-      </tr><tr>
-        <td>Approbation sécurité : <b>${param.jmp_securite_nom||'—'}</b></td>
-        <td>Fonction : <b>${param.jmp_securite_fonction||'—'}</b></td>
-        <td>Date : <b>${new Date().toLocaleDateString('fr-FR')}</b></td>
-        <td>Signature : ______________________</td>
-      </tr></table>
-
-      <h3>Niveaux d'alerte sur l'itinéraire</h3>
-      <div style="display:flex;width:100%;margin-top:22px">
-        ${['#8dc63f','#ffe600','#c86a1e','#e2231a','#5b3a8e'].map((couleur,i) => `
-          <div style="flex:1;position:relative;margin-left:${i>0?'-14px':'0'};
-            transform:${i+1===niveauCourant?'scale(1.12)':'scale(1)'};z-index:${i+1===niveauCourant?10:1};transition:none">
-            ${i+1===niveauCourant?'<div style="position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:16px;color:#111">▼</div>':''}
-            <div style="background:${couleur};color:${i===1?'#000':'#fff'};text-align:center;
-              padding:10px 6px;font-size:9.5px;font-weight:800;
-              border:${i+1===niveauCourant?'3px solid #111':'none'};
-              clip-path:${i<4?'polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%, 15% 50%)':'polygon(0 0, 100% 0, 100% 100%, 0 100%, 15% 50%)'}">
-              ${niveaux[i]}
-            </div>
-          </div>`).join('')}
-      </div>
-      <div style="font-size:10px;color:#555;margin-top:4px">Niveau retenu pour ce voyage : agrandi, marqué ▼ et encadré en noir.</div>
-
-      <h3>REGLES DE CONDUITE/DRIVING RULES</h3>
-      <ul>
-        <li>Maximum de 8hrs de conduite par jour. / Maximum of 8 hours of driving per day</li>
-        <li>Minimum de 10 heures de repos avant le voyage /Minimum of 8 hours of rest before the trip</li>
-        <li>Pause minimale de 15 minutes pour chaque 2-3 heures de conduite à des endroits sécurisés / Minimum break of 15 minutes for every 2 hours of driving in a safe area</li>
-        <li>Après 2 jours de voyage successif un repos de 24 H Obligatoire est soumis au conducteur/ After 2 days of successive travel a mandatory 24-hour rest is submitted to the driver</li>
-        <li><b>RESPECT Strict des limites de vitesse/ STRICT observance of speed limits</b></li>
-        <li>Adapter votre conduite aux situations routières (Météo, visibilité, trafic routier, jour de marché, etc) / Adapt your driving to the road situation (weather, visibility, traffic, market day, etc)</li>
-      </ul>
-
-      <h3>Comment utiliser ce JMP (Journey Management Plan) :</h3>
-      <ul>
-        <li>Remplissez ce document et obtenez une signature ou un email d'autorisation du service de sécurité de Roxgold.</li>
-        <li>Assurez-vous que toutes les instructions de sécurité et de sûreté sont suivies et que vous respectez les niveaux d'alerte d'itinéraire (comme expliqué ci-dessous).</li>
-        <li>Téléphonez au centre d'urgence aux numéros suivant avant le départ : <b>${param.jmp_tel_orange||'A renseigner'} (N° Orange)/${param.jmp_tel_mtn||'A renseigner'} (N° MTN)</b></li>
-        <li>Pendant votre voyage, au moindre incident informez le service de sécurité.</li>
-        <li>À votre arrivée à destination, contactez le service de sécurité.</li>
-      </ul>
-      </div>
-    </body></html>`)
-    w.document.close()
+      const res = await api(`/api/voyages/jmp/?rotation_id=${encodeURIComponent(jmpChoix.rotation_id)}&type=${format}`)
+      if (!res.ok) {
+        let msg = 'Erreur de génération du JMP'
+        try { msg = (await res.json()).error || msg } catch {}
+        toast.error(msg); return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `JMP_${(jmpChoix.origine||'').replace(/\s+/g,'_')}-${(jmpChoix.destination||'').replace(/\s+/g,'_')}_${jmpChoix.date_depart||''}.${format === 'pdf' ? 'pdf' : 'docx'}`
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+    } catch { toast.error('Erreur réseau') }
+    finally { setJmpBusy('') }
   }
 
+  // Voyageurs du convoi sans décision (ni validé ni refusé) : le départ reste bloqué.
+  const sansDecision = r => (r?.passagers||[]).filter(p => p.statut==='planifie' && p.statut_validation==='en_attente')
   const partirRotation = async (rotId) => {
     try {
       const res = await api('/api/voyages/partir_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
+      if (!res.ok) { toast.error(d.error || 'Départ impossible', 8000); return }
       flash(`Rotation en transit 🧳 (${d.partis} parti(s))`)
       if (d.echecs && d.echecs.length > 0) {
         toast.warning(`⚠️ ${d.echecs.length} n'ont pas pu partir : ${d.echecs.join(' | ')}`, 8000)
@@ -1736,7 +1531,8 @@ export default function MissionControl() {
                               📄 JMP
                             </button>
                           )}
-                          {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center'}}
+                          {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center',...(sansDecision(r).length?{opacity:.45,cursor:'not-allowed'}:{})}}
+                            disabled={sansDecision(r).length>0} title={sansDecision(r).length?`${sansDecision(r).length} demande(s) sans décision : validez ou refusez chaque voyageur`:undefined}
                             onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
                             🚦 Partir
                           </button>}
@@ -1812,9 +1608,10 @@ export default function MissionControl() {
                           🛡️ JMP
                         </button>}
                         {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary"
-                          style={{padding:'6px 12px',fontSize:11}}
+                          style={{padding:'6px 12px',fontSize:11,...(sansDecision(r).length?{opacity:.45,cursor:'not-allowed'}:{})}}
+                          disabled={sansDecision(r).length>0} title={sansDecision(r).length?`${sansDecision(r).length} demande(s) sans décision : validez ou refusez chaque voyageur`:undefined}
                           onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
-                          🧳 Partir
+                          🧳 Partir{sansDecision(r).length>0 && ` (${sansDecision(r).length} sans décision)`}
                         </button>}
                         {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
@@ -2799,6 +2596,24 @@ export default function MissionControl() {
                 </>)
               })()}
             </Panel>
+          </div>
+        )}
+
+        {jmpChoix && (
+          <div onClick={()=>!jmpBusy && setJmpChoix(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:380}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:4}}>📄 Plan de gestion de voyage (JMP)</div>
+              <div style={{fontSize:12.5,color:C.muted,marginBottom:14}}>
+                {jmpChoix.origine} → {jmpChoix.destination} · {fmt(jmpChoix.date_depart)}<br/>Document rempli selon le modèle officiel.
+              </div>
+              <button className="mc-btn mc-btn-primary" disabled={!!jmpBusy} style={{width:'100%',justifyContent:'center',marginBottom:8}} onClick={()=>telechargerJMP('docx')}>
+                {jmpBusy==='docx' ? '⏳ Génération…' : '⬇️ Télécharger en Word (.docx)'}
+              </button>
+              <button className="mc-btn" disabled={!!jmpBusy} style={{width:'100%',justifyContent:'center',marginBottom:8,background:'#dc262620',color:'#dc2626',border:'1px solid #dc262640'}} onClick={()=>telechargerJMP('pdf')}>
+                {jmpBusy==='pdf' ? '⏳ Génération…' : '⬇️ Télécharger en PDF'}
+              </button>
+              <button className="mc-btn" disabled={!!jmpBusy} style={{width:'100%',justifyContent:'center'}} onClick={()=>setJmpChoix(null)}>Fermer</button>
+            </div>
           </div>
         )}
 

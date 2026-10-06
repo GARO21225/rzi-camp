@@ -28,7 +28,7 @@ class SuiviConvoiTests(TestCase):
         for i in range(3):
             p = Personnel.objects.create(nom=f"Passager{i}", prenom="P", societe="ROXGOLD")
             self.voyages.append(Voyage.objects.create(
-                personnel=p, rotation_id="ROT-T1", destination="Abidjan",
+                personnel=p, rotation_id="ROT-T1", destination="Abidjan", statut_validation="valide",
                 date_depart=today, date_retour_prevue=today + datetime.timedelta(days=14),
             ))
         self.c = APIClient()
@@ -447,3 +447,51 @@ class ConvoiAllerSeulVersCampTests(TestCase):
         self.assertEqual(appliquer_voyages_du_jour()["arrivees"], 1)
         self.b.refresh_from_db(); self.assertEqual(self.b.personnel_id, self.p.id)
         self.assertEqual(appliquer_voyages_du_jour()["arrivees"], 0)
+
+
+class JMPModeleTests(TestCase):
+    def test_jmp_docx_rempli_depuis_le_modele(self):
+        import io, docx
+        admin = User.objects.create_user("adminjmp", password="x", is_staff=True)
+        c = APIClient(); c.force_authenticate(admin)
+        ch = Personnel.objects.create(nom="TRAORE", prenom="YSSOUF", societe="X", telephone="0501020304")
+        today = datetime.date.today()
+        Rotation.objects.create(rotation_id="JMPT1", origine="Camp Roxgold Sango", destination="Abidjan", vehicule="VIP BUS",
+                                vehicule_matricule="AA-1", conducteur="TRAORE YSSOUF", conducteur_personnel=ch,
+                                date_depart=today, date_retour_prevue=today)
+        p = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD", telephone="0700000000")
+        Voyage.objects.create(personnel=p, rotation_id="JMPT1", origine="Camp Roxgold Sango", destination="Abidjan",
+                              date_depart=today, date_retour_prevue=today, statut_validation="valide")
+        r = c.get("/api/voyages/jmp/?rotation_id=JMPT1&type=docx")
+        self.assertEqual(r.status_code, 200)
+        d = docx.Document(io.BytesIO(r.content))
+        texte = "\n".join(cel.text for t in d.tables for row in t.rows for cel in row.cells)
+        self.assertIn("KOUAME EDGAR", texte)
+        self.assertIn("TRAORE YSSOUF", texte)
+        self.assertIn("CAMP ROXGOLD SANGO", texte)
+        self.assertIn("REGLES DE CONDUITE", "\n".join(p.text for p in d.paragraphs))  # texte fixe du modèle conservé
+        self.assertEqual(c.get("/api/voyages/jmp/").status_code, 400)
+        u = User.objects.create_user("simplejmp", password="x"); c2 = APIClient(); c2.force_authenticate(u)
+        self.assertEqual(c2.get("/api/voyages/jmp/?rotation_id=JMPT1").status_code, 403)
+
+
+class DepartBloqueTantQueDemandesEnAttenteTests(TestCase):
+    def test_partir_refuse_si_voyageur_sans_statut(self):
+        admin = User.objects.create_user("adminpart", password="x", is_staff=True)
+        c = APIClient(); c.force_authenticate(admin)
+        today = datetime.date.today()
+        Rotation.objects.create(rotation_id="PB1", origine="Camp", destination="Abidjan", date_depart=today, date_retour_prevue=today)
+        ok = Personnel.objects.create(nom="OK", prenom="A", societe="R")
+        att = Personnel.objects.create(nom="ATT", prenom="B", societe="R")
+        ref = Personnel.objects.create(nom="REF", prenom="C", societe="R")
+        va = Voyage.objects.create(personnel=ok, rotation_id="PB1", origine="Camp", destination="Abidjan", date_depart=today, date_retour_prevue=today, statut_validation="valide")
+        vb = Voyage.objects.create(personnel=att, rotation_id="PB1", origine="Camp", destination="Abidjan", date_depart=today, date_retour_prevue=today)
+        vc = Voyage.objects.create(personnel=ref, rotation_id="PB1", origine="Camp", destination="Abidjan", date_depart=today, date_retour_prevue=today, statut_validation="refuse")
+        r = c.post("/api/voyages/partir_rotation/", {"rotation_id": "PB1"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("ATT", r.json()["error"])
+        vb.statut_validation = "refuse"; vb.save()
+        r = c.post("/api/voyages/partir_rotation/", {"rotation_id": "PB1"}, format="json")
+        self.assertEqual(r.json()["partis"], 1)
+        va.refresh_from_db(); vc.refresh_from_db()
+        self.assertEqual((va.statut, vc.statut), ("en_voyage", "planifie"))  # le refusé ne part pas

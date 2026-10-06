@@ -1,6 +1,7 @@
 FROM python:3.14-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+# libreoffice-writer : conversion du JMP (Word) en PDF ; polices pour un rendu fidèle
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libreoffice-writer fonts-liberation fonts-dejavu-core fonts-crosextra-carlito && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
