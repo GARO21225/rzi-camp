@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAppName } from '../hooks/useAppName'
+import MapSafe from '../components/MapSafe'
 
 // ─────────────────────────────────────────────────────────────────
 //  CARTE DIGITAL TWIN — évolution de la carte Leaflet existante
@@ -13,8 +14,10 @@ import { useAppName } from '../hooks/useAppName'
 function DigitalTwinMap({ bats, onClick }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
+  const [mapPrete, setMapPrete] = useState(false)
 
   useEffect(() => {
+    let vivant = true
     if (!window.L) {
       const link = document.createElement('link')
       link.rel = 'stylesheet'
@@ -22,7 +25,8 @@ function DigitalTwinMap({ bats, onClick }) {
       document.head.appendChild(link)
       const script = document.createElement('script')
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-      script.onload = () => initMap()
+      script.onload = () => { if (vivant) initMap() }
+      script.onerror = () => {}
       document.head.appendChild(script)
     } else {
       initMap()
@@ -43,13 +47,22 @@ function DigitalTwinMap({ bats, onClick }) {
         subdomains: 'abc', maxZoom: 20, className: 'rzc-tile-sombre'
       }).addTo(map)
       mapInstanceRef.current = map
+      setMapPrete(true)
+    }
+    return () => {
+      vivant = false
+      // Sans remove(), Leaflet continue ses animations sur un conteneur démonté
+      // → « can't access property "x", t is undefined »
+      try { mapInstanceRef.current?.remove() } catch { /* déjà détruite */ }
+      mapInstanceRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    if (!mapInstanceRef.current || !bats.length) return
+    if (!mapPrete || !mapInstanceRef.current || !bats?.length) return
     const L = window.L
     if (!L) return
+    try {
     const STATUS_COLOR = {
       'Libre':'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', 'Maintenance':'var(--rzc-ore-gold)'
     }
@@ -72,8 +85,10 @@ function DigitalTwinMap({ bats, onClick }) {
       )
     })
     const pts = bats.filter(b=>b.latitude&&b.longitude).map(b=>[parseFloat(b.latitude),parseFloat(b.longitude)]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]))
-    if (pts.length > 1) mapInstanceRef.current.fitBounds(pts, { padding:[24,24] })
-  }, [bats])
+    mapInstanceRef.current.invalidateSize()
+    if (pts.length > 1) mapInstanceRef.current.fitBounds(pts, { padding:[24,24], animate:false })
+    } catch (e) { console.warn('Carte du tableau de bord :', e) }
+  }, [bats, mapPrete])
 
   return (
     <div style={{ height: 320, position: 'relative', borderRadius: 'var(--rzc-radius)', overflow: 'hidden' }}>
@@ -717,7 +732,7 @@ export default function Dashboard() {
               {dbBats.length} structure(s) géolocalisée(s)
             </span>
           }>
-          <DigitalTwinMap bats={dbBats} onClick={() => nav('/carte')} />
+          <MapSafe><DigitalTwinMap bats={dbBats} onClick={() => nav('/carte')} /></MapSafe>
           <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
             {[
               { l:'Libre', c:'#16A34A', n:libres },
