@@ -238,14 +238,19 @@ class Voyage(models.Model):
         """
         import datetime
         from residences.models import OccupationHistory, ResidentPrincipal
+        from .trajets import est_camp
         today = date_retour or datetime.date.today()
-        self.date_retour_effective = today
+        arrive_au_camp = est_camp(self.destination) and not self.trajet_aller_seul
+        # « Terminé » = la personne est arrivée à SON LIEU DE DESCENTE. Ce n'est un
+        # retour au camp (date de retour effective, chambre restituée) que si ce
+        # lieu est le camp.
+        self.date_retour_effective = today if arrive_au_camp else None
         self.statut = "retour"
         self.save()
 
         resultat = {"chambre_restituee": False, "chambre_occupee_par": None, "residence": None}
 
-        if self.trajet_aller_seul:
+        if not arrive_au_camp:
             # Trajet aller uniquement (convoi multi-villes) - la
             # destination n'est pas forcement le camp, donc aucune
             # tentative de restitution de chambre. Un eventuel retour

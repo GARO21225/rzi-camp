@@ -398,3 +398,22 @@ class RetourChambreReserveeTests(TestCase):
         b.refresh_from_db()
         self.assertTrue(r["chambre_restituee"])
         self.assertEqual((b.statut, b.personnel_id), ("Occupé", p.id))
+
+
+class TermineArriveeLieuDescenteTests(TestCase):
+    def test_terminer_hors_camp_ne_reloge_pas_et_pas_de_retour_anticipe(self):
+        from residences.models import Batiment
+        today = datetime.date.today()
+        p = Personnel.objects.create(nom="K", prenom="E", societe="R")
+        b, _ = Batiment.objects.get_or_create(residence="TEST-TERM")
+        b.statut = "Libre"; b.personnel = None; b.save()
+        v = Voyage.objects.create(personnel=p, origine="Camp Roxgold Sango", destination="Abidjan", trajet_aller_seul=False,
+                                  batiment=b, date_depart=today - datetime.timedelta(days=1),
+                                  date_retour_prevue=today + datetime.timedelta(days=10), statut="en_voyage", statut_validation="valide")
+        r = v.revenir(today)
+        b.refresh_from_db(); v.refresh_from_db()
+        self.assertFalse(r["chambre_restituee"])
+        self.assertEqual((b.statut, v.statut, v.date_retour_effective), ("Libre", "retour", None))
+        admin = User.objects.create_user("adm2", password="x", is_staff=True)
+        c = APIClient(); c.force_authenticate(admin)
+        self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])
