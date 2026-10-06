@@ -1,5 +1,5 @@
 import logging
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets
@@ -164,6 +164,9 @@ def sauver_parametres(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
+    # Envoi paresseux des rapports par email dus (pas de cron requis)
+    from .rapports_email import envoyer_si_necessaire
+    envoyer_si_necessaire()
     return Response(UserSerializer(request.user).data)
 
 @api_view(["GET"])
@@ -841,6 +844,37 @@ class RapportPlanifieViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         return self._check(request) or super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="types")
+    def types(self, request):
+        from .rapports_email import TYPES, OPTIONS_DEFAUT
+        return self._check(request) or Response({"types": TYPES, "options_defaut": OPTIONS_DEFAUT})
+
+    @action(detail=True, methods=["post"], url_path="envoyer")
+    def envoyer(self, request, pk=None):
+        """Envoi immédiat (test) à tous les destinataires, sans toucher à la planification."""
+        err = self._check(request)
+        if err: return err
+        from .rapports_email import generer_contenu_rapport
+        from django.core.mail import send_mail
+        from django.conf import settings
+        r = self.get_object()
+        try:
+            sujet, corps = generer_contenu_rapport(r.nom, r.type_rapport, r.options)
+            send_mail(subject=sujet, message="", html_message=corps, from_email=settings.DEFAULT_FROM_EMAIL,
+                      recipient_list=r.destinataires, fail_silently=False)
+        except Exception as e:
+            return Response({"error": f"Envoi impossible : {e}. Vérifier EMAIL_HOST_USER / EMAIL_HOST_PASSWORD dans le .env du serveur."}, status=400)
+        return Response({"ok": True, "destinataires": r.destinataires})
+
+    @action(detail=True, methods=["get"], url_path="apercu")
+    def apercu(self, request, pk=None):
+        err = self._check(request)
+        if err: return err
+        from .rapports_email import generer_contenu_rapport
+        r = self.get_object()
+        sujet, corps = generer_contenu_rapport(r.nom, r.type_rapport, r.options)
+        return Response({"sujet": sujet, "html": corps})
 
 
 def construire_reponse_connexion(user):

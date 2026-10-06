@@ -1246,8 +1246,13 @@ const JOURS_SEMAINE_OPTS = [
 function RapportsPlanifiesTab({ isAdmin }) {
   const [liste, setListe] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ nom:'', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'' })
+  const FORM0 = { nom:'', type_rapport:'synthese', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'', horizon_jours:1, seuil_stock:5, details:false }
+  const [form, setForm] = useState(FORM0)
+  const [types, setTypes] = useState({})
   const [creating, setCreating] = useState(false)
+  const [envoiId, setEnvoiId] = useState(null)
+  const [apercu, setApercu] = useState(null)
+  useEffect(() => { rapportsPlanifiesAPI.types().then(r => setTypes(r.data?.types || {})).catch(()=>{}) }, [])
 
   const charger = () => {
     setLoading(true)
@@ -1261,15 +1266,25 @@ function RapportsPlanifiesTab({ isAdmin }) {
     setCreating(true)
     try {
       await rapportsPlanifiesAPI.create({
-        nom: form.nom.trim(), frequence: form.frequence, heure: form.heure, destinataires,
+        nom: form.nom.trim(), type_rapport: form.type_rapport, frequence: form.frequence, heure: form.heure, destinataires,
+        options: { horizon_jours: Number(form.horizon_jours)||1, seuil_stock: Number(form.seuil_stock)||0, details: !!form.details },
         jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
         jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
       })
       toast.success('Rapport planifié créé.')
-      setForm({ nom:'', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'' })
+      setForm(FORM0)
       charger()
     } catch(e) { toast.error(e.response?.data?.error || JSON.stringify(e.response?.data||{}) || 'Erreur') }
     setCreating(false)
+  }
+  const envoyerMaintenant = async (r) => {
+    setEnvoiId(r.id)
+    try { const x = await rapportsPlanifiesAPI.envoyer(r.id); toast.success(`Envoyé à ${x.data.destinataires?.join(', ')}`) }
+    catch(e) { toast.error(e.response?.data?.error || 'Envoi impossible') }
+    setEnvoiId(null)
+  }
+  const voirApercu = async (r) => {
+    try { const x = await rapportsPlanifiesAPI.apercu(r.id); setApercu(x.data) } catch(e) { toast.error('Aperçu indisponible') }
   }
   const toggleActif = async (r) => {
     try {
@@ -1288,7 +1303,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
-        ℹ️ Un résumé (chambres occupées, incidents ouverts, départs du jour, stock critique) est envoyé automatiquement par email aux destinataires configurés, à l'heure choisie. Nécessite qu'une tâche planifiée (cron) tourne sur le serveur — voir la documentation de déploiement.
+        ℹ️ Choisis le type de rapport et ses paramètres : il part automatiquement par email à l'heure choisie (une fois par jour au maximum), sans cron. L'envoi nécessite EMAIL_HOST_USER / EMAIL_HOST_PASSWORD dans le .env du serveur — utilise « Envoyer maintenant » pour tester.
       </div>
 
       {isAdmin && (
@@ -1297,6 +1312,10 @@ function RapportsPlanifiesTab({ isAdmin }) {
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:10}}>
             <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Nom (ex: Rapport direction)"
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
+            <select value={form.type_rapport} onChange={e=>setForm(f=>({...f,type_rapport:e.target.value}))}
+              style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
+              {Object.entries(types).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+            </select>
             <select value={form.frequence} onChange={e=>setForm(f=>({...f,frequence:e.target.value}))}
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
               <option value="quotidien">Quotidien</option>
@@ -1316,6 +1335,19 @@ function RapportsPlanifiesTab({ isAdmin }) {
             <input type="time" value={form.heure} onChange={e=>setForm(f=>({...f,heure:e.target.value}))}
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
           </div>
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:10,fontSize:12.5,color:'#475569'}}>
+            {['synthese','mobilite','residences'].includes(form.type_rapport) && (
+              <label>Horizon (jours) <input type="number" min={1} max={60} value={form.horizon_jours} onChange={e=>setForm(f=>({...f,horizon_jours:e.target.value}))}
+                style={{width:60,border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}/></label>
+            )}
+            {['synthese','boutique'].includes(form.type_rapport) && (
+              <label>Stock faible ≤ <input type="number" min={0} value={form.seuil_stock} onChange={e=>setForm(f=>({...f,seuil_stock:e.target.value}))}
+                style={{width:60,border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}/></label>
+            )}
+            <label style={{display:'flex',gap:6,alignItems:'center',cursor:'pointer'}}>
+              <input type="checkbox" checked={form.details} onChange={e=>setForm(f=>({...f,details:e.target.checked}))}/> Inclure le détail nominatif
+            </label>
+          </div>
           <input value={form.destinataires} onChange={e=>setForm(f=>({...f,destinataires:e.target.value}))}
             placeholder="Emails séparés par virgules (ex: direction@roxgold.com, rh@roxgold.com)"
             style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,marginBottom:10}}/>
@@ -1329,6 +1361,16 @@ function RapportsPlanifiesTab({ isAdmin }) {
 
       {liste.length === 0 && <div style={{color:'#94a3b8',fontSize:13,textAlign:'center',padding:20}}>Aucun rapport planifié pour l'instant.</div>}
 
+      {apercu && (
+        <div onClick={()=>setApercu(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:16,maxWidth:640,width:'100%',maxHeight:'85vh',overflow:'auto'}}>
+            <div style={{fontWeight:700,marginBottom:10}}>{apercu.sujet}</div>
+            <div dangerouslySetInnerHTML={{__html: apercu.html}}/>
+            <button onClick={()=>setApercu(null)} style={{marginTop:12,padding:'8px 16px',borderRadius:8,border:'none',background:'#0F2A5C',color:'#fff',fontWeight:700,cursor:'pointer'}}>Fermer</button>
+          </div>
+        </div>
+      )}
+
       {liste.map(r => (
         <div key={r.id} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
           <div>
@@ -1338,11 +1380,17 @@ function RapportsPlanifiesTab({ isAdmin }) {
               {r.frequence==='hebdomadaire' && r.jour_semaine!=null && ` · ${JOURS_SEMAINE_OPTS.find(j=>j[0]===r.jour_semaine)?.[1]}`}
               {r.frequence==='mensuel' && r.jour_mois && ` · le ${r.jour_mois}`}
             </div>
+            <div style={{fontSize:11.5,color:'#475569',marginTop:3}}>
+              {types[r.type_rapport] || r.type_rapport}
+              {r.options?.horizon_jours > 1 ? ` · ${r.options.horizon_jours} j` : ''}{r.options?.details ? ' · détaillé' : ''}
+            </div>
             <div style={{fontSize:11.5,color:'#94a3b8',marginTop:3}}>📧 {r.destinataires?.join(', ')}</div>
             {r.derniere_execution && <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>Dernier envoi : {new Date(r.derniere_execution).toLocaleString('fr-FR')}</div>}
           </div>
           {isAdmin && (
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+              <button onClick={()=>voirApercu(r)} style={{background:'#f1f5f9',border:'1px solid #e2e8f0',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>👁️ Aperçu</button>
+              <button onClick={()=>envoyerMaintenant(r)} disabled={envoiId===r.id} style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>{envoiId===r.id?'⏳':'📨 Envoyer maintenant'}</button>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:r.actif?'#16a34a':'#94a3b8',cursor:'pointer'}}>
                 <input type="checkbox" checked={r.actif} onChange={()=>toggleActif(r)}/>
                 Actif

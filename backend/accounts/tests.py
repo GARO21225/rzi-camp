@@ -692,3 +692,24 @@ class SynchroniserProfilsTests(TestCase):
         self.assertEqual(uc.profile.role, "restauration")
         self.assertEqual((ud.profile.role, d.profil), ("agent", "hse"))
         self.assertEqual(synchroniser_profils()["role_mis_a_jour"], 0)  # idempotent
+
+
+class RapportsEmailTests(TestCase):
+    def test_types_et_options(self):
+        from django.core import mail
+        from django.utils import timezone
+        from .models import RapportPlanifie
+        from .rapports_email import generer_contenu_rapport, envoyer_rapports_dus, options_effectives
+        for t in ("synthese", "residences", "maintenance", "mobilite", "boutique"):
+            sujet, html = generer_contenu_rapport("Test", t, {"details": True, "horizon_jours": 3})
+            self.assertIn("Test", sujet)
+            self.assertIn("<div", html)
+        _, h = generer_contenu_rapport("T", "boutique")
+        self.assertNotIn("Résidences", h)
+        self.assertEqual(options_effectives({"horizon_jours": "999"})["horizon_jours"], 60)
+        # rattrapage : un rapport dont l'heure est passée part, une seule fois
+        r = RapportPlanifie.objects.create(nom="R", frequence="quotidien", heure="00:00", destinataires=["a@b.com"], type_rapport="mobilite")
+        env, err = envoyer_rapports_dus()
+        self.assertEqual((env, err), (["R"], []))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(envoyer_rapports_dus()[0], [])

@@ -415,6 +415,9 @@ export const rapportsPlanifiesAPI = {
   create: (d)     => api.post('/api/rapports-planifies/', d),
   update: (id, d) => api.patch(`/api/rapports-planifies/${id}/`, d),
   delete: (id)    => api.delete(`/api/rapports-planifies/${id}/`),
+  types:  ()      => api.get('/api/rapports-planifies/types/'),
+  envoyer:(id)    => api.post(`/api/rapports-planifies/${id}/envoyer/`),
+  apercu: (id)    => api.get(`/api/rapports-planifies/${id}/apercu/`),
 }
 
 // ── Mot de passe ──

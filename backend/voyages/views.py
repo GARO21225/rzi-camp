@@ -1802,14 +1802,48 @@ def _generer_billet_html(voyage):
           }} catch (e) {{ /* repli ligne droite */ }}
           return null;
         }}
+        // UNE seule requete avec tous les points de passage (les etapes du convoi
+        // entre la montee et la descente du passager) : sans eux, OSRM choisit
+        // le trajet le plus rapide Abidjan -> Camp (par Daloa) au lieu de suivre
+        // l'itineraire reellement emprunte (Yamoussoukro, Bouake...).
+        async function routeVia(pts) {{
+          try {{
+            const coords = pts.map(c => c[1] + ',' + c[0]).join(';');
+            const url = 'https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson';
+            const ctrl = new AbortController(); setTimeout(()=>ctrl.abort(), 8000);
+            const r = await fetch(url, {{signal: ctrl.signal}});
+            const d = await r.json();
+            if (d.routes && d.routes[0] && d.routes[0].geometry && d.routes[0].geometry.coordinates.length > 1) {{
+              return d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }}
+          }} catch (e) {{ /* repli segment par segment */ }}
+          return null;
+        }}
         async function tracerRoute(map, points, options, popup) {{
           if (points.length < 2) return;
-          const segments = [];
-          for (let i = 0; i < points.length - 1; i++) {{
-            const seg = await routeRoutiere(points[i], points[i+1]);
-            segments.push(...(seg || [points[i], points[i+1]]));
+          let segments = await routeVia(points);
+          if (!segments) {{
+            segments = [];
+            for (let i = 0; i < points.length - 1; i++) {{
+              const seg = await routeRoutiere(points[i], points[i+1]);
+              segments.push(...(seg || [points[i], points[i+1]]));
+            }}
           }}
           L.polyline(segments, options).addTo(map).bindPopup(popup);
+        }}
+        // Points de passage du passager = etapes du convoi comprises entre sa montee et sa descente
+        const nomsPrevus = {_json.dumps(points_prevus)};
+        function indexLieu(nom, dernier) {{
+          const c = chercherCoords(nom);
+          if (!c) return -1;
+          const idx = nomsPrevus.map(n => chercherCoords(n)).map((x, i) => (x && x[0] === c[0] && x[1] === c[1]) ? i : -1).filter(i => i >= 0);
+          return idx.length ? (dernier ? idx[idx.length - 1] : idx[0]) : -1;
+        }}
+        function pointsPassagerVia(depart, arrivee) {{
+          let i = indexLieu(depart, false), j = indexLieu(arrivee, true);
+          if (i < 0 || j < 0 || i >= j) return null;
+          const via = nomsPrevus.slice(i, j + 1).map(chercherCoords).filter(Boolean);
+          return via.length >= 2 ? via : null;
         }}
         const pointsPrevus = {_json.dumps(points_prevus)}.map(chercherCoords).filter(Boolean);
         const pointsPassager = {_json.dumps(points_passager)}.map(chercherCoords).filter(Boolean);
@@ -1825,7 +1859,7 @@ def _generer_billet_html(voyage):
           if (pointsPassager.length >= 2) {{
             L.circleMarker(pointsPassager[0], {{radius:7, color:'#fff', weight:2, fillColor:'#1d4ed8', fillOpacity:1}}).addTo(map).bindPopup('🟦 Montée : {voyage.origine or ""}');
             L.circleMarker(pointsPassager[pointsPassager.length-1], {{radius:7, color:'#fff', weight:2, fillColor:'#1d4ed8', fillOpacity:1}}).addTo(map).bindPopup('🟦 Descente : {voyage.destination or ""}');
-            tracerRoute(map, pointsPassager, {{color:'#1d4ed8', weight:5}}, 'Trajet du passager (montée → descente)');
+            tracerRoute(map, pointsPassagerVia({_json.dumps(voyage.origine or '')}, {_json.dumps(voyage.destination or '')}) || pointsPassager, {{color:'#1d4ed8', weight:5}}, 'Trajet du passager (montée → descente)');
           }}
           map.fitBounds(L.latLngBounds(tous), {{padding:[20,20]}});
         }} else {{

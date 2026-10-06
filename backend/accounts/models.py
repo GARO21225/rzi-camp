@@ -74,6 +74,9 @@ class RapportPlanifie(models.Model):
         (0,'Lundi'),(1,'Mardi'),(2,'Mercredi'),(3,'Jeudi'),(4,'Vendredi'),(5,'Samedi'),(6,'Dimanche'),
     ]
     nom            = models.CharField(max_length=150)
+    # Type de rapport (voir accounts/rapports_email.py : TYPES) + options (horizon_jours, seuil_stock, details)
+    type_rapport   = models.CharField(max_length=20, default='synthese')
+    options        = models.JSONField(default=dict, blank=True)
     frequence      = models.CharField(max_length=20, choices=FREQUENCES, default='hebdomadaire')
     jour_semaine   = models.PositiveSmallIntegerField(choices=JOURS_SEMAINE, null=True, blank=True)  # pour hebdomadaire
     jour_mois      = models.PositiveSmallIntegerField(null=True, blank=True)  # pour mensuel (1-28)
@@ -96,7 +99,9 @@ class RapportPlanifie(models.Model):
             return False
         if self.derniere_execution and self.derniere_execution.date() == maintenant.date():
             return False  # deja envoye aujourd'hui, jamais 2x le meme jour
-        if maintenant.time().hour != self.heure.hour:
+        # Rattrapage : part dès l'heure atteinte, même si la vérification (cron ou
+        # hook paresseux) n'a pas tourné pile pendant cette heure.
+        if maintenant.time() < self.heure:
             return False
         if self.frequence == 'quotidien':
             return True

@@ -23,9 +23,19 @@ class RapportPlanifieSerializer(serializers.ModelSerializer):
     frequence_label = serializers.CharField(source="get_frequence_display", read_only=True)
     class Meta:
         model = RapportPlanifie
-        fields = ["id","nom","frequence","frequence_label","jour_semaine","jour_mois","heure",
+        fields = ["id","nom","type_rapport","options","frequence","frequence_label","jour_semaine","jour_mois","heure",
                   "destinataires","actif","derniere_execution","date_creation"]
         read_only_fields = ["derniere_execution","date_creation"]
+
+    def validate_type_rapport(self, value):
+        from .rapports_email import TYPES
+        if value not in TYPES:
+            raise serializers.ValidationError("Type de rapport inconnu.")
+        return value
+
+    def validate_options(self, value):
+        from .rapports_email import options_effectives
+        return options_effectives(value) if value else {}
 
     def validate_destinataires(self, value):
         if not isinstance(value, list) or not value:
