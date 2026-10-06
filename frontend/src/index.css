@@ -651,3 +651,12 @@ input:focus, select:focus, textarea:focus {
     transition: none !important;
   }
 }
+
+/* ── Mobile : saisie ──────────────────────────────────────────────
+   iOS Safari zoome sur tout champ dont le texte fait moins de 16px au
+   moment du focus, et ne revient pas en arrière : la page reste décalée
+   et il faut dézoomer à la main. La plupart des champs de l'app sont en
+   12-14px en style inline, d'où le !important. */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px !important; }
+}

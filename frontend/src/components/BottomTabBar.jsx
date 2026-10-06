@@ -1,117 +1,111 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import Icon from './Icon'
 
 // Barre de navigation mobile en bas d'ecran, style application native —
 // les destinations les plus utilisees restent accessibles en un tap
 // permanent, plutot que caches derriere le tiroir lateral (qui reste
-// disponible via "Plus" pour tout le reste). C'est l'element le plus
-// visible qui differencie une app mobile d'un site web retreci.
+// disponible via "Plus" pour tout le reste).
 //
-// Design "flottant" : barre en verre depoli (blur) detachee des bords,
-// coins tres arrondis, onglet actif surligne d'un halo dore, et
-// l'onglet central (index 2) elevé en bouton circulaire doré avec un
-// leger glow — cible la plus utilisee du role (Résidences pour l'admin,
-// Demandes pour l'agent) sans changer la structure TABS existante.
+// Design "flottant" conserve : barre sombre detachee des bords, onglet
+// central (index 2) eleve en bouton circulaire dore — cible la plus
+// utilisee du role (Résidences pour l'admin, Demandes pour l'agent).
+//
+// Passe de lisibilite : les emoji (couleurs propres, impossibles a teinter,
+// rendu different selon le telephone) sont remplaces par des icones au
+// trait qui prennent la couleur de l'etat. L'onglet actif est donc dore
+// (icone + libelle + trait), les autres gris clair, et les libelles passent
+// de 9 a 10,5 px.
 const TABS = {
   admin: [
-    { to:'/', label:'Accueil', icon:'📊', exact:true },
-    { to:'/rotations', label:'Mobilité', icon:'🧭' },
-    { to:'/residences', label:'Résidences', icon:'🏠' },
-    { to:'/personnel', label:'Personnel', icon:'👤' },
-    { to:'/demandes', label:'Demandes', icon:'📝' },
+    { to:'/', label:'Accueil', icon:'dashboard', exact:true },
+    { to:'/rotations', label:'Mobilité', icon:'compass' },
+    { to:'/residences', label:'Résidences', icon:'home' },
+    { to:'/personnel', label:'Personnel', icon:'users' },
+    { to:'/demandes', label:'Demandes', icon:'file' },
   ],
   agent: [
-    { to:'/mon-compte', label:'Accueil', icon:'👤', exact:true },
-    { to:'/voyages', label:'Voyages', icon:'✈️' },
-    { to:'/demandes', label:'Demandes', icon:'📝' },
-    { to:'/restauration', label:'Repas', icon:'🍽️' },
-    { to:'/maintenance', label:'Signaler', icon:'🛠️' },
+    { to:'/mon-compte', label:'Accueil', icon:'user', exact:true },
+    { to:'/voyages', label:'Voyages', icon:'bus' },
+    { to:'/demandes', label:'Demandes', icon:'file' },
+    { to:'/restauration', label:'Repas', icon:'utensils' },
+    { to:'/maintenance', label:'Signaler', icon:'wrench' },
   ],
 }
 
 const CENTER_INDEX = 2
+const OR = 'var(--rzc-ore-gold, #C9972B)'
+const OR_CLAIR = '#F0C445'   // or eclairci : seul lisible en texte sur la barre sombre
+const INACTIF = '#B4BED0'
 
 function isTabActive(tab, pathname) {
   return tab.exact ? pathname === tab.to : pathname.startsWith(tab.to)
 }
+
+const tabStyle = {
+  flex:1, minWidth:0, display:'flex', flexDirection:'column', alignItems:'center',
+  justifyContent:'center', gap:4, textDecoration:'none', position:'relative',
+  WebkitTapHighlightColor:'transparent',
+}
+const labelStyle = (active) => ({
+  fontSize:10.5, lineHeight:1.15, fontWeight: active ? 700 : 500,
+  color: active ? OR_CLAIR : INACTIF, whiteSpace:'nowrap',
+  maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis',
+})
 
 export default function BottomTabBar({ role, onOpenMenu }) {
   const tabs = TABS[role] || TABS.agent
   const { pathname } = useLocation()
 
   return (
-    <nav style={{
-      position:'fixed', left:14, right:14, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))',
-      zIndex:100, height:66, display:'flex', alignItems:'stretch', padding:'0 6px',
-      background:'rgba(11,15,20,.78)',
-      backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
-      border:'1px solid rgba(255,255,255,.09)', borderRadius:26,
-      boxShadow:'0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
+    <nav aria-label="Navigation principale" style={{
+      position:'fixed', left:10, right:10, bottom:'calc(10px + env(safe-area-inset-bottom, 0px))',
+      zIndex:100, height:64, display:'flex', alignItems:'stretch', padding:'0 4px',
+      background:'rgba(8,27,61,.94)',
+      backdropFilter:'blur(14px)', WebkitBackdropFilter:'blur(14px)',
+      border:'1px solid rgba(255,255,255,.10)', borderRadius:20,
+      boxShadow:'0 10px 28px rgba(8,27,61,.35)',
     }}>
       {tabs.map((t, i) => {
         const active = isTabActive(t, pathname)
 
         if (i === CENTER_INDEX) {
           return (
-            <NavLink key={t.to} to={t.to} end={t.exact}
-              style={{
-                flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                position:'relative', textDecoration:'none',
-              }}>
+            <NavLink key={t.to} to={t.to} end={t.exact} style={{ ...tabStyle, justifyContent:'flex-end', paddingBottom:9 }}>
               <span style={{
-                position:'absolute', top:-26, width:58, height:58, borderRadius:'50%',
-                background:'radial-gradient(circle at 32% 28%, #F4D26B, #C9972B 65%, #A9791E)',
+                position:'absolute', top:-22, width:54, height:54, borderRadius:'50%',
+                background: OR, color:'var(--rzc-navy-dark, #081B3D)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                border:'4px solid #0B1628',
+                border:'4px solid var(--rzc-fond-app, #f1f5f9)',
                 boxShadow: active
-                  ? '0 0 0 6px rgba(212,160,23,.28), 0 8px 18px rgba(201,151,43,.45)'
-                  : '0 8px 18px rgba(201,151,43,.35)',
+                  ? '0 0 0 3px rgba(240,196,69,.55), 0 6px 14px rgba(8,27,61,.35)'
+                  : '0 6px 14px rgba(8,27,61,.35)',
                 transition:'box-shadow .2s',
               }}>
-                <span style={{ fontSize:22 }}>{t.icon}</span>
+                <Icon name={t.icon} size={24} />
               </span>
-              <span style={{
-                position:'absolute', bottom:9, fontSize:9, fontWeight:700,
-                color: active ? '#F0C445' : '#D8B45A', whiteSpace:'nowrap',
-              }}>{t.label}</span>
+              {/* le libellé central peut déborder de 1-2 px sur un écran de 360 px : mieux que « Résiden… » */}
+              <span style={{ ...labelStyle(active), maxWidth:'none', overflow:'visible' }}>{t.label}</span>
             </NavLink>
           )
         }
 
         return (
-          <NavLink key={t.to} to={t.to} end={t.exact}
-            style={{
-              flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', gap:3, textDecoration:'none', position:'relative',
-            }}>
+          <NavLink key={t.to} to={t.to} end={t.exact} style={tabStyle}>
             {active && (
-              <span style={{
-                position:'absolute', top:2, width:38, height:38, borderRadius:14,
-                background:'linear-gradient(180deg, rgba(240,196,69,.18), rgba(240,196,69,.05))',
-                border:'1px solid rgba(240,196,69,.35)', zIndex:0,
-              }} />
+              <span style={{ position:'absolute', top:0, width:28, height:3, borderRadius:'0 0 3px 3px', background:OR_CLAIR }} />
             )}
-            <span style={{
-              position:'relative', zIndex:1, fontSize:20, lineHeight:1,
-              filter: active ? 'none' : 'grayscale(.15) opacity(.75)',
-              transform: active ? 'translateY(-1px)' : 'none',
-              transition:'.2s',
-            }}>{t.icon}</span>
-            <span style={{
-              position:'relative', zIndex:1, fontSize:9, fontWeight: active ? 700 : 600,
-              letterSpacing:.2, color: active ? '#F0C445' : '#7E8AA3',
-            }}>{t.label}</span>
+            <span style={{ color: active ? OR_CLAIR : INACTIF, display:'flex' }}>
+              <Icon name={t.icon} size={22} />
+            </span>
+            <span style={labelStyle(active)}>{t.label}</span>
           </NavLink>
         )
       })}
-      <button onClick={onOpenMenu}
-        style={{
-          flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-          justifyContent:'center', gap:3, background:'none', border:'none',
-          cursor:'pointer', color:'#7E8AA3', position:'relative',
-        }}>
-        <span style={{ fontSize:20, lineHeight:1 }}>☰</span>
-        <span style={{ fontSize:9, fontWeight:600, letterSpacing:.2 }}>Plus</span>
+      <button onClick={onOpenMenu} aria-label="Ouvrir le menu complet"
+        style={{ ...tabStyle, background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' }}>
+        <span style={{ color:INACTIF, display:'flex' }}><Icon name="menu" size={22} /></span>
+        <span style={labelStyle(false)}>Plus</span>
       </button>
     </nav>
   )

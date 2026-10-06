@@ -1,5 +1,6 @@
 import GlobalSearch from './GlobalSearch'
 import BottomTabBar from './BottomTabBar'
+import Icon from './Icon'
 import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -234,7 +235,7 @@ const POINTS_DESCENTE_ABIDJAN = [
   'Abobo', 'Koumassi', 'Gare routière Abidjan', 'Autre (préciser)',
 ]
 
-function MonDepartBanner({ role }) {
+function MonDepartBanner({ role, isMobile }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
@@ -267,40 +268,53 @@ function MonDepartBanner({ role }) {
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
 
+  // Sur mobile : une grille à deux colonnes (lieu | confirmer, date | reporter)
+  // au lieu de quatre contrôles empilés qui prenaient un tiers de l'écran sur
+  // chaque page. Le bouton désactivé garde un texte lisible (il était blanc
+  // sur gris clair).
+  const dateFr = new Date(monDepart.date_depart).toLocaleDateString('fr-FR')
+  const champ = { border: '1px solid #cbd5e1', borderRadius: 8, padding: isMobile ? '0 10px' : '6px 8px',
+    fontSize: 12.5, minHeight: isMobile ? 44 : undefined, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }
+  const bouton = (actif, fond) => ({ background: actif ? fond : '#e2e8f0', color: actif ? '#fff' : '#64748b', border: 'none',
+    borderRadius: 8, padding: isMobile ? '0 10px' : '7px 14px', minHeight: isMobile ? 44 : undefined,
+    fontSize: isMobile ? 13.5 : 12.5, fontWeight: 700, cursor: actif ? 'pointer' : 'not-allowed' })
+  const reportPossible = !!date && !busy
+
   return (
     <div style={{ background: monDepart.en_retard ? '#fef2f2' : '#fffbeb',
       border: `1px solid ${monDepart.en_retard ? '#fecaca' : '#fde68a'}`,
-      borderRadius: 10, padding: '10px 14px', margin: '12px 16px 0',
-      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-      <div style={{ flex: 1, minWidth: 220, fontSize: 13, fontWeight: 600, color: '#0F1A2E' }}>
+      borderRadius: 10, padding: isMobile ? 12 : '10px 14px', margin: isMobile ? '12px 12px 0' : '12px 16px 0',
+      display: 'flex', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: 10, alignItems: isMobile ? 'stretch' : 'center' }}>
+      <div style={{ flex: isMobile ? 'none' : 1, minWidth: isMobile ? 0 : 220, fontSize: isMobile ? 14 : 13, fontWeight: 600, color: '#0F1A2E' }}>
+        {!isMobile && '🧳 '}
         {monDepart.en_retard
-          ? `🧳 Votre départ était prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — vous êtes toujours logé, confirmez-vous ?`
+          ? `Votre départ était prévu le ${dateFr} — vous êtes toujours logé, confirmez-vous ?`
           : monDepart.aujourdhui
-          ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
-          : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
+          ? `Vous partez aujourd'hui (${dateFr}) ?`
+          : `Vous partez demain (${dateFr}) ?`}
       </div>
-      <select value={destination} onChange={e => setDestination(e.target.value)}
-        title="Où descendez-vous à Abidjan ?"
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }}>
-        {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
-      </select>
-      {destination === 'Autre (préciser)' && (
-        <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
-          placeholder="Précisez le lieu" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
-      )}
-      <button onClick={confirmer} disabled={busy}
-        style={{ background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
-          fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
-        ✅ Je confirme mon départ
-      </button>
-      <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5 }} />
-      <button onClick={reporter} disabled={busy || !date}
-        style={{ background: (!date || busy) ? '#e2e8f0' : '#0F2A5C', color: '#fff', border: 'none',
-          borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
-          cursor: (!date || busy) ? 'not-allowed' : 'pointer' }}>
-        📅 Je reste — nouvelle date
-      </button>
+      <div style={isMobile
+        ? { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }
+        : { display: 'contents' }}>
+        <select value={destination} onChange={e => setDestination(e.target.value)}
+          aria-label="Où descendez-vous à Abidjan ?" title="Où descendez-vous à Abidjan ?"
+          style={{ ...champ, order: 1 }}>
+          {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        {destination === 'Autre (préciser)' && (
+          <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
+            placeholder="Précisez le lieu" aria-label="Lieu de descente"
+            style={{ ...champ, order: isMobile ? 3 : 1, gridColumn: isMobile ? '1 / -1' : undefined }} />
+        )}
+        <button onClick={confirmer} disabled={busy} style={{ ...bouton(!busy, '#16A34A'), order: 2, cursor: busy ? 'wait' : 'pointer' }}>
+          {isMobile ? 'Je confirme' : '✅ Je confirme mon départ'}
+        </button>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} aria-label="Nouvelle date de départ"
+          style={{ ...champ, order: 4 }} />
+        <button onClick={reporter} disabled={!reportPossible} style={{ ...bouton(reportPossible, '#0F2A5C'), order: 5 }}>
+          {isMobile ? 'Je reste' : '📅 Je reste — nouvelle date'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -483,10 +497,11 @@ export default function Layout() {
         overflow: 'hidden', maxWidth: '100vw',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
+          aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={sidebarOpen}
+          style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: isMobile ? 44 : 36, height: isMobile ? 44 : 36, marginLeft: isMobile ? -8 : 0, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-          {sidebarOpen ? '✕' : '☰'}
+          <Icon name={sidebarOpen ? 'close' : 'menu'} size={22} />
         </button>
 
         <div style={{ background: '#fff', borderRadius: 6, padding: '5px 10px', flexShrink: 0, height: 36, display: 'flex', alignItems: 'center' }}>
@@ -505,8 +520,9 @@ export default function Layout() {
 
         {isMobile && (
           <button onClick={() => setMobileSearchOpen(o => !o)}
-            style={{ background: mobileSearchOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all 150ms' }}>
-            🔍
+            aria-label="Rechercher" aria-expanded={mobileSearchOpen}
+            style={{ background: mobileSearchOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: 44, height: 44, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all 150ms' }}>
+            <Icon name="search" size={21} />
           </button>
         )}
 
@@ -518,12 +534,13 @@ export default function Layout() {
 
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
-            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#374151', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
-            onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' } }}
-            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151' } }}>
-            🔔
+            aria-label={notifCount > 0 ? `Notifications, ${notifCount} non lue(s)` : 'Notifications'} aria-expanded={notifOpen}
+            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: isMobile ? 44 : 36, height: isMobile ? 44 : 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
+            onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)' } }}
+            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent' } }}>
+            <Icon name="bell" size={21} />
             {notifCount > 0 && (
-              <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
+              <span style={{ position: 'absolute', top: isMobile ? 6 : 4, right: isMobile ? 6 : 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
                 {notifCount > 9 ? '9+' : notifCount}
               </span>
             )}
@@ -551,13 +568,15 @@ export default function Layout() {
           )}
         </div>
 
+        {!isMobile && (
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
           title="Déconnexion">
-          {isMobile ? '⎋' : '⎋ Déconnexion'}
+          ⎋ Déconnexion
         </button>
+        )}
 
       </header>
 
@@ -571,11 +590,11 @@ export default function Layout() {
         {/* Backdrop mobile */}
         {sidebarOpen && isMobile && (
           <div onClick={() => setSidebarOpen(false)}
-            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:90 }} />
+            style={{ position:'fixed', inset:0, top:56, background:'rgba(8,27,61,.55)', zIndex:1100 }} />
         )}
 
-        <nav style={{
-            width: 240,
+        <nav aria-label="Menu" style={{
+            width: isMobile ? 'min(304px, 86vw)' : 240,
             background: 'var(--rzc-navy-dark)',
             borderRight: 'none',
             overflowY: 'auto',
@@ -591,7 +610,7 @@ export default function Layout() {
               top: 56,
               left: 0,
               bottom: 0,
-              zIndex: 95,
+              zIndex: 1101,
               boxShadow: '4px 0 20px rgba(0,0,0,.25)',
               transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
               pointerEvents: sidebarOpen ? 'auto' : 'none',
@@ -611,17 +630,19 @@ export default function Layout() {
                   </div>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu"
-                  style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
-                  ✕
+                  style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 44, height: 44, borderRadius: 10, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="close" size={20} />
                 </button>
               </div>
             )}
+            {!isMobile && (
             <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
               <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
               </div>
             </div>
-            <div style={{ padding: 8, paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 8, flex: 1 }}>
+            )}
+            <div style={{ padding: 8, flex: 1 }}>
               {(() => {
                 let currentGroup = null
                 return nav.map((item, i) => {
@@ -636,8 +657,8 @@ export default function Layout() {
                     return (
                       <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                         <div onClick={isMobile ? undefined : () => toggleGroup(item.group)} style={{
-                          fontSize:10, fontWeight:800, letterSpacing:1.5,
-                          textTransform:'uppercase', color:'#64748b', cursor: isMobile ? 'default' : 'pointer',
+                          fontSize: isMobile ? 11 : 10, fontWeight:800, letterSpacing:1.5,
+                          textTransform:'uppercase', color: isMobile ? '#94a3b8' : '#64748b', cursor: isMobile ? 'default' : 'pointer',
                           padding:'4px 10px', display:'flex', alignItems:'center', gap:6, justifyContent:'space-between',
                           borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                         }}>
@@ -661,14 +682,14 @@ export default function Layout() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        padding: isMobile ? '12px 12px 12px 16px' : '9px 12px 9px 16px',
+                        padding: isMobile ? '13px 12px 13px 16px' : '9px 12px 9px 16px',
                         margin: '1px 8px',
                         borderRadius: 9,
                         textDecoration: 'none',
-                        fontSize: isMobile ? 14 : 13,
+                        fontSize: isMobile ? 15 : 13,
                         fontWeight: isActive ? 700 : 400,
                         background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                        color: isActive ? '#ffffff' : '#94a3b8',
+                        color: isActive ? '#ffffff' : (isMobile ? '#CBD5E1' : '#94a3b8'),
                         borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
                         transition: 'all .15s',
                       })}>
@@ -678,10 +699,20 @@ export default function Layout() {
                 })
               })()}
             </div>
+            {isMobile && (
+              <div style={{ position: 'sticky', bottom: 0, background: 'var(--rzc-navy-dark)', padding: '12px 16px calc(16px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,.08)' }}>
+                <button onClick={() => { logout(); navigate('/login') }}
+                  style={{ width: '100%', minHeight: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    background: 'transparent', border: '1px solid rgba(255,255,255,.22)', color: '#F1F5F9',
+                    borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}>
+                  <Icon name="logout" size={20} /> Se déconnecter
+                </button>
+              </div>
+            )}
           </nav>
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
-            <MonDepartBanner role={role} />
+            <MonDepartBanner role={role} isMobile={isMobile} />
             <Outlet />
           </main>
       </div>

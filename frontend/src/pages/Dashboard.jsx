@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Icon from '../components/Icon'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAppName } from '../hooks/useAppName'
 
@@ -171,17 +172,20 @@ function AlertRow({ icon, title, desc, severity = 'info' }) {
 //  (BottomTabBar / header sont déjà rendus par Layout.jsx, donc ce
 //  composant ne fournit que le contenu défilant).
 // ─────────────────────────────────────────────────────────────────
-function MobileKpiCard({ icon, iconBg, label, value, sub }) {
+function MobileKpiCard({ icon, iconBg, iconColor, label, value, sub }) {
   return (
     <div style={{ flex: 1, background: '#fff', border: '1px solid rgba(15,26,46,.12)',
       borderRadius: 14, padding: 13, display: 'flex', flexDirection: 'column', gap: 8,
       boxShadow: '0 1px 3px rgba(15,26,46,.05)' }}>
-      <div style={{ width: 32, height: 32, borderRadius: 9, background: iconBg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
-        {icon}
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: iconBg, color: iconColor,
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={20} />
       </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--rzc-text, #0F1A2E)' }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: 'var(--rzc-text-3, #5B6472)' }}>{label}{sub ? ` · ${sub}` : ''}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1, color: 'var(--rzc-text, #0F1A2E)' }}>{value}</div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.35, color: 'var(--rzc-text-3, #5B6472)' }}>
+        <span style={{ display: 'block', fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)' }}>{label}</span>
+        {sub}
+      </div>
     </div>
   )
 }
@@ -196,20 +200,21 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
       {/* Salutation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--rzc-text-3, #5B6472)', fontWeight: 500 }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--rzc-text-3, #5B6472)', fontWeight: 500, textTransform: 'capitalize' }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           <h1 style={{ margin: '3px 0 0', fontSize: 20, color: 'var(--rzc-text, #0F1A2E)', fontWeight: 700 }}>
             {nomApp} · Roxgold Sango
           </h1>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--rzc-text-4, #8B95A1)' }}>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
             {sync ? `Synchronisé ${sync.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Chargement...'}
           </p>
         </div>
         <button onClick={load} disabled={loading} aria-label="Actualiser"
-          style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 10,
-            width: 36, height: 36, fontSize: 15, flexShrink: 0, color: 'var(--rzc-navy, #0F2A5C)' }}>
-          {loading ? '⏳' : '🔄'}
+          style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 12,
+            width: 44, height: 44, flexShrink: 0, color: 'var(--rzc-navy, #0F2A5C)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loading ? .5 : 1 }}>
+          <Icon name="refresh" size={20} />
         </button>
       </div>
 
@@ -220,24 +225,25 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
           borderRadius: 14, padding: '12px 14px' }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: '#0F1A2E' }}>
             {monDepart.en_retard
-              ? `🧳 Départ prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — toujours logé`
+              ? `Départ prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — toujours logé`
               : monDepart.aujourdhui
-              ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
-              : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
+              ? `Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
+              : `Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
           </div>
           <p style={{ margin: '4px 0 10px', fontSize: 11.5, color: 'var(--rzc-text-3,#5B6472)' }}>
             Confirmez votre départ ou indiquez une nouvelle date si vous restez.
           </p>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={confirmerMonDepart} disabled={monDepartBusy}
-              style={{ flex:1, background:'#16A34A', color:'#fff', border:'none', borderRadius:10, padding:'8px 10px', fontSize:12, fontWeight:700 }}>
-              ✅ Je confirme
+              style={{ flex:1, minHeight:44, background:'#16A34A', color:'#fff', border:'none', borderRadius:10, padding:'0 10px', fontSize:13.5, fontWeight:700 }}>
+              Je confirme
             </button>
             <input type="date" value={monDepartDate} onChange={e=>setMonDepartDate(e.target.value)}
-              style={{ flex:1, minWidth:120, border:'1px solid rgba(15,26,46,.14)', borderRadius:10, padding:'7px 8px', fontSize:12 }}/>
+              aria-label="Nouvelle date de départ"
+              style={{ flex:1, minWidth:120, minHeight:44, border:'1px solid rgba(15,26,46,.2)', borderRadius:10, padding:'0 8px', fontSize:12 }}/>
             <button onClick={reporterMonDepart} disabled={monDepartBusy || !monDepartDate}
-              style={{ flex:1, background:'#0F2A5C', color:'#fff', border:'none', borderRadius:10, padding:'8px 10px', fontSize:12, fontWeight:700, opacity: !monDepartDate?.6:1 }}>
-              📅 Je reste
+              style={{ flex:1, minHeight:44, background: monDepartDate ? '#0F2A5C' : '#e2e8f0', color: monDepartDate ? '#fff' : '#64748b', border:'none', borderRadius:10, padding:'0 10px', fontSize:13.5, fontWeight:700 }}>
+              Je reste
             </button>
           </div>
         </div>
@@ -247,20 +253,22 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
       {alertes.some(a => a.urgent) && (
         <div style={{ background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.25)',
           borderRadius: 14, padding: '12px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13, color: '#DC2626' }}>
-            🚨 {alertes.filter(a => a.urgent).length} alerte(s) urgente(s)
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: '#B91C1C' }}>
+            <Icon name="alert" size={20} /> {alertes.filter(a => a.urgent).length} alerte(s) urgente(s)
           </div>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--rzc-text-2, #2D3B52)' }}>
-            {alertes.find(a => a.urgent)?.titre}
-          </p>
+          <ul style={{ margin: '8px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {alertes.filter(a => a.urgent).slice(0, 3).map((a, i) => (
+              <li key={i} style={{ fontSize: 13, color: 'var(--rzc-text-2, #2D3B52)' }}>{a.titre}</li>
+            ))}
+          </ul>
         </div>
       )}
 
       {/* KPI */}
       <div style={{ display: 'flex', gap: 10 }}>
-        <MobileKpiCard icon="🏠" iconBg="rgba(37,99,235,.10)" value={taux !== null ? `${taux}%` : '—'}
-          label="Occupation camp" sub={`${occupes}/${occupes + libres}`} />
-        <MobileKpiCard icon="👥" iconBg="rgba(22,163,74,.10)" value={personnelLoge ?? '—'}
+        <MobileKpiCard icon="home" iconBg="rgba(37,99,235,.10)" iconColor="#1D4ED8" value={taux !== null ? `${taux}%` : '—'}
+          label="Occupation camp" sub={`${occupes} occupées · ${libres} libres`} />
+        <MobileKpiCard icon="users" iconBg="rgba(22,163,74,.12)" iconColor="#15803D" value={personnelLoge ?? '—'}
           label="Personnel logé" sub={`${personnelNonLoge ?? 0} non logé(s)`} />
       </div>
 
@@ -269,14 +277,22 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
         style={{ textAlign: 'left', background: '#fff', border: '1px solid rgba(15,26,46,.12)',
           borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(15,26,46,.05)', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
-          <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>🧭 Centre de mobilité</span>
-          <span style={{ fontSize: 12, color: 'var(--rzc-ore-gold, #C9972B)', fontWeight: 600 }}>Voir tout ›</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>
+            <span style={{ color: 'var(--rzc-navy, #0F2A5C)' }}><Icon name="compass" size={20} /></span> Centre de mobilité
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 13, color: 'var(--rzc-navy, #0F2A5C)', fontWeight: 600 }}>
+            Voir tout <Icon name="chevron" size={16} />
+          </span>
         </div>
-        <div style={{ display: 'flex', gap: 18, padding: '11px 14px 14px', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
-          <span>🧳 {planifies} rotation(s) planifiée(s)</span>
-        </div>
-        <div style={{ display: 'flex', gap: 18, padding: '0 14px 14px', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
-          <span>🚐 {enVoyage} personne(s) en transit</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '12px 14px 14px', fontFamily: 'inherit' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: 'var(--rzc-text, #0F1A2E)' }}>{planifies}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--rzc-text-3, #5B6472)', marginTop: 4 }}>rotation(s) planifiée(s)</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: 'var(--rzc-text, #0F1A2E)' }}>{enVoyage}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--rzc-text-3, #5B6472)', marginTop: 4 }}>personne(s) en transit</div>
+          </div>
         </div>
       </button>
 
@@ -284,7 +300,7 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
       <section style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 14,
         padding: 14, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 1px 3px rgba(15,26,46,.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>🔔 Activité récente</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--rzc-text, #0F1A2E)' }}>Activité récente</span>
           {unread > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--rzc-blue, #2563EB)',
             background: 'rgba(37,99,235,.10)', borderRadius: 99, padding: '2px 8px' }}>{unread} nouvelle(s)</span>}
         </div>
@@ -296,11 +312,11 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
               <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5,
                 background: !n.lu ? 'var(--rzc-blue, #2563EB)' : 'var(--rzc-text-4, #8B95A1)' }} />
               <div style={{ minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)',
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {n.evenement_titre || n.message || 'Notification'}
                 </p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--rzc-text-4, #8B95A1)' }}>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--rzc-text-3, #5B6472)' }}>
                   {n.date_envoi ? new Date(n.date_envoi).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                 </p>
               </div>
@@ -312,13 +328,14 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--rzc-text-2, #2D3B52)', padding: '0 2px' }}>Accès rapides</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          {MODULES.map(({ icon, label, path }) => (
+          {MODULES.map(({ ic, label, path }) => (
             <button key={path} onClick={() => nav(path)}
               style={{ background: '#fff', border: '1px solid rgba(15,26,46,.12)', borderRadius: 12,
-                padding: '12px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                cursor: 'pointer' }}>
-              <span style={{ fontSize: 18 }}>{icon}</span>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)', textAlign: 'center' }}>{label}</span>
+                padding: '12px 2px', minHeight: 72, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 7, cursor: 'pointer', color: 'var(--rzc-navy, #0F2A5C)', fontFamily: 'inherit' }}>
+              <Icon name={ic} size={22} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--rzc-text-2, #2D3B52)', textAlign: 'center',
+                maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
             </button>
           ))}
         </div>
@@ -520,14 +537,15 @@ export default function Dashboard() {
   const stockCritiqueCount = d.stock?.length ?? null
 
   const MODULES = [
-    { icon:'👥', label:'Employés',      path:'/personnel',    },
-    { icon:'🧳', label:'Rotations',     path:'/rotations',    },
-    { icon:'📅', label:'Réservations',  path:'/reservations', },
-    { icon:'🏠', label:'Chambres',      path:'/residences',   },
-    { icon:'🍽️', label:'Restauration',  path:'/restauration',  },
-    { icon:'📦', label:'Stocks',        path:'/boutique',     },
-    { icon:'🛠️', label:'Maintenance',   path:'/maintenance',   },
-    { icon:'📋', label:'Rapports',      path:'/rapports',     },
+    // icon = emoji du tableau de bord bureau ; ic = icône au trait de l'accueil mobile
+    { icon:'👥', ic:'users',    label:'Employés',      path:'/personnel',    },
+    { icon:'🧳', ic:'bus',      label:'Rotations',     path:'/rotations',    },
+    { icon:'📅', ic:'calendar', label:'Réservations',  path:'/reservations', },
+    { icon:'🏠', ic:'home',     label:'Chambres',      path:'/residences',   },
+    { icon:'🍽️', ic:'utensils', label:'Restauration',  path:'/restauration',  },
+    { icon:'📦', ic:'box',      label:'Stocks',        path:'/boutique',     },
+    { icon:'🛠️', ic:'wrench',   label:'Maintenance',   path:'/maintenance',   },
+    { icon:'📋', ic:'report',   label:'Rapports',      path:'/rapports',     },
   ]
 
   if (isMobile) {
