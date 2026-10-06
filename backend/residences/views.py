@@ -1221,6 +1221,116 @@ class BatimentViewSet(viewsets.ModelViewSet):
         bulk_update_with_history(objs, Batiment, ["bloc"], batch_size=500)
         return Response({"modifies": len(objs), "ancien": ancien, "nouveau": nouveau, "fusion": fusion})
 
+    @action(detail=True, methods=["post"], url_path="renommer")
+    def renommer(self, request, pk=None):
+        """Renomme une chambre (`residence`) et/ou change son bloc. Les incidents
+        de maintenance qui référencent l'ancien nom (texte libre) sont suivis."""
+        if not self._admin_only(request.user):
+            return Response({"error": "Admin requis."}, status=403)
+        b = Batiment.objects.get(pk=pk)
+        ancien = b.residence
+        nouveau = (request.data.get("residence") or ancien).strip()
+        bloc = (request.data.get("bloc") or b.bloc).strip()
+        if not nouveau or len(nouveau) > 20:
+            return Response({"error": "Nom de chambre requis (20 caractères max)."}, status=400)
+        if not bloc or len(bloc) > 30:
+            return Response({"error": "Nom de bloc requis (30 caractères max)."}, status=400)
+        if nouveau != ancien and Batiment.objects.filter(residence=nouveau).exists():
+            return Response({"error": f"Une chambre « {nouveau} » existe déjà."}, status=400)
+        with transaction.atomic():
+            b.residence, b.bloc = nouveau, bloc
+            b.save()
+            if nouveau != ancien:
+                try:
+                    from maintenance.models import Incident
+                    Incident.objects.filter(residence=ancien).update(residence=nouveau)
+                except Exception:
+                    pass
+        return Response(self.get_serializer(b).data)
+
+    @action(detail=False, methods=["post"], url_path="importer-kml")
+    def importer_kml(self, request):
+        """Importe une ou plusieurs chambres depuis un fichier KML (Placemark
+        Polygon/LineString fermée). Nom = nom du Folder/Document (ex: B106) sinon
+        du Placemark. Crée la chambre si elle n'existe pas (bloc = celui de la
+        chambre la plus proche, ou paramètre `bloc`), sinon met à jour sa
+        géométrie. Ré-importable sans doublon."""
+        if not self._admin_only(request.user):
+            return Response({"error": "Admin requis."}, status=403)
+        f = request.FILES.get("fichier")
+        if not f:
+            return Response({"error": "Fichier .kml requis (champ 'fichier')."}, status=400)
+        import xml.etree.ElementTree as ET
+        try:
+            root = ET.fromstring(f.read())
+        except ET.ParseError as e:
+            return Response({"error": f"KML illisible : {e}"}, status=400)
+
+        def local(t):
+            return t.rsplit("}", 1)[-1]
+
+        def txt(el, name):
+            for c in el:
+                if local(c.tag) == name:
+                    return (c.text or "").strip()
+            return ""
+
+        def ring(el):
+            pts = []
+            for tok in (el.text or "").split():
+                v = tok.split(",")
+                if len(v) >= 2:
+                    pts.append([float(v[0]), float(v[1])])
+            return pts
+
+        items = []  # (nom, anneau)
+        def walk(node, nom_parent):
+            nom = txt(node, "name") if local(node.tag) in ("Folder", "Document") else nom_parent
+            for c in node:
+                t = local(c.tag)
+                if t in ("Folder", "Document"):
+                    walk(c, txt(c, "name") or nom)
+                elif t == "Placemark":
+                    pn = txt(c, "name")
+                    nm = nom if (nom and re.match(r"^[A-Za-z]+\d+", nom)) else pn or nom
+                    for co in c.iter():
+                        if local(co.tag) == "coordinates":
+                            r = ring(co)
+                            if len(r) >= 3:
+                                if r[0] != r[-1]:
+                                    r.append(r[0])
+                                items.append((nm, r))
+        walk(root, "")
+        if not items:
+            return Response({"error": "Aucune géométrie exploitable dans ce KML."}, status=400)
+
+        bloc_force = (request.data.get("bloc") or "").strip()
+        resultats = []
+        for nom, r in items:
+            nom = (nom or "").strip()
+            if not nom or len(nom) > 20:
+                resultats.append({"nom": nom, "erreur": "nom de chambre manquant ou trop long"})
+                continue
+            cx = sum(p[0] for p in r[:-1]) / (len(r) - 1)
+            cy = sum(p[1] for p in r[:-1]) / (len(r) - 1)
+            geom = {"type": "Polygon", "coordinates": [r]}
+            b = Batiment.objects.filter(residence=nom).first()
+            cree = b is None
+            if cree:
+                bloc = bloc_force
+                if not bloc:
+                    best, bd = None, None
+                    for o in Batiment.objects.exclude(latitude__isnull=True).exclude(longitude__isnull=True):
+                        d = (o.longitude - cx) ** 2 + (o.latitude - cy) ** 2
+                        if bd is None or d < bd:
+                            best, bd = o, d
+                    bloc = best.bloc if best else "Bloc_?"
+                b = Batiment(residence=nom, bloc=bloc, statut="Libre")
+            b.latitude, b.longitude, b.geojson_geometry = cy, cx, geom
+            b.save()
+            resultats.append({"nom": nom, "id": b.id, "bloc": b.bloc, "cree": cree})
+        return Response({"importes": [x for x in resultats if "erreur" not in x], "erreurs": [x for x in resultats if "erreur" in x]})
+
     @action(detail=False, methods=["post"], url_path="action-masse")
     def action_masse(self, request):
         """Action groupée sur des chambres. Corps : {ids:[...]} ou {bloc:"X"} +

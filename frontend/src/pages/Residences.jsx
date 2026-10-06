@@ -44,6 +44,8 @@ export default function Residences() {
   const [massModal, setMassModal] = useState(null)         // 'rename' | 'deplacer' | 'statut'
   const [massForm, setMassForm] = useState({ ancien:'', nouveau:'', statut:'Libre' })
   const [massBusy, setMassBusy] = useState(false)
+  const kmlInputRef = React.useRef(null)
+  const [renameRoom, setRenameRoom] = useState(null)       // { id, residence, bloc }
 
   const [form, setForm] = useState({ statut:'Libre', personnel:'', occupant:'', societe:'', date_arrivee:'', date_depart:'' })
 
@@ -76,6 +78,28 @@ export default function Residences() {
   useEffect(() => { load() }, [search, statut, bloc, futurDepart])
   useEffect(() => { chargerTousBlocs() }, [isAdmin])
 
+  // Liste des blocs : agrégat serveur, sinon repli sur la liste affichée
+  const blocsDispo = tousBlocs.length ? tousBlocs : blocs
+  const importerKml = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ''
+    if (!f) return
+    try {
+      const r = await batiments.importerKml(f)
+      const ok = r.data.importes || [], err = r.data.erreurs || []
+      toast.success(ok.map(x => `${x.nom} ${x.cree ? 'créée' : 'mise à jour'} (${x.bloc})`).join(', ') || 'Rien importé')
+      if (err.length) toast.error(err.map(x => `${x.nom || '?'} : ${x.erreur}`).join(' ; '))
+      load(); chargerTousBlocs()
+    } catch (er) { toast.error(er?.response?.data?.error || `Erreur import KML (${er?.response?.status || er.message})`) }
+  }
+  const validerRenommage = async () => {
+    const r = renameRoom
+    try {
+      await batiments.renommer(r.id, { residence: (r.residence||'').trim(), bloc: (r.bloc||'').trim() })
+      toast.success('Chambre mise à jour')
+      setRenameRoom(null); load(); chargerTousBlocs()
+    } catch (er) { toast.error(er?.response?.data?.error || `Erreur (${er?.response?.status || er.message})`) }
+  }
+
   const toggleSel = (id) => setSelection(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toutSelectionner = () => setSelection(prev => prev.size === data.length ? new Set() : new Set(data.map(x=>x.id)))
   const quitterSelection = () => { setSelectMode(false); setSelection(new Set()) }
@@ -84,7 +108,7 @@ export default function Residences() {
     setMassBusy(true)
     try {
       if (massModal === 'rename') {
-        const ancien = massForm.ancien, nouveau = (massForm.nouveau||'').trim()
+        const ancien = massForm.ancien || blocsDispo[0] || '', nouveau = (massForm.nouveau||'').trim()
         if (!ancien || !nouveau) { toast.error('Choisissez un bloc et saisissez le nouveau nom'); return }
         if (!await confirmDialog(`Renommer le bloc « ${ancien} » en « ${nouveau} » ?\n\nToutes ses chambres seront mises à jour et la carte SIG affichera le nouveau nom.`)) return
         const r = await batiments.renommerBloc(ancien, nouveau)
@@ -105,7 +129,7 @@ export default function Residences() {
       setMassModal(null)
       load(); chargerTousBlocs()
     } catch (e) {
-      toast.error(e?.response?.data?.error || 'Erreur')
+      toast.error(e?.response?.data?.error || `Erreur (${e?.response?.status || e.message})`)
     } finally { setMassBusy(false) }
   }
 
@@ -291,7 +315,10 @@ export default function Residences() {
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={batiments.exportCsv({})} style={{ background:'var(--rzc-green)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ CSV</a>
           <a href={batiments.exportBlocs()} style={{ background:'var(--rzc-navy)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
-          <button onClick={()=>{ setMassForm(f=>({...f, ancien: bloc || tousBlocs[0] || '', nouveau:''})); setMassModal('rename') }}
+          <input type="file" accept=".kml,.xml" ref={kmlInputRef} style={{ display:'none' }} onChange={importerKml}/>
+          <button onClick={()=>kmlInputRef.current?.click()}
+            style={{ background:'#0369a1', color:'#fff', border:'none', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>📥 Importer KML</button>
+          <button onClick={()=>{ setMassForm(f=>({...f, ancien: bloc || blocsDispo[0] || '', nouveau:''})); setMassModal('rename') }}
             style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>✏️ Renommer un bloc</button>
           <button onClick={()=> selectMode ? quitterSelection() : setSelectMode(true)}
             style={{ background:selectMode?'#dc2626':'#0f766e', color:'#fff', border:'none', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
@@ -432,6 +459,7 @@ export default function Residences() {
                 </p>
               )}
               <div style={{display:'flex',gap:8,marginTop:4}}>
+                {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Renommer">🏷️</button>}
                 {isAdmin && <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>}
                 <button onClick={()=>openHistory(b)} style={{flex:isAdmin?'none':1,background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋{!isAdmin && ' Historique'}</button>
                 {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{background:'var(--rzc-red)',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Supprimer définitivement">🗑️</button>}
@@ -470,6 +498,7 @@ export default function Residences() {
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontSize:11, color:b.date_depart?'var(--rzc-red)':'var(--rzc-text-3)' }}>{b.date_depart||'—'}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <div style={{ display:'flex', gap:5 }}>
+                        {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11}} title="Renommer la chambre / changer de bloc">🏷️</button>}
                         {isAdmin && <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>}
                         <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋{!isAdmin && ' Historique'}</button>
                         {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{ background:'var(--rzc-red)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Supprimer définitivement">🗑️</button>}
@@ -482,6 +511,26 @@ export default function Residences() {
           </table>
         </div>
       </div>
+      )}
+
+      {renameRoom && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16 }}
+          onClick={()=>setRenameRoom(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:400, padding:22, color:'#0f172a' }}>
+            <h3 style={{ fontSize:16, fontWeight:800, marginBottom:12 }}>🏷️ Renommer la chambre</h3>
+            <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Nom de la chambre</label>
+            <input value={renameRoom.residence} maxLength={20} autoFocus onChange={e=>setRenameRoom(r=>({...r,residence:e.target.value}))}
+              style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
+            <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Bloc</label>
+            <input list="rzc-blocs-list" value={renameRoom.bloc} maxLength={30} onChange={e=>setRenameRoom(r=>({...r,bloc:e.target.value}))}
+              style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
+            <datalist id="rzc-blocs-list">{blocsDispo.map(b=><option key={b} value={b}/>)}</datalist>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={()=>setRenameRoom(null)} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
+              <button onClick={validerRenommage} style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── MODAL BLOCS / ACTIONS EN MASSE ── */}
@@ -500,7 +549,7 @@ export default function Residences() {
               <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Bloc actuel</label>
               <select value={massForm.ancien} onChange={e=>setMassForm(f=>({...f, ancien:e.target.value}))}
                 style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}>
-                {tousBlocs.map(b=><option key={b} value={b}>{b}</option>)}
+                {blocsDispo.map(b=><option key={b} value={b}>{b}</option>)}
               </select>
             </>)}
             {(massModal==='rename' || massModal==='deplacer') && (<>
@@ -508,7 +557,7 @@ export default function Residences() {
               <input list="rzc-blocs-list" value={massForm.nouveau} maxLength={30} autoFocus
                 onChange={e=>setMassForm(f=>({...f, nouveau:e.target.value}))}
                 style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
-              <datalist id="rzc-blocs-list">{tousBlocs.map(b=><option key={b} value={b}/>)}</datalist>
+              <datalist id="rzc-blocs-list">{blocsDispo.map(b=><option key={b} value={b}/>)}</datalist>
             </>)}
             {massModal==='statut' && (
               <select value={massForm.statut} onChange={e=>setMassForm(f=>({...f, statut:e.target.value}))}
