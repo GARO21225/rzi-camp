@@ -240,7 +240,9 @@ class Voyage(models.Model):
         from residences.models import OccupationHistory, ResidentPrincipal
         from .trajets import est_camp
         today = date_retour or datetime.date.today()
-        arrive_au_camp = est_camp(self.destination) and not self.trajet_aller_seul
+        # NB : trajet_aller_seul n'est PAS fiable ici - tous les convois sont créés avec
+        # cet indicateur à True. Seuls l'origine et la destination décident.
+        arrive_au_camp = est_camp(self.destination) and not est_camp(self.origine)
         # « Terminé » = la personne est arrivée à SON LIEU DE DESCENTE. Ce n'est un
         # retour au camp (date de retour effective, chambre restituée) que si ce
         # lieu est le camp.
@@ -279,6 +281,7 @@ class Voyage(models.Model):
             # « Réservé » sans occupant = chambre gardée pour sa résidence principale :
             # elle lui est restituée comme une chambre libre.
             if (b.statut in ("Libre", "Réservé") and not b.personnel_id) or b.personnel_id == self.personnel_id:
+                deja_logee = b.personnel_id == self.personnel_id
                 b.statut = "Occupé"
                 b.personnel = self.personnel
                 b.occupant = f"{self.personnel.nom} {self.personnel.prenom}"
@@ -289,6 +292,8 @@ class Voyage(models.Model):
                 if self.date_retour_prevue and self.date_retour_prevue > today:
                     b.date_depart = self.date_retour_prevue
                 b.save()
+                if deja_logee and OccupationHistory.objects.filter(batiment=b, personnel=self.personnel, date_depart__isnull=True).exists():
+                    return resultat  # déjà logée : pas de doublon d'historique
                 OccupationHistory.objects.create(
                     batiment=b, personnel=self.personnel,
                     occupant_nom=f"{self.personnel.nom} {self.personnel.prenom}",

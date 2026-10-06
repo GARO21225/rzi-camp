@@ -43,7 +43,7 @@ def appliquer_voyages_du_jour(today=None):
                 resultat["departs"] += 1
                 v._notifier_retour(v.personnel, f"🧳 Départ du camp enregistré ({v.date_depart:%d/%m/%Y}) — votre chambre est libérée"
                                    + (f", retour prévu le {v.date_retour_prevue:%d/%m/%Y}." if v.date_retour_prevue and v.date_retour_prevue > v.date_depart else "."))
-            elif est_camp(v.destination) and not est_camp(v.origine) and not v.trajet_aller_seul:
+            elif est_camp(v.destination) and not est_camp(v.origine):
                 info = v.revenir(v.date_depart)
                 resultat["arrivees"] += 1
                 if info.get("chambre_restituee"):
@@ -53,7 +53,33 @@ def appliquer_voyages_du_jour(today=None):
                     resultat["conflits"].append(f"{v.personnel} : {info['residence']} occupée par {info['chambre_occupee_par']}")
         except Exception:  # un trajet en erreur ne doit jamais bloquer les autres
             continue
+    resultat["arrivees"] += _rattraper_arrivees_terminees(today)
     return resultat
+
+
+def _rattraper_arrivees_terminees(today):
+    """Arrivées au camp déjà clôturées (« Terminé ») sans que la chambre ait été
+    rendue (ex : ancien comportement). Idempotent : ne fait rien dès que la chambre
+    est occupée par la personne, ni si elle est repartie du camp depuis."""
+    n = 0
+    qs = (Voyage.objects.select_related("personnel")
+          .filter(statut="retour", statut_validation="valide", date_depart__gte=today - datetime.timedelta(days=1),
+                  date_depart__lte=today)
+          .exclude(personnel__isnull=True))
+    for v in qs:
+        if not (est_camp(v.destination) and not est_camp(v.origine)):
+            continue
+        repart = Voyage.objects.filter(personnel_id=v.personnel_id, origine__icontains="camp",
+                                       date_depart__gte=v.date_depart).exclude(statut="annule").exists()
+        if repart:
+            continue
+        try:
+            info = v.revenir(v.date_depart)
+            if info.get("chambre_restituee"):
+                n += 1
+        except Exception:
+            continue
+    return n
 
 
 def appliquer_si_necessaire(delai=120):

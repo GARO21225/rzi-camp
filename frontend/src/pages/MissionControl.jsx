@@ -735,7 +735,7 @@ export default function MissionControl() {
   // se clôt par « Arrivé à X » (la chambre n'est pas touchée) ; un trajet
   // VERS le camp par « Arrivé au camp » (chambre restituée) + la date à
   // laquelle la personne repart (date de départ de son hébergement).
-  const versCamp = v => /camp/i.test(v?.destination||'') && !v?.trajet_aller_seul
+  const versCamp = v => /camp/i.test(v?.destination||'') && !/camp/i.test(v?.origine||'')
   const libelleArrivee = v => versCamp(v) ? '🏠 Arrivé au camp' : `🏁 Arrivé${v?.destination ? ` à ${v.destination}` : ''}`
   const marquerArrivee = async (v) => {
     if (versCamp(v)) {
@@ -1170,7 +1170,7 @@ export default function MissionControl() {
     // cas). Les messages parlaient pourtant toujours de "retour"/"rentré"
     // meme pour ce cas, ce qui laissait croire a un aller-retour classique.
     const rotRef = rotations.find(r=>r.rotation_id===rotId)
-    const estAllerSeul = rotRef?.trajet_aller_seul || !/camp/i.test(rotRef?.destination||'')
+    const estAllerSeul = !/camp/i.test(rotRef?.destination||'') || /camp/i.test(rotRef?.origine||'')
     try {
       const res = await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
@@ -1742,7 +1742,7 @@ export default function MissionControl() {
                           </button>}
                           {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                            {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : `🏁 Arrivé${r.destination ? ` à ${r.destination}` : ''}`}
+                            {/camp/i.test(r.destination||'') && !/camp/i.test(r.origine||'') ? '🏠 Arrivé au camp' : `🏁 Arrivé${r.destination ? ` à ${r.destination}` : ''}`}
                           </button>}
                           {r.statut==='retour'&&<span style={{flex:1,textAlign:'center',padding:'9px 12px',fontSize:12,fontWeight:700,
                             borderRadius:9,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
@@ -1819,7 +1819,7 @@ export default function MissionControl() {
                         {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                          {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : '🏁 Arrivé'}
+                          {/camp/i.test(r.destination||'') && !/camp/i.test(r.origine||'') ? '🏠 Arrivé au camp' : '🏁 Arrivé'}
                         </button>}
                         {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}

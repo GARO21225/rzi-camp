@@ -417,3 +417,33 @@ class TermineArriveeLieuDescenteTests(TestCase):
         admin = User.objects.create_user("adm2", password="x", is_staff=True)
         c = APIClient(); c.force_authenticate(admin)
         self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])
+
+
+class ConvoiAllerSeulVersCampTests(TestCase):
+    """Les convois sont créés avec trajet_aller_seul=True : l'arrivée au camp doit
+    quand même reloger (cas Edgar : Abidjan -> Camp, résidence principale A2)."""
+
+    def setUp(self):
+        from residences.models import Batiment, ResidentPrincipal
+        self.today = datetime.date.today()
+        self.p = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD")
+        self.b, _ = Batiment.objects.get_or_create(residence="TEST-A2")
+        self.b.statut = "Libre"; self.b.personnel = None; self.b.save()
+        ResidentPrincipal.objects.create(personnel=self.p, batiment=self.b, date_debut=self.today)
+
+    def _v(self, statut):
+        return Voyage.objects.create(personnel=self.p, origine="ABIDJAN", destination="CAMP", trajet_aller_seul=True,
+                                     date_depart=self.today, date_retour_prevue=self.today + datetime.timedelta(days=1),
+                                     statut=statut, statut_validation="valide")
+
+    def test_terminer_reloge(self):
+        v = self._v("en_voyage")
+        self.assertTrue(v.revenir(self.today)["chambre_restituee"])
+        self.b.refresh_from_db(); self.assertEqual((self.b.statut, self.b.personnel_id), ("Occupé", self.p.id))
+
+    def test_rattrapage_arrivee_deja_terminee(self):
+        self._v("retour")
+        from .automatisation import appliquer_voyages_du_jour
+        self.assertEqual(appliquer_voyages_du_jour()["arrivees"], 1)
+        self.b.refresh_from_db(); self.assertEqual(self.b.personnel_id, self.p.id)
+        self.assertEqual(appliquer_voyages_du_jour()["arrivees"], 0)
