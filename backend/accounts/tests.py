@@ -721,3 +721,25 @@ class RapportsEmailTests(TestCase):
         with patch("accounts.email.envoyer_email", return_value=(False, "403")):
             env, err = envoyer_rapports_dus()
             self.assertEqual(env, []); self.assertEqual(len(err), 1)
+
+
+class RapportsEmailAvecDonneesTests(TestCase):
+    def test_sections_avec_donnees(self):
+        from datetime import date
+        from django.contrib.auth.models import User
+        from residences.models import Batiment, Personnel
+        from maintenance.models import Incident
+        from voyages.models import Voyage
+        from restauration.models import ArticleBoutique
+        from .rapports_email import generer_contenu_rapport
+        u = User.objects.create_user("rapp")
+        p = Personnel.objects.create(nom="A", prenom="B", societe="ROXGOLD", actif=True)
+        Batiment.objects.create(residence="ZZ1", bloc="B1", statut="Occupé", occupant="A B", personnel=p, date_depart=date.today())
+        Batiment.objects.create(residence="ZZ2", bloc="B1", statut="Libre")
+        Incident.objects.create(titre="Fuite", description="d", categorie="Plomberie", priorite="haute", residence="ZZ1", auteur=u)
+        Voyage.objects.create(personnel=p, origine="Camp", destination="Abidjan", date_depart=date.today(), date_retour_prevue=date.today())
+        ArticleBoutique.objects.create(nom="Eau", stock=2, categorie="boisson")
+        ArticleBoutique.objects.create(nom="Pain", stock=0)
+        _, h = generer_contenu_rapport("Synth", "synthese", {"details": True, "horizon_jours": 3})
+        for mot in ("Répartition par statut", "Incidents ouverts par priorité", "Voyages par statut", "Stocks les plus bas", "Eau"):
+            self.assertIn(mot, h)

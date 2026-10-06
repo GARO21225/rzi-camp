@@ -46,28 +46,91 @@ def _liste(items):
 
 
 def _titre(t):
-    return f"<h3 style='color:#0F2A5C;font-size:14px;margin:18px 0 4px'>{t}</h3>"
+    return f"<h3 style='color:#0F2A5C;font-size:15px;margin:26px 0 8px;padding-bottom:6px;border-bottom:2px solid #C9972B'>{t}</h3>"
+
+
+def _kpis(tuiles):
+    """Rangée de tuiles KPI (tableau HTML : compatible tous clients mail). tuiles = [(libellé, valeur, couleur)]"""
+    cells = "".join(
+        f"<td align='center' style='padding:12px 6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;width:{100//max(1,len(tuiles))}%'>"
+        f"<div style='font-size:24px;font-weight:700;color:{c}'>{_e(v)}</div>"
+        f"<div style='font-size:11px;color:#64748b;margin-top:2px'>{_e(l)}</div></td>"
+        for l, v, c in tuiles)
+    return f"<table role='presentation' width='100%' cellspacing='6' cellpadding='0' style='border-collapse:separate;margin:6px 0'><tr>{cells}</tr></table>"
+
+
+def _barres(titre, donnees, couleur="#2563EB", suffixe="", pct_total=True):
+    """Histogramme horizontal en tableau HTML (les <svg>/<script> sont bloqués par les clients mail).
+    donnees = [(libellé, nombre)] ; couleur = str ou fonction(libellé) -> str"""
+    donnees = [(l, n) for l, n in donnees if n]
+    if not donnees:
+        return ""
+    mx = max(n for _, n in donnees)
+    tot = sum(n for _, n in donnees)
+    lignes = ""
+    for l, n in donnees:
+        col = couleur(l) if callable(couleur) else couleur
+        pct = max(3, round(n / mx * 100))
+        pct_html = (" <span style='color:#94a3b8;font-weight:400'>(%d%%)</span>" % round(n / tot * 100)) if pct_total else ""
+        lignes += (f"<tr><td style='font-size:12px;color:#334155;padding:3px 8px 3px 0;width:34%;white-space:nowrap'>{_e(l)}</td>"
+                   f"<td style='padding:3px 0'><div style='background:{col};height:14px;width:{pct}%;border-radius:3px'></div></td>"
+                   f"<td style='font-size:12px;font-weight:700;color:#0f172a;padding:3px 0 3px 8px;width:70px;white-space:nowrap'>{n}{suffixe} {pct_html}</td></tr>")
+    return (f"<div style='font-size:12px;font-weight:700;color:#475569;margin:14px 0 4px'>{_e(titre)}</div>"
+            f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0'>{lignes}</table>")
+
+
+def _jauge(libelle, pct, couleur):
+    return (f"<div style='font-size:12px;font-weight:700;color:#475569;margin:14px 0 4px'>{_e(libelle)}</div>"
+            f"<div style='background:#e2e8f0;border-radius:6px;height:16px;overflow:hidden'><div style='background:{couleur};height:16px;width:{min(100,max(0,pct))}%'></div></div>")
+
+
+COUL_STATUT = {"Occupé": "#DC2626", "Libre": "#16A34A", "Réservé": "#2563EB", "Maintenance": "#D97706"}
+COUL_PRIO = {"critique": "#DC2626", "haute": "#EA580C", "moyenne": "#CA8A04", "basse": "#16A34A"}
+
+
+def _compter(qs, champ):
+    from django.db.models import Count
+    return list(qs.values_list(champ).annotate(n=Count("id")).order_by("-n"))
 
 
 def _sec_residences(o, today):
     from residences.models import Batiment, Personnel
     total = Batiment.objects.count()
-    occ = Batiment.objects.filter(statut="Occupé").count()
-    libre = Batiment.objects.filter(statut="Libre").count()
+    par_statut = _compter(Batiment.objects.all(), "statut")
+    n = dict(par_statut)
+    occ = n.get("Occupé", 0)
     taux = round(occ / total * 100, 1) if total else 0
-    actifs = Personnel.objects.filter(actif=True).count()
-    corps = f"<p>{occ}/{total} chambres occupées ({taux}%) — {libre} libres — {actifs} personnel actif</p>"
+    actifs = Personnel.objects.filter(actif=True)
+    fin = today + datetime.timedelta(days=o["horizon_jours"])
+    partants = Batiment.objects.filter(statut="Occupé", date_depart__gte=today, date_depart__lte=fin)
+    arrivants = Batiment.objects.filter(date_arrivee__gte=today, date_arrivee__lte=fin)
+    corps = _kpis([("Chambres", total, "#0F2A5C"), ("Occupées", occ, "#DC2626"), ("Libres", n.get("Libre", 0), "#16A34A"),
+                   ("Taux d'occupation", f"{taux}%", "#C9972B")])
+    corps += _jauge("Taux d'occupation", taux, "#DC2626" if taux > 90 else "#C9972B")
+    corps += _barres("Répartition par statut", par_statut, lambda l: COUL_STATUT.get(l, "#64748b"))
+    corps += _barres("Occupation par bloc (chambres occupées)", _compter(Batiment.objects.filter(statut="Occupé"), "bloc")[:12], "#0F2A5C")
+    corps += _barres("Personnel actif par société", _compter(actifs, "societe")[:10], "#2563EB")
+    corps += _barres("Personnel actif par type", [(dict(Personnel.TYPE_CHOICES).get(k, k), v) for k, v in _compter(actifs, "type_personnel")], "#7C3AED")
+    corps += f"<p style='font-size:12.5px;color:#334155;margin:12px 0 0'>Dans les {o['horizon_jours']} prochain(s) jour(s) : <b>{partants.count()}</b> départ(s) de résidence · <b>{arrivants.count()}</b> arrivée(s)</p>"
     if o["details"]:
-        partants = Batiment.objects.filter(statut="Occupé", date_depart__gte=today, date_depart__lte=today + datetime.timedelta(days=o["horizon_jours"]))
-        corps += f"<p style='margin:6px 0 0'>Départs de résidence dans {o['horizon_jours']} j :</p>" + (_liste([f"{b.residence} {b.bloc or ''} — {b.occupant or '?'} (le {b.date_depart:%d/%m})" for b in partants]) or "<p style='color:#94a3b8'>Aucun.</p>")
-    return _titre("🏠 Résidences") + corps
+        corps += _liste([f"{b.residence} {b.bloc or ''} — {b.occupant or '?'} (part le {b.date_depart:%d/%m})" for b in partants])
+    return _titre("🏠 Résidences & personnel") + corps
 
 
 def _sec_maintenance(o, today):
     from maintenance.models import Incident
-    ouverts = Incident.objects.exclude(statut__in=["resolu", "cloture", "annule"])
+    tous = Incident.objects.all()
+    ouverts = tous.exclude(statut__in=["resolu", "cloture", "annule"])
     sla = ouverts.filter(sla_depasse=True)
-    corps = f"<p>{ouverts.count()} incident(s) ouvert(s)" + (f" dont <b>{sla.count()} en dépassement SLA ⚠️</b>" if sla.exists() else "") + "</p>"
+    il_y_a_7 = timezone.now() - datetime.timedelta(days=7)
+    nouveaux = tous.filter(date_creation__gte=il_y_a_7).count()
+    resolus = tous.filter(date_resolution__gte=il_y_a_7).count()
+    corps = _kpis([("Ouverts", ouverts.count(), "#0F2A5C"), ("Dépassement SLA", sla.count(), "#DC2626" if sla.exists() else "#16A34A"),
+                   ("Nouveaux (7 j)", nouveaux, "#EA580C"), ("Résolus (7 j)", resolus, "#16A34A")])
+    corps += _barres("Incidents ouverts par priorité", [(dict(Incident.PRIORITE).get(k, k).split(" ", 1)[-1], v) for k, v in _compter(ouverts, "priorite")],
+                     lambda l: COUL_PRIO.get(l.lower(), "#64748b"))
+    corps += _barres("Incidents ouverts par catégorie", [(dict(Incident.CATEGORIE).get(k, k), v) for k, v in _compter(ouverts, "categorie")][:10], "#0F2A5C")
+    corps += _barres("Incidents ouverts par statut", [(dict(Incident.STATUT).get(k, k), v) for k, v in _compter(ouverts, "statut")], "#7C3AED")
     if o["details"]:
         corps += _liste([f"[{i.priorite}] {i.titre} — {i.residence}{' ⚠️ SLA' if i.sla_depasse else ''}" for i in ouverts.order_by("-sla_depasse", "-date_creation")[:30]])
     return _titre("🛠️ Maintenance") + corps
@@ -76,15 +139,21 @@ def _sec_maintenance(o, today):
 def _sec_mobilite(o, today):
     from voyages.models import Voyage
     fin = today + datetime.timedelta(days=o["horizon_jours"] - 1)
-    deps = Voyage.objects.filter(date_depart__gte=today, date_depart__lte=fin).exclude(statut__in=["annule", "retour"])
-    rets = Voyage.objects.filter(date_retour_prevue__gte=today, date_retour_prevue__lte=fin).exclude(statut__in=["annule", "retour"])
+    actifs = Voyage.objects.exclude(statut__in=["annule", "retour"])
+    deps = actifs.filter(date_depart__gte=today, date_depart__lte=fin)
+    rets = actifs.filter(date_retour_prevue__gte=today, date_retour_prevue__lte=fin)
     attente = Voyage.objects.filter(statut_validation="en_attente").count()
+    en_route = Voyage.objects.filter(statut="en_voyage").count()
     horizon = "aujourd'hui" if o["horizon_jours"] == 1 else f"sur {o['horizon_jours']} jours"
-    corps = f"<p>{deps.count()} départ(s) {horizon} · {rets.count()} retour(s) attendu(s){f' · <b>{attente} en attente de validation</b>' if attente else ''}</p>"
+    corps = _kpis([(f"Départs {horizon}", deps.count(), "#0F2A5C"), (f"Retours {horizon}", rets.count(), "#16A34A"),
+                   ("En voyage", en_route, "#2563EB"), ("À valider", attente, "#DC2626" if attente else "#16A34A")])
+    corps += _barres("Voyages par statut", [(dict(Voyage.STATUT).get(k, k), v) for k, v in _compter(Voyage.objects.all(), "statut")], "#2563EB")
+    corps += _barres(f"Départs {horizon} par destination", _compter(deps, "destination")[:10], "#0F2A5C")
+    corps += _barres("Voyages par statut de validation", _compter(Voyage.objects.all(), "statut_validation"), "#C9972B")
     if o["details"]:
         nom = lambda v: f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel_id else "?"
-        corps += "<p style='margin:6px 0 0'>Départs :</p>" + (_liste([f"{nom(v)} — {v.origine} → {v.destination} ({v.date_depart:%d/%m})" for v in deps.select_related("personnel")]) or "<p style='color:#94a3b8'>Aucun.</p>")
-        corps += "<p style='margin:6px 0 0'>Retours :</p>" + (_liste([f"{nom(v)} — {v.destination} → {v.origine} ({v.date_retour_prevue:%d/%m})" for v in rets.select_related("personnel")]) or "<p style='color:#94a3b8'>Aucun.</p>")
+        corps += "<p style='margin:8px 0 0;font-weight:700;font-size:12px'>Départs :</p>" + (_liste([f"{nom(v)} — {v.origine} → {v.destination} ({v.date_depart:%d/%m})" for v in deps.select_related("personnel")]) or "<p style='color:#94a3b8'>Aucun.</p>")
+        corps += "<p style='margin:8px 0 0;font-weight:700;font-size:12px'>Retours :</p>" + (_liste([f"{nom(v)} — {v.destination} → {v.origine} ({v.date_retour_prevue:%d/%m})" for v in rets.select_related("personnel")]) or "<p style='color:#94a3b8'>Aucun.</p>")
     return _titre("✈️ Mobilité") + corps
 
 
@@ -93,10 +162,13 @@ def _sec_boutique(o, today):
     base = ArticleBoutique.objects.filter(actif=True)
     epuise = base.filter(stock=0)
     faible = base.filter(stock__gt=0, stock__lte=o["seuil_stock"])
-    corps = f"<p>{epuise.count()} article(s) épuisé(s) · {faible.count()} en stock faible (≤ {o['seuil_stock']})</p>"
+    corps = _kpis([("Articles actifs", base.count(), "#0F2A5C"), ("Épuisés", epuise.count(), "#DC2626" if epuise.exists() else "#16A34A"),
+                   (f"Stock ≤ {o['seuil_stock']}", faible.count(), "#EA580C")])
+    corps += _barres("Articles par catégorie", _compter(base, "categorie")[:10], "#0F2A5C")
+    corps += _barres("Stocks les plus bas", [(a.nom, a.stock) for a in base.order_by("stock")[:8]], "#DC2626", pct_total=False)
     if o["details"]:
         corps += _liste([f"{a.nom} — épuisé" for a in epuise] + [f"{a.nom} — {a.stock} {a.unite}" for a in faible])
-    return _titre("🛒 Boutique") + corps
+    return _titre("🛒 Boutique & stock") + corps
 
 
 SECTIONS = {"residences": _sec_residences, "maintenance": _sec_maintenance, "mobilite": _sec_mobilite, "boutique": _sec_boutique}

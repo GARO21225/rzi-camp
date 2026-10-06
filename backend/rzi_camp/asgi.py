@@ -98,6 +98,31 @@ class CORSMiddleware:
 
 django_asgi_app = get_asgi_application()
 
+# Planificateur interne : vérifie chaque minute les rapports par email dus et
+# les voyages du jour, sans cron ni connexion d'utilisateur. Idempotent (une fois
+# par jour et par rapport via derniere_execution).
+import threading as _threading
+import time as _time
+
+
+def _boucle_planificateur():
+    _time.sleep(30)
+    while True:
+        try:
+            from accounts.rapports_email import envoyer_rapports_dus
+            envoyer_rapports_dus()
+        except Exception:
+            pass
+        try:
+            from voyages.automatisation import appliquer_voyages_du_jour
+            appliquer_voyages_du_jour()
+        except Exception:
+            pass
+        _time.sleep(60)
+
+
+_threading.Thread(target=_boucle_planificateur, daemon=True, name="planificateur").start()
+
 _http_app = CORSMiddleware(django_asgi_app)
 
 
