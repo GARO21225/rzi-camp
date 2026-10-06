@@ -72,9 +72,24 @@ if ('serviceWorker' in navigator) {
 
 // ── Global Error Boundary ─────────────────────────────────────
 class GlobalErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  constructor(props) { super(props); this.state = { hasError: false, error: null, stack: '' } }
   static getDerivedStateFromError(error) { return { hasError: true, error } }
-  componentDidCatch(error, info) { console.error('[RZI ErrorBoundary]', error, info) }
+  componentDidCatch(error, info) {
+    console.error('[RZI ErrorBoundary]', error, info)
+    // Composants touchés : permet de savoir QUEL écran a planté (message Leaflet seul = illisible)
+    this.setState({ stack: String(info?.componentStack || '').split('\n').slice(0, 8).join('\n') })
+  }
+  // Vide les données locales susceptibles d'être périmées/corrompues (cache API, imports GIS,
+  // caches du service worker) SANS déconnecter l'utilisateur.
+  viderCacheLocal = async () => {
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith('rzi_api_cache') || k === 'rzi_gis_imports').forEach(k => localStorage.removeItem(k))
+      if (window.caches) (await caches.keys()).forEach(n => caches.delete(n))
+      const regs = await navigator.serviceWorker?.getRegistrations?.()
+      ;(regs || []).forEach(r => r.unregister())
+    } catch { /* best effort */ }
+    window.location.href = '/'
+  }
   render() {
     if (this.state.hasError) {
       return (
@@ -86,6 +101,17 @@ class GlobalErrorBoundary extends Component {
           <div style={{fontSize:13,color:'#64748b',marginBottom:24}}>
             {this.state.error?.message || 'Erreur inattendue'}
           </div>
+          {this.state.stack && (
+            <details style={{fontSize:11,color:'#94a3b8',marginBottom:16,textAlign:'left',maxWidth:560,margin:'0 auto 16px'}}>
+              <summary style={{cursor:'pointer',textAlign:'center'}}>Détails techniques</summary>
+              <pre style={{whiteSpace:'pre-wrap'}}>{this.state.stack}</pre>
+            </details>
+          )}
+          <button onClick={this.viderCacheLocal}
+            style={{background:'#f1f5f9',color:'#334155',border:'1px solid #cbd5e1',borderRadius:10,
+              padding:'10px 18px',cursor:'pointer',fontSize:13,fontWeight:600,marginRight:8}}>
+            🧹 Vider le cache local
+          </button>
           <button onClick={()=>{ this.setState({hasError:false,error:null}); window.location.href='/' }}
             style={{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:10,
               padding:'10px 24px',cursor:'pointer',fontSize:14,fontWeight:700}}>

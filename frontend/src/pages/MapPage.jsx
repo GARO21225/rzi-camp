@@ -316,9 +316,14 @@ export default function MapPage() {
   // par étage pour les afficher séparément (0 = rez-de-chaussée).
   const etagesDispo=[...new Set((geojson?.features||[]).map(f=>f.properties?.etage??0))].sort((a,b)=>a-b)
   const libEtage=e=>e===0?'RDC':`Étage ${e}`
-  const geojsonVue=geojson&&filterEtage!==''
-    ?{...geojson,features:geojson.features.filter(f=>(f.properties?.etage??0)===Number(filterEtage))}
-    :geojson
+  // Leaflet plante (« t is undefined ») sur une géométrie vide/invalide : on ne garde que les entités valides
+  // (imports GIS locaux anciens ou corrompus, lignes CSV sans coordonnées...).
+  const coordOk = (c) => Array.isArray(c) && (typeof c[0] === 'number' ? Number.isFinite(c[0]) && Number.isFinite(c[1]) : c.length > 0 && c.every(coordOk))
+  const geoValide = (g) => g && Array.isArray(g.features) ? { ...g, features: g.features.filter(f => f && f.geometry && f.geometry.type === 'GeometryCollection' ? Array.isArray(f.geometry.geometries) : f && f.geometry && coordOk(f.geometry.coordinates)) } : g
+  const geojsonOk = geoValide(geojson)
+  const geojsonVue=geojsonOk&&filterEtage!==''
+    ?{...geojsonOk,features:geojsonOk.features.filter(f=>(f.properties?.etage??0)===Number(filterEtage))}
+    :geojsonOk
 
   const load=useCallback(()=>{
     const p={}

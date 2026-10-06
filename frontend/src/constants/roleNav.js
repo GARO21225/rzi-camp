@@ -27,6 +27,7 @@ export const ROLE_NAV = {
     { group:'Services aux Résidents' },
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/boutique', label:'🛒 Bar & Boutique' },
+    { to:'/boutique-pos', label:'💳 Boutique POS' },
     { to:'/reservations', label:'📅 Réservations' },
     // ── Exploitation
     { group:'Exploitation' },
@@ -34,6 +35,9 @@ export const ROLE_NAV = {
     { to:'/plaintes', label:'🧹 Plaintes' },
     { to:'/evenements', label:'📡 Événements' },
     { to:'/demandes', label:'📝 Demandes' },
+    { to:'/operations', label:'🖥️ Centre Opérationnel' },
+    { to:'/workflows', label:'⚙️ Workflow Hub' },
+    { to:'/induction-admin', label:'🎓 Induction (administration)' },
     // ── Pilotage
     { group:'Pilotage & Analyse' },
     { to:'/analytics', label:'📈 Analytics' },
@@ -195,7 +199,7 @@ const LIBELLES_COURTS = {
   '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
   '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
   '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',
-  '/reservations':'Réservations', '/induction-camp':'Induction', '/conduite':'Conduite',
+  '/reservations':'Réservations', '/operations':'Centre Op.', '/workflows':'Workflows', '/boutique-pos':'POS', '/induction-admin':'Induction', '/induction-camp':'Induction', '/conduite':'Conduite',
   '/mon-compte':'Mon compte',
 }
 

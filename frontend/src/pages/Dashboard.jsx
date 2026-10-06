@@ -58,7 +58,7 @@ function DigitalTwinMap({ bats, onClick }) {
       if (layer instanceof L.CircleMarker) mapInstanceRef.current.removeLayer(layer)
     })
     bats.forEach(b => {
-      if (!b.latitude || !b.longitude) return
+      if (!b.latitude || !b.longitude || !Number.isFinite(parseFloat(b.latitude)) || !Number.isFinite(parseFloat(b.longitude))) return
       const color = STATUS_COLOR[b.statut] || '#5B6472'
       const circle = L.circleMarker([parseFloat(b.latitude), parseFloat(b.longitude)], {
         radius: 9, fillColor: color, color: '#0B0F14', weight: 2, fillOpacity: 0.92
@@ -71,7 +71,7 @@ function DigitalTwinMap({ bats, onClick }) {
         </div>`
       )
     })
-    const pts = bats.filter(b=>b.latitude&&b.longitude).map(b=>[parseFloat(b.latitude),parseFloat(b.longitude)])
+    const pts = bats.filter(b=>b.latitude&&b.longitude).map(b=>[parseFloat(b.latitude),parseFloat(b.longitude)]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]))
     if (pts.length > 1) mapInstanceRef.current.fitBounds(pts, { padding:[24,24] })
   }, [bats])
 
