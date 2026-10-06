@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { trouverCoords } from '../data/coordsDestinations'
+import MapSafe, { trajetValide } from './MapSafe'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -154,10 +155,11 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
           🔀 Ce passager ne fait pas le trajet complet du convoi — {trajetDiffereDuConvoi}
         </div>
       )}
+    <MapSafe>
     <MapContainer center={centre} zoom={zoom} style={{height:320,width:'100%',
       borderRadius: trajetDiffereDuConvoi ? '0 0 10px 10px' : 10}} scrollWheelZoom={true}>
       <TileLayer attribution={TILE_ATTRIBUTION} url={TILE_URL}/>
-      <Polyline positions={tracé || pointsUniques.map(p=>p.coords)}
+      <Polyline positions={trajetValide(tracé || pointsUniques.map(p=>p.coords))}
         pathOptions={aUnSegmentPassagerDistinct
           ? {color:'#94a3b8', weight:3, dashArray:'6 6'}                          // convoi complet, en fond
           : (tracé ? {color:'#C9972B', weight:4} : {color:'#C9972B', weight:3, dashArray:'6 6'})}/>
@@ -175,6 +177,7 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
         </Marker>
       ))}
     </MapContainer>
+    </MapSafe>
     {chargement && (
       <div style={{position:'absolute',top:8,right:8,background:'#fff',borderRadius:8,padding:'4px 10px',
         fontSize:11,color:'#64748b',boxShadow:'0 1px 4px rgba(0,0,0,.15)'}}>🛣️ Calcul de l'itinéraire routier…</div>

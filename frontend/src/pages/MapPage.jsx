@@ -1,4 +1,5 @@
 
+import MapSafe from '../components/MapSafe'
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Polyline, Polygon, Tooltip, Popup, Circle, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -650,7 +651,7 @@ export default function MapPage() {
         </div>
       )}
 
-      <MapContainer center={[8.111,-6.822]} zoom={17}
+      <MapSafe><MapContainer center={[8.111,-6.822]} zoom={17}
           style={{width:'100%',height:'100%',zIndex:0}}>
           <TileLayer key={tileId} url={tile.url} attribution="" className={tile.filtreCSS ? 'rzc-tile-sombre' : ''}/>
           {geojson&&couchesActives.residences&&(
@@ -888,7 +889,7 @@ export default function MapPage() {
               ))}
             </>
           )}
-        </MapContainer>
+        </MapContainer></MapSafe>
 
         {/* Panneau flottant de contrôle du tracé en cours */}
         {drawingChemin && (

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import MapSafe, { trajetValide } from '../components/MapSafe'
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet'
 import { suiviConvois } from '../api'
 import { toast, confirmDialog } from '../toast'
@@ -250,15 +251,17 @@ export default function Conduite() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div style={{ position: 'relative', height: '46dvh', minHeight: 260 }}>
+        <MapSafe>
         <MapContainer center={posVehicule || CENTRE_DEFAUT} zoom={posVehicule ? 14 : 7} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
           <VolVers cible={posVehicule} zoom={14} />
-          {trace.length > 1 && <Polyline positions={trace} pathOptions={{ color: '#16A34A', weight: 5, opacity: .7 }} />}
+          {trajetValide(trace).length > 1 && <Polyline positions={trajetValide(trace)} pathOptions={{ color: '#16A34A', weight: 5, opacity: .7 }} />}
           {(s.arrets || []).filter(a => a.latitude != null).map(a => (
             <Marker key={a.id} position={[a.latitude, a.longitude]} icon={iconeArret(a.type)} />
           ))}
           {posVehicule && <Marker position={posVehicule} icon={iconeVehicule(s.statut, s.nb_a_bord)} />}
         </MapContainer>
+        </MapSafe>
         {gpsErreur && (
           <div style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 500, background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
             📡 {gpsErreur}

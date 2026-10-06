@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import MapSafe, { trajetValide } from './MapSafe'
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -142,14 +143,15 @@ export default function CarteConvoisDirect() {
   return (
     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 12, minHeight: isMobile ? 0 : 560 }}>
       <div style={{ flex: 1, minHeight: isMobile ? 380 : 560, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(15,26,46,.10)', position: 'relative' }}>
+        <MapSafe>
         <MapContainer center={CENTRE_DEFAUT} zoom={7} style={{ height: '100%', minHeight: isMobile ? 380 : 560, width: '100%' }}>
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
           <AjusterVue points={positionnes.map(c => [c.suivi.latitude, c.suivi.longitude])} />
           <VolVers cible={cible} />
           {convois.map(cv => (
             <React.Fragment key={cv.rotation_id}>
-              {cv.suivi?.trace?.length > 1 && (
-                <Polyline positions={cv.suivi.trace} pathOptions={{ color: COULEUR_STATUT[cv.suivi.statut] || '#0F2A5C', weight: 4, opacity: .7 }} />
+              {trajetValide(cv.suivi?.trace).length > 1 && (
+                <Polyline positions={trajetValide(cv.suivi.trace)} pathOptions={{ color: COULEUR_STATUT[cv.suivi.statut] || '#0F2A5C', weight: 4, opacity: .7 }} />
               )}
               {(cv.suivi?.arrets || []).filter(a => a.latitude != null).map(a => (
                 <Marker key={a.id} position={[a.latitude, a.longitude]} icon={iconeArret(a.type)}>
@@ -179,6 +181,7 @@ export default function CarteConvoisDirect() {
             </React.Fragment>
           ))}
         </MapContainer>
+        </MapSafe>
         {charge && convois.length === 0 && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div style={{ background: 'rgba(255,255,255,.95)', padding: '14px 20px', borderRadius: 12, fontSize: 13, color: '#0F1A2E', boxShadow: '0 4px 16px rgba(0,0,0,.15)', textAlign: 'center', maxWidth: 300 }}>
