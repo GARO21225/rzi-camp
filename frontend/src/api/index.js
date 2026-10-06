@@ -206,6 +206,7 @@ export const menu = {
   update: (id,d) => api.patch(`/api/menu/${id}/`, d),
   delete: (id) => api.delete(`/api/menu/${id}/`),
   today:  () => api.get('/api/menu/today/'),
+  bulk:   (d) => api.post('/api/menu/bulk/', d),
   importerSemaine: (fichier) => {
     const fd = new FormData()
     fd.append('fichier', fichier)

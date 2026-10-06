@@ -529,10 +529,10 @@ export default function Dashboard() {
 
   const unread = (d.notifs || []).filter(n => !n.lu).length
 
-  // Repas servis aujourd'hui — somme des types (petit-déj/déjeuner/dîner)
-  const repasServisAujourdhui = d.repas
-    ? Object.values(d.repas).reduce((s, v) => typeof v === 'number' ? s + v : s, 0)
-    : null
+  // Repas servis aujourd'hui — total_jour fourni par l'API. L'ancienne somme de
+  // toutes les valeurs numériques additionnait aussi `semaine` et chaque type
+  // (compteur gonflé par le cumul de la semaine).
+  const repasServisAujourdhui = d.repas ? (d.repas.total_jour ?? 0) : null
 
   const stockCritiqueCount = d.stock?.length ?? null
 

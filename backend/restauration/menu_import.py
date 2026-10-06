@@ -98,19 +98,18 @@ def _day_for(cell, day_ranges):
 
 
 def _make_entry(date, repas, type_plat, texte, section_label):
-    tags = [m.upper() for m in TAG_RE.findall(texte)]
+    """Symboles (V)/(H) conservés dans le nom, comme sur le document source.
+    (A) n'est pas défini dans la légende du fichier -> non repris."""
+    tags = {m.upper() for m in TAG_RE.findall(texte)}
     nom = _clean(re.sub(r'\(+\s*$', '', TAG_RE.sub('', texte))).strip(' /')
     if not nom:
         return None
-    desc_parts = [section_label] if section_label else []
-    if tags:
-        desc_parts.append(', '.join(TAGS.get(t, t) for t in dict.fromkeys(tags)))
+    sym = ''.join(f'({t})' for t in ('V', 'H') if t in tags)
     if len(nom) > 200:
-        desc_parts.append(nom)
-        nom = nom[:197].rstrip() + '…'
+        return None
     return {
         'date_service': date, 'repas': repas, 'type_plat': type_plat,
-        'nom': nom, 'description': ' — '.join(desc_parts),
+        'nom': f'{nom} {sym}'.strip(), 'description': section_label or '',
     }
 
 
@@ -163,6 +162,8 @@ def _parse_menu_table(tbl, repas, dates=None):
             if section is None:
                 continue
             tp, label = section
+            if label == 'Nourish Harvest Table':
+                continue
             if 'BREAD' in norms[0]:
                 label = 'Corbeille de pain'
             for date in dates:

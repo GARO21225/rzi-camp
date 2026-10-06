@@ -648,6 +648,28 @@ export default function Restauration() {
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const importMenuInputRef = useRef(null)
   const [importingMenu, setImportingMenu] = useState(false)
+  const [menuSelMode, setMenuSelMode] = useState(false)
+  const [menuSel, setMenuSel] = useState(new Set())
+  const [menuBulkModal, setMenuBulkModal] = useState(false)
+  const [menuBulkForm, setMenuBulkForm] = useState({ type_plat:'', repas:'', disponible:'' })
+  const toggleMenuSel = (id) => setMenuSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const quitMenuSel = () => { setMenuSelMode(false); setMenuSel(new Set()) }
+  const reloadMenu = async () => { try { const r = await menuAPI.list({date_service:menuDate, page_size:500}); setMenuItems(r.data.results||r.data||[]) } catch {} }
+  const menuBulkDelete = async () => {
+    const ids = [...menuSel]; if (!ids.length) return
+    if (!await confirmDialog(`Supprimer ${ids.length} plat(s) ?`)) return
+    try { const r = await menuAPI.bulk({ ids, action:'supprimer' }); toast.success(`${r.data.modifies} plat(s) supprimé(s)`); setMenuSel(new Set()); reloadMenu() }
+    catch (e) { toast.error(e?.response?.data?.error || 'Erreur suppression') }
+  }
+  const menuBulkApply = async () => {
+    const ids = [...menuSel]; if (!ids.length) return
+    const d = { ids, action:'modifier' }
+    if (menuBulkForm.type_plat) d.type_plat = menuBulkForm.type_plat
+    if (menuBulkForm.repas) d.repas = menuBulkForm.repas
+    if (menuBulkForm.disponible !== '') d.disponible = menuBulkForm.disponible === 'true'
+    try { const r = await menuAPI.bulk(d); toast.success(`${r.data.modifies} plat(s) modifié(s)`); setMenuBulkModal(false); setMenuSel(new Set()); reloadMenu() }
+    catch (e) { toast.error(e?.response?.data?.error || 'Erreur modification') }
+  }
 
   const [typeRepas, setTypeRepas] = useState('dejeuner')
   const [showAvis, setShowAvis] = useState(false)
@@ -804,9 +826,27 @@ export default function Restauration() {
                     cursor: importingMenu ? 'wait' : 'pointer' }}>
                   {importingMenu ? '⏳ Import...' : '📥 Importer la semaine (.docx)'}
                 </button>
+                <button onClick={()=> menuSelMode ? quitMenuSel() : setMenuSelMode(true)}
+                  style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 10px',
+                    fontSize:11, fontWeight:600, background: menuSelMode ? '#dc2626' : 'rgba(255,255,255,.15)', color:'#fff', cursor:'pointer' }}>
+                  {menuSelMode ? '✕ Quitter la sélection' : '☑ Actions en masse'}
+                </button>
               </>
             )}
           </div>
+          )}
+          {!isMobile && isAdmin && menuSelMode && (
+            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'rgba(15,23,42,.85)', color:'#fff', borderRadius:8, padding:'6px 10px', marginBottom:8, fontSize:11.5 }}>
+              <b>{menuSel.size} sélectionné(s)</b>
+              <button onClick={()=>setMenuSel(menuSel.size===menuItems.length ? new Set() : new Set(menuItems.map(m=>m.id)))}
+                style={{ background:'rgba(255,255,255,.15)', color:'#fff', border:'none', borderRadius:5, padding:'3px 9px', cursor:'pointer', fontSize:11 }}>
+                {menuSel.size===menuItems.length && menuItems.length>0 ? 'Tout désélectionner' : `Tout sélectionner (${menuItems.length})`}</button>
+              <span style={{ flex:1 }}/>
+              <button disabled={!menuSel.size} onClick={()=>{ setMenuBulkForm({type_plat:'',repas:'',disponible:''}); setMenuBulkModal(true) }}
+                style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:5, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:700, opacity:menuSel.size?1:.5 }}>✏️ Modifier</button>
+              <button disabled={!menuSel.size} onClick={menuBulkDelete}
+                style={{ background:'#dc2626', color:'#fff', border:'none', borderRadius:5, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:700, opacity:menuSel.size?1:.5 }}>🗑️ Supprimer</button>
+            </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, minmax(0,1fr))' : 'repeat(3, 1fr)', gap: 8 }}>
             {[
@@ -842,6 +882,7 @@ export default function Restauration() {
                             {items.map(m => (
                               <div key={m.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                                 background:'rgba(255,255,255,0.6)', borderRadius:5, padding:'3px 6px', marginBottom:2 }}>
+                                {isAdmin && menuSelMode && <input type="checkbox" checked={menuSel.has(m.id)} onChange={()=>toggleMenuSel(m.id)} style={{ marginRight:5, flexShrink:0 }}/>}
                                 {m.photo_base64 && (
                                   <img src={`data:image/jpeg;base64,${String(m.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
                                     alt="" style={{ width:16, height:16, objectFit:'cover', borderRadius:3, marginRight:4, flexShrink:0 }}/>
@@ -887,6 +928,35 @@ export default function Restauration() {
             })}
           </div>
         </div>
+
+        <div style={{ fontSize:10.5, color:'var(--rzc-text-3)', margin:'-4px 0 10px' }}>
+          Symboles : <b>(H)</b> = Healthier choice, <b>(V)</b> = Vegetarian
+        </div>
+        {menuBulkModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16 }}
+            onClick={()=>setMenuBulkModal(false)}>
+            <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:380, padding:22, color:'#0f172a' }}>
+              <h3 style={{ fontSize:16, fontWeight:800, marginBottom:4 }}>✏️ Modifier {menuSel.size} plat(s)</h3>
+              <p style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Laissez « — inchangé — » pour ne pas toucher à un champ.</p>
+              {[
+                ['Type', 'type_plat', [['','— inchangé —'],['entree','Entrée'],['plat','Plat principal'],['dessert','Dessert'],['boisson','Boisson'],['special','Spécial']]],
+                ['Repas', 'repas', [['','— inchangé —'],['matin','Petit déjeuner'],['midi','Déjeuner'],['soir','Dîner']]],
+                ['Disponibilité', 'disponible', [['','— inchangé —'],['true','Disponible'],['false','Indisponible']]],
+              ].map(([lbl,key,opts]) => (
+                <label key={key} style={{ display:'block', fontSize:11, fontWeight:700, color:'#475569', marginBottom:10 }}>{lbl}
+                  <select value={menuBulkForm[key]} onChange={e=>setMenuBulkForm(f=>({...f,[key]:e.target.value}))}
+                    style={{ width:'100%', padding:'8px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, marginTop:4, background:'#fff', color:'#0f172a' }}>
+                    {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                  </select>
+                </label>
+              ))}
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                <button onClick={()=>setMenuBulkModal(false)} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
+                <button onClick={menuBulkApply} style={{ background:'#2563eb', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>Appliquer</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Dernier scan */}
         <LastScanCard scan={stats.lastScan} isMobile={isMobile} repasLabel={repas?.label} />

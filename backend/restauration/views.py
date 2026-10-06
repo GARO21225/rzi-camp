@@ -1362,6 +1362,37 @@ class MenuJourViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(menus, many=True).data)
 
     @action(detail=False, methods=['post'])
+    def bulk(self, request):
+        """Actions en masse sur des plats : {ids:[..], action:'supprimer'|'modifier',
+        type_plat?, repas?, disponible?}. Admin ou restauration."""
+        u = request.user
+        role = getattr(getattr(u, "profile", None), "role", "")
+        if not (u.is_staff or u.is_superuser or role in ("admin", "restauration")):
+            return Response({"error": "Admin ou restauration requis."}, status=403)
+        ids = request.data.get('ids') or []
+        if not ids:
+            return Response({"error": "Aucun plat sélectionné."}, status=400)
+        qs = MenuJour.objects.filter(id__in=ids)
+        act = request.data.get('action')
+        if act == 'supprimer':
+            n = qs.count()
+            qs.delete()
+            return Response({"modifies": n})
+        if act == 'modifier':
+            changes = {}
+            if request.data.get('type_plat') in dict(MenuJour.TYPES):
+                changes['type_plat'] = request.data['type_plat']
+            if request.data.get('repas') in ('matin', 'midi', 'soir'):
+                changes['repas'] = request.data['repas']
+            if isinstance(request.data.get('disponible'), bool):
+                changes['disponible'] = request.data['disponible']
+            if not changes:
+                return Response({"error": "Rien à modifier."}, status=400)
+            n = qs.update(**changes)
+            return Response({"modifies": n})
+        return Response({"error": "Action inconnue."}, status=400)
+
+    @action(detail=False, methods=['post'])
     def importer_semaine(self, request):
         """
         Importe le menu de la semaine depuis le fichier .docx fourni chaque
