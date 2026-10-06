@@ -103,6 +103,8 @@ export const batiments = {
   chambresDisponibles: (date_debut, date_fin) => api.get('/api/batiments/chambres_disponibles/', {params:{date_debut, date_fin}}),
   monDepart: () => api.get('/api/batiments/mon_depart/'),
   confirmerDepart: (id, d) => api.post(`/api/batiments/${id}/confirmer_depart/`, d),
+  renommerBloc: (ancien, nouveau) => api.post('/api/batiments/renommer-bloc/', {ancien, nouveau}),
+  actionMasse: (d) => api.post('/api/batiments/action-masse/', d),
 }
 
 // ── Points d'intérêt carte (restaurant, sport, rampe, etc.) ──────────

@@ -2,41 +2,45 @@
 Import du menu hebdomadaire de restauration depuis le fichier .docx fourni
 chaque semaine par le prestataire (ex: "ROXgold CDI 5th - 11th OCT 2026.docx").
 
-Structure réelle observée dans ce type de fichier (confirmée via python-docx,
-pas supposée) :
-  - Table 0 = DÉJEUNER : 7 colonnes (1 par jour), AUCUNE fusion de cellule -
-    fiable à 100%, importée automatiquement ligne par ligne.
-  - Table 1 = DÎNER (détail plat par plat) : colonnes fusionnées pour les
-    soirées à thème (BBQ night, Pasta night...), mais le nombre de colonnes
-    fusionnées par ligne N'EST PAS CONSTANT d'une ligne à l'autre (vérifié :
-    la ligne d'en-tête groupe différemment des lignes de plats). Impossible
-    de reconstituer à coup sûr quel plat appartient à quel jour sans risquer
-    une association erronée (un plat attribué au mauvais jour serait pire
-    qu'une absence d'import) - donc VOLONTAIREMENT PAS importée en détail.
-  - Table 3 = petit récap BREAKFAST/LUNCH/DINNER : fiable (pas de fusion),
-    utilisée uniquement pour récupérer le THÈME de la soirée (ex: "BBQ
-    NIGHT") en tant qu'unique entrée 'spécial' du dîner, et "Eggs your way"
-    générique du petit-déjeuner.
+Le fichier contient, dans l'ordre, des titres en zones de texte puis des tables :
+  - "LUNCH MENU"       -> table DÉJEUNER  (repas = midi)
+  - "DINNER MENU"      -> table DÎNER     (repas = soir)
+  - "TASTE OF THE WORLD" -> tables récap : petit-déjeuner (matin) + thème du dîner (soir)
 
-Si le prestataire change un jour la mise en page (plus de fusions
-irrégulières), le détail du dîner pourra être ajouté de la même façon que
-le déjeuner - la détection par mots-clés de section ci-dessous fonctionnerait
-alors à l'identique sur cette table.
+Les tables contiennent des cellules fusionnées (gridSpan, gridBefore) et les
+colonnes du dîner ne sont pas alignées exactement sur celles de l'en-tête.
+`row.cells` de python-docx n'est donc PAS fiable ici : on lit le XML, on
+calcule la position horizontale réelle de chaque cellule (largeurs de
+`w:tblGrid` + `gridSpan` + `gridBefore`) et on l'associe au jour dont la
+colonne de l'en-tête la recouvre le plus.
+
+Lignes pleine largeur = titres de section (SOUP OF THE DAY, SALAD BAR, NOURISH
+HARVEST TABLE, MAINS, DESSERT, DRINKS) ou informations communes à tous les
+jours (corbeille de pain, buffet harvest, boissons) -> dupliquées sur les 7 jours.
 """
 import re
 import datetime
 
-SECTION_MAP = [
-    (['SOUPOFTHEDAY'], 'entree'),
-    (['SALADBAR'], 'entree'),
-    (['NOURISHHARVESTTABLE'], 'skip'),
-    (['MAINS'], 'plat'),
-    (['DESSERT'], 'dessert'),
-    (['DRINKS'], 'skip'),
+from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph
+
+
+class MenuImportError(Exception):
+    pass
+
+
+# (clé normalisée du titre, type_plat, libellé de section stocké en description)
+SECTIONS = [
+    ('SOUPOFTHEDAY', 'entree', 'Soupe du jour'),
+    ('SALADBAR', 'entree', 'Salad bar'),
+    ('NOURISHHARVESTTABLE', 'entree', 'Nourish Harvest Table'),
+    ('MAINS', 'plat', 'Plats principaux'),
+    ('DESSERT', 'dessert', 'Dessert'),
+    ('DRINKS', 'boisson', 'Boissons'),
 ]
-WEEKDAYS_NORM_VARIANTS = [
-    'MONDAY', 'TUESDAY', 'WEDESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY',
-]
+WEEKDAYS = {'MONDAY', 'TUESDAY', 'WEDESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'}
+TAGS = {'V': 'Végétarien', 'H': 'Healthier choice', 'A': 'A'}
+TAG_RE = re.compile(r'\(\s*([VHA])\s*\)', re.I)
 
 
 def _norm(s):
@@ -47,104 +51,230 @@ def _clean(s):
     return re.sub(r'\s+', ' ', (s or '')).strip()
 
 
-class MenuImportError(Exception):
-    pass
+def _cell_text(tc):
+    parts = []
+    for p in tc.findall(qn('w:p')):
+        t = _clean(Paragraph(p, None).text)
+        if t:
+            parts.append(t)
+    return ' / '.join(parts)
 
 
-def _parse_lunch_table(table):
-    header_cells = [c.text for c in table.rows[0].cells]
-    if len(header_cells) != 7:
+def _int_attr(el, name='w:val'):
+    return int(el.get(qn(name))) if el is not None else 0
+
+
+def _table_rows(tbl):
+    """Retourne (rows, grid_total). rows = liste de listes de (x0, x1, texte)."""
+    grid = [int(g.get(qn('w:w'))) for g in tbl.find(qn('w:tblGrid'))]
+    rows = []
+    for tr in tbl.findall(qn('w:tr')):
+        pr = tr.find(qn('w:trPr'))
+        before = _int_attr(pr.find(qn('w:gridBefore'))) if pr is not None else 0
+        col = before
+        x = sum(grid[:before])
+        cells = []
+        for tc in tr.findall(qn('w:tc')):
+            tcpr = tc.find(qn('w:tcPr'))
+            span = 1
+            if tcpr is not None and tcpr.find(qn('w:gridSpan')) is not None:
+                span = _int_attr(tcpr.find(qn('w:gridSpan')))
+            w = sum(grid[col:col + span])
+            cells.append((x, x + w, _cell_text(tc)))
+            x += w
+            col += span
+        rows.append(cells)
+    return rows, sum(grid)
+
+
+def _day_for(cell, day_ranges):
+    x0, x1, _ = cell
+    best, best_ov = None, 0
+    for i, (a, b) in enumerate(day_ranges):
+        ov = min(x1, b) - max(x0, a)
+        if ov > best_ov:
+            best, best_ov = i, ov
+    return best
+
+
+def _make_entry(date, repas, type_plat, texte, section_label):
+    tags = [m.upper() for m in TAG_RE.findall(texte)]
+    nom = _clean(re.sub(r'\(+\s*$', '', TAG_RE.sub('', texte))).strip(' /')
+    if not nom:
+        return None
+    desc_parts = [section_label] if section_label else []
+    if tags:
+        desc_parts.append(', '.join(TAGS.get(t, t) for t in dict.fromkeys(tags)))
+    if len(nom) > 200:
+        desc_parts.append(nom)
+        nom = nom[:197].rstrip() + '…'
+    return {
+        'date_service': date, 'repas': repas, 'type_plat': type_plat,
+        'nom': nom, 'description': ' — '.join(desc_parts),
+    }
+
+
+def _section_of(norm):
+    if len(norm) > 70:
+        return None
+    for key, tp, label in SECTIONS:
+        if norm.startswith(key):
+            return tp, label
+    return None
+
+
+def _parse_menu_table(tbl, repas, dates=None):
+    """Table déjeuner/dîner. Retourne (entries, dates)."""
+    rows, total = _table_rows(tbl)
+    if not rows:
+        return [], dates
+
+    header = rows[0]
+    if len(header) != 7:
         raise MenuImportError(
-            f"La table du menu déjeuner devrait avoir 7 colonnes (une par jour) — "
-            f"trouvé {len(header_cells)}. Le gabarit du fichier a peut-être changé."
+            f"L'en-tête du menu ({repas}) devrait avoir 7 colonnes (un jour chacune) — "
+            f"trouvé {len(header)}. Le gabarit du fichier a peut-être changé."
         )
-    dates = []
-    for h in header_cells:
-        m = re.search(r'(\d{1,2})-(\d{1,2})-(\d{4})', h)
-        if not m:
-            raise MenuImportError(f"Date introuvable dans l'en-tête de colonne : {h!r}")
-        d, mo, y = map(int, m.groups())
-        dates.append(datetime.date(y, mo, d))
+    day_ranges = [(c[0], c[1]) for c in header]
 
-    current_section = None
+    if dates is None:
+        dates = []
+        for c in header:
+            m = re.search(r'(\d{1,2})-(\d{1,2})-(\d{4})', c[2])
+            if not m:
+                raise MenuImportError(f"Date introuvable dans l'en-tête : {c[2]!r}")
+            d, mo, y = map(int, m.groups())
+            dates.append(datetime.date(y, mo, d))
+
     entries = []
-    for row in table.rows[1:]:
-        cells = [c.text for c in row.cells]
-        if len(cells) != 7:
+    section = None  # (type_plat, label)
+    for cells in rows[1:]:
+        texts = [c[2] for c in cells]
+        if not any(texts):
             continue
-        normed = [_norm(c) for c in cells]
+        norms = [_norm(t) for t in texts]
+        full = len(cells) == 1 and (cells[0][1] - cells[0][0]) >= total * 0.95
 
-        if len(set(normed)) == 1 and normed[0]:
-            matched = next((sec for keys, sec in SECTION_MAP if any(k in normed[0] for k in keys)), None)
-            if matched:
-                current_section = matched
+        if full:
+            sec = _section_of(norms[0])
+            if sec:
+                section = sec
                 continue
-
-        if all(normed[i] in WEEKDAYS_NORM_VARIANTS for i in range(7) if normed[i]):
-            continue
-
-        if current_section in (None, 'skip'):
-            continue
-
-        for i, cell in enumerate(cells):
-            nom = _clean(cell)
-            if not nom or len(nom) > 70:
+            if section is None:
                 continue
-            entries.append({
-                'date_service': dates[i], 'repas': 'midi',
-                'type_plat': current_section, 'nom': nom,
-            })
+            tp, label = section
+            if 'BREAD' in norms[0]:
+                label = 'Corbeille de pain'
+            for date in dates:
+                e = _make_entry(date, repas, tp, texts[0], label)
+                if e:
+                    entries.append(e)
+            continue
+
+        # ligne de noms de jours répétée
+        if all(n in WEEKDAYS for n in norms if n):
+            continue
+        if section is None:
+            continue
+
+        tp, label = section
+        if repas == 'soir' and tp == 'entree' and label == 'Soupe du jour':
+            # au dîner, la ligne sous "soup of the day" ne porte que le thème de la soirée
+            tp, label = 'special', 'Thème de la soirée'
+
+        for cell in cells:
+            if not cell[2]:
+                continue
+            i = _day_for(cell, day_ranges)
+            if i is None:
+                continue
+            e = _make_entry(dates[i], repas, tp, cell[2], label)
+            if e:
+                entries.append(e)
     return entries, dates
 
 
-def _parse_recap_table(table, dates):
-    """Table BREAKFAST/LUNCH/DINNER - thème du dîner + petit-déjeuner
-    générique, alignés sur les mêmes 7 dates que le déjeuner (ordre
-    Lundi->Dimanche, déjà vérifié identique entre les tables de ce fichier)."""
+def _parse_taste_tables(tables, dates):
+    """Tables récap 'Taste of the World' : BREAKFAST / LUNCH / DINNER, 7 jours
+    (les 7 dernières cellules de chaque ligne, la 1ère étant le libellé)."""
     entries = []
-    for row in table.rows:
-        cells = [_clean(c.text) for c in row.cells]
-        if not cells or not cells[0]:
-            continue
-        label = cells[0].upper()
-        if label not in ('BREAKFAST', 'DINNER'):
-            continue
-        jours = [c for c in cells[1:] if c]  # ignore la/les colonnes vides de fusion
-        jours = jours[-7:] if len(jours) >= 7 else jours
-        repas = 'matin' if label == 'BREAKFAST' else 'soir'
-        for i, theme in enumerate(jours):
-            if i >= len(dates):
-                break
-            entries.append({
-                'date_service': dates[i], 'repas': repas,
-                'type_plat': 'special', 'nom': theme,
-            })
+    for tbl in tables:
+        rows, _ = _table_rows(tbl)
+        for cells in rows:
+            if len(cells) < 8:
+                continue
+            label = _norm(cells[0][2])
+            repas = {'BREAKFAST': 'matin', 'LUNCH': 'midi', 'DINNER': 'soir'}.get(label)
+            if not repas:
+                continue
+            for i, cell in enumerate(cells[-7:]):
+                if not cell[2]:
+                    continue
+                e = _make_entry(dates[i], repas, 'special', cell[2], 'Taste of the World')
+                if e:
+                    entries.append(e)
     return entries
+
+
+def _context_titles(p):
+    n = _norm(''.join(p.itertext()))
+    if 'LUNCHMENU' in n:
+        return 'lunch'
+    if 'DINNERMENU' in n:
+        return 'dinner'
+    if 'TASTEOFTHEWORLD' in n:
+        return 'taste'
+    if 'LIVECOOKINGSTATION' in n:
+        return 'live'
+    return None
 
 
 def extraire_menu_semaine(fichier):
     """fichier : objet file-like (ex: request.FILES['fichier']). Retourne
-    (entries, dates) où entries est une liste de dicts prêts pour
-    MenuJour.objects.create(**e), et dates la liste des 7 dates couvertes
-    (pour savoir quoi effacer avant ré-import)."""
+    (entries, dates) — entries : dicts prêts pour MenuJour.objects.create(**e),
+    dates : les 7 dates couvertes (pour effacer avant ré-import)."""
     import docx
     try:
         d = docx.Document(fichier)
     except Exception as e:
         raise MenuImportError(f"Fichier .docx illisible : {e}")
 
-    if len(d.tables) < 1:
-        raise MenuImportError("Aucun tableau trouvé dans ce fichier — gabarit inattendu.")
+    context = None
+    lunch_tbl = dinner_tbl = None
+    taste_tbls = []
+    for el in d.element.body.iterchildren():
+        tag = el.tag.split('}')[1]
+        if tag == 'p':
+            ctx = _context_titles(el)
+            if ctx:
+                context = ctx
+        elif tag == 'tbl':
+            if context == 'lunch' and lunch_tbl is None:
+                lunch_tbl = el
+            elif context == 'dinner' and dinner_tbl is None:
+                dinner_tbl = el
+            elif context == 'taste':
+                taste_tbls.append(el)
 
-    entries, dates = _parse_lunch_table(d.tables[0])
+    if lunch_tbl is None:
+        raise MenuImportError("Table « LUNCH MENU » introuvable — gabarit inattendu.")
 
-    if len(d.tables) >= 4:
-        try:
-            entries += _parse_recap_table(d.tables[3], dates)
-        except Exception:
-            pass  # le récap petit-déj/dîner est un bonus, jamais bloquant
+    entries, dates = _parse_menu_table(lunch_tbl, 'midi')
+    if dinner_tbl is not None:
+        e2, _ = _parse_menu_table(dinner_tbl, 'soir', dates)
+        entries += e2
+    if taste_tbls:
+        entries += _parse_taste_tables(taste_tbls, dates)
 
-    if not entries:
+    # dédoublonnage (ex: "BBQ NIGHT" présent dans le dîner et dans Taste of the World)
+    seen, uniq = set(), []
+    for e in entries:
+        k = (e['date_service'], e['repas'], e['type_plat'], e['nom'].lower())
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(e)
+
+    if not uniq:
         raise MenuImportError("Aucun plat reconnu dans ce fichier — gabarit inattendu.")
-
-    return entries, dates
+    return uniq, dates

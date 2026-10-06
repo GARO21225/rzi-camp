@@ -846,7 +846,7 @@ export default function Restauration() {
                                   <img src={`data:image/jpeg;base64,${String(m.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
                                     alt="" style={{ width:16, height:16, objectFit:'cover', borderRadius:3, marginRight:4, flexShrink:0 }}/>
                                 )}
-                                <span style={{ fontSize:10, fontWeight:600, color:'#1e293b', flex:1,
+                                <span title={m.description ? `${m.nom} — ${m.description}` : m.nom} style={{ fontSize:10, fontWeight:600, color:'#1e293b', flex:1,
                                   whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.nom}</span>
                                 <div style={{ display:'flex', gap:2, marginLeft:4, flexShrink:0 }}>
                                   <button onClick={()=>setMenuForm(m)} title="Modifier"

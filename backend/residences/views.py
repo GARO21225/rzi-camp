@@ -1191,6 +1191,88 @@ class BatimentViewSet(viewsets.ModelViewSet):
             return Response({"error":"Admin requis pour supprimer une résidence"}, status=403)
         return super().destroy(request, *args, **kwargs)
 
+    @staticmethod
+    def _admin_only(user):
+        return user.is_staff or user.is_superuser or (
+            hasattr(user, "profile") and getattr(user.profile, "role", "") == "admin")
+
+    @action(detail=False, methods=["post"], url_path="renommer-bloc")
+    def renommer_bloc(self, request):
+        """Renomme un bloc (= change `bloc` de toutes ses chambres). La carte GIS
+        lit `bloc` depuis la base (action `geojson`), donc elle suit automatiquement.
+        Si le nouveau nom existe déjà, les deux blocs sont fusionnés."""
+        if not self._admin_only(request.user):
+            return Response({"error": "Admin requis."}, status=403)
+        ancien = (request.data.get("ancien") or "").strip()
+        nouveau = (request.data.get("nouveau") or "").strip()
+        if not ancien or not nouveau:
+            return Response({"error": "Ancien et nouveau nom requis."}, status=400)
+        if len(nouveau) > 30:
+            return Response({"error": "Le nom du bloc ne peut pas dépasser 30 caractères."}, status=400)
+        if ancien == nouveau:
+            return Response({"error": "Le nouveau nom est identique à l'ancien."}, status=400)
+        from simple_history.utils import bulk_update_with_history
+        objs = list(Batiment.objects.filter(bloc=ancien))
+        if not objs:
+            return Response({"error": f"Aucune chambre dans le bloc « {ancien} »."}, status=404)
+        fusion = Batiment.objects.filter(bloc=nouveau).exists()
+        for b in objs:
+            b.bloc = nouveau
+        bulk_update_with_history(objs, Batiment, ["bloc"], batch_size=500)
+        return Response({"modifies": len(objs), "ancien": ancien, "nouveau": nouveau, "fusion": fusion})
+
+    @action(detail=False, methods=["post"], url_path="action-masse")
+    def action_masse(self, request):
+        """Action groupée sur des chambres. Corps : {ids:[...]} ou {bloc:"X"} +
+        action = "deplacer_bloc" (bloc_cible) | "statut" (statut) | "supprimer"
+        (superuser). Les chambres occupées sont ignorées pour un changement de
+        statut afin de ne pas casser une occupation en cours."""
+        if not self._admin_only(request.user):
+            return Response({"error": "Admin requis."}, status=403)
+        action_name = request.data.get("action")
+        ids = request.data.get("ids") or []
+        bloc = (request.data.get("bloc") or "").strip()
+        qs = Batiment.objects.all()
+        if ids:
+            qs = qs.filter(id__in=ids)
+        elif bloc:
+            qs = qs.filter(bloc=bloc)
+        else:
+            return Response({"error": "Aucune chambre sélectionnée."}, status=400)
+        objs = list(qs)
+        if not objs:
+            return Response({"error": "Aucune chambre trouvée."}, status=404)
+
+        from simple_history.utils import bulk_update_with_history
+        if action_name == "deplacer_bloc":
+            cible = (request.data.get("bloc_cible") or "").strip()
+            if not cible or len(cible) > 30:
+                return Response({"error": "Nom de bloc cible requis (30 caractères max)."}, status=400)
+            for b in objs:
+                b.bloc = cible
+            bulk_update_with_history(objs, Batiment, ["bloc"], batch_size=500)
+            return Response({"modifies": len(objs), "ignores": 0})
+
+        if action_name == "statut":
+            statut = request.data.get("statut")
+            if statut not in ("Libre", "Réservé", "Maintenance"):
+                return Response({"error": "Statut autorisé : Libre, Réservé ou Maintenance."}, status=400)
+            ok = [b for b in objs if b.statut != "Occupé" and not b.personnel_id]
+            for b in ok:
+                b.statut = statut
+            if ok:
+                bulk_update_with_history(ok, Batiment, ["statut"], batch_size=500)
+            return Response({"modifies": len(ok), "ignores": len(objs) - len(ok)})
+
+        if action_name == "supprimer":
+            if not request.user.is_superuser:
+                return Response({"error": "Réservé au superutilisateur."}, status=403)
+            libres = [b for b in objs if b.statut != "Occupé" and not b.personnel_id]
+            Batiment.objects.filter(id__in=[b.id for b in libres]).delete()
+            return Response({"modifies": len(libres), "ignores": len(objs) - len(libres)})
+
+        return Response({"error": "Action inconnue."}, status=400)
+
     def partial_update(self, request, *args, **kwargs):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")

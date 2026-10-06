@@ -37,6 +37,13 @@ export default function Residences() {
   const [histLoading, setHistLoading] = useState(false)
   const [editHistModal, setEditHistModal] = useState(null) // Edit wrong history entry
   const [vueOnglet, setVueOnglet] = useState('chambres')
+  // Gestion des blocs / actions en masse (admin)
+  const [tousBlocs, setTousBlocs] = useState([])           // tous les blocs, indépendamment des filtres
+  const [selectMode, setSelectMode] = useState(false)
+  const [selection, setSelection] = useState(new Set())
+  const [massModal, setMassModal] = useState(null)         // 'rename' | 'deplacer' | 'statut'
+  const [massForm, setMassForm] = useState({ ancien:'', nouveau:'', statut:'Libre' })
+  const [massBusy, setMassBusy] = useState(false)
 
   const [form, setForm] = useState({ statut:'Libre', personnel:'', occupant:'', societe:'', date_arrivee:'', date_depart:'' })
 
@@ -62,7 +69,56 @@ export default function Residences() {
     personnelAPI.list({page_size:500}).then(r => setPersonnelList(r.data.results||r.data))
   }
 
+  const chargerTousBlocs = () => {
+    if (!isAdmin) return
+    batiments.stats().then(r => setTousBlocs((r.data.par_bloc||[]).map(x=>x.bloc).filter(Boolean).sort())).catch(()=>{})
+  }
   useEffect(() => { load() }, [search, statut, bloc, futurDepart])
+  useEffect(() => { chargerTousBlocs() }, [isAdmin])
+
+  const toggleSel = (id) => setSelection(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toutSelectionner = () => setSelection(prev => prev.size === data.length ? new Set() : new Set(data.map(x=>x.id)))
+  const quitterSelection = () => { setSelectMode(false); setSelection(new Set()) }
+
+  const validerMasse = async () => {
+    setMassBusy(true)
+    try {
+      if (massModal === 'rename') {
+        const ancien = massForm.ancien, nouveau = (massForm.nouveau||'').trim()
+        if (!ancien || !nouveau) { toast.error('Choisissez un bloc et saisissez le nouveau nom'); return }
+        if (!await confirmDialog(`Renommer le bloc « ${ancien} » en « ${nouveau} » ?\n\nToutes ses chambres seront mises à jour et la carte SIG affichera le nouveau nom.`)) return
+        const r = await batiments.renommerBloc(ancien, nouveau)
+        toast.success(`${r.data.modifies} chambre(s) mise(s) à jour${r.data.fusion ? ' (fusion avec un bloc existant)' : ''}`)
+        if (bloc === ancien) setBloc(nouveau)
+      } else {
+        const ids = [...selection]
+        if (!ids.length) { toast.error('Aucune chambre sélectionnée'); return }
+        const d = { ids, action: massModal === 'deplacer' ? 'deplacer_bloc' : 'statut' }
+        if (massModal === 'deplacer') {
+          d.bloc_cible = (massForm.nouveau||'').trim()
+          if (!d.bloc_cible) { toast.error('Saisissez le bloc de destination'); return }
+        } else d.statut = massForm.statut
+        const r = await batiments.actionMasse(d)
+        toast.success(`${r.data.modifies} chambre(s) modifiée(s)${r.data.ignores ? ` · ${r.data.ignores} ignorée(s) (occupées)` : ''}`)
+        setSelection(new Set())
+      }
+      setMassModal(null)
+      load(); chargerTousBlocs()
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Erreur')
+    } finally { setMassBusy(false) }
+  }
+
+  const supprimerSelection = async () => {
+    const ids = [...selection]
+    if (!ids.length) return
+    if (!await confirmDialog(`Supprimer définitivement ${ids.length} chambre(s) ?\n\nLes chambres occupées seront ignorées. Action irréversible.`)) return
+    try {
+      const r = await batiments.actionMasse({ ids, action:'supprimer' })
+      toast.success(`${r.data.modifies} supprimée(s)${r.data.ignores ? ` · ${r.data.ignores} ignorée(s) (occupées)` : ''}`)
+      setSelection(new Set()); load(); chargerTousBlocs()
+    } catch (e) { toast.error(e?.response?.data?.error || 'Erreur suppression') }
+  }
 
   const openEdit = (b) => {
     setEditModal(b)
@@ -235,6 +291,11 @@ export default function Residences() {
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <a href={batiments.exportCsv({})} style={{ background:'var(--rzc-green)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ CSV</a>
           <a href={batiments.exportBlocs()} style={{ background:'var(--rzc-navy)', color:'#fff', padding:'7px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700 }}>⬇ Blocs</a>
+          <button onClick={()=>{ setMassForm(f=>({...f, ancien: bloc || tousBlocs[0] || '', nouveau:''})); setMassModal('rename') }}
+            style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>✏️ Renommer un bloc</button>
+          <button onClick={()=> selectMode ? quitterSelection() : setSelectMode(true)}
+            style={{ background:selectMode?'#dc2626':'#0f766e', color:'#fff', border:'none', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            {selectMode ? '✕ Quitter la sélection' : '☑ Actions en masse'}</button>
         </div>
         )}
       </div>
@@ -334,6 +395,21 @@ export default function Residences() {
       )}
 
 
+      {isAdmin && selectMode && (
+        <div style={{ position:'sticky', top:0, zIndex:20, background:'#0f172a', color:'#fff', borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <b style={{ fontSize:12.5 }}>{selection.size} sélectionnée(s)</b>
+          <button onClick={toutSelectionner} style={{ background:'rgba(255,255,255,.15)', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, cursor:'pointer', fontSize:11.5 }}>
+            {selection.size === data.length && data.length > 0 ? 'Tout désélectionner' : `Tout sélectionner (${data.length})`}</button>
+          <span style={{ flex:1 }}/>
+          <button disabled={!selection.size} onClick={()=>{ setMassForm(f=>({...f, nouveau:''})); setMassModal('deplacer') }}
+            style={{ background:'#2563eb', color:'#fff', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11.5, fontWeight:700, opacity:selection.size?1:.5 }}>📦 Déplacer vers un bloc</button>
+          <button disabled={!selection.size} onClick={()=>{ setMassForm(f=>({...f, statut:'Libre'})); setMassModal('statut') }}
+            style={{ background:'#ca8a04', color:'#fff', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11.5, fontWeight:700, opacity:selection.size?1:.5 }}>🏷️ Changer le statut</button>
+          {isSuperuser && <button disabled={!selection.size} onClick={supprimerSelection}
+            style={{ background:'#dc2626', color:'#fff', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11.5, fontWeight:700, opacity:selection.size?1:.5 }}>🗑️ Supprimer</button>}
+        </div>
+      )}
+
       {/* Liste */}
       {isMobile ? (
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -342,7 +418,9 @@ export default function Residences() {
           ) : data.map(b=>(
             <div key={b.id} style={{background:'var(--rzc-charcoal-l1)',border:'1px solid var(--rzc-border-light)',borderRadius:14,padding:'12px 13px',display:'flex',flexDirection:'column',gap:5}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span style={{fontSize:13.5,fontWeight:700,color:'var(--rzc-navy)'}}>{b.residence} · Bloc {b.bloc}</span>
+                <span style={{fontSize:13.5,fontWeight:700,color:'var(--rzc-navy)'}}>
+                  {isAdmin && selectMode && <input type="checkbox" checked={selection.has(b.id)} onChange={()=>toggleSel(b.id)} style={{marginRight:8,width:18,height:18,verticalAlign:'middle'}}/>}
+                  {b.residence} · Bloc {b.bloc}</span>
                 <span style={{background:`${bcolor[b.statut]}18`,color:bcolor[b.statut],padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700}}>{b.statut}</span>
               </div>
               <p style={{margin:0,fontSize:12,color:b.occupant?'var(--rzc-text)':'var(--rzc-text-3)'}}>
@@ -367,6 +445,7 @@ export default function Residences() {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5, minWidth:700 }}>
             <thead>
               <tr style={{ background:'var(--rzc-navy)' }}>
+                {isAdmin && selectMode && <th style={{ padding:'10px 12px', width:30 }}><input type="checkbox" checked={data.length>0 && selection.size===data.length} onChange={toutSelectionner}/></th>}
                 {['Résidence','Bloc','Statut','Occupant','Société','Arrivée','Départ','Actions'].map(h=>(
                   <th key={h} style={{ padding:'10px 12px', textAlign:'left', fontSize:10, fontFamily:'monospace', color:'rgba(255,255,255,.85)', letterSpacing:1, textTransform:'uppercase', fontWeight:500 }}>{h}</th>
                 ))}
@@ -374,9 +453,10 @@ export default function Residences() {
             </thead>
             <tbody>
               {loading
-                ? <tr><td colSpan={8} style={{ padding:24, textAlign:'center', color:'var(--rzc-text-3)' }}>Chargement...</td></tr>
+                ? <tr><td colSpan={9} style={{ padding:24, textAlign:'center', color:'var(--rzc-text-3)' }}>Chargement...</td></tr>
                 : data.map((b,i)=>(
                   <tr key={b.id} style={{ borderTop:'1px solid var(--rzc-border-light)', background:i%2?'var(--rzc-charcoal-l2)':'transparent' }}>
+                    {isAdmin && selectMode && <td style={{ padding:'9px 12px' }}><input type="checkbox" checked={selection.has(b.id)} onChange={()=>toggleSel(b.id)}/></td>}
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontWeight:700, color:'var(--rzc-navy)' }}>{b.residence}</td>
                     <td style={{ padding:'9px 12px', fontSize:11, color:'var(--rzc-text-3)' }}>{b.bloc}</td>
                     <td style={{ padding:'9px 12px' }}>
@@ -402,6 +482,46 @@ export default function Residences() {
           </table>
         </div>
       </div>
+      )}
+
+      {/* ── MODAL BLOCS / ACTIONS EN MASSE ── */}
+      {massModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16 }}
+          onClick={()=>!massBusy && setMassModal(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:420, padding:22, color:'#0f172a' }}>
+            <h3 style={{ fontSize:16, fontWeight:800, marginBottom:6 }}>
+              {massModal==='rename' ? '✏️ Renommer un bloc' : massModal==='deplacer' ? '📦 Déplacer vers un bloc' : '🏷️ Changer le statut'}
+            </h3>
+            <p style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
+              {massModal==='rename' ? 'Toutes les chambres du bloc sont mises à jour et la carte SIG affiche le nouveau nom. Si le nom existe déjà, les deux blocs sont fusionnés.'
+                : `${selection.size} chambre(s) sélectionnée(s)${massModal==='statut' ? ' — les chambres occupées sont ignorées.' : '.'}`}
+            </p>
+            {massModal==='rename' && (<>
+              <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Bloc actuel</label>
+              <select value={massForm.ancien} onChange={e=>setMassForm(f=>({...f, ancien:e.target.value}))}
+                style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}>
+                {tousBlocs.map(b=><option key={b} value={b}>{b}</option>)}
+              </select>
+            </>)}
+            {(massModal==='rename' || massModal==='deplacer') && (<>
+              <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>{massModal==='rename' ? 'Nouveau nom' : 'Bloc de destination (existant ou nouveau)'}</label>
+              <input list="rzc-blocs-list" value={massForm.nouveau} maxLength={30} autoFocus
+                onChange={e=>setMassForm(f=>({...f, nouveau:e.target.value}))}
+                style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
+              <datalist id="rzc-blocs-list">{tousBlocs.map(b=><option key={b} value={b}/>)}</datalist>
+            </>)}
+            {massModal==='statut' && (
+              <select value={massForm.statut} onChange={e=>setMassForm(f=>({...f, statut:e.target.value}))}
+                style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'0 0 12px', background:'#fff', color:'#0f172a' }}>
+                <option value="Libre">🟢 Libre</option><option value="Réservé">🔵 Réservé</option><option value="Maintenance">🟠 Maintenance</option>
+              </select>
+            )}
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={()=>setMassModal(null)} disabled={massBusy} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
+              <button onClick={validerMasse} disabled={massBusy} style={{ background:'#2563eb', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>{massBusy ? '…' : 'Valider'}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── EDIT MODAL ── */}
