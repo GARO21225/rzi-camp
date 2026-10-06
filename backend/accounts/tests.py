@@ -696,7 +696,6 @@ class SynchroniserProfilsTests(TestCase):
 
 class RapportsEmailTests(TestCase):
     def test_types_et_options(self):
-        from django.core import mail
         from django.utils import timezone
         from .models import RapportPlanifie
         from .rapports_email import generer_contenu_rapport, envoyer_rapports_dus, options_effectives
@@ -707,9 +706,18 @@ class RapportsEmailTests(TestCase):
         _, h = generer_contenu_rapport("T", "boutique")
         self.assertNotIn("Résidences", h)
         self.assertEqual(options_effectives({"horizon_jours": "999"})["horizon_jours"], 60)
-        # rattrapage : un rapport dont l'heure est passée part, une seule fois
-        r = RapportPlanifie.objects.create(nom="R", frequence="quotidien", heure="00:00", destinataires=["a@b.com"], type_rapport="mobilite")
-        env, err = envoyer_rapports_dus()
-        self.assertEqual((env, err), (["R"], []))
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(envoyer_rapports_dus()[0], [])
+        # rattrapage : un rapport dont l'heure est passée part (via Resend), une seule fois
+        r = RapportPlanifie.objects.create(nom="R", frequence="quotidien", heure="00:00", destinataires=["a@b.com", "c@d.com"], type_rapport="mobilite")
+        self.assertEqual(envoyer_rapports_dus()[0], [])  # mode test : rien n'est envoyé ni marqué
+        from .models import Parametre
+        Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "resend"})
+        with patch("accounts.email.envoyer_email", return_value=(True, "ok")) as m:
+            env, err = envoyer_rapports_dus()
+            self.assertEqual((env, err), (["R"], []))
+            self.assertEqual(m.call_count, 2)
+            self.assertEqual(envoyer_rapports_dus()[0], [])
+        # tous les envois échouent -> pas marqué comme envoyé
+        r.derniere_execution = None; r.save()
+        with patch("accounts.email.envoyer_email", return_value=(False, "403")):
+            env, err = envoyer_rapports_dus()
+            self.assertEqual(env, []); self.assertEqual(len(err), 1)

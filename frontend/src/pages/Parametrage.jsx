@@ -1303,7 +1303,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:'12px 16px',fontSize:12.5,color:'#1e40af'}}>
-        ℹ️ Choisis le type de rapport et ses paramètres : il part automatiquement par email à l'heure choisie (une fois par jour au maximum), sans cron. L'envoi nécessite EMAIL_HOST_USER / EMAIL_HOST_PASSWORD dans le .env du serveur — utilise « Envoyer maintenant » pour tester.
+        ℹ️ Choisis le type de rapport et ses paramètres : il part automatiquement par email à l'heure choisie (une fois par jour au maximum), sans cron. L'envoi passe par Resend (réglages « Connexion par Email », comme les OTP) — utilise « Envoyer maintenant » pour tester.
       </div>
 
       {isAdmin && (

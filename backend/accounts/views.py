@@ -852,20 +852,19 @@ class RapportPlanifieViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="envoyer")
     def envoyer(self, request, pk=None):
-        """Envoi immédiat (test) à tous les destinataires, sans toucher à la planification."""
+        """Envoi immédiat (test) via Resend, sans toucher à la planification."""
         err = self._check(request)
         if err: return err
-        from .rapports_email import generer_contenu_rapport
-        from django.core.mail import send_mail
-        from django.conf import settings
+        from .rapports_email import envoyer_aux_destinataires
+        from .models import Parametre
         r = self.get_object()
-        try:
-            sujet, corps = generer_contenu_rapport(r.nom, r.type_rapport, r.options)
-            send_mail(subject=sujet, message="", html_message=corps, from_email=settings.DEFAULT_FROM_EMAIL,
-                      recipient_list=r.destinataires, fail_silently=False)
-        except Exception as e:
-            return Response({"error": f"Envoi impossible : {e}. Vérifier EMAIL_HOST_USER / EMAIL_HOST_PASSWORD dans le .env du serveur."}, status=400)
-        return Response({"ok": True, "destinataires": r.destinataires})
+        fournisseur = Parametre.get('email_provider', 'test')
+        if fournisseur == 'test':
+            return Response({"error": "Le fournisseur email est sur « test » (aucun envoi réel) : passe email_provider = resend dans Paramétrage → Connexion par Email."}, status=400)
+        ok_n, erreurs = envoyer_aux_destinataires(r)
+        if erreurs and not ok_n:
+            return Response({"error": "Échec : " + " ; ".join(erreurs)}, status=400)
+        return Response({"ok": True, "destinataires": r.destinataires, "erreurs": erreurs})
 
     @action(detail=True, methods=["get"], url_path="apercu")
     def apercu(self, request, pk=None):

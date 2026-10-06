@@ -7,7 +7,6 @@ Chaque rapport a un TYPE (quelles sections) et des OPTIONS (paramètres) :
   details       : liste nominative (personnes, incidents, articles) en plus des chiffres
 """
 from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 import datetime
 import html as _h
@@ -123,10 +122,25 @@ def generer_contenu_rapport(nom, type_rapport="synthese", options=None):
     return sujet, html
 
 
-def envoyer_rapport(r, maintenant=None):
+def envoyer_aux_destinataires(r):
+    """Envoie via le fournisseur email du projet (Resend, réglé dans Paramétrage →
+    Connexion par Email — le même que pour les OTP). Retourne (nb_ok, erreurs)."""
+    from .email import envoyer_email
     sujet, corps = generer_contenu_rapport(r.nom, r.type_rapport, r.options)
-    send_mail(subject=sujet, message="", html_message=corps, from_email=settings.DEFAULT_FROM_EMAIL,
-              recipient_list=r.destinataires, fail_silently=False)
+    ok_n, erreurs = 0, []
+    for dest in r.destinataires:
+        ok, info = envoyer_email(dest, sujet, corps, type_message="rapport", campagne=r.nom)
+        if ok:
+            ok_n += 1
+        else:
+            erreurs.append(f"{dest} : {info}")
+    return ok_n, erreurs
+
+
+def envoyer_rapport(r, maintenant=None):
+    ok_n, erreurs = envoyer_aux_destinataires(r)
+    if not ok_n:
+        raise RuntimeError("; ".join(erreurs) or "aucun destinataire")
     r.derniere_execution = maintenant or timezone.localtime(timezone.now())
     r.save(update_fields=["derniere_execution"])
 
@@ -136,6 +150,11 @@ def envoyer_rapports_dus(maintenant=None):
     from .models import RapportPlanifie
     maintenant = maintenant or timezone.localtime(timezone.now())
     envoyes, erreurs = [], []
+    from .models import Parametre
+    if Parametre.get('email_provider', 'test') == 'test':
+        # Mode test = aucun envoi réel : ne rien marquer « envoyé » pour que
+        # les rapports partent dès que Resend est activé.
+        return envoyes, [("*", "email_provider = test : activer Resend dans Paramétrage")]
     for r in RapportPlanifie.objects.filter(actif=True):
         if not r.est_du(maintenant):
             continue
