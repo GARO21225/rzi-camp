@@ -615,6 +615,14 @@ class ChambresAdminTests(TestCase):
         r = self.c.post("/api/batiments/action-masse/", {"ids": [a.id, b.id], "action": "statut", "statut": "Libre"}, format="json")
         self.assertEqual((r.data["modifies"], r.data["ignores"]), (1, 1))
 
+    def test_action_masse_statut_liberer_occupants(self):
+        p = Personnel.objects.create(nom="K", prenom="E")
+        b = Batiment.objects.create(residence="X3", bloc="B", statut="Occupé", personnel=p, occupant="K E")
+        r = self.c.post("/api/batiments/action-masse/", {"ids": [b.id], "action": "statut", "statut": "Réservé", "liberer_occupants": True}, format="json")
+        self.assertEqual((r.data["modifies"], r.data["liberes"]), (1, 1))
+        b.refresh_from_db()
+        self.assertEqual((b.statut, b.personnel_id), ("Réservé", None))
+
     def test_retours_anticipes_nominatifs_reserves_aux_admins(self):
         from rest_framework.test import APIClient
         u = User.objects.create_user("simple", password="x")

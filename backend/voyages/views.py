@@ -123,6 +123,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ["personnel__nom","personnel__prenom","destination"]
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        # Liaison convoi <-> résidence appliquée à la date du trajet (throttlée)
+        from .automatisation import appliquer_si_necessaire
+        appliquer_si_necessaire()
+
     def get_queryset(self):
         # PERFORMANCE : sans ces préchargements, le serializer refaisait ~6
         # requêtes SQL PAR voyage (étapes, véhicule de chaque étape, validé

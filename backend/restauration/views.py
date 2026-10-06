@@ -1465,6 +1465,11 @@ class MenuJourViewSet(viewsets.ModelViewSet):
                 changes['repas'] = request.data['repas']
             if isinstance(request.data.get('disponible'), bool):
                 changes['disponible'] = request.data['disponible']
+            if request.data.get('date_service'):
+                try:
+                    changes['date_service'] = __import__('datetime').date.fromisoformat(str(request.data['date_service'])[:10])
+                except ValueError:
+                    return Response({"error": "Date invalide."}, status=400)
             if not changes:
                 return Response({"error": "Rien à modifier."}, status=400)
             n = qs.update(**changes)

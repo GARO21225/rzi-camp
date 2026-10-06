@@ -294,3 +294,65 @@ class TrajetsAllerSimpleTests(TestCase):
         self.assertIsNone(_check_voyage_conflit(self.p.id, j, j))
         self.assertIsNotNone(_check_voyage_conflit(self.p.id, j - datetime.timedelta(days=1), j))
         self.assertIsNotNone(_check_voyage_conflit(self.p.id, self.today, self.today))
+
+
+class LiaisonConvoiResidenceTests(TestCase):
+    """Camp->X libère la chambre à la date du convoi ; X->Camp reloge avec
+    Arrivée = date du voyage, Départ = date « Retourne quand ? »."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from residences.models import Batiment
+        cache.clear()
+        self.today = datetime.date.today()
+        self.p = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD")
+        self.b, _ = Batiment.objects.get_or_create(residence="TEST-LIAISON")
+        self.b.statut = "Occupé"; self.b.personnel = self.p; self.b.occupant = "KOUAME Edgar"
+        self.b.date_arrivee = self.today - datetime.timedelta(days=10); self.b.save()
+
+    def _voyage(self, **kw):
+        base = dict(personnel=self.p, statut="planifie", statut_validation="valide", trajet_aller_seul=True,
+                    date_retour_prevue=self.today)
+        base.update(kw)
+        return Voyage.objects.create(**base)
+
+    def test_depart_libere_chambre(self):
+        from .automatisation import appliquer_voyages_du_jour
+        from residences.models import ResidentPrincipal, Batiment
+        ResidentPrincipal.objects.create(personnel=self.p, batiment=self.b, date_debut=self.today)
+        v = self._voyage(origine="Camp Roxgold Sango", destination="Abidjan", date_depart=self.today,
+                         date_retour_prevue=self.today + datetime.timedelta(days=14))
+        r = appliquer_voyages_du_jour()
+        self.assertEqual(r["departs"], 1)
+        self.assertEqual(Batiment.objects.get(pk=self.b.pk).statut, "Libre")
+        v.refresh_from_db()
+        self.assertEqual(v.statut, "en_voyage")
+        # idempotent
+        self.assertEqual(appliquer_voyages_du_jour()["departs"], 0)
+
+    def test_arrivee_reloge_avec_dates(self):
+        from .automatisation import appliquer_voyages_du_jour
+        from residences.models import ResidentPrincipal, Batiment
+        ResidentPrincipal.objects.create(personnel=self.p, batiment=self.b, date_debut=self.today)
+        self.b.statut = "Libre"; self.b.personnel = None; self.b.occupant = None; self.b.save()
+        depart = self.today + datetime.timedelta(days=20)
+        v = self._voyage(origine="Abidjan", destination="Camp Roxgold Sango", trajet_aller_seul=False,
+                         date_depart=self.today, date_retour_prevue=depart)
+        r = appliquer_voyages_du_jour()
+        self.assertEqual(r["arrivees"], 1)
+        b = Batiment.objects.get(pk=self.b.pk)
+        self.assertEqual(b.statut, "Occupé")
+        self.assertEqual(b.personnel_id, self.p.id)
+        self.assertEqual(b.date_arrivee, self.today)
+        self.assertEqual(b.date_depart, depart)
+        v.refresh_from_db()
+        self.assertEqual(v.statut, "retour")
+
+    def test_trajet_futur_ou_non_valide_ignore(self):
+        from .automatisation import appliquer_voyages_du_jour
+        self._voyage(origine="Camp Roxgold Sango", destination="Abidjan",
+                     date_depart=self.today + datetime.timedelta(days=1))
+        self._voyage(origine="Camp Roxgold Sango", destination="Abidjan", date_depart=self.today,
+                     statut_validation="en_attente")
+        r = appliquer_voyages_du_jour()
+        self.assertEqual(r["departs"], 0)

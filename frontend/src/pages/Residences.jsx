@@ -141,9 +141,9 @@ export default function Residences() {
         if (massModal === 'deplacer') {
           d.bloc_cible = (massForm.nouveau||'').trim()
           if (!d.bloc_cible) { toast.error('Saisissez le bloc de destination'); return }
-        } else d.statut = massForm.statut
+        } else { d.statut = massForm.statut; if (massForm.liberer) d.liberer_occupants = true }
         const r = await batiments.actionMasse(d)
-        toast.success(`${r.data.modifies} chambre(s) modifiée(s)${r.data.ignores ? ` · ${r.data.ignores} ignorée(s) (occupées)` : ''}`)
+        toast.success(`${r.data.modifies} chambre(s) modifiée(s)${r.data.liberes ? ` · ${r.data.liberes} occupant(s) libéré(s)` : ''}${r.data.ignores ? ` · ${r.data.ignores} ignorée(s) (occupées)` : ''}`)
         setSelection(new Set())
       }
       setMassModal(null)
@@ -580,7 +580,7 @@ export default function Residences() {
             </h3>
             <p style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
               {massModal==='rename' ? 'Toutes les chambres du bloc sont mises à jour et la carte SIG affiche le nouveau nom. Si le nom existe déjà, les deux blocs sont fusionnés.'
-                : `${selection.size} chambre(s) sélectionnée(s)${massModal==='statut' ? ' — les chambres occupées sont ignorées.' : '.'}`}
+                : `${selection.size} chambre(s) sélectionnée(s)${massModal==='statut' ? (massForm.liberer ? ' — les occupants seront libérés.' : ' — les chambres occupées sont ignorées sauf si vous cochez la case ci-dessous.') : '.'}`}
             </p>
             {massModal==='rename' && (<>
               <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Bloc actuel</label>
@@ -601,6 +601,12 @@ export default function Residences() {
                 style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'0 0 12px', background:'#fff', color:'#0f172a' }}>
                 <option value="Libre">🟢 Libre</option><option value="Réservé">🔵 Réservé</option><option value="Maintenance">🟠 Maintenance</option>
               </select>
+            )}
+            {massModal==='statut' && (
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#475569', margin:'0 0 12px' }}>
+                <input type="checkbox" checked={!!massForm.liberer} onChange={e=>setMassForm(f=>({...f, liberer:e.target.checked}))}/>
+                Inclure aussi les chambres occupées (libère leurs occupants, historique clôturé)
+              </label>
             )}
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={()=>setMassModal(null)} disabled={massBusy} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>

@@ -76,10 +76,11 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
   const [tracé, setTracé] = useState(null) // null tant que non résolu ou indisponible -> ligne droite
   const [chargement, setChargement] = useState(false)
   const [tracéPassager, setTracéPassager] = useState(null)
+  const [segmentsConvoi, setSegmentsConvoi] = useState(null) // tracé routier de chaque tronçon du convoi
 
   useEffect(() => {
     let annule = false
-    setTracé(null)
+    setTracé(null); setSegmentsConvoi(null)
     if (pointsUniques.length < 2) return
     setChargement(true)
     ;(async () => {
@@ -89,23 +90,36 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
         if (annule) return
         segments.push(seg || [pointsUniques[i].coords, pointsUniques[i+1].coords])
       }
-      if (!annule) { setTracé(segments.flat()); setChargement(false) }
+      if (!annule) { setSegmentsConvoi(segments); setTracé(segments.flat()); setChargement(false) }
     })()
     return () => { annule = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleTrajet])
 
+  // Le tracé du passager suit les MÊMES étapes que le convoi entre sa montée et sa
+  // descente (ex: Abidjan → Yamoussoukro → Bouaké → Séguéla). Avant, on demandait
+  // un itinéraire routier direct montée→descente : le calculateur choisissait un
+  // autre axe (via Daloa) que celui réellement emprunté par le convoi.
+  const memePoint = (a, b) => a && b && Math.abs(a[0]-b[0]) < 0.01 && Math.abs(a[1]-b[1]) < 0.01
+  const iMontee = coordsOrigine ? pointsUniques.findIndex(p => memePoint(p.coords, coordsOrigine)) : -1
+  const iDescente = coordsDestination ? pointsUniques.findIndex((p, i) => i > iMontee && memePoint(p.coords, coordsDestination)) : -1
+  const suitLeConvoi = aUnSegmentPassagerDistinct && iMontee >= 0 && iDescente > iMontee
+
   useEffect(() => {
     let annule = false
     setTracéPassager(null)
-    if (!aUnSegmentPassagerDistinct) return
+    if (!aUnSegmentPassagerDistinct || suitLeConvoi) return
     ;(async () => {
       const seg = await routeRoutiere(coordsOrigine, coordsDestination)
       if (!annule) setTracéPassager(seg || [coordsOrigine, coordsDestination])
     })()
     return () => { annule = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aUnSegmentPassagerDistinct, origine, destination])
+  }, [aUnSegmentPassagerDistinct, suitLeConvoi, origine, destination])
+
+  const positionsPassager = suitLeConvoi
+    ? (segmentsConvoi ? segmentsConvoi.slice(iMontee, iDescente).flat() : pointsUniques.slice(iMontee, iDescente + 1).map(p => p.coords))
+    : (tracéPassager || [coordsOrigine, coordsDestination])
 
   if (pointsUniques.length < 2) {
     return (
@@ -136,7 +150,7 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
           ? {color:'#94a3b8', weight:3, dashArray:'6 6'}                          // convoi complet, en fond
           : (tracé ? {color:'#C9972B', weight:4} : {color:'#C9972B', weight:3, dashArray:'6 6'})}/>
       {aUnSegmentPassagerDistinct && (
-        <Polyline positions={tracéPassager || [coordsOrigine, coordsDestination]}
+        <Polyline positions={positionsPassager}
           pathOptions={{color:'#1d4ed8', weight:5}}>
           <Popup>Trajet de ce passager (montée → descente)</Popup>
         </Polyline>

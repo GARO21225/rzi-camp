@@ -1064,6 +1064,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
     serializer_class = BatimentSerializer
     filter_backends = []  # disable DRF filters, we do it manually
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        from voyages.automatisation import appliquer_si_necessaire
+        appliquer_si_necessaire()
+
     def _build_qs(self, request=None):
         """Build filtered QuerySet — always returns a real QuerySet"""
         qs = Batiment.objects.select_related("personnel__user__profile").all()
@@ -1395,12 +1400,25 @@ class BatimentViewSet(viewsets.ModelViewSet):
             statut = request.data.get("statut")
             if statut not in ("Libre", "Réservé", "Maintenance"):
                 return Response({"error": "Statut autorisé : Libre, Réservé ou Maintenance."}, status=400)
-            ok = [b for b in objs if b.statut != "Occupé" and not b.personnel_id]
+            forcer = request.data.get("liberer_occupants") in (True, "true", 1, "1")
+            ok = [b for b in objs if forcer or (b.statut != "Occupé" and not b.personnel_id)]
+            liberes = 0
+            if forcer:
+                import datetime as _dt
+                from .models import OccupationHistory
+                occupes = [b for b in ok if b.personnel_id or b.statut == "Occupé"]
+                for b in occupes:
+                    # Clôt l'occupation en cours dans l'historique avant de vider la chambre
+                    OccupationHistory.objects.filter(batiment=b, date_depart__isnull=True).update(
+                        date_depart=_dt.date.today(), motif_depart=f"Statut changé en {statut} (action en masse)")
+                    b.personnel = None; b.occupant = None; b.societe = None
+                    b.date_arrivee = None; b.date_depart = None
+                    liberes += 1
             for b in ok:
                 b.statut = statut
             if ok:
-                bulk_update_with_history(ok, Batiment, ["statut"], batch_size=500)
-            return Response({"modifies": len(ok), "ignores": len(objs) - len(ok)})
+                bulk_update_with_history(ok, Batiment, ["statut", "personnel", "occupant", "societe", "date_arrivee", "date_depart"], batch_size=500)
+            return Response({"modifies": len(ok), "ignores": len(objs) - len(ok), "liberes": liberes})
 
         if action_name == "supprimer":
             if not request.user.is_superuser:

@@ -651,7 +651,9 @@ export default function Restauration() {
   const [menuSelMode, setMenuSelMode] = useState(false)
   const [menuSel, setMenuSel] = useState(new Set())
   const [menuBulkModal, setMenuBulkModal] = useState(false)
-  const [menuBulkForm, setMenuBulkForm] = useState({ type_plat:'', repas:'', disponible:'' })
+  const [menuBulkForm, setMenuBulkForm] = useState({ type_plat:'', repas:'', disponible:'', date_service:'' })
+  const [dragPlat, setDragPlat] = useState(null)
+  const [dropRepas, setDropRepas] = useState(null)
   const toggleMenuSel = (id) => setMenuSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const quitMenuSel = () => { setMenuSelMode(false); setMenuSel(new Set()) }
   const reloadMenu = async () => { try { const r = await menuAPI.list({date_service:menuDate, page_size:500}); setMenuItems(r.data.results||r.data||[]) } catch {} }
@@ -661,12 +663,24 @@ export default function Restauration() {
     try { const r = await menuAPI.bulk({ ids, action:'supprimer' }); toast.success(`${r.data.modifies} plat(s) supprimé(s)`); setMenuSel(new Set()); reloadMenu() }
     catch (e) { toast.error(e?.response?.data?.error || 'Erreur suppression') }
   }
+  // Glisser-déposer : déplace le plat (ou toute la sélection) vers un autre repas
+  const deplacerPlats = async (repasCible) => {
+    const ids = dragPlat ? (menuSel.has(dragPlat) ? [...menuSel] : [dragPlat]) : []
+    setDragPlat(null); setDropRepas(null)
+    if (!ids.length) return
+    const deja = menuItems.filter(m => ids.includes(m.id) && m.repas === repasCible).length
+    if (deja === ids.length) return
+    setMenuItems(prev => prev.map(m => ids.includes(m.id) ? { ...m, repas: repasCible } : m))
+    try { await menuAPI.bulk({ ids, action:'modifier', repas: repasCible }); toast.success(`${ids.length} plat(s) déplacé(s)`); setMenuSel(new Set()) }
+    catch (e) { toast.error(e?.response?.data?.error || 'Erreur déplacement'); reloadMenu() }
+  }
   const menuBulkApply = async () => {
     const ids = [...menuSel]; if (!ids.length) return
     const d = { ids, action:'modifier' }
     if (menuBulkForm.type_plat) d.type_plat = menuBulkForm.type_plat
     if (menuBulkForm.repas) d.repas = menuBulkForm.repas
     if (menuBulkForm.disponible !== '') d.disponible = menuBulkForm.disponible === 'true'
+    if (menuBulkForm.date_service) d.date_service = menuBulkForm.date_service
     try { const r = await menuAPI.bulk(d); toast.success(`${r.data.modifies} plat(s) modifié(s)`); setMenuBulkModal(false); setMenuSel(new Set()); reloadMenu() }
     catch (e) { toast.error(e?.response?.data?.error || 'Erreur modification') }
   }
@@ -802,7 +816,7 @@ export default function Restauration() {
               style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 7px',
                 fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
                 colorScheme:'dark' }}/>
-            {isAdmin && (
+            {isResto && (
               <>
                 <input type="file" accept=".docx" ref={importMenuInputRef} style={{ display:'none' }}
                   onChange={async e=>{
@@ -835,15 +849,15 @@ export default function Restauration() {
             )}
           </div>
           )}
-          {!isMobile && isAdmin && menuSelMode && (
+          {!isMobile && isResto && menuSelMode && (
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'rgba(15,23,42,.85)', color:'#fff', borderRadius:8, padding:'6px 10px', marginBottom:8, fontSize:11.5 }}>
               <b>{menuSel.size} sélectionné(s)</b>
               <button onClick={()=>setMenuSel(menuSel.size===menuItems.length ? new Set() : new Set(menuItems.map(m=>m.id)))}
                 style={{ background:'rgba(255,255,255,.15)', color:'#fff', border:'none', borderRadius:5, padding:'3px 9px', cursor:'pointer', fontSize:11 }}>
                 {menuSel.size===menuItems.length && menuItems.length>0 ? 'Tout désélectionner' : `Tout sélectionner (${menuItems.length})`}</button>
               <span style={{ flex:1 }}/>
-              <button disabled={!menuSel.size} onClick={()=>{ setMenuBulkForm({type_plat:'',repas:'',disponible:''}); setMenuBulkModal(true) }}
-                style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:5, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:700, opacity:menuSel.size?1:.5 }}>✏️ Modifier</button>
+              <button disabled={!menuSel.size} onClick={()=>{ setMenuBulkForm({type_plat:'',repas:'',disponible:'',date_service:''}); setMenuBulkModal(true) }}
+                style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:5, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:700, opacity:menuSel.size?1:.5 }}>✏️ Modifier / déplacer</button>
               <button disabled={!menuSel.size} onClick={menuBulkDelete}
                 style={{ background:'#dc2626', color:'#fff', border:'none', borderRadius:5, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:700, opacity:menuSel.size?1:.5 }}>🗑️ Supprimer</button>
             </div>
@@ -858,7 +872,11 @@ export default function Restauration() {
               const TYPE_ORDER_LOCAL = ['entree','plat','dessert','boisson','special']
               const TYPE_LABELS_LOCAL = { entree:'Entrée', plat:'Plat', dessert:'Dessert', boisson:'Boisson', special:'Spécial' }
               return (
-                <div key={t.key} style={{ background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 12, overflow:'hidden' }}>
+                <div key={t.key}
+                  onDragOver={isResto && !isMobile ? (e)=>{ if(dragPlat){ e.preventDefault(); setDropRepas(t.menuKey) } } : undefined}
+                  onDragLeave={isResto && !isMobile ? ()=>setDropRepas(r=>r===t.menuKey?null:r) : undefined}
+                  onDrop={isResto && !isMobile ? (e)=>{ e.preventDefault(); deplacerPlats(t.menuKey) } : undefined}
+                  style={{ background: t.bg, border: dropRepas===t.menuKey ? `2px dashed ${t.color}` : `1.5px solid ${t.border}`, borderRadius: 12, overflow:'hidden', transition:'border .1s' }}>
                   {/* Compteur */}
                   <div style={{ padding: '10px 14px', textAlign: 'center', borderBottom: platsRepas.length>0 ? `1px solid ${t.border}` : 'none' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{t.icon}</div>
@@ -880,9 +898,14 @@ export default function Restauration() {
                               {TYPE_LABELS_LOCAL[type]}
                             </div>
                             {items.map(m => (
-                              <div key={m.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                                background:'rgba(255,255,255,0.6)', borderRadius:5, padding:'3px 6px', marginBottom:2 }}>
-                                {isAdmin && menuSelMode && <input type="checkbox" checked={menuSel.has(m.id)} onChange={()=>toggleMenuSel(m.id)} style={{ marginRight:5, flexShrink:0 }}/>}
+                              <div key={m.id} draggable={isResto}
+                                onDragStart={isResto ? (e)=>{ setDragPlat(m.id); e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain', String(m.id))}catch{} } : undefined}
+                                onDragEnd={()=>{ setDragPlat(null); setDropRepas(null) }}
+                                title={isResto ? 'Glisser vers un autre repas pour le déplacer' : undefined}
+                                style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                                background:'rgba(255,255,255,0.6)', borderRadius:5, padding:'3px 6px', marginBottom:2,
+                                cursor: isResto ? 'grab' : 'default', opacity: dragPlat===m.id ? .4 : 1 }}>
+                                {isResto && menuSelMode && <input type="checkbox" checked={menuSel.has(m.id)} onChange={()=>toggleMenuSel(m.id)} style={{ marginRight:5, flexShrink:0 }}/>}
                                 {m.photo_base64 && (
                                   <img src={`data:image/jpeg;base64,${String(m.photo_base64).replace(/^data:[^;]+;base64,/,'')}`}
                                     alt="" style={{ width:16, height:16, objectFit:'cover', borderRadius:3, marginRight:4, flexShrink:0 }}/>
@@ -950,6 +973,10 @@ export default function Restauration() {
                   </select>
                 </label>
               ))}
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#475569', marginBottom:10 }}>Déplacer vers le jour
+                <input type="date" value={menuBulkForm.date_service} onChange={e=>setMenuBulkForm(f=>({...f,date_service:e.target.value}))}
+                  style={{ width:'100%', padding:'8px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, marginTop:4, background:'#fff', color:'#0f172a', boxSizing:'border-box' }}/>
+              </label>
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
                 <button onClick={()=>setMenuBulkModal(false)} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
                 <button onClick={menuBulkApply} style={{ background:'#2563eb', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>Appliquer</button>

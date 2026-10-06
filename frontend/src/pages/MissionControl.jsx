@@ -1991,7 +1991,7 @@ export default function MissionControl() {
                                       )}
                                     </div>
                                     <div>
-                                      <label style={{fontSize:10,color:C.muted}}>Il revient quand ? <span title="Sert à garder sa chambre jusqu'à cette date — indépendant de la date du convoi">ℹ️</span></label>
+                                      <label style={{fontSize:10,color:C.muted}}>{/camp/i.test(r.destination||'') && !/camp/i.test(r.origine||'') ? 'Retourne quand ? (départ du camp)' : 'Il revient quand ?'} <span title="Camp → ville : date de retour (la chambre est libérée au départ du convoi). Ville → Camp : il est logé automatiquement à la date du convoi, et repart à cette date.">ℹ️</span></label>
                                       <input type="date" value={formJoin.date_retour_prevue} min={r.date_depart||undefined} onChange={e=>setFormJoin(f=>({...f,date_retour_prevue:e.target.value}))}
                                         style={{...inputStyle,fontSize:12}}/>
                                     </div>
@@ -3070,44 +3070,6 @@ export default function MissionControl() {
               </div>
 
               {isAdmin && (<>
-              {/* Montée / Descente en cours de route — edition DIRECTE et
-                  simple des points de prise en charge, sans passer par le
-                  systeme d'etapes complet (reserve aux vrais trajets
-                  multi-tronçons). Uniquement l'aller : les voyages sont
-                  desormais toujours le meme jour, pas de retour distinct. */}
-              <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.accent,marginBottom:4}}>📍 Montée / Descente en cours de route</div>
-                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-                  Si ce passager ne fait pas exactement le même trajet que le reste du convoi — pris en route ou déposé avant l'arrivée.
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de montée</label>
-                    <input defaultValue={detailVoyage.origine||''} id="mc-lieu-montee-aller"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:3}}>Lieu de descente</label>
-                    <input defaultValue={detailVoyage.destination||''} id="mc-lieu-descente-aller"
-                      style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:'6px 8px',fontSize:12,color:C.text,boxSizing:'border-box'}}/>
-                  </div>
-                </div>
-                <button className="mc-btn" style={{fontSize:11,padding:'6px 14px',background:C.accent,color:'#000',fontWeight:700}}
-                  onClick={async()=>{
-                    const payload = {
-                      origine: document.getElementById('mc-lieu-montee-aller').value,
-                      destination: document.getElementById('mc-lieu-descente-aller').value,
-                    }
-                    try {
-                      const res = await api(`/api/voyages/${detailVoyage.id}/`, {method:'PATCH', body:JSON.stringify(payload)})
-                      if (res.ok) { toast.success('Montée/descente enregistrées'); const updated = await res.json(); setDetailVoyage(updated); load() }
-                      else { const d = await res.json(); toast.error(d.error||d.detail||'Erreur') }
-                    } catch { toast.error('Erreur réseau') }
-                  }}>
-                  💾 Enregistrer
-                </button>
-              </div>
-
               {/* Correspondance vol — flag simple et visible pour qu'un
                   passager ne rate pas son avion apres ce trajet routier.
                   Techniquement : cree/met a jour une EtapeVoyage
@@ -3193,37 +3155,6 @@ export default function MissionControl() {
               </div>
                 )
               })()}
-
-              {/* Evenements REELS de montee/descente - distinct de la
-                  planification ci-dessus. Point metier du document de
-                  refonte : AFFECTE (voyage cree) ≠ MONTE (evenement reel
-                  survenu). */}
-              <div style={{marginBottom:16,background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#16a34a',marginBottom:4}}>🟢 Montée / descente réelles</div>
-                <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-                  Affecté à cette rotation ne veut pas dire monté — enregistrez l'événement réel au moment où il survient.
-                </div>
-                <div style={{display:'flex',gap:8,marginBottom:10}}>
-                  <button className="mc-btn" style={{flex:1,fontSize:11,padding:'8px',background:'#16a34a',color:'#fff',fontWeight:700}}
-                    onClick={async()=>{
-                      const lieu = prompt('Lieu de montée ?', detailVoyage.origine || '')
-                      if (lieu===null) return
-                      const res = await api(`/api/voyages/${detailVoyage.id}/enregistrer_montee/`, {method:'POST', body:JSON.stringify({lieu})})
-                      if (res.ok) { toast.success('Montée enregistrée'); load() } else toast.error('Erreur')
-                    }}>
-                    🟢 Enregistrer montée
-                  </button>
-                  <button className="mc-btn" style={{flex:1,fontSize:11,padding:'8px',background:'#dc2626',color:'#fff',fontWeight:700}}
-                    onClick={async()=>{
-                      const lieu = prompt('Lieu de descente ?', detailVoyage.destination || '')
-                      if (lieu===null) return
-                      const res = await api(`/api/voyages/${detailVoyage.id}/enregistrer_descente/`, {method:'POST', body:JSON.stringify({lieu})})
-                      if (res.ok) { toast.success('Descente enregistrée'); load() } else toast.error('Erreur')
-                    }}>
-                    🔴 Enregistrer descente
-                  </button>
-                </div>
-              </div>
 
               {/* Grille d'infos complètes */}
               {(() => {
