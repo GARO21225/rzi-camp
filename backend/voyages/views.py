@@ -655,7 +655,11 @@ class VoyageViewSet(viewsets.ModelViewSet):
         qs = (Voyage.objects
             .filter(statut="retour", date_retour_effective__isnull=False,
                     date_retour_effective__gte=depuis,
-                    date_retour_effective__lt=F("date_retour_prevue"))
+                    date_retour_effective__lt=F("date_retour_prevue"),
+                    trajet_aller_seul=False)
+            # Un trajet VERS le camp n'est pas un « retour anticipé » : sa
+            # date_retour_prevue est la date de départ de l'hébergement.
+            .exclude(destination__icontains="camp")
             .select_related("personnel")
             .order_by("-date_retour_effective"))
         # Données nominatives d'autres personnes : réservées aux admins.

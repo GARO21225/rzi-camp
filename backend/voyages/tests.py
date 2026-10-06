@@ -356,3 +356,29 @@ class LiaisonConvoiResidenceTests(TestCase):
                      statut_validation="en_attente")
         r = appliquer_voyages_du_jour()
         self.assertEqual(r["departs"], 0)
+
+
+class CasEdgarTests(TestCase):
+    """Chambre non rattachée au voyage : libérée puis restituée ; X->Camp terminé n'est pas un retour anticipé."""
+
+    def test_cycle_sans_residence_principale(self):
+        from residences.models import Batiment
+        today = datetime.date.today()
+        p = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD")
+        b, _ = Batiment.objects.get_or_create(residence="TEST-EDGAR")
+        b.statut = "Occupé"; b.personnel = p; b.occupant = "KOUAME Edgar"; b.save()
+        aller = Voyage.objects.create(personnel=p, origine="Camp Roxgold Sango", destination="Abidjan", trajet_aller_seul=True,
+                                      date_depart=today - datetime.timedelta(days=5), date_retour_prevue=today,
+                                      statut="planifie", statut_validation="valide")
+        aller.partir(aller.date_depart)
+        b.refresh_from_db(); self.assertEqual(b.statut, "Libre")
+        retour = Voyage.objects.create(personnel=p, origine="Abidjan", destination="CAMP", trajet_aller_seul=False,
+                                       date_depart=today, date_retour_prevue=today + datetime.timedelta(days=14),
+                                       statut="en_voyage", statut_validation="valide")
+        from .automatisation import appliquer_voyages_du_jour
+        self.assertEqual(appliquer_voyages_du_jour()["arrivees"], 1)
+        b.refresh_from_db()
+        self.assertEqual((b.statut, b.personnel_id, b.date_depart), ("Occupé", p.id, today + datetime.timedelta(days=14)))
+        admin = User.objects.create_user("adm", password="x", is_staff=True)
+        c = APIClient(); c.force_authenticate(admin)
+        self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])

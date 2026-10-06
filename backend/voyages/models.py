@@ -195,6 +195,11 @@ class Voyage(models.Model):
         if self.personnel_id:
             rp = ResidentPrincipal.objects.filter(personnel_id=self.personnel_id, date_fin__isnull=True).select_related("batiment").first()
         b = rp.batiment if rp else self.batiment
+        if b is None and self.personnel_id:
+            # Ni residence principale ni chambre sur le voyage : on prend la chambre
+            # que la personne occupe reellement (cas courant : logee via Residences).
+            from residences.models import Batiment
+            b = Batiment.objects.filter(personnel_id=self.personnel_id).first()
 
         # Ne libere que si la chambre est bien occupee par CETTE personne -
         # jamais l'occupation (potentiellement temporaire) de quelqu'un
@@ -209,6 +214,9 @@ class Voyage(models.Model):
             b.date_arrivee = None
             b.date_depart = None
             b.save()
+            # Memorise la chambre liberee pour la restituer au retour
+            if not self.batiment_id:
+                self.batiment = b
         self.statut = "en_voyage"
         self.save()
 
@@ -249,6 +257,17 @@ class Voyage(models.Model):
         if self.personnel_id:
             rp = ResidentPrincipal.objects.filter(personnel_id=self.personnel_id, date_fin__isnull=True).select_related("batiment").first()
         b = rp.batiment if rp else self.batiment
+        if b is None and self.personnel_id:
+            # Voyage cree sans chambre (ex: trajet retour planifie) : derniere chambre
+            # liberee par un voyage de cette personne.
+            dernier = (OccupationHistory.objects.filter(personnel_id=self.personnel_id, motif_depart="Voyage",
+                                                        batiment__isnull=False)
+                       .order_by("-date_depart", "-id").first())
+            b = dernier.batiment if dernier else None
+            if b is None:
+                autre = (Voyage.objects.filter(personnel_id=self.personnel_id, batiment__isnull=False)
+                         .exclude(pk=self.pk).order_by("-date_depart", "-id").first())
+                b = autre.batiment if autre else None
 
         if b:
             resultat["residence"] = b.residence

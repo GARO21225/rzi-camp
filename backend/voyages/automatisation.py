@@ -26,8 +26,10 @@ CLE_THROTTLE = "voyages:appliquer_du_jour"
 def appliquer_voyages_du_jour(today=None):
     today = today or datetime.date.today()
     debut = today - datetime.timedelta(days=FENETRE_RATTRAPAGE_JOURS)
+    # Camp -> X : encore « planifie » ; X -> Camp : « planifie » ou « en_voyage »
+    # (convoi parti mais arrivée non saisie) -> logé à la date du voyage.
     qs = (Voyage.objects.select_related("personnel")
-          .filter(statut="planifie", statut_validation="valide",
+          .filter(statut__in=("planifie", "en_voyage"), statut_validation="valide",
                   date_depart__gte=debut, date_depart__lte=today)
           .exclude(personnel__isnull=True)
           .order_by("date_depart", "id"))
@@ -35,6 +37,8 @@ def appliquer_voyages_du_jour(today=None):
     for v in qs:
         try:
             if est_camp(v.origine) and not est_camp(v.destination):
+                if v.statut != "planifie":
+                    continue
                 v.partir(v.date_depart)
                 resultat["departs"] += 1
                 v._notifier_retour(v.personnel, f"🧳 Départ du camp enregistré ({v.date_depart:%d/%m/%Y}) — votre chambre est libérée"
