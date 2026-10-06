@@ -411,7 +411,7 @@ export default function Voyages() {
       </div>
 
       {/* ── Retours anticipés — signalés pour information (places potentiellement liberees plus tot) ── */}
-      {retoursAnticipes.length > 0 && (
+      {isAdmin && retoursAnticipes.length > 0 && (
         <div style={{marginBottom:14,background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,padding:'10px 14px'}}>
           <div style={{fontSize:12,fontWeight:700,color:'#166534',marginBottom:4}}>
             ⚡ {retoursAnticipes.length} personne(s) rentrée(s) plus tôt que prévu récemment

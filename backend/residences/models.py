@@ -204,6 +204,10 @@ class Batiment(models.Model):
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     geojson_geometry = models.JSONField(blank=True, null=True)
+    # Niveau pour les residences a etages : 0 = rez-de-chaussee, 1 = 1er etage...
+    # Les etages d'un meme batiment partagent la meme emprise sur la carte ;
+    # la carte SIG filtre par etage pour les afficher separement.
+    etage = models.IntegerField(default=0)
     history = HistoricalRecords()
 
     class Meta:

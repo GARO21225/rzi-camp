@@ -652,6 +652,13 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     date_retour_effective__lt=F("date_retour_prevue"))
             .select_related("personnel")
             .order_by("-date_retour_effective"))
+        # Données nominatives d'autres personnes : réservées aux admins.
+        # Un utilisateur simple ne voit que ses propres retours anticipés.
+        u = request.user
+        role = getattr(getattr(u, "profile", None), "role", "")
+        if not (u.is_staff or u.is_superuser or role == "admin"):
+            pers = getattr(u, "personnel", None)
+            qs = qs.filter(personnel=pers) if pers else qs.none()
         data = [{
             "id": v.id,
             "personnel_nom": f"{v.personnel.nom} {v.personnel.prenom}" if v.personnel else "—",

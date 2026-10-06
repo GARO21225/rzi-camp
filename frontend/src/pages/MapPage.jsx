@@ -209,6 +209,7 @@ export default function MapPage() {
   const [stats,setStats]=useState(null)
   const [dbBats,setDbBats]=useState([])   // bâtiments depuis la DB
   const [filterStatut,setFilterStatut]=useState('')
+  const [filterEtage,setFilterEtage]=useState('')   // '' = tous les étages
   const [showImport,  setShowImport]  = useState(false)
   const [editBat,     setEditBat]     = useState(null)
   const [importLayer, setImportLayer] = useState('residence')
@@ -309,6 +310,14 @@ export default function MapPage() {
   }
 
   const tile=TILES.find(t=>t.id===tileId)||TILES[0]
+
+  // Résidences à étages : même emprise au sol pour chaque niveau -> on filtre
+  // par étage pour les afficher séparément (0 = rez-de-chaussée).
+  const etagesDispo=[...new Set((geojson?.features||[]).map(f=>f.properties?.etage??0))].sort((a,b)=>a-b)
+  const libEtage=e=>e===0?'RDC':`Étage ${e}`
+  const geojsonVue=geojson&&filterEtage!==''
+    ?{...geojson,features:geojson.features.filter(f=>(f.properties?.etage??0)===Number(filterEtage))}
+    :geojson
 
   const load=useCallback(()=>{
     const p={}
@@ -441,6 +450,13 @@ export default function MapPage() {
           <option value="">Tous statuts</option>
           {['Libre','Occupé','Réservé','Maintenance'].map(s=><option key={s}>{s}</option>)}
         </select>
+        {etagesDispo.length>1&&(
+          <select value={filterEtage} onChange={e=>setFilterEtage(e.target.value)} title="Étage"
+            style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'4px 8px',borderRadius:6,fontSize:11,outline:'none'}}>
+            <option value="">Tous étages</option>
+            {etagesDispo.map(e=><option key={e} value={e}>{libEtage(e)}</option>)}
+          </select>
+        )}
         <input value={filterRes} onChange={e=>setFilterRes(e.target.value)} placeholder="🔍 Résidence..."
           style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'4px 8px',borderRadius:6,fontSize:11,outline:'none',width:110}}/>
         <button onClick={()=>{setFilterStatut('');setFilterRes('')}}
@@ -581,6 +597,11 @@ export default function MapPage() {
                 fontFamily:'inherit',background:'transparent'}}/>
           </div>
           <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
+            {etagesDispo.length>1&&etagesDispo.map(e=>(
+              <button key={'e'+e} onClick={()=>setFilterEtage(filterEtage===String(e)?'':String(e))} aria-pressed={filterEtage===String(e)}
+                style={{border:'1px solid rgba(15,26,46,.14)',background:filterEtage===String(e)?'#7c3aed':'#fff',color:filterEtage===String(e)?'#fff':'#2D3B52',
+                  borderRadius:99,padding:'7px 14px',fontSize:12.5,fontWeight:600,whiteSpace:'nowrap',flexShrink:0,cursor:'pointer'}}>🏢 {libEtage(e)}</button>
+            ))}
             {[['','Tous'],['Libre','🟢 Libre'],['Occupé','🔴 Occupé'],['Réservé','🔵 Réservé'],['Maintenance','🟡 Maintenance']].map(([v,l])=>(
               <button key={v||'tous'} onClick={()=>setFilterStatut(v)} aria-pressed={filterStatut===v}
                 style={{border:'1px solid rgba(15,26,46,.14)',
@@ -634,8 +655,8 @@ export default function MapPage() {
           <TileLayer key={tileId} url={tile.url} attribution="" className={tile.filtreCSS ? 'rzc-tile-sombre' : ''}/>
           {geojson&&couchesActives.residences&&(
             <>
-              <FitBounds geojson={geojson}/>
-              <GeoJSON key={geoKey} data={geojson}
+              <FitBounds geojson={geojsonVue}/>
+              <GeoJSON key={`${geoKey}-${filterEtage}`} data={geojsonVue}
                 style={f=>({color:sColor(f.properties.statut),weight:1.5,fillColor:sColor(f.properties.statut),fillOpacity:.45})}
                 onEachFeature={(f,layer)=>{
                   const p=f.properties
@@ -643,7 +664,7 @@ export default function MapPage() {
                     <div style="font-family:sans-serif;min-width:200px">
                       <div style="font-weight:700;color:#1e3a8a;font-size:14px;margin-bottom:8px">🏠 Résidence ${p.residence}</div>
                       <div style="font-size:12px;line-height:1.9">
-                        <span style="color:#64748b">Bloc :</span> <b>${p.bloc}</b><br/>
+                        <span style="color:#64748b">Bloc :</span> <b>${p.bloc}</b>${p.etage?` · <b>Étage ${p.etage}</b>`:''}<br/>
                         <span style="color:#64748b">Statut :</span> <b style="color:${sColor(p.statut)}">${p.statut}</b><br/>
                         ${p.occupant?`<span style="color:#64748b">Occupant :</span> <b>${p.occupant}</b><br/>`:''}
                       </div>

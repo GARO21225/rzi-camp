@@ -547,3 +547,76 @@ class InductionDroitsTests(TestCase):
         self.assertEqual(self.maj(self.med, "medical"), 200)
         self.assertEqual(self.maj(self.med, "quiz"), 403)
         self.assertEqual(self.maj(self.hse, "badge"), 200)
+
+
+class ChambresAdminTests(TestCase):
+    """Historique, KML, étages, actions en masse (admin)."""
+
+    KML = (b'<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>kml</name>'
+           b'<Placemark><name>kml_1</name><LineString><coordinates>'
+           b'-6.822,8.1114,0 -6.8219,8.1115,0 -6.8218,8.1114,0 -6.822,8.1114,0</coordinates></LineString></Placemark>'
+           b'</Document></kml>')
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.su = User.objects.create_superuser("root", "r@r.fr", "x")
+        self.c = APIClient()
+        self.c.force_authenticate(self.su)
+
+    def test_supprimer_historique_courant_libere_la_chambre(self):
+        import datetime
+        from .models import OccupationHistory
+        p = Personnel.objects.create(nom="K", prenom="Edgar")
+        b = Batiment.objects.create(residence="B1", bloc="Bloc_B", statut="Occupé", personnel=p,
+                                    occupant="K Edgar", date_arrivee=datetime.date(2026, 10, 5))
+        h = OccupationHistory.objects.create(batiment=b, personnel=p, occupant_nom="K Edgar",
+                                             date_arrivee=datetime.date(2026, 10, 5))
+        r = self.c.delete(f"/api/occupation-history-admin/{h.id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.data["chambre_liberee"])
+        b.refresh_from_db()
+        self.assertEqual((b.statut, b.personnel_id, b.date_arrivee), ("Libre", None, None))
+
+    def test_supprimer_ligne_en_cours_synthetique_libere_la_chambre(self):
+        import datetime
+        p = Personnel.objects.create(nom="K", prenom="Edgar")
+        b = Batiment.objects.create(residence="B2", bloc="Bloc_B", statut="Occupé", personnel=p,
+                                    occupant="K Edgar", date_arrivee=datetime.date(2026, 10, 5))
+        r = self.c.delete(f"/api/occupation-history-admin/bat-{b.id}/")
+        self.assertEqual(r.status_code, 200)
+        b.refresh_from_db()
+        self.assertEqual((b.statut, b.personnel_id), ("Libre", None))
+
+    def test_supprimer_historique_ancien_ne_touche_pas_la_chambre(self):
+        import datetime
+        from .models import OccupationHistory
+        p = Personnel.objects.create(nom="K", prenom="Edgar")
+        b = Batiment.objects.create(residence="B1", bloc="Bloc_B", statut="Occupé", personnel=p, occupant="K Edgar")
+        h = OccupationHistory.objects.create(batiment=b, personnel=p, occupant_nom="K Edgar",
+                                             date_arrivee=datetime.date(2026, 1, 1), date_depart=datetime.date(2026, 2, 1))
+        self.c.delete(f"/api/occupation-history-admin/{h.id}/")
+        b.refresh_from_db()
+        self.assertEqual(b.statut, "Occupé")
+
+    def test_kml_nom_generique_refuse_puis_nom_fourni(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        r = self.c.post("/api/batiments/importer-kml/", {"fichier": SimpleUploadedFile("carte.kml", self.KML)}, format="multipart")
+        self.assertEqual(r.status_code, 400)
+        self.assertTrue(r.data["nom_requis"])
+        r = self.c.post("/api/batiments/importer-kml/", {"fichier": SimpleUploadedFile("f95a0259-B106.kml", self.KML)}, format="multipart")
+        self.assertEqual(r.data["importes"][0]["nom"], "B106")
+        r = self.c.post("/api/batiments/importer-kml/", {"fichier": SimpleUploadedFile("c.kml", self.KML), "nom": "B107", "etage": "1"}, format="multipart")
+        self.assertEqual(Batiment.objects.get(residence="B107").etage, 1)
+
+    def test_action_masse_statut_ignore_les_occupees(self):
+        p = Personnel.objects.create(nom="K", prenom="E")
+        a = Batiment.objects.create(residence="X1", bloc="B", statut="Réservé")
+        b = Batiment.objects.create(residence="X2", bloc="B", statut="Occupé", personnel=p)
+        r = self.c.post("/api/batiments/action-masse/", {"ids": [a.id, b.id], "action": "statut", "statut": "Libre"}, format="json")
+        self.assertEqual((r.data["modifies"], r.data["ignores"]), (1, 1))
+
+    def test_retours_anticipes_nominatifs_reserves_aux_admins(self):
+        from rest_framework.test import APIClient
+        u = User.objects.create_user("simple", password="x")
+        c = APIClient(); c.force_authenticate(u)
+        self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])

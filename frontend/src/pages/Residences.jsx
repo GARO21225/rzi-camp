@@ -89,19 +89,39 @@ export default function Residences() {
       toast.success(ok.map(x => `${x.nom} ${x.cree ? 'créée' : 'mise à jour'} (${x.bloc})`).join(', ') || 'Rien importé')
       if (err.length) toast.error(err.map(x => `${x.nom || '?'} : ${x.erreur}`).join(' ; '))
       load(); chargerTousBlocs()
-    } catch (er) { toast.error(er?.response?.data?.error || `Erreur import KML (${er?.response?.status || er.message})`) }
+    } catch (er) {
+      if (er?.response?.data?.nom_requis) {
+        const nom = (window.prompt('Nom de la chambre introuvable dans ce KML. Quel nom lui donner ? (ex: B106)') || '').trim()
+        if (nom) {
+          try {
+            const r2 = await batiments.importerKml(f, '', nom)
+            toast.success((r2.data.importes||[]).map(x => `${x.nom} ${x.cree ? 'créée' : 'mise à jour'} (${x.bloc})`).join(', '))
+            load(); chargerTousBlocs()
+          } catch (e2) { toast.error(e2?.response?.data?.error || 'Erreur import KML') }
+        }
+        return
+      }
+      toast.error(er?.response?.data?.error || `Erreur import KML (${er?.response?.status || er.message})`)
+    }
   }
   const validerRenommage = async () => {
     const r = renameRoom
     try {
-      await batiments.renommer(r.id, { residence: (r.residence||'').trim(), bloc: (r.bloc||'').trim() })
+      await batiments.renommer(r.id, { residence: (r.residence||'').trim(), bloc: (r.bloc||'').trim(), etage: parseInt(r.etage,10) || 0 })
       toast.success('Chambre mise à jour')
       setRenameRoom(null); load(); chargerTousBlocs()
     } catch (er) { toast.error(er?.response?.data?.error || `Erreur (${er?.response?.status || er.message})`) }
   }
 
   const toggleSel = (id) => setSelection(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const toutSelectionner = () => setSelection(prev => prev.size === data.length ? new Set() : new Set(data.map(x=>x.id)))
+  // La sélection est conservée quand on change de filtre (ex: cocher les Réservé,
+  // puis passer à un autre statut et en ajouter) ; « tout » ne porte que sur la liste affichée.
+  const visiblesToutes = data.length > 0 && data.every(x => selection.has(x.id))
+  const toutSelectionner = () => setSelection(prev => {
+    const n = new Set(prev)
+    if (data.every(x => n.has(x.id))) data.forEach(x => n.delete(x.id)); else data.forEach(x => n.add(x.id))
+    return n
+  })
   const quitterSelection = () => { setSelectMode(false); setSelection(new Set()) }
 
   const validerMasse = async () => {
@@ -282,9 +302,14 @@ export default function Residences() {
   }
 
   const deleteHistoryEntry = async (id) => {
-    if (!await confirmDialog('Supprimer cette entrée d\'historique ?\nLa chambre ne sera pas modifiée.')) return
+    const h = history.find(x => x.id === id)
+    const enCours = h && !h.date_depart
+    if (!await confirmDialog(enCours
+      ? 'Supprimer cette entrée ?\nC\'est l\'occupation EN COURS : la chambre sera aussi libérée.'
+      : 'Supprimer cette entrée d\'historique ?\nLa chambre ne sera pas modifiée.')) return
     try {
-      await occupationHistoryAdmin.delete(id)
+      const rr = await occupationHistoryAdmin.delete(id)
+      if (rr?.data?.chambre_liberee) { toast.success('Chambre libérée'); load() }
       // Refresh history
       const r = await occupationHistory.recherche({ batiment: histModal.residence })
       setHistory(r.data.results||r.data||[])
@@ -426,7 +451,16 @@ export default function Residences() {
         <div style={{ position:'sticky', top:0, zIndex:20, background:'#0f172a', color:'#fff', borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
           <b style={{ fontSize:12.5 }}>{selection.size} sélectionnée(s)</b>
           <button onClick={toutSelectionner} style={{ background:'rgba(255,255,255,.15)', color:'#fff', border:'none', padding:'5px 10px', borderRadius:6, cursor:'pointer', fontSize:11.5 }}>
-            {selection.size === data.length && data.length > 0 ? 'Tout désélectionner' : `Tout sélectionner (${data.length})`}</button>
+            {visiblesToutes ? `Désélectionner l'affichage (${data.length})` : `Sélectionner l'affichage (${data.length})`}</button>
+          <span style={{ fontSize:11, opacity:.8 }}>Filtre :</span>
+          {[['','Tous'],['Libre','🟢'],['Occupé','🔴'],['Réservé','🔵'],['Maintenance','🟠']].map(([v,l])=>(
+            <button key={v||'tous'} onClick={()=>setStatut(v)} title={v||'Tous statuts'}
+              style={{ background: statut===v ? '#fff' : 'rgba(255,255,255,.15)', color: statut===v ? '#0f172a' : '#fff', border:'none', padding:'4px 9px', borderRadius:6, cursor:'pointer', fontSize:11.5, fontWeight:700 }}>{l}{v ? ' '+v : ''}</button>
+          ))}
+          <select value={bloc} onChange={e=>setBloc(e.target.value)} style={{ background:'rgba(255,255,255,.15)', color:'#fff', border:'none', borderRadius:6, padding:'4px 6px', fontSize:11.5 }}>
+            <option value="" style={{color:'#000'}}>Tous blocs</option>
+            {blocsDispo.map(b=><option key={b} value={b} style={{color:'#000'}}>{b}</option>)}
+          </select>
           <span style={{ flex:1 }}/>
           <button disabled={!selection.size} onClick={()=>{ setMassForm(f=>({...f, nouveau:''})); setMassModal('deplacer') }}
             style={{ background:'#2563eb', color:'#fff', border:'none', padding:'6px 12px', borderRadius:6, cursor:'pointer', fontSize:11.5, fontWeight:700, opacity:selection.size?1:.5 }}>📦 Déplacer vers un bloc</button>
@@ -459,7 +493,7 @@ export default function Residences() {
                 </p>
               )}
               <div style={{display:'flex',gap:8,marginTop:4}}>
-                {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Renommer">🏷️</button>}
+                {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Renommer">🏷️</button>}
                 {isAdmin && <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>}
                 <button onClick={()=>openHistory(b)} style={{flex:isAdmin?'none':1,background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋{!isAdmin && ' Historique'}</button>
                 {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{background:'var(--rzc-red)',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Supprimer définitivement">🗑️</button>}
@@ -486,7 +520,7 @@ export default function Residences() {
                   <tr key={b.id} style={{ borderTop:'1px solid var(--rzc-border-light)', background:i%2?'var(--rzc-charcoal-l2)':'transparent' }}>
                     {isAdmin && selectMode && <td style={{ padding:'9px 12px' }}><input type="checkbox" checked={selection.has(b.id)} onChange={()=>toggleSel(b.id)}/></td>}
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontWeight:700, color:'var(--rzc-navy)' }}>{b.residence}</td>
-                    <td style={{ padding:'9px 12px', fontSize:11, color:'var(--rzc-text-3)' }}>{b.bloc}</td>
+                    <td style={{ padding:'9px 12px', fontSize:11, color:'var(--rzc-text-3)' }}>{b.bloc}{b.etage>0 && <span style={{ marginLeft:6, background:'#ede9fe', color:'#6d28d9', borderRadius:10, padding:'1px 7px', fontWeight:700 }}>É{b.etage}</span>}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <span style={{ background:`${bcolor[b.statut]}18`, color:bcolor[b.statut], padding:'3px 9px', borderRadius:20, fontSize:11, fontWeight:700 }}>{b.statut}</span>
                     </td>
@@ -498,7 +532,7 @@ export default function Residences() {
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontSize:11, color:b.date_depart?'var(--rzc-red)':'var(--rzc-text-3)' }}>{b.date_depart||'—'}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <div style={{ display:'flex', gap:5 }}>
-                        {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11}} title="Renommer la chambre / changer de bloc">🏷️</button>}
+                        {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11}} title="Renommer la chambre / changer de bloc">🏷️</button>}
                         {isAdmin && <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>}
                         <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋{!isAdmin && ' Historique'}</button>
                         {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{ background:'var(--rzc-red)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Supprimer définitivement">🗑️</button>}
@@ -525,6 +559,9 @@ export default function Residences() {
             <input list="rzc-blocs-list" value={renameRoom.bloc} maxLength={30} onChange={e=>setRenameRoom(r=>({...r,bloc:e.target.value}))}
               style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
             <datalist id="rzc-blocs-list">{blocsDispo.map(b=><option key={b} value={b}/>)}</datalist>
+            <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Étage (0 = rez-de-chaussée)</label>
+            <input type="number" min="0" value={renameRoom.etage ?? 0} onChange={e=>setRenameRoom(r=>({...r,etage:e.target.value}))}
+              style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={()=>setRenameRoom(null)} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
               <button onClick={validerRenommage} style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>Enregistrer</button>
@@ -752,7 +789,7 @@ export default function Residences() {
 
             {isAdmin && (
               <div style={{ padding:'10px 16px', background:'rgba(240,165,0,.08)', borderBottom:'1px solid rgba(240,165,0,.2)', fontSize:12, color:'#d08800' }}>
-                ⚙️ <b>Admin</b> — Vous pouvez supprimer une entrée erronée. La chambre ne sera pas modifiée.
+                ⚙️ <b>Admin</b> — Vous pouvez supprimer une entrée erronée. Si c'est l'occupation en cours, la chambre est libérée.
               </div>
             )}
 

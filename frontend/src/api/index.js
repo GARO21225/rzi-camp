@@ -106,8 +106,8 @@ export const batiments = {
   renommerBloc: (ancien, nouveau) => api.post('/api/batiments/renommer-bloc/', {ancien, nouveau}),
   actionMasse: (d) => api.post('/api/batiments/action-masse/', d),
   renommer: (id, d) => api.post(`/api/batiments/${id}/renommer/`, d),
-  importerKml: (fichier, bloc) => {
-    const fd = new FormData(); fd.append('fichier', fichier); if (bloc) fd.append('bloc', bloc)
+  importerKml: (fichier, bloc, nom) => {
+    const fd = new FormData(); fd.append('fichier', fichier); if (bloc) fd.append('bloc', bloc); if (nom) fd.append('nom', nom)
     return api.post('/api/batiments/importer-kml/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
 }

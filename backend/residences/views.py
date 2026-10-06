@@ -1231,6 +1231,10 @@ class BatimentViewSet(viewsets.ModelViewSet):
         ancien = b.residence
         nouveau = (request.data.get("residence") or ancien).strip()
         bloc = (request.data.get("bloc") or b.bloc).strip()
+        try:
+            etage = int(request.data.get("etage", b.etage))
+        except (TypeError, ValueError):
+            return Response({"error": "Étage invalide (nombre entier, 0 = rez-de-chaussée)."}, status=400)
         if not nouveau or len(nouveau) > 20:
             return Response({"error": "Nom de chambre requis (20 caractères max)."}, status=400)
         if not bloc or len(bloc) > 30:
@@ -1238,7 +1242,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
         if nouveau != ancien and Batiment.objects.filter(residence=nouveau).exists():
             return Response({"error": f"Une chambre « {nouveau} » existe déjà."}, status=400)
         with transaction.atomic():
-            b.residence, b.bloc = nouveau, bloc
+            b.residence, b.bloc, b.etage = nouveau, bloc, etage
             b.save()
             if nouveau != ancien:
                 try:
@@ -1283,16 +1287,32 @@ class BatimentViewSet(viewsets.ModelViewSet):
                     pts.append([float(v[0]), float(v[1])])
             return pts
 
+        NOM_CHAMBRE = re.compile(r"^[A-Za-z]{1,4}[ _-]?\d{1,4}[A-Za-z]?$")
+        # noms génériques posés par les logiciels de cartographie (kml_1, doc, ...)
+        NOM_GENERIQUE = re.compile(r"^(kml|doc|document|placemark|untitled|sans[ _-]?titre|folder|dossier)([ _-]?\d*)$", re.I)
+        nom_force = (request.data.get("nom") or "").strip()
+
+        def extra_values(pm):
+            vals = []
+            for co in pm.iter():
+                if local(co.tag) in ("SimpleData", "Data", "value") and (co.text or "").strip():
+                    vals.append(co.text.strip())
+            return vals
+
+        # nom de repli : nom du fichier (ex: "f95a0259-B106.kml" -> "B106")
+        stem = re.sub(r"\.[A-Za-z0-9]+$", "", f.name or "")
+        fichier_noms = [t for t in re.split(r"[-_ ]", stem) if t]
+
         items = []  # (nom, anneau)
-        def walk(node, nom_parent):
-            nom = txt(node, "name") if local(node.tag) in ("Folder", "Document") else nom_parent
+        def walk(node, pile):
+            pile = pile + ([txt(node, "name")] if local(node.tag) in ("Folder", "Document") else [])
             for c in node:
                 t = local(c.tag)
                 if t in ("Folder", "Document"):
-                    walk(c, txt(c, "name") or nom)
+                    walk(c, pile)
                 elif t == "Placemark":
-                    pn = txt(c, "name")
-                    nm = nom if (nom and re.match(r"^[A-Za-z]+\d+", nom)) else pn or nom
+                    candidats = [txt(c, "name")] + extra_values(c) + list(reversed(pile)) + fichier_noms
+                    nm = nom_force or next((x for x in candidats if x and NOM_CHAMBRE.match(x) and not NOM_GENERIQUE.match(x)), "")
                     for co in c.iter():
                         if local(co.tag) == "coordinates":
                             r = ring(co)
@@ -1300,11 +1320,17 @@ class BatimentViewSet(viewsets.ModelViewSet):
                                 if r[0] != r[-1]:
                                     r.append(r[0])
                                 items.append((nm, r))
-        walk(root, "")
+        walk(root, [])
         if not items:
             return Response({"error": "Aucune géométrie exploitable dans ce KML."}, status=400)
+        if any(not nm for nm, _ in items):
+            return Response({"error": "Nom de chambre introuvable dans ce KML.", "nom_requis": True}, status=400)
 
         bloc_force = (request.data.get("bloc") or "").strip()
+        try:
+            etage_force = int(request.data.get("etage")) if str(request.data.get("etage", "")).strip() != "" else None
+        except (TypeError, ValueError):
+            etage_force = None
         resultats = []
         for nom, r in items:
             nom = (nom or "").strip()
@@ -1327,6 +1353,8 @@ class BatimentViewSet(viewsets.ModelViewSet):
                     bloc = best.bloc if best else "Bloc_?"
                 b = Batiment(residence=nom, bloc=bloc, statut="Libre")
             b.latitude, b.longitude, b.geojson_geometry = cy, cx, geom
+            if etage_force is not None:
+                b.etage = etage_force
             b.save()
             resultats.append({"nom": nom, "id": b.id, "bloc": b.bloc, "cree": cree})
         return Response({"importes": [x for x in resultats if "erreur" not in x], "erreurs": [x for x in resultats if "erreur" in x]})
@@ -1524,7 +1552,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 features.append({
                     "type":"Feature",
                     "properties":{
-                        "id":b.id,"residence":b.residence,"bloc":b.bloc,"statut":b.statut,
+                        "id":b.id,"residence":b.residence,"bloc":b.bloc,"etage":b.etage,"statut":b.statut,
                         "occupant":f"{p.nom} {p.prenom}" if p else b.occupant,
                         "societe":p.societe if p else b.societe,
                         "latitude":b.latitude,"longitude":b.longitude,
@@ -2722,11 +2750,39 @@ class OccupationHistoryAdminViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):
             return Response({"error":"Admin uniquement"}, status=403)
+        pk = str(kwargs.get("pk", ""))
+        if pk.startswith("bat-"):
+            # Ligne « en cours » synthétique de l'historique : l'occupation actuelle
+            # d'une chambre qui n'a pas (encore) d'entrée d'historique enregistrée.
+            b = Batiment.objects.filter(pk=pk[4:] if pk[4:].isdigit() else 0).first()
+            if not b:
+                return Response({"error": "Chambre introuvable"}, status=404)
+            b.statut, b.personnel, b.occupant, b.societe = "Libre", None, "", ""
+            b.date_arrivee = b.date_depart = None
+            b.save()
+            return Response({"ok": True, "chambre_liberee": True, "message": "Occupation en cours supprimée et chambre libérée"})
         instance = self.get_object()
         batiment = instance.batiment
-        # If this was the current occupant, do NOT free the room — just remove the wrong history
+        # Entrée = occupation EN COURS (pas de date de départ) de la chambre
+        # actuellement occupée par cette personne : supprimer cette ligne
+        # (saisie erronée) doit aussi libérer la chambre, sinon le résident
+        # y reste affiché alors que son historique n'existe plus.
+        meme_occupant = (
+            (instance.personnel_id and batiment.personnel_id == instance.personnel_id)
+            or (not instance.personnel_id and (batiment.occupant or "").strip() == (instance.occupant_nom or "").strip())
+        )
+        libere = bool(batiment.statut == "Occupé" and instance.date_depart is None and meme_occupant)
         instance.delete()
-        return Response({"ok":True,"message":"Entrée historique supprimée (chambre non modifiée)"})
+        if libere:
+            batiment.statut = "Libre"
+            batiment.personnel = None
+            batiment.occupant = ""
+            batiment.societe = ""
+            batiment.date_arrivee = None
+            batiment.date_depart = None
+            batiment.save()
+        return Response({"ok": True, "chambre_liberee": libere,
+                         "message": "Entrée supprimée et chambre libérée" if libere else "Entrée historique supprimée (chambre non modifiée)"})
 
     def update(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser or (hasattr(request.user,"profile") and request.user.profile.role=="admin")):

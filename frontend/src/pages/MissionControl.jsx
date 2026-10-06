@@ -1337,7 +1337,7 @@ export default function MissionControl() {
         </div>
 
         {/* Retours anticipés — visible peu importe l'onglet actif */}
-        {retoursAnticipes.length > 0 && (
+        {isAdmin && retoursAnticipes.length > 0 && (
           <div style={{margin:'0 0 14px',background:`${C.green}12`,border:`1px solid ${C.green}40`,borderRadius:10,padding:'10px 14px'}}>
             <div style={{fontSize:12,fontWeight:700,color:C.green,marginBottom:4}}>
               ⚡ {retoursAnticipes.length} personne(s) rentrée(s) plus tôt que prévu récemment
