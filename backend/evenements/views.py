@@ -400,10 +400,13 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
             # System notifications
             try:
-                sys_notifs = SimpleNotification.objects.filter(
-                    user=request.user
-                ).order_by('-date_envoi')[:10]
-                count += sys_notifs.filter(lu=False).count()
+                # BUG RÉEL CORRIGÉ ICI : .filter() sur une liste déjà tronquée
+                # ([:10]) lève une exception Django, avalée par le except
+                # ci-dessous -> AUCUNE notification système (demandes, départs,
+                # convois, maintenance...) n'apparaissait jamais dans la cloche.
+                mes_notifs = SimpleNotification.objects.filter(user=request.user)
+                count += mes_notifs.filter(lu=False).count()
+                sys_notifs = mes_notifs.order_by('-date_envoi')[:10]
                 for n in sys_notifs:
                     all_notifs.append({
                         'id': f's{n.id}',

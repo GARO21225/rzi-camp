@@ -3,6 +3,7 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
+import CarteConvoisDirect from '../components/CarteConvoisDirect'
 import { useStore } from '../store'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
@@ -98,7 +99,7 @@ const personnelOccupe = (personnelId, voyages, dateDepart, dateRetour) => {
 const ST_CFG = {
   planifie:  { l:'Planifié',     c:C.accent,  dot:'#C9972B' },
   en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
-  retour:    { l:'Retour camp',  c:C.green,   dot:C.green   },
+  retour:    { l:'Arrivé',       c:C.green,   dot:C.green   },
   annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
 }
 
@@ -489,6 +490,13 @@ export default function MissionControl() {
   // endroits.
   const [demandesVoyageEnAttente, setDemandesVoyageEnAttente] = useState([])
   const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'', itineraire_modele_id:'' })
+  // Départs individuels hors convoi (ex: "Mon départ" confirmé par le
+  // résident) sélectionnés pour être rattachés à une rotation, et mode
+  // d'organisation : nouvelle rotation OU compléter une rotation existante.
+  const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
+  const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
+  const [organiserMode, setOrganiserMode] = useState('nouvelle')
+  const [organiserRotationCible, setOrganiserRotationCible] = useState('')
   const [personnel,  setPersonnel] = useState([])
   const [stats,      setStats]     = useState({})
   const [loading,    setLoading]   = useState(true)
@@ -496,6 +504,9 @@ export default function MissionControl() {
   const [selVoyage,  setSelVoyage] = useState(null)
   const [selRot,     setSelRot]    = useState(null)
   const [manifFiltreConvoi, setManifFiltreConvoi] = useState('tous')
+  // Manifeste du jour (format feuille papier) : date + sens
+  const [manifJour, setManifJour] = useState(() => new Date().toISOString().slice(0,10))
+  const [manifSens, setManifSens] = useState('arrivees') // 'arrivees' (vers le camp) | 'departs' (depuis le camp)
   const [manifFiltreDestination, setManifFiltreDestination] = useState('')
   const [manifFiltreDateDebut, setManifFiltreDateDebut] = useState('')
   const [manifFiltreDateFin, setManifFiltreDateFin] = useState('')
@@ -594,7 +605,8 @@ export default function MissionControl() {
   }, [])
 
   useEffect(()=>{ load() },[load])
-  useEffect(()=>{ const iv=setInterval(load,30000); return()=>clearInterval(iv) },[load])
+  // Pas de rechargement quand l'onglet est en arrière-plan (PC laissé ouvert, téléphone verrouillé)
+  useEffect(()=>{ const iv=setInterval(()=>{ if(!document.hidden) load() },30000); return()=>clearInterval(iv) },[load])
 
   // ── Actions ───────────────────────────────────────────────────────
   const flash = (text, ok=true) => {
@@ -708,14 +720,30 @@ export default function MissionControl() {
     setSaving(false)
   }
 
-  const changerStatut = async (id, action) => {
+  const changerStatut = async (id, action, body) => {
     try {
-      const res = await api(`/api/voyages/${id}/${action}/`, {method:'POST'})
+      const res = await api(`/api/voyages/${id}/${action}/`, {method:'POST', ...(body ? {body: JSON.stringify(body)} : {})})
       const d = await res.json()
       flash(`Statut mis à jour`)
       if (d.alerte_chambre) toast.warning(`🏠 ${d.alerte_chambre}`, 10000)
       load()
     } catch(e) { flash('Erreur',false) }
+  }
+
+  // Trajets en ALLER SIMPLE (cf. backend voyages/trajets.py) : l'ancien
+  // bouton « Retour » supposait un aller-retour. Un trajet vers une ville
+  // se clôt par « Arrivé à X » (la chambre n'est pas touchée) ; un trajet
+  // VERS le camp par « Arrivé au camp » (chambre restituée) + la date à
+  // laquelle la personne repart (date de départ de son hébergement).
+  const versCamp = v => /camp/i.test(v?.destination||'') && !v?.trajet_aller_seul
+  const libelleArrivee = v => versCamp(v) ? '🏠 Arrivé au camp' : `🏁 Arrivé${v?.destination ? ` à ${v.destination}` : ''}`
+  const marquerArrivee = async (v) => {
+    if (versCamp(v)) {
+      setArriveeModal({ voyage: v, prochain: (v.date_retour_prevue && v.date_retour_prevue > v.date_depart) ? v.date_retour_prevue : '' })
+      return
+    }
+    const ok = await confirmDialog(`Confirmer l'arrivée de ${v.personnel_nom} à ${v.destination||'destination'} ?${v.trajet_aller_seul && v.date_retour_prevue ? `\n\nRetour au camp prévu le ${fmt(v.date_retour_prevue)}.` : ''}`, { titre:'🏁 Arrivée', danger:false })
+    if (ok) changerStatut(v.id,'revenir')
   }
 
   const ouvrirDetail = async (v) => {
@@ -932,14 +960,27 @@ export default function MissionControl() {
       "Aucun voyage n'est autorisé<br>No travel is authorized",
     ]
 
+    // ── Données du document (fidèle au modèle papier Roxgold / Fortuna) ──
+    const parNom = nom => personnel.find(p => `${p.nom} ${p.prenom}`.trim().toLowerCase() === (nom||'').trim().toLowerCase())
+    const telDe = p => p ? (p.numero || p.telephone || '') : ''
+    const chauffeurP = parNom(rotation.conducteur)
+    const secondP = parNom(rotation.conducteur_secondaire)
+    const vf = flotte.find(v => v.matricule && v.matricule === rotation.vehicule_matricule)
+    const villesTrajet = etapes.length
+      ? [etapes[0].origine, ...etapes.map(e => e.destination)].filter(Boolean)
+      : [rotation.origine, rotation.destination].filter(Boolean)
+    const trajetTexte = villesTrajet.map(v => String(v).toUpperCase()).join('-')
+    const esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    const dNum = d => d ? new Date(String(d).slice(0,10) + 'T00:00:00').toLocaleDateString('fr-FR') : ''
+
     const ligneManifeste = passagersDetail.map((v,i) => `
       <tr>
-        <td class="ord">${i}</td>
-        <td class="pass">${v.personnel_nom||''}</td>
-        <td>${v.personnel_departement||v.personnel_societe||''}</td>
-        <td>${v.personnel_telephone||''}</td>
-        <td>${v.origine||'—'}</td>
-        <td>${v.destination||''}</td>
+        <td class="ord">${i + 1}</td>
+        <td>${esc(v.personnel_nom)}</td>
+        <td>${esc(v.personnel_departement || v.personnel_societe)}</td>
+        <td>${esc(v.personnel_telephone)}</td>
+        <td>${esc(v.origine || rotation.origine || '')}</td>
+        <td>${esc(v.destination || rotation.destination || '')}</td>
       </tr>`).join('')
 
     const ligneEtapes = etapes.length ? etapes.map(e => `
@@ -950,62 +991,109 @@ export default function MissionControl() {
         <td>${e.pause_fatigue||'N/A'}</td>
       </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:#888">Aucune étape détaillée renseignée pour ce voyage</td></tr>`
 
+    // Logo d'en-tête : une seule image Fortuna Mining + Roxgold Sango (Paramétrage
+    // > JMP / Apparence) affichée en deux moitiés, titre au centre, comme le modèle.
+    const logo = param.jmp_logo_base64 ? `data:${param.jmp_logo_mime||'image/jpeg'};base64,${param.jmp_logo_base64}` : ''
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>JMP ${rotation.rotation_id}</title>
       <style>
-        body{font-family:Arial,sans-serif;font-size:11.5px;margin:20px;color:#111}
-        table{width:100%;border-collapse:collapse;margin-top:10px}
-        td,th{border:1px solid #333;padding:5px 8px}
-        .hdr td{border:1px solid #333;padding:6px 10px;font-size:11px}
-        .hdr .lbl{font-style:italic;color:#333;background:#f3f3f3;width:1%;white-space:nowrap}
-        .hdr .chk{text-align:center;font-size:15px;width:1%}
-        .trajet{background:#111;color:#fff;text-align:center;font-weight:800;font-size:14px;padding:10px;text-transform:uppercase}
-        thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:10.5px}
-        .ord{text-align:center;font-weight:800;color:#c00}
-        .urgence{background:#111;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:12px;margin-bottom:10px}
-        .niveaux td{text-align:center;font-size:10px;font-weight:700}
-        .niveaux .actif{background:#111;color:#fff}
-        .print-btn{background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:16px}
+        @page{size:A4 landscape;margin:12mm 10mm 16mm}
+        body{font-family:Calibri,Arial,sans-serif;font-size:11.5px;margin:14px 18px 40px;color:#111}
+        table{width:100%;border-collapse:collapse}
+        td,th{border:1px solid #555;padding:2px 6px}
+        .entete{display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .logo{height:58px;overflow:hidden;flex-shrink:0}
+        .logo img{height:58px;display:block}
+        .titre{flex:1;text-align:center}
+        .titre h1{font-size:26px;margin:0;font-weight:800;color:#111}
+        .urgence{font-size:15px;font-weight:700;margin-top:4px}
+        .urgence .rouge{color:#e00}
+        .koace{font-weight:700;font-size:11.5px;margin:12px 0 2px}
+        .info td{font-size:12px;padding:1px 6px}
+        .info .lbl{background:#d9d9d9;font-style:italic;text-align:center;color:#222}
+        .info .v{font-weight:700;color:#1f3c88}
+        .info .r{font-weight:700;color:#e00}
+        .info .n{font-weight:700;color:#111}
+        .bloc2{margin-top:14px}
+        .bloc2 .hd{background:#bfbfbf;text-align:center;font-weight:700;font-size:12px}
+        .trajet{text-align:center;color:#e00;font-weight:800;font-style:italic;font-size:19px;line-height:1.35;padding:6px 10px;width:38%}
+        .hl{background:#ffff00}
+        .equip td{font-size:11.5px;font-style:italic}
+        .equip .chk{text-align:center;width:24px;font-style:normal;font-size:14px}
+        .pass{font-family:'Times New Roman',Times,serif;font-size:13px}
+        .pass thead td{background:#d9d9d9;color:#e00;font-weight:700;text-align:center;font-size:13px;padding:1px 4px}
+        .pass .ordh{color:#e00;font-weight:700;text-align:center;vertical-align:middle;background:#fff}
+        .pass .ord{text-align:center;color:#111}
+        .pass .chauf td{background:#d9d9d9;font-weight:700;color:#111}
+        .pass .second td{font-weight:700}
+        .pass .second .ord{color:#e00}
+        .rouge{color:#e00}
+        .pied{text-align:center;font-family:'Times New Roman',Times,serif;font-weight:700;font-size:13px;margin-top:40px}
+        @media print{.pied{position:fixed;bottom:0;left:0;right:0;margin:0}}
+        .page2{page-break-before:always;break-before:page;margin-top:24px}
+        .page2 table{margin-top:8px}
+        .page2 thead td{background:#f0d020;font-weight:800;text-align:center;text-transform:uppercase;font-size:10.5px}
+        .print-btn{background:#1e3a8a;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:12px}
         @media print{.print-btn{display:none}}
         h3{font-size:13px;margin:16px 0 4px}
         ul{font-size:11px;margin:4px 0}
       </style></head><body>
       <button class="print-btn" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
-      ${param.jmp_logo_base64 ? `<img src="data:${param.jmp_logo_mime||'image/jpeg'};base64,${param.jmp_logo_base64}" style="max-height:60px;display:block;margin:0 auto 8px"/>` : ''}
-      <h2 style="text-align:center">Plan de gestion de voyage</h2>
-      <div class="urgence">URGENCE/EMERGENCY : Sat Téléphone : ${param.jmp_tel_satellite||'—'} · MTN : ${param.jmp_tel_mtn||'—'} · Orange : ${param.jmp_tel_orange||'—'}</div>
 
-      <table class="hdr"><tr>
-        <td class="lbl">Nom de l'entreprise</td><td>ROXGOLD SANGO</td>
-        <td class="lbl">Date de la demande</td><td>${new Date().toLocaleDateString('fr-FR')}</td>
-        <td class="lbl">Type de véhicule</td><td>${rotation.vehicule||''}</td>
-      </tr><tr>
-        <td class="lbl">Voyager à partir de</td><td>${rotation.origine||''}</td>
-        <td class="lbl">Destination finale</td><td>${rotation.destination||''}</td>
-        <td class="lbl">Numéro de véhicule</td><td>${rotation.vehicule||''}</td>
-      </tr><tr>
-        <td class="lbl">Date de début du voyage</td><td>${fmt(rotation.date_depart)}</td>
-        <td class="lbl">Date de fin de voyage</td><td>${fmt(rotation.date_retour_prevue)}</td>
-        <td class="lbl">Immatriculation</td><td>${rotation.vehicule_matricule||''}</td>
-      </tr></table>
+      <div class="entete">
+        ${logo ? `<div class="logo" style="width:150px"><img src="${logo}"/></div>` : '<div style="width:150px"></div>'}
+        <div class="titre">
+          <h1>Plan de gestion de voyage</h1>
+          <div class="urgence"><span class="rouge">URGENCE/EMERGENCY :</span> Sat Téléphone : ${esc(param.jmp_tel_satellite)} &nbsp;&nbsp; MTN / Orange : ${esc([param.jmp_tel_mtn, param.jmp_tel_orange].filter(Boolean).join(' / '))}</div>
+        </div>
+        ${logo ? `<div class="logo" style="width:102px"><img src="${logo}" style="margin-left:-165px"/></div>` : '<div style="width:102px"></div>'}
+      </div>
 
-      <table class="hdr equip">
-        <tr><td class="lbl">Bouton de panique in véhicule ?</td><td class="chk">☐</td><td class="lbl">Eau</td><td class="chk">☐</td></tr>
-        <tr><td class="lbl">Emplacement du bouton connu ?</td><td class="chk">☐</td><td class="lbl">Carte</td><td class="chk">☐</td></tr>
-        <tr><td class="lbl">Téléphone satellite</td><td class="chk">☐</td><td class="lbl">Lire et comprendre JMP ?</td><td class="chk">☐</td></tr>
-        <tr><td class="lbl">Numéro de téléphone satellite :</td><td style="font-size:10px">${param.jmp_tel_satellite||''}</td><td class="lbl">Trousse de premiers soins ?</td><td class="chk">☐</td></tr>
+      <div class="koace">KOACe formulaire doit être rempli pour tous les déplacements (à l'exception de la zone de localité et des environs immédiats) à destination et en provenance de tous les sites ROXGOLD.</div>
+      <table class="info">
+        <tr><td class="lbl">Nom de l'entreprise</td><td class="v">ROXGOLD SANGO</td>
+            <td class="lbl">Date de la demande</td><td class="n">${new Date().toLocaleDateString('fr-FR')}</td>
+            <td class="lbl">Type de véhicule</td><td class="v">${esc(String(vf?.categorie_label || '').replace(/^[^\p{L}]+/u, '').toUpperCase())}</td></tr>
+        <tr><td class="lbl">Voyager à partir de :</td><td class="r">${esc(String(rotation.origine||'').toUpperCase())}</td>
+            <td class="lbl">Destination finale :</td><td class="r">${esc(String(rotation.destination||'').toUpperCase())}</td>
+            <td class="lbl">Numéro de véhicule</td><td class="r">${esc(String(rotation.vehicule||'').toUpperCase())}</td></tr>
+        <tr><td class="lbl">Date de début du voyage</td><td class="n">${dNum(rotation.date_depart)}</td>
+            <td class="lbl">Date de fin de voyage</td><td class="n">${dNum(rotation.trajet_aller_seul || !rotation.date_retour_prevue ? rotation.date_depart : rotation.date_retour_prevue)}</td>
+            <td class="lbl">Immatriculation du véhicule Numbers</td><td class="n">${esc(rotation.vehicule_matricule)}</td></tr>
       </table>
 
-      <div class="trajet">${rotation.rotation_id} — ${rotation.origine||''} → ${rotation.destination||''}</div>
+      <table class="bloc2">
+        <tr><td class="hd">TRAJET</td><td class="hd" colspan="4" style="font-size:14px;font-weight:400">Équipement <b>du véhicule</b></td></tr>
+        <tr>
+          <td class="trajet" rowspan="4">${esc(trajetTexte)}${rotation.vehicule ? `<br><span class="hl">${esc(String(rotation.vehicule).toUpperCase())}</span>` : ''}</td>
+          <td class="equip">Bouton de panique in véhicule ?</td><td class="equip chk">☐</td><td class="equip">Eau</td><td class="equip chk">☐</td>
+        </tr>
+        <tr><td class="equip">Emplacement du bouton connu ?</td><td class="equip chk">☐</td><td class="equip">Carte</td><td class="equip chk">☐</td></tr>
+        <tr><td class="equip">Téléphone satellite</td><td class="equip chk">☐</td><td class="equip">Lire et comprendre JMP ?</td><td class="equip chk">☐</td></tr>
+        <tr><td class="equip">Numéro de téléphone satellite : ${esc(param.jmp_tel_satellite)}</td><td class="equip chk"></td><td class="equip">Trousse de premiers soins ?</td><td class="equip chk">☐</td></tr>
+      </table>
 
-      <table><thead><tr><td>Ordre</td><td>Passagers</td><td>Société / Département</td><td>N° MTN / Orange</td><td>Lieu de montée</td><td>Lieu de descente</td></tr></thead>
+      <table class="pass">
+        <thead><tr>
+          <td class="ordh" rowspan="2" style="background:#fff">ORDRE</td>
+          <td>PASSAGERS</td><td>CIE / DEPARTEMENTS</td><td>NUMEROS MTN / ORANGE</td><td>LIEU DE MONTEE</td><td>LIEU DE DESCENTE</td>
+        </tr>
+        <tr class="chauf">
+          <td>${esc(String(rotation.conducteur||'').toUpperCase())}</td><td>CHAUFFEUR</td><td>${esc(telDe(chauffeurP))}</td>
+          <td>${esc(rotation.origine)}</td><td>${esc(rotation.destination)}</td>
+        </tr></thead>
         <tbody>
-          <tr><td class="ord">—</td><td class="pass">${rotation.conducteur||''}</td><td colspan="4" style="font-weight:700;background:#fafafa">CHAUFFEUR</td></tr>
-          ${rotation.conducteur_secondaire?`<tr><td class="ord">—</td><td class="pass">${rotation.conducteur_secondaire}</td><td colspan="4" style="font-weight:700;background:#fafafa">SECOND DRIVER</td></tr>`:''}
+          ${rotation.conducteur_secondaire ? `<tr class="second">
+            <td class="ord">0</td><td>${esc(String(rotation.conducteur_secondaire).toUpperCase())}</td><td><span class="hl">SECOND DRIVER</span></td>
+            <td><span class="hl rouge" style="font-size:11px">Chef de parcours ${esc(telDe(secondP))}</span></td>
+            <td>${esc(rotation.origine)}</td><td>${esc(rotation.destination)}</td></tr>` : ''}
           ${ligneManifeste}
         </tbody>
       </table>
 
+      <div class="pied">JMP - Journey Management Plan</div>
+
+      <div class="page2">
       <h3>Côte de sécurité de route</h3>
       <table><thead><tr><td>Étape</td><td>De</td><td>À</td><td>Distance (km)</td><td>Heure de départ</td><td>Heure d'arrivée</td><td>Gestion fatigue</td></tr></thead>
         <tbody>${ligneEtapes}</tbody>
@@ -1057,6 +1145,7 @@ export default function MissionControl() {
         <li>Pendant votre voyage, au moindre incident informez le service de sécurité.</li>
         <li>À votre arrivée à destination, contactez le service de sécurité.</li>
       </ul>
+      </div>
     </body></html>`)
     w.document.close()
   }
@@ -1080,7 +1169,8 @@ export default function MissionControl() {
     // voir Voyage.revenir() qui saute la restitution de chambre dans ce
     // cas). Les messages parlaient pourtant toujours de "retour"/"rentré"
     // meme pour ce cas, ce qui laissait croire a un aller-retour classique.
-    const estAllerSeul = rotations.find(r=>r.rotation_id===rotId)?.trajet_aller_seul
+    const rotRef = rotations.find(r=>r.rotation_id===rotId)
+    const estAllerSeul = rotRef?.trajet_aller_seul || !/camp/i.test(rotRef?.destination||'')
     try {
       const res = await api('/api/voyages/retour_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
       const d = await res.json()
@@ -1208,6 +1298,7 @@ export default function MissionControl() {
             WebkitOverflowScrolling:'touch'}}>
             {[
               ['command','🛰️ Command'],
+              ...(isAdmin ? [['direct','📡 En direct']] : []),
               ['rotations','🚀 Rotations'],
               ...(isAdmin ? [['organiser','📋 À organiser']] : []),
               ['gantt','📅 Gantt'],
@@ -1216,7 +1307,7 @@ export default function MissionControl() {
               ...(isAdmin ? [['validations','✅ Validations']] : []),
               ['liste','🎫 Tous les voyages'],
             ].map(([v,l])=>{
-              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length : 0)
+              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length + voyages.filter(x=>!x.rotation_id && !x.vehicule_personnel && ['planifie','en_voyage'].includes(x.statut) && !demandesAOrganiser.some(d=>d.voyage_id===x.id)).length : 0)
               return (
                 <button key={v} className={`mc-tab ${view===v?'active':''}`}
                   onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
@@ -1379,10 +1470,7 @@ export default function MissionControl() {
                         </div>
                       </div>
                       {isAdmin && <button className="mc-btn mc-btn-success" style={{padding:'4px 10px',fontSize:10}}
-                        onClick={async()=>{
-                          const ok = await confirmDialog(`Confirmer le retour de ${v.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(v.date_retour_prevue)}.`)
-                          if(ok) changerStatut(v.id,'revenir')
-                        }}>⬇ Retour</button>}
+                        onClick={()=>marquerArrivee(v)}>{libelleArrivee(v)}</button>}
                     </div>
                   ))}
                   {absents.length===0&&(
@@ -1543,18 +1631,26 @@ export default function MissionControl() {
                       <div key={v.id} onClick={()=>setDetailVoyage(v)}
                         style={{display:'flex',alignItems:'center',gap:10,background:C.surface,
                           border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px',cursor:'pointer'}}>
-                        <span style={{fontSize:16}}>{v.statut==='en_voyage'?'🚐':'📅'}</span>
+                        <span style={{fontSize:16}}>{v.vehicule_personnel?'🚗':(v.statut==='en_voyage'?'🚐':'📅')}</span>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:13,fontWeight:700,color:C.text}}>{v.personnel_nom||'—'}</div>
                           <div style={{fontSize:11,color:C.muted}}>
                             {v.origine} → {v.destination} · {fmt(v.date_depart)}
                             {v.statut==='en_voyage' ? ' · En transit' : ' · Planifié'}
+                            {v.vehicule_personnel && <b style={{color:C.text}}> · 🚗 Véhicule personnel{v.vehicule_matricule ? ` (${v.vehicule_matricule})` : ''}</b>}
                           </div>
                         </div>
+                        {isAdmin && !v.vehicule_personnel && (
+                          <button className="mc-btn" style={{padding:'5px 12px',fontSize:11}}
+                            title="Rattacher ce voyageur à une rotation (convoi)"
+                            onClick={e=>{e.stopPropagation();setVoyagesSelectionnes([v.id]);setDemandesSelectionnees([]);setOrganiserMode('existante');setView('organiser')}}>
+                            🔗 Ajouter à un convoi
+                          </button>
+                        )}
                         {isAdmin && v.statut==='en_voyage' && (
                           <button className="mc-btn mc-btn-success" style={{padding:'5px 12px',fontSize:11}}
-                            onClick={e=>{e.stopPropagation();changerStatut(v.id,'revenir')}}>
-                            ⬇ Retour
+                            onClick={e=>{e.stopPropagation();marquerArrivee(v)}}>
+                            {libelleArrivee(v)}
                           </button>
                         )}
                       </div>
@@ -1646,7 +1742,7 @@ export default function MissionControl() {
                           </button>}
                           {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                            {r.trajet_aller_seul ? '🏁 Terminer' : '🏠 Retour'}
+                            {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : `🏁 Arrivé${r.destination ? ` à ${r.destination}` : ''}`}
                           </button>}
                           {r.statut==='retour'&&<span style={{flex:1,textAlign:'center',padding:'9px 12px',fontSize:12,fontWeight:700,
                             borderRadius:9,background:'#16a34a20',color:'#16a34a'}}>✅ Terminé</span>}
@@ -1723,7 +1819,7 @@ export default function MissionControl() {
                         {isAdmin && r.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
-                          {r.trajet_aller_seul ? '✅ Terminer' : '🏠 Retour'}
+                          {/camp/i.test(r.destination||'') && !r.trajet_aller_seul ? '🏠 Arrivé au camp' : '🏁 Arrivé'}
                         </button>}
                         {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
@@ -2091,47 +2187,108 @@ export default function MissionControl() {
         )}
 
         {/* ══ VUE À ORGANISER (demandes validees pas encore en rotation) ══ */}
-        {view==='organiser' && isAdmin && (
+        {view==='organiser' && isAdmin && (() => {
+          // Départs individuels sans convoi (pas en véhicule personnel, pas
+          // déjà listés via leur demande) : à rattacher eux aussi.
+          const idsVoyagesDemandes = new Set(demandesAOrganiser.map(d=>d.voyage_id))
+          const individuelsARattacher = voyages.filter(v => !v.rotation_id && !v.vehicule_personnel
+            && ['planifie','en_voyage'].includes(v.statut) && !idsVoyagesDemandes.has(v.id))
+          const nbSel = demandesSelectionnees.length + voyagesSelectionnes.length
+          const selection = [
+            ...demandesAOrganiser.filter(d=>demandesSelectionnees.includes(d.demande_id)),
+            ...individuelsARattacher.filter(v=>voyagesSelectionnes.includes(v.id)).map(v=>({rotation_id:null,destination:v.destination,date_depart:v.date_depart})),
+          ]
+          // Toutes dans le même convoi automatique (même itinéraire + même date) :
+          // il sera complété, jamais recréé.
+          const convoiAuto = selection.length>0 && selection.every(x=>x.rotation_id && x.rotation_id===selection[0].rotation_id) ? selection[0] : null
+          const ref = selection[0]
+          const rotationsOuvertes = rotations
+            .filter(r=>['planifie','en_voyage'].includes(r.statut))
+            .map(r=>({...r, _score:(ref && (r.destination||'').toLowerCase()===(ref.destination||'').toLowerCase() ? 0 : 1)*1000
+              + (ref ? Math.abs((new Date(r.date_depart)-new Date(ref.date_depart))/86400000) : 0)}))
+            .sort((x,y)=>x._score-y._score)
+          const cible = organiserMode==='existante' ? rotations.find(r=>r.rotation_id===organiserRotationCible) : null
+          const vehiculeRequis = organiserMode==='nouvelle' ? true : !(cible?.vehicule_matricule)
+          const pret = organiserMode==='existante'
+            ? !!cible && (!vehiculeRequis || (organiserForm.vehicule_matricule && organiserForm.conducteur_id))
+            : !!(organiserForm.vehicule_matricule && organiserForm.conducteur_id)
+          const ligne = (key, checked, onChange, titre, sousTitre, badge) => (
+            <label key={key} style={{display:'flex',alignItems:'center',gap:10,
+              padding:'10px 14px',borderRadius:9,cursor:'pointer',background:checked?`${C.accent}15`:C.panel,
+              border:`1px solid ${checked?C.accent:C.border}`}}>
+              <input type="checkbox" checked={checked} style={{accentColor:C.accent}} onChange={e=>onChange(e.target.checked)}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text}}>{titre}</div>
+                <div style={{fontSize:11,color:C.muted}}>{sousTitre}</div>
+              </div>
+              {badge && <span style={{fontSize:10,fontWeight:700,color:C.accent,background:`${C.accent}15`,border:`1px solid ${C.accent}40`,borderRadius:99,padding:'2px 8px',whiteSpace:'nowrap'}}>{badge}</span>}
+            </label>
+          )
+          const reinitialiser = () => {
+            setDemandesSelectionnees([]); setVoyagesSelectionnes([]); setOrganiserRotationCible('')
+            setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:'',itineraire_modele_id:''})
+          }
+          return (
           <div className="mc-fade" style={{padding:16}}>
             <div style={{marginBottom:14}}>
-              <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Demandes validées à organiser</div>
+              <div style={{fontSize:16,fontWeight:800,color:C.text}}>📋 Voyageurs à organiser</div>
               <div style={{fontSize:12,color:C.muted}}>
-                {demandesAOrganiser.length} demande(s) de voyage déjà validées par l'admin, en attente d'un véhicule et d'un chauffeur — sélectionnez-en une ou plusieurs pour les regrouper dans une même rotation.
+                {demandesAOrganiser.length + individuelsARattacher.length} voyageur(s) validé(s) sans véhicule ni chauffeur — sélectionnez-les pour créer une rotation ou <b>compléter une rotation existante</b> du même itinéraire. Les départs en véhicule personnel n'apparaissent pas ici.
               </div>
             </div>
 
-            {demandesAOrganiser.length===0 ? (
+            {demandesAOrganiser.length + individuelsARattacher.length === 0 ? (
               <div style={{padding:30,textAlign:'center',color:C.muted,background:C.panel,borderRadius:10}}>
-                Aucune demande validée en attente d'organisation.
+                Aucun voyageur en attente d'organisation.
               </div>
             ) : (
               <>
                 <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
-                  {demandesAOrganiser.map(d=>{
-                    const checked = demandesSelectionnees.includes(d.demande_id)
-                    return (
-                      <label key={d.demande_id} style={{display:'flex',alignItems:'center',gap:10,
-                        padding:'10px 14px',borderRadius:9,cursor:'pointer',background:checked?`${C.accent}15`:C.panel,
-                        border:`1px solid ${checked?C.accent:C.border}`}}>
-                        <input type="checkbox" checked={checked} style={{accentColor:C.accent}}
-                          onChange={e=>{
-                            if(e.target.checked) setDemandesSelectionnees(s=>[...s,d.demande_id])
-                            else setDemandesSelectionnees(s=>s.filter(x=>x!==d.demande_id))
-                          }}/>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:700,color:C.text}}>{d.personnel_nom}</div>
-                          <div style={{fontSize:11,color:C.muted}}>→ {d.destination||'—'} · {d.date_depart} → {d.date_retour_prevue}</div>
-                        </div>
-                      </label>
-                    )
-                  })}
+                  {demandesAOrganiser.map(d=>ligne(`d${d.demande_id}`, demandesSelectionnees.includes(d.demande_id),
+                    on=>setDemandesSelectionnees(s=>on?[...s,d.demande_id]:s.filter(x=>x!==d.demande_id)),
+                    d.personnel_nom, `${d.origine||'—'} → ${d.destination||'—'} · ${d.date_depart} → ${d.date_retour_prevue}`,
+                    d.rotation_id ? `🧭 Convoi ${d.itineraire_nom||d.rotation_id}` : null))}
+                  {individuelsARattacher.map(v=>ligne(`v${v.id}`, voyagesSelectionnes.includes(v.id),
+                    on=>setVoyagesSelectionnes(s=>on?[...s,v.id]:s.filter(x=>x!==v.id)),
+                    v.personnel_nom||'—', `${v.origine||'—'} → ${v.destination||'—'} · ${v.date_depart}${v.statut==='en_voyage'?' · déjà parti':''}`,
+                    '🧳 Départ individuel'))}
                 </div>
 
-                {demandesSelectionnees.length > 0 && (
+                {nbSel > 0 && (
                   <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:C.text}}>
-                      Organiser {demandesSelectionnees.length} demande(s) en une rotation
+                    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+                      {[['nouvelle','✦ Nouvelle rotation'],['existante','🔗 Ajouter à une rotation existante']].map(([m,l])=>(
+                        <button key={m} className={`mc-tab ${organiserMode===m?'active':''}`} onClick={()=>setOrganiserMode(m)}>{l}</button>
+                      ))}
                     </div>
+
+                    {organiserMode==='nouvelle' && convoiAuto && (
+                      <div style={{fontSize:12,color:C.text,background:`${C.green}10`,border:`1px solid ${C.green}40`,borderRadius:8,padding:'8px 12px',marginBottom:12}}>
+                        Ces voyageurs sont déjà regroupés dans le convoi <b>{convoiAuto.itineraire_nom||convoiAuto.rotation_id}</b> (même itinéraire, même date) : il sera <b>complété</b> avec ce véhicule et ce chauffeur, pas recréé — d'autres passagers pourront toujours y être ajoutés.
+                      </div>
+                    )}
+
+                    {organiserMode==='existante' && (
+                      <div style={{marginBottom:12}}>
+                        <label style={labelStyle}>Rotation à compléter *</label>
+                        <select value={organiserRotationCible} onChange={e=>setOrganiserRotationCible(e.target.value)} style={inputStyle}>
+                          <option value="">Sélectionner...</option>
+                          {rotationsOuvertes.map(r=>(
+                            <option key={r.rotation_id} value={r.rotation_id}>
+                              {fmt(r.date_depart)} · {r.origine||'—'} → {r.destination||'—'} · {r.vehicule_matricule ? `${r.vehicule||''} ${r.vehicule_matricule}` : 'sans véhicule'} · {r.places_libres ?? '?'} place(s) libre(s)
+                            </option>
+                          ))}
+                        </select>
+                        {cible && (
+                          <div style={{fontSize:11,color:C.muted,marginTop:6}}>
+                            {cible.nb_passagers} passager(s) déjà à bord · chauffeur : {cible.conducteur||'à désigner'}
+                            {cible.vehicule_matricule && ' — le véhicule et le chauffeur du convoi sont conservés (la capacité est celle du véhicule de la flotte).'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {vehiculeRequis && (
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
                       <div>
                         <label style={labelStyle}>Véhicule *</label>
@@ -2140,7 +2297,7 @@ export default function MissionControl() {
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
                           }} style={inputStyle}>
                           <option value="">Sélectionner...</option>
-                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule}</option>)}
+                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                         </select>
                       </div>
                       <div>
@@ -2157,41 +2314,41 @@ export default function MissionControl() {
                           {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
                         </select>
                       </div>
+                      {organiserMode==='nouvelle' && (
                       <div>
-                        {/* BUG REEL CORRIGE ICI (demande explicite : "voyage en
-                            permettant de choisir l'itinéraire") : cette rotation
-                            organisee depuis des demandes validees se creait
-                            jusqu'ici TOUJOURS sans itineraire (tableau JMP "Cote
-                            de securite de route" vide) - meme selecteur que
-                            "Nouvelle rotation", desormais disponible ici aussi. */}
-                        <label style={labelStyle}>Itinéraire (optionnel)</label>
+                        <label style={labelStyle}>Itinéraire {convoiAuto ? '(celui du convoi par défaut)' : '(optionnel)'}</label>
                         <select value={organiserForm.itineraire_modele_id} onChange={e=>setOrganiserForm(f=>({...f,itineraire_modele_id:e.target.value}))} style={inputStyle}>
-                          <option value="">Aucun / à définir plus tard</option>
+                          <option value="">{convoiAuto ? 'Garder celui du convoi' : 'Aucun / à définir plus tard'}</option>
                           {itineraires.filter(i=>i.actif).map(i=><option key={i.id} value={i.id}>{i.nom}</option>)}
                         </select>
                       </div>
+                      )}
                     </div>
+                    )}
                     <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12}}
-                      disabled={!organiserForm.vehicule_matricule||!organiserForm.conducteur_id}
+                      disabled={!pret}
                       onClick={async()=>{
-                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify({
-                          demande_ids: demandesSelectionnees, ...organiserForm,
-                        })})
+                        const body = {
+                          demande_ids: demandesSelectionnees, voyage_ids: voyagesSelectionnes,
+                          ...(organiserMode==='existante' ? { rotation_id: organiserRotationCible } : {}),
+                          ...organiserForm,
+                        }
+                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify(body)})
                         const d = await res.json()
                         if (res.ok) {
-                          flash(`Rotation organisée (${d.nb_personnes} personne(s))`)
-                          setDemandesSelectionnees([]); setOrganiserForm({vehicule:'',vehicule_matricule:'',conducteur_id:'',conducteur_secondaire_id:'',itineraire_modele_id:''})
-                          load()
+                          flash(`Rotation ${d.rotation_id} : ${d.nb_passagers_total}/${d.nb_places_total} places occupées`)
+                          reinitialiser(); load()
                         } else { toast.error(d.error || 'Erreur') }
                       }}>
-                      ✦ Créer la rotation
+                      {organiserMode==='existante' ? `🔗 Ajouter ${nbSel} voyageur(s) à la rotation` : (convoiAuto ? `✦ Organiser le convoi (${nbSel} voyageur(s))` : `✦ Créer la rotation (${nbSel} voyageur(s))`)}
                     </button>
                   </div>
                 )}
               </>
             )}
           </div>
-        )}
+          )
+        })()}
 
         {/* ══ VUE GANTT ══════════════════════════════════════════ */}
         {view==='gantt' && (
@@ -2303,11 +2460,8 @@ export default function MissionControl() {
                     </button>}
                     {selVoyage.statut==='en_voyage'&&<button className="mc-btn mc-btn-success"
                       style={{flex:1,fontSize:11}}
-                      onClick={async()=>{
-                        const ok = await confirmDialog(`Confirmer le retour de ${selVoyage.personnel_nom} aujourd'hui ?\n\nRetour prévu initialement : ${fmt(selVoyage.date_retour_prevue)}.`)
-                        if(ok){ changerStatut(selVoyage.id,'revenir'); setSelVoyage(null) }
-                      }}>
-                      🏠 Retour
+                      onClick={()=>{ marquerArrivee(selVoyage); setSelVoyage(null) }}>
+                      {libelleArrivee(selVoyage)}
                     </button>}
                     <button className="mc-btn mc-btn-danger" style={{fontSize:11}}
                       onClick={async()=>{
@@ -2327,6 +2481,110 @@ export default function MissionControl() {
         {/* ══ VUE MANIFEST ══════════════════════════════════════= */}
         {view==='manifest' && (
           <div className="mc-fade">
+            {/* ══ MANIFESTE DU JOUR — même présentation que la feuille papier :
+                croix VERTE = vient/part avec le car, croix ROUGE = véhicule
+                personnel, chambre, dates et nuits, totaux en bas. ══ */}
+            {(() => {
+              const estCamp = l => /camp/i.test(l || '')
+              const jour = manifJour
+              const lignesJour = voyages
+                .filter(v => v.statut !== 'annule' && v.date_depart === jour &&
+                  (manifSens === 'arrivees' ? estCamp(v.destination) : estCamp(v.origine) || !estCamp(v.destination)))
+                .sort((a,b) => (a.personnel_departement||a.personnel_societe||'').localeCompare(b.personnel_departement||b.personnel_societe||'') || (a.personnel_nom||'').localeCompare(b.personnel_nom||''))
+              const chambreDe = v => {
+                const p = personnel.find(x => x.id === v.personnel)
+                return p?.residence_principale?.residence || v.batiment_nom || ''
+              }
+              const fin = v => (v.date_retour_prevue && v.date_retour_prevue > v.date_depart) ? v.date_retour_prevue : null
+              const nuits = v => fin(v) ? Math.round((new Date(fin(v)) - new Date(v.date_depart)) / 86400000) : 0
+              const dCourte = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR') : ''
+              const nbCar = lignesJour.filter(v => !v.vehicule_personnel).length
+              const nbPerso = lignesJour.filter(v => v.vehicule_personnel).length
+              const titreDate = new Date(jour + 'T00:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+              const colFin = manifSens === 'arrivees' ? 'Départ prévu' : 'Retour prévu'
+              const colNb = manifSens === 'arrivees' ? 'Nuits' : 'Jours'
+              const exporter = () => {
+                const entete = ['N°','Nom','Département / Société','Car','Véhicule personnel','Chambre', manifSens==='arrivees'?'Arrivée':'Départ', colFin, colNb]
+                const rows = lignesJour.map((v,i) => [i+1, v.personnel_nom||'', v.personnel_departement||v.personnel_societe||'',
+                  v.vehicule_personnel?'':'X', v.vehicule_personnel?'X':'', chambreDe(v), dCourte(v.date_depart), dCourte(fin(v)), nuits(v)])
+                rows.push(['','TOTAL','', nbCar, nbPerso, lignesJour.length, '', '', ''])
+                const csv = [entete, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n')
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8' }))
+                a.download = `manifeste_${manifSens}_${jour}.csv`; a.click(); URL.revokeObjectURL(a.href)
+              }
+              const imprimer = () => {
+                const w = window.open('', '_blank')
+                const corps = lignesJour.map((v,i) => `<tr><td>${i+1}</td><td>${v.personnel_nom||''}</td><td>${v.personnel_departement||v.personnel_societe||''}</td>
+                  <td class="c v">${v.vehicule_personnel?'':'X'}</td><td class="c r">${v.vehicule_personnel?'X':''}</td><td class="c r">${chambreDe(v)}</td>
+                  <td class="c">${dCourte(v.date_depart)}</td><td class="c">${dCourte(fin(v))}</td><td class="c r">${nuits(v)}</td></tr>`).join('')
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${jour}</title><style>
+                  body{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:16px}table{width:100%;border-collapse:collapse}
+                  td,th{border:1px solid #999;padding:3px 6px}th{background:#d9d9d9}.c{text-align:center}.v{color:#16a34a;font-weight:700}.r{color:#dc2626;font-weight:700}
+                  .tot td{background:#d9d9d9;font-weight:700;text-align:center}h2{color:#c00;font-size:14px;margin:0 0 8px}
+                  .btn{background:#1e3a8a;color:#fff;border:none;padding:8px 18px;border-radius:6px;margin-bottom:10px}@media print{.btn{display:none}}</style></head><body>
+                  <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
+                  <h2>${titreDate.charAt(0).toUpperCase()+titreDate.slice(1)} — ${manifSens==='arrivees'?'Arrivées au camp':'Départs du camp'}</h2>
+                  <table><thead><tr><th>N°</th><th>Nom</th><th>Département / Société</th><th>Car</th><th>Véhicule perso</th><th>Chambre</th><th>${manifSens==='arrivees'?'Arrivée':'Départ'}</th><th>${colFin}</th><th>${colNb}</th></tr></thead>
+                  <tbody>${corps}</tbody><tfoot><tr class="tot"><td colspan="3">TOTAL</td><td>${nbCar}</td><td>${nbPerso}</td><td>${lignesJour.length}</td><td colspan="3"></td></tr></tfoot></table></body></html>`)
+                w.document.close()
+              }
+              const th = { padding:'7px 8px', fontSize:10.5, fontWeight:800, textTransform:'uppercase', letterSpacing:.4, color:C.muted, textAlign:'left', borderBottom:`2px solid ${C.border}`, whiteSpace:'nowrap' }
+              const td = { padding:'7px 8px', fontSize:12.5, borderBottom:`1px solid ${C.border}`, color:C.text }
+              return (
+                <Panel style={{padding:'14px 16px',marginBottom:14}}>
+                  <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:10,marginBottom:12}}>
+                    <div style={{flex:1,minWidth:200}}>
+                      <div style={{fontSize:15,fontWeight:800,color:'#C00',textTransform:'capitalize'}}>{titreDate}</div>
+                      <div style={{fontSize:11,color:C.muted}}>Manifeste du jour · <span style={{color:C.green,fontWeight:800}}>X</span> car · <span style={{color:C.red,fontWeight:800}}>X</span> véhicule personnel</div>
+                    </div>
+                    <div style={{display:'flex',gap:4}}>
+                      {[['arrivees','🛬 Arrivées au camp'],['departs','🛫 Départs du camp']].map(([k,l])=>(
+                        <button key={k} className={`mc-tab ${manifSens===k?'active':''}`} onClick={()=>setManifSens(k)}>{l}</button>
+                      ))}
+                    </div>
+                    <input type="date" value={manifJour} onChange={e=>setManifJour(e.target.value)} style={{...inputStyle,width:'auto'}}/>
+                    <button className="mc-btn" onClick={imprimer}>🖨️ Imprimer</button>
+                    <button className="mc-btn" onClick={exporter}>⬇️ Export Excel</button>
+                  </div>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',minWidth:720}}>
+                      <thead><tr>
+                        <th style={th}>N°</th><th style={th}>Nom</th><th style={th}>Département / Société</th>
+                        <th style={{...th,textAlign:'center'}}>Car</th><th style={{...th,textAlign:'center'}}>Véh. perso</th>
+                        <th style={{...th,textAlign:'center'}}>Chambre</th><th style={{...th,textAlign:'center'}}>{manifSens==='arrivees'?'Arrivée':'Départ'}</th>
+                        <th style={{...th,textAlign:'center'}}>{colFin}</th><th style={{...th,textAlign:'center'}}>{colNb}</th>
+                      </tr></thead>
+                      <tbody>
+                        {lignesJour.length === 0 && (
+                          <tr><td colSpan={9} style={{...td,textAlign:'center',color:C.muted,padding:20}}>Aucun voyageur {manifSens==='arrivees'?'n\'arrive au camp':'ne part du camp'} ce jour-là.</td></tr>
+                        )}
+                        {lignesJour.map((v,i)=>(
+                          <tr key={v.id} onClick={()=>ouvrirDetail(v)} style={{cursor:'pointer'}}>
+                            <td style={{...td,color:C.muted}}>{i+1}</td>
+                            <td style={{...td,fontWeight:700,textTransform:'uppercase'}}>{v.personnel_nom}</td>
+                            <td style={{...td,textTransform:'uppercase',fontSize:12}}>{v.personnel_departement||v.personnel_societe||''}</td>
+                            <td style={{...td,textAlign:'center',color:C.green,fontWeight:800}}>{v.vehicule_personnel?'':'X'}</td>
+                            <td style={{...td,textAlign:'center',color:C.red,fontWeight:800}}>{v.vehicule_personnel?'X':''}</td>
+                            <td style={{...td,textAlign:'center',color:C.red,fontWeight:800}}>{chambreDe(v)}</td>
+                            <td style={{...td,textAlign:'center'}}>{dCourte(v.date_depart)}</td>
+                            <td style={{...td,textAlign:'center'}}>{dCourte(fin(v))}</td>
+                            <td style={{...td,textAlign:'center',color:C.red,fontWeight:700}}>{nuits(v)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot><tr style={{background:'#E5E7EB'}}>
+                        <td style={{...td,fontWeight:800}} colSpan={3}>TOTAL</td>
+                        <td style={{...td,textAlign:'center',fontWeight:800,color:C.green}}>{nbCar}</td>
+                        <td style={{...td,textAlign:'center',fontWeight:800,color:C.red}}>{nbPerso}</td>
+                        <td style={{...td,textAlign:'center',fontWeight:800}}>{lignesJour.length}</td>
+                        <td style={td} colSpan={3}></td>
+                      </tr></tfoot>
+                    </table>
+                  </div>
+                </Panel>
+              )
+            })()}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12}}>
               {[
                 {titre:`🛫 Départs aujourd'hui`,list:departs,c:C.accent},
@@ -2544,6 +2802,35 @@ export default function MissionControl() {
           </div>
         )}
 
+        {arriveeModal && (
+          <div onClick={()=>setArriveeModal(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:420}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:4}}>🏠 Arrivée au camp</div>
+              <div style={{fontSize:13,color:C.muted,marginBottom:14}}>
+                {arriveeModal.voyage.personnel_nom} est arrivé au camp : sa chambre principale lui est restituée.
+              </div>
+              <label style={labelStyle}>Il repart du camp le (date de départ de son hébergement)</label>
+              <input type="date" value={arriveeModal.prochain} min={new Date().toISOString().slice(0,10)}
+                onChange={e=>setArriveeModal(m=>({...m, prochain:e.target.value}))} style={inputStyle}/>
+              <div style={{fontSize:11,color:C.muted,marginTop:6}}>Facultatif — il sera relancé la veille (« Vous partez demain ? ») pour confirmer et choisir son trajet.</div>
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button className="mc-btn" style={{flex:1,justifyContent:'center'}} onClick={()=>setArriveeModal(null)}>Annuler</button>
+                <button className="mc-btn mc-btn-success" style={{flex:1,justifyContent:'center'}}
+                  onClick={()=>{ const m = arriveeModal; setArriveeModal(null); changerStatut(m.voyage.id,'revenir', m.prochain ? {prochain_depart:m.prochain} : undefined) }}>
+                  ✓ Confirmer l'arrivée
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ VUE EN DIRECT (suivi GPS des convois) ════════════════ */}
+        {view==='direct' && isAdmin && (
+          <div className="mc-fade">
+            <CarteConvoisDirect/>
+          </div>
+        )}
+
         {/* ══ VUE CALENDRIER ═══════════════════════════════════════ */}
         {view==='calendrier' && (
           <div className="mc-fade">
@@ -2570,6 +2857,7 @@ export default function MissionControl() {
                         <div style={{fontWeight:800,fontSize:14,color:C.text}}>{d.demandeur_nom}</div>
                         <div style={{fontSize:11,color:C.muted,marginTop:2}}>
                           🧳 {d.donnees?.destination || '—'} · {fmt(d.date_debut_souhaitee)} → {fmt(d.date_fin_souhaitee)}
+                          {d.donnees?.vehicule_personnel && <> · <b>🚗 Véhicule personnel{d.donnees?.immatriculation ? ` (${d.donnees.immatriculation})` : ''}</b></>}
                         </div>
                         {d.message_demandeur && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {d.message_demandeur}</div>}
                       </div>
@@ -2949,7 +3237,7 @@ export default function MissionControl() {
                   ['📅 Date de départ (prévue)', fmt(detailVoyage.date_depart,{day:'numeric',month:'long',year:'numeric'})],
                   ['🧳 Départ effectif', detailVoyage.date_depart_effective?fmt(detailVoyage.date_depart_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   ['🕐 Heure de départ', detailVoyage.heure_depart||'—'],
-                  ['🏠 Retour prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
+                  [versCamp(detailVoyage) ? '📅 Repart du camp le' : '🏠 Retour au camp prévu', fmt(detailVoyage.date_retour_prevue,{day:'numeric',month:'long',year:'numeric'})],
                   ['✅ Retour effectif', detailVoyage.date_retour_effective?fmt(detailVoyage.date_retour_effective,{day:'numeric',month:'long',year:'numeric'}):'—'],
                   [detailVoyage.statut_validation==='refuse' ? '🚗 Véhicule prévu (non confirmé)' : '🚗 Véhicule / Convoi', detailVoyage.vehicule||'—'],
                   ['🔖 Matricule', detailVoyage.vehicule_matricule||'—'],

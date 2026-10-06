@@ -457,6 +457,9 @@ export default function Maintenance() {
 
   const [actionModal, setActionModal] = useState(null)
   const [actionComment, setActionComment] = useState('')
+  // Échange direct sur la fiche (agent déclarant <-> technicien assigné <-> admin)
+  const [messageFiche, setMessageFiche] = useState('')
+  const [envoiMessage, setEnvoiMessage] = useState(false)
   const [actionTechId,  setActionTechId]  = useState('')
   const [showPeriodeModal, setShowPeriodeModal] = useState(false)
   const [periodeRapport,   setPeriodeRapport]   = useState({debut:'',fin:''})
@@ -592,6 +595,20 @@ export default function Maintenance() {
       setSelected(items.find(i => i.id === selected.id) || null)
     } catch(e) { toast.error(e.response?.data?.detail || 'Erreur action') }
     finally { setSubmitting(false) }
+  }
+
+  const envoyerMessage = async () => {
+    const texte = messageFiche.trim()
+    if (!selected || !texte) return
+    setEnvoiMessage(true)
+    try {
+      await incAPI.commenter(selected.id, { contenu: texte, type_comment: 'info' })
+      setMessageFiche('')
+      try { const rd = await incAPI.detail(selected.id); setSelected(rd.data) }
+      catch { await load() }
+      toast.success('Message envoyé — la personne concernée est notifiée')
+    } catch(e) { toast.error(e.response?.data?.error || e.response?.data?.detail || 'Envoi impossible') }
+    finally { setEnvoiMessage(false) }
   }
 
   const compressImage = (file, maxSizeKB=800) => new Promise((resolve) => {
@@ -1585,12 +1602,28 @@ export default function Maintenance() {
                     🔒 Clôturer
                   </button>
                 )}
-                <button onClick={()=>setActionModal('commenter')}
-                  style={{ width:'100%', background:'#f8fafc', color:'var(--rzc-navy)',
-                    border:'1px solid #e2e8f0', padding:10, borderRadius:10, cursor:'pointer',
-                    fontSize:12, fontWeight:700, marginBottom:14, marginTop:4, fontFamily:'inherit' }}>
-                  💬 Commentaire
-                </button>
+                {/* Échange sur le dossier : le déclarant peut écrire au technicien
+                    assigné (et inversement) ; l'autre partie est notifiée. */}
+                {selected.statut !== 'cloture' && selected.statut !== 'annule' && (
+                  <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:12, padding:12, marginBottom:14, marginTop:4 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--rzc-navy)', marginBottom:6 }}>💬 Écrire sur ce dossier</div>
+                    <div style={{ fontSize:11, color:'#64748b', marginBottom:8 }}>
+                      {selected.assigne_a === user?.id
+                        ? `${selected.auteur_nom || 'Le déclarant'} sera notifié.`
+                        : selected.assigne_a
+                        ? `${selected.assigne_nom || 'Le technicien assigné'} sera notifié.`
+                        : 'Les responsables maintenance seront notifiés.'}
+                    </div>
+                    <textarea value={messageFiche} onChange={e=>setMessageFiche(e.target.value)} rows={2}
+                      placeholder={selected.assigne_a === user?.id ? 'Ex : je passe à 14h, merci d\'être présent…' : 'Ex : la fuite a repris ce matin, je suis absent jusqu\'à 17h…'}
+                      style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'8px 10px', fontSize:13, fontFamily:'inherit', boxSizing:'border-box', resize:'vertical' }}/>
+                    <button onClick={envoyerMessage} disabled={envoiMessage || !messageFiche.trim()}
+                      style={{ width:'100%', marginTop:8, background:(envoiMessage || !messageFiche.trim()) ? '#cbd5e1' : 'var(--rzc-navy)', color:'#fff',
+                        border:'none', padding:10, borderRadius:10, cursor:(envoiMessage || !messageFiche.trim()) ? 'not-allowed' : 'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+                      {envoiMessage ? '⏳ Envoi…' : '📨 Envoyer'}
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ fontSize:12, fontWeight:700, color:'#64748b',
                   marginBottom:8, textTransform:'uppercase', letterSpacing:.5 }}>
@@ -1606,7 +1639,7 @@ export default function Maintenance() {
                         <div style={{ flex:1 }}>
                           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
                             <span style={{ fontSize:10, fontWeight:700, color:tc }}>{c.type_label||c.type_comment}</span>
-                            <span style={{ fontSize:10, color:'#94a3b8' }}>{c.auteur_nom}</span>
+                            <span style={{ fontSize:10, color:'#94a3b8' }}>{c.auteur_nom}{c.date_creation ? ` · ${new Date(c.date_creation).toLocaleString('fr-FR', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}` : ''}</span>
                           </div>
                           <div style={{ fontSize:12, color:'#334155' }}>{c.contenu}</div>
                           {c.photo_base64 && String(c.photo_base64).length>10 && (

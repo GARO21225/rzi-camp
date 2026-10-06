@@ -520,3 +520,30 @@ class PersonnelImportCsvIdentifiantsTests(TestCase):
         self.assertEqual(len(resp.data["errors"]), 1)
         self.assertTrue(Personnel.objects.filter(nom="BON").exists())
         self.assertFalse(Personnel.objects.filter(nom="MAUVAIS").exists())
+
+
+class InductionDroitsTests(TestCase):
+    """Induction QHSE : l'agent remplit ses étapes, pas la visite médicale ni le badge ; médical / HSE valident."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from accounts.models import Profile
+        self.agent = User.objects.create_user("edgar", password="x")
+        self.p = Personnel.objects.create(nom="K", prenom="Edgar", societe="R", user=self.agent)
+        self.med = User.objects.create_user("doc", password="x")
+        Profile.objects.update_or_create(user=self.med, defaults={"role": "medical"})
+        self.hse = User.objects.create_user("hse", password="x")
+        Profile.objects.update_or_create(user=self.hse, defaults={"role": "hse"})
+        self.c = APIClient()
+
+    def maj(self, user, etape):
+        self.c.force_authenticate(User.objects.get(pk=user.pk))
+        return self.c.post("/api/induction-records/update_etape/", {"personnel_id": self.p.id, "etape": etape}, format="json").status_code
+
+    def test_droits_par_profil(self):
+        self.assertEqual(self.maj(self.agent, "quiz"), 200)
+        self.assertEqual(self.maj(self.agent, "medical"), 403)
+        self.assertEqual(self.maj(self.agent, "badge"), 403)
+        self.assertEqual(self.maj(self.med, "medical"), 200)
+        self.assertEqual(self.maj(self.med, "quiz"), 403)
+        self.assertEqual(self.maj(self.hse, "badge"), 200)

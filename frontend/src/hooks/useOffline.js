@@ -91,7 +91,7 @@ export function useOffline() {
     checkBackend()
 
     // Puis vérifier toutes les 30 secondes
-    const interval = setInterval(checkBackend, 30000)
+    const interval = setInterval(() => { if (!document.hidden) checkBackend() }, 30000)
 
     return () => {
       window.removeEventListener('offline', goOffline)

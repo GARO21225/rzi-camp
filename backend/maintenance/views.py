@@ -582,19 +582,47 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def commenter(self, request, pk=None):
-        from django.db import connection
-        auteur_id = request.user.id if request.user and request.user.is_authenticated else None
-        contenu = request.data.get('contenu', '')
+        """Message sur un dossier : déclarant <-> technicien assigné <-> admin.
+        get_object() applique le même filtre que la liste (un non-admin ne
+        peut commenter QUE ses propres dossiers ou ceux qui lui sont
+        assignés - avant, l'INSERT SQL brut acceptait n'importe quel id).
+        L'autre partie est notifiée (cloche), sinon le message passait
+        inaperçu tant que personne ne rouvrait le dossier."""
+        incident = self.get_object()
+        contenu = (request.data.get('contenu') or '').strip()
+        photo = request.data.get('photo_base64', '') or ''
+        if not contenu and not photo:
+            return Response({'error': 'Message vide'}, status=400)
         type_c = request.data.get('type_comment', 'info')
-        photo = request.data.get('photo_base64', '')
+        if type_c not in dict(CommentaireIncident.TYPE_CHOICES):
+            type_c = 'info'
+        c = CommentaireIncident.objects.create(
+            incident=incident, auteur=request.user, type_comment=type_c,
+            contenu=contenu, photo_base64=photo,
+        )
+        if type_c == 'info' and contenu:
+            self._notifier_message(incident, request.user, contenu)
+        return Response({'id': incident.id, 'commentaire_id': c.id, 'message': 'Commentaire ajouté'})
+
+    def _notifier_message(self, incident, auteur, contenu):
         try:
-            with connection.cursor() as c:
-                c.execute('INSERT INTO maintenance_commentaireincident (incident_id,auteur_id,type_comment,contenu,date_creation,photo_base64) VALUES (%s,%s,%s,%s,NOW(),%s)',
-                          [pk, auteur_id, type_c, contenu, photo])
-                cid = c.lastrowid
-            return Response({'id': pk, 'message': 'Commentaire ajouté'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+            from evenements.models import SimpleNotification
+            from accounts.models import Profile
+            nom = auteur.get_full_name() or auteur.username
+            destinataires = {u for u in (incident.auteur, incident.assigne_a) if u and u.id != auteur.id}
+            if not incident.assigne_a_id:
+                # Pas encore de technicien : les responsables (admins) sont prévenus
+                destinataires |= set(User.objects.filter(is_staff=True, is_active=True).exclude(id=auteur.id))
+                destinataires |= {p.user for p in Profile.objects.filter(role='admin').select_related('user') if p.user_id != auteur.id}
+            SimpleNotification.objects.bulk_create([
+                SimpleNotification(user=u, type_notif='info',
+                                   titre=f"💬 Maintenance — {incident.titre}"[:200],
+                                   message=f"{nom} : {contenu[:300]}")
+                for u in destinataires
+            ])
+        except Exception:
+            pass  # une notification ratée ne doit jamais bloquer le message
+
     @action(detail=True, methods=['post'])
     def annuler(self, request, pk=None):
         incident = self.get_object()

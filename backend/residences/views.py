@@ -1060,13 +1060,13 @@ def _cloturer_sejour_personnel(personnel, date_dep):
 
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
-    queryset = Batiment.objects.select_related("personnel").all()
+    queryset = Batiment.objects.select_related("personnel__user__profile").all()
     serializer_class = BatimentSerializer
     filter_backends = []  # disable DRF filters, we do it manually
 
     def _build_qs(self, request=None):
         """Build filtered QuerySet — always returns a real QuerySet"""
-        qs = Batiment.objects.select_related("personnel").all()
+        qs = Batiment.objects.select_related("personnel__user__profile").all()
         req = request or self.request
         params = req.query_params
         u = req.user
@@ -1082,7 +1082,7 @@ class BatimentViewSet(viewsets.ModelViewSet):
             from residences.models import Personnel
             pers = Personnel.objects.filter(user=u).first()
             if pers:
-                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+                return Batiment.objects.select_related("personnel__user__profile").filter(personnel=pers)
             return Batiment.objects.none()
         statut = params.get("statut")
         bloc = params.get("bloc")
@@ -1111,9 +1111,9 @@ class BatimentViewSet(viewsets.ModelViewSet):
             from residences.models import Personnel
             pers = Personnel.objects.filter(user=u).first()
             if pers:
-                return Batiment.objects.select_related("personnel").filter(personnel=pers)
+                return Batiment.objects.select_related("personnel__user__profile").filter(personnel=pers)
             return Batiment.objects.none()
-        return Batiment.objects.select_related("personnel").all()
+        return Batiment.objects.select_related("personnel__user__profile").all()
 
     def list(self, request, *args, **kwargs):
         qs = self._build_qs(request)
@@ -1667,21 +1667,75 @@ class BatimentViewSet(viewsets.ModelViewSet):
             personnel_obj = b.personnel
             personnel_nom = f"{personnel_obj.nom} {personnel_obj.prenom}"
             residence_nom = b.residence
+            # « Vous revenez quand ? » - trajet en ALLER SIMPLE (cf.
+            # voyages/trajets.py) : la date de retour bloque les
+            # chevauchements et sert à planifier automatiquement le trajet
+            # retour X -> Camp. Avant, elle n'était jamais demandée
+            # (date_retour_prevue = date de départ). Absente (bouton admin du
+            # Dashboard, app en cache) : ancien fonctionnement aller-retour.
+            from voyages.views import _check_voyage_conflit
+            from voyages.trajets import creer_trajet_retour
+            date_retour = None
+            if request.data.get("date_retour"):
+                try:
+                    date_retour = datetime.date.fromisoformat(str(request.data.get("date_retour")))
+                except ValueError:
+                    return Response({"error":"Date de retour invalide."}, status=400)
+                if date_retour <= max(date_dep, today):
+                    return Response({"error":"La date de retour doit être postérieure au départ."}, status=400)
+                conflit = _check_voyage_conflit(personnel_obj.id, date_dep, date_retour)
+                if conflit:
+                    return Response({"error": f"Un autre voyage est déjà prévu du {conflit.date_depart:%d/%m/%Y} au {conflit.date_retour_prevue:%d/%m/%Y} sur cette période."}, status=400)
             # Point de descente choisi par le résident (liste déroulante côté
             # app, cf. Layout.jsx MonDepartBanner) - avant ce correctif
             # "Abidjan" était fige en dur, sans jamais demander où la
             # personne descend reellement une fois arrivee (utile au Centre
             # de Mobilite pour organiser la suite du trajet).
-            destination = (request.data.get("destination") or "Abidjan").strip() or "Abidjan"
+            #
+            # Itineraire choisi par le resident (defaut : Camp -> Abidjan) et
+            # lieu de descente pris parmi les villes de CET itineraire. Sans
+            # itineraire_id (bouton admin du Dashboard, ou ancienne version
+            # de l'app encore en cache), on applique l'itineraire par defaut
+            # sans contraindre la destination, pour rester compatible.
+            from voyages.models import ItineraireModele
+            from voyages.views import _appliquer_itineraire_a_voyage
+            itineraire = None
+            itineraire_id = request.data.get("itineraire_id")
+            if itineraire_id:
+                itineraire = ItineraireModele.objects.filter(pk=itineraire_id, actif=True).first()
+                if not itineraire:
+                    return Response({"error":"Itinéraire introuvable ou désactivé."}, status=400)
+            else:
+                itineraire = ItineraireModele.par_defaut_depart_camp()
+            villes = itineraire.villes_descente() if itineraire else []
+            destination = (request.data.get("destination") or "").strip() or (villes[-1] if villes else "Abidjan")
+            if itineraire_id and villes:
+                correspondance = next((v for v in villes if v.lower() == destination.lower()), None)
+                if not correspondance:
+                    return Response({"error":f"Le lieu de descente doit être une ville de l'itinéraire {itineraire.nom} : {', '.join(villes)}."}, status=400)
+                destination = correspondance
+            # Véhicule personnel : le résident fait sa rotation avec sa propre
+            # voiture (pas le car du camp) - même voyage individuel, marqué
+            # comme tel pour que le Centre de Mobilité ne cherche pas à
+            # l'organiser dans un convoi.
+            perso = str(request.data.get("vehicule_personnel", "")).lower() in ("1", "true", "oui")
             voyage = Voyage.objects.create(
                 personnel=personnel_obj, batiment=b,
-                destination=destination, origine=residence_nom or "Camp Roxgold Sango",
-                motif=f"Départ résidence confirmé depuis {residence_nom}",
-                date_depart=date_dep, date_retour_prevue=date_dep,
+                destination=destination,
+                vehicule_personnel=perso,
+                vehicule="Véhicule personnel" if perso else "",
+                vehicule_matricule=(request.data.get("immatriculation") or "").strip()[:30] if perso else "",
+                origine=(itineraire.origine if itineraire else None) or residence_nom or "Camp Roxgold Sango",
+                motif=f"Départ résidence confirmé depuis {residence_nom}" + (f" — itinéraire {itineraire.nom}, descente à {destination}" if itineraire else ""),
+                date_depart=date_dep, date_retour_prevue=date_retour or date_dep,
+                trajet_aller_seul=bool(date_retour),
                 type_voyage="individuel",
                 statut_validation="valide", valide_par=request.user, date_validation=djtz.now(),
                 enregistre_par=request.user,
             )
+            if itineraire:
+                # Étapes du trajet (tableau JMP + carte d'itinéraire du voyage)
+                _appliquer_itineraire_a_voyage(voyage, itineraire)
             voyage.partir(date_dep)  # libère la chambre (via ResidentPrincipal si Edgar en a un) + passe le voyage en "en_voyage"
 
             # Filet de sécurité : voyage.partir() libère la chambre du
@@ -1701,12 +1755,19 @@ class BatimentViewSet(viewsets.ModelViewSet):
                 for admin in admins:
                     SimpleNotification.objects.create(
                         user=admin, titre="Centre de mobilité — départ confirmé",
-                        message=f"{personnel_nom} — départ confirmé vers Abidjan, chambre {residence_nom} libérée.",
+                        message=f"{personnel_nom} — départ confirmé" + (" en véhicule personnel" if perso else "") + f", descente à {destination}"
+                                + (f" (itinéraire {itineraire.nom})" if itineraire else "")
+                                + f", chambre {residence_nom} libérée."
+                                + (f" Retour au camp prévu le {date_retour:%d/%m/%Y} (trajet planifié)." if date_retour else ""),
                         type_notif="info",
                     )
             except Exception:
                 pass
-            return Response({"ok": True, "voyage_id": voyage.id})
+            retour = creer_trajet_retour(voyage, itineraire, request.user) if date_retour else None
+            return Response({"ok": True, "voyage_id": voyage.id, "destination": destination,
+                             "itineraire": itineraire.nom if itineraire else None,
+                             "retour_voyage_id": retour.id if retour else None,
+                             "retour_rotation_id": retour.rotation_id if retour else None})
         elif decision == "reporte":
             nouvelle_date = request.data.get("nouvelle_date")
             if not nouvelle_date:
@@ -2814,7 +2875,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 pk=data.get("itineraire_modele") or None
                             ).first()
                             rotation_obj = None
-                            if itineraire_obj:
+                            # Résident qui part avec SON véhicule : voyage
+                            # individuel, jamais regroupé dans un convoi.
+                            perso = str(data.get("vehicule_personnel", "")).lower() in ("1", "true", "oui")
+                            if itineraire_obj and not perso:
                                 rotation_obj = Rotation.objects.filter(
                                     itineraire_modele=itineraire_obj, date_depart=dd, statut="planifie",
                                 ).first()
@@ -2835,16 +2899,34 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # que Voyage.objects.create() brut qui contournait
                             # tout le workflow (pas de rotation_id, pas de
                             # verification de chevauchement).
+                            # Trajets en ALLER SIMPLE (voyages/trajets.py) :
+                            #  - Camp -> X : date de fin = « je reviens le »,
+                            #    trajet retour X -> Camp créé automatiquement ;
+                            #  - X -> Camp : date de fin = « je repars du camp
+                            #    le » (date de départ de l'hébergement à
+                            #    l'arrivée), et la chambre n'est PAS libérée.
+                            from voyages.trajets import est_camp, creer_trajet_retour
+                            destination_v = data.get("destination","") or (itineraire_obj.destination if itineraire_obj else "")
+                            vers_camp = est_camp(destination_v)
                             voyage_cree = Voyage.objects.create(
                                 personnel=p,
-                                destination=data.get("destination","") or (itineraire_obj.destination if itineraire_obj else ""),
+                                trajet_aller_seul=not vers_camp,
+                                destination=destination_v,
                                 origine=data.get("origine","") or (itineraire_obj.origine if itineraire_obj else "Camp Roxgold Sango"),
                                 motif=data.get("motif",""),
                                 date_depart=dd,
                                 date_retour_prevue=df,
-                                rotation_id=rotation_obj.rotation_id if rotation_obj else str(_uuid.uuid4())[:8].upper(),
+                                # Sans convoi : PAS de rotation_id aléatoire. Avant, chaque
+                                # demande sans itinéraire devenait un « convoi » fantôme d'une
+                                # seule place (nb_places_total=1) auquel personne ne pouvait
+                                # être ajouté - le voyage reste désormais un départ individuel,
+                                # à rattacher à une rotation depuis « À organiser ».
+                                rotation_id=rotation_obj.rotation_id if rotation_obj else None,
                                 nb_places_total=rotation_obj.nb_places_total if rotation_obj else 1,
                                 type_voyage="rotation" if rotation_obj else "individuel",
+                                vehicule_personnel=perso,
+                                vehicule="Véhicule personnel" if perso else "",
+                                vehicule_matricule=(data.get("immatriculation") or "").strip()[:30] if perso else "",
                                 statut_validation="valide",
                                 valide_par=request.user,
                                 date_validation=timezone.now(),
@@ -2864,8 +2946,11 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # coherent : c'est exactement ce qui laissait
                             # Edgar affiche "toujours dans sa chambre"
                             # malgre sa demande validee et son voyage cree.
-                            voyage_cree.partir(dd)
-                            _cloturer_sejour_personnel(p, dd)
+                            if not vers_camp:
+                                voyage_cree.partir(dd)
+                                _cloturer_sejour_personnel(p, dd)
+                                if demande.date_fin_souhaitee:
+                                    creer_trajet_retour(voyage_cree, itineraire_obj, request.user)
                         except Exception as ve:
                             pass  # Continue even if voyage creation fails
         
@@ -3120,7 +3205,7 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         u = self.request.user
         role = getattr(getattr(u, "profile", None), "role", None)
         is_admin = u.is_staff or u.is_superuser or role == "admin"
-        if not is_admin:
+        if not is_admin and role not in ("hse", "medical"):
             qs = qs.filter(personnel__user=u)
         return qs
 
@@ -3166,15 +3251,26 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
             return Response({'error': 'etape requise'}, status=400)
 
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
-        if not is_admin:
-            # Un employe ne peut mettre a jour QUE sa propre progression
-            # d'induction - sans ca, n'importe qui pouvait falsifier
-            # l'induction (etapes/quiz) de n'importe quel autre employe en
-            # passant simplement un personnel_id different.
-            own_personnel = getattr(u, "personnel", None)
-            if not own_personnel or str(own_personnel.id) != str(personnel_id):
-                return Response({'error': "Vous ne pouvez mettre à jour que votre propre induction."}, status=403)
+        role = getattr(getattr(u, "profile", None), "role", "")
+        is_admin = u.is_staff or u.is_superuser or role == "admin"
+        if not is_admin and role != "hse":
+            if role == "medical":
+                # Service médical : l'étape médicale de n'importe qui, rien d'autre
+                if etape_key != "medical":
+                    return Response({'error': "Le service médical ne valide que l'étape médicale."}, status=403)
+            else:
+                # Un employe ne peut mettre a jour QUE sa propre progression
+                # d'induction - sans ca, n'importe qui pouvait falsifier
+                # l'induction (etapes/quiz) de n'importe quel autre employe en
+                # passant simplement un personnel_id different.
+                own_personnel = getattr(u, "personnel", None)
+                if not own_personnel or str(own_personnel.id) != str(personnel_id):
+                    return Response({'error': "Vous ne pouvez mettre à jour que votre propre induction."}, status=403)
+                # ... et uniquement les étapes qu'il remplit lui-même : la visite
+                # médicale et le badge sont validés par le service concerné
+                # (avant : un agent pouvait s'auto-valider médical + badge).
+                if etape_key not in ("accueil", "documents", "formation", "quiz"):
+                    return Response({'error': "Cette étape est validée par le service HSE / médical."}, status=403)
 
         try:
             from residences.models import Personnel, InductionRecord

@@ -109,6 +109,10 @@ class Voyage(models.Model):
                                     "Un eventuel retour doit etre cree comme une NOUVELLE rotation separee, independante. "
                                     "Quand actif, la fin du trajet ne tente jamais de restituer une chambre au camp "
                                     "(la destination n'est pas forcement le camp).")
+    vehicule_personnel = models.BooleanField(default=False,
+                         help_text="Le voyageur part avec SON propre véhicule (résident qui fait ses rotations "
+                                    "en voiture personnelle) : voyage individuel, jamais à organiser dans un convoi. "
+                                    "L'immatriculation éventuelle est dans vehicule_matricule.")
     demande_origine = models.ForeignKey("residences.Demande", on_delete=models.SET_NULL, null=True, blank=True,
                          related_name="voyages_generes",
                          help_text="Demande de voyage a l'origine de ce voyage, si cree depuis une demande validee "
@@ -254,6 +258,10 @@ class Voyage(models.Model):
                 b.occupant = f"{self.personnel.nom} {self.personnel.prenom}"
                 b.societe = self.personnel.societe
                 b.date_arrivee = today
+                # Trajet X -> Camp : date_retour_prevue = « je repars du camp le » -> date
+                # de départ de l'hébergement (relance J-1 « Vous partez demain ? »).
+                if self.date_retour_prevue and self.date_retour_prevue > today:
+                    b.date_depart = self.date_retour_prevue
                 b.save()
                 OccupationHistory.objects.create(
                     batiment=b, personnel=self.personnel,
@@ -440,6 +448,27 @@ class ItineraireModele(models.Model):
     def __str__(self):
         return self.nom
 
+    def villes_descente(self):
+        """Villes où un passager peut descendre, dans l'ordre du trajet :
+        les étapes (hors ville d'origine), terminées par la destination.
+        Même règle que villesDescente() côté frontend (Layout.jsx)."""
+        villes, vus = [], {(self.origine or "").strip().lower()}
+        for v in [e.ville for e in self.etapes.order_by("ordre")] + [self.destination]:
+            v = (v or "").strip()
+            if v and v.lower() not in vus:
+                villes.append(v)
+                vus.add(v.lower())
+        return villes
+
+    @classmethod
+    def par_defaut_depart_camp(cls):
+        """Itinéraire proposé par défaut à un résident qui quitte le camp :
+        Camp → Abidjan (créé par la migration 0031), sinon le premier
+        itinéraire actif partant du camp."""
+        actifs = cls.objects.filter(actif=True)
+        return (actifs.filter(origine__iexact="CAMP", destination__iexact="ABIDJAN").first()
+                or actifs.filter(origine__icontains="camp").first())
+
 
 class EtapeItineraireModele(models.Model):
     """Un tronçon (ville intermédiaire) d'un ItineraireModele — sert de
@@ -485,3 +514,91 @@ class VehiculeFlotte(models.Model):
 
     def __str__(self):
         return f"{self.nom} ({self.matricule})" if self.matricule else self.nom
+
+
+# ══════════════════════════════════════════════════════════════════
+# Suivi en direct d'un convoi (façon Yango) — le conducteur clique
+# "Partir" depuis son téléphone, sa position GPS remonte régulièrement,
+# et chaque arrêt (pause, dépose, ramassage, incident) est notifié au
+# Centre de Mobilité et affiché sur la carte.
+#
+# Modèles SÉPARÉS de Rotation volontairement : Rotation a un
+# HistoricalRecords - y stocker la position créerait une ligne
+# d'historique toutes les 15 secondes pendant tout le trajet.
+# ══════════════════════════════════════════════════════════════════
+
+class SuiviConvoi(models.Model):
+    STATUT_CHOIX = [
+        ("en_route", "🚐 En route"),
+        ("arret",    "⏸️ À l'arrêt"),
+        ("arrive",   "🏁 Arrivé"),
+    ]
+    rotation = models.OneToOneField(Rotation, on_delete=models.CASCADE, related_name="suivi")
+    statut = models.CharField(max_length=10, choices=STATUT_CHOIX, default="en_route", db_index=True)
+    depart_at = models.DateTimeField()
+    arrivee_at = models.DateTimeField(null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    vitesse_kmh = models.FloatField(null=True, blank=True)
+    cap = models.FloatField(null=True, blank=True, help_text="Direction en degrés (0 = nord)")
+    position_at = models.DateTimeField(null=True, blank=True)
+    nb_passagers_depart = models.PositiveIntegerField(default=0)
+    demarre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "Suivi de convoi"
+
+    def __str__(self):
+        return f"Suivi {self.rotation.rotation_id} — {self.statut}"
+
+    def nb_a_bord(self):
+        """Passagers partis avec le convoi, moins ceux déposés en route."""
+        deposes = DeposeArret.objects.filter(arret__suivi=self).values("voyage_id").distinct().count()
+        return max(0, self.nb_passagers_depart - deposes)
+
+
+class PositionConvoi(models.Model):
+    """Trace GPS (pour dessiner le trajet parcouru sur la carte)."""
+    suivi = models.ForeignKey(SuiviConvoi, on_delete=models.CASCADE, related_name="positions")
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    vitesse_kmh = models.FloatField(null=True, blank=True)
+    date_heure = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["suivi", "date_heure"]
+
+
+class ArretConvoi(models.Model):
+    TYPE_CHOIX = [
+        ("pause",     "☕ Pause"),
+        ("depose",    "⬇️ Dépose passagers"),
+        ("ramassage", "⬆️ Ramassage"),
+        ("controle",  "🛂 Contrôle / barrage"),
+        ("carburant", "⛽ Carburant"),
+        ("incident",  "⚠️ Incident / panne"),
+    ]
+    suivi = models.ForeignKey(SuiviConvoi, on_delete=models.CASCADE, related_name="arrets")
+    type_arret = models.CharField(max_length=12, choices=TYPE_CHOIX, default="pause")
+    lieu = models.CharField(max_length=150, blank=True, default="")
+    note = models.CharField(max_length=300, blank=True, default="")
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    debut = models.DateTimeField()
+    fin = models.DateTimeField(null=True, blank=True)
+    nb_a_bord = models.PositiveIntegerField(default=0, help_text="Passagers à bord APRÈS cet arrêt")
+
+    class Meta:
+        ordering = ["suivi", "debut"]
+
+    def __str__(self):
+        return f"{self.get_type_arret_display()} — {self.lieu or '?'}"
+
+
+class DeposeArret(models.Model):
+    """Passager déposé lors d'un arrêt (lié à son Voyage)."""
+    arret = models.ForeignKey(ArretConvoi, on_delete=models.CASCADE, related_name="deposes")
+    voyage = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="deposes_convoi")
+
+    class Meta:
+        unique_together = [["arret", "voyage"]]

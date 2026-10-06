@@ -21,11 +21,15 @@ STATUT_MAP = {
 def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=None):
     """Retourne True si la personne est déjà sur un voyage actif
     qui chevauche la période [date_depart, date_retour]."""
+    fin = date_retour or date_depart
+    # Trajets en aller simple : un trajet qui se termine le jour J et le
+    # suivant qui commence le jour J se TOUCHENT sans se chevaucher
+    # (ex : Camp -> Abidjan « je reviens le 20 », puis Abidjan -> Camp le 20).
     qs = Voyage.objects.filter(
         personnel_id=personnel_id,
         statut__in=("planifie", "en_voyage"),
-        date_depart__lte=date_retour or date_depart,
-        date_retour_prevue__gte=date_depart,
+    ).filter(
+        Q(date_depart__lt=fin, date_retour_prevue__gt=date_depart) | Q(date_depart=date_depart)
     )
     if exclude_pk:
         qs = qs.exclude(pk=exclude_pk)
@@ -120,7 +124,14 @@ class VoyageViewSet(viewsets.ModelViewSet):
     search_fields = ["personnel__nom","personnel__prenom","destination"]
 
     def get_queryset(self):
-        qs = Voyage.objects.select_related("personnel","batiment").all()
+        # PERFORMANCE : sans ces préchargements, le serializer refaisait ~6
+        # requêtes SQL PAR voyage (étapes, véhicule de chaque étape, validé
+        # par...) - 1 200 requêtes pour la liste du Centre de Mobilité,
+        # rechargée toutes les 30 s par chaque admin qui a la page ouverte.
+        qs = (Voyage.objects
+              .select_related("personnel", "batiment", "valide_par", "enregistre_par",
+                              "conducteur_personnel", "conducteur_secondaire_personnel")
+              .prefetch_related("etapes__vehicule_flotte"))
         statut = self.request.query_params.get("statut")
         statut_validation = self.request.query_params.get("statut_validation")
         personnel = self.request.query_params.get("personnel")
@@ -496,6 +507,16 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Personnel pas en voyage"}, status=400)
         date_str = request.data.get("date_retour")
         date = datetime.date.fromisoformat(date_str) if date_str else None
+        # Arrivée au camp (trajet X -> Camp) : « repart du camp le » -> date de
+        # départ de l'hébergement restitué (cf. Voyage.revenir), qui déclenche
+        # la relance J-1 « Vous partez demain ? ».
+        prochain = request.data.get("prochain_depart")
+        if prochain:
+            try:
+                voyage.date_retour_prevue = datetime.date.fromisoformat(str(prochain))
+            except ValueError:
+                return Response({"error": "Date de prochain départ invalide"}, status=400)
+            voyage.save(update_fields=["date_retour_prevue"])
         info_chambre = voyage.revenir(date)
         # Vehicule/conducteur du retour, si different de l'aller (ex: agent
         # regroupe dans un autre vehicule suite a un retour anticipe)
@@ -803,85 +824,142 @@ class VoyageViewSet(viewsets.ModelViewSet):
         """
         Section 6/11 du document de refonte : les demandes de voyage
         VALIDEES par l'admin (systeme de demandes existant, reutilise tel
-        quel) mais dont le voyage genere automatiquement est encore un
-        simple placeholder individuel (aucun vehicule/chauffeur assigne
-        - jamais fusionne avec d'autres demandes en une rotation
-        organisee). C'est le "pool" de personnes pretes a etre organisees
-        en rotation, sans recreer le systeme de demandes.
+        quel) dont le voyage n'a pas encore de vehicule/chauffeur. C'est le
+        "pool" de personnes pretes a etre organisees en rotation.
+
+        Expose aussi le convoi auquel le voyage est DEJA rattache (la
+        validation regroupe automatiquement les demandes du meme itineraire
+        et de la meme date dans une Rotation) pour que l'ecran puisse
+        completer CE convoi plutot que d'en recreer un nouveau.
+        Les voyages en vehicule personnel n'ont rien a organiser : exclus.
         """
         from residences.models import Demande
         demandes = (Demande.objects
             .filter(type_demande="voyage", statut="validee")
-            .select_related("demandeur")
+            .select_related("demandeur", "demandeur__personnel")
             .prefetch_related("voyages_generes"))
+        # Voyages préchargés (prefetch_related) : filtrés en Python pour ne pas
+        # refaire une requête par demande ; convois chargés en une fois.
+        voyages_par_demande = {}
+        for d in demandes:
+            vs = [v for v in d.voyages_generes.all() if v.statut != "annule"]
+            voyages_par_demande[d.id] = max(vs, key=lambda v: v.id) if vs else None
+        rids = {v.rotation_id for v in voyages_par_demande.values() if v and v.rotation_id}
+        rotations = {r.rotation_id: r for r in Rotation.objects.select_related("itineraire_modele").filter(rotation_id__in=rids)}
         result = []
         for d in demandes:
-            voyage = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
-            if not voyage or voyage.vehicule_matricule:
-                continue  # deja organisee (vehicule assigne) ou voyage introuvable
+            voyage = voyages_par_demande[d.id]
+            if not voyage or voyage.vehicule_matricule or voyage.vehicule_personnel:
+                continue  # deja organisee (vehicule assigne), vehicule perso, ou voyage introuvable
+            rot = rotations.get(voyage.rotation_id) if voyage.rotation_id else None
             p = getattr(d.demandeur, "personnel", None)
             result.append({
                 "demande_id": d.id,
                 "voyage_id": voyage.id,
                 "personnel_id": p.id if p else None,
                 "personnel_nom": f"{p.nom} {p.prenom}" if p else d.demandeur.get_full_name(),
+                "origine": voyage.origine,
                 "destination": voyage.destination,
                 "date_depart": voyage.date_depart,
                 "date_retour_prevue": voyage.date_retour_prevue,
+                "rotation_id": rot.rotation_id if rot else None,
+                "itineraire_nom": rot.itineraire_modele.nom if rot and rot.itineraire_modele else None,
             })
         return Response({"demandes_a_organiser": result})
 
     @action(detail=False, methods=["post"])
     def organiser_demandes_en_rotation(self, request):
         """
-        Le maillon manquant identifie par l'audit : jusqu'ici, valider une
-        demande de voyage creait un voyage individuel isole, jamais relie
-        a un vehicule/chauffeur ni fusionnable avec d'autres demandes.
-        Cette action prend une ou plusieurs demandes DEJA VALIDEES
-        (systeme de demandes existant, jamais duplique ici) et organise
-        leurs voyages generes en UNE rotation partagee : meme
-        vehicule/chauffeur, meme rotation_id. Reutilise EXACTEMENT les
-        memes regles de validation que creer_rotation (conducteur ≠
-        passager, conducteur ≠ second chauffeur, second chauffeur ≠
-        passager, second chauffeur facultatif) plutot que de les
-        redefinir.
+        Organise des voyages deja valides dans UN convoi partage (meme
+        vehicule/chauffeur, meme rotation_id). Entrees :
+          - demande_ids : demandes de voyage validees (onglet "A organiser")
+          - voyage_ids  : voyages individuels hors convoi (ex: depart confirme
+                          depuis "Mon depart") - meme traitement
+          - rotation_id : convoi EXISTANT a completer (facultatif)
+
+        BUG REEL CORRIGE ICI : cette action creait TOUJOURS une nouvelle
+        rotation dimensionnee au nombre de demandes cochees
+        (nb_places_total = len(voyages)) - une seule demande organisee
+        donnait donc un convoi d'UNE place, plein d'emblee ("Rotation
+        complete" pour tout ajout ulterieur), qui ressemblait a un voyage
+        individuel. Et elle sortait les passagers du convoi deja forme
+        automatiquement a la validation (meme itineraire + meme date).
+        Desormais :
+          - rotation_id fourni            -> on complete ce convoi ;
+          - sinon, si tous les voyages sont deja dans le meme convoi -> on
+            l'organise (vehicule/chauffeur) sans le casser ;
+          - sinon nouveau convoi ;
+          - capacite = celle du vehicule de la flotte (VehiculeFlotte),
+            jamais le nombre de passagers du moment.
+        Memes regles qu'avant : conducteur ≠ passager, conducteur ≠ second
+        chauffeur, second chauffeur ≠ passager.
         """
-        from residences.models import Demande
+        from residences.models import Demande, Personnel as _Pers
         data = request.data
         demande_ids = data.get("demande_ids") or []
-        if not demande_ids:
-            return Response({"error": "Au moins une demande requise."}, status=400)
+        voyage_ids = data.get("voyage_ids") or []
+        if not demande_ids and not voyage_ids:
+            return Response({"error": "Au moins une demande ou un voyage requis."}, status=400)
 
+        # ── Voyages a organiser ──
+        voyages = []
+        if demande_ids:
+            demandes = Demande.objects.filter(id__in=demande_ids, type_demande="voyage", statut="validee")
+            if demandes.count() != len(set(demande_ids)):
+                return Response({"error": "Une ou plusieurs demandes ne sont pas valides/validées."}, status=400)
+            for d in demandes:
+                v = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
+                if not v:
+                    return Response({"error": f"Aucun voyage généré pour la demande #{d.id}."}, status=400)
+                voyages.append(v)
+        if voyage_ids:
+            extra = list(Voyage.objects.filter(id__in=voyage_ids).exclude(statut__in=["annule", "retour"]))
+            if len(extra) != len(set(voyage_ids)):
+                return Response({"error": "Un ou plusieurs voyages sont introuvables ou terminés."}, status=400)
+            voyages += [v for v in extra if v.id not in {x.id for x in voyages}]
+        for v in voyages:
+            if v.vehicule_personnel:
+                return Response({"error": f"{v.personnel.nom} {v.personnel.prenom} voyage avec son véhicule personnel — rien à organiser."}, status=400)
+
+        # ── Convoi cible ──
+        cible_id = (data.get("rotation_id") or "").strip()
+        rotation = None
+        if cible_id:
+            rotation = Rotation.objects.filter(rotation_id=cible_id).first()
+            if not rotation:
+                return Response({"error": "Rotation introuvable."}, status=404)
+            statuts = set(Voyage.objects.filter(rotation_id=cible_id).exclude(statut="annule").values_list("statut", flat=True))
+            if statuts and not statuts & {"planifie", "en_voyage"}:
+                return Response({"error": "Ce convoi est déjà terminé — impossible d'y ajouter quelqu'un."}, status=400)
+        else:
+            ids = {v.rotation_id for v in voyages}
+            if len(ids) == 1 and None not in ids:
+                rotation = Rotation.objects.filter(rotation_id=ids.pop()).first()
+        for v in voyages:
+            if v.vehicule_matricule and v.rotation_id != (rotation.rotation_id if rotation else None):
+                return Response({"error": f"{v.personnel.nom} {v.personnel.prenom} est déjà organisé dans une autre rotation."}, status=409)
+
+        # ── Vehicule / chauffeurs : ceux du formulaire, sinon ceux du convoi cible ──
         conducteur = (data.get("conducteur") or "").strip()
         conducteur_secondaire = (data.get("conducteur_secondaire") or "").strip()
-        # Meme motif que creer_rotation : conducteur_id/conducteur_secondaire_id
-        # (reference reelle vers Personnel) privilegie, le texte libre reste
-        # accepte pour compatibilite.
-        conducteur_personnel = None
-        conducteur_secondaire_personnel = None
-        conducteur_id = data.get("conducteur_id")
-        conducteur_secondaire_id = data.get("conducteur_secondaire_id")
-        from residences.models import Personnel as _Pers
-        if conducteur_id:
-            conducteur_personnel = _Pers.objects.filter(pk=conducteur_id).first()
+        conducteur_personnel = conducteur_secondaire_personnel = None
+        if data.get("conducteur_id"):
+            conducteur_personnel = _Pers.objects.filter(pk=data.get("conducteur_id")).first()
             if conducteur_personnel:
                 conducteur = f"{conducteur_personnel.nom} {conducteur_personnel.prenom}"
-        if conducteur_secondaire_id:
-            conducteur_secondaire_personnel = _Pers.objects.filter(pk=conducteur_secondaire_id).first()
+        if data.get("conducteur_secondaire_id"):
+            conducteur_secondaire_personnel = _Pers.objects.filter(pk=data.get("conducteur_secondaire_id")).first()
             if conducteur_secondaire_personnel:
                 conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
-        vehicule = data.get("vehicule", "")
-        vehicule_matricule = data.get("vehicule_matricule", "")
-        # BUG REEL CORRIGE ICI (demande utilisateur : "voyage en permettant
-        # de choisir l'itinéraire") : cette action n'acceptait pas
-        # d'itineraire_modele_id, contrairement a creer_rotation - un
-        # convoi organise depuis des demandes deja validees se retrouvait
-        # donc TOUJOURS sans itineraire (tableau JMP "Cote de securite de
-        # route" vide, aucun arret intermediaire propose). Meme mecanisme
-        # que creer_rotation : applique a la Rotation ET a chaque voyage
-        # via _appliquer_itineraire_a_voyage.
-        itineraire_id = data.get("itineraire_modele_id") or None
-        itineraire_obj = ItineraireModele.objects.filter(pk=itineraire_id).first() if itineraire_id else None
+        vehicule = data.get("vehicule", "") or ""
+        vehicule_matricule = data.get("vehicule_matricule", "") or ""
+        if rotation and not vehicule_matricule:
+            vehicule, vehicule_matricule = rotation.vehicule, rotation.vehicule_matricule
+        if rotation and not conducteur:
+            conducteur, conducteur_personnel = rotation.conducteur, rotation.conducteur_personnel
+            if not conducteur_secondaire:
+                conducteur_secondaire = rotation.conducteur_secondaire
+                conducteur_secondaire_personnel = rotation.conducteur_secondaire_personnel
         if not conducteur or not vehicule_matricule:
             return Response({"error": "Véhicule et chauffeur principal sont obligatoires."}, status=400)
         meme_personne = (conducteur_personnel and conducteur_secondaire_personnel and conducteur_personnel.id == conducteur_secondaire_personnel.id) \
@@ -889,67 +967,80 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if meme_personne:
             return Response({"error": "Le second chauffeur doit être différent du chauffeur principal."}, status=400)
 
-        demandes = Demande.objects.filter(id__in=demande_ids, type_demande="voyage", statut="validee")
-        if demandes.count() != len(demande_ids):
-            return Response({"error": "Une ou plusieurs demandes ne sont pas valides/validées."}, status=400)
+        itineraire_id = data.get("itineraire_modele_id") or None
+        itineraire_obj = ItineraireModele.objects.filter(pk=itineraire_id).first() if itineraire_id else None
+        if not itineraire_obj and rotation and rotation.itineraire_modele_id:
+            itineraire_obj = rotation.itineraire_modele
 
-        voyages = []
-        for d in demandes:
-            v = d.voyages_generes.exclude(statut="annule").order_by("-id").first()
-            if not v:
-                return Response({"error": f"Aucun voyage généré pour la demande #{d.id}."}, status=400)
-            if v.vehicule_matricule:
-                return Response({"error": f"La demande #{d.id} est déjà organisée dans une rotation."}, status=409)
-            voyages.append(v)
+        with transaction.atomic():
+            if rotation:
+                Rotation.objects.select_for_update().filter(pk=rotation.pk).first()
+                deja = list(Voyage.objects.filter(rotation_id=rotation.rotation_id).exclude(statut="annule").exclude(id__in=[v.id for v in voyages]))
+            else:
+                deja = []
+            tous = deja + voyages
 
-        # Comparaison par ID quand disponible (fiable), repli sur le nom
-        # (comme creer_rotation) sinon.
-        passagers_ids = {v.personnel_id for v in voyages if v.personnel_id}
-        noms_passagers = {f"{v.personnel.nom} {v.personnel.prenom}".strip().lower() for v in voyages if v.personnel}
-        if conducteur_personnel:
-            if conducteur_personnel.id in passagers_ids:
-                return Response({"error": f"{conducteur} fait partie des personnes à transporter : ne peut pas être aussi conducteur."}, status=400)
-        elif conducteur.lower() in noms_passagers:
-            return Response({"error": f"{conducteur} fait partie des personnes à transporter : ne peut pas être aussi conducteur."}, status=400)
-        if conducteur_secondaire_personnel:
-            if conducteur_secondaire_personnel.id in passagers_ids:
-                return Response({"error": f"{conducteur_secondaire} fait partie des personnes à transporter : ne peut pas être aussi second chauffeur."}, status=400)
-        elif conducteur_secondaire and conducteur_secondaire.lower() in noms_passagers:
-            return Response({"error": f"{conducteur_secondaire} fait partie des personnes à transporter : ne peut pas être aussi second chauffeur."}, status=400)
+            # Conducteur(s) jamais passager(s) - sur l'ENSEMBLE du convoi
+            passagers_ids = {v.personnel_id for v in tous if v.personnel_id}
+            noms_passagers = {f"{v.personnel.nom} {v.personnel.prenom}".strip().lower() for v in tous if v.personnel}
+            for nom, pers, role in ((conducteur, conducteur_personnel, "conducteur"),
+                                    (conducteur_secondaire, conducteur_secondaire_personnel, "second chauffeur")):
+                if not nom:
+                    continue
+                if (pers and pers.id in passagers_ids) or (not pers and nom.lower() in noms_passagers):
+                    return Response({"error": f"{nom} fait partie des personnes à transporter : ne peut pas être aussi {role}."}, status=400)
 
-        nouveau_rotation_id = str(uuid.uuid4())[:8].upper()
-        Rotation.objects.create(
-            rotation_id=nouveau_rotation_id, vehicule=vehicule, vehicule_matricule=vehicule_matricule,
-            conducteur=conducteur, conducteur_personnel=conducteur_personnel,
-            conducteur_secondaire=conducteur_secondaire, conducteur_secondaire_personnel=conducteur_secondaire_personnel,
-            # BUG REEL CORRIGE ICI : "origine" n'etait jamais renseignee (champ
-            # absent de ce create()) - la Rotation se retrouvait avec une
-            # origine vide, ce qui cassait ensuite arrets_itineraire (la liste
-            # deroulante montee/descente, qui exige origine ET destination non
-            # vides pour se construire - voir rotations()).
-            origine=itineraire_obj.origine if itineraire_obj else (voyages[0].origine if voyages else ""),
-            destination=itineraire_obj.destination if itineraire_obj else (voyages[0].destination if voyages else ""),
-            date_depart=voyages[0].date_depart if voyages else timezone.localdate(),
-            date_retour_prevue=voyages[0].date_retour_prevue if voyages else timezone.localdate(),
-            nb_places_total=len(voyages), statut="planifie", enregistre_par=request.user,
-            itineraire_modele_id=itineraire_id,
-        )
-        for v in voyages:
-            v.vehicule = vehicule
-            v.vehicule_matricule = vehicule_matricule
-            v.conducteur = conducteur
-            v.conducteur_secondaire = conducteur_secondaire
-            v.conducteur_personnel = conducteur_personnel
-            v.conducteur_secondaire_personnel = conducteur_secondaire_personnel
-            v.rotation_id = nouveau_rotation_id
-            v.type_voyage = "rotation"
-            v.nb_places_total = len(voyages)
-            v.save(update_fields=["vehicule","vehicule_matricule","conducteur","conducteur_secondaire",
-                                   "conducteur_personnel","conducteur_secondaire_personnel","rotation_id","type_voyage","nb_places_total"])
+            # Capacite = celle du vehicule (flotte), sinon saisie, sinon celle du convoi / 15
+            vf = VehiculeFlotte.objects.filter(matricule=vehicule_matricule).first() if vehicule_matricule else None
+            try:
+                saisie = int(data.get("nb_places_total") or 0)
+            except (TypeError, ValueError):
+                saisie = 0
+            places = (vf.capacite if vf else 0) or saisie or max(rotation.nb_places_total if rotation else 0, 15)
+            if len(tous) > places:
+                return Response({"error": f"Le véhicule {vehicule_matricule} n'a que {places} place(s) pour {len(tous)} passager(s)."}, status=400)
+
+            anciennes = {v.rotation_id for v in voyages if v.rotation_id} - ({rotation.rotation_id} if rotation else set())
+            if not rotation:
+                rotation = Rotation.objects.create(
+                    rotation_id=str(uuid.uuid4())[:8].upper(),
+                    origine=itineraire_obj.origine if itineraire_obj else (voyages[0].origine or ""),
+                    destination=itineraire_obj.destination if itineraire_obj else (voyages[0].destination or ""),
+                    date_depart=min(v.date_depart for v in voyages),
+                    date_retour_prevue=max(v.date_retour_prevue for v in voyages),
+                    statut="planifie", enregistre_par=request.user,
+                )
+            rotation.vehicule, rotation.vehicule_matricule = vehicule, vehicule_matricule
+            if vf and vf.photo and not rotation.vehicule_photo:
+                rotation.vehicule_photo = vf.photo
+            rotation.conducteur, rotation.conducteur_personnel = conducteur, conducteur_personnel
+            rotation.conducteur_secondaire, rotation.conducteur_secondaire_personnel = conducteur_secondaire, conducteur_secondaire_personnel
+            rotation.nb_places_total = places
             if itineraire_obj:
-                _appliquer_itineraire_a_voyage(v, itineraire_obj)
+                rotation.itineraire_modele = itineraire_obj
+                rotation.origine = rotation.origine or itineraire_obj.origine
+                rotation.destination = rotation.destination or itineraire_obj.destination
+            rotation.save()
 
-        return Response({"rotation_id": nouveau_rotation_id, "nb_personnes": len(voyages)}, status=201)
+            for v in tous:
+                v.vehicule, v.vehicule_matricule = vehicule, vehicule_matricule
+                v.conducteur, v.conducteur_secondaire = conducteur, conducteur_secondaire
+                v.conducteur_personnel, v.conducteur_secondaire_personnel = conducteur_personnel, conducteur_secondaire_personnel
+                v.rotation_id = rotation.rotation_id
+                v.type_voyage = "rotation"
+                v.nb_places_total = places
+                v.save(update_fields=["vehicule","vehicule_matricule","conducteur","conducteur_secondaire",
+                                      "conducteur_personnel","conducteur_secondaire_personnel","rotation_id","type_voyage","nb_places_total"])
+                if itineraire_obj:
+                    _appliquer_itineraire_a_voyage(v, itineraire_obj)
+
+            # Convois automatiques vides laissés derrière (jamais organisés) : supprimés
+            for rid in anciennes:
+                if not Voyage.objects.filter(rotation_id=rid).exclude(statut="annule").exists():
+                    Rotation.objects.filter(rotation_id=rid, vehicule_matricule="").delete()
+
+        return Response({"rotation_id": rotation.rotation_id, "nb_personnes": len(voyages),
+                         "nb_passagers_total": len(tous), "nb_places_total": places}, status=201)
 
     @action(detail=False, methods=["post"])
     def creer_rotation(self, request):

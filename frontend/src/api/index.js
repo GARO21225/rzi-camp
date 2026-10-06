@@ -296,6 +296,17 @@ export const voyages = {
   rejoindreRotation: (rotation_id, personnel_id) => api.post('/api/voyages/rejoindre_rotation/', {rotation_id, personnel_id}),
   retoursAnticipes: () => api.get('/api/voyages/retours_anticipes/'),
 }
+// Suivi en direct des convois (conducteur -> Centre de Mobilité)
+export const suiviConvois = {
+  mesConvois: ()            => api.get('/api/suivi-convois/mes_convois/'),
+  actifs:     ()            => api.get('/api/suivi-convois/actifs/'),
+  get:        (rid)         => api.get(`/api/suivi-convois/${encodeURIComponent(rid)}/`),
+  partir:     (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/partir/`, d),
+  position:   (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/position/`, d),
+  arret:      (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arret/`, d),
+  reprendre:  (rid)         => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/reprendre/`),
+  arriver:    (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arriver/`, d),
+}
 export const etapesVoyage = {
   list: (voyageId) => api.get('/api/etapes-voyage/', {params:{voyage:voyageId}}),
   create: (d) => api.post('/api/etapes-voyage/', d),
@@ -383,7 +394,16 @@ export const parametres = {
   save: (parametres) => api.post('/api/parametres/sauver/', { parametres }),
 }
 
+// Cache court : Layout ET useReadOnly (à chaque changement de page)
+// interrogeaient /api/roles/ - une seule requête partagée pendant 5 min.
+let _rolesCache = null
 export const rolesAPI = {
+  listCached: () => {
+    if (!_rolesCache || Date.now() - _rolesCache.t > 5 * 60000) {
+      _rolesCache = { t: Date.now(), p: api.get('/api/roles/').catch(e => { _rolesCache = null; throw e }) }
+    }
+    return _rolesCache.p
+  },
   list:   ()      => api.get('/api/roles/'),
   create: (d)     => api.post('/api/roles/', d),
   update: (id, d) => api.patch(`/api/roles/${id}/`, d),

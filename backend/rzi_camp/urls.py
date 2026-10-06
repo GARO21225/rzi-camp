@@ -105,24 +105,30 @@ def auth_me(request):
     if not request.user or not request.user.is_authenticated:
         return Response({'detail': 'Non authentifié'}, status=401)
     user = request.user
-    profile = {}
+    # BUG RÉEL CORRIGÉ ICI : le bloc lisait p.nom, un champ qui N'EXISTE PAS
+    # sur Profile -> AttributeError avalée par un « except » qui renvoyait
+    # role='agent' pour TOUT compte non superadmin. L'application croyait
+    # donc que le gérant du bar, la restauration, les techniciens... (et un
+    # admin défini seulement par son rôle) étaient de simples agents : aucune
+    # vue ne pouvait être différenciée par rôle.
+    from accounts.models import Profile
+    p = Profile.objects.filter(user=user).first()
+    profile = {
+        'id': p.id if p else None,
+        'role': p.role if p else ('admin' if (user.is_superuser or user.is_staff) else 'agent'),
+        'nom': user.get_full_name() or user.username,
+    }
     try:
-        from accounts.models import Profile
-        p = Profile.objects.filter(user=user).first()
-        if p:
-            profile = {'id': p.id, 'role': p.role, 'nom': p.nom or user.get_full_name()}
-            try:
-                from residences.models import Personnel
-                pers = Personnel.objects.filter(user=user).first()
-                if pers:
-                    profile['personnel_id'] = pers.id
-                    profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
-            except: pass
-    except:
-        profile = {'role': 'admin' if user.is_superuser else 'agent',
-                   'nom': user.get_full_name() or user.username}
+        from residences.models import Personnel
+        pers = Personnel.objects.filter(user=user).first()
+        if pers:
+            profile['personnel_id'] = pers.id
+            profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+    except Exception:
+        pass
     return Response({
         'id': user.id, 'username': user.username,
+        'first_name': user.first_name, 'last_name': user.last_name,
         'email': user.email, 'is_superuser': user.is_superuser,
         'is_staff': user.is_staff, 'profile': profile,
     })

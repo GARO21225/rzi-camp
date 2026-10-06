@@ -77,7 +77,8 @@ export default function EventNotifBanner() {
       onClick={() => { navigate('/evenements'); setNotifs([]) }}
       style={{
         position: 'fixed',
-        bottom: 24,
+        // Sur téléphone, au-dessus de la barre d'onglets flottante (qu'il masquait)
+        bottom: window.innerWidth < 768 ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 24,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9998,

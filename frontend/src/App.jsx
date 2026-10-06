@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useStore } from './store'
 import { useInactivityLogout } from './hooks/useInactivityLogout'
 import { auth, parametres } from './api'
+import { isAdminUser } from './constants/roleNav'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 import ToastContainer from './components/ToastContainer'
@@ -27,6 +28,7 @@ const MonCompte = lazy(() => import('./pages/MonCompte'))
 const Analytics   = lazy(() => import('./pages/Analytics'))
 const RapportsPage = lazy(() => import('./pages/RapportsPage'))
 const Boutique = lazy(() => import('./pages/Boutique'))
+const BarClient = lazy(() => import('./pages/BarClient'))
 const AuditPage = lazy(() => import('./pages/AuditPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
 const InductionPage = lazy(() => import('./pages/InductionPage'))
@@ -36,9 +38,18 @@ const SalleControle = lazy(() => import('./pages/SalleControle'))
 const WorkflowHub = lazy(() => import('./pages/WorkflowHub'))
 const BoutiquePOS = lazy(() => import('./pages/BoutiquePOS'))
 const Parametrage = lazy(() => import('./pages/Parametrage'))
-import Presences   from './pages/Presences'
+const Presences = lazy(() => import('./pages/Presences'))
 
 const Demandes = lazy(() => import('./pages/Demandes'))
+const Conduite = lazy(() => import('./pages/Conduite'))
+const chargerAccueil = () => import('./pages/Accueil')
+const Accueil = lazy(chargerAccueil)
+// Résident déjà connu sur cet appareil : on précharge son écran d'accueil
+// en parallèle du reste, au lieu d'attendre la fin du Layout.
+try {
+  const u = JSON.parse(localStorage.getItem('rzc_user') || 'null')
+  if (u && !(u.is_staff || u.is_superuser) && localStorage.getItem('access_token')) chargerAccueil()
+} catch {}
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 import { useTheme } from './hooks/useTheme'
@@ -100,13 +111,30 @@ function PrivateRoute({ children }) {
   return token ? children : <Navigate to="/login" replace />
 }
 
+// Dashboard = vue camp-wide reservee a l'admin. Les non-admins n'arrivent
+// jamais ici : la garde de routes de Layout les renvoie vers leur accueil
+// (avant, seuls 4 roles etaient rediriges - boutique, hse, manager...
+// atterrissaient sur le Dashboard admin).
 function RoleHome() {
-  const { user, token } = useStore()
-  if (token && !user) return <div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>
-  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
-  const mapRoles = ['agent', 'restauration', 'technicien', 'menage']
-  if (mapRoles.includes(role)) return <Navigate to="/carte" replace />
+  const { user } = useStore()
+  if (user && !isAdminUser(user)) return <Navigate to="/accueil" replace />
   return <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>Chargement...</div>}><Dashboard /></Suspense>
+}
+
+// Bar & Boutique : vue de gestion (caisse, stock...) pour l'admin et le
+// gérant du bar (rôle 'boutique') ; vue « Mon bar » (carte, mon bon, mes
+// consommations) pour tous les autres résidents.
+function BoutiqueSelonProfil() {
+  const { user } = useStore()
+  const gestion = isAdminUser(user) || user?.profile?.role === 'boutique'
+  return gestion ? <Boutique /> : <BarClient />
+}
+
+// Pages hors Layout (plein ecran) reservees a l'admin.
+function AdminOnly({ children }) {
+  const { user } = useStore()
+  if (!user) return <div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>
+  return isAdminUser(user) ? children : <Navigate to="/" replace />
 }
 
 function InactivityWarning() {
@@ -210,7 +238,7 @@ export default function App() {
       <PWAInstallButton />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/salle-controle" element={<PrivateRoute><Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><SalleControle /></Suspense></PrivateRoute>} />
+        <Route path="/salle-controle" element={<PrivateRoute><AdminOnly><Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><SalleControle /></Suspense></AdminOnly></PrivateRoute>} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<RoleHome />} />
           <Route path="carte" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><MapPage /></Suspense>} />
@@ -225,11 +253,11 @@ export default function App() {
           <Route path="analytics" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Analytics /></Suspense>} />
           <Route path="demandes" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Demandes /></Suspense>}/>
           <Route path="audit" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AuditPage /></Suspense>} />
-          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><Boutique /></Suspense>} />
+          <Route path="boutique" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><BoutiqueSelonProfil /></Suspense>} />
           <Route path="mon-compte" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><MonCompte /></Suspense>} />
           <Route path="parametrage" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Parametrage /></Suspense>} />
           <Route path="status"     element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><StatusPage /></Suspense>} />
-          <Route path="presences"  element={<Presences />} />
+          <Route path="presences"  element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Presences /></Suspense>} />
           <Route path="rapports" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳</div>}><RapportsPage /></Suspense>} />
           <Route path="workflows" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><WorkflowHub /></Suspense>} />
           <Route path="induction-camp" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><InductionCamp /></Suspense>} />
@@ -237,6 +265,8 @@ export default function App() {
           <Route path="epi" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#94a3b8'}}>⏳</div>}><EquipementsEPI /></Suspense>} />
               <Route path="induction" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><InductionPage /></Suspense>} />
           <Route path="boutique-pos" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><BoutiquePOS /></Suspense>} />
+          <Route path="accueil" element={<Suspense fallback={<div style={{minHeight:"100%",background:"#06142E"}}/>}><Accueil /></Suspense>} />
+          <Route path="conduite" element={<Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>⏳ Chargement...</div>}><Conduite /></Suspense>} />
           <Route path="rotations" element={<Suspense fallback={<div style={{background:'#060d1f',minHeight:'100vh'}}/>}><MissionControl /></Suspense>} />
           <Route path="annuaire" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><AnnuairePage /></Suspense>} />
           <Route path="reservations" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#64748b'}}>⏳ Chargement...</div>}><ReservationsPage /></Suspense>} />

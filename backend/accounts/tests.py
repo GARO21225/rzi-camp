@@ -651,3 +651,18 @@ class ModeTestVisibiliteTests(TestCase):
             envoi = envoyer_identifiants(self.personnel, "u_test", "Xx1!aaaa")
         self.assertTrue(envoi["ok"])
         self.assertFalse(envoi["mode_test"])
+
+
+class AuthMeRoleTests(TestCase):
+    """/api/auth/me/ doit renvoyer le VRAI rôle (avant : 'agent' pour tout non-superadmin)."""
+
+    def test_role_reel_renvoye(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from accounts.models import Profile
+        u = User.objects.create_user("bar", password="x", first_name="Koffi", last_name="Bar")
+        Profile.objects.update_or_create(user=u, defaults={"role": "boutique"})
+        c = APIClient(); c.force_authenticate(User.objects.get(pk=u.pk))
+        d = c.get("/api/auth/me/").data
+        self.assertEqual(d["profile"]["role"], "boutique")
+        self.assertEqual((d["first_name"], d["last_name"]), ("Koffi", "Bar"))

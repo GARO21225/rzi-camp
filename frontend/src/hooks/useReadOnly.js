@@ -23,7 +23,7 @@ export function useReadOnly() {
 
   useEffect(() => {
     if (isAdmin) { setReadOnly(false); return }
-    rolesAPI.list().then(r => {
+    rolesAPI.listCached().then(r => {
       const liste = r.data?.results || r.data || []
       const roleCustom = liste.find(x => x.code === role)
       const pagesRO = roleCustom?.pages_readonly || []

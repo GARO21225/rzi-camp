@@ -526,6 +526,32 @@ export default function Demandes() {
                 </div>
               )}
 
+              {/* Résidents qui font leurs rotations avec LEUR véhicule (pas le
+                  car du camp) : voyage individuel, jamais mis dans un convoi
+                  ni proposé dans « À organiser » au Centre de Mobilité. */}
+              {createModal === 'voyage' && (
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Moyen de transport</label>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    {[[false,'🚌 Car du camp (convoi)'],[true,'🚗 Mon véhicule personnel']].map(([perso,l])=>{
+                      const actif = !!form.donnees?.vehicule_personnel === perso
+                      return (
+                        <button key={l} type="button" onClick={()=>setForm({...form, donnees:{...form.donnees, vehicule_personnel:perso}})}
+                          style={{ ...inp, cursor:'pointer', fontWeight:700, textAlign:'center',
+                            border: actif ? '2px solid #C9972B' : inp.border, background: actif ? '#FFF8E6' : inp.background }}>
+                          {l}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {form.donnees?.vehicule_personnel && (
+                    <input value={form.donnees?.immatriculation||''} placeholder="Immatriculation (facultatif)"
+                      onChange={e=>setForm({...form, donnees:{...form.donnees, immatriculation:e.target.value}})}
+                      style={{ ...inp, marginTop:8 }}/>
+                  )}
+                </div>
+              )}
+
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10, marginBottom:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Date départ':'Date arrivée'}</label>
@@ -541,8 +567,16 @@ export default function Demandes() {
                   )}
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage'?'Retour prévu':'Date départ'}</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>{createModal==='voyage' ? (/camp/i.test(form.donnees?.destination||'') ? 'Je repars du camp le' : 'Je reviens au camp le') : 'Date départ'}</label>
                   <input type="date" value={form.date_fin_souhaitee} min={form.date_debut_souhaitee||today} onChange={e=>setForm({...form,date_fin_souhaitee:e.target.value})} style={inp}/>
+                  {/* Trajets en aller simple : la 2e date n'a pas le même sens selon le sens du trajet */}
+                  {createModal==='voyage' && (
+                    <div style={{fontSize:10,color:'var(--text-dim)',marginTop:3}}>
+                      {/camp/i.test(form.donnees?.destination||'')
+                        ? 'Date de départ de votre hébergement — vous serez relancé la veille.'
+                        : 'Votre chambre est libérée jusque-là ; le trajet retour vers le camp sera planifié automatiquement.'}
+                    </div>
+                  )}
                 </div>
               </div>
 

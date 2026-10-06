@@ -975,9 +975,17 @@ export default function Boutique({ embedded = false } = {}) {
   const [stockQte,     setStockQte]     = useState(0)
   const [stockOp,      setStockOp]      = useState('add')
   const [stockRaison,  setStockRaison]  = useState('')
+  const [stockArtId,   setStockArtId]   = useState('')
+  // Opération présélectionnée selon le bouton cliqué (↑ In / ↓ Out / ✏️)
+  useEffect(() => {
+    if (stockModal) setStockOp({ in:'add', out:'subtract', edit:'set' }[stockModal.mode] || 'add')
+  }, [stockModal])
   const isAdmin = !!(user?.is_staff || user?.is_superuser ||
     user?.profile?.role === 'admin' || user?.role === 'admin' ||
     user?.username === 'admin')
+  // Gérant du bar (Profile.role 'boutique') : caisse, historique, stock ;
+  // pas les prix/catalogue, ni les analyses, ni les bons (admin).
+  const estGerant = !isAdmin && user?.profile?.role === 'boutique'
 
   const [articles,   setArticles]   = useState([])
   const [consos,     setConsos]     = useState([])
@@ -1301,7 +1309,8 @@ export default function Boutique({ embedded = false } = {}) {
         {[
           ['caisse','🛒 Caisse'],
           ['historique','📋 Historique'],
-          ...(isAdmin ? [['stock','📊 Gestion Stock'],['analyses','📈 Analyses'],['bons','🎫 Bons de Caisse']] : [])
+          ...((isAdmin || estGerant) ? [['stock','📊 Gestion Stock']] : []),
+          ...(isAdmin ? [['analyses','📈 Analyses'],['bons','🎫 Bons de Caisse']] : [])
         ].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{padding:'9px 20px',border:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13,fontWeight:700,
@@ -2053,7 +2062,8 @@ export default function Boutique({ embedded = false } = {}) {
               ⬇️ Export CSV
             </button>
 
-            {/* Import CSV */}
+            {/* Import CSV (crée/modifie des articles et leurs prix) : administrateur seul */}
+            {isAdmin && (<>
             <label style={{height:38,background:'#7c3aed',color:'var(--rzc-white)',border:'none',borderRadius:9,
               padding:'0 14px',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',
               alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
@@ -2098,6 +2108,7 @@ export default function Boutique({ embedded = false } = {}) {
                 }}
               />
             </label>
+            </>)}
           </div>
 
           {/* ── TABLEAU style Odoo/Shopify ── */}
@@ -2404,7 +2415,15 @@ export default function Boutique({ embedded = false } = {}) {
       )}
 
       {/* ══ MODAL GESTION STOCK ══ */}
-      {stockModal && (
+      {/* BUG RÉEL CORRIGÉ ICI : les boutons ouvrent cette fenêtre avec
+          {mode, article}, mais elle lisait stockModal.id / .nom / .stock
+          (inexistants) -> l'appel partait vers /articles/undefined/ et
+          aucun ajustement n'aboutissait. Et « Sortie » envoyait l'opération
+          'subtract', que le serveur ne connaît pas (il attend 'remove') et
+          traitait comme un AJOUT. */}
+      {stockModal && (() => {
+        const artStock = stockModal.article || articles.find(x => String(x.id) === String(stockArtId)) || null
+        return (
         <div style={{position:'fixed',inset:0,background:'rgba(15,36,71,.7)',backdropFilter:'blur(4px)',
           display:'flex',alignItems:'center',justifyContent:'center',zIndex:2100,padding:20}}
           onClick={e=>e.target===e.currentTarget&&setStockModal(null)}>
@@ -2414,13 +2433,20 @@ export default function Boutique({ embedded = false } = {}) {
               padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div>
                 <div style={{fontWeight:700,fontSize:15}}>📦 Gestion du Stock</div>
-                <div style={{fontSize:11,opacity:.8}}>{stockModal.nom} — Stock actuel: <b>{stockModal.stock}</b></div>
+                <div style={{fontSize:11,opacity:.8}}>{artStock ? <>{artStock.nom} — Stock actuel: <b>{artStock.stock}</b></> : 'Choisissez un article'}</div>
               </div>
               <button onClick={()=>setStockModal(null)}
                 style={{background:'rgba(255,255,255,.2)',border:'none',color:'var(--rzc-white)',
                   width:28,height:28,borderRadius:8,cursor:'pointer',fontSize:16}}>✕</button>
             </div>
             <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+              {!stockModal.article && (
+                <select value={stockArtId} onChange={e=>setStockArtId(e.target.value)}
+                  style={{width:'100%',border:'2px solid #e2e8f0',borderRadius:9,padding:'10px 12px',fontSize:13}}>
+                  <option value="">— Article —</option>
+                  {articles.map(x=><option key={x.id} value={x.id}>{x.nom} (stock {x.stock})</option>)}
+                </select>
+              )}
               <div style={{display:'flex',gap:8}}>
                 {[['add','➕ Entrée','#16a34a'],['subtract','➖ Sortie','#f97316'],['set','🔢 Ajuster','var(--rzc-navy)']].map(([op,l,c])=>(
                   <button key={op} onClick={()=>setStockOp(op)}
@@ -2455,27 +2481,28 @@ export default function Boutique({ embedded = false } = {}) {
                   Stock après opération:{' '}
                   <b style={{color:'var(--rzc-navy)'}}>
                     {stockOp==='set' ? stockQte :
-                     stockOp==='add' ? (stockModal.stock+stockQte) :
-                     Math.max(0, stockModal.stock-stockQte)} unités
+                     stockOp==='add' ? ((artStock?.stock||0)+stockQte) :
+                     Math.max(0, (artStock?.stock||0)-stockQte)} unités
                   </b>
                 </div>
               )}
-              <button onClick={async()=>{
+              <button disabled={!artStock || stockQte<=0} onClick={async()=>{
                 try {
-                  await boutiqueAPI.updateStock(stockModal.id,{operation:stockOp,quantite:stockQte,raison:stockRaison})
-                  setStockModal(null)
+                  await boutiqueAPI.updateStock(artStock.id,{operation:stockOp==='subtract'?'remove':stockOp,quantite:stockQte,raison:stockRaison})
+                  setStockModal(null); setStockArtId(''); setStockQte(0); setStockRaison('')
                   // Rafraîchir les articles
                   boutiqueAPI.articles({page_size:200}).then(r=>setArticles(r.data.results||r.data||[]))
-                } catch(e) { toast.error(e.response?.data?.error||'Erreur stock') }
+                } catch(e) { toast.error(e.response?.data?.detail||e.response?.data?.error||'Erreur stock') }
               }}
-                style={{background:'#16a34a',color:'var(--rzc-white)',border:'none',padding:12,
+                style={{background:(!artStock || stockQte<=0)?'#94a3b8':'#16a34a',color:'var(--rzc-white)',border:'none',padding:12,
                   borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit'}}>
                 ✅ Confirmer la mise à jour du stock
               </button>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ══ MODAL CHANGEMENT RAPIDE CATÉGORIE ══ */}
       {quickCatArt && (

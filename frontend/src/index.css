@@ -652,11 +652,12 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
-/* ── Mobile : saisie ──────────────────────────────────────────────
-   iOS Safari zoome sur tout champ dont le texte fait moins de 16px au
-   moment du focus, et ne revient pas en arrière : la page reste décalée
-   et il faut dézoomer à la main. La plupart des champs de l'app sont en
-   12-14px en style inline, d'où le !important. */
+/* ── Mobile : confort tactile ── */
 @media (max-width: 768px) {
+  /* iOS zoome automatiquement sur tout champ < 16px au focus, et ne
+     dézoome pas ensuite — la page restait agrandie et débordait après
+     chaque saisie (formulaires de demande, recherche, départ...). */
   input, select, textarea { font-size: 16px !important; }
+  body { -webkit-tap-highlight-color: transparent; }
+  .main-scroll { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 }

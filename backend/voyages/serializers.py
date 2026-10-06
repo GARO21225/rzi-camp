@@ -1,3 +1,4 @@
+import datetime
 from rest_framework import serializers
 from .models import Voyage, EtapeVoyage, VehiculeFlotte, ItineraireModele, EtapeItineraireModele
 
@@ -94,7 +95,11 @@ class VoyageSerializer(serializers.ModelSerializer):
         """
         o = self._obj(obj)
         if not o: return None
-        etape_vol = o.etapes.filter(mode_transport="avion").order_by("date_etape","heure_depart").first()
+        # Calculé sur les étapes déjà préchargées (prefetch_related dans
+        # VoyageViewSet) : un .filter() ici refaisait une requête SQL PAR
+        # voyage de la liste.
+        vols = [e for e in o.etapes.all() if e.mode_transport == "avion"]
+        etape_vol = min(vols, key=lambda e: (e.date_etape, e.heure_depart or datetime.time.min)) if vols else None
         if not etape_vol: return None
         return {
             "numero_vol": etape_vol.reference or "",
@@ -123,25 +128,57 @@ class VoyageSerializer(serializers.ModelSerializer):
         try: return STATUT_MAP.get(o.statut, o.statut) if o else "Planifié"
         except: return ""
 
+    def _comptes_convoi(self, rotation_id):
+        """Sièges du convoi (prises / validés / en attente), calculés UNE
+        fois pour TOUS les convois de la liste et mis en cache sur le
+        serializer - avant, 3 COUNT(*) par voyage (×200 voyages à chaque
+        rechargement du Centre de Mobilité). Même principe que
+        get_residence_principale (residences/serializers.py)."""
+        if not hasattr(self, "_comptes_cache"):
+            from django.db.models import Count, Q
+            ids = None
+            racine = self.parent if isinstance(self.parent, serializers.ListSerializer) else None
+            if racine is not None and racine.instance is not None:
+                try:
+                    ids = {v.rotation_id for v in racine.instance if getattr(v, "rotation_id", None)}
+                except TypeError:
+                    ids = None
+            if ids is None:
+                ids = {rotation_id}
+            lignes = (Voyage.objects.filter(rotation_id__in=ids).exclude(statut="annule")
+                      .values("rotation_id")
+                      .annotate(prises=Count("id"),
+                                valides=Count("id", filter=Q(statut_validation="valide")),
+                                attente=Count("id", filter=Q(statut_validation="en_attente"))))
+            self._comptes_cache = {l["rotation_id"]: l for l in lignes}
+        if rotation_id not in self._comptes_cache:
+            # convoi absent du lot initial (ex : sérialisation unitaire réutilisée)
+            from django.db.models import Count, Q
+            l = (Voyage.objects.filter(rotation_id=rotation_id).exclude(statut="annule")
+                 .aggregate(prises=Count("id"), valides=Count("id", filter=Q(statut_validation="valide")),
+                            attente=Count("id", filter=Q(statut_validation="en_attente"))))
+            self._comptes_cache[rotation_id] = l
+        return self._comptes_cache[rotation_id]
+
     def get_places_prises(self, obj):
         o = self._obj(obj)
         if not o or not o.rotation_id: return 1
-        try: return Voyage.objects.filter(rotation_id=o.rotation_id).exclude(statut="annule").count()
-        except: return 1
+        try: return self._comptes_convoi(o.rotation_id)["prises"]
+        except Exception: return 1
 
     def get_places_occupees(self, obj):
         """Sieges CONFIRMES (valides) - vraiment pris."""
         o = self._obj(obj)
         if not o or not o.rotation_id: return 0
-        try: return Voyage.objects.filter(rotation_id=o.rotation_id, statut_validation="valide").exclude(statut="annule").count()
-        except: return 0
+        try: return self._comptes_convoi(o.rotation_id)["valides"]
+        except Exception: return 0
 
     def get_places_reservees(self, obj):
         """Sieges DEMANDES mais pas encore valides - reserves, pas garantis."""
         o = self._obj(obj)
         if not o or not o.rotation_id: return 0
-        try: return Voyage.objects.filter(rotation_id=o.rotation_id, statut_validation="en_attente").exclude(statut="annule").count()
-        except: return 0
+        try: return self._comptes_convoi(o.rotation_id)["attente"]
+        except Exception: return 0
 
     def get_places_libres(self, obj):
         o = self._obj(obj)

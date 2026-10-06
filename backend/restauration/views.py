@@ -805,8 +805,46 @@ class ConsommationSerializer(drf_serializers.ModelSerializer):
         model = ConsommationBoutique
         fields = '__all__'
 
+def _profil_bar(u):
+    """Trois vues du Bar & Boutique :
+      - 'admin'  : tout (catalogue/prix, stock, analyses, bons de caisse) ;
+      - 'gerant' : la personne qui tient le bar (Profile.role == 'boutique') :
+                   caisse, historique des ventes, gestion du stock ;
+      - 'client' : tout autre résident : la carte, SES consommations, SON bon.
+    Avant, seul « admin / pas admin » existait côté interface, et l'API
+    laissait N'IMPORTE QUEL compte enregistrer une vente (en débitant le bon
+    d'un autre), modifier les prix ou voir le bon de caisse de tout le monde."""
+    if not (u and u.is_authenticated):
+        return "client"
+    role = getattr(getattr(u, "profile", None), "role", None)
+    if u.is_staff or u.is_superuser or role == "admin":
+        return "admin"
+    if role == "boutique":
+        return "gerant"
+    return "client"
+
+
+def _refus(message):
+    return Response({"detail": message}, status=403)
+
+
 class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
     serializer_class = ArticleSerializer
+
+    def _ecriture_admin(self, request):
+        return None if _profil_bar(request.user) == "admin" else _refus("Seul l'administrateur modifie le catalogue et les prix.")
+
+    def create(self, request, *args, **kwargs):
+        return self._ecriture_admin(request) or super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        return self._ecriture_admin(request) or super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self._ecriture_admin(request) or super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        return self._ecriture_admin(request) or super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         from django.db.models import Sum
@@ -823,9 +861,8 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
         # responsabilite de gestion - sans verification, n'importe qui
         # pourrait masquer un vol ou fausser l'inventaire.
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
-        if not is_admin:
-            return Response({'detail':"Admin requis pour ajuster le stock"}, status=403)
+        if _profil_bar(u) not in ("admin", "gerant"):
+            return Response({'detail':"Réservé à l'administrateur et au gérant du bar"}, status=403)
         from django.db import connection
         op = request.data.get('operation', 'add')  # add | remove | set
         qte = int(request.data.get('quantite', 0))
@@ -871,9 +908,8 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
     def stock_update(self, request, pk=None):
         """Modifier le stock d'un article."""
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
-        if not is_admin:
-            return Response({'detail':"Admin requis pour ajuster le stock"}, status=403)
+        if _profil_bar(u) not in ("admin", "gerant"):
+            return Response({'detail':"Réservé à l'administrateur et au gérant du bar"}, status=403)
         article = self.get_object()
         operation = request.data.get('operation', 'set')  # set | add | subtract
         quantite = int(request.data.get('quantite', 0))
@@ -908,6 +944,20 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
     serializer_class = ConsommationSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
+
+    # Modifier ou supprimer une vente déjà encaissée : administrateur seul
+    # (sinon un client pourrait effacer ses propres consommations).
+    def update(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().destroy(request, *args, **kwargs)
     search_fields = ['article__nom']
 
     def get_queryset(self):
@@ -932,6 +982,8 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from rest_framework.response import Response
         from rest_framework import status as st
 
+        if _profil_bar(request.user) not in ("admin", "gerant"):
+            return Response({"detail": "Seul le gérant du bar ou l'administrateur enregistre une vente."}, status=403)
         art_id  = request.data.get('article')
         pers_id = request.data.get('personnel') or None
         qte     = int(request.data.get('quantite') or 1)
@@ -1015,6 +1067,8 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from django.utils import timezone as tz
         from rest_framework.response import Response
         from datetime import date, timedelta
+        if _profil_bar(request.user) != "admin":
+            return _refus("Analyses réservées à l'administrateur.")
 
         periode = request.query_params.get('periode', 'semaine')
         today = tz.now().date()
@@ -1100,6 +1154,8 @@ class ConsommationBoutiqueViewSet(viewsets.ModelViewSet):
         from django.db import connection
         from django.utils import timezone as tz
         from rest_framework.response import Response
+        if _profil_bar(request.user) not in ("admin", "gerant"):
+            return _refus("Réservé au gérant du bar et à l'administrateur.")
         today = tz.now().date()
         # Période optionnelle : sinon, journée du jour uniquement (comportement inchangé)
         date_debut = request.query_params.get('date_debut', today)
@@ -1158,11 +1214,30 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         annee = self.request.query_params.get('annee', timezone.now().year)
         qs = BonCaisse.objects.filter(annee=annee).select_related('personnel')
+        # Client : uniquement SON bon (avant : le solde de tout le monde)
+        if _profil_bar(self.request.user) == "client":
+            qs = qs.filter(personnel__user=self.request.user)
         # Filtrer par personnel si demandé
         personnel_id = self.request.query_params.get('personnel')
         if personnel_id:
             qs = qs.filter(personnel_id=personnel_id)
         return qs
+
+    def create(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if _profil_bar(request.user) != "admin": return _refus("Réservé à l'administrateur.")
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['post'], url_path='crediter')
     def crediter(self, request):
@@ -1320,6 +1395,10 @@ class BonCaisseViewSet(viewsets.ModelViewSet):
 
         if not personnel_id:
             return Response({'error': 'personnel_id requis'}, status=400)
+        if _profil_bar(request.user) == "client":
+            from residences.models import Personnel as _P
+            if not _P.objects.filter(id=personnel_id, user=request.user).exists():
+                return _refus("Vous ne pouvez consulter que votre propre bon de caisse.")
 
         bon, _ = BonCaisse.get_or_create_for_year(
             personnel_id=personnel_id,

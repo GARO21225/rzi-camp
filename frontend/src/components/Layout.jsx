@@ -1,135 +1,30 @@
 import GlobalSearch from './GlobalSearch'
 import BottomTabBar from './BottomTabBar'
-import Icon from './Icon'
 import { useOffline } from '../hooks/useOffline'
 import { useSessionGuard } from '../hooks/useSessionGuard'
 import { useIsMobile } from '../hooks/useIsMobile'
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store'
 import { useNotifications } from '../hooks/useNotifications'
 import ConfirmDialogContainer from './ConfirmDialogContainer'
-import { rolesAPI, batiments } from '../api'
+import { toast } from '../toast'
+import { MobileHeader, MobileDrawer } from './MobileChrome'
+import { prechargerPages } from '../prechargement'
+import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
-const ROLE_NAV = {
-  admin: [
-    // ── Vue principale
-    { to:'/', label:'📊 Dashboard', exact:true },
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    // ── Personnel & Conformité
-    { group:'Personnel & Conformité' },
-    { to:'/personnel', label:'👤 Personnel' },
-    { to:'/presences', label:'🟢 Présences' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/induction-camp', label:'🏕️ Induction Camp' },
-    { to:'/epi', label:'🦺 Équipements EPI' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-    // ── Hébergement & Mobilité
-    { group:'Hébergement & Mobilité' },
-    { to:'/residences', label:'🏠 Résidences' },
-    { to:'/rotations', label:'🧭 Centre de Mobilité' },
-    // ── Services
-    { group:'Services aux Résidents' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/boutique', label:'🛒 Bar & Boutique' },
-    { to:'/reservations', label:'📅 Réservations' },
-    // ── Exploitation
-    { group:'Exploitation' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/plaintes', label:'🧹 Plaintes' },
-    { to:'/evenements', label:'📡 Événements' },
-    { to:'/demandes', label:'📝 Demandes' },
-    // ── Pilotage
-    { group:'Pilotage & Analyse' },
-    { to:'/analytics', label:'📈 Analytics' },
-    { to:'/rapports', label:'📄 Rapports' },
-    { to:'/historique', label:'📋 Historique' },
-    { to:'/audit', label:'🔍 Audit' },
-    { to:'/assistant', label:'🤖 Assistant IA' },
-    { to:'/status', label:'🔧 Diagnostic' },
-    // ── Système
-    { group:'Système' },
-    { to:'/parametrage', label:'⚙️ Paramétrage' },
-  ],
-  agent: [
-    { to:'/mon-compte', label:'👤 Mon compte' },
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/demandes', label:'📝 Mes demandes' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/voyages', label:'🧳 Voyages' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/maintenance', label:'🛠️ Signaler Incident' },
-    { to:'/plaintes', label:'🧹 Ma chambre / Plaintes' },
-  ],
-  restauration: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/restauration', label:'🍽️ Restauration' },
-  ],
-  technicien: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-  ],
-  menage: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/maintenance', label:'🛠️ Signaler' },
-  ],
-  boutique: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/boutique', label:'🛒 Bar & Boutique' },
-  ],
-  securite: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-  ],
-  medical: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-  ],
-  hse: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/induction', label:'🎓 Induction QHSE' },
-    { to:'/maintenance', label:'🛠️ Maintenance' },
-    { to:'/epi', label:'🦺 Équipements EPI' },
-  ],
-  accueil: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/annuaire', label:'📋 Annuaire' },
-    { to:'/residences', label:'🏠 Résidences' },
-  ],
-  manager: [
-    { to:'/carte', label:'🗺️ Carte GIS' },
-    { to:'/evenements', label:'📅 Événements' },
-    { to:'/demandes', label:'📝 Demandes' },
-    { to:'/rapports', label:'📄 Rapports' },
-    { to:'/analytics', label:'📈 Analytics' },
-    { to:'/historique', label:'📋 Historique' },
-  ],
-}
+import { ROLE_LABELS, getRole, isAdminUser, buildNav, isPathAllowed, homePathFor } from '../constants/roleNav'
 
-const ROLE_LABELS = {
-  admin: 'Administrateur',
-  agent: 'Agent',
-  restauration: 'Restauration',
-  technicien: 'Technicien',
-  menage: 'Ménage',
-  boutique: 'Bar & Boutique',
-  securite: 'Sécurité',
-  medical: 'Médical',
-  hse: 'HSE / QHSE',
-  accueil: "Agent d'accueil",
-  manager: 'Manager',
+// Page à ouvrir pour une notification système, d'après son titre
+function pageNotif(n) {
+  const t = (n.evenement_titre || '').toLowerCase()
+  if (t.includes('maintenance')) return '/maintenance'
+  if (t.includes('demande')) return '/demandes'
+  if (t.includes('convoi') || t.includes('départ') || t.includes('mobilit') || t.includes('voyage')) return '/rotations'
+  return '/accueil'
 }
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
@@ -153,13 +48,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
           ? <div style={{ padding: '32px 16px', textAlign: 'center', color: '#525252' }}><div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>Aucune notification</div>
           : items.map(n => (
             <div key={n.id}
-              onClick={() => { onClose(); navigate('/evenements') }}
+              onClick={() => { onClose(); navigate(n.source === 'system' ? pageNotif(n) : '/evenements') }}
               style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: n.lu ? '#ffffff' : 'rgba(37,99,235,.04)', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = n.lu ? '#ffffff' : 'rgba(37,99,235,.04)'}>
-              <div style={{ fontSize: 22, flexShrink: 0 }}>📅</div>
+              <div style={{ fontSize: 22, flexShrink: 0 }}>{n.source === 'system' ? '🔔' : '📅'}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: n.lu ? 500 : 700, fontSize: 13, color: 'var(--rzc-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{n.evenement_titre}</div>
+                {n.source === 'system' && n.message && <div style={{ fontSize: 11.5, color: '#334155', marginBottom: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</div>}
                 {n.evenement_lieu && <div style={{ fontSize: 11, color: '#525252', marginBottom: 1 }}>📍 {n.evenement_lieu}</div>}
                 {n.evenement_date && <div style={{ fontSize: 11, color: '#525252' }}>📅 {new Date(n.evenement_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
@@ -221,41 +117,104 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
 // jamais s'appliquer a lui. Remonte ici, dans Layout (rendu pour TOUTE
 // page, tout role), pour que ce genre de role la voie enfin, peu importe
 // sur quelle page il atterrit.
-const ROLES_SANS_DASHBOARD = ['agent', 'restauration', 'technicien', 'menage']
 
-// Points de descente courants pour le trajet Camp -> Abidjan - évite de
-// laisser "Abidjan" fige en dur (demande explicite : le résident doit
-// pouvoir dire où il descend, pour que le Centre de Mobilité organise la
-// suite). Simple liste editable ici en attendant un catalogue dedie
-// (ItineraireModele existe deja pour les villes INTERMEDIAIRES d'un
-// trajet, pas pour le point de descente final du passager - portee
-// volontairement limitee a ce qui est demande).
-const POINTS_DESCENTE_ABIDJAN = [
-  'Adjamé', 'Plateau', 'Cocody', 'Yopougon', 'Marcory', 'Treichville',
-  'Abobo', 'Koumassi', 'Gare routière Abidjan', 'Autre (préciser)',
-]
+// Lieu de descente = une ville de l'itineraire choisi (ItineraireModele,
+// editable dans Parametrage), au lieu d'une liste de quartiers d'Abidjan
+// figee en dur. Meme regle que ItineraireModele.villes_descente() cote
+// serveur : etapes dans l'ordre (hors ville d'origine), destination en
+// dernier, sans doublon.
+function villesDescente(itin) {
+  if (!itin) return []
+  const vus = new Set([(itin.origine || '').trim().toLowerCase()])
+  const villes = []
+  ;[...(itin.etapes || [])].sort((x, y) => x.ordre - y.ordre).map(e => e.ville).concat(itin.destination)
+    .forEach(v => {
+      v = (v || '').trim()
+      if (v && !vus.has(v.toLowerCase())) { villes.push(v); vus.add(v.toLowerCase()) }
+    })
+  return villes
+}
+
+// Itineraire propose par defaut a un resident qui quitte le camp :
+// Camp -> Abidjan (meme choix que ItineraireModele.par_defaut_depart_camp).
+function itineraireParDefaut(liste) {
+  return liste.find(i => /^camp$/i.test(i.origine?.trim()) && /^abidjan$/i.test(i.destination?.trim()))
+    || liste.find(i => /camp/i.test(i.origine || ''))
+    || liste[0] || null
+}
 
 function MonDepartBanner({ role, isMobile }) {
   const [monDepart, setMonDepart] = useState(null)
   const [busy, setBusy] = useState(false)
   const [date, setDate] = useState('')
-  const [destination, setDestination] = useState(POINTS_DESCENTE_ABIDJAN[0])
-  const [destinationAutre, setDestinationAutre] = useState('')
+  // « Vous revenez quand ? » - obligatoire : bloque les chevauchements et
+  // planifie automatiquement le trajet retour X -> Camp ce jour-là.
+  const [dateRetour, setDateRetour] = useState('')
+  const [itineraires, setItineraires] = useState([])
+  const [itineraireId, setItineraireId] = useState('')
+  const [destination, setDestination] = useState('')
+  // Car du camp ou véhicule personnel - mémorisé sur l'appareil : un
+  // résident qui fait ses rotations en voiture le fait en général à chaque fois.
+  const [vehiculePerso, setVehiculePerso] = useState(() => { try { return localStorage.getItem('rzc_vehicule_perso') === '1' } catch { return false } })
+  const [immatriculation, setImmatriculation] = useState(() => { try { return localStorage.getItem('rzc_immatriculation') || '' } catch { return '' } })
 
   useEffect(() => {
-    if (!ROLES_SANS_DASHBOARD.includes(role)) return // admin: déjà vu via Dashboard, pas de doublon
+    // Tout résident (agent, gérant du bar, technicien, HSE...) - l'admin la voit déjà via le Dashboard
+    if (role === 'admin') return
     let cancelled = false
     batiments.monDepart().then(r => { if (!cancelled) setMonDepart(r.data?.depart || null) }).catch(() => {})
     return () => { cancelled = true }
   }, [role])
 
+  // Itineraires proposes au depart : ceux qui partent du camp (un depart
+  // de residence part forcement du camp), sinon tous les actifs.
+  useEffect(() => {
+    if (!monDepart) return
+    let cancelled = false
+    itinerairesModeles.list().then(r => {
+      if (cancelled) return
+      const actifs = (r.data?.results || r.data || []).filter(i => i.actif !== false)
+      const depuisCamp = actifs.filter(i => /camp/i.test(i.origine || ''))
+      const liste = depuisCamp.length ? depuisCamp : actifs
+      setItineraires(liste)
+      const defaut = itineraireParDefaut(liste)
+      if (defaut) {
+        setItineraireId(String(defaut.id))
+        const villes = villesDescente(defaut)
+        setDestination(villes[villes.length - 1] || '')
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [monDepart])
+
   if (!monDepart) return null
 
+  const itineraire = itineraires.find(i => String(i.id) === itineraireId) || null
+  const villes = villesDescente(itineraire)
+
+  const changerItineraire = (id) => {
+    setItineraireId(id)
+    const v = villesDescente(itineraires.find(i => String(i.id) === id))
+    // Garde la ville choisie si le nouvel itineraire y passe aussi, sinon destination finale
+    setDestination(d => v.includes(d) ? d : (v[v.length - 1] || ''))
+  }
+
   const confirmer = async () => {
-    const dest = destination === 'Autre (préciser)' ? (destinationAutre.trim() || 'Abidjan') : destination
     setBusy(true)
     try {
-      await batiments.confirmerDepart(monDepart.batiment_id, { action: 'confirme', destination: dest })
+      await batiments.confirmerDepart(monDepart.batiment_id, {
+        action: 'confirme',
+        ...(itineraire ? { itineraire_id: itineraire.id } : {}),
+        ...(destination ? { destination } : {}),
+        vehicule_personnel: vehiculePerso,
+        ...(vehiculePerso && immatriculation.trim() ? { immatriculation: immatriculation.trim() } : {}),
+        date_retour: dateRetour,
+      })
+      toast.success(`Bon voyage ! Votre retour au camp est planifié le ${new Date(dateRetour + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`, 7000)
+      try {
+        localStorage.setItem('rzc_vehicule_perso', vehiculePerso ? '1' : '0')
+        if (vehiculePerso) localStorage.setItem('rzc_immatriculation', immatriculation.trim())
+      } catch {}
       setMonDepart(null)
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
@@ -268,53 +227,78 @@ function MonDepartBanner({ role, isMobile }) {
     } catch (e) { alert(e?.response?.data?.error || 'Erreur') } finally { setBusy(false) }
   }
 
-  // Sur mobile : une grille à deux colonnes (lieu | confirmer, date | reporter)
-  // au lieu de quatre contrôles empilés qui prenaient un tiers de l'écran sur
-  // chaque page. Le bouton désactivé garde un texte lisible (il était blanc
-  // sur gris clair).
-  const dateFr = new Date(monDepart.date_depart).toLocaleDateString('fr-FR')
-  const champ = { border: '1px solid #cbd5e1', borderRadius: 8, padding: isMobile ? '0 10px' : '6px 8px',
-    fontSize: 12.5, minHeight: isMobile ? 44 : undefined, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }
-  const bouton = (actif, fond) => ({ background: actif ? fond : '#e2e8f0', color: actif ? '#fff' : '#64748b', border: 'none',
-    borderRadius: 8, padding: isMobile ? '0 10px' : '7px 14px', minHeight: isMobile ? 44 : undefined,
-    fontSize: isMobile ? 13.5 : 12.5, fontWeight: 700, cursor: actif ? 'pointer' : 'not-allowed' })
-  const reportPossible = !!date && !busy
+  // Sur mobile : chaque controle prend toute la largeur (cibles tactiles
+  // de 44px) au lieu d'une ligne de 5 elements qui deborde.
+  const mob = isMobile ? { flex: '1 1 100%', minHeight: 44, fontSize: 15 } : {}
 
   return (
     <div style={{ background: monDepart.en_retard ? '#fef2f2' : '#fffbeb',
       border: `1px solid ${monDepart.en_retard ? '#fecaca' : '#fde68a'}`,
-      borderRadius: 10, padding: isMobile ? 12 : '10px 14px', margin: isMobile ? '12px 12px 0' : '12px 16px 0',
-      display: 'flex', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: 10, alignItems: isMobile ? 'stretch' : 'center' }}>
-      <div style={{ flex: isMobile ? 'none' : 1, minWidth: isMobile ? 0 : 220, fontSize: isMobile ? 14 : 13, fontWeight: 600, color: '#0F1A2E' }}>
-        {!isMobile && '🧳 '}
+      borderRadius: 10, padding: '10px 14px', margin: isMobile ? '10px 10px 0' : '12px 16px 0',
+      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+      <div style={{ flex: 1, minWidth: 220, fontSize: 13, fontWeight: 600, color: '#0F1A2E' }}>
         {monDepart.en_retard
-          ? `Votre départ était prévu le ${dateFr} — vous êtes toujours logé, confirmez-vous ?`
+          ? `🧳 Votre départ était prévu le ${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')} — vous êtes toujours logé, confirmez-vous ?`
           : monDepart.aujourdhui
-          ? `Vous partez aujourd'hui (${dateFr}) ?`
-          : `Vous partez demain (${dateFr}) ?`}
+          ? `🧳 Vous partez aujourd'hui (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`
+          : `🧳 Vous partez demain (${new Date(monDepart.date_depart).toLocaleDateString('fr-FR')}) ?`}
       </div>
-      <div style={isMobile
-        ? { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }
-        : { display: 'contents' }}>
-        <select value={destination} onChange={e => setDestination(e.target.value)}
-          aria-label="Où descendez-vous à Abidjan ?" title="Où descendez-vous à Abidjan ?"
-          style={{ ...champ, order: 1 }}>
-          {POINTS_DESCENTE_ABIDJAN.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        {destination === 'Autre (préciser)' && (
-          <input type="text" value={destinationAutre} onChange={e => setDestinationAutre(e.target.value)}
-            placeholder="Précisez le lieu" aria-label="Lieu de descente"
-            style={{ ...champ, order: isMobile ? 3 : 1, gridColumn: isMobile ? '1 / -1' : undefined }} />
-        )}
-        <button onClick={confirmer} disabled={busy} style={{ ...bouton(!busy, '#16A34A'), order: 2, cursor: busy ? 'wait' : 'pointer' }}>
-          {isMobile ? 'Je confirme' : '✅ Je confirme mon départ'}
-        </button>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} aria-label="Nouvelle date de départ"
-          style={{ ...champ, order: 4 }} />
-        <button onClick={reporter} disabled={!reportPossible} style={{ ...bouton(reportPossible, '#0F2A5C'), order: 5 }}>
-          {isMobile ? 'Je reste' : '📅 Je reste — nouvelle date'}
-        </button>
+      <div style={{ display: 'flex', gap: 6, ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        {[[false, '🚌 Car du camp'], [true, '🚗 Mon véhicule']].map(([perso, l]) => (
+          <button key={l} type="button" onClick={() => setVehiculePerso(perso)}
+            style={{ flex: 1, border: vehiculePerso === perso ? '2px solid #C9972B' : '1px solid #e2e8f0',
+              background: vehiculePerso === perso ? '#FFF8E6' : '#fff', color: '#0F1A2E', borderRadius: 8,
+              padding: '6px 10px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', ...mob }}>
+            {l}
+          </button>
+        ))}
       </div>
+      {vehiculePerso && (
+        <input type="text" value={immatriculation} onChange={e => setImmatriculation(e.target.value)}
+          placeholder="Immatriculation (facultatif)"
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, ...mob }} />
+      )}
+      {itineraires.length > 0 && (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+          Itinéraire
+          <select value={itineraireId} onChange={e => changerItineraire(e.target.value)}
+            style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }}>
+            {itineraires.map(i => <option key={i.id} value={String(i.id)}>{i.nom}</option>)}
+          </select>
+        </label>
+      )}
+      {villes.length > 0 && (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+          Je descends à
+          <select value={destination} onChange={e => setDestination(e.target.value)}
+            style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }}>
+            {villes.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </label>
+      )}
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        Je reviens au camp le *
+        <input type="date" value={dateRetour} onChange={e => setDateRetour(e.target.value)}
+          min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()}
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }} />
+      </label>
+      <button onClick={confirmer} disabled={busy || !dateRetour || (itineraires.length > 0 && !destination)}
+        title={!dateRetour ? 'Indiquez d\'abord votre date de retour au camp' : undefined}
+        style={{ background: (!dateRetour || busy) ? '#94A3B8' : '#16A34A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px',
+          fontSize: 12.5, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', ...mob }}>
+        ✅ Je confirme mon départ
+      </button>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, fontWeight: 700, color: '#5B6472', ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+        Ou je reste — nouvelle date de départ
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 8px', fontSize: 12.5, color: '#0F1A2E', ...mob }} />
+      </label>
+      <button onClick={reporter} disabled={busy || !date}
+        style={{ background: (!date || busy) ? '#e2e8f0' : '#0F2A5C', color: '#fff', border: 'none',
+          borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 700,
+          cursor: (!date || busy) ? 'not-allowed' : 'pointer', ...mob }}>
+        📅 Je reste — nouvelle date
+      </button>
     </div>
   )
 }
@@ -361,14 +345,21 @@ export default function Layout() {
   // (simple champ metier, qui vaut 'agent' par defaut et peut ne jamais
   // avoir ete mis a jour) - un compte reellement admin ne doit jamais
   // pouvoir s'afficher comme 'Agent Terrain' a cause d'un profil oublie.
-  const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
-  const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
+  const role = getRole(user)
+  const isAdmin = isAdminUser(user)
 
   // Menu par role configurable depuis Parametrage (sans toucher au code) -
   // repli sur ROLE_NAV code en dur si le role custom est absent/invalide,
   // pour ne jamais casser l'affichage meme en cas de donnee corrompue.
   const [roleMenuOverride, setRoleMenuOverride] = useState(null)
+  const [agentMenuOverride, setAgentMenuOverride] = useState(null) // pages « résident » configurées dans Paramétrage
   const [roleCustomLabel, setRoleCustomLabel] = useState(null)
+  // Role pour lequel la config Parametrage a fini de charger (succes OU
+  // echec) - la garde de routes attend ce signal, sinon un menu custom
+  // plus large que le menu par defaut ferait rediriger a tort pendant
+  // le chargement.
+  const [roleMenuChargePour, setRoleMenuChargePour] = useState(null)
+  const userCharge = !!user
   useEffect(() => {
     let annule = false
     if (isAdmin) {
@@ -379,7 +370,9 @@ export default function Layout() {
       setRoleMenuOverride(null); setRoleCustomLabel(null)
       return
     }
-    rolesAPI.list().then(r => {
+    if (!userCharge) return
+    setRoleMenuOverride(null); setRoleCustomLabel(null)
+    rolesAPI.listCached().then(r => {
       // 'annule' capture l'etat isAdmin du moment ou CETTE requete a ete
       // lancee - si isAdmin est repasse a true entre-temps (ex: user
       // charge juste apres un premier rendu ou il etait encore absent),
@@ -390,26 +383,57 @@ export default function Layout() {
       const liste = r.data?.results || r.data || []
       const roleCustom = liste.find(x => x.code === role)
       if (roleCustom?.menu_pages?.length) setRoleMenuOverride(roleCustom.menu_pages)
+      const agentCustom = liste.find(x => x.code === 'agent')
+      if (agentCustom?.menu_pages?.length) setAgentMenuOverride(agentCustom.menu_pages)
       if (roleCustom?.label) setRoleCustomLabel(roleCustom.label)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { if (!annule) setRoleMenuChargePour(role) })
     return () => { annule = true }
-  }, [isAdmin, role])
+  }, [isAdmin, role, userCharge])
 
-  const nav = (() => {
-    if (isAdmin) return ROLE_NAV.admin
-    if (roleMenuOverride) {
-      // Filtre la liste canonique (admin) aux seules routes autorisees pour
-      // ce role, dans l'ordre configure - garde le libelle/icone canonique.
-      const canon = {}
-      ROLE_NAV.admin.forEach(item => { if (item.to && item.to !== '/') canon[item.to] = item })
-      // '/' (Dashboard) exclu meme si un menu_pages deja enregistre en base
-      // le contient encore (ancien reglage) : vue camp-wide reservee a l'admin,
-      // et RoleHome redirige de toute facon tout non-admin loin de cette route.
-      const filtered = roleMenuOverride.map(to => canon[to]).filter(Boolean)
-      if (filtered.length > 0) return filtered
-    }
-    return ROLE_NAV[role] || ROLE_NAV.agent
-  })()
+  // Conducteur d'un convoi (hier -> demain) : "Ma conduite" en tête de son
+  // menu, quel que soit son rôle - c'est là qu'il clique sur PARTIR.
+  const [estConducteur, setEstConducteur] = useState(false)
+  useEffect(() => {
+    if (!userCharge || isAdmin) return
+    suiviConvois.mesConvois().then(r => setEstConducteur((r.data || []).length > 0)).catch(() => {})
+  }, [userCharge, isAdmin])
+
+  const navRole = buildNav(role, isAdmin, roleMenuOverride, agentMenuOverride)
+  const navAvecConduite = estConducteur && !navRole.some(i => i.to === '/conduite')
+    ? [{ to:'/conduite', label:'🚐 Ma conduite' }, ...navRole]
+    : navRole
+  // Espace personnel en tête du menu de tout non-admin, et « Mon bar »
+  // (même si le menu configuré dans Paramétrage ne le liste pas)
+  // Pages personnelles toujours présentes pour un résident, même si le menu
+  // configuré dans Paramétrage ne les liste pas : son bar, ses inductions.
+  const PERSO = [{ to:'/boutique', label:'🍹 Mon bar' }, { to:'/induction-camp', label:'🏕️ Induction Camp' }, { to:'/induction', label:'🎓 Mon induction QHSE' }]
+  const navAvecBar = isAdmin
+    ? navAvecConduite
+    : [...navAvecConduite, ...PERSO.filter(x => !navAvecConduite.some(i => i.to === x.to))]
+  const nav = isAdmin || navAvecBar.some(i => i.to === '/accueil')
+    ? navAvecBar
+    : [{ to:'/accueil', label:'🏠 Accueil', exact:true }, ...navAvecBar]
+
+  // Separation admin / utilisateur : avant, seul le MENU differait selon
+  // le role - n'importe quel utilisateur pouvait ouvrir /parametrage,
+  // /personnel, /audit... en tapant l'URL (ou via la recherche globale).
+  // Un non-admin est maintenant renvoye vers sa page d'accueil s'il ouvre
+  // une page absente de son menu. (Rappel : la vraie protection des
+  // DONNEES reste cote API Django - ceci protege l'interface.)
+  // N'attend la config Paramétrage QUE si la page n'est pas déjà autorisée
+  // par le menu connu : avant, chaque ouverture de l'app attendait un
+  // aller-retour réseau de plus (/api/roles/) avant d'afficher quoi que ce
+  // soit - sensible en 3G au camp.
+  const pageAutorisee = isAdmin || isPathAllowed(location.pathname, nav)
+  const accesPret = !!user && (isAdmin || pageAutorisee || roleMenuChargePour === role)
+
+  // Code des pages du menu téléchargé en arrière-plan une fois l'app au
+  // repos : changer de page n'attend plus ce téléchargement (cf. prechargement.js)
+  useEffect(() => {
+    if (!accesPret) return
+    prechargerPages(['/accueil', '/mon-compte', ...nav.filter(i => i.to).map(i => i.to)],
+      { gestionBar: isAdmin || role === 'boutique' })
+  }, [accesPret])
 
   // Groupes de menu réductibles — mémorisés localement, avec ouverture
   // automatique du groupe contenant la page active pour ne jamais perdre
@@ -486,6 +510,14 @@ export default function Layout() {
         button:active{transform:scale(.97)}
       `}</style>
 
+      {isMobile ? (<>
+        <MobileHeader user={user} logoUrl={logoUrl} nav={nav}
+          notifRef={notifRef} notifOpen={notifOpen} onNotif={() => setNotifOpen(o => !o)} notifCount={notifCount}
+          notifPanel={notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
+          searchOpen={mobileSearchOpen} onSearch={() => setMobileSearchOpen(o => !o)}
+          onMenu={() => setSidebarOpen(true)} />
+        {showWelcome && <WelcomeToast user={user} roleCustomLabel={roleCustomLabel} onClose={() => setShowWelcome(false)} />}
+      </>) : (
       <header style={{
         height: 56,
         background: 'var(--rzc-navy-dark)',
@@ -497,11 +529,10 @@ export default function Layout() {
         overflow: 'hidden', maxWidth: '100vw',
       }}>
         <button onClick={() => setSidebarOpen(o => !o)}
-          aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={sidebarOpen}
-          style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: isMobile ? 44 : 36, height: isMobile ? 44 : 36, marginLeft: isMobile ? -8 : 0, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-          <Icon name={sidebarOpen ? 'close' : 'menu'} size={22} />
+          {sidebarOpen ? '✕' : '☰'}
         </button>
 
         <div style={{ background: '#fff', borderRadius: 6, padding: '5px 10px', flexShrink: 0, height: 36, display: 'flex', alignItems: 'center' }}>
@@ -520,9 +551,8 @@ export default function Layout() {
 
         {isMobile && (
           <button onClick={() => setMobileSearchOpen(o => !o)}
-            aria-label="Rechercher" aria-expanded={mobileSearchOpen}
-            style={{ background: mobileSearchOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: 44, height: 44, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all 150ms' }}>
-            <Icon name="search" size={21} />
+            style={{ background: mobileSearchOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, transition: 'all 150ms' }}>
+            🔍
           </button>
         )}
 
@@ -534,13 +564,12 @@ export default function Layout() {
 
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
-            aria-label={notifCount > 0 ? `Notifications, ${notifCount} non lue(s)` : 'Notifications'} aria-expanded={notifOpen}
-            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: '#F5F5F5', width: isMobile ? 44 : 36, height: isMobile ? 44 : 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
-            onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)' } }}
-            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent' } }}>
-            <Icon name="bell" size={21} />
+            style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#CBD5E1', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}
+            onMouseEnter={e => { if (!notifOpen) { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff' } }}
+            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#CBD5E1' } }}>
+            🔔
             {notifCount > 0 && (
-              <span style={{ position: 'absolute', top: isMobile ? 6 : 4, right: isMobile ? 6 : 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
+              <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--rzc-bright-gold)', color: 'var(--rzc-navy-dark)', borderRadius: '50%', width: 16, height: 16, fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--rzc-navy-dark)' }}>
                 {notifCount > 9 ? '9+' : notifCount}
               </span>
             )}
@@ -568,33 +597,35 @@ export default function Layout() {
           )}
         </div>
 
-        {!isMobile && (
         <button onClick={() => { logout(); navigate('/login') }}
-          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.15)', color: '#CBD5E1', padding: isMobile ? '6px 8px' : '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, transition: 'all 150ms' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.3)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
           title="Déconnexion">
-          ⎋ Déconnexion
+          {isMobile ? '⎋' : '⎋ Déconnexion'}
         </button>
-        )}
 
       </header>
+      )}
 
       {isMobile && mobileSearchOpen && (
-        <div style={{ background: 'var(--rzc-navy-dark)', borderBottom: '1px solid rgba(255,255,255,.1)', padding: '10px 16px', zIndex: 499 }}>
+        <div style={{ background: '#06142E', borderBottom: '1px solid rgba(227,178,60,.22)', padding: '10px 14px', zIndex: 499 }}>
           <GlobalSearch onNavigate={() => setMobileSearchOpen(false)} />
         </div>
       )}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Backdrop mobile */}
-        {sidebarOpen && isMobile && (
-          <div onClick={() => setSidebarOpen(false)}
-            style={{ position:'fixed', inset:0, top:56, background:'rgba(8,27,61,.55)', zIndex:1100 }} />
+        {isMobile && (
+          <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user}
+            roleLabel={roleCustomLabel || ROLE_LABELS[role] || role} nav={nav}
+            onCompte={() => { setSidebarOpen(false); navigate('/mon-compte') }}
+            onLogout={() => { logout(); navigate('/login') }} />
         )}
 
-        <nav aria-label="Menu" style={{
-            width: isMobile ? 'min(304px, 86vw)' : 240,
+        {!isMobile && (
+        <nav style={{
+            width: isMobile ? 'min(300px, 86vw)' : 240,
             background: 'var(--rzc-navy-dark)',
             borderRight: 'none',
             overflowY: 'auto',
@@ -610,7 +641,7 @@ export default function Layout() {
               top: 56,
               left: 0,
               bottom: 0,
-              zIndex: 1101,
+              zIndex: 95,
               boxShadow: '4px 0 20px rgba(0,0,0,.25)',
               transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
               pointerEvents: sidebarOpen ? 'auto' : 'none',
@@ -630,19 +661,17 @@ export default function Layout() {
                   </div>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} aria-label="Fermer le menu"
-                  style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 44, height: 44, borderRadius: 10, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="close" size={20} />
+                  style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: '#F1F5F9', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
+                  ✕
                 </button>
               </div>
             )}
-            {!isMobile && (
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid #D4D4D4' }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
               <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
               </div>
             </div>
-            )}
-            <div style={{ padding: 8, flex: 1 }}>
+            <div style={{ padding: 8, paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 8, flex: 1 }}>
               {(() => {
                 let currentGroup = null
                 return nav.map((item, i) => {
@@ -657,8 +686,8 @@ export default function Layout() {
                     return (
                       <div key={`g${i}`} style={{ margin: i===0 ? '8px 8px 4px' : '18px 8px 4px' }}>
                         <div onClick={isMobile ? undefined : () => toggleGroup(item.group)} style={{
-                          fontSize: isMobile ? 11 : 10, fontWeight:800, letterSpacing:1.5,
-                          textTransform:'uppercase', color: isMobile ? '#94a3b8' : '#64748b', cursor: isMobile ? 'default' : 'pointer',
+                          fontSize:10, fontWeight:800, letterSpacing:1.5,
+                          textTransform:'uppercase', color:'#64748b', cursor: isMobile ? 'default' : 'pointer',
                           padding:'4px 10px', display:'flex', alignItems:'center', gap:6, justifyContent:'space-between',
                           borderBottom:'1px solid rgba(240,165,0,.25)', paddingBottom:6,
                         }}>
@@ -682,14 +711,14 @@ export default function Layout() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        padding: isMobile ? '13px 12px 13px 16px' : '9px 12px 9px 16px',
+                        padding: isMobile ? '12px 12px 12px 16px' : '9px 12px 9px 16px',
                         margin: '1px 8px',
                         borderRadius: 9,
                         textDecoration: 'none',
-                        fontSize: isMobile ? 15 : 13,
+                        fontSize: isMobile ? 14 : 13,
                         fontWeight: isActive ? 700 : 400,
                         background: isActive ? 'rgba(240,165,0,.18)' : 'transparent',
-                        color: isActive ? '#ffffff' : (isMobile ? '#CBD5E1' : '#94a3b8'),
+                        color: isActive ? '#ffffff' : '#94a3b8',
                         borderLeft: isActive ? '3px solid #f0a500' : '3px solid transparent',
                         transition: 'all .15s',
                       })}>
@@ -699,21 +728,17 @@ export default function Layout() {
                 })
               })()}
             </div>
-            {isMobile && (
-              <div style={{ position: 'sticky', bottom: 0, background: 'var(--rzc-navy-dark)', padding: '12px 16px calc(16px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,.08)' }}>
-                <button onClick={() => { logout(); navigate('/login') }}
-                  style={{ width: '100%', minHeight: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    background: 'transparent', border: '1px solid rgba(255,255,255,.22)', color: '#F1F5F9',
-                    borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 600, fontFamily: 'inherit' }}>
-                  <Icon name="logout" size={20} /> Se déconnecter
-                </button>
-              </div>
-            )}
           </nav>
+        )}
 
         <main className="main-scroll" style={{ flex:1, minWidth:0, background: 'var(--rzc-fond-app, #f1f5f9)', overflowY:'auto', paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 0 }}>
-            <MonDepartBanner role={role} isMobile={isMobile} />
-            <Outlet />
+            {/* Sur l'accueil résident, la bannière est placée sous le hero (par l'écran lui-même) */}
+            {location.pathname !== '/accueil' && <MonDepartBanner role={role} isMobile={isMobile} />}
+            {!accesPret
+              ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement...</div>
+              : pageAutorisee
+              ? <Outlet context={{ nav, banniereDepart: <MonDepartBanner role={role} isMobile={isMobile} /> }} />
+              : <Navigate to={homePathFor(nav)} replace />}
           </main>
       </div>
       {/* Rendu via portail dans <body> : la barre est en position:fixed, donc elle doit
@@ -722,7 +747,7 @@ export default function Layout() {
           ci-dessus) — sinon elle peut se retrouver clipée/masquée selon le navigateur mobile,
           ce qui masquait la barre (et ce qu'elle devait montrer) chez l'utilisateur. */}
       {isMobile && createPortal(
-        <BottomTabBar role={isAdmin ? 'admin' : 'agent'} onOpenMenu={() => setSidebarOpen(true)} />,
+        <BottomTabBar isAdmin={isAdmin} nav={nav} onOpenMenu={() => setSidebarOpen(true)} />,
         document.body
       )}
       <ConfirmDialogContainer />
