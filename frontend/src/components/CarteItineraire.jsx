@@ -117,9 +117,12 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aUnSegmentPassagerDistinct, suitLeConvoi, origine, destination])
 
-  const positionsPassager = suitLeConvoi
-    ? (segmentsConvoi ? segmentsConvoi.slice(iMontee, iDescente).flat() : pointsUniques.slice(iMontee, iDescente + 1).map(p => p.coords))
+  const segmentsValides = segmentsConvoi && segmentsConvoi.length === pointsUniques.length - 1
+  const brutPassager = suitLeConvoi
+    ? (segmentsValides ? segmentsConvoi.slice(iMontee, iDescente).flat() : pointsUniques.slice(iMontee, iDescente + 1).map(p => p.coords))
     : (tracéPassager || [coordsOrigine, coordsDestination])
+  // Leaflet plante ("t is undefined") sur un point manquant ou une liste vide : on ne garde que les couples valides
+  const positionsPassager = (brutPassager || []).filter(c => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]))
 
   if (pointsUniques.length < 2) {
     return (
@@ -149,8 +152,8 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
         pathOptions={aUnSegmentPassagerDistinct
           ? {color:'#94a3b8', weight:3, dashArray:'6 6'}                          // convoi complet, en fond
           : (tracé ? {color:'#C9972B', weight:4} : {color:'#C9972B', weight:3, dashArray:'6 6'})}/>
-      {aUnSegmentPassagerDistinct && (
-        <Polyline positions={positionsPassager}
+      {aUnSegmentPassagerDistinct && positionsPassager.length >= 2 && (
+        <Polyline key={`p-${positionsPassager.length}-${iMontee}-${iDescente}`} positions={positionsPassager}
           pathOptions={{color:'#1d4ed8', weight:5}}>
           <Popup>Trajet de ce passager (montée → descente)</Popup>
         </Polyline>
