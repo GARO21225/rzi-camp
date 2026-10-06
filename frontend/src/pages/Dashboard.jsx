@@ -464,7 +464,10 @@ export default function Dashboard() {
   // ── Mon départ — relance J-1/en retard pour le RÉSIDENT connecté lui-même
   // (cf. commande verifier_departs_residence qui le notifie, et l'action
   // BatimentViewSet.confirmer_depart appelée ici) ──
-  const monDepart = d.mondepart || null
+  // La bannière complète (itinéraire, destination, date de retour) est montée
+  // par Layout.jsx (MonDepartBanner) sur toutes les pages, Dashboard compris :
+  // on n'affiche plus la version simplifiée ici pour éviter le doublon.
+  const monDepart = null
   const confirmerMonDepart = async () => {
     if (!monDepart) return
     setMonDepartBusy(true)

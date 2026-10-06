@@ -1010,7 +1010,7 @@ const PAGES_ASSIGNABLES = [
   ['/maintenance', '🛠️ Maintenance'], ['/plaintes', '🚨 Plaintes'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
   ['/boutique-pos', '💳 Boutique POS'], ['/operations', '🖥️ Centre Opérationnel'], ['/workflows', '⚙️ Workflow Hub'],
-  ['/induction-admin', '🎓 Induction (administration)'],
+  ['/induction-admin', '🎓 Induction (administration)'], ['/conduite', '🚐 Ma conduite'],
 ]
 
 function RolesTab({ isAdmin, isMobile }) {

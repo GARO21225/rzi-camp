@@ -159,8 +159,7 @@ function MonDepartBanner({ role, isMobile }) {
   const [immatriculation, setImmatriculation] = useState(() => { try { return localStorage.getItem('rzc_immatriculation') || '' } catch { return '' } })
 
   useEffect(() => {
-    // Tout résident (agent, gérant du bar, technicien, HSE...) - l'admin la voit déjà via le Dashboard
-    if (role === 'admin') return
+    // Tout résident (agent, gérant, technicien, HSE... et admin résident) : mon_depart ne renvoie que SON départ
     let cancelled = false
     batiments.monDepart().then(r => { if (!cancelled) setMonDepart(r.data?.depart || null) }).catch(() => {})
     return () => { cancelled = true }
