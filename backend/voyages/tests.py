@@ -382,3 +382,19 @@ class CasEdgarTests(TestCase):
         admin = User.objects.create_user("adm", password="x", is_staff=True)
         c = APIClient(); c.force_authenticate(admin)
         self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])
+
+
+class RetourChambreReserveeTests(TestCase):
+    def test_residence_principale_reservee_est_restituee(self):
+        from residences.models import Batiment, ResidentPrincipal
+        today = datetime.date.today()
+        p = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD")
+        b, _ = Batiment.objects.get_or_create(residence="TEST-RES")
+        b.statut = "Réservé"; b.personnel = None; b.save()
+        ResidentPrincipal.objects.create(personnel=p, batiment=b, date_debut=today)
+        v = Voyage.objects.create(personnel=p, origine="Abidjan", destination="CAMP", trajet_aller_seul=False,
+                                  date_depart=today, date_retour_prevue=today, statut="en_voyage", statut_validation="valide")
+        r = v.revenir(today)
+        b.refresh_from_db()
+        self.assertTrue(r["chambre_restituee"])
+        self.assertEqual((b.statut, b.personnel_id), ("Occupé", p.id))

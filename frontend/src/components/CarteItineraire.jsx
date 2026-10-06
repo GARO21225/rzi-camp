@@ -53,6 +53,15 @@ export default function CarteItineraire({ origine, destination, etapes = [], tra
   if (etapes.length > 0) {
     etapes.forEach(e => { ajouter(e.origine); ajouter(e.destination) })
   } else {
+    // Sans étapes saisies, le calculateur d'itinéraire choisit l'axe le plus court
+    // Abidjan <-> Camp : il passe par Daloa, alors que les convois passent par
+    // Yamoussoukro et Bouaké. On impose donc ces étapes pour les trajets depuis/vers le camp.
+    const estCampNom = (n) => /camp|sango/i.test(n || '')
+    const ca = trouverCoords(origine || 'Camp Roxgold Sango'), cb = trouverCoords(destination)
+    if (ca && cb && estCampNom(origine || 'Camp Roxgold Sango') !== estCampNom(destination)) {
+      const sud = estCampNom(origine || 'Camp Roxgold Sango') ? cb : ca
+      if (sud[0] < 6.5) (estCampNom(origine || 'Camp Roxgold Sango') ? ['Bouaké', 'Yamoussoukro'] : ['Yamoussoukro', 'Bouaké']).forEach(ajouter)
+    }
     ajouter(destination)
   }
 

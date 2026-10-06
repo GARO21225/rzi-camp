@@ -271,7 +271,9 @@ class Voyage(models.Model):
 
         if b:
             resultat["residence"] = b.residence
-            if b.statut == "Libre" or b.personnel_id == self.personnel_id:
+            # « Réservé » sans occupant = chambre gardée pour sa résidence principale :
+            # elle lui est restituée comme une chambre libre.
+            if (b.statut in ("Libre", "Réservé") and not b.personnel_id) or b.personnel_id == self.personnel_id:
                 b.statut = "Occupé"
                 b.personnel = self.personnel
                 b.occupant = f"{self.personnel.nom} {self.personnel.prenom}"
