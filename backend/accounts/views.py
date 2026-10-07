@@ -271,7 +271,7 @@ def reset_user_password(request, user_id):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
-    """Générer un token de reset — jamais exposé directement au client"""
+    """Étape 1 : envoie un code à 6 chiffres de réinitialisation (jamais renvoyé au client)."""
     from django.core.cache import cache
 
     username = request.data.get("username", "").strip()
@@ -286,95 +286,81 @@ def forgot_password(request):
         return Response({"error": "Trop de tentatives. Réessayez dans 15 minutes."}, status=429)
     cache.set(rl_key, attempts + 1, timeout=900)
 
-    user = User.objects.filter(username=username).first()
+    # Le code part par le canal de connexion configuré (Paramétrage → canal_otp :
+    # sms, whatsapp ou email), vers le contact de la fiche Personnel. Avant, un
+    # lien partait par le SMTP Django (non configuré) vers /reset-password, page
+    # qui n'existe pas : l'utilisateur ne recevait rien d'exploitable.
+    canal = Parametre.get('canal_otp', 'sms')
+    moyen = {'email': 'par email', 'whatsapp': 'par WhatsApp'}.get(canal, 'par SMS')
+    reponse = {
+        "canal": canal,
+        "message": f"Si ce compte existe, un code à 6 chiffres vient d'être envoyé {moyen} au contact "
+                   f"enregistré sur votre fiche. Saisissez-le ci-dessous avec votre nouveau mot de passe "
+                   f"(code valable {CodeOTP.DUREE_VALIDITE_MIN} minutes).",
+    }
+    user = User.objects.filter(username__iexact=username, is_active=True).first()
     if not user:
-        # Sécurité: ne pas révéler si le compte existe
-        return Response({"message": "Si ce compte existe, un message de réinitialisation a été envoyé."})
+        return Response(reponse)  # ne jamais révéler si le compte existe
 
-    # Générer un token temporaire (valide 1h)
-    import secrets, datetime
-    from django.core.cache import cache
-    token = secrets.token_urlsafe(32)
-    cache.set(f"reset:{token}", user.id, timeout=3600)
-
-    # Essayer d'envoyer un email
-    email_sent = False
+    from django.conf import settings
+    from residences.models import Personnel
+    from .messages_bienvenue import message_code_reinitialisation
+    pers = Personnel.objects.filter(user=user).first()
+    email = (pers.email if pers else "") or user.email
+    numero = ((pers.numero_whatsapp if canal == 'whatsapp' else "") or pers.telephone) if pers else ""
+    otp = CodeOTP.generer(f"reset:{user.id}")
+    nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
+    texte, corps_html = message_code_reinitialisation(nom_app, user.first_name or username, otp.code, CodeOTP.DUREE_VALIDITE_MIN)
+    ok, info = False, "aucun contact (téléphone ou email) sur la fiche"
     try:
-        from django.core.mail import send_mail
-        from django.conf import settings
-        from residences.models import Personnel
-        pers = Personnel.objects.filter(user=user).first()
-        if user.email or (pers and pers.email):
-            dest = user.email or pers.email
-            # .rstrip('/') : APP_URL peut être défini avec ou sans "/" final
-            # (les deux sont un lien de connexion valide dans les messages
-            # de bienvenue/OTP, voir messages_bienvenue.py) - mais ICI on
-            # concatène un chemin, donc on retire le "/" final pour éviter
-            # un double slash ("...5173//reset-password") qui casserait le
-            # routing côté frontend.
-            app_url = getattr(settings, "APP_URL", "https://app.roxgold-sitelife.com:5173").rstrip('/')
-            send_mail(
-                subject="🔐 Réinitialisation de mot de passe — Roxgold SiteLife",
-                message=f"""Bonjour {user.first_name},
-
-Votre lien de réinitialisation (valide 1h) :
-{app_url}/reset-password?token={token}
-
-Si vous n\'avez pas demandé cette réinitialisation, ignorez ce message.
-
-L\'équipe Roxgold SiteLife""",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[dest],
-                fail_silently=True,
-            )
-            email_sent = True
-    except Exception:
-        pass
-
-    # SÉCURITÉ CRITIQUE : ne JAMAIS renvoyer le token dans la réponse HTTP,
-    # même si l'email n'a pas pu être envoyé — sinon n'importe qui peut
-    # prendre le contrôle de n'importe quel compte (y compris admin) en
-    # appelant cet endpoint sans aucune authentification.
-    if not email_sent:
-        # Log côté serveur uniquement (visible par l'admin via les logs Render),
-        # jamais transmis au client.
-        import logging
-        logging.getLogger('security').warning(
-            f"Reset password demandé pour {username} mais email non envoyé "
-            f"(SMTP non configuré). Token généré mais NON exposé à l'API. "
-            f"Un admin doit utiliser reset_user_password pour ce compte."
-        )
-
-    return Response({
-        "message": "Si ce compte existe, un lien de réinitialisation a été envoyé."
-    })
+        # Canal configuré d'abord ; à défaut de contact pour ce canal, l'autre.
+        if (canal == 'email' or not numero) and email:
+            from .email import envoyer_email
+            ok, info = envoyer_email(email, sujet=f"{nom_app} — Réinitialisation du mot de passe",
+                                     corps_html=corps_html, corps_texte=texte, type_message="systeme")
+        elif numero:
+            from .sms import envoyer_sms
+            ok, info = envoyer_sms(numero, texte, canal=canal if canal != 'email' else 'sms', type_message="systeme")
+    except Exception as e:
+        ok, info = False, str(e)
+    if not ok:
+        # Jamais transmis au client : visible par l'admin dans les logs, qui peut
+        # alors régénérer les identifiants depuis la fiche Personnel.
+        logging.getLogger('security').warning(f"Réinitialisation demandée pour {username} : code non envoyé ({info}).")
+    elif info == "mode_test" and settings.DEBUG:
+        reponse["code_test"] = otp.code
+    return Response(reponse)
 
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def reset_password_confirm(request):
-    """Confirmer le reset avec le token"""
-    from django.core.cache import cache
-    token    = request.data.get("token", "")
+    """Étape 2 : identifiant + code reçu + nouveau mot de passe."""
+    username = (request.data.get("username") or "").strip()
+    code     = (request.data.get("code") or request.data.get("token") or "").strip()
     new_pwd  = request.data.get("password", "")
 
-    if not token or not new_pwd:
-        return Response({"error": "Token et mot de passe requis"}, status=400)
+    if not username or not code or not new_pwd:
+        return Response({"error": "Identifiant, code et nouveau mot de passe requis"}, status=400)
     if len(new_pwd) < 6:
         return Response({"error": "Mot de passe trop court (6 caractères minimum)"}, status=400)
 
-    user_id = cache.get(f"reset:{token}")
-    if not user_id:
-        return Response({"error": "Token invalide ou expiré (1h max)"}, status=400)
-
-    try:
-        user = User.objects.get(pk=user_id)
-        user.set_password(new_pwd)
-        user.save()
-        cache.delete(f"reset:{token}")
-        return Response({"message": "Mot de passe réinitialisé avec succès. Vous pouvez vous connecter."})
-    except User.DoesNotExist:
-        return Response({"error": "Utilisateur introuvable"}, status=404)
+    invalide = Response({"error": "Code incorrect ou expiré — redemandez-en un."}, status=400)
+    user = User.objects.filter(username__iexact=username, is_active=True).first()
+    if not user:
+        return invalide
+    otp = CodeOTP.objects.filter(telephone=f"reset:{user.id}", utilise=False).order_by('-date_creation').first()
+    if not otp or not otp.est_valide():
+        return invalide
+    if otp.code != code:
+        otp.tentatives += 1
+        otp.save(update_fields=['tentatives'])
+        return invalide
+    otp.utilise = True
+    otp.save(update_fields=['utilise'])
+    user.set_password(new_pwd)
+    user.save()
+    return Response({"message": "Mot de passe réinitialisé avec succès. Vous pouvez vous connecter."})
 
 
 @api_view(["GET"])

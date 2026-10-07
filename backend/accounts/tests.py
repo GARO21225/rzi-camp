@@ -743,3 +743,70 @@ class RapportsEmailAvecDonneesTests(TestCase):
         _, h = generer_contenu_rapport("Synth", "synthese", {"details": True, "horizon_jours": 3})
         for mot in ("Répartition par statut", "Incidents ouverts par priorité", "Voyages par statut", "Stocks les plus bas", "Eau"):
             self.assertIn(mot, h)
+
+    def test_pas_de_double_envoi_ni_de_doublon_de_destinataire(self):
+        """Deux déclencheurs concurrents (planificateur + /auth/me/ + cron) : un seul envoi."""
+        from .models import RapportPlanifie, Parametre
+        from .rapports_email import envoyer_rapport, envoyer_rapports_dus
+        Parametre.objects.update_or_create(cle="email_provider", defaults={"valeur": "resend"})
+        r = RapportPlanifie.objects.create(nom="D", frequence="quotidien", heure="00:00",
+                                           destinataires=["a@b.com", " A@B.com ", "c@d.com"])
+        copie = RapportPlanifie.objects.get(pk=r.pk)  # 2e déclencheur : même état lu avant l'envoi
+        with patch("accounts.email.envoyer_email", return_value=(True, "ok")) as m:
+            self.assertTrue(envoyer_rapport(r))
+            self.assertFalse(envoyer_rapport(copie))      # déjà réservé : n'envoie pas
+            self.assertEqual(m.call_count, 2)             # a@b.com une seule fois + c@d.com
+            self.assertEqual(envoyer_rapports_dus()[0], [])
+
+
+class MotDePasseOublieTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from residences.models import Personnel
+        cache.clear()
+        self.u = User.objects.create_user("jdupont", password="ancien123", first_name="Jean")
+        Personnel.objects.create(nom="Dupont", prenom="Jean", telephone="0701020304", email="j@d.com", user=self.u)
+
+    def test_code_envoye_par_le_canal_puis_reinitialisation(self):
+        from .models import CodeOTP
+        with patch("accounts.sms.envoyer_sms", return_value=(True, "ok")) as sms:
+            r = self.client.post("/api/forgot-password/", {"username": "jdupont"}, content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("code à 6 chiffres", r.json()["message"])
+        self.assertNotIn("code_test", r.json())
+        self.assertEqual(sms.call_args[0][0], "0701020304")
+        code = CodeOTP.objects.get(telephone=f"reset:{self.u.id}").code
+        self.assertIn(code, sms.call_args[0][1])
+        mauvais = "000000" if code != "000000" else "111111"
+        r = self.client.post("/api/reset-password-confirm/", {"username": "jdupont", "code": mauvais, "password": "nouveau123"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/reset-password-confirm/", {"username": "jdupont", "code": code, "password": "court"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/reset-password-confirm/", {"username": "JDupont", "code": code, "password": "nouveau123"}, content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        self.u.refresh_from_db()
+        self.assertTrue(self.u.check_password("nouveau123"))
+        # le code ne sert qu'une fois
+        r = self.client.post("/api/reset-password-confirm/", {"username": "jdupont", "code": code, "password": "encore123"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_canal_email_et_compte_inconnu_meme_reponse(self):
+        from .models import Parametre
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "email"})
+        with patch("accounts.email.envoyer_email", return_value=(True, "ok")) as mail:
+            connu = self.client.post("/api/forgot-password/", {"username": "jdupont"}, content_type="application/json")
+            inconnu = self.client.post("/api/forgot-password/", {"username": "personne"}, content_type="application/json")
+        self.assertEqual(mail.call_count, 1)
+        self.assertEqual(mail.call_args[0][0], "j@d.com")
+        self.assertEqual(connu.json(), inconnu.json())
+
+    def test_cinq_codes_faux_bloquent_le_code(self):
+        from .models import CodeOTP
+        with patch("accounts.sms.envoyer_sms", return_value=(True, "ok")):
+            self.client.post("/api/forgot-password/", {"username": "jdupont"}, content_type="application/json")
+        code = CodeOTP.objects.get(telephone=f"reset:{self.u.id}").code
+        mauvais = "000000" if code != "000000" else "111111"
+        for _ in range(5):
+            self.client.post("/api/reset-password-confirm/", {"username": "jdupont", "code": mauvais, "password": "nouveau123"}, content_type="application/json")
+        r = self.client.post("/api/reset-password-confirm/", {"username": "jdupont", "code": code, "password": "nouveau123"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)

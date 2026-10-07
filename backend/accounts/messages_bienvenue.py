@@ -59,3 +59,19 @@ def message_code_otp(nom_app, prenom, code, duree_min):
         "<p>Gardez-le pour vous, même votre plus grand fan n'y a pas droit 😄</p>"
     )
     return texte, corps_html
+
+
+def message_code_reinitialisation(nom_app, prenom, code, duree_min):
+    texte = (
+        f"🔐 {nom_app} — {prenom}, votre code de réinitialisation du mot de passe est {code} "
+        f"(valable {duree_min} min). Si vous n'êtes pas à l'origine de cette demande, ignorez ce message."
+    )
+    corps_html = (
+        f"<p>🔐 Bonjour {prenom},</p>"
+        f"<p>Votre code de réinitialisation du mot de passe {nom_app} est "
+        f"<strong style=\"font-size:20px;letter-spacing:2px\">{code}</strong> "
+        f"(valable {duree_min} minutes).</p>"
+        "<p>Saisissez-le dans l'écran « Mot de passe oublié » avec votre nouveau mot de passe. "
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>"
+    )
+    return texte, corps_html

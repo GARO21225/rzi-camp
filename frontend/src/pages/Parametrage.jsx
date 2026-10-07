@@ -1251,6 +1251,8 @@ function RapportsPlanifiesTab({ isAdmin }) {
   const [form, setForm] = useState(FORM0)
   const [types, setTypes] = useState({})
   const [creating, setCreating] = useState(false)
+  const [editId, setEditId] = useState(null) // rapport en cours de modification (null = création)
+  const formRef = React.useRef(null)
   const [envoiId, setEnvoiId] = useState(null)
   const [apercu, setApercu] = useState(null)
   useEffect(() => { rapportsPlanifiesAPI.types().then(r => setTypes(r.data?.types || {})).catch(()=>{}) }, [])
@@ -1266,18 +1268,29 @@ function RapportsPlanifiesTab({ isAdmin }) {
     if (!form.nom.trim() || destinataires.length===0) { toast.error('Nom et au moins un destinataire requis.'); return }
     setCreating(true)
     try {
-      await rapportsPlanifiesAPI.create({
+      const donnees = {
         nom: form.nom.trim(), type_rapport: form.type_rapport, frequence: form.frequence, heure: form.heure, destinataires,
         options: { horizon_jours: Number(form.horizon_jours)||1, seuil_stock: Number(form.seuil_stock)||0, details: !!form.details },
         jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
         jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
-      })
-      toast.success('Rapport planifié créé.')
-      setForm(FORM0)
+      }
+      if (editId) await rapportsPlanifiesAPI.update(editId, donnees)
+      else await rapportsPlanifiesAPI.create(donnees)
+      toast.success(editId ? 'Rapport planifié modifié.' : 'Rapport planifié créé.')
+      setForm(FORM0); setEditId(null)
       charger()
     } catch(e) { toast.error(e.response?.data?.error || JSON.stringify(e.response?.data||{}) || 'Erreur') }
     setCreating(false)
   }
+  // Recharge un rapport existant dans le formulaire (liste de destinataires comprise).
+  const modifier = (r) => {
+    setEditId(r.id)
+    setForm({ nom: r.nom, type_rapport: r.type_rapport, frequence: r.frequence, jour_semaine: r.jour_semaine ?? 0, jour_mois: r.jour_mois ?? 1,
+      heure: (r.heure || '07:00').slice(0,5), destinataires: (r.destinataires || []).join(', '),
+      horizon_jours: r.options?.horizon_jours ?? 1, seuil_stock: r.options?.seuil_stock ?? 5, details: !!r.options?.details })
+    formRef.current?.scrollIntoView({ behavior:'smooth', block:'center' })
+  }
+  const annulerModification = () => { setEditId(null); setForm(FORM0) }
   const envoyerMaintenant = async (r) => {
     setEnvoiId(r.id)
     try { const x = await rapportsPlanifiesAPI.envoyer(r.id); toast.success(`Envoyé à ${x.data.destinataires?.join(', ')}`) }
@@ -1295,7 +1308,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
   }
   const supprimer = async (r) => {
     if (!await confirmDialog(`Supprimer le rapport planifié "${r.nom}" ?`)) return
-    try { await rapportsPlanifiesAPI.delete(r.id); toast.success('Supprimé.'); charger() }
+    try { await rapportsPlanifiesAPI.delete(r.id); toast.success('Supprimé.'); if (editId===r.id) annulerModification(); charger() }
     catch(e) { toast.error('Erreur') }
   }
 
@@ -1308,8 +1321,8 @@ function RapportsPlanifiesTab({ isAdmin }) {
       </div>
 
       {isAdmin && (
-        <div style={{border:'1px dashed #C9972B',borderRadius:12,padding:16,background:'#fffbeb'}}>
-          <div style={{fontWeight:700,fontSize:14,color:'#92400e',marginBottom:10}}>➕ Nouveau rapport planifié</div>
+        <div ref={formRef} style={{border:editId?'2px solid #2563eb':'1px dashed #C9972B',borderRadius:12,padding:16,background:editId?'#eff6ff':'#fffbeb'}}>
+          <div style={{fontWeight:700,fontSize:14,color:editId?'#1e40af':'#92400e',marginBottom:10}}>{editId ? '✏️ Modifier le rapport planifié' : '➕ Nouveau rapport planifié'}</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:10}}>
             <input value={form.nom} onChange={e=>setForm(f=>({...f,nom:e.target.value}))} placeholder="Nom (ex: Rapport direction)"
               style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
@@ -1355,8 +1368,11 @@ function RapportsPlanifiesTab({ isAdmin }) {
           <button onClick={creer} disabled={creating}
             style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
               cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
-            {creating ? '⏳...' : 'Créer'}
+            {creating ? '⏳...' : editId ? '💾 Enregistrer les modifications' : 'Créer'}
           </button>
+          {editId && (
+            <button onClick={annulerModification} style={{marginLeft:8,background:'#fff',color:'#475569',border:'1px solid #e2e8f0',padding:'9px 18px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>Annuler</button>
+          )}
         </div>
       )}
 
@@ -1390,6 +1406,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
           </div>
           {isAdmin && (
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+              <button onClick={()=>modifier(r)} style={{background:'#fffbeb',color:'#92400e',border:'1px solid #fde68a',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>✏️ Modifier</button>
               <button onClick={()=>voirApercu(r)} style={{background:'#f1f5f9',border:'1px solid #e2e8f0',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>👁️ Aperçu</button>
               <button onClick={()=>envoyerMaintenant(r)} disabled={envoiId===r.id} style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',padding:'5px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>{envoiId===r.id?'⏳':'📨 Envoyer maintenant'}</button>
               <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:r.actif?'#16a34a':'#94a3b8',cursor:'pointer'}}>
@@ -1474,8 +1491,11 @@ function GroupesDiffusionTab({ isAdmin }) {
           <button onClick={creer} disabled={creating}
             style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
               cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
-            {creating ? '⏳...' : 'Créer'}
+            {creating ? '⏳...' : editId ? '💾 Enregistrer les modifications' : 'Créer'}
           </button>
+          {editId && (
+            <button onClick={annulerModification} style={{marginLeft:8,background:'#fff',color:'#475569',border:'1px solid #e2e8f0',padding:'9px 18px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>Annuler</button>
+          )}
         </div>
       )}
 

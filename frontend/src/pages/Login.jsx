@@ -1,21 +1,27 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
-import { auth } from '../api'
+import api, { auth } from '../api'
 import { useAppName } from '../hooks/useAppName'
 
-function ForgotModal({ onClose }) {
+// Mot de passe oublié en 2 étapes : (1) identifiant -> un code à 6 chiffres part
+// par le canal de connexion du camp (SMS, WhatsApp ou email) ; (2) code + nouveau
+// mot de passe. Avant : un « token » à coller, que l'utilisateur ne recevait jamais.
+function ForgotModal({ onClose, onDone }) {
   const [step, setStep] = useState('request')
   const [username, setUsername] = useState('')
-  const [token, setToken] = useState('')
+  const [code, setCode] = useState('')
   const [newPwd, setNewPwd] = useState('')
+  const [newPwd2, setNewPwd2] = useState('')
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState(null)
+  const champ = { background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }
 
+  // Même client que le reste de l'app (même URL de serveur) ; une réponse 4xx
+  // porte un message {error} à afficher, seule l'absence de réponse est « réseau ».
   const apiCall = async (path, data) => {
-    const baseUrl = window.__API_BASE__ || import.meta.env.VITE_API_URL || ''
-    const r = await fetch(`${baseUrl}/api${path}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) })
-    return r.json()
+    try { return (await api.post(`/api${path}`, data)).data }
+    catch (e) { if (e.response?.data) return e.response.data; throw e }
   }
 
   const requestReset = async () => {
@@ -23,22 +29,22 @@ function ForgotModal({ onClose }) {
     setLoading(true); setMsg(null)
     try {
       const r = await apiCall('/forgot-password/', { username: username.trim() })
-      if (r.token) { setToken(r.token); setMsg({ type:'info', text:'Token généré — transmettez-le à l\'utilisateur' }) }
-      else if (r.message) setMsg({ type:'success', text: r.message })
-      else if (r.error) { setMsg({ type:'error', text: r.error }); return }
+      if (r.error) return setMsg({ type:'error', text: r.error })
+      setMsg({ type:'info', text: r.message + (r.code_test ? ` 🧪 Mode test — code : ${r.code_test}` : '') })
       setStep('confirm')
     } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
     finally { setLoading(false) }
   }
 
   const confirmReset = async () => {
-    if (!token.trim() || !newPwd) return setMsg({ type:'error', text:'Token et mot de passe requis' })
-    if (newPwd.length < 6) return setMsg({ type:'error', text:'Minimum 6 caractères' })
+    if (code.trim().length !== 6) return setMsg({ type:'error', text:'Saisissez le code à 6 chiffres reçu' })
+    if (newPwd.length < 6) return setMsg({ type:'error', text:'Mot de passe : 6 caractères minimum' })
+    if (newPwd !== newPwd2) return setMsg({ type:'error', text:'Les deux mots de passe ne correspondent pas' })
     setLoading(true); setMsg(null)
     try {
-      const r = await apiCall('/reset-password-confirm/', { token: token.trim(), password: newPwd })
-      if (r.message) { setMsg({ type:'success', text: r.message }); setTimeout(onClose, 2500) }
-      else setMsg({ type:'error', text: r.error || 'Token invalide' })
+      const r = await apiCall('/reset-password-confirm/', { username: username.trim(), code: code.trim(), password: newPwd })
+      if (r.message) { setMsg({ type:'success', text: r.message }); setTimeout(() => { onDone?.(username.trim()); onClose() }, 1800) }
+      else setMsg({ type:'error', text: r.error || 'Code incorrect ou expiré' })
     } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
     finally { setLoading(false) }
   }
@@ -47,19 +53,24 @@ function ForgotModal({ onClose }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(5,15,35,.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
       <div style={{ background:'#0d1b2e', border:'1px solid rgba(240,165,0,.3)', borderRadius:20, width:'100%', maxWidth:420, overflow:'hidden', boxShadow:'0 32px 80px rgba(0,0,0,.6)' }}>
         <div style={{ background:'linear-gradient(135deg,#0f2447,#1a3560)', padding:'18px 22px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid rgba(240,165,0,.2)' }}>
-          <span style={{ color:'#f0a500', fontWeight:800, fontSize:15, letterSpacing:'.5px' }}>🔐 RÉINITIALISATION</span>
+          <span style={{ color:'#f0a500', fontWeight:800, fontSize:15, letterSpacing:'.5px' }}>🔐 MOT DE PASSE OUBLIÉ · {step === 'request' ? '1/2' : '2/2'}</span>
           <button onClick={onClose} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.15)', color:'var(--rzc-text-4)', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:16 }}>✕</button>
         </div>
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14 }}>
-          {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
+          {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, lineHeight:1.45, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
           {step === 'request' ? <>
-            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            {token && <div style={{ background:'rgba(240,165,0,.1)', border:'1px solid rgba(240,165,0,.3)', borderRadius:10, padding:'10px 14px' }}><div style={{ fontSize:11, color:'#f0a500', marginBottom:4, fontWeight:700 }}>TOKEN À TRANSMETTRE</div><div style={{ fontFamily:'monospace', fontSize:13, color:'#fef3c7', wordBreak:'break-all' }}>{token}</div></div>}
-            <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Génération...':'Générer le token'}</button>
+            <div style={{ fontSize:13, color:'#cbd5e1', lineHeight:1.5 }}>Saisissez votre identifiant de connexion. Vous recevrez un code à 6 chiffres sur le téléphone ou l'email enregistré sur votre fiche.</div>
+            <input value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={e=>e.key==='Enter'&&requestReset()} placeholder="Identifiant de connexion" autoFocus style={champ}/>
+            <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Envoi...':'Recevoir mon code'}</button>
           </> : <>
-            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Coller le token ici" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
-            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'var(--rzc-white)', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
+            <input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" placeholder="Code à 6 chiffres" autoFocus style={{ ...champ, fontSize:20, letterSpacing:6, textAlign:'center', fontFamily:'monospace' }}/>
+            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" autoComplete="new-password" placeholder="Nouveau mot de passe (min. 6 car.)" style={champ}/>
+            <input value={newPwd2} onChange={e=>setNewPwd2(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmReset()} type="password" autoComplete="new-password" placeholder="Confirmer le nouveau mot de passe" style={champ}/>
+            <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'var(--rzc-white)', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Changer mon mot de passe'}</button>
+            <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.5 }}>
+              Rien reçu après 2 minutes ? <button onClick={requestReset} disabled={loading} style={{ background:'none', border:'none', color:'#f0a500', cursor:'pointer', fontSize:12, fontWeight:700, padding:0, fontFamily:'inherit' }}>Renvoyer un code</button> · <button onClick={()=>{ setStep('request'); setMsg(null); setCode('') }} style={{ background:'none', border:'none', color:'#f0a500', cursor:'pointer', fontSize:12, fontWeight:700, padding:0, fontFamily:'inherit' }}>Changer d'identifiant</button><br/>
+              Sinon, demandez à l'administrateur du camp de régénérer vos identifiants (fiche Personnel, bouton 🔑).
+            </div>
           </>}
         </div>
       </div>
@@ -403,7 +414,7 @@ export default function Login() {
         </div>
       </div>
 
-      {forgot && <ForgotModal onClose={()=>setForgot(false)}/>}
+      {forgot && <ForgotModal onClose={()=>setForgot(false)} onDone={(u)=>{ setMode('password'); setUsername(u); setPassword(''); setError('') }}/>}
     </div>
   )
 }

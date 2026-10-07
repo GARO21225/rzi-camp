@@ -97,7 +97,8 @@ class RapportPlanifie(models.Model):
         """Ce rapport doit-il partir maintenant, compte tenu de sa derniere execution ?"""
         if not self.actif:
             return False
-        if self.derniere_execution and self.derniere_execution.date() == maintenant.date():
+        from django.utils import timezone
+        if self.derniere_execution and timezone.localtime(self.derniere_execution).date() == maintenant.date():
             return False  # deja envoye aujourd'hui, jamais 2x le meme jour
         # Rattrapage : part dès l'heure atteinte, même si la vérification (cron ou
         # hook paresseux) n'a pas tourné pile pendant cette heure.

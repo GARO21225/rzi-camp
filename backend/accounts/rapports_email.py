@@ -200,7 +200,8 @@ def envoyer_aux_destinataires(r):
     from .email import envoyer_email
     sujet, corps = generer_contenu_rapport(r.nom, r.type_rapport, r.options)
     ok_n, erreurs = 0, []
-    for dest in r.destinataires:
+    # Une même adresse saisie deux fois (casse/espaces près) ne reçoit qu'un mail.
+    for dest in dict.fromkeys(str(d).strip().lower() for d in r.destinataires if str(d).strip()):
         ok, info = envoyer_email(dest, sujet, corps, type_message="rapport", campagne=r.nom)
         if ok:
             ok_n += 1
@@ -210,11 +211,30 @@ def envoyer_aux_destinataires(r):
 
 
 def envoyer_rapport(r, maintenant=None):
-    ok_n, erreurs = envoyer_aux_destinataires(r)
+    """Envoie le rapport. Renvoie False si un autre déclencheur l'a déjà pris.
+
+    Le rapport partait en double : trois déclencheurs coexistent (boucle du
+    planificateur dans asgi.py, vérification paresseuse à chaque /auth/me/,
+    commande cron) et chacun testait est_du() PUIS envoyait, la date de dernier
+    envoi n'étant écrite qu'après l'envoi (plusieurs secondes). On réserve donc
+    l'envoi AVANT d'envoyer, par un UPDATE conditionnel atomique : un seul
+    déclencheur l'obtient, les autres s'arrêtent. Si tout échoue, on rend la main.
+    """
+    from .models import RapportPlanifie
+    maintenant = maintenant or timezone.localtime(timezone.now())
+    ancien = r.derniere_execution
+    if not RapportPlanifie.objects.filter(pk=r.pk, derniere_execution=ancien).update(derniere_execution=maintenant):
+        return False
+    r.derniere_execution = maintenant
+    try:
+        ok_n, erreurs = envoyer_aux_destinataires(r)
+    except Exception as e:
+        ok_n, erreurs = 0, [str(e)]
     if not ok_n:
+        RapportPlanifie.objects.filter(pk=r.pk).update(derniere_execution=ancien)
+        r.derniere_execution = ancien
         raise RuntimeError("; ".join(erreurs) or "aucun destinataire")
-    r.derniere_execution = maintenant or timezone.localtime(timezone.now())
-    r.save(update_fields=["derniere_execution"])
+    return True
 
 
 def envoyer_rapports_dus(maintenant=None):
@@ -231,8 +251,8 @@ def envoyer_rapports_dus(maintenant=None):
         if not r.est_du(maintenant):
             continue
         try:
-            envoyer_rapport(r, maintenant)
-            envoyes.append(r.nom)
+            if envoyer_rapport(r, maintenant):
+                envoyes.append(r.nom)
         except Exception as e:
             erreurs.append((r.nom, str(e)))
     return envoyes, erreurs

@@ -40,7 +40,10 @@ class RapportPlanifieSerializer(serializers.ModelSerializer):
     def validate_destinataires(self, value):
         if not isinstance(value, list) or not value:
             raise serializers.ValidationError("Au moins une adresse email destinataire est requise.")
+        value = list(dict.fromkeys(str(e).strip().lower() for e in value if str(e).strip()))  # sans doublon
+        if not value:
+            raise serializers.ValidationError("Au moins une adresse email destinataire est requise.")
         for e in value:
-            if "@" not in str(e):
+            if "@" not in e:
                 raise serializers.ValidationError(f"Adresse invalide : {e}")
         return value
