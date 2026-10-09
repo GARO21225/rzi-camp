@@ -3,7 +3,8 @@
  * Version stable - Erreurs gérées par Error Boundary
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI, departementsAPI, entreprisesAPI } from '../api'
+import SelectRecherche from '../components/SelectRecherche'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
@@ -59,6 +60,12 @@ export default function Personnel() {
     societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true,
     est_expatrie:false, pays_origine:'', eligible_mobilite:false
   })
+  const [deps, setDeps] = useState([])
+  const [ents, setEnts] = useState([])
+  useEffect(() => {
+    departementsAPI.list().then(r => setDeps((r.data?.results || r.data || []).filter(d => d.actif))).catch(() => {})
+    entreprisesAPI.list().then(r => setEnts((r.data?.results || r.data || []).filter(e => e.actif))).catch(() => {})
+  }, [])
   const [saving,       setSaving]       = useState(false)
   const [selected_ids, setSelectedIds]  = useState(new Set())  // IDs sélectionnés pour masse
   const [massAction,   setMassAction]   = useState('')  // action en cours
@@ -130,6 +137,10 @@ export default function Personnel() {
       if (!form.numero_whatsapp) { setErr("Numéro WhatsApp requis"); return }
       if (canalOtp === 'email' && !form.email) { setErr("Email requis — canal de connexion configuré : email"); return }
     }
+    if (form.type_personnel !== 'sous_traitant' && !(form.departement||'').trim() && deps.length) {
+      setErr(form.type_personnel === 'visiteur' ? "Département requis — le visiteur est rattaché à un département" : "Département requis — tout employé Roxgold appartient à un département"); return
+    }
+    if (form.type_personnel === 'sous_traitant' && !(form.societe||'').trim()) { setErr("Entreprise sous-traitante requise"); return }
     setSaving(true); setErr('')
     try {
       if (modal && modal.id) {
@@ -1158,26 +1169,46 @@ export default function Personnel() {
                   <select value={form.type_personnel} onChange={e=>{
                     const v = e.target.value
                     // Employé Roxgold → société auto-remplie et verrouillée sur ROXGOLD
-                    setForm({...form, type_personnel:v, societe: v==='roxgold' ? 'ROXGOLD' : (form.societe==='ROXGOLD' ? '' : form.societe)})
+                    setForm({...form, type_personnel:v, societe: v==='roxgold' ? 'ROXGOLD' : (form.societe==='ROXGOLD' ? '' : form.societe), departement: v==='sous_traitant' ? '' : form.departement})
                   }} style={inp}>
                     {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>SOCIÉTÉ</label>
-                    <input value={form.societe} disabled={form.type_personnel==='roxgold'}
-                      onChange={e=>setForm({...form,societe:e.target.value})}
-                      style={{...inp, ...(form.type_personnel==='roxgold' ? {opacity:.65, cursor:'not-allowed'} : {})}}/>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>{form.type_personnel==='sous_traitant' ? 'ENTREPRISE SOUS-TRAITANTE' : 'SOCIÉTÉ'}</label>
+                    {form.type_personnel==='sous_traitant' && ents.length ? (
+                      <SelectRecherche value={form.societe} style={inp}
+                        onChange={e=>{
+                          const ent = ents.find(x => x.nom === e.target.value)
+                          setForm(f=>({...f, societe:e.target.value, departement: ent?.departement_effectif_nom || ''}))
+                        }}>
+                        <option value="">— Choisir ou taper l'entreprise —</option>
+                        {ents.map(x=><option key={x.id} value={x.nom}>{x.nom}{x.entreprise_mere_nom ? ` (via ${x.entreprise_mere_nom})` : x.departement_nom ? ` (${x.departement_nom})` : ''}</option>)}
+                      </SelectRecherche>
+                    ) : (
+                      <input value={form.societe} disabled={form.type_personnel==='roxgold'}
+                        onChange={e=>setForm({...form,societe:e.target.value})}
+                        style={{...inp, ...(form.type_personnel==='roxgold' ? {opacity:.65, cursor:'not-allowed'} : {})}}/>
+                    )}
                   </div>
                   <div>
                     <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>N° MATRICULE</label>
                     <input value={form.numero} onChange={e=>setForm({...form,numero:e.target.value})} style={inp}/>
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>DÉPARTEMENT <span style={{fontWeight:400,color:'var(--rzc-text-4)'}}>(optionnel)</span></label>
-                    <input value={form.departement||''} placeholder="Ex: Maintenance, RH, Logistique..."
-                      onChange={e=>setForm({...form,departement:e.target.value})} style={inp}/>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>DÉPARTEMENT {form.type_personnel==='sous_traitant' ? <span style={{fontWeight:400,color:'var(--rzc-text-4)'}}>(déduit de l'entreprise)</span> : <span style={{fontWeight:400,color:'var(--rzc-red)'}}>*</span>}</label>
+                    {form.type_personnel==='sous_traitant' ? (
+                      <input value={form.departement||''} disabled placeholder="Choisissez l'entreprise" style={{...inp,opacity:.65,cursor:'not-allowed'}}/>
+                    ) : deps.length ? (
+                      <SelectRecherche value={form.departement||''} onChange={e=>setForm({...form,departement:e.target.value})} style={inp}>
+                        <option value="">— Choisir ou taper le département —</option>
+                        {(form.departement && !deps.some(d=>d.nom===form.departement)) && <option value={form.departement}>{form.departement} (hors liste)</option>}
+                        {deps.map(d=><option key={d.id} value={d.nom}>{d.nom}</option>)}
+                      </SelectRecherche>
+                    ) : (
+                      <input value={form.departement||''} placeholder="Ex: Mining, IT..." onChange={e=>setForm({...form,departement:e.target.value})} style={inp}/>
+                    )}
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12, marginTop:12}}>

@@ -628,3 +628,100 @@ class ChambresAdminTests(TestCase):
         u = User.objects.create_user("simple", password="x")
         c = APIClient(); c.force_authenticate(u)
         self.assertEqual(c.get("/api/voyages/retours_anticipes/").json(), [])
+
+
+class ConflitResidencePrincipaleTests(TestCase):
+    """Loger quelqu'un dans la résidence principale d'un autre doit avertir (409), sauf confirmation."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        import datetime
+        self.today = datetime.date.today()
+        self.admin = User.objects.create_user("admc", is_staff=True, is_superuser=True)
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+        self.rp = Personnel.objects.create(nom="Titulaire", prenom="Paul", societe="ROXGOLD", actif=True)
+        self.autre = Personnel.objects.create(nom="Remplacant", prenom="Luc", societe="ROXGOLD", actif=True)
+        self.bat = Batiment.objects.create(residence="CP1", bloc="BX", statut="Libre")
+        ResidentPrincipal.objects.create(batiment=self.bat, personnel=self.rp, date_debut=self.today)
+
+    def _loger(self, **extra):
+        d = {"personnel": self.autre.id, "statut": "Occupé", **extra}
+        return self.c.patch(f"/api/batiments/{self.bat.id}/", d, format="json")
+
+    def test_absent_avec_retour_chevauchant(self):
+        import datetime
+        from voyages.models import Voyage
+        Voyage.objects.create(personnel=self.rp, origine="Camp", destination="Abidjan", date_depart=self.today,
+                              date_retour_prevue=self.today + datetime.timedelta(days=10), statut="en_voyage")
+        r = self._loger()
+        self.assertEqual(r.status_code, 409)
+        self.assertTrue(r.data["conflit_residence_principale"])
+        self.assertEqual(r.data["retour_prevu"], str(self.today + datetime.timedelta(days=10)))
+        # séjour qui finit avant le retour : pas de conflit
+        r = self._loger(date_depart=str(self.today + datetime.timedelta(days=3)))
+        self.assertEqual(r.status_code, 200, r.data)
+
+    def test_absent_sans_date_de_retour_connue_avertit(self):
+        r = self._loger()
+        self.assertEqual(r.status_code, 409)
+        self.assertIsNone(r.data["retour_prevu"])
+
+    def test_titulaire_present_avertit_et_confirmation_passe(self):
+        Batiment.objects.filter(pk=self.bat.pk).update(statut="Occupé", personnel=self.rp, occupant="Titulaire Paul")
+        r = self._loger()
+        self.assertEqual(r.status_code, 409)
+        self.assertTrue(r.data["present"])
+        r = self._loger(ignorer_conflit_residence=True)
+        self.assertEqual(r.status_code, 200, r.data)
+
+    def test_chambre_sans_resident_principal_libre(self):
+        ResidentPrincipal.objects.all().delete()
+        self.assertEqual(self._loger().status_code, 200)
+
+
+class DepartementsEntreprisesTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.admin = User.objects.create_user("admd", is_staff=True, is_superuser=True)
+        self.user = User.objects.create_user("simple")
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+
+    def test_semis_depuis_le_fichier(self):
+        from .models import Departement, Entreprise
+        self.assertEqual(Departement.objects.count(), 13)
+        mota = Entreprise.objects.get(nom="MOTA ENGIL")
+        self.assertEqual(mota.departement.nom, "Mining")
+        jachris = Entreprise.objects.get(nom="JACHRIS")
+        self.assertEqual(jachris.entreprise_mere, mota)
+        self.assertEqual(jachris.departement_effectif.nom, "Mining")
+
+    def test_ecriture_admin_lecture_ouverte(self):
+        from rest_framework.test import APIClient
+        c = APIClient(); c.force_authenticate(self.user)
+        self.assertEqual(c.get("/api/departements/").status_code, 200)
+        self.assertEqual(c.post("/api/departements/", {"nom": "Nouveau"}, format="json").status_code, 403)
+
+    def test_rattachement_exclusif(self):
+        from .models import Departement, Entreprise
+        dep = Departement.objects.get(nom="Process")
+        mota = Entreprise.objects.get(nom="MOTA ENGIL")
+        self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X1"}, format="json").status_code, 400)
+        self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X2", "departement": dep.id, "entreprise_mere": mota.id}, format="json").status_code, 400)
+        self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X3", "entreprise_mere": mota.id}, format="json").status_code, 201)
+
+    def test_personnel_sous_traitant_departement_deduit_et_casse_corrigee(self):
+        base = {"prenom": "A", "telephone": "+2250102030405", "email": "a@b.com", "numero_whatsapp": "+2250102030405"}
+        r = self.c.post("/api/personnel/", {**base, "nom": "ST", "societe": "NEEMBA", "type_personnel": "sous_traitant"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data["departement"], "Mining")  # NEEMBA -> MOTA -> Mining
+        r = self.c.post("/api/personnel/", {**base, "nom": "RX", "societe": "ROXGOLD", "type_personnel": "roxgold", "departement": "it"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data["departement"], "IT")
+
+    def test_suppression_refusee_si_utilise_et_renommage_propage(self):
+        from .models import Departement
+        dep = Departement.objects.get(nom="Finance")
+        Personnel.objects.create(nom="F", prenom="x", societe="ROXGOLD", departement="Finance")
+        self.assertEqual(self.c.delete(f"/api/departements/{dep.id}/").status_code, 400)
+        self.assertEqual(self.c.patch(f"/api/departements/{dep.id}/", {"nom": "Finance & Compta"}, format="json").status_code, 200)
+        self.assertEqual(Personnel.objects.get(nom="F").departement, "Finance & Compta")

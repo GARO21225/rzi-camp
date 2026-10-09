@@ -314,7 +314,9 @@ export const etapesVoyage = {
   delete: (id) => api.delete(`/api/etapes-voyage/${id}/`),
 }
 export const vehiculesFlotte = {
-  list: () => api.get('/api/vehicules-flotte/'),
+  list:   ()      => api.get('/api/vehicules-flotte/'),
+  create: (d)     => api.post('/api/vehicules-flotte/', d),
+  update: (id, d) => api.patch(`/api/vehicules-flotte/${id}/`, d),
 }
 export const itinerairesModeles = {
   list:   ()     => api.get('/api/itineraires-modeles/'),
@@ -487,4 +489,17 @@ export const plaintesCategories = {
 export const controlesChambre = {
   list: (params) => api.get('/api/controles-chambre/', {params}),
   creer: (d) => api.post('/api/controles-chambre/', d),
+}
+
+export const departementsAPI = {
+  list:   ()      => api.get('/api/departements/'),
+  create: (d)     => api.post('/api/departements/', d),
+  update: (id, d) => api.patch(`/api/departements/${id}/`, d),
+  delete: (id)    => api.delete(`/api/departements/${id}/`),
+}
+export const entreprisesAPI = {
+  list:   ()      => api.get('/api/entreprises/'),
+  create: (d)     => api.post('/api/entreprises/', d),
+  update: (id, d) => api.patch(`/api/entreprises/${id}/`, d),
+  delete: (id)    => api.delete(`/api/entreprises/${id}/`),
 }

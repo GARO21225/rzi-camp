@@ -10,6 +10,47 @@ def slugify_fr(text):
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
+class Departement(models.Model):
+    """Départements de ROXGOLD (Mining, Process, IT...). Tout employé Roxgold appartient à l'un
+    d'eux ; un visiteur est rattaché à l'un d'eux ; un sous-traitant est rattaché à l'un d'eux
+    (directement ou via MOTA). Géré dans Paramétrage → Départements & sous-traitants."""
+    nom   = models.CharField(max_length=100, unique=True)
+    ordre = models.PositiveSmallIntegerField(default=0)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["ordre", "nom"]
+
+    def __str__(self):
+        return self.nom
+
+
+class Entreprise(models.Model):
+    """Sous-traitant / entreprise présente au camp. Rattachée SOIT à un département de ROXGOLD,
+    SOIT à une entreprise mère (typiquement MOTA ENGIL pour JACHRIS, NEEMBA, MAXAM, BIA)."""
+    nom            = models.CharField(max_length=100, unique=True)
+    departement    = models.ForeignKey(Departement, on_delete=models.PROTECT, null=True, blank=True, related_name="entreprises")
+    entreprise_mere = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="sous_traitants")
+    actif          = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nom"]
+
+    def __str__(self):
+        return self.nom
+
+    @property
+    def departement_effectif(self):
+        """Département Roxgold dont dépend l'entreprise (en remontant via l'entreprise mère)."""
+        e, vus = self, set()
+        while e and e.pk not in vus:
+            if e.departement_id:
+                return e.departement
+            vus.add(e.pk)
+            e = e.entreprise_mere
+        return None
+
+
 class Personnel(models.Model):
     TYPE_CHOICES = [
         ("roxgold",       "Agent Roxgold"),

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (InductionRecordViewSet, declarer_soustraitants_masse, BatimentViewSet,
     PersonnelViewSet, OccupationHistoryViewSet, OccupationHistoryAdminViewSet, DemandeViewSet,
     InductionCampConfigViewSet, InductionInfraViewSet, InductionRegleViewSet, InductionQuizQuestionViewSet,
-    PointInteretViewSet, CheminCirculationViewSet, EquipementEPIViewSet, ResidentPrincipalViewSet, PlainteViewSet, PlainteCategorieViewSet, ControleChambreViewSet)
+    PointInteretViewSet, CheminCirculationViewSet, EquipementEPIViewSet, ResidentPrincipalViewSet, PlainteViewSet, PlainteCategorieViewSet, ControleChambreViewSet, DepartementViewSet, EntrepriseViewSet)
 router = DefaultRouter()
 router.register(r'induction-records', InductionRecordViewSet, basename='induction-record')
 router.register("batiments", BatimentViewSet)
@@ -14,6 +14,8 @@ router.register("personnel", PersonnelViewSet)
 router.register("occupation-history", OccupationHistoryViewSet)
 router.register("residents-principaux", ResidentPrincipalViewSet, basename="resident-principal")
 router.register("plaintes", PlainteViewSet, basename="plainte")
+router.register("departements", DepartementViewSet, basename="departement")
+router.register("entreprises", EntrepriseViewSet, basename="entreprise")
 router.register("plaintes-categories", PlainteCategorieViewSet, basename="plainte-categorie")
 router.register("controles-chambre", ControleChambreViewSet, basename="controle-chambre")
 router.register("occupation-history-admin", OccupationHistoryAdminViewSet, basename="occupation-history-admin")

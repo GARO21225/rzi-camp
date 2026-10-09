@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
+import SelectRecherche from '../components/SelectRecherche'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
@@ -1699,7 +1700,7 @@ export default function MissionControl() {
                                   📋 Importer une liste dans ce convoi
                                 </button>
                                 <div style={{display:'flex',gap:8}}>
-                                  <select
+                                  <SelectRecherche
                                     onChange={e=>setFormJoin({personnel_id:e.target.value,rotation_id:r.rotation_id,
                                       origine:r.origine||'',destination:r.destination||'',date_retour_prevue:r.date_retour_prevue||''})}
                                     style={{...inputStyle,flex:1}}>
@@ -1723,7 +1724,7 @@ export default function MissionControl() {
                                       .map(p=>(
                                         <option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe||'—'}</option>
                                       ))}
-                                  </select>
+                                  </SelectRecherche>
                                   <button className="mc-btn mc-btn-primary"
                                     disabled={saving||!formJoin.personnel_id||formJoin.rotation_id!==r.rotation_id}
                                     onClick={()=>rejoindreRotation(r.rotation_id, parseInt(formJoin.personnel_id), formJoin)}>
@@ -2089,27 +2090,27 @@ export default function MissionControl() {
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
                       <div>
                         <label style={labelStyle}>Véhicule *</label>
-                        <select value={organiserForm.vehicule_matricule} onChange={e=>{
+                        <SelectRecherche value={organiserForm.vehicule_matricule} onChange={e=>{
                             const vf = flotte.find(v=>v.matricule===e.target.value)
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
                           }} style={inputStyle}>
                           <option value="">Sélectionner...</option>
                           {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
-                        </select>
+                        </SelectRecherche>
                       </div>
                       <div>
                         <label style={labelStyle}>Chauffeur principal *</label>
-                        <select value={organiserForm.conducteur_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_id:e.target.value}))} style={inputStyle}>
+                        <SelectRecherche value={organiserForm.conducteur_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_id:e.target.value}))} style={inputStyle}>
                           <option value="">Sélectionner...</option>
                           {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
-                        </select>
+                        </SelectRecherche>
                       </div>
                       <div>
                         <label style={labelStyle}>2e chauffeur (facultatif)</label>
-                        <select value={organiserForm.conducteur_secondaire_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_secondaire_id:e.target.value}))} style={inputStyle}>
+                        <SelectRecherche value={organiserForm.conducteur_secondaire_id} onChange={e=>setOrganiserForm(f=>({...f,conducteur_secondaire_id:e.target.value}))} style={inputStyle}>
                           <option value="">Aucun</option>
                           {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
-                        </select>
+                        </SelectRecherche>
                       </div>
                       {organiserMode==='nouvelle' && (
                       <div>
@@ -3073,7 +3074,7 @@ export default function MissionControl() {
                 <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:16,border:`1px solid ${C.accent}40`}}>
                   <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:8}}>🔄 Nouveau véhicule pour ce voyage</div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:6,marginBottom:8}}>
-                    <select value={changerVehiculeForm.vehicule_flotte_id} onChange={e=>{
+                    <SelectRecherche value={changerVehiculeForm.vehicule_flotte_id} onChange={e=>{
                         const id = e.target.value
                         const v = flotte.find(f=>String(f.id)===id)
                         if (v) setChangerVehiculeForm(p=>({...p, vehicule_flotte_id:id, vehicule:v.nom, vehicule_matricule:v.matricule, vehicule_photo:v.photo}))
@@ -3081,11 +3082,11 @@ export default function MissionControl() {
                       }} style={inputStyle}>
                       <option value="">— Véhicule du parc —</option>
                       {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
-                    </select>
-                    <select value={changerVehiculeForm.conducteur} onChange={e=>setChangerVehiculeForm(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
+                    </SelectRecherche>
+                    <SelectRecherche value={changerVehiculeForm.conducteur} onChange={e=>setChangerVehiculeForm(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
                       <option value="">— Conducteur —</option>
                       {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
-                    </select>
+                    </SelectRecherche>
                   </div>
                   {!changerVehiculeForm.vehicule_flotte_id && (
                     <input value={changerVehiculeForm.vehicule} onChange={e=>setChangerVehiculeForm(p=>({...p,vehicule:e.target.value}))}
@@ -3159,14 +3160,14 @@ export default function MissionControl() {
                   </div>
                   {nouvelleEtape.mode_transport !== 'a_pied' && (
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:6,marginBottom:6}}>
-                    <select value={nouvelleEtape.vehicule_flotte} onChange={e=>setNouvelleEtape(p=>({...p,vehicule_flotte:e.target.value}))} style={inputStyle}>
+                    <SelectRecherche value={nouvelleEtape.vehicule_flotte} onChange={e=>setNouvelleEtape(p=>({...p,vehicule_flotte:e.target.value}))} style={inputStyle}>
                       <option value="">— Véhicule du parc ({nouvelleEtape.mode_transport}) —</option>
                       {filtrerFlotteParMode(flotte, nouvelleEtape.mode_transport).map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
-                    </select>
-                    <select value={nouvelleEtape.conducteur} onChange={e=>setNouvelleEtape(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
+                    </SelectRecherche>
+                    <SelectRecherche value={nouvelleEtape.conducteur} onChange={e=>setNouvelleEtape(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
                       <option value="">— Conducteur —</option>
                       {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom}</option>)}
-                    </select>
+                    </SelectRecherche>
                   </div>
                   )}
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:6,marginBottom:8}}>
@@ -3312,7 +3313,7 @@ export default function MissionControl() {
                         return (
                       <div>
                         <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(auto-remplit matricule/photo)</span></label>
-                        <select value={formRot.vehicule_flotte_id}
+                        <SelectRecherche value={formRot.vehicule_flotte_id}
                           onChange={e=>{
                             const id = e.target.value
                             const v = flotte.find(f=>String(f.id)===id)
@@ -3323,7 +3324,7 @@ export default function MissionControl() {
                           }} style={inputStyle}>
                           <option value="">— Sélectionner un véhicule du parc —</option>
                           {flotteLibre.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule} ({v.capacite} places)</option>)}
-                        </select>
+                        </SelectRecherche>
                         {nbMasques > 0 && formRot.date_depart && formRot.date_retour_prevue && (
                           <div style={{marginTop:4,fontSize:11,color:C.amber}}>
                             ⚠️ {nbMasques} véhicule(s) masqué(s) — déjà affecté(s) à un autre convoi actif sur ces dates.
@@ -3363,21 +3364,21 @@ export default function MissionControl() {
                         return (<>
                       <div>
                         <label style={labelStyle}>Conducteur assigné</label>
-                        <select value={formRot.conducteur}
+                        <SelectRecherche value={formRot.conducteur}
                           onChange={e=>setFormRot(p=>({...p,conducteur:e.target.value}))}
                           style={inputStyle}>
                           <option value="">— Sélectionner dans le personnel —</option>
                           {librePourConducteur.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
-                        </select>
+                        </SelectRecherche>
                       </div>
                       <div>
                         <label style={labelStyle}>Second chauffeur <span style={{fontWeight:400,color:C.muted}}>(relève, optionnel)</span></label>
-                        <select value={formRot.conducteur_secondaire||''}
+                        <SelectRecherche value={formRot.conducteur_secondaire||''}
                           onChange={e=>setFormRot(p=>({...p,conducteur_secondaire:e.target.value}))}
                           style={inputStyle}>
                           <option value="">— Aucun —</option>
                           {librePourSecondaire.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
-                        </select>
+                        </SelectRecherche>
                       </div>
                         </>)
                       })()}
@@ -3486,12 +3487,12 @@ export default function MissionControl() {
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Personnel *</label>
-                      <select value={formIndiv.personnel_id}
+                      <SelectRecherche value={formIndiv.personnel_id}
                         onChange={e=>setFormIndiv(p=>({...p,personnel_id:e.target.value}))}
                         style={inputStyle}>
                         <option value="">Sélectionner...</option>
                         {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
-                      </select>
+                      </SelectRecherche>
                     </div>
                     <div>
                       <label style={labelStyle}>Origine</label>
@@ -3542,7 +3543,7 @@ export default function MissionControl() {
                     </div>
                     <div>
                       <label style={labelStyle}>Véhicule du parc <span style={{fontWeight:400,color:C.muted}}>(matricule/photo auto-remplis)</span></label>
-                      <select value={formIndiv.vehicule_flotte_id||''}
+                      <SelectRecherche value={formIndiv.vehicule_flotte_id||''}
                         onChange={e=>{
                           const id = e.target.value
                           const v = flotte.find(f=>String(f.id)===id)
@@ -3552,15 +3553,15 @@ export default function MissionControl() {
                         }} style={inputStyle}>
                         <option value="">— Sélectionner un véhicule du parc —</option>
                         {flotte.map(v=><option key={v.id} value={v.id}>{v.categorie_label} {v.nom} — {v.matricule}</option>)}
-                      </select>
+                      </SelectRecherche>
                     </div>
                     <div>
                       <label style={labelStyle}>Conducteur</label>
-                      <select value={formIndiv.conducteur}
+                      <SelectRecherche value={formIndiv.conducteur}
                         onChange={e=>setFormIndiv(p=>({...p,conducteur:e.target.value}))} style={inputStyle}>
                         <option value="">— Sélectionner dans le personnel —</option>
                         {personnel.map(p=><option key={p.id} value={`${p.nom} ${p.prenom}`}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
-                      </select>
+                      </SelectRecherche>
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Motif</label>

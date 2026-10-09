@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI, itinerairesModeles as itinerairesAPI, etapesItineraireModele as etapesItineraireAPI, plaintesCategories as plaintesCategoriesAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
+import DepartementsEntreprisesTab from '../components/DepartementsEntreprisesTab'
 import Boutique from './Boutique'
 import { questionsAvis as questionsAvisAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
@@ -114,6 +115,7 @@ const LIENS_RAPIDES = [
 const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['roles',      '👥 Rôles & Accès'],
+  ['departements', '🏢 Départements & sous-traitants'],
   ['rapports-planifies', '📧 Rapports par email'],
   ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],
@@ -265,6 +267,10 @@ export default function Parametrage() {
 
       {tab === 'roles' && (
         <RolesTab isAdmin={isAdmin} isMobile={isMobile} />
+      )}
+
+      {tab === 'departements' && (
+        <DepartementsEntreprisesTab isAdmin={isAdmin} />
       )}
 
       {tab === 'rapports-planifies' && (

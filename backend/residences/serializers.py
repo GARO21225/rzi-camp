@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import (Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal, Plainte, PlainteCategorie, ControleChambre,
+from .models import (Departement, Entreprise, Batiment, Personnel, OccupationHistory, InductionRecord, ResidentPrincipal, Plainte, PlainteCategorie, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI)
 
 class PointInteretSerializer(serializers.ModelSerializer):
@@ -185,7 +185,26 @@ class PersonnelSerializer(serializers.ModelSerializer):
             erreurs = [e for e in erreurs if "obligatoire" not in e]
         if erreurs:
             raise serializers.ValidationError(erreurs)
+        self._normaliser_departement(attrs, creation)
         return attrs
+
+    def _normaliser_departement(self, attrs, creation):
+        """Département = liste de Paramétrage (Départements & sous-traitants). Le formulaire impose
+        la liste déroulante ; côté serveur on reste tolérant (imports Excel, anciennes fiches) :
+        - sous-traitant dont l'entreprise est connue -> département déduit de l'entreprise (via MOTA si besoin)
+        - sinon la casse d'un département connu est corrigée, une valeur inconnue est conservée."""
+        type_p = attrs.get("type_personnel", getattr(self.instance, "type_personnel", "roxgold"))
+        societe = attrs.get("societe", getattr(self.instance, "societe", "")) or ""
+        if type_p == "sous_traitant":
+            ent = Entreprise.objects.filter(nom__iexact=societe.strip()).first()
+            dep = ent.departement_effectif if ent else None
+            if dep:
+                attrs["departement"] = dep.nom
+                return
+        saisi = (attrs.get("departement") or "").strip()
+        if saisi:
+            dep = Departement.objects.filter(nom__iexact=saisi).first()
+            attrs["departement"] = dep.nom if dep else saisi
 
     class Meta:
         model  = Personnel
@@ -462,3 +481,42 @@ class PlainteCategorieSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlainteCategorie
         fields = ["id", "nom", "sous_categories", "actif", "ordre"]
+
+
+class DepartementSerializer(serializers.ModelSerializer):
+    nb_personnel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Departement
+        fields = ["id", "nom", "ordre", "actif", "nb_personnel"]
+
+    def get_nb_personnel(self, obj):
+        return Personnel.objects.filter(departement__iexact=obj.nom, actif=True).count()
+
+
+class EntrepriseSerializer(serializers.ModelSerializer):
+    departement_nom = serializers.CharField(source="departement.nom", read_only=True, default="")
+    entreprise_mere_nom = serializers.CharField(source="entreprise_mere.nom", read_only=True, default="")
+    departement_effectif_nom = serializers.SerializerMethodField()
+    rattachement = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Entreprise
+        fields = ["id", "nom", "departement", "departement_nom", "entreprise_mere", "entreprise_mere_nom",
+                  "departement_effectif_nom", "rattachement", "actif"]
+
+    def get_departement_effectif_nom(self, obj):
+        d = obj.departement_effectif
+        return d.nom if d else ""
+
+    def get_rattachement(self, obj):
+        return "mota" if obj.entreprise_mere_id else "departement"
+
+    def validate(self, attrs):
+        dep = attrs.get("departement", getattr(self.instance, "departement", None))
+        mere = attrs.get("entreprise_mere", getattr(self.instance, "entreprise_mere", None))
+        if bool(dep) == bool(mere):
+            raise serializers.ValidationError("Un sous-traitant est rattaché SOIT à un département de ROXGOLD, SOIT à une entreprise mère (ex. MOTA) — pas les deux, pas aucun.")
+        if mere and self.instance and mere.pk == self.instance.pk:
+            raise serializers.ValidationError("Une entreprise ne peut pas être sa propre mère.")
+        return attrs

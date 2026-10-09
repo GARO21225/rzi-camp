@@ -7,12 +7,14 @@ from accounts.permissions import TokenInQueryOrHeader
 from django.db import transaction
 
 from .models import (
+    Departement, Entreprise,
     InductionRecord, Batiment, Personnel, OccupationHistory, Demande, Plainte, PlainteCategorie, ControleChambre,
     InductionCampConfig, InductionInfra, InductionRegle, ResidentPrincipal,
     InductionQuizQuestion, PointInteret, CheminCirculation, EquipementEPI
 )
 
 from .serializers import (
+    DepartementSerializer, EntrepriseSerializer,
     BatimentSerializer, PersonnelSerializer, OccupationHistorySerializer,
     DemandeSerializer, InductionRecordSerializer, ResidentPrincipalSerializer, PlainteSerializer, PlainteCategorieSerializer, ControleChambreSerializer,
     InductionCampConfigSerializer, InductionInfraSerializer,
@@ -1058,6 +1060,50 @@ def _cloturer_sejour_personnel(personnel, date_dep):
         )
 
 
+def conflit_residence_principale(batiment, personnel_obj, date_arrivee=None, date_fin=None):
+    """Retourne None si la chambre peut être attribuée à `personnel_obj`, sinon le dict
+    d'avertissement (409) : la chambre est la résidence principale de quelqu'un d'autre
+    - présent dans la chambre, ou absent avec un retour qui chevauche le séjour demandé
+    (ou dont le retour n'est pas renseigné : on ne peut alors pas exclure le chevauchement)."""
+    from .models import ResidentPrincipal
+    from voyages.models import Voyage
+    rp = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True) \
+        .exclude(personnel=personnel_obj).select_related("personnel").first()
+    if not rp:
+        return None
+    today = datetime.date.today()
+    nom = f"{rp.personnel.nom} {rp.personnel.prenom}"
+    present = batiment.statut == "Occupé" and batiment.personnel_id == rp.personnel_id
+    retour = None
+    if not present:
+        voyages = Voyage.objects.filter(personnel=rp.personnel).exclude(statut="annule") \
+            .filter(date_retour_prevue__gte=today).order_by("-date_retour_prevue")
+        actif = voyages.filter(statut__in=["planifie", "en_voyage"]).first() or voyages.first()
+        retour = actif.date_retour_prevue if actif else None
+    chevauche = True  # pas de date de fin / de retour connue -> on ne peut pas exclure le chevauchement
+    if retour and date_fin:
+        try:
+            chevauche = datetime.date.fromisoformat(str(date_fin)) >= retour
+        except ValueError:
+            pass
+    if not (present or chevauche):
+        return None
+    if present:
+        detail = f"y est actuellement logé(e)"
+    elif retour:
+        detail = f"est absent(e), de retour prévu le {retour.strftime('%d/%m/%Y')}"
+    else:
+        detail = "est absent(e), sans date de retour renseignée"
+    return {
+        "error": f"La chambre {batiment.residence} est la résidence principale de {nom}, qui {detail}. "
+                 "Cette occupation chevauche son séjour — veuillez sélectionner une autre chambre, ou confirmer explicitement.",
+        "conflit_residence_principale": True,
+        "resident_principal": nom,
+        "retour_prevu": str(retour) if retour else None,
+        "present": present,
+    }
+
+
 class BatimentViewSet(viewsets.ModelViewSet):
     # IMPORTANT: keep queryset as QuerySet for get_object() to work
     queryset = Batiment.objects.select_related("personnel__user__profile").all()
@@ -1488,40 +1534,16 @@ class BatimentViewSet(viewsets.ModelViewSet):
                         date_arrivee=None, date_depart=None, statut="Libre"
                     )
 
-            # Detection de conflit avec un resident principal absent
-            # (sections 9-12 du document hebergement/mobilite) : la
-            # chambre visee est la residence principale de quelqu'un
-            # d'autre, actuellement en voyage (Centre de Mobilite), dont
-            # le retour prevu chevauche le sejour demande pour ce
-            # nouvel occupant temporaire.
+            # Detection de conflit avec le RESIDENT PRINCIPAL de la chambre
+            # (sections 9-12 du document hebergement/mobilite) : la chambre
+            # visee est la residence principale de quelqu'un d'autre, qu'il
+            # y soit encore (present) ou qu'il soit absent (voyage/rotation)
+            # avec un retour qui chevauche le sejour du nouvel occupant.
             if personnel_obj and str(data.get("statut", instance.statut)) == "Occupé":
-                from .models import ResidentPrincipal
-                rp = ResidentPrincipal.objects.filter(
-                    batiment=instance, date_fin__isnull=True
-                ).exclude(personnel=personnel_obj).select_related("personnel").first()
-                if rp:
-                    from voyages.models import Voyage
-                    voyage_actif = Voyage.objects.filter(
-                        personnel=rp.personnel, statut__in=["planifie","en_voyage"]
-                    ).order_by("-date_retour_prevue").first()
-                    if voyage_actif and voyage_actif.date_retour_prevue:
-                        date_depart_visiteur = data.get("date_arrivee") or str(datetime.date.today())
-                        date_fin_visiteur = data.get("date_depart")  # peut etre absent = indetermine
-                        retour = voyage_actif.date_retour_prevue
-                        chevauche = True  # par defaut : pas de date de fin connue -> on ne peut pas exclure le chevauchement
-                        if date_fin_visiteur:
-                            try:
-                                chevauche = datetime.date.fromisoformat(str(date_fin_visiteur)) >= retour
-                            except ValueError:
-                                pass
-                        ignorer = str(request.data.get("ignorer_conflit_residence", "false")).lower() in ("true","1","yes")
-                        if chevauche and not ignorer:
-                            return Response({
-                                "error": f"La chambre {instance.residence} est la résidence principale de {rp.personnel.nom} {rp.personnel.prenom}, de retour prévu le {retour.strftime('%d/%m/%Y')}. Cette occupation temporaire chevauche son retour — veuillez sélectionner une autre chambre, ou confirmer explicitement.",
-                                "conflit_residence_principale": True,
-                                "resident_principal": f"{rp.personnel.nom} {rp.personnel.prenom}",
-                                "retour_prevu": str(retour),
-                            }, status=409)
+                conflit = conflit_residence_principale(instance, personnel_obj, data.get("date_arrivee"), data.get("date_depart"))
+                ignorer = str(request.data.get("ignorer_conflit_residence", "false")).lower() in ("true","1","yes")
+                if conflit and not ignorer:
+                    return Response(conflit, status=409)
 
             serializer = self.get_serializer(instance, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
@@ -3723,3 +3745,51 @@ class InductionQuizQuestionViewSet(InductionAdminWriteMixin, viewsets.ModelViewS
             })
         score = round(correctes / total * 100) if total else 0
         return Response({"score": score, "correctes": correctes, "total": total, "detail": detail})
+
+
+class _ReferentielAdminViewSet(viewsets.ModelViewSet):
+    """Lecture ouverte à tout connecté (alimente les listes déroulantes), écriture admin."""
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
+
+
+class DepartementViewSet(_ReferentielAdminViewSet):
+    queryset = Departement.objects.all()
+    serializer_class = DepartementSerializer
+    pagination_class = None
+
+    def destroy(self, request, *args, **kwargs):
+        d = self.get_object()
+        if Entreprise.objects.filter(departement=d).exists() or Personnel.objects.filter(departement__iexact=d.nom).exists():
+            return Response({"error": "Ce département est utilisé (personnel ou sous-traitants) — désactivez-le plutôt que de le supprimer."}, status=400)
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        ancien = serializer.instance.nom
+        d = serializer.save()
+        if d.nom != ancien:  # le département est stocké en texte sur la fiche : on le renomme partout
+            Personnel.objects.filter(departement__iexact=ancien).update(departement=d.nom)
+
+
+class EntrepriseViewSet(_ReferentielAdminViewSet):
+    queryset = Entreprise.objects.select_related("departement", "entreprise_mere").all()
+    serializer_class = EntrepriseSerializer
+    pagination_class = None
+
+    def destroy(self, request, *args, **kwargs):
+        e = self.get_object()
+        if e.sous_traitants.exists() or Personnel.objects.filter(societe__iexact=e.nom).exists():
+            return Response({"error": "Cette entreprise est utilisée (personnel ou sous-traitants) — désactivez-la plutôt que de la supprimer."}, status=400)
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        ancien = serializer.instance.nom
+        e = serializer.save()
+        if e.nom != ancien:
+            Personnel.objects.filter(societe__iexact=ancien).update(societe=e.nom)

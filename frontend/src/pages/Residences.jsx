@@ -4,6 +4,7 @@ import { batiments, personnel as personnelAPI, occupationHistory, occupationHist
 import { usePlainteCategories } from '../constants/plaintes'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
+import SelectRecherche from '../components/SelectRecherche'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 const bcolor = { Libre:'var(--rzc-green)', 'Occupé':'var(--rzc-red)', 'Réservé':'var(--rzc-blue)', Maintenance:'var(--rzc-ore-gold)' }
@@ -230,7 +231,13 @@ export default function Residences() {
       await batiments.update(confirmModal.batiment.id, confirmModal.payload, createHistory)
       setConfirmModal(null)
       load()
-    } catch(e) {
+    } catch(e) { await gererErreurSave(e, createHistory) }
+  }
+
+  // Erreurs de sauvegarde communes (avec OU sans historique) : conflit avec le résident
+  // principal, réaffectation... — avant, « sans historique » affichait le JSON brut.
+  const gererErreurSave = async (e, createHistory) => {
+    {
       if (e.response?.status === 409 && e.response?.data?.conflit_residence_principale) {
         // Conflit avec un resident principal absent (section 9-12 du
         // document hebergement) - recherche immediatement des chambres
@@ -266,9 +273,7 @@ export default function Residences() {
       await batiments.update(confirmModal.batiment.id, confirmModal.payload, false)
       setConfirmModal(null)
       load()
-    } catch(e) {
-      toast.error('Erreur: ' + (e.response?.data ? JSON.stringify(e.response.data) : e.message))
-    }
+    } catch(e) { await gererErreurSave(e, false) }
   }
 
   const choisirAlternative = (b) => {
@@ -643,10 +648,10 @@ export default function Residences() {
               {/* Personnel */}
               <div style={{ marginBottom:14 }}>
                 <label style={{ display:'block', fontSize:11, color:'var(--rzc-text-3)', marginBottom:5, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Personnel déclaré</label>
-                <select value={form.personnel} onChange={e=>setForm({...form,personnel:e.target.value})} style={inp}>
+                <SelectRecherche value={form.personnel} onChange={e=>setForm({...form,personnel:e.target.value})} style={inp}>
                   <option value="">— Saisie manuelle —</option>
                   {personnelList.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe} ({p.type_label})</option>)}
-                </select>
+                </SelectRecherche>
               </div>
 
               {!form.personnel && (
@@ -1172,17 +1177,17 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
             </div>
             <div style={{ padding:20 }}>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Personnel</label>
-              <select value={personnelChoisi} onChange={e=>setPersonnelChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
+              <SelectRecherche value={personnelChoisi} onChange={e=>setPersonnelChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:14 }}>
                 <option value="">— Choisir —</option>
                 {personnelList.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.societe||'—'}</option>)}
-              </select>
+              </SelectRecherche>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Chambre principale</label>
-              <select value={batimentChoisi} onChange={e=>setBatimentChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
+              <SelectRecherche value={batimentChoisi} onChange={e=>setBatimentChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
                 <option value="">— Choisir —</option>
                 {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
                   <option key={b.id} value={b.id}>{b.residence} {b.resident_principal ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
                 ))}
-              </select>
+              </SelectRecherche>
               <button onClick={declarer} style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Déclarer résident principal
               </button>
@@ -1202,13 +1207,13 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
             <div style={{ padding:20 }}>
               <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Résidence actuelle : <b>{modifierModal.rp.batiment_residence}</b></div>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Nouvelle chambre</label>
-              <select value={nouvelleBatimentChoisi} onChange={e=>setNouvelleBatimentChoisi(e.target.value)}
+              <SelectRecherche value={nouvelleBatimentChoisi} onChange={e=>setNouvelleBatimentChoisi(e.target.value)}
                 style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
                 <option value="">— Choisir —</option>
                 {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
                   <option key={b.id} value={b.id}>{b.residence} {b.resident_principal && b.resident_principal.personnel_id!==modifierModal.rp.personnel_id ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
                 ))}
-              </select>
+              </SelectRecherche>
               <button onClick={confirmerModifier} style={{ width:'100%', background:'#2563eb', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Enregistrer
               </button>

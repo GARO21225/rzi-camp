@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from '../toast'
+import { vehiculesFlotte } from '../api'
+import { useStore } from '../store'
 
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
@@ -12,17 +14,8 @@ const DEFAULT_FLEET = {
     { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'var(--rzc-navy)', photo:'' },
     { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'var(--rzc-blue)', photo:'' },
   ],
-  vehicules_4x4: [
-    { id:'4x4_a', cat:'vehicules_4x4', label:'Land Cruiser A', capacite:7,  immat:'CI-1234-AB', km:45230, carburant:'Diesel', couleur:'#f97316', photo:'' },
-    { id:'4x4_b', cat:'vehicules_4x4', label:'Land Cruiser B', capacite:7,  immat:'CI-5678-CD', km:38100, carburant:'Diesel', couleur:'#ea580c', photo:'' },
-  ],
-  vehicules_pickup: [
-    { id:'pickup_a', cat:'vehicules_pickup', label:'Hilux A', capacite:4, immat:'CI-9012-EF', km:62400, carburant:'Diesel', couleur:'#dc2626', photo:'' },
-    { id:'pickup_b', cat:'vehicules_pickup', label:'Hilux B', capacite:4, immat:'CI-3456-GH', km:57800, carburant:'Diesel', couleur:'#b91c1c', photo:'' },
-  ],
-  vehicules_minibus: [
-    { id:'minibus', cat:'vehicules_minibus', label:'Toyota Hiace', capacite:15, immat:'CI-7890-IJ', km:31200, carburant:'Diesel', couleur:'#7c3aed', photo:'' },
-  ],
+  // Véhicules : source de vérité = parc serveur (VehiculeFlotte), partagé avec le Centre de mobilité
+  vehicules_4x4: [], vehicules_pickup: [], vehicules_minibus: [],
   materiels_hse: [
     { id:'epi_complet',  cat:'materiels_hse',  label:'Kit EPI complet',          detail:'Casque, gilet, gants, lunettes, chaussures sécu', couleur:'#16a34a', photo:'' },
     { id:'epi_hauteur',  cat:'materiels_hse',  label:'EPI Travail en hauteur',   detail:'Harnais, longe, casque avec jugulaire',           couleur:'#15803d', photo:'' },
@@ -33,6 +26,17 @@ const DEFAULT_FLEET = {
     { id:'generateur',   cat:'materiels_engins', label:'Groupe électrogène',  detail:'50kVA, diesel, silencieux',             couleur:'#92400e', photo:'' },
   ],
 }
+
+// Parc serveur <-> catégories de cette page
+const CAT_VERS_SERVEUR = { vehicules_4x4:'4x4', vehicules_pickup:'pickup', vehicules_minibus:'minibus' }
+const SERVEUR_VERS_CAT = { '4x4':'vehicules_4x4', pickup:'vehicules_pickup' }
+const COULEURS_VEH = { vehicules_4x4:'#f97316', vehicules_pickup:'#dc2626', vehicules_minibus:'#7c3aed' }
+const depuisServeur = (v, kmLocal) => {
+  const cat = SERVEUR_VERS_CAT[v.categorie] || 'vehicules_minibus'
+  return { id:`veh_${v.id}`, serveur_id:v.id, cat, label:v.nom, immat:v.matricule||'', capacite:v.capacite,
+    photo:v.photo||'', km:kmLocal||0, carburant:'Diesel', couleur:COULEURS_VEH[cat] }
+}
+const versServeur = (it) => ({ nom:it.label, categorie:CAT_VERS_SERVEUR[it.cat]||'autre', matricule:it.immat||'', capacite:it.capacite||4, photo:it.photo||'' })
 
 const CAT_META = {
   salles:           { label:'🏢 Salles',        group:'Salles' },
@@ -210,6 +214,8 @@ function ResourceCard({ item, reservations, onReserver, onEdit }) {
 
 // ── Page principale ─────────────────────────────────────────────
 export default function ReservationsPage() {
+  const user = useStore(st => st.user)
+  const estAdmin = !!(user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin')
   const [fleet,        setFleet]       = useState(DEFAULT_FLEET)
   const [reservations, setReservations]= useState([])
   const [personnel,    setPersonnel]   = useState([])
@@ -226,14 +232,41 @@ export default function ReservationsPage() {
   // Charger données persistées
   useEffect(() => {
     try { setReservations(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')) } catch(e) {}
-    try {
-      const saved = JSON.parse(localStorage.getItem(FLEET_KEY)||'{}')
-      if (Object.keys(saved).length) setFleet(saved)
-    } catch(e) {}
+    chargerFlotte()
     // Charger personnel
     fetch(`${BASE}/api/personnel/?page_size=500`, {headers:hdrs()})
       .then(r=>r.json()).then(d=>setPersonnel(d.results||d||[])).catch(()=>{})
   }, [])
+
+  // Charge le parc serveur et le fusionne avec le reste du catalogue local (salles, matériels).
+  // Les véhicules saisis AVANT cette correction (uniquement dans ce navigateur) sont envoyés
+  // au serveur (admin) pour apparaître aussi dans le Centre de mobilité.
+  const chargerFlotte = async () => {
+    let saved = {}
+    try { saved = JSON.parse(localStorage.getItem(FLEET_KEY)||'{}') } catch(e) {}
+    const VCATS = ['vehicules_4x4','vehicules_pickup','vehicules_minibus']
+    const kmLocal = {}
+    VCATS.forEach(c => (saved[c]||[]).forEach(v => { kmLocal[v.id] = v.km }))
+    try {
+      if (estAdmin) {
+        for (const c of VCATS) {
+          for (const v of (saved[c]||[]).filter(x => String(x.id).startsWith('custom_'))) {
+            try { await vehiculesFlotte.create(versServeur(v)) } catch(e) { /* doublon ou refus : on garde en local */ continue }
+            saved[c] = saved[c].filter(x => x.id !== v.id)
+          }
+        }
+      }
+      const r = await vehiculesFlotte.list()
+      const liste = r.data?.results || r.data || []
+      const base = { ...DEFAULT_FLEET, ...saved }
+      VCATS.forEach(c => { base[c] = (saved[c]||[]).filter(x => String(x.id).startsWith('custom_')) })
+      liste.forEach(v => { const it = depuisServeur(v, kmLocal[`veh_${v.id}`]); base[it.cat] = [...(base[it.cat]||[]), it] })
+      setFleet(base)
+      localStorage.setItem(FLEET_KEY, JSON.stringify(base))
+    } catch(e) {
+      if (Object.keys(saved).length) setFleet({ ...DEFAULT_FLEET, ...saved })
+    }
+  }
 
   const saveFleet = (newFleet) => {
     setFleet(newFleet)
@@ -271,6 +304,7 @@ export default function ReservationsPage() {
   }
 
   const updateItem = (updatedItem) => {
+    if (updatedItem.serveur_id) vehiculesFlotte.update(updatedItem.serveur_id, versServeur(updatedItem)).catch(() => toast.error('Modification non enregistrée sur le serveur (admin requis)'))
     const newFleet = {}
     Object.entries(fleet).forEach(([cat, items]) => {
       newFleet[cat] = items.map(i => i.id===updatedItem.id ? updatedItem : i)
@@ -564,6 +598,7 @@ export default function ReservationsPage() {
                         </button>
                         <button onClick={()=>{
                           if(!confirm(`Supprimer ${item.label} ?`)) return
+                          if (item.serveur_id) vehiculesFlotte.update(item.serveur_id, { actif:false }).catch(() => toast.error('Suppression refusée par le serveur (admin requis)'))
                           const nf={...fleet,[cat]:items.filter(i=>i.id!==item.id)}
                           saveFleet(nf)
                         }} style={{background:'#fef2f2',color:'#dc2626',border:'none',borderRadius:7,
@@ -622,6 +657,15 @@ export default function ReservationsPage() {
                 </div>
                 <button onClick={()=>{
                   if(!newResource.label) return
+                  if (CAT_VERS_SERVEUR[newResource.cat]) {
+                    // Véhicule : créé sur le serveur => visible aussi dans le Centre de mobilité
+                    vehiculesFlotte.create(versServeur(newResource)).then(() => {
+                      toast.success('Véhicule ajouté — visible dans le Centre de mobilité')
+                      chargerFlotte()
+                    }).catch(e => toast.error(e.response?.status === 403 ? 'Seul un administrateur peut ajouter un véhicule au parc' : 'Ajout impossible'))
+                    setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
+                    return
+                  }
                   const id=`custom_${Date.now()}`
                   const item={...newResource,id,couleur:newResource.couleur||'var(--rzc-navy)'}
                   const nf={...fleet,[newResource.cat]:[...(fleet[newResource.cat]||[]),item]}
