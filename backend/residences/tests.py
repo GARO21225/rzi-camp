@@ -689,11 +689,12 @@ class DepartementsEntreprisesTests(TestCase):
     def test_semis_depuis_le_fichier(self):
         from .models import Departement, Entreprise
         self.assertEqual(Departement.objects.count(), 13)
-        mota = Entreprise.objects.get(nom="MOTA ENGIL")
-        self.assertEqual(mota.departement.nom, "Mining")
+        self.assertEqual(Entreprise.objects.get(nom="MOTA ENGIL").departement.nom, "Mining")
+        mota = Entreprise.objects.get(nom="MOTA")
+        self.assertIsNone(mota.departement)
         jachris = Entreprise.objects.get(nom="JACHRIS")
         self.assertEqual(jachris.entreprise_mere, mota)
-        self.assertEqual(jachris.departement_effectif.nom, "Mining")
+        self.assertIsNone(jachris.departement_effectif)
 
     def test_ecriture_admin_lecture_ouverte(self):
         from rest_framework.test import APIClient
@@ -704,7 +705,7 @@ class DepartementsEntreprisesTests(TestCase):
     def test_rattachement_exclusif(self):
         from .models import Departement, Entreprise
         dep = Departement.objects.get(nom="Process")
-        mota = Entreprise.objects.get(nom="MOTA ENGIL")
+        mota = Entreprise.objects.get(nom="MOTA")
         self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X1"}, format="json").status_code, 400)
         self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X2", "departement": dep.id, "entreprise_mere": mota.id}, format="json").status_code, 400)
         self.assertEqual(self.c.post("/api/entreprises/", {"nom": "X3", "entreprise_mere": mota.id}, format="json").status_code, 201)
@@ -713,7 +714,7 @@ class DepartementsEntreprisesTests(TestCase):
         base = {"prenom": "A", "telephone": "+2250102030405", "email": "a@b.com", "numero_whatsapp": "+2250102030405"}
         r = self.c.post("/api/personnel/", {**base, "nom": "ST", "societe": "NEEMBA", "type_personnel": "sous_traitant"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual(r.data["departement"], "Mining")  # NEEMBA -> MOTA -> Mining
+        self.assertEqual(r.data["departement"], "")  # NEEMBA -> MOTA : MOTA n'a pas de département
         r = self.c.post("/api/personnel/", {**base, "nom": "RX", "societe": "ROXGOLD", "type_personnel": "roxgold", "departement": "it"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data["departement"], "IT")

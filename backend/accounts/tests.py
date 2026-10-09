@@ -699,7 +699,7 @@ class RapportsEmailTests(TestCase):
         from django.utils import timezone
         from .models import RapportPlanifie
         from .rapports_email import generer_contenu_rapport, envoyer_rapports_dus, options_effectives
-        for t in ("synthese", "residences", "maintenance", "mobilite", "boutique"):
+        for t in ("synthese", "residences", "occupation", "maintenance", "mobilite", "boutique"):
             sujet, html = generer_contenu_rapport("Test", t, {"details": True, "horizon_jours": 3})
             self.assertIn("Test", sujet)
             self.assertIn("<div", html)
@@ -778,3 +778,31 @@ class MotDePasseOublieTests(TestCase):
         r = self.c.post("/api/forgot-password/", {"username": "inconnu"}, format="json")
         self.assertEqual(r.status_code, 200)
         m.assert_not_called()
+
+
+class CampOccupancyTests(TestCase):
+    def test_chiffres_par_departement_soustraitant_visiteur(self):
+        import datetime
+        from django.utils import timezone
+        from residences.models import Personnel, Batiment, OccupationHistory
+        from .rapports_email import generer_contenu_rapport
+        today = timezone.localtime(timezone.now()).date()
+        def loge(nom, **kw):
+            p = Personnel.objects.create(nom=nom, prenom="x", **kw)
+            OccupationHistory.objects.create(batiment=Batiment.objects.create(residence=f"R{nom}", bloc="A", statut="Occupé", personnel=p),
+                                             personnel=p, occupant_nom=nom, societe=p.societe, date_arrivee=today - datetime.timedelta(days=2))
+        loge("A", societe="ROXGOLD", type_personnel="roxgold", departement="Mining")
+        loge("B", societe="ROXGOLD", type_personnel="roxgold", departement="Mining")
+        loge("C", societe="ATS", type_personnel="sous_traitant")
+        loge("D", societe="JACHRIS", type_personnel="sous_traitant")
+        loge("E", societe="EXT", type_personnel="visiteur", departement="Finance")
+        _, h = generer_contenu_rapport("Occ", "occupation")
+        self.assertIn("Camp Occupancy", h)
+        self.assertIn("ATS - (Site Admin)", h)
+        self.assertIn("JACHRIS - MOTA", h)
+        self.assertIn("Visitors Finance", h)
+        self.assertRegex(h, r"Total Daily Camp Occupancy</td>\s*<td[^>]*>5</td>")
+        # options : sections masquables
+        _, h2 = generer_contenu_rapport("Occ", "occupation", {"occ_soustraitants": False, "occ_visiteurs": False, "occ_tendance": False})
+        self.assertNotIn("Main Contractors", h2)
+        self.assertNotIn("Visitors Finance", h2)

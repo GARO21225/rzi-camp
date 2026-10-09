@@ -1263,7 +1263,8 @@ const JOURS_SEMAINE_OPTS = [
 function RapportsPlanifiesTab({ isAdmin }) {
   const [liste, setListe] = useState([])
   const [loading, setLoading] = useState(true)
-  const FORM0 = { nom:'', type_rapport:'synthese', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'', horizon_jours:1, seuil_stock:5, details:false }
+  const FORM0 = { nom:'', type_rapport:'synthese', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'', horizon_jours:1, seuil_stock:5, details:false,
+    jour_reference:'aujourdhui', occ_departements:true, occ_soustraitants:true, occ_visiteurs:true, occ_graphiques:true, occ_tendance:true, jours_tendance:7, masquer_zeros:false }
   const [form, setForm] = useState(FORM0)
   const [types, setTypes] = useState({})
   const [creating, setCreating] = useState(false)
@@ -1285,7 +1286,9 @@ function RapportsPlanifiesTab({ isAdmin }) {
     try {
       const payload = {
         nom: form.nom.trim(), type_rapport: form.type_rapport, frequence: form.frequence, heure: form.heure, destinataires,
-        options: { horizon_jours: Number(form.horizon_jours)||1, seuil_stock: Number(form.seuil_stock)||0, details: !!form.details },
+        options: { horizon_jours: Number(form.horizon_jours)||1, seuil_stock: Number(form.seuil_stock)||0, details: !!form.details,
+          jour_reference: form.jour_reference, occ_departements: !!form.occ_departements, occ_soustraitants: !!form.occ_soustraitants, occ_visiteurs: !!form.occ_visiteurs,
+          occ_graphiques: !!form.occ_graphiques, occ_tendance: !!form.occ_tendance, jours_tendance: Number(form.jours_tendance)||7, masquer_zeros: !!form.masquer_zeros },
         jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
         jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
       }
@@ -1300,7 +1303,9 @@ function RapportsPlanifiesTab({ isAdmin }) {
     const o = r.options || {}
     setForm({ nom:r.nom, type_rapport:r.type_rapport, frequence:r.frequence, jour_semaine:r.jour_semaine ?? 0, jour_mois:r.jour_mois ?? 1,
       heure:(r.heure||'07:00').slice(0,5), destinataires:(r.destinataires||[]).join(', '),
-      horizon_jours:o.horizon_jours ?? 1, seuil_stock:o.seuil_stock ?? 5, details:!!o.details })
+      horizon_jours:o.horizon_jours ?? 1, seuil_stock:o.seuil_stock ?? 5, details:!!o.details,
+      jour_reference:o.jour_reference ?? 'aujourdhui', occ_departements:o.occ_departements ?? true, occ_soustraitants:o.occ_soustraitants ?? true, occ_visiteurs:o.occ_visiteurs ?? true,
+      occ_graphiques:o.occ_graphiques ?? true, occ_tendance:o.occ_tendance ?? true, jours_tendance:o.jours_tendance ?? 7, masquer_zeros:!!o.masquer_zeros })
     setEditId(r.id)
     window.scrollTo({ top:0, behavior:'smooth' })
   }
@@ -1375,6 +1380,21 @@ function RapportsPlanifiesTab({ isAdmin }) {
               <input type="checkbox" checked={form.details} onChange={e=>setForm(f=>({...f,details:e.target.checked}))}/> Inclure le détail nominatif
             </label>
           </div>
+          {['synthese','residences','occupation'].includes(form.type_rapport) && (
+            <div style={{border:'1px solid #fde68a',borderRadius:10,padding:'10px 12px',marginBottom:10,background:'#fff'}}>
+              <div style={{fontWeight:700,fontSize:12.5,color:'#92400e',marginBottom:8}}>🏕️ Camp Occupancy — ce que le rapport contient</div>
+              <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',fontSize:12.5,color:'#475569'}}>
+                <label>Jour <select value={form.jour_reference} onChange={e=>setForm(f=>({...f,jour_reference:e.target.value}))}
+                  style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}><option value="aujourdhui">Aujourd'hui</option><option value="hier">Hier (nuit écoulée)</option></select></label>
+                {[['occ_departements','Départements Roxgold'],['occ_soustraitants','Sous-traitants'],['occ_visiteurs','Visiteurs'],['occ_graphiques','Graphiques'],['occ_tendance','Tendance'],['masquer_zeros','Masquer les lignes à 0']].map(([k,l])=>(
+                  <label key={k} style={{display:'flex',gap:5,alignItems:'center',cursor:'pointer'}}>
+                    <input type="checkbox" checked={!!form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.checked}))}/> {l}
+                  </label>))}
+                {form.occ_tendance && <label>sur <input type="number" min={2} max={31} value={form.jours_tendance} onChange={e=>setForm(f=>({...f,jours_tendance:e.target.value}))}
+                  style={{width:56,border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}/> jours</label>}
+              </div>
+            </div>
+          )}
           <input value={form.destinataires} onChange={e=>setForm(f=>({...f,destinataires:e.target.value}))}
             placeholder="Emails séparés par virgules (ex: direction@roxgold.com, rh@roxgold.com)"
             style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,marginBottom:10}}/>

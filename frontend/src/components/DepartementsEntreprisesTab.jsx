@@ -28,13 +28,14 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
   useEffect(charger, [])
 
   // « Rattachée à » : ROXGOLD (→ il faut alors préciser le département) ou une entreprise mère (ex. MOTA ENGIL)
-  const meres = ents.filter(x => x.actif && !x.entreprise_mere && ents.some(y => y.entreprise_mere === x.id))
-  const etatInitial = (e) => ({ nom:e.nom, parent: e.entreprise_mere ? `e:${e.entreprise_mere}` : 'roxgold', dep: e.departement ? String(e.departement) : '' })
+  const meres = ents.filter(x => x.actif && !x.entreprise_mere && !x.departement)   // entreprises sans département (ex. MOTA)
+  const etatInitial = (e) => ({ nom:e.nom, parent: e.entreprise_mere ? `e:${e.entreprise_mere}` : (e.departement ? 'roxgold' : 'aucune'), dep: e.departement ? String(e.departement) : '' })
   const etat = (e) => brouillons[e.id] || etatInitial(e)
   const modifie = (e) => { const b = brouillons[e.id]; if (!b) return false; const i = etatInitial(e); return b.nom !== i.nom || b.parent !== i.parent || b.dep !== i.dep }
   const majBrouillon = (e, patch) => setBrouillons(b => ({ ...b, [e.id]: { ...etat(e), ...patch } }))
   const payloadRattache = (parent, dep) => parent === 'roxgold'
     ? { departement: Number(dep), entreprise_mere: null }
+    : parent === 'aucune' ? { departement: null, entreprise_mere: null }
     : { entreprise_mere: Number(parent.slice(2)), departement: null }
   const rattacheOk = (parent, dep) => parent !== 'roxgold' || !!dep
 
@@ -50,6 +51,7 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
   const selectParent = (valeur, onChange, disabled, excl) => (
     <select value={valeur} disabled={disabled} style={{ ...inp, padding:'5px 8px', width:'100%', minWidth:150 }} onChange={ev => onChange(ev.target.value)}>
       <option value="roxgold">ROXGOLD</option>
+      {valeur === 'aucune' && <option value="aucune">— Entreprise principale (sans département)</option>}
       {meres.filter(m => m.id !== excl).map(m => <option key={m.id} value={`e:${m.id}`}>{m.nom}</option>)}
     </select>
   )
@@ -63,7 +65,7 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
       <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:10, padding:'12px 16px', fontSize:12.5, color:'#1e40af' }}>
-        ℹ️ Tout employé ROXGOLD appartient à un <b>département</b> ; un visiteur est rattaché à un département ; un <b>sous-traitant</b> est rattaché à une entreprise : <b>ROXGOLD</b> (on précise alors le département) ou <b>MOTA ENGIL</b>. Ces listes alimentent la fiche Personnel.
+        ℹ️ Tout employé ROXGOLD appartient à un <b>département</b> ; un visiteur est rattaché à un département ; un <b>sous-traitant</b> est rattaché à une entreprise : <b>ROXGOLD</b> (on précise alors le département) ou <b>MOTA</b> (MOTA n'a pas de département). Ces listes alimentent la fiche Personnel.
       </div>
 
       <section>

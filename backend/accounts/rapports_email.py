@@ -13,12 +13,21 @@ import html as _h
 
 TYPES = {
     "synthese":    "📊 Synthèse générale (tout)",
-    "residences":  "🏠 Résidences & occupation",
+    "residences":  "🏠 Résidences & occupation (+ Camp Occupancy)",
+    "occupation":  "🏕️ Camp Occupancy (départements, sous-traitants, visiteurs)",
     "maintenance": "🛠️ Maintenance & incidents",
     "mobilite":    "✈️ Mobilité (départs / retours)",
     "boutique":    "🛒 Boutique & stock",
 }
-OPTIONS_DEFAUT = {"horizon_jours": 1, "seuil_stock": 5, "details": False}
+OPTIONS_DEFAUT = {
+    "horizon_jours": 1, "seuil_stock": 5, "details": False,
+    # Camp Occupancy (réglables depuis Paramétrage → Rapports par email)
+    "jour_reference": "aujourdhui",       # "aujourdhui" | "hier"
+    "occ_departements": True, "occ_soustraitants": True, "occ_visiteurs": True,
+    "occ_graphiques": True, "occ_tendance": True, "jours_tendance": 7,
+    "masquer_zeros": False,
+}
+BOOLS_OCC = ("occ_departements", "occ_soustraitants", "occ_visiteurs", "occ_graphiques", "occ_tendance", "masquer_zeros")
 
 
 def options_effectives(opts):
@@ -32,6 +41,14 @@ def options_effectives(opts):
     except (TypeError, ValueError):
         o["horizon_jours"], o["seuil_stock"] = 1, 5
     o["details"] = bool(o["details"])
+    for k in BOOLS_OCC:
+        o[k] = bool(o[k])
+    try:
+        o["jours_tendance"] = max(2, min(31, int(o["jours_tendance"])))
+    except (TypeError, ValueError):
+        o["jours_tendance"] = 7
+    if o["jour_reference"] not in ("aujourdhui", "hier"):
+        o["jour_reference"] = "aujourdhui"
     return o
 
 
@@ -171,13 +188,147 @@ def _sec_boutique(o, today):
     return _titre("🛒 Boutique & stock") + corps
 
 
-SECTIONS = {"residences": _sec_residences, "maintenance": _sec_maintenance, "mobilite": _sec_mobilite, "boutique": _sec_boutique}
+
+# ───────────── Camp Occupancy (même format que le fichier « Camp Occupancy ») ─────────────
+def _occupants(jour, today):
+    """Personnes hébergées la nuit du `jour` : [(Personnel|None, société_texte)], dédoublonnées."""
+    from django.db.models import Q
+    from residences.models import OccupationHistory, Batiment
+    vus, res = set(), []
+    hist = (OccupationHistory.objects.filter(date_arrivee__lte=jour)
+            .filter(Q(date_depart__isnull=True) | Q(date_depart__gt=jour)).select_related("personnel"))
+    for h in hist:
+        cle = ("p", h.personnel_id) if h.personnel_id else ("n", (h.occupant_nom or "").strip().lower())
+        if cle in vus:
+            continue
+        vus.add(cle)
+        res.append((h.personnel, h.societe or ""))
+    if jour >= today:   # chambres occupées aujourd'hui sans ligne d'historique
+        for b in Batiment.objects.filter(statut="Occupé").select_related("personnel"):
+            cle = ("p", b.personnel_id) if b.personnel_id else ("n", (b.occupant or "").strip().lower())
+            if cle in vus or cle == ("n", ""):
+                continue
+            vus.add(cle)
+            res.append((b.personnel, ""))
+    return res
+
+
+def _camp_occupancy(jour, today):
+    """Structure du rapport pour un jour : départements Roxgold / sous-traitants / visiteurs."""
+    from residences.models import Departement, Entreprise
+    deps = [d.nom for d in Departement.objects.filter(actif=True)]
+    ents = {e.nom.lower(): e for e in Entreprise.objects.select_related("departement", "entreprise_mere")}
+    cdep = {d: 0 for d in deps}; cdep["Non renseigné"] = 0
+    cvis = {d: 0 for d in deps}; cvis["Non renseigné"] = 0
+    cent, autres = {}, {}
+    def dep_connu(nom):
+        nom = (nom or "").strip()
+        for d in deps:
+            if d.lower() == nom.lower():
+                return d
+        return "Non renseigné"
+    for pers, soc in _occupants(jour, today):
+        type_p = pers.type_personnel if pers else ""
+        societe = (pers.societe if pers else soc) or ""
+        if type_p == "visiteur":
+            cvis[dep_connu(pers.departement)] += 1
+        elif type_p == "sous_traitant" or (not type_p and societe.strip().lower() in ents and societe.strip().upper() != "ROXGOLD"):
+            e = ents.get(societe.strip().lower())
+            if e:
+                cent[e.pk] = cent.get(e.pk, 0) + 1
+            else:
+                autres[societe.strip() or "Sous-traitant (société non renseignée)"] = autres.get(societe.strip() or "Sous-traitant (société non renseignée)", 0) + 1
+        else:
+            cdep[dep_connu(pers.departement if pers else "")] += 1
+    lignes_ent = []
+    for e in sorted(ents.values(), key=lambda x: (x.entreprise_mere_id is not None, x.departement_id is None, x.nom)):
+        if not e.actif and not cent.get(e.pk):
+            continue
+        n = cent.get(e.pk, 0)
+        if e.entreprise_mere_id:
+            lib = f"{e.nom} - {e.entreprise_mere.nom}"
+        elif e.departement_id:
+            lib = f"{e.nom} - ({e.departement.nom})"
+        else:
+            if not n:
+                continue
+            lib = e.nom
+        lignes_ent.append((lib, n))
+    lignes_ent += sorted(autres.items())
+    return {"jour": jour, "dep": cdep, "ent": lignes_ent, "vis": cvis}
+
+
+def _tableau_occ(titre, lignes, total_label=None, o=None):
+    ligne = lambda l, n, gras=False: (
+        f"<tr><td style='padding:4px 10px;font-size:12.5px;border-bottom:1px solid #e2e8f0;{'font-weight:700;background:#f1f5f9;' if gras else ''}'>{_e(l)}</td>"
+        f"<td align='right' style='padding:4px 10px;font-size:12.5px;border-bottom:1px solid #e2e8f0;width:60px;{'font-weight:700;background:#f1f5f9;' if gras else ''}'>{n}</td></tr>")
+    corps = "".join(ligne(l, n) for l, n in lignes if not (o and o["masquer_zeros"] and not n))
+    if total_label is not None:
+        corps += ligne(total_label, sum(n for _, n in lignes), True)
+    return (f"<div style='font-size:12px;font-weight:700;color:#fff;background:#0F2A5C;padding:6px 10px;margin-top:12px'>{_e(titre)}</div>"
+            f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #e2e8f0'>{corps}</table>")
+
+
+def _colonnes(titre, donnees, couleur="#0F2A5C"):
+    """Histogramme vertical en tableau HTML (tendance sur N jours)."""
+    if not donnees:
+        return ""
+    mx = max(n for _, n in donnees) or 1
+    haut = 90
+    cols = "".join(
+        f"<td align='center' valign='bottom' style='padding:0 2px'><div style='font-size:10px;font-weight:700;color:#0f172a'>{n}</div>"
+        f"<div style='background:{couleur};height:{max(2, round(n / mx * haut))}px;border-radius:3px 3px 0 0'></div>"
+        f"<div style='font-size:9px;color:#64748b;margin-top:2px'>{_e(l)}</div></td>" for l, n in donnees)
+    return (f"<div style='font-size:12px;font-weight:700;color:#475569;margin:14px 0 4px'>{_e(titre)}</div>"
+            f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr>{cols}</tr></table>")
+
+
+def _sec_occupation(o, today):
+    jour = today - datetime.timedelta(days=1) if o["jour_reference"] == "hier" else today
+    d = _camp_occupancy(jour, today)
+    t_dep = sum(d["dep"].values()); t_ent = sum(n for _, n in d["ent"]); t_vis = sum(d["vis"].values())
+    total = t_dep + t_ent + t_vis
+    corps = (f"<div style='text-align:center;margin-bottom:6px'><div style='font-size:11px;color:#64748b;letter-spacing:1px'>ROXGOLD SANGO</div>"
+             f"<div style='font-size:16px;font-weight:700;color:#0F2A5C'>Camp Occupancy</div>"
+             f"<div style='font-size:12px;color:#64748b'>{jour:%d/%m/%Y}</div></div>")
+    corps += _kpis([("Total camp", total, "#0F2A5C"), ("Employés Roxgold", t_dep, "#2563EB"), ("Sous-traitants", t_ent, "#C9972B"), ("Visiteurs", t_vis, "#7C3AED")])
+    if o["occ_graphiques"]:
+        corps += _barres("Répartition du camp", [("Employés Roxgold", t_dep), ("Sous-traitants", t_ent), ("Visiteurs", t_vis)],
+                         lambda l: {"Employés Roxgold": "#2563EB", "Sous-traitants": "#C9972B"}.get(l, "#7C3AED"))
+        if o["occ_departements"]:
+            corps += _barres("Employés Roxgold par département", list(d["dep"].items()), "#2563EB", pct_total=False)
+        if o["occ_soustraitants"]:
+            corps += _barres("Sous-traitants (top 10)", sorted(d["ent"], key=lambda x: -x[1])[:10], "#C9972B", pct_total=False)
+        if o["occ_visiteurs"]:
+            corps += _barres("Visiteurs par département", list(d["vis"].items()), "#7C3AED", pct_total=False)
+    if o["occ_tendance"]:
+        serie = []
+        for i in range(o["jours_tendance"] - 1, -1, -1):
+            j = jour - datetime.timedelta(days=i)
+            x = _camp_occupancy(j, today)
+            serie.append((f"{j:%d/%m}", sum(x["dep"].values()) + sum(n for _, n in x["ent"]) + sum(x["vis"].values())))
+        corps += _colonnes(f"Occupation du camp — {o['jours_tendance']} derniers jours", serie)
+    if o["occ_departements"]:
+        corps += _tableau_occ("Dept.", [(k, v) for k, v in d["dep"].items() if k != "Non renseigné" or v], "Total", o)
+    if o["occ_soustraitants"]:
+        corps += _tableau_occ("Main Contractors / Casual Visitors", d["ent"], None, o)
+    if o["occ_visiteurs"]:
+        corps += _tableau_occ("Visitors", [(f"Visitors {k}", v) for k, v in d["vis"].items() if k != "Non renseigné" or v], None, o)
+    corps += (f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:10px'><tr>"
+              f"<td style='padding:8px 10px;background:#0F2A5C;color:#fff;font-weight:700;font-size:13px'>Total Daily Camp Occupancy</td>"
+              f"<td align='right' style='padding:8px 10px;background:#0F2A5C;color:#fff;font-weight:700;font-size:13px;width:60px'>{total}</td></tr></table>")
+    return _titre("🏕️ Camp Occupancy") + corps
+
+SECTIONS = {"residences": _sec_residences, "occupation": _sec_occupation, "maintenance": _sec_maintenance, "mobilite": _sec_mobilite, "boutique": _sec_boutique}
 
 
 def generer_contenu_rapport(nom, type_rapport="synthese", options=None):
     o = options_effectives(options)
     today = timezone.localtime(timezone.now()).date()
-    cles = list(SECTIONS) if type_rapport not in SECTIONS else [type_rapport]
+    if type_rapport == "residences":
+        cles = ["residences", "occupation"]
+    else:
+        cles = list(SECTIONS) if type_rapport not in SECTIONS else [type_rapport]
     corps = "".join(SECTIONS[c](o, today) for c in cles)
     sujet = f"📊 {nom} — {today:%d/%m/%Y}"
     html = f"""

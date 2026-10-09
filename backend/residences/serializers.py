@@ -529,8 +529,11 @@ class EntrepriseSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         dep = attrs.get("departement", getattr(self.instance, "departement", None))
         mere = attrs.get("entreprise_mere", getattr(self.instance, "entreprise_mere", None))
-        if bool(dep) == bool(mere):
-            raise serializers.ValidationError("Un sous-traitant est rattaché SOIT à un département de ROXGOLD, SOIT à une entreprise mère (ex. MOTA) — pas les deux, pas aucun.")
+        if dep and mere:
+            raise serializers.ValidationError("Un sous-traitant est rattaché SOIT à ROXGOLD (avec son département), SOIT à une entreprise mère (ex. MOTA) — pas les deux.")
+        # ni l'un ni l'autre = entreprise principale sans département (ex. MOTA) : autorisé uniquement pour l'existant
+        if not dep and not mere and not (self.instance and self.instance.sous_traitants.exists()):
+            raise serializers.ValidationError("Entreprise ROXGOLD : choisis son département ; sinon rattache-la à une entreprise mère (ex. MOTA).")
         if mere and self.instance and mere.pk == self.instance.pk:
             raise serializers.ValidationError("Une entreprise ne peut pas être sa propre mère.")
         return attrs
