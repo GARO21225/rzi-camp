@@ -17,7 +17,9 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
   const [deps, setDeps] = useState([])
   const [ents, setEnts] = useState([])
   const [nouveauDep, setNouveauDep] = useState('')
-  const [nouvelleEnt, setNouvelleEnt] = useState({ nom:'', rattache:'' })
+  const [nouvelleEnt, setNouvelleEnt] = useState({ nom:'', parent:'roxgold', dep:'' })
+  const [nomsDep, setNomsDep] = useState({})   // renommages de départements non enregistrés
+  const [brouillons, setBrouillons] = useState({})   // modifications non enregistrées par entreprise
 
   const charger = () => {
     departementsAPI.list().then(r => setDeps(r.data?.results || r.data || [])).catch(() => {})
@@ -25,25 +27,43 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
   }
   useEffect(charger, [])
 
-  // valeur de la liste « Rattaché à » : "d:<id>" (département) ou "e:<id>" (entreprise mère)
-  const valeurRattache = (e) => e.entreprise_mere ? `e:${e.entreprise_mere}` : (e.departement ? `d:${e.departement}` : '')
-  const payloadRattache = (v) => v.startsWith('e:') ? { entreprise_mere: Number(v.slice(2)), departement: null } : { departement: Number(v.slice(2)), entreprise_mere: null }
+  // « Rattachée à » : ROXGOLD (→ il faut alors préciser le département) ou une entreprise mère (ex. MOTA ENGIL)
+  const meres = ents.filter(x => x.actif && !x.entreprise_mere && ents.some(y => y.entreprise_mere === x.id))
+  const etatInitial = (e) => ({ nom:e.nom, parent: e.entreprise_mere ? `e:${e.entreprise_mere}` : 'roxgold', dep: e.departement ? String(e.departement) : '' })
+  const etat = (e) => brouillons[e.id] || etatInitial(e)
+  const modifie = (e) => { const b = brouillons[e.id]; if (!b) return false; const i = etatInitial(e); return b.nom !== i.nom || b.parent !== i.parent || b.dep !== i.dep }
+  const majBrouillon = (e, patch) => setBrouillons(b => ({ ...b, [e.id]: { ...etat(e), ...patch } }))
+  const payloadRattache = (parent, dep) => parent === 'roxgold'
+    ? { departement: Number(dep), entreprise_mere: null }
+    : { entreprise_mere: Number(parent.slice(2)), departement: null }
+  const rattacheOk = (parent, dep) => parent !== 'roxgold' || !!dep
 
   const agir = async (fn, ok) => { try { await fn(); if (ok) toast.success(ok); charger() } catch (e) { toast.error(msgErr(e)) } }
+  const enregistrer = (e) => {
+    const b = etat(e)
+    if (!b.nom.trim()) return toast.error('Nom requis.')
+    if (!rattacheOk(b.parent, b.dep)) return toast.error('Entreprise ROXGOLD : choisis le département.')
+    agir(() => entreprisesAPI.update(e.id, { nom:b.nom.trim(), ...payloadRattache(b.parent, b.dep) })
+      .then(() => setBrouillons(x => { const n = { ...x }; delete n[e.id]; return n })), 'Modifications enregistrées')
+  }
 
-  const optionsRattache = (exclureId) => (<>
-    <optgroup label="Département ROXGOLD">
-      {deps.filter(d => d.actif).map(d => <option key={`d${d.id}`} value={`d:${d.id}`}>{d.nom}</option>)}
-    </optgroup>
-    <optgroup label="Sous-traitant de… (entreprise mère)">
-      {ents.filter(x => x.actif && x.id !== exclureId && !x.entreprise_mere).map(x => <option key={`e${x.id}`} value={`e:${x.id}`}>{x.nom}</option>)}
-    </optgroup>
-  </>)
+  const selectParent = (valeur, onChange, disabled, excl) => (
+    <select value={valeur} disabled={disabled} style={{ ...inp, padding:'5px 8px', width:'100%', minWidth:150 }} onChange={ev => onChange(ev.target.value)}>
+      <option value="roxgold">ROXGOLD</option>
+      {meres.filter(m => m.id !== excl).map(m => <option key={m.id} value={`e:${m.id}`}>{m.nom}</option>)}
+    </select>
+  )
+  const selectDep = (valeur, onChange, disabled) => (
+    <select value={valeur} disabled={disabled} style={{ ...inp, padding:'5px 8px', width:'100%', minWidth:150 }} onChange={ev => onChange(ev.target.value)}>
+      <option value="">— Département —</option>
+      {deps.filter(d => d.actif || String(d.id) === valeur).map(d => <option key={d.id} value={String(d.id)}>{d.nom}</option>)}
+    </select>
+  )
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
       <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:10, padding:'12px 16px', fontSize:12.5, color:'#1e40af' }}>
-        ℹ️ Tout employé ROXGOLD appartient à un <b>département</b> ; un visiteur est rattaché à un département ; un <b>sous-traitant</b> dépend soit d'un département de ROXGOLD, soit de MOTA (ou d'une autre entreprise mère). Ces listes alimentent la fiche Personnel.
+        ℹ️ Tout employé ROXGOLD appartient à un <b>département</b> ; un visiteur est rattaché à un département ; un <b>sous-traitant</b> est rattaché à une entreprise : <b>ROXGOLD</b> (on précise alors le département) ou <b>MOTA ENGIL</b>. Ces listes alimentent la fiche Personnel.
       </div>
 
       <section>
@@ -68,14 +88,17 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
                 <tr key={d.id} style={{ opacity:d.actif ? 1 : .55, background: i % 2 ? '#f8fafc' : '#fff' }}>
                   <td style={{ ...td, color:'#94a3b8' }}>{i + 1}</td>
                   <td style={td}>
-                    <input defaultValue={d.nom} disabled={!isAdmin} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }}
-                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== d.nom) agir(() => departementsAPI.update(d.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = d.nom }} />
+                    <input value={nomsDep[d.id] ?? d.nom} disabled={!isAdmin} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }}
+                      onChange={e => setNomsDep(n => ({ ...n, [d.id]: e.target.value }))} />
                   </td>
                   <td style={{ ...td, textAlign:'center' }}>{ents.filter(x => x.departement_effectif_nom === d.nom).length}</td>
                   <td style={{ ...td, textAlign:'center' }}>{d.nb_personnel}</td>
                   <td style={{ ...td, textAlign:'center' }}><span style={pastille(d.actif)}>{d.actif ? 'Actif' : 'Inactif'}</span></td>
                   {isAdmin && (
                     <td style={{ ...td, textAlign:'right', whiteSpace:'nowrap' }}>
+                      {(() => { const v = (nomsDep[d.id] ?? d.nom).trim(); const dirty = nomsDep[d.id] !== undefined && v && v !== d.nom
+                        return <><button title="Enregistrer le nom" disabled={!dirty} style={{ ...btn(dirty ? '#16a34a' : '#e2e8f0', dirty ? '#fff' : '#94a3b8'), cursor: dirty ? 'pointer' : 'default' }}
+                          onClick={() => agir(() => departementsAPI.update(d.id, { nom:v }).then(() => setNomsDep(n => { const m = { ...n }; delete m[d.id]; return m })), 'Renommé (fiches mises à jour)')}>💾 Enregistrer</button>{' '}</> })()}
                       <button title={d.actif ? 'Désactiver' : 'Réactiver'} style={btn(d.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => departementsAPI.update(d.id, { actif: !d.actif }))}>{d.actif ? '⏸' : '▶'}</button>{' '}
                       <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
                         onClick={async () => { if (await confirmDialog(`Supprimer le département « ${d.nom} » ?`)) agir(() => departementsAPI.delete(d.id), 'Supprimé') }}>🗑️</button>
@@ -94,46 +117,40 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
         {isAdmin && (
           <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
             <input value={nouvelleEnt.nom} onChange={e=>setNouvelleEnt(n=>({...n, nom:e.target.value}))} placeholder="Nom de l'entreprise" style={{ ...inp, flex:1, minWidth:180 }} />
-            <select value={nouvelleEnt.rattache} onChange={e=>setNouvelleEnt(n=>({...n, rattache:e.target.value}))} style={{ ...inp, minWidth:220 }}>
-              <option value="">— Rattachée à… —</option>
-              {optionsRattache(null)}
-            </select>
-            <button disabled={!nouvelleEnt.nom.trim() || !nouvelleEnt.rattache} style={btn('#C9972B')}
-              onClick={() => agir(() => entreprisesAPI.create({ nom:nouvelleEnt.nom.trim(), ...payloadRattache(nouvelleEnt.rattache) }).then(() => setNouvelleEnt({ nom:'', rattache:'' })), 'Sous-traitant ajouté')}>➕ Ajouter</button>
+            <div style={{ minWidth:160 }}>{selectParent(nouvelleEnt.parent, v => setNouvelleEnt(n => ({ ...n, parent:v })), false, null)}</div>
+            {nouvelleEnt.parent === 'roxgold' && <div style={{ minWidth:170 }}>{selectDep(nouvelleEnt.dep, v => setNouvelleEnt(n => ({ ...n, dep:v })), false)}</div>}
+            <button disabled={!nouvelleEnt.nom.trim() || !rattacheOk(nouvelleEnt.parent, nouvelleEnt.dep)} style={btn('#C9972B')}
+              onClick={() => agir(() => entreprisesAPI.create({ nom:nouvelleEnt.nom.trim(), ...payloadRattache(nouvelleEnt.parent, nouvelleEnt.dep) }).then(() => setNouvelleEnt({ nom:'', parent:'roxgold', dep:'' })), 'Sous-traitant ajouté')}>➕ Ajouter</button>
           </div>
         )}
         <div style={{ overflowX:'auto', border:'1px solid #e2e8f0', borderRadius:10 }}>
           <table style={tbl}>
             <thead><tr>
               <th style={{ ...th, width:44 }}>#</th><th style={th}>Entreprise</th><th style={th}>Rattachée à</th>
-              <th style={th}>Département ROXGOLD</th><th style={{ ...th, textAlign:'center' }}>Statut</th>
+              <th style={th}>Département (si ROXGOLD)</th><th style={{ ...th, textAlign:'center' }}>Statut</th>
               {isAdmin && <th style={{ ...th, textAlign:'right' }}>Actions</th>}
             </tr></thead>
             <tbody>
-              {ents.map((x, i) => (
-                <tr key={x.id} style={{ opacity:x.actif ? 1 : .55, background: i % 2 ? '#f8fafc' : '#fff' }}>
+              {ents.map((x, i) => { const b = etat(x); const dirty = modifie(x); return (
+                <tr key={x.id} style={{ opacity:x.actif ? 1 : .55, background: dirty ? '#fffbeb' : (i % 2 ? '#f8fafc' : '#fff') }}>
                   <td style={{ ...td, color:'#94a3b8' }}>{i + 1}</td>
-                  <td style={td}>
-                    <input defaultValue={x.nom} disabled={!isAdmin} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }}
-                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== x.nom) agir(() => entreprisesAPI.update(x.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = x.nom }} />
-                  </td>
-                  <td style={td}>
-                    <select value={valeurRattache(x)} disabled={!isAdmin} style={{ ...inp, padding:'5px 8px', width:'100%', minWidth:180 }}
-                      onChange={e => agir(() => entreprisesAPI.update(x.id, payloadRattache(e.target.value)))}>
-                      {optionsRattache(x.id)}
-                    </select>
-                  </td>
-                  <td style={{ ...td, fontWeight:600, color:'#0F2A5C' }}>{x.departement_effectif_nom || '—'}</td>
+                  <td style={td}><input value={b.nom} disabled={!isAdmin} onChange={e => majBrouillon(x, { nom:e.target.value })} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }} /></td>
+                  <td style={td}>{selectParent(b.parent, v => majBrouillon(x, { parent:v, dep: v === 'roxgold' ? b.dep : '' }), !isAdmin, x.id)}</td>
+                  <td style={td}>{b.parent === 'roxgold'
+                    ? selectDep(b.dep, v => majBrouillon(x, { dep:v }), !isAdmin)
+                    : <span style={{ color:'#64748b', fontSize:12 }}>→ {x.departement_effectif_nom || '—'}</span>}</td>
                   <td style={{ ...td, textAlign:'center' }}><span style={pastille(x.actif)}>{x.actif ? 'Actif' : 'Inactif'}</span></td>
                   {isAdmin && (
                     <td style={{ ...td, textAlign:'right', whiteSpace:'nowrap' }}>
+                      <button title="Enregistrer les modifications" disabled={!dirty} style={{ ...btn(dirty ? '#16a34a' : '#e2e8f0', dirty ? '#fff' : '#94a3b8'), cursor: dirty ? 'pointer' : 'default' }} onClick={() => enregistrer(x)}>💾 Enregistrer</button>{' '}
+                      {dirty && <button title="Annuler" style={btn('#f1f5f9', '#334155')} onClick={() => setBrouillons(bb => { const n = { ...bb }; delete n[x.id]; return n })}>↩</button>}{' '}
                       <button title={x.actif ? 'Désactiver' : 'Réactiver'} style={btn(x.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => entreprisesAPI.update(x.id, { actif: !x.actif }))}>{x.actif ? '⏸' : '▶'}</button>{' '}
                       <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
                         onClick={async () => { if (await confirmDialog(`Supprimer « ${x.nom} » ?`)) agir(() => entreprisesAPI.delete(x.id), 'Supprimé') }}>🗑️</button>
                     </td>
                   )}
                 </tr>
-              ))}
+              )})}
               {ents.length === 0 && <tr><td style={{ ...td, color:'#94a3b8' }} colSpan={6}>Aucun sous-traitant.</td></tr>}
             </tbody>
           </table>
