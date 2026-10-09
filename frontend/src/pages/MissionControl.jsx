@@ -38,6 +38,16 @@ const CATEGORIES_PAR_MODE = {
   bus: ['bus','minibus'], '4x4': ['4x4','pickup'], avion: ['avion'],
   bateau: ['bateau'], a_pied: [], autre: ['autre'],
 }
+// Type de transport = catégories réellement présentes dans le parc (Réservations) + « À pied »
+const MODE_PAR_CATEGORIE = { bus:'bus', minibus:'bus', '4x4':'4x4', pickup:'4x4', avion:'avion', bateau:'bateau', autre:'autre' }
+const typesTransportDepuisParc = (flotte, courant) => {
+  const vus = new Map()
+  flotte.forEach(v => { if (v.categorie && !vus.has(v.categorie)) vus.set(v.categorie, v.categorie_label || v.categorie) })
+  if (courant && courant !== 'a_pied' && !vus.has(courant)) vus.set(courant, courant)
+  const liste = [...vus.entries()].map(([cat, label]) => [cat, label])
+  liste.push(['a_pied', '🚶 À pied'])
+  return liste
+}
 const filtrerFlotteParMode = (flotte, mode) => {
   if (mode === 'a_pied') return []
   const cats = CATEGORIES_PAR_MODE[mode]
@@ -645,7 +655,7 @@ export default function MissionControl() {
       if (res.ok) {
         flash(`Convoi ${data.rotation_id} créé — ajoutez les passagers depuis sa fiche`)
         setShowCreate(null)
-        setFormRot({itineraire_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
+        setFormRot({categorie_vehicule:'',itineraire_id:'',destination:'Abidjan',origine:'Camp Roxgold Sango',vehicule:'',
           vehicule_matricule:'',vehicule_photo:'',conducteur:'',vehicule_flotte_id:'',mode_transport:'bus',
           date_depart:new Date().toISOString().slice(0,10),date_retour_prevue:new Date().toISOString().slice(0,10),
           nb_places_total:15,niveau_alerte:1,villesIntermediaires:[],
@@ -3296,10 +3306,13 @@ export default function MissionControl() {
                       <div>
                         <label style={labelStyle}>Type de transport</label>
                         <select
-                          value={formRot.mode_transport||'bus'}
-                          onChange={e=>setFormRot(p=>({...p, mode_transport:e.target.value, vehicule_flotte_id:'', vehicule:'', vehicule_matricule:'', vehicule_photo:''}))}
+                          value={formRot.categorie_vehicule||formRot.mode_transport||'bus'}
+                          onChange={e=>{
+                            const cat = e.target.value
+                            setFormRot(p=>({...p, categorie_vehicule:cat, mode_transport: cat==='a_pied' ? 'a_pied' : (MODE_PAR_CATEGORIE[cat]||'autre'), vehicule_flotte_id:'', vehicule:'', vehicule_matricule:'', vehicule_photo:''}))
+                          }}
                           style={inputStyle}>
-                          {[['bus','🚌 Bus'],['4x4','🚙 4x4'],['avion','✈️ Avion'],['bateau','⛴️ Bateau'],['a_pied','🚶 À pied'],['autre','🚐 Autre']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                          {typesTransportDepuisParc(flotte, formRot.categorie_vehicule||formRot.mode_transport||'bus').map(([v,l])=><option key={v} value={v}>{l}</option>)}
                         </select>
                       </div>
                       {formRot.mode_transport !== 'a_pied' && (() => {
@@ -3308,7 +3321,9 @@ export default function MissionControl() {
                         // choisies ici, plutot que de laisser l'utilisateur en
                         // choisir un puis echouer a la soumission (cf. controle
                         // backend equivalent dans creer_rotation).
-                        const flotteDuMode = filtrerFlotteParMode(flotte, formRot.mode_transport||'bus')
+                        const flotteDuMode = formRot.categorie_vehicule
+                          ? flotte.filter(v => v.categorie === formRot.categorie_vehicule)
+                          : filtrerFlotteParMode(flotte, formRot.mode_transport||'bus')
                         const flotteLibre = flotteDuMode.filter(v =>
                           !vehiculeOccupe(v.matricule, rotations, formRot.date_depart, formRot.date_retour_prevue))
                         const nbMasques = flotteDuMode.length - flotteLibre.length
@@ -3567,9 +3582,13 @@ export default function MissionControl() {
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Motif</label>
-                      <input value={formIndiv.motif}
+                      <select value={formIndiv.motif}
                         onChange={e=>setFormIndiv(p=>({...p,motif:e.target.value}))}
-                        placeholder="Congé, Mission, Formation..." style={inputStyle}/>
+                        style={inputStyle}>
+                        <option value="">— Choisir un motif —</option>
+                        {motifsMobilite.map(m=><option key={m} value={m}>{libelleMotif(m)}</option>)}
+                        {formIndiv.motif && !motifsMobilite.includes(formIndiv.motif) && <option value={formIndiv.motif}>{formIndiv.motif}</option>}
+                      </select>
                     </div>
                   </div>
                   <button className="mc-btn mc-btn-primary"

@@ -118,7 +118,7 @@ const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['roles',      '👥 Rôles & Accès'],
   ['departements', '🏢 Départements & sous-traitants'],
-  ['motifs-mobilite', '🧭 Motifs mobilité'],
+  ['motifs-mobilite', '🧭 Motif / Objet (mobilité)'],
   ['rapports-planifies', '📧 Rapports par email'],
   ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],

@@ -4,6 +4,10 @@ import { toast, confirmDialog } from '../toast'
 
 const inp = { border:'1px solid #e2e8f0', borderRadius:8, padding:'8px 12px', fontSize:13, boxSizing:'border-box' }
 const btn = (bg, color='#fff') => ({ background:bg, color, border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 })
+const tbl = { width:'100%', borderCollapse:'collapse', fontSize:13, minWidth:560 }
+const th = { textAlign:'left', padding:'10px 12px', background:'#0F2A5C', color:'#fff', fontSize:11.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'.4px' }
+const td = { padding:'7px 12px', borderBottom:'1px solid #e2e8f0', verticalAlign:'middle' }
+const pastille = (ok) => ({ background: ok ? '#dcfce7' : '#f1f5f9', color: ok ? '#15803d' : '#64748b', padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:700 })
 const msgErr = (e) => e.response?.data?.error || Object.values(e.response?.data || {}).flat().join(' ') || 'Erreur'
 
 // Paramétrage → Départements & sous-traitants : alimente les listes déroulantes de la fiche
@@ -52,19 +56,36 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
               onClick={() => agir(() => departementsAPI.create({ nom:nouveauDep.trim(), ordre: deps.length + 1 }).then(() => setNouveauDep('')), 'Département ajouté')}>➕ Ajouter</button>
           </div>
         )}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:8 }}>
-          {deps.map(d => (
-            <div key={d.id} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center', gap:8, opacity:d.actif ? 1 : .55 }}>
-              <input defaultValue={d.nom} disabled={!isAdmin} style={{ ...inp, flex:1, minWidth:0, padding:'5px 8px', fontWeight:600 }}
-                onBlur={e => { const v = e.target.value.trim(); if (v && v !== d.nom) agir(() => departementsAPI.update(d.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = d.nom }} />
-              <span title="Personnel actif" style={{ fontSize:11, color:'#64748b', whiteSpace:'nowrap' }}>👤 {d.nb_personnel}</span>
-              {isAdmin && (<>
-                <button title={d.actif ? 'Désactiver' : 'Réactiver'} style={btn(d.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => departementsAPI.update(d.id, { actif: !d.actif }))}>{d.actif ? '⏸' : '▶'}</button>
-                <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
-                  onClick={async () => { if (await confirmDialog(`Supprimer le département « ${d.nom} » ?`)) agir(() => departementsAPI.delete(d.id), 'Supprimé') }}>🗑️</button>
-              </>)}
-            </div>
-          ))}
+        <div style={{ overflowX:'auto', border:'1px solid #e2e8f0', borderRadius:10 }}>
+          <table style={tbl}>
+            <thead><tr>
+              <th style={{ ...th, width:44 }}>#</th><th style={th}>Département</th>
+              <th style={{ ...th, textAlign:'center' }}>Sous-traitants</th><th style={{ ...th, textAlign:'center' }}>Personnel actif</th>
+              <th style={{ ...th, textAlign:'center' }}>Statut</th>{isAdmin && <th style={{ ...th, textAlign:'right' }}>Actions</th>}
+            </tr></thead>
+            <tbody>
+              {deps.map((d, i) => (
+                <tr key={d.id} style={{ opacity:d.actif ? 1 : .55, background: i % 2 ? '#f8fafc' : '#fff' }}>
+                  <td style={{ ...td, color:'#94a3b8' }}>{i + 1}</td>
+                  <td style={td}>
+                    <input defaultValue={d.nom} disabled={!isAdmin} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }}
+                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== d.nom) agir(() => departementsAPI.update(d.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = d.nom }} />
+                  </td>
+                  <td style={{ ...td, textAlign:'center' }}>{ents.filter(x => x.departement_effectif_nom === d.nom).length}</td>
+                  <td style={{ ...td, textAlign:'center' }}>{d.nb_personnel}</td>
+                  <td style={{ ...td, textAlign:'center' }}><span style={pastille(d.actif)}>{d.actif ? 'Actif' : 'Inactif'}</span></td>
+                  {isAdmin && (
+                    <td style={{ ...td, textAlign:'right', whiteSpace:'nowrap' }}>
+                      <button title={d.actif ? 'Désactiver' : 'Réactiver'} style={btn(d.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => departementsAPI.update(d.id, { actif: !d.actif }))}>{d.actif ? '⏸' : '▶'}</button>{' '}
+                      <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
+                        onClick={async () => { if (await confirmDialog(`Supprimer le département « ${d.nom} » ?`)) agir(() => departementsAPI.delete(d.id), 'Supprimé') }}>🗑️</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {deps.length === 0 && <tr><td style={{ ...td, color:'#94a3b8' }} colSpan={6}>Aucun département.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -81,24 +102,41 @@ export default function DepartementsEntreprisesTab({ isAdmin }) {
               onClick={() => agir(() => entreprisesAPI.create({ nom:nouvelleEnt.nom.trim(), ...payloadRattache(nouvelleEnt.rattache) }).then(() => setNouvelleEnt({ nom:'', rattache:'' })), 'Sous-traitant ajouté')}>➕ Ajouter</button>
           </div>
         )}
-        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-          {ents.map(x => (
-            <div key={x.id} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', opacity:x.actif ? 1 : .55 }}>
-              <input defaultValue={x.nom} disabled={!isAdmin} style={{ ...inp, flex:'1 1 200px', minWidth:0, padding:'5px 8px', fontWeight:600 }}
-                onBlur={e => { const v = e.target.value.trim(); if (v && v !== x.nom) agir(() => entreprisesAPI.update(x.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = x.nom }} />
-              <select value={valeurRattache(x)} disabled={!isAdmin} style={{ ...inp, padding:'5px 8px', minWidth:200 }}
-                onChange={e => agir(() => entreprisesAPI.update(x.id, payloadRattache(e.target.value)))}>
-                {optionsRattache(x.id)}
-              </select>
-              <span style={{ fontSize:11, color:'#64748b' }}>{x.entreprise_mere ? `→ ${x.departement_effectif_nom || '—'}` : ''}</span>
-              {isAdmin && (<>
-                <button title={x.actif ? 'Désactiver' : 'Réactiver'} style={btn(x.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => entreprisesAPI.update(x.id, { actif: !x.actif }))}>{x.actif ? '⏸' : '▶'}</button>
-                <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
-                  onClick={async () => { if (await confirmDialog(`Supprimer « ${x.nom} » ?`)) agir(() => entreprisesAPI.delete(x.id), 'Supprimé') }}>🗑️</button>
-              </>)}
-            </div>
-          ))}
-          {ents.length === 0 && <div style={{ color:'#94a3b8', fontSize:13 }}>Aucun sous-traitant.</div>}
+        <div style={{ overflowX:'auto', border:'1px solid #e2e8f0', borderRadius:10 }}>
+          <table style={tbl}>
+            <thead><tr>
+              <th style={{ ...th, width:44 }}>#</th><th style={th}>Entreprise</th><th style={th}>Rattachée à</th>
+              <th style={th}>Département ROXGOLD</th><th style={{ ...th, textAlign:'center' }}>Statut</th>
+              {isAdmin && <th style={{ ...th, textAlign:'right' }}>Actions</th>}
+            </tr></thead>
+            <tbody>
+              {ents.map((x, i) => (
+                <tr key={x.id} style={{ opacity:x.actif ? 1 : .55, background: i % 2 ? '#f8fafc' : '#fff' }}>
+                  <td style={{ ...td, color:'#94a3b8' }}>{i + 1}</td>
+                  <td style={td}>
+                    <input defaultValue={x.nom} disabled={!isAdmin} style={{ ...inp, width:'100%', padding:'5px 8px', fontWeight:600 }}
+                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== x.nom) agir(() => entreprisesAPI.update(x.id, { nom:v }), 'Renommé (fiches mises à jour)'); else e.target.value = x.nom }} />
+                  </td>
+                  <td style={td}>
+                    <select value={valeurRattache(x)} disabled={!isAdmin} style={{ ...inp, padding:'5px 8px', width:'100%', minWidth:180 }}
+                      onChange={e => agir(() => entreprisesAPI.update(x.id, payloadRattache(e.target.value)))}>
+                      {optionsRattache(x.id)}
+                    </select>
+                  </td>
+                  <td style={{ ...td, fontWeight:600, color:'#0F2A5C' }}>{x.departement_effectif_nom || '—'}</td>
+                  <td style={{ ...td, textAlign:'center' }}><span style={pastille(x.actif)}>{x.actif ? 'Actif' : 'Inactif'}</span></td>
+                  {isAdmin && (
+                    <td style={{ ...td, textAlign:'right', whiteSpace:'nowrap' }}>
+                      <button title={x.actif ? 'Désactiver' : 'Réactiver'} style={btn(x.actif ? '#f1f5f9' : '#dcfce7', '#334155')} onClick={() => agir(() => entreprisesAPI.update(x.id, { actif: !x.actif }))}>{x.actif ? '⏸' : '▶'}</button>{' '}
+                      <button title="Supprimer" style={btn('#fef2f2', '#dc2626')}
+                        onClick={async () => { if (await confirmDialog(`Supprimer « ${x.nom} » ?`)) agir(() => entreprisesAPI.delete(x.id), 'Supprimé') }}>🗑️</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {ents.length === 0 && <tr><td style={{ ...td, color:'#94a3b8' }} colSpan={6}>Aucun sous-traitant.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

@@ -194,7 +194,7 @@ export default function Personnel() {
       const sel = filtered.filter(p=>selected_ids.has(p.id))
       const asText = (v) => v ? `="${String(v).replace(/"/g,'""')}"` : ''
       const rows = [['NOM','PRENOM','TYPE','SOCIETE','DEPARTEMENT','WHATSAPP','EMAIL','TEL','PROFIL','EXPATRIE','DROIT_MOBILITE'],
-        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.departement,asText(p.numero_whatsapp),p.email,asText(p.numero),p.profil,p.est_expatrie?'Oui':'Non',p.eligible_mobilite?'Oui':'Non'])]
+        ...sel.map(p=>[p.nom,p.prenom,p.type_personnel,p.societe,p.departement,asText(p.numero_whatsapp),p.email,asText(p.numero),p.profil,p.est_expatrie?'Oui':'Non',p.a_droit_mobilite?'Oui':'Non'])]
       const csv = rows.map(r=>r.map(v=>typeof v==='string'&&v.startsWith('="')?v:`"${v||''}"`).join(',')).join('\n')
       const a = document.createElement('a')
       a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv)
@@ -203,6 +203,7 @@ export default function Personnel() {
       return
     }
     
+    let echecs = 0
     for (const id of selected_ids) {
       try {
         let body = {}
@@ -217,9 +218,11 @@ export default function Personnel() {
         else if (action === 'mobilite_oui')   body = { mobilite: true }
         else if (action === 'mobilite_non')   body = { mobilite: false }
         else body = { type_personnel: action }
-        await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
-      } catch(e) {}
+        const rep = await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
+        if (!rep.ok) echecs++
+      } catch(e) { echecs++ }
     }
+    if (echecs) toast.error(`${echecs} modification(s) refusée(s) par le serveur`)
     setSelectedIds(new Set()); load(); setMassAction('')
   }
 
@@ -1001,6 +1004,19 @@ export default function Personnel() {
                           }} style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
                             padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,title:'Modifier'}}>
                             ✏️
+                          </button>
+                          <button onClick={async () => {
+                              try {
+                                await personnelAPI.update(p.id, { mobilite: !p.a_droit_mobilite })
+                                toast.success(p.a_droit_mobilite ? 'Droit mobilité retiré' : 'Droit mobilité accordé')
+                                load()
+                              } catch(e) { toast.error(e.response?.data?.error || e.response?.data?.detail || 'Erreur') }
+                            }}
+                            style={{background: p.a_droit_mobilite ? '#16a34a20' : 'rgba(15,26,46,.04)', color: p.a_droit_mobilite ? '#16a34a' : '#64748b',
+                              border:`1px solid ${p.a_droit_mobilite ? '#16a34a40' : 'var(--rzc-border-light)'}`,
+                              padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
+                            title={p.a_droit_mobilite ? 'Droit au Centre de Mobilité — cliquer pour retirer' : 'Pas de droit mobilité — cliquer pour accorder'}>
+                            🧭
                           </button>
                           <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setNewLoginRole('');setRoleModal(p)}}
                             style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',

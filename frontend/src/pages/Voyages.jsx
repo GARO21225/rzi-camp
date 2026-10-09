@@ -7,6 +7,7 @@ import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage,
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import CarteItineraire from '../components/CarteItineraire'
 import LieuInput from '../components/LieuInput'
 
@@ -163,6 +164,7 @@ const filtrerFlotteParMode = (flotte, mode) => {
 }
 
 export default function Voyages() {
+  const motifsMobilite = useMotifsMobilite()
   const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
@@ -745,8 +747,8 @@ export default function Voyages() {
                 <div>
                   <label style={{ display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:6,textTransform:'uppercase' }}>Motif</label>
                   <select value={form.motif} onChange={e=>setForm({...form,motif:e.target.value})} style={inp}>
-                    {['repos','medical','formation','conge','familial','administratif','autre'].map(m=>(
-                      <option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>
+                    {motifsMobilite.map(m=>(
+                      <option key={m} value={m}>{libelleMotif(m)}</option>
                     ))}
                   </select>
                 </div>
