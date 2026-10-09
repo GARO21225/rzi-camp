@@ -38,6 +38,7 @@ def liste_parametres(request):
         # Plan de gestion de voyage (JMP) - numeros d'urgence et coordinateur
         # securite, fixes pour tout le camp, imprimes sur chaque document JMP
         # genere avant un voyage.
+        'mobilite_motifs': ('repos,medical,formation,conge,familial,administratif,autre', "Centre de mobilité — motifs de déplacement proposés (séparés par des virgules)"),
         'jmp_tel_satellite': ('', "JMP — Numéro de téléphone satellite d'urgence"),
         'jmp_tel_mtn': ('', "JMP — Numéro MTN du centre d'urgence"),
         'jmp_tel_orange': ('', "JMP — Numéro Orange du centre d'urgence"),
@@ -291,62 +292,48 @@ def forgot_password(request):
         # Sécurité: ne pas révéler si le compte existe
         return Response({"message": "Si ce compte existe, un message de réinitialisation a été envoyé."})
 
-    # Générer un token temporaire (valide 1h)
-    import secrets, datetime
-    from django.core.cache import cache
-    token = secrets.token_urlsafe(32)
+    # Code court (8 caractères sans ambiguïté), valide 1 h, à usage unique.
+    # Il n'est envoyé QUE par email (Resend, comme les OTP) - jamais dans la
+    # réponse HTTP.
+    import secrets, logging
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    token = "".join(secrets.choice(alphabet) for _ in range(8))
     cache.set(f"reset:{token}", user.id, timeout=3600)
 
-    # Essayer d'envoyer un email
-    email_sent = False
-    try:
-        from django.core.mail import send_mail
-        from django.conf import settings
-        from residences.models import Personnel
-        pers = Personnel.objects.filter(user=user).first()
-        if user.email or (pers and pers.email):
-            dest = user.email or pers.email
-            # .rstrip('/') : APP_URL peut être défini avec ou sans "/" final
-            # (les deux sont un lien de connexion valide dans les messages
-            # de bienvenue/OTP, voir messages_bienvenue.py) - mais ICI on
-            # concatène un chemin, donc on retire le "/" final pour éviter
-            # un double slash ("...5173//reset-password") qui casserait le
-            # routing côté frontend.
-            app_url = getattr(settings, "APP_URL", "https://app.roxgold-sitelife.com:5173").rstrip('/')
-            send_mail(
-                subject="🔐 Réinitialisation de mot de passe — Roxgold SiteLife",
-                message=f"""Bonjour {user.first_name},
-
-Votre lien de réinitialisation (valide 1h) :
-{app_url}/reset-password?token={token}
-
-Si vous n\'avez pas demandé cette réinitialisation, ignorez ce message.
-
-L\'équipe Roxgold SiteLife""",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[dest],
-                fail_silently=True,
-            )
-            email_sent = True
-    except Exception:
-        pass
-
-    # SÉCURITÉ CRITIQUE : ne JAMAIS renvoyer le token dans la réponse HTTP,
-    # même si l'email n'a pas pu être envoyé — sinon n'importe qui peut
-    # prendre le contrôle de n'importe quel compte (y compris admin) en
-    # appelant cet endpoint sans aucune authentification.
-    if not email_sent:
-        # Log côté serveur uniquement (visible par l'admin via les logs Render),
-        # jamais transmis au client.
-        import logging
-        logging.getLogger('security').warning(
-            f"Reset password demandé pour {username} mais email non envoyé "
-            f"(SMTP non configuré). Token généré mais NON exposé à l'API. "
-            f"Un admin doit utiliser reset_user_password pour ce compte."
+    from django.conf import settings
+    from residences.models import Personnel
+    from accounts.email import envoyer_email
+    pers = Personnel.objects.filter(user=user).first()
+    dest = user.email or (pers.email if pers else "")
+    log = logging.getLogger('security')
+    if not dest:
+        log.warning("Reset password demandé pour %s : aucun email enregistré.", username)
+    else:
+        # Pas de lien : le frontend n'a pas de route /reset-password, le code
+        # se saisit dans la fenêtre « Mot de passe oublié » de la page de connexion.
+        lien = ""
+        nom = user.first_name or user.username
+        html = (
+            f"<p>Bonjour {nom},</p>"
+            f"<p>Votre code de réinitialisation (valide 1 h) :</p>"
+            f"<p style='font-size:26px;font-weight:800;letter-spacing:4px'>{token}</p>"
+            + (f"<p>Ou cliquez : <a href='{lien}'>{lien}</a></p>" if lien else "")
+            + "<p>Si vous n'avez pas demandé cette réinitialisation, ignorez ce message.</p>"
+            "<p>L'équipe Roxgold SiteLife</p>"
         )
+        texte = (f"Bonjour {nom},\n\nVotre code de réinitialisation (valide 1 h) : {token}\n"
+                 + (f"Lien : {lien}\n" if lien else "")
+                 + "\nSi vous n'avez pas demandé cette réinitialisation, ignorez ce message.")
+        try:
+            ok, info = envoyer_email(dest, "🔐 Code de réinitialisation — Roxgold SiteLife",
+                                     html, texte, type_message="reset_password")
+        except Exception as e:  # ne jamais révéler l'état au client
+            ok, info = False, str(e)
+        if not ok:
+            log.warning("Reset password pour %s : email non envoyé (%s).", username, info)
 
     return Response({
-        "message": "Si ce compte existe, un lien de réinitialisation a été envoyé."
+        "message": "Si ce compte existe, un code de réinitialisation a été envoyé par email."
     })
 
 
@@ -355,17 +342,24 @@ L\'équipe Roxgold SiteLife""",
 def reset_password_confirm(request):
     """Confirmer le reset avec le token"""
     from django.core.cache import cache
-    token    = request.data.get("token", "")
+    token    = str(request.data.get("token", "")).strip().upper()
     new_pwd  = request.data.get("password", "")
 
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown')).split(',')[0].strip()
+    rl_key = f"reset_confirm_rl:{ip}"
+    essais = cache.get(rl_key, 0)
+    if essais >= 10:
+        return Response({"error": "Trop de tentatives. Réessayez dans 15 minutes."}, status=429)
+    cache.set(rl_key, essais + 1, timeout=900)
+
     if not token or not new_pwd:
-        return Response({"error": "Token et mot de passe requis"}, status=400)
+        return Response({"error": "Code et mot de passe requis"}, status=400)
     if len(new_pwd) < 6:
         return Response({"error": "Mot de passe trop court (6 caractères minimum)"}, status=400)
 
     user_id = cache.get(f"reset:{token}")
     if not user_id:
-        return Response({"error": "Token invalide ou expiré (1h max)"}, status=400)
+        return Response({"error": "Code invalide ou expiré (1h max)"}, status=400)
 
     try:
         user = User.objects.get(pk=user_id)

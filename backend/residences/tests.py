@@ -505,7 +505,7 @@ class PersonnelImportCsvIdentifiantsTests(TestCase):
     def test_ligne_valide_est_importee_et_identifiants_envoyes(self):
         resp = self._import([{"nom": "Traore", "prenom": "Seydou", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "0709876543", "numero_whatsapp": "0709876543"}])
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["imported"], 1)
+        self.assertEqual(resp.data["imported"], 1, resp.data)
         self.assertEqual(resp.data["errors"], [])
         self.assertEqual(resp.data["identifiants_envoyes"], 1)
         self.assertTrue(Personnel.objects.filter(nom="TRAORE").exists())
@@ -516,7 +516,7 @@ class PersonnelImportCsvIdentifiantsTests(TestCase):
             {"nom": "Mauvais", "prenom": "Deux", "societe": "ROXGOLD", "type_personnel": "roxgold", "telephone": "abc", "numero_whatsapp": "0701111111"},
         ])
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["imported"], 1)
+        self.assertEqual(resp.data["imported"], 1, resp.data)
         self.assertEqual(len(resp.data["errors"]), 1)
         self.assertTrue(Personnel.objects.filter(nom="BON").exists())
         self.assertFalse(Personnel.objects.filter(nom="MAUVAIS").exists())
@@ -725,3 +725,41 @@ class DepartementsEntreprisesTests(TestCase):
         self.assertEqual(self.c.delete(f"/api/departements/{dep.id}/").status_code, 400)
         self.assertEqual(self.c.patch(f"/api/departements/{dep.id}/", {"nom": "Finance & Compta"}, format="json").status_code, 200)
         self.assertEqual(Personnel.objects.get(nom="F").departement, "Finance & Compta")
+
+
+class DroitMobiliteTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.admin = User.objects.create_user("admm", is_staff=True, is_superuser=True)
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+        self.p = Personnel.objects.create(nom="Kone", prenom="Aya", societe="ROXGOLD",
+                                          type_personnel="roxgold")
+
+    def _droit(self):
+        return self.c.get(f"/api/personnel/{self.p.pk}/").json()["a_droit_mobilite"]
+
+    def test_retirer_puis_rajouter_roxgold(self):
+        self.assertTrue(self._droit())
+        r = self.c.patch(f"/api/personnel/{self.p.pk}/", {"mobilite": False}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertFalse(self._droit())
+        self.c.patch(f"/api/personnel/{self.p.pk}/", {"mobilite": True}, format="json")
+        self.assertTrue(self._droit())
+
+    def test_visiteur_ajout_et_retrait(self):
+        self.p.type_personnel = "visiteur"; self.p.save()
+        self.assertFalse(self._droit())
+        self.c.patch(f"/api/personnel/{self.p.pk}/", {"mobilite": True}, format="json")
+        self.assertTrue(self._droit())
+        self.c.patch(f"/api/personnel/{self.p.pk}/", {"mobilite": False}, format="json")
+        self.assertFalse(self._droit())
+
+    def test_filtre_droit_mobilite(self):
+        self.c.patch(f"/api/personnel/{self.p.pk}/", {"mobilite": False}, format="json")
+        ids = [x["id"] for x in self.c.get("/api/personnel/?droit_mobilite=true&page_size=500").json().get("results", [])]
+        self.assertNotIn(self.p.pk, ids)
+
+    def test_motifs_par_defaut(self):
+        r = self.c.get("/api/parametres/")
+        cles = [x["cle"] for x in (r.json() if isinstance(r.json(), list) else r.json()["results"])]
+        self.assertIn("mobilite_motifs", cles)

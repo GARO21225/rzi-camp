@@ -743,3 +743,38 @@ class RapportsEmailAvecDonneesTests(TestCase):
         _, h = generer_contenu_rapport("Synth", "synthese", {"details": True, "horizon_jours": 3})
         for mot in ("Répartition par statut", "Incidents ouverts par priorité", "Voyages par statut", "Stocks les plus bas", "Eau"):
             self.assertIn(mot, h)
+
+
+class MotDePasseOublieTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from django.core.cache import cache
+        cache.clear()
+        self.user = User.objects.create_user("jean", email="jean@exemple.ci", password="ancien1", first_name="Jean")
+        self.c = APIClient()
+
+    @patch("accounts.email.envoyer_email")
+    def test_code_envoye_par_email_pas_dans_la_reponse(self, m):
+        m.return_value = (True, "ok")
+        r = self.c.post("/api/forgot-password/", {"username": "jean"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn("token", r.json())
+        self.assertEqual(m.call_count, 1)
+        dest, sujet, html = m.call_args[0][:3]
+        self.assertEqual(dest, "jean@exemple.ci")
+        import re
+        code = re.search(r"letter-spacing:4px'>([A-Z0-9]{8})<", html).group(1)
+        self.assertNotIn(code, r.content.decode())
+        r2 = self.c.post("/api/reset-password-confirm/", {"token": code.lower(), "password": "nouveau1"}, format="json")
+        self.assertEqual(r2.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("nouveau1"))
+        # usage unique
+        r3 = self.c.post("/api/reset-password-confirm/", {"token": code, "password": "autre123"}, format="json")
+        self.assertEqual(r3.status_code, 400)
+
+    @patch("accounts.email.envoyer_email")
+    def test_compte_inconnu_meme_reponse_sans_envoi(self, m):
+        r = self.c.post("/api/forgot-password/", {"username": "inconnu"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        m.assert_not_called()

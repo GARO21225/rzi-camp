@@ -23,8 +23,7 @@ function ForgotModal({ onClose }) {
     setLoading(true); setMsg(null)
     try {
       const r = await apiCall('/forgot-password/', { username: username.trim() })
-      if (r.token) { setToken(r.token); setMsg({ type:'info', text:'Token généré — transmettez-le à l\'utilisateur' }) }
-      else if (r.message) setMsg({ type:'success', text: r.message })
+      if (r.message) setMsg({ type:'success', text: r.message })
       else if (r.error) { setMsg({ type:'error', text: r.error }); return }
       setStep('confirm')
     } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
@@ -32,13 +31,13 @@ function ForgotModal({ onClose }) {
   }
 
   const confirmReset = async () => {
-    if (!token.trim() || !newPwd) return setMsg({ type:'error', text:'Token et mot de passe requis' })
+    if (!token.trim() || !newPwd) return setMsg({ type:'error', text:'Code et mot de passe requis' })
     if (newPwd.length < 6) return setMsg({ type:'error', text:'Minimum 6 caractères' })
     setLoading(true); setMsg(null)
     try {
       const r = await apiCall('/reset-password-confirm/', { token: token.trim(), password: newPwd })
       if (r.message) { setMsg({ type:'success', text: r.message }); setTimeout(onClose, 2500) }
-      else setMsg({ type:'error', text: r.error || 'Token invalide' })
+      else setMsg({ type:'error', text: r.error || 'Code invalide' })
     } catch { setMsg({ type:'error', text:'Erreur réseau' }) }
     finally { setLoading(false) }
   }
@@ -54,10 +53,9 @@ function ForgotModal({ onClose }) {
           {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
           {step === 'request' ? <>
             <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
-            {token && <div style={{ background:'rgba(240,165,0,.1)', border:'1px solid rgba(240,165,0,.3)', borderRadius:10, padding:'10px 14px' }}><div style={{ fontSize:11, color:'#f0a500', marginBottom:4, fontWeight:700 }}>TOKEN À TRANSMETTRE</div><div style={{ fontFamily:'monospace', fontSize:13, color:'#fef3c7', wordBreak:'break-all' }}>{token}</div></div>}
-            <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Génération...':'Générer le token'}</button>
+            <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Envoi...':'Recevoir le code par email'}</button>
           </> : <>
-            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Coller le token ici" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
+            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Code reçu par email" autoCapitalize="characters" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
             <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
             <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'var(--rzc-white)', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
           </>}

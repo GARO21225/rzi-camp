@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import SelectRecherche from '../components/SelectRecherche'
+import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
@@ -475,6 +476,7 @@ function GanttBar({ voyage, days, onClick }) {
 // ════════════════════════════════════════════════════════════════════
 export default function MissionControl() {
   const isMobile = useIsMobile()
+  const motifsMobilite = useMotifsMobilite()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
@@ -3454,8 +3456,8 @@ export default function MissionControl() {
                         onChange={e=>setFormRot(p=>({...p,motif:e.target.value}))}
                         style={inputStyle}>
                         <option value="">— Choisir un motif —</option>
-                        {['repos','medical','formation','conge','familial','administratif','autre'].map(m=>(
-                          <option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>
+                        {motifsMobilite.map(m=>(
+                          <option key={m} value={m}>{libelleMotif(m)}</option>
                         ))}
                       </select>
                     </div>
@@ -3536,8 +3538,8 @@ export default function MissionControl() {
                       <select value={formIndiv.motif||''}
                         onChange={e=>setFormIndiv(p=>({...p,motif:e.target.value}))} style={inputStyle}>
                         <option value="">— Choisir un motif —</option>
-                        {['repos','medical','formation','conge','familial','administratif','autre'].map(m=>(
-                          <option key={m} value={m}>{m.charAt(0).toUpperCase()+m.slice(1)}</option>
+                        {motifsMobilite.map(m=>(
+                          <option key={m} value={m}>{libelleMotif(m)}</option>
                         ))}
                       </select>
                     </div>

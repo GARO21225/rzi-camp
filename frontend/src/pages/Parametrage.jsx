@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPlanifiesAPI, groupesDiffusion as groupesDiffusionAPI, itinerairesModeles as itinerairesAPI, etapesItineraireModele as etapesItineraireAPI, plaintesCategories as plaintesCategoriesAPI } from '../api'
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
+import MapSafe from '../components/MapSafe'
+import MotifsMobiliteTab from '../components/MotifsMobiliteTab'
 import DepartementsEntreprisesTab from '../components/DepartementsEntreprisesTab'
 import Boutique from './Boutique'
 import { questionsAvis as questionsAvisAPI } from '../api'
@@ -116,6 +118,7 @@ const TABS = [
   ['general',    '⚙️ Général & SLA'],
   ['roles',      '👥 Rôles & Accès'],
   ['departements', '🏢 Départements & sous-traitants'],
+  ['motifs-mobilite', '🧭 Motifs mobilité'],
   ['rapports-planifies', '📧 Rapports par email'],
   ['groupes-diffusion', '📢 Groupes de diffusion'],
   ['apparence',  '🎨 Apparence'],
@@ -269,16 +272,20 @@ export default function Parametrage() {
         <RolesTab isAdmin={isAdmin} isMobile={isMobile} />
       )}
 
+      {tab === 'motifs-mobilite' && (
+        <MapSafe libelle="Cet onglet"><MotifsMobiliteTab isAdmin={isAdmin} /></MapSafe>
+      )}
+
       {tab === 'departements' && (
-        <DepartementsEntreprisesTab isAdmin={isAdmin} />
+        <MapSafe libelle="Cet onglet"><DepartementsEntreprisesTab isAdmin={isAdmin} /></MapSafe>
       )}
 
       {tab === 'rapports-planifies' && (
-        <RapportsPlanifiesTab isAdmin={isAdmin} />
+        <MapSafe libelle="Cet onglet"><RapportsPlanifiesTab isAdmin={isAdmin} /></MapSafe>
       )}
 
       {tab === 'groupes-diffusion' && (
-        <GroupesDiffusionTab isAdmin={isAdmin} />
+        <MapSafe libelle="Cet onglet"><GroupesDiffusionTab isAdmin={isAdmin} /></MapSafe>
       )}
 
       {tab === 'apparence' && (
@@ -1246,6 +1253,9 @@ function RolesTab({ isAdmin, isMobile }) {
   )
 }
 
+// Réponse d'API → toujours un tableau (une réponse inattendue ne doit jamais faire planter l'onglet)
+const tableau = (d) => Array.isArray(d) ? d : (Array.isArray(d?.results) ? d.results : [])
+
 const JOURS_SEMAINE_OPTS = [
   [0,'Lundi'],[1,'Mardi'],[2,'Mercredi'],[3,'Jeudi'],[4,'Vendredi'],[5,'Samedi'],[6,'Dimanche'],
 ]
@@ -1263,7 +1273,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
 
   const charger = () => {
     setLoading(true)
-    rapportsPlanifiesAPI.list().then(r => setListe(r.data.results || r.data || [])).finally(()=>setLoading(false))
+    rapportsPlanifiesAPI.list().then(r => setListe(tableau(r.data))).finally(()=>setLoading(false))
   }
   useEffect(charger, [])
 
@@ -1422,7 +1432,7 @@ function GroupesDiffusionTab({ isAdmin }) {
 
   const charger = () => {
     setLoading(true)
-    groupesDiffusionAPI.list().then(r => setListe(r.data.results || r.data || [])).finally(()=>setLoading(false))
+    groupesDiffusionAPI.list().then(r => setListe(tableau(r.data))).finally(()=>setLoading(false))
   }
   useEffect(charger, [])
 
@@ -1789,7 +1799,7 @@ function BadgesTab({ valeurs }) {
 
   useEffect(() => {
     personnelAPI.list({ page_size: 2000 })
-      .then(r => setListe(r.data.results || r.data || []))
+      .then(r => setListe(tableau(r.data)))
       .catch(() => setListe([]))
       .finally(() => setLoading(false))
   }, [])

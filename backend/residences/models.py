@@ -95,6 +95,9 @@ class Personnel(models.Model):
     eligible_mobilite = models.BooleanField(default=False,
                        help_text="Droit d'utiliser le Centre de Mobilité (voyages/rotations) — automatique pour Roxgold et sous-traitants, doit être déclaré explicitement pour un visiteur même logé")
 
+    mobilite_exclue = models.BooleanField(default=False,
+                       help_text="Roxgold/sous-traitant à qui on a RETIRÉ le droit au Centre de Mobilité (par défaut ils l'ont)")
+
     date_creation = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="personnel")
     login_genere = models.CharField(max_length=100, blank=True)
@@ -116,7 +119,7 @@ class Personnel(models.Model):
         qu'un responsable ne l'a pas explicitement declare eligible.
         """
         if self.type_personnel in ("roxgold", "sous_traitant"):
-            return True
+            return not self.mobilite_exclue
         return bool(self.eligible_mobilite)
 
     def generer_login_password(self):

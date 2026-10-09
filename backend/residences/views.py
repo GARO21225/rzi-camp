@@ -46,7 +46,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         droit_mobilite = self.request.query_params.get("droit_mobilite")
         if droit_mobilite and droit_mobilite.lower() == "true":
             from django.db.models import Q
-            qs = qs.filter(Q(type_personnel__in=["roxgold","sous_traitant"]) | Q(eligible_mobilite=True))
+            qs = qs.filter(Q(type_personnel__in=["roxgold","sous_traitant"], mobilite_exclue=False) | Q(eligible_mobilite=True))
         return qs
 
     @action(detail=False, methods=['get'], permission_classes=[TokenInQueryOrHeader])
@@ -217,6 +217,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             est_expatrie,
                             pays_origine,
                             eligible_mobilite,
+                            mobilite_exclue,
                             qr_code_data,
                             qr_code_string,
                             login_genere,
@@ -225,7 +226,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                         )
                         VALUES (
                             %s, %s, %s, '', %s, %s, %s, %s, %s,
-                            TRUE, 'agent', FALSE, '', FALSE, '', '', '', '', %s
+                            TRUE, 'agent', FALSE, '', FALSE, FALSE, '', '', '', '', %s
                         )
                         RETURNING id
                         """,

@@ -48,6 +48,10 @@ class PersonnelSerializer(serializers.ModelSerializer):
     # regenerer_compte() l'injectent deja manuellement dans LEUR propre
     # reponse, independamment de ce serializer).
     a_droit_mobilite = serializers.BooleanField(read_only=True)
+    # Écriture : « mobilite » = true/false → accorde / retire le droit, quel que soit le type
+    # (Roxgold/sous-traitant : le droit est par défaut, on le retire via mobilite_exclue ;
+    # visiteur : il faut l'accorder via eligible_mobilite).
+    mobilite = serializers.BooleanField(write_only=True, required=False)
     # Alias explicite : en base/API le champ s'appelle "numero" mais représente
     # le matricule (cf. label "N° MATRICULE" côté frontend). Plusieurs pages
     # (Annuaire, badges Induction, export Personnel) lisaient "matricule" qui
@@ -186,6 +190,16 @@ class PersonnelSerializer(serializers.ModelSerializer):
         if erreurs:
             raise serializers.ValidationError(erreurs)
         self._normaliser_departement(attrs, creation)
+        if "mobilite" in attrs:
+            m = attrs.pop("mobilite")
+            type_p = attrs.get("type_personnel", getattr(self.instance, "type_personnel", "roxgold"))
+            if type_p in ("roxgold", "sous_traitant"):
+                attrs["mobilite_exclue"] = not m
+            else:
+                attrs["eligible_mobilite"] = m
+        elif "type_personnel" in attrs and self.instance and attrs["type_personnel"] != self.instance.type_personnel:
+            # changement de type : on repart des règles par défaut du nouveau type
+            attrs.setdefault("mobilite_exclue", False)
         return attrs
 
     def _normaliser_departement(self, attrs, creation):
@@ -213,7 +227,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "profil", "profil_label", "est_expatrie", "pays_origine",
-            "eligible_mobilite", "a_droit_mobilite", "residence_principale",
+            "eligible_mobilite", "mobilite_exclue", "mobilite", "a_droit_mobilite", "residence_principale",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 

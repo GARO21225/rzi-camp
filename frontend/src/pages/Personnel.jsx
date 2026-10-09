@@ -58,7 +58,7 @@ export default function Personnel() {
   const [form,         setForm]         = useState({
     nom:'', prenom:'', email:'', telephone:'', numero_whatsapp:'',
     societe:'ROXGOLD', type_personnel:'roxgold', numero:'', actif:true,
-    est_expatrie:false, pays_origine:'', eligible_mobilite:false
+    est_expatrie:false, pays_origine:'', eligible_mobilite:false, mobilite:true
   })
   const [deps, setDeps] = useState([])
   const [ents, setEnts] = useState([])
@@ -120,7 +120,7 @@ export default function Personnel() {
     const matchProfil  = !profilFilter  || p.profil === profilFilter
     const matchActif   = !actifFilter   || (actifFilter==='actif' ? p.actif : !p.actif)
     const matchExpatrie = !expatrieFilter || (expatrieFilter==='oui' ? p.est_expatrie : !p.est_expatrie)
-    const matchMobilite = !mobiliteFilter || (mobiliteFilter==='oui' ? p.eligible_mobilite : !p.eligible_mobilite)
+    const matchMobilite = !mobiliteFilter || (mobiliteFilter==='oui' ? p.a_droit_mobilite : !p.a_droit_mobilite)
     return matchSearch && matchType && matchSociete && matchProfil && matchActif && matchExpatrie && matchMobilite
   }), [data, search, typeFilter, societeFilter, profilFilter, actifFilter, expatrieFilter, mobiliteFilter])
 
@@ -156,7 +156,7 @@ export default function Personnel() {
         }
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -214,8 +214,8 @@ export default function Personnel() {
         else if (action === 'with_induction') body = { induction_requise: true }
         else if (action === 'expatrie')       body = { est_expatrie: true }
         else if (action === 'non_expatrie')   body = { est_expatrie: false }
-        else if (action === 'mobilite_oui')   body = { eligible_mobilite: true }
-        else if (action === 'mobilite_non')   body = { eligible_mobilite: false }
+        else if (action === 'mobilite_oui')   body = { mobilite: true }
+        else if (action === 'mobilite_non')   body = { mobilite: false }
         else body = { type_personnel: action }
         await fetch(`${BASE}/api/personnel/${id}/`, {method:'PATCH',headers:hdrs,body:JSON.stringify(body)})
       } catch(e) {}
@@ -691,7 +691,7 @@ export default function Personnel() {
                     telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
                     type_personnel:p.type_personnel||'employe',
                     numero:p.numero||'', actif:p.actif,
-                    est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite
+                    est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite, mobilite:!!p.a_droit_mobilite
                   })
                   setErr(''); setModal(p)
                 }}
@@ -729,7 +729,7 @@ export default function Personnel() {
 
         {!lectureSeule && (
           <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
               setErr(''); setModal('new')
             }}
             aria-label="Ajouter un membre du personnel"
@@ -760,7 +760,7 @@ export default function Personnel() {
             {!lectureSeule && (
               <>
                 <button onClick={()=>{
-                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false})
+                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
                   setErr(''); setModal('new')
                 }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
                   ➕ Nouveau membre
@@ -995,7 +995,7 @@ export default function Personnel() {
                               telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
                               numero:p.numero||'', actif:p.actif,
-                              est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite
+                              est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite, mobilite:!!p.a_droit_mobilite
                             })
                             setErr(''); setModal(p)
                           }} style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
@@ -1169,7 +1169,7 @@ export default function Personnel() {
                   <select value={form.type_personnel} onChange={e=>{
                     const v = e.target.value
                     // Employé Roxgold → société auto-remplie et verrouillée sur ROXGOLD
-                    setForm({...form, type_personnel:v, societe: v==='roxgold' ? 'ROXGOLD' : (form.societe==='ROXGOLD' ? '' : form.societe), departement: v==='sous_traitant' ? '' : form.departement})
+                    setForm({...form, type_personnel:v, societe: v==='roxgold' ? 'ROXGOLD' : (form.societe==='ROXGOLD' ? '' : form.societe), departement: v==='sous_traitant' ? '' : form.departement, mobilite: v!=='visiteur'})
                   }} style={inp}>
                     {TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                   </select>
@@ -1239,16 +1239,14 @@ export default function Personnel() {
                     </div>
                   )}
                 </div>
-                {form.type_personnel === 'visiteur' && (
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,padding:10,background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a'}}>
-                    <input type="checkbox" id="eligible_mobilite" checked={!!form.eligible_mobilite}
-                      onChange={e=>setForm({...form,eligible_mobilite:e.target.checked})}
-                      style={{width:16,height:16,cursor:'pointer'}}/>
-                    <label htmlFor="eligible_mobilite" style={{fontSize:12,fontWeight:600,color:'#92400e',cursor:'pointer'}}>
-                      🧭 Déclarer éligible au Centre de Mobilité <span style={{fontWeight:400}}>(un visiteur peut être logé sans avoir accès aux voyages — à cocher explicitement si besoin)</span>
-                    </label>
-                  </div>
-                )}
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,padding:10,background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a'}}>
+                  <input type="checkbox" id="mobilite_droit" checked={!!form.mobilite}
+                    onChange={e=>setForm({...form,mobilite:e.target.checked})}
+                    style={{width:16,height:16,cursor:'pointer'}}/>
+                  <label htmlFor="mobilite_droit" style={{fontSize:12,fontWeight:600,color:'#92400e',cursor:'pointer'}}>
+                    🧭 Droit au Centre de Mobilité <span style={{fontWeight:400}}>({form.type_personnel==='visiteur' ? 'un visiteur peut être logé sans accès aux voyages — à cocher explicitement' : 'accordé par défaut — décocher pour le retirer'})</span>
+                  </label>
+                </div>
                 <div style={{display:'flex',gap:10,marginTop:4}}>
                   <button onClick={()=>setModal(null)}
                     style={{flex:1,background:'rgba(15,26,46,.04)',color:'var(--rzc-text-3)',border:'1px solid var(--rzc-border-light)',

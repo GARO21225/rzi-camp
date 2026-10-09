@@ -10,7 +10,8 @@ export default class MapSafe extends React.Component {
     if (this.state.erreur) {
       return (
         <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 13, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-          🗺️ La carte n'a pas pu s'afficher.
+          {this.props.libelle ? `⚠️ ${this.props.libelle} n'a pas pu s'afficher.` : "🗺️ La carte n'a pas pu s'afficher."}
+          <div style={{ fontSize:11, color:'#94a3b8', marginTop:6, wordBreak:'break-word' }}>{String(this.state.erreur?.message || this.state.erreur)}</div>
           <div><button onClick={() => this.setState({ erreur: null, essai: this.state.essai + 1 })}
             style={{ marginTop: 10, padding: '6px 14px', borderRadius: 8, border: 'none', background: '#1e3a8a', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Réessayer</button></div>
         </div>
