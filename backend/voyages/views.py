@@ -790,7 +790,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         rotations_qs = list(Rotation.objects.all().order_by("-date_depart").values(
             "rotation_id","date_depart","date_retour_prevue","destination","origine",
             "vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_secondaire","nb_places_total","heure_depart","point_rdv",
-            "motif","niveau_alerte","trajet_aller_seul","itineraire_modele_id"))
+            "motif","niveau_alerte","trajet_aller_seul","itineraire_modele_id",
+            "conducteur_personnel_id","conducteur_secondaire_personnel_id"))
 
         # PERFORMANCE : recupere TOUS les passagers de TOUTES les rotations
         # en UNE seule requete, puis regroupe en memoire par rotation_id -
@@ -837,6 +838,12 @@ class VoyageViewSet(viewsets.ModelViewSet):
         for p in tous_passagers:
             p["chambre"] = chambres_par_personnel.get(p["personnel_id"]) or ""
 
+        # Départ réel enregistré par le chauffeur (Ma conduite) : il fait foi pour le statut du convoi,
+        # même quand aucun passager n'est rattaché ou que leur statut n'a pas pu être mis à jour.
+        from .models import SuiviConvoi as _Suivi
+        suivis = {x["rotation__rotation_id"]: x for x in _Suivi.objects.filter(rotation__rotation_id__in=rotation_ids)
+                  .values("rotation__rotation_id", "statut", "depart_at", "arrivee_at")}
+
         result = []
         for g in rotations_qs:
             passagers = passagers_par_rotation.get(g["rotation_id"], [])
@@ -870,6 +877,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
                     statut_rotation = next(iter(statuts_presents), "planifie")
             else:
                 statut_rotation = "planifie"
+            sv = suivis.get(g["rotation_id"])
+            if sv:
+                statut_rotation = "retour" if sv["statut"] == "arrive" else "en_voyage"
+                g["suivi_statut"], g["depart_reel_at"], g["arrivee_reelle_at"] = sv["statut"], sv["depart_at"], sv["arrivee_at"]
             g["statut"] = statut_rotation
             # Points d'arret ordonnes du convoi (origine -> villes
             # intermediaires -> destination), pour la liste deroulante
@@ -1629,6 +1640,95 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response(VoyageSerializer(v).data,status=201)
 
     @action(detail=False, methods=["post"])
+    def modifier_rotation(self, request):
+        """Remplace le véhicule et/ou le(s) chauffeur(s) d'un convoi NON terminé (panne, indisponibilité),
+        y compris pendant le trajet. Champs : rotation_id (obligatoire), vehicule_matricule + vehicule,
+        conducteur_id, conducteur_secondaire_id ("" ou 0 = retirer le second), motif. Admin uniquement."""
+        u = request.user
+        if not (u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")):
+            return Response({"error": "Admin requis"}, status=403)
+        d = request.data
+        rotation = Rotation.objects.filter(rotation_id=d.get("rotation_id")).first()
+        if not rotation:
+            return Response({"error": "Rotation introuvable"}, status=404)
+        from .models import SuiviConvoi as _Suivi
+        suivi = _Suivi.objects.filter(rotation=rotation).first()
+        if (suivi and suivi.statut == "arrive") or rotation.statut == "annule":
+            return Response({"error": "Ce convoi est terminé ou annulé : rien à modifier."}, status=400)
+        membres = list(Voyage.objects.filter(rotation_id=rotation.rotation_id).exclude(statut__in=["annule", "retour"]).select_related("personnel"))
+        if membres and not suivi and not any(m.statut in ("planifie", "en_voyage") for m in membres):
+            return Response({"error": "Ce convoi est terminé : rien à modifier."}, status=400)
+        from residences.models import Personnel as _P
+
+        def personne(cle):
+            v = d.get(cle)
+            return _P.objects.filter(pk=v).first() if v not in (None, "", 0, "0") else None
+
+        champs = {}
+        # ── Chauffeur principal ──
+        if "conducteur_id" in d:
+            c1 = personne("conducteur_id")
+            if not c1:
+                return Response({"error": "Chauffeur principal introuvable."}, status=400)
+        else:
+            c1 = rotation.conducteur_personnel
+        # ── Second chauffeur (champ présent et vide = retiré) ──
+        if "conducteur_secondaire_id" in d:
+            c2 = personne("conducteur_secondaire_id")
+        else:
+            c2 = rotation.conducteur_secondaire_personnel
+        if c1 and c2 and c1.id == c2.id:
+            return Response({"error": "Le second chauffeur doit être différent du chauffeur principal."}, status=400)
+        ids_passagers = {m.personnel_id for m in membres if m.personnel_id}
+        for pers, role in ((c1, "chauffeur principal"), (c2, "second chauffeur")):
+            if pers and pers.id in ids_passagers and len(ids_passagers) > 1:
+                return Response({"error": f"{pers.nom} {pers.prenom} est passager de ce convoi : il ne peut pas être aussi {role}."}, status=400)
+            if pers:
+                conflit = _conducteur_en_conflit(pers.id, f"{pers.nom} {pers.prenom}", rotation.date_depart, rotation.date_retour_prevue, exclude_rotation_id=rotation.rotation_id)
+                if conflit:
+                    return Response({"error": f"{pers.nom} {pers.prenom} est déjà conducteur d'un autre convoi à ces dates."}, status=400)
+        # ── Véhicule ──
+        matricule = (d.get("vehicule_matricule") if "vehicule_matricule" in d else rotation.vehicule_matricule) or ""
+        nom_vehicule = (d.get("vehicule") if "vehicule" in d else rotation.vehicule) or ""
+        places = rotation.nb_places_total
+        if "vehicule_matricule" in d and matricule != rotation.vehicule_matricule:
+            if matricule:
+                autre = Rotation.objects.filter(vehicule_matricule=matricule, date_depart__lte=rotation.date_retour_prevue or rotation.date_depart,
+                                                date_retour_prevue__gte=rotation.date_depart).exclude(rotation_id=rotation.rotation_id).exclude(statut="annule").first()
+                if autre:
+                    return Response({"error": f"Le véhicule {matricule} est déjà affecté au convoi {autre.rotation_id} à ces dates."}, status=400)
+            vf = VehiculeFlotte.objects.filter(matricule=matricule).first() if matricule else None
+            if vf:
+                nom_vehicule = nom_vehicule or vf.nom
+                places = vf.capacite or places
+            if len(membres) > places:
+                return Response({"error": f"Le véhicule {matricule} n'a que {places} place(s) pour {len(membres)} passager(s)."}, status=400)
+        nom1 = f"{c1.nom} {c1.prenom}" if c1 else rotation.conducteur
+        nom2 = f"{c2.nom} {c2.prenom}" if c2 else ""
+        avant = f"{rotation.vehicule} {rotation.vehicule_matricule} / {rotation.conducteur}" + (f" + {rotation.conducteur_secondaire}" if rotation.conducteur_secondaire else "")
+        with transaction.atomic():
+            rotation.vehicule, rotation.vehicule_matricule, rotation.nb_places_total = nom_vehicule, matricule, places
+            rotation.conducteur, rotation.conducteur_personnel = nom1, c1
+            rotation.conducteur_secondaire, rotation.conducteur_secondaire_personnel = nom2, c2
+            rotation.save()
+            Voyage.objects.filter(rotation_id=rotation.rotation_id).exclude(statut__in=["annule", "retour"]).update(
+                vehicule=nom_vehicule, vehicule_matricule=matricule, nb_places_total=places,
+                conducteur=nom1, conducteur_personnel=c1, conducteur_secondaire=nom2, conducteur_secondaire_personnel=c2)
+        apres = f"{nom_vehicule} {matricule} / {nom1}" + (f" + {nom2}" if nom2 else "")
+        try:
+            from .suivi_views import _notifier_admins
+            from evenements.models import SimpleNotification
+            motif = (d.get("motif") or "").strip()[:200]
+            _notifier_admins(f"🔁 Convoi {rotation.rotation_id} modifié", f"{avant}  →  {apres}" + (f" · motif : {motif}" if motif else ""), type_notif="alerte" if suivi else "info")
+            for pers in (c1, c2):
+                if pers and pers.user_id:
+                    SimpleNotification.objects.create(user_id=pers.user_id, titre=f"🚐 Vous conduisez le convoi {rotation.rotation_id}",
+                                                      message=f"{rotation.origine or 'Camp'} → {rotation.destination or '?'} le {rotation.date_depart:%d/%m/%Y}.", type_notif="voyage")
+        except Exception:
+            pass
+        return Response({"ok": True, "rotation_id": rotation.rotation_id, "avant": avant, "apres": apres})
+
+    @action(detail=False, methods=["post"])
     def partir_rotation(self, request):
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
@@ -1637,6 +1737,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
         rotation_id = request.data.get("rotation_id")
         if not rotation_id:
             return Response({"error":"rotation_id requis"},status=400)
+        from .models import SuiviConvoi as _Suivi
+        if _Suivi.objects.filter(rotation__rotation_id=rotation_id).exists():
+            return Response({"error": "Ce convoi est déjà parti (départ enregistré par le chauffeur dans Ma conduite)."}, status=400)
         date_str = request.data.get("date_depart_reelle")
         date_reelle = datetime.date.fromisoformat(date_str) if date_str else None
         # Départ impossible tant qu'un voyageur n'a pas de décision : chacun doit être

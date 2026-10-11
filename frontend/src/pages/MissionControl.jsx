@@ -112,6 +112,8 @@ export default function MissionControl() {
   // résident) sélectionnés pour être rattachés à une rotation, et mode
   // d'organisation : nouvelle rotation OU compléter une rotation existante.
   const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
+  const [modifRot, setModifRot] = useState(null) // { r, vehicule_matricule, vehicule, conducteur_id, conducteur_secondaire_id, motif }
+  const [modifBusy, setModifBusy] = useState(false)
   const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
   const [organiserMode, setOrganiserMode] = useState('nouvelle')
   const { enCours, agir, envoyer } = useActionsMobilite(load)
@@ -559,6 +561,20 @@ export default function MissionControl() {
 
   // Voyageurs du convoi sans décision (ni validé ni refusé) : le départ reste bloqué.
   const sansDecision = r => (r?.passagers||[]).filter(p => p.statut==='planifie' && p.statut_validation==='en_attente')
+  const ouvrirModifRot = (r) => setModifRot({ r, vehicule_matricule: r.vehicule_matricule||'', vehicule: r.vehicule||'',
+    conducteur_id: String(r.conducteur_personnel_id||r.conducteur_personnel||''), conducteur_secondaire_id: String(r.conducteur_secondaire_personnel_id||r.conducteur_secondaire_personnel||''), motif:'' })
+  const enregistrerModifRot = async () => {
+    const m = modifRot; if (!m || modifBusy) return
+    setModifBusy(true)
+    try {
+      const body = { rotation_id: m.r.rotation_id, vehicule_matricule: m.vehicule_matricule, vehicule: m.vehicule, conducteur_secondaire_id: m.conducteur_secondaire_id||'', motif: m.motif }
+      if (m.conducteur_id) body.conducteur_id = m.conducteur_id
+      const res = await api('/api/voyages/modifier_rotation/',{method:'POST',body:JSON.stringify(body)})
+      const d = await res.json().catch(()=>({}))
+      if (!res.ok) { toast.error(d.error || 'Modification impossible', 8000); return }
+      flash('Convoi mis à jour 🔁'); setModifRot(null); load()
+    } catch(e) { flash('Erreur réseau', false) } finally { setModifBusy(false) }
+  }
   const partirRotation = async (rotId) => {
     try {
       const res = await api('/api/voyages/partir_rotation/',{method:'POST',body:JSON.stringify({rotation_id:rotId})})
@@ -1135,6 +1151,7 @@ export default function MissionControl() {
                         <div style={{display:'flex',gap:14,fontSize:11.5,color:C.muted,flexWrap:'wrap'}}>
                           <span>📅 {fmt(r.date_depart)}{r.heure_depart?` ${r.heure_depart.slice(0,5)}`:''}</span>
                           {r.point_rdv&&<span>📍 {r.point_rdv}</span>}
+                          {r.depart_reel_at&&<span>🚦 Parti à {new Date(r.depart_reel_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} (Ma conduite)</span>}
                         </div>
                         <div style={{display:'flex',gap:8,marginTop:2}}>
                           {r.statut!=='retour' && (
@@ -1143,6 +1160,8 @@ export default function MissionControl() {
                               📄 JMP
                             </button>
                           )}
+                          {isAdmin && r.statut!=='retour' && <button className="mc-btn" style={{flex:1,justifyContent:'center'}}
+                            onClick={e=>{e.stopPropagation();ouvrirModifRot(r)}}>🔁 Changer</button>}
                           {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center',...(sansDecision(r).length?{opacity:.45,cursor:'not-allowed'}:{})}}
                             disabled={sansDecision(r).length>0} title={sansDecision(r).length?`${sansDecision(r).length} demande(s) sans décision : validez ou refusez chaque voyageur`:undefined}
                             onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
@@ -1229,6 +1248,12 @@ export default function MissionControl() {
                           style={{padding:'6px 12px',fontSize:11}}
                           onClick={e=>{e.stopPropagation();retourRotation(r.rotation_id)}}>
                           {/camp/i.test(r.destination||'') && !/camp/i.test(r.origine||'') ? '🏠 Arrivé au camp' : '🏁 Arrivé'}
+                        </button>}
+                        {isAdmin && r.statut!=='retour' && <button className="mc-btn"
+                          style={{padding:'6px 10px',fontSize:11,background:`${C.accent}18`,color:C.accent}}
+                          title="Changer le chauffeur ou le véhicule (panne, indisponibilité)"
+                          onClick={e=>{e.stopPropagation();ouvrirModifRot(r)}}>
+                          🔁 Changer
                         </button>}
                         {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
@@ -1644,7 +1669,7 @@ export default function MissionControl() {
                         <SelectRecherche value={organiserForm.vehicule_matricule} onChange={e=>{
                             const vf = vehiculesDuParc(flotte, lireFleetLocale()).find(v=>v.matricule===e.target.value)
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
-                          }} style={inputStyle}>
+                          }} style={inputStyle} afficherIndisponibles>
                           <option value="">Sélectionner...</option>
                           {(() => {
                             // Dates du/des voyageur(s) sélectionné(s) : on retire les véhicules déjà réservés
@@ -2197,6 +2222,41 @@ export default function MissionControl() {
             </div>
           </div>
         )}
+
+        {modifRot && (() => {
+          const m = modifRot, r = m.r
+          const parc = vehiculesDuParc(flotte, lireFleetLocale())
+          const pris = v => v.matricule && v.matricule!==r.vehicule_matricule && vehiculeOccupe(v.matricule, rotations, r.date_depart, r.date_retour_prevue||r.date_depart, r.rotation_id)
+          return (
+          <div onClick={()=>setModifRot(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto'}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:4}}>🔁 Changer chauffeur / véhicule</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Convoi {r.rotation_id} · {r.origine||'Camp'} → {r.destination}{r.statut==='en_voyage'?' · en route : le chauffeur et les admins seront prévenus':''}</div>
+              <label style={labelStyle}>Véhicule</label>
+              <SelectRecherche value={m.vehicule_matricule} afficherIndisponibles style={inputStyle}
+                onChange={e=>{ const vf = parc.find(v=>v.matricule===e.target.value); setModifRot(x=>({...x,vehicule_matricule:e.target.value,vehicule:vf?.nom||x.vehicule})) }}>
+                <option value="">Sélectionner...</option>
+                {parc.map(v=><option key={v.id} value={v.matricule} disabled={!!pris(v)}>{v.nom} — {v.matricule||'sans immat.'} ({v.capacite} places){pris(v)?' — déjà sur un convoi à ces dates':''}</option>)}
+              </SelectRecherche>
+              <label style={{...labelStyle,marginTop:10}}>Chauffeur principal</label>
+              <SelectRecherche value={m.conducteur_id} style={inputStyle} onChange={e=>setModifRot(x=>({...x,conducteur_id:e.target.value}))}>
+                <option value="">Sélectionner...</option>
+                {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+              </SelectRecherche>
+              <label style={{...labelStyle,marginTop:10}}>2e chauffeur</label>
+              <SelectRecherche value={m.conducteur_secondaire_id} style={inputStyle} onChange={e=>setModifRot(x=>({...x,conducteur_secondaire_id:e.target.value}))}>
+                <option value="">Aucun (retirer)</option>
+                {personnel.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+              </SelectRecherche>
+              <label style={{...labelStyle,marginTop:10}}>Motif (facultatif)</label>
+              <input value={m.motif} onChange={e=>setModifRot(x=>({...x,motif:e.target.value}))} placeholder="Panne, malade, indisponible…" style={inputStyle}/>
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button className="mc-btn" style={{flex:1,justifyContent:'center'}} onClick={()=>setModifRot(null)}>Annuler</button>
+                <button className="mc-btn mc-btn-primary" disabled={modifBusy} style={{flex:1,justifyContent:'center'}} onClick={enregistrerModifRot}>{modifBusy?'…':'✓ Enregistrer'}</button>
+              </div>
+            </div>
+          </div>)
+        })()}
 
         {arriveeModal && (
           <div onClick={()=>setArriveeModal(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>

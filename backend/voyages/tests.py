@@ -826,3 +826,50 @@ class SuiviGpsRapportTests(TestCase):
         s = self.c.get(self.url("R-A")).json()["suivi"]
         self.assertTrue(s["position_ancienne"])
         self.assertGreaterEqual(s["position_age_s"], 600)
+
+
+class ModifierRotationEtStatutTests(TestCase):
+    """Changer chauffeur/véhicule d'un convoi (même en route) + statut rotation issu de Ma conduite."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("adm5", password="x", is_staff=True)
+        self.simple = User.objects.create_user("simple5", password="x")
+        self.uc = User.objects.create_user("chauf5", password="x")
+        self.p1 = Personnel.objects.create(nom="Un", prenom="Chauf", societe="ROXGOLD", user=self.uc)
+        self.p2 = Personnel.objects.create(nom="Deux", prenom="Chauf", societe="ROXGOLD")
+        self.p3 = Personnel.objects.create(nom="Trois", prenom="Chauf", societe="ROXGOLD")
+        d = datetime.date.today()
+        Rotation.objects.create(rotation_id="R-M", vehicule="BUS", vehicule_matricule="1111AA", nb_places_total=10, conducteur="Un Chauf",
+                                conducteur_personnel=self.p1, origine="Camp", destination="Abidjan", date_depart=d, date_retour_prevue=d)
+        Rotation.objects.create(rotation_id="R-N", vehicule="CAR", vehicule_matricule="2222BB", nb_places_total=10, conducteur="Trois Chauf",
+                                conducteur_personnel=self.p3, origine="Camp", destination="Abidjan", date_depart=d, date_retour_prevue=d)
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+
+    def post(self, body):
+        return self.c.post("/api/voyages/modifier_rotation/", {"rotation_id": "R-M", **body}, format="json")
+
+    def test_changer_chauffeur_et_vehicule(self):
+        r = self.post({"conducteur_id": self.p2.id, "vehicule_matricule": "3333CC", "vehicule": "PICKUP", "motif": "panne"})
+        self.assertEqual(r.status_code, 200, r.content)
+        rot = Rotation.objects.get(rotation_id="R-M")
+        self.assertEqual((rot.conducteur_personnel_id, rot.vehicule_matricule), (self.p2.id, "3333CC"))
+
+    def test_permissions_et_conflits(self):
+        c = APIClient(); c.force_authenticate(self.simple)
+        self.assertEqual(c.post("/api/voyages/modifier_rotation/", {"rotation_id": "R-M"}, format="json").status_code, 403)
+        self.assertEqual(self.post({"vehicule_matricule": "2222BB"}).status_code, 400)  # véhicule pris par R-N
+        self.assertEqual(self.post({"conducteur_id": self.p3.id}).status_code, 400)      # chauffeur pris par R-N
+
+    def test_convoi_en_route_modifiable_et_arrive_refuse(self):
+        suivi = SuiviConvoi.objects.create(rotation=Rotation.objects.get(rotation_id="R-M"), statut="en_route", chauffeur=self.uc,
+                                           depart_at=timezone.now()) if "chauffeur" in [f.name for f in SuiviConvoi._meta.fields] else \
+            SuiviConvoi.objects.create(rotation=Rotation.objects.get(rotation_id="R-M"), statut="en_route", depart_at=timezone.now())
+        self.assertEqual(self.post({"conducteur_id": self.p2.id}).status_code, 200)
+        SuiviConvoi.objects.filter(pk=suivi.pk).update(statut="arrive")
+        self.assertEqual(self.post({"conducteur_id": self.p2.id}).status_code, 400)
+
+    def test_partir_rotation_refuse_si_deja_parti_par_chauffeur(self):
+        SuiviConvoi.objects.create(rotation=Rotation.objects.get(rotation_id="R-M"), statut="en_route", depart_at=timezone.now())
+        r = self.c.post("/api/voyages/partir_rotation/", {"rotation_id": "R-M"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("déjà parti", r.json()["error"])

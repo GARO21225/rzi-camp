@@ -14,7 +14,7 @@ function aplatir(children, out = []) {
   return out
 }
 
-export default function SelectRecherche({ value, defaultValue, onChange, children, style, disabled, required, className, id }) {
+export default function SelectRecherche({ value, defaultValue, onChange, children, style, disabled, required, className, id, afficherIndisponibles }) {
   const uid = useId()
   const options = aplatir(children)
   const controle = value !== undefined
@@ -54,7 +54,7 @@ export default function SelectRecherche({ value, defaultValue, onChange, childre
         onFocus={(e) => { focus.current = true; e.target.select?.() }} onChange={saisie} onBlur={sortie}
         style={{ boxSizing: 'border-box', ...style }} />
       <datalist id={uid}>
-        {options.filter(o => o.value !== '' && !o.disabled).map(o => <option key={o.value} value={o.label} />)}
+        {options.filter(o => o.value !== '' && (afficherIndisponibles || !o.disabled)).map(o => <option key={o.value} value={o.label} />)}
       </datalist>
     </>
   )
