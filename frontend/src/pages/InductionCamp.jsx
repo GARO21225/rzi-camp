@@ -101,7 +101,7 @@ export default function InductionCamp() {
   // Vérification induction existante
   const [dejaComplete, setDejaComplete] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
-  const [allInductions,setAllInductions]= useState([])
+  const [resume,setResume] = useState(null)   // { total, termines, non_commences, lignes } — parcours Camp
   const isAdmin = user?.is_superuser || user?.is_staff || user?.profile?.role === 'admin'
   // Admin : arrive directement sur le suivi de toutes les inductions (il peut
   // basculer sur l'aperçu « participant ») ; un agent ne voit que SON parcours.
@@ -162,9 +162,9 @@ export default function InductionCamp() {
     checkExisting()
     // Si admin, charger toutes les inductions camp
     if (isAdmin) {
-      fetch(`${BASE}/api/induction-records/?page_size=200`, {
+      fetch(`${BASE}/api/induction-camp/resume/`, {
         headers: { Authorization: `Bearer ${tok()}` }
-      }).then(r=>r.json()).then(d => setAllInductions(d.results||d||[])).catch(()=>{})
+      }).then(r=>r.json()).then(d => setResume(d && d.lignes ? d : null)).catch(()=>{})
     }
   }, [])
 
@@ -446,17 +446,16 @@ export default function InductionCamp() {
           <h1 style={{fontSize:20,fontWeight:800,margin:0}}>🏕️ Induction Camp — Vue Admin</h1>
           <span style={{marginLeft:'auto',background:'rgba(240,165,0,.2)',color:'#ffd97a',
             padding:'4px 12px',borderRadius:99,fontSize:12,fontWeight:600}}>
-            {allInductions.length} dossier(s)
+            {resume?.total ?? 0} résident(s) avec compte
           </span>
         </div>
 
-        {/* KPIs */}
+        {/* KPIs — source : parcours Induction Camp (signature enregistrée), pas le suivi QHSE */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
           {[
-            {l:'Total',v:allInductions.length,c:'#60a5fa'},
-            {l:'Validés',v:allInductions.filter(r=>r.statut==='valide').length,c:'#34d399'},
-            {l:'En cours',v:allInductions.filter(r=>r.statut==='en_cours').length,c:'#fbbf24'},
-            {l:'Non commencé',v:allInductions.filter(r=>!r.statut||r.statut==='').length,c:'#f87171'},
+            {l:'Résidents',v:resume?.total ?? 0,c:'#60a5fa'},
+            {l:'Terminé',v:resume?.termines ?? 0,c:'#34d399'},
+            {l:'Non commencé',v:resume?.non_commences ?? 0,c:'#f87171'},
           ].map(k=>(
             <div key={k.l} style={{background:'rgba(255,255,255,.05)',borderRadius:12,
               padding:'14px 16px',borderLeft:`3px solid ${k.c}`}}>
@@ -466,138 +465,25 @@ export default function InductionCamp() {
           ))}
         </div>
 
-        {/* Liste */}
-        {isMobile ? (
-          <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {allInductions.length===0 && (
-              <div style={{padding:30,textAlign:'center',color:'#64748b',background:'rgba(255,255,255,.04)',borderRadius:12}}>
-                Aucune induction enregistrée
+        <div style={{background:'rgba(255,255,255,.04)',borderRadius:12,overflow:'hidden',border:'1px solid rgba(255,255,255,.08)'}}>
+          {(resume?.lignes||[]).length===0 && (
+            <div style={{padding:30,textAlign:'center',color:'#64748b'}}>Aucun résident avec compte</div>
+          )}
+          {(resume?.lignes||[]).map(l=>(
+            <div key={l.personnel_id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+              <div style={{flex:'1 1 160px',minWidth:0}}>
+                <div style={{fontWeight:700,color:'#e2eaf6',fontSize:13.5}}>{l.nom}</div>
+                {l.societe && <div style={{fontSize:11,color:'#64748b'}}>{l.societe}</div>}
               </div>
-            )}
-            {allInductions.map(r=>{
-              const pct = r.progression || 0
-              const statusColor = r.statut==='valide'?'#34d399':r.statut==='en_cours'?'#fbbf24':'#64748b'
-              return (
-                <div key={r.id} style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',borderRadius:14,padding:'12px 13px',display:'flex',flexDirection:'column',gap:7}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <span style={{fontWeight:700,color:'#e2eaf6',fontSize:13.5}}>{r.personnel_nom || `Personnel #${r.personnel}`}</span>
-                    <span style={{background:`${statusColor}20`,color:statusColor,padding:'2px 9px',borderRadius:99,fontSize:10.5,fontWeight:700}}>
-                      {r.statut==='valide'?'✓ Validé':r.statut==='en_cours'?'En cours':'—'}
-                    </span>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{height:5,flex:1,background:'rgba(255,255,255,.1)',borderRadius:99,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${pct}%`,borderRadius:99,background:pct===100?'#34d399':pct>50?'#fbbf24':'#64748b'}}/>
-                    </div>
-                    <span style={{fontSize:11,color:'#94a3b8',fontFamily:'monospace'}}>{pct}%</span>
-                  </div>
-                  <p style={{margin:0,fontSize:11.5,color:'#94a3b8'}}>
-                    {r.etapes_data?.appareils?.length||0} appareil(s) · {r.date_validation
-                      ? new Date(r.date_validation).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})
-                      : r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'}
-                  </p>
-                  {r.statut!=='valide' && (
-                    <button onClick={async()=>{
-                        await fetch(`${BASE}/api/induction-records/${r.id}/`, {
-                          method:'PATCH',
-                          headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
-                          body: JSON.stringify({statut:'valide'})
-                        })
-                        const d2 = await fetch(`${BASE}/api/induction-records/?page_size=200`,
-                          {headers:{Authorization:`Bearer ${tok()}`}}).then(r=>r.json())
-                        setAllInductions(d2.results||d2||[])
-                      }}
-                      style={{background:'rgba(52,211,153,.15)',color:'#10b981',
-                        border:'1px solid rgba(52,211,153,.3)',borderRadius:8,
-                        padding:'8px 12px',fontSize:12,cursor:'pointer',fontWeight:700}}>
-                      ✓ Valider
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-        <div style={{background:'rgba(255,255,255,.04)',borderRadius:12,overflow:'hidden',
-          border:'1px solid rgba(255,255,255,.08)'}}>
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-              <thead>
-                <tr style={{background:'rgba(255,255,255,.06)'}}>
-                  {['Personnel','Statut','Progression','Appareils','Date','Actions'].map(h=>(
-                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,
-                      fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:.5,
-                      borderBottom:'1px solid rgba(255,255,255,.08)',whiteSpace:'nowrap'}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {allInductions.map((r,i)=>{
-                  const pct = r.progression || 0
-                  const statusColor = r.statut==='valide'?'#34d399':r.statut==='en_cours'?'#fbbf24':'#64748b'
-                  return (
-                    <tr key={r.id} style={{borderBottom:'1px solid rgba(255,255,255,.04)'}}>
-                      <td style={{padding:'10px 14px',fontWeight:600,color:'#e2eaf6'}}>
-                        {r.personnel_nom || `Personnel #${r.personnel}`}
-                      </td>
-                      <td style={{padding:'10px 14px'}}>
-                        <span style={{background:`${statusColor}20`,color:statusColor,
-                          padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                          {r.statut==='valide'?'✓ Validé':r.statut==='en_cours'?'En cours':'—'}
-                        </span>
-                      </td>
-                      <td style={{padding:'10px 14px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{height:5,width:80,background:'rgba(255,255,255,.1)',
-                            borderRadius:99,overflow:'hidden',flexShrink:0}}>
-                            <div style={{height:'100%',width:`${pct}%`,borderRadius:99,
-                              background:pct===100?'#34d399':pct>50?'#fbbf24':'#64748b'}}/>
-                          </div>
-                          <span style={{fontSize:11,color:'#94a3b8',fontFamily:'monospace'}}>{pct}%</span>
-                        </div>
-                      </td>
-                      <td style={{padding:'10px 14px',color:'#94a3b8',fontSize:12}}>
-                        {r.etapes_data?.appareils?.length||0} déclaré(s)
-                      </td>
-                      <td style={{padding:'10px 14px',color:'#64748b',fontSize:11,whiteSpace:'nowrap'}}>
-                        {r.date_validation
-                          ? new Date(r.date_validation).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})
-                          : r.created_at
-                          ? new Date(r.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})
-                          : '—'}
-                      </td>
-                      <td style={{padding:'10px 14px'}}>
-                        {r.statut!=='valide' && (
-                          <button onClick={async()=>{
-                              await fetch(`${BASE}/api/induction-records/${r.id}/`, {
-                                method:'PATCH',
-                                headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
-                                body: JSON.stringify({statut:'valide'})
-                              })
-                              const d2 = await fetch(`${BASE}/api/induction-records/?page_size=200`,
-                                {headers:{Authorization:`Bearer ${tok()}`}}).then(r=>r.json())
-                              setAllInductions(d2.results||d2||[])
-                            }}
-                            style={{background:'rgba(52,211,153,.15)',color:'#10b981',
-                              border:'1px solid rgba(52,211,153,.3)',borderRadius:7,
-                              padding:'4px 10px',fontSize:11,cursor:'pointer',fontWeight:600}}>
-                            ✓ Valider
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {allInductions.length===0 && (
-                  <tr><td colSpan={6} style={{padding:30,textAlign:'center',color:'#64748b'}}>
-                    Aucune induction enregistrée
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              <span style={{background:l.complete?'rgba(52,211,153,.15)':'rgba(100,116,139,.2)',color:l.complete?'#34d399':'#94a3b8',padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
+                {l.complete?'✓ Terminé':'Non commencé'}
+              </span>
+              <span style={{fontSize:11.5,color:'#94a3b8',minWidth:110,textAlign:'right'}}>
+                {l.complete ? `${l.appareils} appareil(s) · ${new Date(l.date_completion).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})}` : '—'}
+              </span>
+            </div>
+          ))}
         </div>
-        )}
       </div>
     </div>
   )

@@ -5,6 +5,16 @@ import SelectRecherche from '../components/SelectRecherche'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import { BASE, tok, hdrs, api } from '../features/mobility/services/mobilityApi'
 import { useMobilityData } from '../features/mobility/hooks/useMobilityData'
+import { C, ST_CFG } from '../features/mobility/utils/theme'
+import { vehiculeOccupe, conducteurOccupe, personnelOccupe } from '../features/mobility/utils/conflits'
+import { fmt, toISO, addDays } from '../features/mobility/utils/format'
+import { Panel, Label, Kpi, Badge, StatusBadge, LiveDot, Clock } from '../features/mobility/components/ui'
+import { VueCalendrierMC } from '../features/mobility/components/MobilityCalendar'
+import { FlowMap } from '../features/mobility/components/FlowMap'
+import { SeatMap } from '../features/mobility/components/SeatMap'
+import { GanttBar } from '../features/mobility/components/MobilityGantt'
+import { MobilityNav, MobilitySubNav } from '../features/mobility/components/MobilityNav'
+import { vehiculesDuParc, lireFleetLocale } from '../features/mobility/utils/parcVehicules'
 import MobilityOverview from '../features/mobility/components/MobilityOverview'
 import ImportListePassagers from '../components/ImportListePassagers'
 import { messageJour, joursPour, libelleJours } from '../utils/itineraires'
@@ -19,20 +29,6 @@ import { useStore } from '../store'
 // remplace l'ancien thème "mission control" sombre quasi-noir. Toutes les
 // 200 références C.xxx du fichier basculent automatiquement via cet objet
 // unique, sans toucher au reste du code.
-const C = {
-  bg:     '#F4F6F9',
-  panel:  '#FFFFFF',
-  border: 'rgba(15,26,46,.10)',
-  glow:   'rgba(201,151,43,.28)',
-  text:   '#0F1A2E',
-  muted:  '#5B6472',
-  accent: '#C9972B',
-  green:  '#16A34A',
-  amber:  '#D4A017',
-  red:    '#DC2626',
-  purple: '#7C3AED',
-  cyan:   '#0891B2',
-}
 
 // Filtre le catalogue "véhicule du parc" selon le mode de transport choisi
 const CATEGORIES_PAR_MODE = {
@@ -54,66 +50,6 @@ const filtrerFlotteParMode = (flotte, mode) => {
   const cats = CATEGORIES_PAR_MODE[mode]
   if (!cats || cats.length === 0) return flotte
   return flotte.filter(v => cats.includes(v.categorie))
-}
-
-// Detection de chevauchement de dates cote frontend — pour retirer les
-// ressources deja occupees (vehicule, conducteur, personnel) DIRECTEMENT
-// des selecteurs a la creation d'une rotation, au lieu de laisser
-// l'utilisateur les choisir puis echouer a la soumission avec un message
-// d'erreur ("Ce vehicule est deja affecte...", "X ne peut pas etre a la
-// fois conducteur principal et second chauffeur..."). Le backend GARDE ces
-// controles (defense en profondeur, notamment pour la creation via API
-// directe), mais l'utilisateur ne devrait plus jamais les voir en pratique
-// dans ce formulaire.
-const STATUTS_ROTATION_ACTIFS = ['planifie', 'en_voyage']
-const datesChevauchent = (debutA, finA, debutB, finB) => {
-  if (!debutA || !finA || !debutB || !finB) return false
-  return debutA <= finB && finA >= debutB
-}
-
-// Rotations actives (statut derive cote backend) dont la periode croise
-// celle demandee — sert de base commune aux 3 controles (vehicule,
-// conducteur principal, second chauffeur). excludeRotationId permet
-// d'ignorer la rotation en cours de modification, le cas echeant.
-const rotationsEnConflit = (rotations, dateDepart, dateRetour, excludeRotationId) =>
-  (rotations||[]).filter(r =>
-    r.rotation_id !== excludeRotationId &&
-    STATUTS_ROTATION_ACTIFS.includes(r.statut) &&
-    datesChevauchent(dateDepart, dateRetour, r.date_depart, r.date_retour_prevue)
-  )
-
-const vehiculeOccupe = (matricule, rotations, dateDepart, dateRetour, excludeRotationId) => {
-  if (!matricule) return null
-  return rotationsEnConflit(rotations, dateDepart, dateRetour, excludeRotationId)
-    .find(r => (r.vehicule_matricule||'').trim().toLowerCase() === matricule.trim().toLowerCase()) || null
-}
-
-const conducteurOccupe = (nomComplet, rotations, dateDepart, dateRetour, excludeRotationId) => {
-  if (!nomComplet) return null
-  const cible = nomComplet.trim().toLowerCase()
-  return rotationsEnConflit(rotations, dateDepart, dateRetour, excludeRotationId)
-    .find(r => (r.conducteur||'').trim().toLowerCase()===cible || (r.conducteur_secondaire||'').trim().toLowerCase()===cible) || null
-}
-
-// Personnel deja engage sur un AUTRE voyage actif (planifie/en_voyage) qui
-// chevauche la periode demandee — meme regle que la validation backend
-// (VoyageSerializer.validate), appliquee ici en amont pour retirer la
-// personne de la liste des passagers cochables plutot que de la laisser
-// dans la liste "exclus" renvoyee apres coup par creer_rotation.
-const personnelOccupe = (personnelId, voyages, dateDepart, dateRetour) => {
-  if (!personnelId || !dateDepart) return null
-  return (voyages||[]).find(v =>
-    v.personnel === personnelId &&
-    ['planifie','en_voyage'].includes(v.statut) &&
-    datesChevauchent(dateDepart, dateRetour||dateDepart, v.date_depart, v.date_retour_prevue||v.date_depart)
-  ) || null
-}
-
-const ST_CFG = {
-  planifie:  { l:'Planifié',     c:C.accent,  dot:'#C9972B' },
-  en_voyage: { l:'En transit',   c:C.amber,   dot:C.amber   },
-  retour:    { l:'Arrivé',       c:C.green,   dot:C.green   },
-  annule:    { l:'Annulé',       c:C.red,     dot:C.red     },
 }
 
 // Modes de déplacement scindés: Terrestre / Aérien
@@ -152,339 +88,7 @@ const VEHICULES_LIST = Object.entries(MODES_DEPLACEMENT).flatMap(([mode, cat]) =
 )
 const TYPE_VEH = Object.values(MODES_DEPLACEMENT).flatMap(cat => cat.vehicules)
 
-function fmt(iso, opts={day:'2-digit',month:'short'}) {
-  return iso ? new Date(iso).toLocaleDateString('fr-FR', opts) : '—'
-}
-function toISO(d) { return d.toISOString().slice(0,10) }
-function addDays(d, n) { const r=new Date(d); r.setDate(r.getDate()+n); return r }
 
-// ── Micro composants UI ─────────────────────────────────────────────
-function Panel({ children, style={}, glow=false }) {
-  return (
-    <div style={{
-      background: C.panel,
-      border: `0.5px solid ${glow ? C.glow : C.border}`,
-      borderRadius: 12,
-      position: 'relative',
-      overflow: 'hidden',
-      ...style
-    }}>
-      <div style={{position:'absolute',top:0,left:0,right:0,height:1,
-        background:`linear-gradient(90deg,transparent,${glow?C.glow:C.border},transparent)`}}/>
-      {children}
-    </div>
-  )
-}
-
-function Label({ children, style={} }) {
-  return (
-    <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:9,fontWeight:600,
-      letterSpacing:1.5,textTransform:'uppercase',color:C.muted,
-      marginBottom:8,display:'flex',alignItems:'center',gap:6,...style}}>
-      <span style={{display:'inline-block',width:3,height:10,
-        background:C.accent,borderRadius:2,flexShrink:0}}/>
-      {children}
-    </div>
-  )
-}
-
-function Kpi({ icon, label, value, color=C.accent, sub, glow=false }) {
-  return (
-    <Panel glow={glow} style={{padding:'14px 16px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-        <div>
-          <Label>{label}</Label>
-          <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:30,
-            fontWeight:700,color,lineHeight:1}}>{value}</div>
-          {sub && <div style={{fontSize:10,color:C.muted,marginTop:4}}>{sub}</div>}
-        </div>
-        <div style={{fontSize:22,opacity:.6}}>{icon}</div>
-      </div>
-    </Panel>
-  )
-}
-
-function Badge({ children, color=C.accent, small=false }) {
-  return (
-    <span style={{
-      background: color + '18', color,
-      border: `0.5px solid ${color}40`,
-      padding: small ? '2px 7px' : '3px 10px',
-      borderRadius: 99,
-      fontSize: small ? 9 : 10,
-      fontWeight: 700,
-      letterSpacing: .3,
-      display:'inline-flex', alignItems:'center', gap:3,
-      whiteSpace:'nowrap',
-    }}>{children}</span>
-  )
-}
-
-function StatusBadge({ statut, allerSeul=false }) {
-  const cfg = ST_CFG[statut] || ST_CFG.planifie
-  // BUG REEL CORRIGE ICI : "Retour camp" ne veut rien dire pour un trajet
-  // ALLER SEUL (trajet_aller_seul) - il n'y a justement pas de retour dans
-  // ce cas (voir Voyage.revenir(), qui saute la restitution de chambre),
-  // le meme statut "retour" signifie simplement "arrivé à destination".
-  const label = (statut==='retour' && allerSeul) ? 'Arrivé' : cfg.l
-  return <Badge color={cfg.c}>{label}</Badge>
-}
-
-function LiveDot({ color=C.green }) {
-  return (
-    <span style={{width:6,height:6,borderRadius:'50%',background:color,
-      display:'inline-block',flexShrink:0,
-      boxShadow:`0 0 6px ${color}`,
-      animation:'mcPulse 1.4s ease-in-out infinite'}}/>
-  )
-}
-
-// ── Clock ───────────────────────────────────────────────────────────
-function Clock() {
-  const [t, setT] = useState('')
-  useEffect(() => {
-    const tick = () => {
-      const n = new Date()
-      const day = n.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})
-      const time = [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':')
-      setT(`${day} · ${time}`)
-    }
-    tick(); const iv = setInterval(tick,1000); return ()=>clearInterval(iv)
-  },[])
-  return <span style={{fontFamily:'JetBrains Mono,monospace',fontSize:12,color:C.text,letterSpacing:1}}>{t}</span>
-}
-
-// ── Vue calendrier — départs/retours du mois, façon agence de voyage ──
-function VueCalendrierMC({ voyages, mois, setMois, onSelect }) {
-  const annee = mois.getFullYear(), moisIdx = mois.getMonth()
-  const premierJour = new Date(annee, moisIdx, 1)
-  const nbJours = new Date(annee, moisIdx + 1, 0).getDate()
-  const decalage = (premierJour.getDay() + 6) % 7
-
-  const parJour = {}
-  voyages.forEach(v => {
-    if (v.date_depart) { parJour[v.date_depart] = parJour[v.date_depart] || { departs: [], retours: [] }; parJour[v.date_depart].departs.push(v) }
-    if (v.date_retour_prevue) { parJour[v.date_retour_prevue] = parJour[v.date_retour_prevue] || { departs: [], retours: [] }; parJour[v.date_retour_prevue].retours.push(v) }
-  })
-
-  const cases = []
-  for (let i = 0; i < decalage; i++) cases.push(null)
-  for (let j = 1; j <= nbJours; j++) cases.push(j)
-  const fmtDate = (j) => `${annee}-${String(moisIdx+1).padStart(2,'0')}-${String(j).padStart(2,'0')}`
-
-  return (
-    <Panel style={{padding:18}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-        <button className="mc-btn" onClick={()=>setMois(new Date(annee,moisIdx-1,1))}>←</button>
-        <div style={{fontFamily:'JetBrains Mono,monospace',fontWeight:700,fontSize:14,color:C.accent,textTransform:'capitalize'}}>
-          {mois.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}
-        </div>
-        <button className="mc-btn" onClick={()=>setMois(new Date(annee,moisIdx+1,1))}>→</button>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,fontSize:10,fontWeight:700,color:C.muted,textTransform:'uppercase',marginBottom:6}}>
-        {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(j=><div key={j} style={{textAlign:'center'}}>{j}</div>)}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
-        {cases.map((j,i) => {
-          if (!j) return <div key={i}/>
-          const dateStr = fmtDate(j)
-          const info = parJour[dateStr]
-          const isToday = dateStr === toISO(new Date())
-          return (
-            <div key={i} style={{minHeight:68,border:`1px solid ${isToday?C.accent:C.border}`,borderRadius:8,padding:4,fontSize:10,background:isToday?`${C.accent}0a`:C.panel}}>
-              <div style={{fontWeight:700,color:isToday?C.accent:C.muted,marginBottom:2}}>{j}</div>
-              {info?.departs.slice(0,2).map(v=>(
-                <div key={'d'+v.id} onClick={()=>onSelect(v)} title={`Départ — ${v.personnel_nom||''}`}
-                  style={{background:`${C.orange||'#f97316'}18`,color:C.orange||'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  🧳 {v.personnel_nom||v.destination}
-                </div>
-              ))}
-              {info?.retours.slice(0,2).map(v=>(
-                <div key={'r'+v.id} onClick={()=>onSelect(v)} title={`Retour — ${v.personnel_nom||''}`}
-                  style={{background:`${C.green}18`,color:C.green,borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  🏠 {v.personnel_nom||v.destination}
-                </div>
-              ))}
-            </div>
-          )
-        })}
-      </div>
-    </Panel>
-  )
-}
-
-// ── Flow SVG animé ──────────────────────────────────────────────────
-function FlowMap({ stats }) {
-  const dep = stats.planifies || 0
-  const en  = stats.en_voyage || 0
-  const ret = stats.retours   || 0
-  return (
-    <div style={{position:'relative',height:180}}>
-      <svg viewBox="0 0 320 180" style={{width:'100%',height:'100%'}} aria-label="Carte flux rotations">
-        <defs>
-          <filter id="glow-gold"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="glow-green"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-
-        {/* Villes */}
-        {/* Abidjan */}
-        <circle cx="40" cy="90" r="12" fill="rgba(201,151,43,.12)" stroke="#e0b04d" strokeWidth="1.5" filter="url(#glow-gold)"/>
-        <circle cx="40" cy="90" r="4" fill="#e0b04d"/>
-        <text x="40" y="114" textAnchor="middle" fontSize="8" fill={C.muted} fontFamily="JetBrains Mono" letterSpacing="0.5">ABIDJAN</text>
-
-        {/* Camp */}
-        <circle cx="200" cy="70" r="16" fill="rgba(201,151,43,.2)" stroke="#e0b04d" strokeWidth="2" filter="url(#glow-gold)"/>
-        <circle cx="200" cy="70" r="5" fill="#e0b04d"/>
-        <circle cx="200" cy="70" r="20" fill="none" stroke="rgba(201,151,43,.25)" strokeWidth="1">
-          <animate attributeName="r" values="16;24;16" dur="2.5s" repeatCount="indefinite"/>
-          <animate attributeName="opacity" values=".5;0;.5" dur="2.5s" repeatCount="indefinite"/>
-        </circle>
-        <text x="200" y="54" textAnchor="middle" fontSize="9" fill={C.accent} fontFamily="JetBrains Mono" fontWeight="700">CAMP</text>
-
-        {/* Mine */}
-        <circle cx="280" cy="130" r="10" fill="rgba(251,191,36,.12)" stroke={C.amber} strokeWidth="1.5"/>
-        <circle cx="280" cy="130" r="3" fill={C.amber}/>
-        <text x="280" y="150" textAnchor="middle" fontSize="8" fill={C.muted} fontFamily="JetBrains Mono" letterSpacing="0.5">MINE</text>
-
-        {/* Aéroport */}
-        <circle cx="60" cy="30" r="8" fill="rgba(34,211,238,.1)" stroke={C.cyan} strokeWidth="1.2"/>
-        <circle cx="60" cy="30" r="2.5" fill={C.cyan}/>
-        <text x="60" y="18" textAnchor="middle" fontSize="7" fill={C.muted} fontFamily="JetBrains Mono">AÉROPORT</text>
-
-        {/* Flux Abidjan → Camp */}
-        <path d="M 52 90 Q 120 55 188 70" stroke="rgba(201,151,43,.2)" strokeWidth="1.5" fill="none" strokeDasharray="4 3"/>
-        {dep > 0 && <>
-          <circle r="3.5" fill={C.accent} opacity=".9" filter="url(#glow-gold)">
-            <animateMotion dur="2.8s" repeatCount="indefinite" path="M 52 90 Q 120 55 188 70"/>
-          </circle>
-          <circle r="3.5" fill={C.accent} opacity=".5">
-            <animateMotion dur="2.8s" begin="1.4s" repeatCount="indefinite" path="M 52 90 Q 120 55 188 70"/>
-          </circle>
-        </>}
-        {/* Badge départs */}
-        <rect x="88" y="56" width="36" height="14" rx="3" fill="rgba(201,151,43,.15)" stroke="rgba(201,151,43,.3)" strokeWidth="0.5"/>
-        <text x="106" y="66" textAnchor="middle" fontSize="8" fill={C.accent} fontFamily="JetBrains Mono" fontWeight="700">{dep} dép.</text>
-
-        {/* Flux Camp → Mine */}
-        <path d="M 210 78 Q 250 90 272 128" stroke="rgba(251,191,36,.15)" strokeWidth="1.5" fill="none" strokeDasharray="4 3"/>
-        {en > 0 && <circle r="3" fill={C.amber} opacity=".85">
-          <animateMotion dur="3.5s" repeatCount="indefinite" path="M 210 78 Q 250 90 272 128"/>
-        </circle>}
-
-        {/* Flux Retour Camp → Abidjan */}
-        <path d="M 188 76 Q 120 80 52 96" stroke="rgba(52,211,153,.12)" strokeWidth="1" fill="none" strokeDasharray="3 4"/>
-        {ret > 0 && <circle r="2.5" fill={C.green} opacity=".8">
-          <animateMotion dur="3.8s" begin="1.5s" repeatCount="indefinite" path="M 188 76 Q 120 80 52 96"/>
-        </circle>}
-
-        {/* Aéroport → Camp */}
-        <path d="M 66 32 Q 130 28 188 65" stroke="rgba(34,211,238,.12)" strokeWidth="1" fill="none" strokeDasharray="3 5"/>
-        <circle r="2.5" fill={C.cyan} opacity=".7">
-          <animateMotion dur="4.5s" begin="2s" repeatCount="indefinite" path="M 66 32 Q 130 28 188 65"/>
-        </circle>
-      </svg>
-
-      {/* Stats overlay */}
-      <div style={{position:'absolute',bottom:0,left:0,right:0,
-        display:'flex',gap:8,justifyContent:'center'}}>
-        {[{l:'Départs',v:dep,c:C.accent},{l:'En route',v:en,c:C.amber},{l:'Retours',v:ret,c:C.green}].map(k=>(
-          <div key={k.l} style={{background:`${k.c}12`,border:`0.5px solid ${k.c}30`,
-            borderRadius:6,padding:'5px 10px',textAlign:'center',minWidth:60}}>
-            <div style={{fontFamily:'JetBrains Mono,monospace',fontSize:16,fontWeight:700,color:k.c}}>{k.v}</div>
-            <div style={{fontSize:8,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>{k.l}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Seat Map ────────────────────────────────────────────────────────
-function SeatMap({ total=15, passagers=[], onBook, canBook=true }) {
-  return (
-    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-      {Array.from({length:total},(_,i)=>{
-        const p = passagers[i]
-        return (
-          <div key={i}
-            onClick={()=>!p && canBook && onBook && onBook(i)}
-            title={p ? `${p.personnel__nom||''} ${p.personnel__prenom||''}` : 'Siège libre'}
-            style={{
-              width:24,height:24,borderRadius:5,
-              background: p ? `${C.accent}22` : 'transparent',
-              border: `1.5px solid ${p ? C.accent : C.border}`,
-              cursor: !p && canBook ? 'pointer' : 'default',
-              display:'flex',alignItems:'center',justifyContent:'center',
-              fontSize:8,fontWeight:700,
-              color: p ? C.accent : C.muted,
-              transition:'all .15s',
-            }}
-            onMouseEnter={e=>!p&&canBook&&(e.currentTarget.style.borderColor=C.green,e.currentTarget.style.background=`${C.green}15`)}
-            onMouseLeave={e=>!p&&(e.currentTarget.style.borderColor=C.border,e.currentTarget.style.background='transparent')}>
-            {p ? '●' : '○'}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Gantt Bar ───────────────────────────────────────────────────────
-function GanttBar({ voyage, days, onClick }) {
-  const cfg = ST_CFG[voyage.statut] || ST_CFG.planifie
-  const dep = voyage.date_depart || ''
-  const ret = voyage.date_retour_prevue || dep
-  return (
-    <tr style={{borderBottom:`1px solid ${C.border}`}}
-      onMouseEnter={e=>e.currentTarget.style.background='rgba(201,151,43,.04)'}
-      onMouseLeave={e=>e.currentTarget.style.background=''}>
-      <td style={{padding:'7px 12px',minWidth:160,maxWidth:180,
-        position:'sticky',left:0,background:C.panel,zIndex:1}}>
-        <div style={{fontWeight:600,fontSize:12,color:C.text,
-          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-          {voyage.personnel_nom || voyage.personnel__nom || '—'}
-        </div>
-        <div style={{fontSize:9,color:C.muted,marginTop:1}}>
-          {voyage.vehicule || voyage.destination || '—'}
-        </div>
-      </td>
-      {days.map((day,i)=>{
-        const iso = toISO(day)
-        const isOn = iso >= dep && iso <= ret
-        const isDep = iso === dep
-        const isRet = iso === ret
-        const isTod = iso === toISO(new Date())
-        return (
-          <td key={i} style={{padding:0,width:32,minWidth:32,
-            background:isTod?'rgba(201,151,43,.06)':'transparent',
-            borderLeft:`1px solid ${isTod?C.accent+'40':C.border}`}}>
-            {isOn ? (
-              <div onClick={()=>onClick(voyage)}
-                style={{
-                  height:26,margin:'2px 1px',
-                  background: isDep||isRet ? cfg.c : cfg.c+'20',
-                  borderRadius: isDep ? '5px 0 0 5px' : isRet ? '0 5px 5px 0' : 0,
-                  display:'flex',alignItems:'center',justifyContent:'center',
-                  cursor:'pointer',fontSize:11,fontWeight:700,
-                  color: isDep||isRet ? '#fff' : cfg.c,
-                  boxShadow: isDep ? `0 0 6px ${cfg.c}60` : 'none',
-                }}>
-                {isDep ? '↗' : isRet ? '↙' : ''}
-              </div>
-            ) : <div style={{height:26,margin:'2px 1px'}}/>}
-          </td>
-        )
-      })}
-      <td style={{padding:'7px 10px',whiteSpace:'nowrap'}}>
-        <StatusBadge statut={voyage.statut} allerSeul={voyage.trajet_aller_seul}/>
-      </td>
-    </tr>
-  )
-}
-
-// ════════════════════════════════════════════════════════════════════
-// COMPOSANT PRINCIPAL
-// ════════════════════════════════════════════════════════════════════
 export default function MissionControl() {
   const isMobile = useIsMobile()
   const motifsMobilite = useMotifsMobilite()
@@ -1010,6 +614,10 @@ export default function MissionControl() {
   const todayStr = today
   const departs  = voyages.filter(v=>v.date_depart===todayStr)
   const retours  = voyages.filter(v=>v.date_retour_prevue===todayStr && v.statut==='en_voyage')
+  const badgesNav = {
+    validations: voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length,
+    organiser: demandesAOrganiser.length + voyages.filter(x=>!x.rotation_id && !x.vehicule_personnel && ['planifie','en_voyage'].includes(x.statut) && !demandesAOrganiser.some(d=>d.voyage_id===x.id)).length,
+  }
   const absents  = voyages.filter(v=>v.statut==='en_voyage')
 
   // CSS global
@@ -1099,39 +707,8 @@ export default function MissionControl() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div style={{display:'flex',gap:4,background:`rgba(201,151,43,.05)`,
-            borderRadius:10,padding:4,
-            flexWrap:isMobile?'nowrap':'wrap',
-            overflowX:isMobile?'auto':'visible',
-            width:isMobile?'100%':'auto',
-            WebkitOverflowScrolling:'touch'}}>
-            {[
-              ['apercu','🏠 Vue d\'ensemble'],
-              ['command','🛰️ Command'],
-              ...(isAdmin ? [['direct','📡 En direct']] : []),
-              ['rotations','🚀 Rotations'],
-              ...(isAdmin ? [['organiser','📋 À organiser']] : []),
-              ['gantt','📅 Gantt'],
-              ['manifest','📋 Manifest'],
-              ['calendrier','🗓️ Calendrier'],
-              ...(isAdmin ? [['validations','✅ Validations']] : []),
-              ['liste','🎫 Tous les voyages'],
-            ].map(([v,l])=>{
-              const nbPending = v==='validations' ? (voyages.filter(x=>x.statut_validation==='en_attente').length + demandesVoyageEnAttente.length) : (v==='organiser' ? demandesAOrganiser.length + voyages.filter(x=>!x.rotation_id && !x.vehicule_personnel && ['planifie','en_voyage'].includes(x.statut) && !demandesAOrganiser.some(d=>d.voyage_id===x.id)).length : 0)
-              return (
-                <button key={v} className={`mc-tab ${view===v?'active':''}`}
-                  onClick={()=>setView(v)} style={{position:'relative',flexShrink:0}}>
-                  {l}
-                  {nbPending > 0 && (
-                    <span style={{position:'absolute',top:-6,right:-6,background:C.red,color:'#fff',
-                      borderRadius:99,fontSize:9,fontWeight:800,minWidth:16,height:16,display:'flex',
-                      alignItems:'center',justifyContent:'center',padding:'0 3px'}}>{nbPending}</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          {/* Espaces (navigation) */}
+          <MobilityNav view={view} setView={setView} isAdmin={isAdmin} isMobile={isMobile} badges={badgesNav}/>
 
           <div style={{display:'flex',alignItems:'center',gap:14}}>
             <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,
@@ -1146,6 +723,8 @@ export default function MissionControl() {
             )}
           </div>
         </div>
+
+        <MobilitySubNav view={view} setView={setView} isAdmin={isAdmin} badges={badgesNav}/>
 
         {echecs.length > 0 && (
           <div style={{margin:'0 0 12px',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'8px 12px',fontSize:12,color:'#991B1B',display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -2059,7 +1638,7 @@ export default function MissionControl() {
                       <div>
                         <label style={labelStyle}>Véhicule *</label>
                         <SelectRecherche value={organiserForm.vehicule_matricule} onChange={e=>{
-                            const vf = flotte.find(v=>v.matricule===e.target.value)
+                            const vf = vehiculesDuParc(flotte, lireFleetLocale()).find(v=>v.matricule===e.target.value)
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
                           }} style={inputStyle}>
                           <option value="">Sélectionner...</option>
@@ -2077,8 +1656,10 @@ export default function MissionControl() {
                             const reserve = v => debut && reserves.some(r => r.statut!=='annulé' && (r.immat||'').trim().toLowerCase()===(v.matricule||'').trim().toLowerCase()
                               && r.date >= debut && r.date <= fin)
                             const occupe = v => debut && !!vehiculeOccupe(v.matricule, rotations, debut, fin, organiserMode==='existante' ? organiserRotationCible : convoiAuto?.rotation_id)
-                            const dispo = flotte.filter(v=>v.actif && !reserve(v) && !occupe(v))
-                            const masques = flotte.filter(v=>v.actif).length - dispo.length
+                            // Même parc que la page Réservations → Véhicules (serveur + saisies locales)
+                            const parc = vehiculesDuParc(flotte, lireFleetLocale())
+                            const dispo = parc.filter(v=>!reserve(v) && !occupe(v))
+                            const masques = parc.length - dispo.length
                             return <>
                               {dispo.map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
                               {masques>0 && <option value="" disabled>— {masques} véhicule(s) masqué(s) : réservé(s) ou déjà sur un convoi à ces dates —</option>}

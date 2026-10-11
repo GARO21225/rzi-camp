@@ -3832,6 +3832,23 @@ class InductionCampRecordViewSet(viewsets.ViewSet):
             qs = qs.filter(user=request.user)
         return Response([self._data(r) for r in qs])
 
+    @action(detail=False, methods=["get"])
+    def resume(self, request):
+        """Admin : situation de l'induction Camp de chaque résident ayant un compte (source = parcours Camp,
+        pas le suivi QHSE). Total = personnes actives avec compte ; terminé = parcours signé enregistré."""
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+        from .models import InductionCampRecord, Personnel
+        faits = {r.user_id: r for r in InductionCampRecord.objects.all()}
+        lignes = []
+        for p in Personnel.objects.filter(actif=True, user__isnull=False).order_by("nom", "prenom"):
+            r = faits.get(p.user_id)
+            lignes.append({"personnel_id": p.id, "nom": f"{p.nom} {p.prenom}".strip(), "societe": p.societe or "",
+                           "complete": bool(r), "date_completion": r.date_completion if r else None,
+                           "appareils": len(r.appareils) if r else 0})
+        termines = sum(1 for l in lignes if l["complete"])
+        return Response({"total": len(lignes), "termines": termines, "non_commences": len(lignes) - termines, "lignes": lignes})
+
     def create(self, request):
         from .models import InductionCampRecord
         d = request.data

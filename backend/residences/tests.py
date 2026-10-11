@@ -781,3 +781,21 @@ class InductionCampRecordTests(TestCase):
         self.assertEqual([x["user"] for x in d], [u.id])
         c2 = APIClient(); c2.force_authenticate(autre)
         self.assertEqual(c2.get("/api/induction-camp/").json(), [])
+
+
+class InductionCampResumeTests(TestCase):
+    def test_chiffres_admin_comptent_le_parcours_camp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        adm = User.objects.create_user("adm", password="x", is_staff=True)
+        ue = User.objects.create_user("edgar", password="x"); ud = User.objects.create_user("dylan", password="x")
+        Personnel.objects.create(nom="Kouamé", prenom="Edgar", societe="ROXGOLD", user=ue)
+        Personnel.objects.create(nom="Dylan", prenom="D", societe="ROXGOLD", user=ud)
+        Personnel.objects.create(nom="SansCompte", prenom="X", societe="ROXGOLD")
+        c = APIClient(); c.force_authenticate(ue)
+        c.post("/api/induction-camp/", {"signature_base64": "s", "appareils": [{"type": "TV"}]}, format="json")
+        self.assertEqual(c.get("/api/induction-camp/resume/").status_code, 403)
+        c.force_authenticate(adm)
+        d = c.get("/api/induction-camp/resume/").json()
+        self.assertEqual((d["total"], d["termines"], d["non_commences"]), (2, 1, 1))
+        self.assertEqual([l["nom"] for l in d["lignes"] if l["complete"]], ["KOUAMÉ EDGAR"])
