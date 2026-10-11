@@ -72,7 +72,7 @@ export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
   const { pathname } = useLocation()
 
   return (
-    <nav style={{
+    <nav className="bottom-tab-bar" style={{
       position:'fixed', left:14, right:14, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))',
       zIndex:100, height:66, display:'flex', alignItems:'stretch', padding:'0 6px',
       background:'#0A1A3A',

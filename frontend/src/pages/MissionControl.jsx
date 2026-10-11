@@ -702,7 +702,7 @@ export default function MissionControl() {
   // ici si renseignees dans le formulaire, sinon le backend retombe sur les
   // valeurs du convoi (comportement precedent, toujours valide pour un
   // passager qui fait le trajet complet).
-  const rejoindreRotation = async (rotationId, personnelId, { origine, destination, date_retour_prevue } = {}) => {
+  const rejoindreRotation = async (rotationId, personnelId, { origine, destination, date_retour_prevue } = {}, forcer=false) => {
     if (!personnelId) return flash('Sélectionner un passager',false)
     const rotationParente = rotations.find(r=>r.rotation_id===rotationId)
     if (date_retour_prevue && rotationParente?.date_depart && date_retour_prevue < rotationParente.date_depart) {
@@ -714,9 +714,14 @@ export default function MissionControl() {
         method:'POST',
         body: JSON.stringify({rotation_id:rotationId, personnel_id:personnelId,
           origine: origine||undefined, destination: destination||undefined,
-          date_retour_prevue: date_retour_prevue||undefined})
+          date_retour_prevue: date_retour_prevue||undefined, ...(forcer ? {forcer_jour:true} : {})})
       })
       const data = await res.json()
+      if (!res.ok && data.code==='jour_non_autorise' && data.forcable) {
+        setSaving(false)
+        if (await confirmDialog(`${data.error}\n\nAjouter quand même ?`, {titre:'📅 Jour hors programme'})) return rejoindreRotation(rotationId, personnelId, { origine, destination, date_retour_prevue }, true)
+        return
+      }
       if (res.ok) { flash('Siège réservé ✓'); load() }
       else flash(data.error||'Erreur',false)
     } catch(e) { flash('Erreur réseau',false) }
@@ -1782,6 +1787,13 @@ export default function MissionControl() {
                                       <label style={{fontSize:10,color:C.muted}}>{/camp/i.test(r.destination||'') && !/camp/i.test(r.origine||'') ? 'Retourne quand ? (départ du camp)' : 'Il revient quand ?'} <span title="Camp → ville : date de retour (la chambre est libérée au départ du convoi). Ville → Camp : il est logé automatiquement à la date du convoi, et repart à cette date.">ℹ️</span></label>
                                       <input type="date" value={formJoin.date_retour_prevue} min={r.date_depart||undefined} onChange={e=>setFormJoin(f=>({...f,date_retour_prevue:e.target.value}))}
                                         style={{...inputStyle,fontSize:12}}/>
+                                      {(() => {
+                                        const o = formJoin.origine||r.origine, d = formJoin.destination||r.destination
+                                        const jours = joursPour(itineraires, d, o)
+                                        const alerte = messageJour(itineraires, d, o, formJoin.date_retour_prevue)
+                                        if (alerte) return <div style={{fontSize:10,color:C.amber,marginTop:3,fontWeight:700}}>⚠️ Retour : {alerte}</div>
+                                        return jours ? <div style={{fontSize:10,color:C.muted,marginTop:3}}>📅 Retours possibles : {libelleJours(jours)}</div> : null
+                                      })()}
                                     </div>
                                   </div>
                                   )
@@ -3419,7 +3431,7 @@ export default function MissionControl() {
                     {/* Dates */}
                     <div>
                       <label style={labelStyle}>Date de départ *</label>
-                      <input type="date" value={formRot.date_depart}
+                      <input type="date" value={formRot.date_depart} min={new Date().toISOString().slice(0,10)}
                         onChange={e=>setFormRot(p=>({...p,date_depart:e.target.value}))}
                         style={inputStyle}/>
                       {(() => { const j = joursPour(itineraires, formRot.origine, formRot.destination); const m = messageJour(itineraires, formRot.origine, formRot.destination, formRot.date_depart)
@@ -3493,7 +3505,7 @@ export default function MissionControl() {
                     </div>
                     <div>
                       <label style={labelStyle}>Date départ *</label>
-                      <input type="date" value={formIndiv.date_depart}
+                      <input type="date" value={formIndiv.date_depart} min={new Date().toISOString().slice(0,10)}
                         onChange={e=>setFormIndiv(p=>({...p,date_depart:e.target.value}))} style={inputStyle}/>
                       {(() => { const j = joursPour(itineraires, formIndiv.origine, formIndiv.destination); const m = messageJour(itineraires, formIndiv.origine, formIndiv.destination, formIndiv.date_depart)
                         return j ? <div style={{fontSize:10,color:m?C.amber:C.muted,marginTop:3}}>{m ? `⚠️ ${m}` : `📅 Départs : ${libelleJours(j)}`}</div> : null })()}

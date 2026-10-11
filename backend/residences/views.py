@@ -2875,6 +2875,12 @@ class DemandeViewSet(viewsets.ModelViewSet):
         # par la simplification plutot que deplacee.
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        # Aucune demande (voyage, résidence, maintenance) ne peut être antidatée.
+        from voyages.views import _refus_date_passee
+        for champ, lib in (("date_debut_souhaitee", "La date souhaitée"), ("date_fin_souhaitee", "La date de fin")):
+            refus = _refus_date_passee(request.data.get(champ), lib)
+            if refus:
+                return refus
         if not is_admin and request.data.get("type_demande") == "voyage":
             date_debut = request.data.get("date_debut_souhaitee")
             if date_debut:

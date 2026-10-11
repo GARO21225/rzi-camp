@@ -5,6 +5,7 @@ import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 
 const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', icon:'🏠', label:'Réservation résidence' },
@@ -28,6 +29,7 @@ const today = new Date().toISOString().slice(0,10)
 export default function Demandes() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const motifsMobilite = useMotifsMobilite()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
@@ -179,8 +181,12 @@ export default function Demandes() {
   useEffect(()=>{ load() }, [tab])
 
   const submitDemande = async (type, forcer=false) => {
+    if (type === 'voyage' && !form.donnees?.motif) { toast.error('Choisissez un motif.'); return }
     try {
-      await demandesAPI.create({ type_demande:type, ...form, ...(forcer?{forcer_jour:true}:{}) })
+      const message_demandeur = type === 'voyage'
+        ? [libelleMotif(form.donnees.motif), (form.message_demandeur||'').trim()].filter(Boolean).join(' — ')
+        : form.message_demandeur
+      await demandesAPI.create({ type_demande:type, ...form, message_demandeur, ...(forcer?{forcer_jour:true}:{}) })
       setCreateModal(null)
       setForm({ message_demandeur:'', residence_souhaitee:'', date_debut_souhaitee:today, date_fin_souhaitee:'', donnees:{} })
       load()
@@ -628,11 +634,25 @@ export default function Demandes() {
                 </div>
               </div>
 
+              {createModal === 'voyage' ? (
+                <div>
+                  {/* Même liste que la création d'un convoi (Paramétrage → Motif / Objet) */}
+                  <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Motif / Objet *</label>
+                  <select value={form.donnees?.motif||''} onChange={e=>setForm({...form, donnees:{...form.donnees, motif:e.target.value}})} style={inp}>
+                    <option value="">— Choisir un motif —</option>
+                    {motifsMobilite.map(m=><option key={m} value={m}>{libelleMotif(m)}</option>)}
+                  </select>
+                  <label style={{...{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }, marginTop:10}}>Précisions (facultatif)</label>
+                  <textarea value={form.message_demandeur} onChange={e=>setForm({...form,message_demandeur:e.target.value})} rows={3}
+                    style={{ ...inp, resize:'vertical' }} placeholder="Précisions éventuelles..."/>
+                </div>
+              ) : (
               <div>
                 <label style={{ display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }}>Message / Justification *</label>
                 <textarea value={form.message_demandeur} onChange={e=>setForm({...form,message_demandeur:e.target.value})} rows={4}
                   style={{ ...inp, resize:'vertical' }} placeholder="Expliquez votre demande..."/>
               </div>
+              )}
             </div>
             <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={()=>setCreateModal(null)} style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:13 }}>Annuler</button>

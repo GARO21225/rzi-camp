@@ -72,6 +72,19 @@ def _erreur_jours(origine, destination, date_depart, date_retour=None):
     return erreur
 
 
+def _refus_date_passee(valeur, libelle="La date"):
+    """Réponse 400 si la date (AAAA-MM-JJ) est antérieure à aujourd'hui : pas d'antidatage (règle métier)."""
+    if not valeur:
+        return None
+    try:
+        d = datetime.date.fromisoformat(str(valeur)[:10])
+    except ValueError:
+        return None
+    if d < datetime.date.today():
+        return Response({"error": f"{libelle} ne peut pas être dans le passé ({d.strftime('%d/%m/%Y')}).", "code": "date_passee"}, status=400)
+    return None
+
+
 def _refus_jour(request, origine, destination, date_depart, date_retour=None):
     """Réponse 400 si le jour n'est pas autorisé. Un admin peut forcer (forcer_jour=true) après confirmation."""
     u = request.user
@@ -216,6 +229,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
         date_retour = request.data.get("date_retour_prevue")
         if date_depart and date_retour and str(date_retour) < str(date_depart):
             return Response({"error": "La date de retour ne peut pas être avant la date de départ"}, status=400)
+        refus = _refus_date_passee(date_depart, "La date de départ")
+        if refus:
+            return refus
         if date_depart:
             refus = _refus_jour(request, request.data.get("origine") or "Camp Roxgold Sango", request.data.get("destination") or "", date_depart, date_retour)
             if refus:
@@ -1184,6 +1200,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Seul un admin peut créer une rotation groupée. Utilisez le voyage individuel pour votre propre déplacement."}, status=403)
         if not date_depart:
             return Response({"error":"date_depart requis"},status=400)
+        refus = _refus_date_passee(date_depart, "La date de départ du convoi")
+        if refus:
+            return refus
         refus = _refus_jour(request, origine, destination, date_depart, data.get("date_retour_prevue"))
         if refus:
             return refus
@@ -1521,6 +1540,18 @@ class VoyageViewSet(viewsets.ModelViewSet):
             destination_effective = destination_passager or ref_destination
             if ref_date_depart and date_retour_effectif and str(date_retour_effectif) < str(ref_date_depart):
                 return Response({"error": "La date de retour ne peut pas être avant la date de départ du convoi"}, status=400)
+            # Jours de circulation : la date de retour saisie pour CE passager est un trajet en sens inverse
+            # (ex. convoi Camp → Abidjan = retour Abidjan → Camp : mar/jeu/sam). Un admin peut forcer.
+            if date_retour_passager:
+                from .models import ItineraireModele
+                try:
+                    d_ret = datetime.date.fromisoformat(str(date_retour_passager)[:10])
+                except ValueError:
+                    d_ret = None
+                forcer = is_admin and str(request.data.get("forcer_jour", "")).lower() in ("1", "true", "oui")
+                msg_jour = ItineraireModele.verifier_jour(destination_effective, origine_effective, d_ret) if d_ret else None
+                if msg_jour and not forcer:
+                    return Response({"error": "Retour : " + msg_jour, "code": "jour_non_autorise", "forcable": bool(is_admin)}, status=400)
             # Vérifier aussi si la personne est sur un autre voyage actif sur la même période
             # (avec SA date de retour reelle - c'est elle qui determine s'il
             # faut lui garder sa chambre, pas la date du convoi/vehicule).

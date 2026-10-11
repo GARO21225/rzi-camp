@@ -551,3 +551,42 @@ class JoursCirculationEtMaConduiteTests(TestCase):
         self.assertEqual(r.json().get("code"), "jour_non_autorise")
         r = c.post("/api/voyages/creer_rotation/", {**base, "forcer_jour": True}, format="json")
         self.assertNotEqual(r.json().get("code"), "jour_non_autorise")
+
+
+class DatesPasseesEtRetourPassagerTests(TestCase):
+    """Pas d'antidatage ; date de retour d'un passager = trajet inverse soumis aux jours de circulation."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("adm", password="x", is_staff=True)
+        self.c = APIClient()
+        self.c.force_authenticate(self.admin)
+        self.today = datetime.date.today()
+
+    def prochain(self, weekday, apres=10):
+        d = self.today + datetime.timedelta(days=apres)
+        return d + datetime.timedelta(days=(weekday - d.weekday()) % 7)
+
+    def test_rotation_dans_le_passe_refusee(self):
+        r = self.c.post("/api/voyages/creer_rotation/", {"origine": "Camp Roxgold Sango", "destination": "Abidjan",
+                        "date_depart": str(self.today - datetime.timedelta(days=1)), "vehicule": "BUS"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "date_passee")
+
+    def test_demande_dans_le_passe_refusee_meme_admin(self):
+        r = self.c.post("/api/demandes/", {"type_demande": "reservation_residence", "message_demandeur": "x",
+                        "date_debut_souhaitee": str(self.today - datetime.timedelta(days=2))}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "date_passee")
+
+    def test_retour_passager_un_jour_sans_circulation(self):
+        p = Personnel.objects.create(nom="Pax", prenom="A", societe="ROXGOLD")
+        lundi = self.prochain(0)   # Camp → Abidjan : lundi OK
+        Rotation.objects.create(rotation_id="ROT-J", vehicule="BUS", origine="Camp Roxgold Sango", destination="Abidjan",
+                                date_depart=lundi, date_retour_prevue=lundi)
+        base = {"rotation_id": "ROT-J", "personnel_id": p.id}
+        mercredi = lundi + datetime.timedelta(days=9)   # Abidjan → Camp : un mercredi = interdit (mar/jeu/sam)
+        r = self.c.post("/api/voyages/rejoindre_rotation/", {**base, "date_retour_prevue": str(mercredi)}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "jour_non_autorise")
+        r = self.c.post("/api/voyages/rejoindre_rotation/", {**base, "date_retour_prevue": str(mercredi + datetime.timedelta(days=1))}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
