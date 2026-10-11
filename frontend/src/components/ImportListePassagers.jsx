@@ -42,7 +42,8 @@ export default function ImportListePassagers({ convoi, personnel, dejaIds, libre
     const vus = new Set()
     return valeurs.map((v, i) => {
       const trouves = personnel.filter(p => CLES[cle].cherche(p, v))
-      let statut = 'ok', p = trouves[0] || null
+      let statut = 'ok'
+      const p = trouves[0] || null
       if (!trouves.length) statut = 'introuvable'
       else if (trouves.length > 1) statut = 'ambigu'
       else if (dejaIds.includes(p.id)) statut = 'deja'

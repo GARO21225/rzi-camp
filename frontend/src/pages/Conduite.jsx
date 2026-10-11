@@ -110,6 +110,7 @@ export default function Conduite() {
   const [busy, setBusy] = useState(false)
   const [maPos, setMaPos] = useState(null)
   const [gpsErreur, setGpsErreur] = useState(null)
+  const [gpsEssai, setGpsEssai] = useState(0)   // +1 = relance la demande de localisation (geste utilisateur)
   const [modalArret, setModalArret] = useState(false)
   const dernierePos = useRef(null)
   // Trace affichée : trace déjà connue du serveur (reprise après rechargement) + points GPS locaux
@@ -127,6 +128,7 @@ export default function Conduite() {
   useEffect(() => {
     if (!rid) return
     suiviConvois.get(rid).then(r => setTraceServeur(r.data?.suivi?.trace || [])).catch(() => {})
+    if (!window.isSecureContext) { setGpsErreur("Localisation bloquée : la page doit être ouverte en HTTPS valide (utilisez l'adresse app.roxgold-sitelife.com, pas l'adresse IP)."); return }
     if (!navigator.geolocation) { setGpsErreur("Ce téléphone ne fournit pas de localisation."); return }
     const watchId = navigator.geolocation.watchPosition(
       p => {
@@ -140,7 +142,7 @@ export default function Conduite() {
         })
       },
       e => setGpsErreur(e.code === 1
-        ? "Localisation refusée — autorisez-la dans les réglages du navigateur pour que le Centre de Mobilité vous voie."
+        ? "Localisation refusée. Touchez le cadenas à côté de l'adresse → Autorisations → Position → Autoriser, puis « Réessayer »."
         : 'Signal GPS faible — nouvelle tentative en cours...'),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     )
@@ -150,7 +152,7 @@ export default function Conduite() {
     }
     const id = setInterval(envoyer, ENVOI_POSITION_MS)
     return () => { navigator.geolocation.clearWatch(watchId); clearInterval(id) }
-  }, [rid])
+  }, [rid, gpsEssai])
 
   // ── Garder l'écran allumé pendant le trajet (sinon le navigateur coupe le GPS) ──
   useEffect(() => {
@@ -265,6 +267,10 @@ export default function Conduite() {
         {gpsErreur && (
           <div style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 500, background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
             📡 {gpsErreur}
+            <button onClick={() => { setGpsErreur(null); setGpsEssai(n => n + 1) }}
+              style={{ display: 'block', marginTop: 8, background: '#991B1B', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, cursor: 'pointer' }}>
+              🔄 Réessayer
+            </button>
           </div>
         )}
       </div>

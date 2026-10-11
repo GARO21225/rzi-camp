@@ -108,6 +108,15 @@ import time as _time
 def _boucle_planificateur():
     _time.sleep(30)
     while True:
+        # Un seul worker par minute exécute les tâches (cache partagé Redis) : sinon chaque worker
+        # envoyait ses propres rapports -> doublons.
+        try:
+            from django.core.cache import cache
+            if not cache.add("planificateur_tick", 1, 55):
+                _time.sleep(60)
+                continue
+        except Exception:
+            pass
         try:
             from accounts.rapports_email import envoyer_rapports_dus
             envoyer_rapports_dus()

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { toast } from '../toast'
 
 // ─────────────────────────────────────────────
 //  DONNÉES CAMP
@@ -149,17 +150,11 @@ export default function InductionCamp() {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 8000)
       try {
-        const r = await fetch(
-          `${BASE}/api/induction-records/?personnel=${user?.profile?.id||''}`,
-          { headers: { Authorization: `Bearer ${tok()}` }, signal: controller.signal }
-        )
+        const r = await fetch(`${BASE}/api/induction-camp/`,
+          { headers: { Authorization: `Bearer ${tok()}` }, signal: controller.signal })
         const d = await r.json()
-        const records = d.results || d || []
-        const myRecord = records.find(rec =>
-          rec.personnel === user?.profile?.id ||
-          rec.personnel_id === user?.profile?.id
-        )
-        if (myRecord?.statut === 'valide') setDejaComplete(true)
+        const records = Array.isArray(d) ? d : (d.results || [])
+        if (records.some(rec => rec.user === user?.id)) setDejaComplete(true)
       } catch(e) { /* timeout ou réseau indisponible — on démarre le parcours par défaut */ }
       finally { clearTimeout(timeoutId) }
       setLoadingCheck(false)
@@ -274,13 +269,6 @@ export default function InductionCamp() {
     if (!formApp.type) return
     const app = { ...formApp, id: Date.now() }
     setAppareils(prev => [...prev, app])
-    try {
-      await fetch(`${BASE}/api/appareils-camp/`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
-        body: JSON.stringify({...formApp, personnel: user?.profile?.id})
-      })
-    } catch(e) {}
     setFormApp({type:'',marque:'',modele:'',puissance:'',chambre:''})
     setShowFormApp(false)
   }
@@ -289,18 +277,18 @@ export default function InductionCamp() {
     if (!signature) return
     setSaving(true)
     try {
-      await fetch(`${BASE}/api/induction-camp/`, {
+      const r = await fetch(`${BASE}/api/induction-camp/`, {
         method:'POST',
         headers:{'Content-Type':'application/json',Authorization:`Bearer ${tok()}`},
         body: JSON.stringify({
-          personnel: user?.profile?.id,
           signature_base64: signature,
-          appareils_declares: appareils.length,
-          date_completion: new Date().toISOString(),
+          appareils: appareils.map(({id, ...a}) => a),
+          quiz_score: quizScore,
         })
       })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setValidated(true)
-    } catch(e) {}
+    } catch(e) { toast.error("Enregistrement impossible — réessayez (votre signature est conservée).") }
     setSaving(false)
   }
 

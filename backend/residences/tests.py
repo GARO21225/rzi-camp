@@ -764,3 +764,20 @@ class DroitMobiliteTests(TestCase):
         r = self.c.get("/api/parametres/")
         cles = [x["cle"] for x in (r.json() if isinstance(r.json(), list) else r.json()["results"])]
         self.assertIn("mobilite_motifs", cles)
+
+
+class InductionCampRecordTests(TestCase):
+    def test_fin_de_parcours_est_memorisee_par_utilisateur(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        u = User.objects.create_user("edgar", password="x")
+        autre = User.objects.create_user("autre", password="x")
+        c = APIClient(); c.force_authenticate(u)
+        self.assertEqual(c.get("/api/induction-camp/").json(), [])
+        r = c.post("/api/induction-camp/", {"signature_base64": "data:x", "appareils": [{"type": "TV"}], "quiz_score": 5}, format="json")
+        self.assertEqual(r.status_code, 201)
+        c.post("/api/induction-camp/", {"signature_base64": "data:x"}, format="json")   # idempotent
+        d = c.get("/api/induction-camp/").json()
+        self.assertEqual([x["user"] for x in d], [u.id])
+        c2 = APIClient(); c2.force_authenticate(autre)
+        self.assertEqual(c2.get("/api/induction-camp/").json(), [])

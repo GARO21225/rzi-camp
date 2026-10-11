@@ -3,6 +3,7 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import SelectRecherche from '../components/SelectRecherche'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
+import MobilityOverview from '../features/mobility/components/MobilityOverview'
 import ImportListePassagers from '../components/ImportListePassagers'
 import { messageJour, joursPour, libelleJours } from '../utils/itineraires'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -492,7 +493,7 @@ export default function MissionControl() {
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
-  const [view,       setView]      = useState('command')
+  const [view,       setView]      = useState('apercu')
   const [voyages,    setVoyages]   = useState([])
   const [rotations,  setRotations] = useState([])
   const [demandesAOrganiser, setDemandesAOrganiser] = useState([])
@@ -1145,6 +1146,7 @@ export default function MissionControl() {
             width:isMobile?'100%':'auto',
             WebkitOverflowScrolling:'touch'}}>
             {[
+              ['apercu','🏠 Vue d\'ensemble'],
               ['command','🛰️ Command'],
               ...(isAdmin ? [['direct','📡 En direct']] : []),
               ['rotations','🚀 Rotations'],
@@ -1223,6 +1225,13 @@ export default function MissionControl() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* ══ VUE D'ENSEMBLE (features/mobility) ══════════════════ */}
+        {view==='apercu' && (
+          <MobilityOverview voyages={voyages} rotations={rotations} demandesAOrganiser={demandesAOrganiser}
+            demandesVoyageEnAttente={demandesVoyageEnAttente} rappels={rappels} isAdmin={isAdmin} loading={loading}
+            onNavigate={setView} />
         )}
 
         {/* ══ VUE COMMAND CENTER ══════════════════════════════════ */}

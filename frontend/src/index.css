@@ -661,3 +661,18 @@ input:focus, select:focus, textarea:focus {
   body { -webkit-tap-highlight-color: transparent; }
   .main-scroll { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 }
+
+/* ── Mobile : toute fenêtre modale (overlay plein écran) doit rester scrollable et entièrement
+   atteignable (boutons du bas), même quand la barre d'adresse réduit la hauteur visible. ── */
+@media (max-width: 768px) {
+  div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    align-items: safe center !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+}

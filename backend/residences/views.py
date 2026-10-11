@@ -3807,3 +3807,32 @@ class EntrepriseViewSet(_ReferentielAdminViewSet):
         e = serializer.save()
         if e.nom != ancien:
             Personnel.objects.filter(societe__iexact=ancien).update(societe=e.nom)
+
+
+
+class InductionCampRecordViewSet(viewsets.ViewSet):
+    """GET : état de MON induction Camp (admin : toutes). POST : l'enregistre (idempotent)."""
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _data(r):
+        return {"id": r.id, "user": r.user_id, "complete": True, "date_completion": r.date_completion,
+                "appareils": r.appareils, "quiz_score": r.quiz_score}
+
+    def list(self, request):
+        from .models import InductionCampRecord
+        qs = InductionCampRecord.objects.select_related("user")
+        if not _is_admin_user(request.user):
+            qs = qs.filter(user=request.user)
+        return Response([self._data(r) for r in qs])
+
+    def create(self, request):
+        from .models import InductionCampRecord
+        d = request.data
+        appareils = d.get("appareils") if isinstance(d.get("appareils"), list) else []
+        InductionCampRecord.objects.update_or_create(user=request.user, defaults={
+            "signature_base64": str(d.get("signature_base64") or "")[:300000],
+            "appareils": appareils[:50],
+            "quiz_score": d.get("quiz_score") if isinstance(d.get("quiz_score"), int) else None,
+        })
+        return Response({"complete": True}, status=201)

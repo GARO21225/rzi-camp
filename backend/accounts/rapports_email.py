@@ -9,6 +9,7 @@ Chaque rapport a un TYPE (quelles sections) et des OPTIONS (paramètres) :
 from django.conf import settings
 from django.utils import timezone
 import datetime
+import re
 import html as _h
 
 TYPES = {
@@ -317,6 +318,11 @@ def _sec_occupation(o, today):
     corps += (f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:10px'><tr>"
               f"<td style='padding:8px 10px;background:#0F2A5C;color:#fff;font-weight:700;font-size:13px'>Total Daily Camp Occupancy</td>"
               f"<td align='right' style='padding:8px 10px;background:#0F2A5C;color:#fff;font-weight:700;font-size:13px;width:60px'>{total}</td></tr></table>")
+    # Invoice figures = total du camp moins les occupants d'ATS (société ATS exclue de la facturation).
+    ats = sum(n for l, n in d["ent"] if re.match(r"^ATS\b", l.strip(), re.I))
+    corps += (f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr>"
+              f"<td style='padding:6px 10px;background:#f1f5f9;color:#0F2A5C;font-weight:700;font-size:12.5px;border:1px solid #e2e8f0'>Invoice figures</td>"
+              f"<td align='right' style='padding:6px 10px;background:#f1f5f9;color:#0F2A5C;font-weight:700;font-size:12.5px;width:60px;border:1px solid #e2e8f0'>{total - ats}</td></tr></table>")
     return _titre("🏕️ Camp Occupancy") + corps
 
 SECTIONS = {"residences": _sec_residences, "occupation": _sec_occupation, "maintenance": _sec_maintenance, "mobilite": _sec_mobilite, "boutique": _sec_boutique}

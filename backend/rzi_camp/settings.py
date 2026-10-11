@@ -168,6 +168,17 @@ CHANNEL_LAYERS = {
     }
 }
 
+# ── Cache partagé entre workers ──
+# Sans CACHES, Django utilise une mémoire PAR PROCESSUS : avec plusieurs workers, les codes de
+# réinitialisation de mot de passe, les limites anti-brute-force et les verrous « une seule fois »
+# (rapports email, liaison convoi/résidence) n'étaient pas partagés -> échecs aléatoires et doublons.
+if os.environ.get("REDIS_URL"):
+    CACHES = {"default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ["REDIS_URL"],
+        "KEY_PREFIX": "rzi",
+    }}
+
 # ── Database connection pooling ──
 import dj_database_url as _dj_db_url
 _db_url = os.environ.get('DATABASE_URL')

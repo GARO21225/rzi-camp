@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (InductionRecordViewSet, declarer_soustraitants_masse, BatimentViewSet,
     PersonnelViewSet, OccupationHistoryViewSet, OccupationHistoryAdminViewSet, DemandeViewSet,
     InductionCampConfigViewSet, InductionInfraViewSet, InductionRegleViewSet, InductionQuizQuestionViewSet,
-    PointInteretViewSet, CheminCirculationViewSet, EquipementEPIViewSet, ResidentPrincipalViewSet, PlainteViewSet, PlainteCategorieViewSet, ControleChambreViewSet, DepartementViewSet, EntrepriseViewSet)
+    PointInteretViewSet, CheminCirculationViewSet, EquipementEPIViewSet, ResidentPrincipalViewSet, PlainteViewSet, PlainteCategorieViewSet, ControleChambreViewSet, DepartementViewSet, EntrepriseViewSet, InductionCampRecordViewSet)
 router = DefaultRouter()
 router.register(r'induction-records', InductionRecordViewSet, basename='induction-record')
 router.register("batiments", BatimentViewSet)
@@ -20,6 +20,7 @@ router.register("plaintes-categories", PlainteCategorieViewSet, basename="plaint
 router.register("controles-chambre", ControleChambreViewSet, basename="controle-chambre")
 router.register("occupation-history-admin", OccupationHistoryAdminViewSet, basename="occupation-history-admin")
 router.register("demandes", DemandeViewSet, basename="demandes")
+router.register("induction-camp", InductionCampRecordViewSet, basename="induction-camp")
 router.register("induction-config", InductionCampConfigViewSet, basename="induction-config")
 router.register("induction-infras", InductionInfraViewSet, basename="induction-infra")
 router.register("induction-regles", InductionRegleViewSet, basename="induction-regle")

@@ -894,3 +894,20 @@ class ControleChambre(models.Model):
 
     def __str__(self):
         return f"Contrôle {self.batiment.residence if self.batiment_id else '—'} — {self.date_creation:%d/%m/%Y}"
+
+
+class InductionCampRecord(models.Model):
+    """Fin du parcours immersif « Induction Camp » (bienvenue, règles, quiz, engagement signé).
+    Distinct d'InductionRecord (suivi QHSE) : le parcours Camp n'avait AUCUNE persistance
+    (l'ancienne route /api/induction-camp/ n'existait pas) -> il recommençait à chaque visite."""
+    user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='induction_camp')
+    signature_base64 = models.TextField(blank=True, default='')
+    appareils = models.JSONField(default=list, blank=True)
+    quiz_score = models.PositiveIntegerField(null=True, blank=True)
+    date_completion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Induction Camp (parcours)'
+
+    def __str__(self):
+        return f"Induction Camp — {self.user}"

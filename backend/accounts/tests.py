@@ -802,6 +802,7 @@ class CampOccupancyTests(TestCase):
         self.assertIn("JACHRIS - MOTA", h)
         self.assertIn("Visitors Finance", h)
         self.assertRegex(h, r"Total Daily Camp Occupancy</td>\s*<td[^>]*>5</td>")
+        self.assertRegex(h, r"Invoice figures</td>\s*<td[^>]*>4</td>")
         # options : sections masquables
         _, h2 = generer_contenu_rapport("Occ", "occupation", {"occ_soustraitants": False, "occ_visiteurs": False, "occ_tendance": False})
         self.assertNotIn("Main Contractors", h2)
