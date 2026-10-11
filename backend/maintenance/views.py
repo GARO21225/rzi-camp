@@ -14,9 +14,8 @@ def _notifier(incident, message, type_notif='info'):
         from evenements.models import SimpleNotification
         from accounts.models import Profile
         dest = set()
-        # Admins
-        for p in Profile.objects.filter(role='admin').select_related('user'):
-            dest.add(p.user)
+        # Admins : rôle admin OU compte staff/superuser (certains admins n'ont pas de Profile « admin »)
+        dest |= set(User.objects.filter(is_active=True).filter(Q(profile__role='admin') | Q(is_staff=True) | Q(is_superuser=True)))
         # Auteur
         if incident.auteur:
             dest.add(incident.auteur)
@@ -281,6 +280,14 @@ def declarer_incident(request):
                         f'Incident déclaré — priorité {priorite}', now])
             except Exception:
                 pass
+
+        # Notification des admins (cloche + son) : cet endpoint SQL n'en envoyait JAMAIS.
+        try:
+            inc = Incident.objects.filter(pk=incident_id).first()
+            if inc:
+                _notifier(inc, f"Nouvel incident ({priorite}) — {residence} : {titre[:60]}", 'alerte')
+        except Exception:
+            pass
 
         return Response({
             'id': incident_id,

@@ -2955,6 +2955,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
             if refus:
                 return refus
         if not is_admin and request.data.get("type_demande") == "voyage":
+            pers = Personnel.objects.filter(user=u).first()
+            if not (pers and pers.a_droit_mobilite):
+                return Response({"error": "Vous n'avez pas le droit d'utiliser le Centre de mobilité : demande de voyage refusée. Contactez l'administrateur.",
+                                 "code": "droit_mobilite_requis"}, status=403)
             date_debut = request.data.get("date_debut_souhaitee")
             if date_debut:
                 try:
@@ -3926,6 +3930,18 @@ class InductionCampRecordViewSet(viewsets.ViewSet):
         return Response([self._data(r) for r in qs])
 
     @action(detail=False, methods=["get"])
+    def statut(self, request):
+        """Mon induction Camp : `requise` = j'ai déjà été hébergé(e) (ou je le suis) et je ne l'ai pas encore signée."""
+        from .models import InductionCampRecord, Personnel, OccupationHistory, Batiment
+        u = request.user
+        if _is_admin_user(u):
+            return Response({"complete": True, "requise": False})
+        complete = InductionCampRecord.objects.filter(user=u).exists()
+        pers = Personnel.objects.filter(user=u).first()
+        heberge = bool(pers) and (OccupationHistory.objects.filter(personnel=pers).exists() or Batiment.objects.filter(personnel=pers).exists())
+        return Response({"complete": complete, "requise": heberge and not complete})
+
+    @action(detail=False, methods=["get"])
     def resume(self, request):
         """Admin : situation de l'induction Camp de chaque résident ayant un compte (source = parcours Camp,
         pas le suivi QHSE). Total = personnes actives avec compte ; terminé = parcours signé enregistré."""
@@ -3946,6 +3962,10 @@ class InductionCampRecordViewSet(viewsets.ViewSet):
         from .models import InductionCampRecord
         d = request.data
         appareils = d.get("appareils") if isinstance(d.get("appareils"), list) else []
+        sig = str(d.get("signature_base64") or "")
+        # Signature OBLIGATOIRE (image réellement tracée, pas un canevas vide)
+        if not sig.startswith("data:image/") or len(sig) < 1500:
+            return Response({"error": "La signature est obligatoire pour valider l'induction du camp.", "code": "signature_requise"}, status=400)
         InductionCampRecord.objects.update_or_create(user=request.user, defaults={
             "signature_base64": str(d.get("signature_base64") or "")[:300000],
             "appareils": appareils[:50],

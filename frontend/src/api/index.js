@@ -516,3 +516,7 @@ export const technicien = {
   tableau: (technicienId) => api.get('/api/technicien/tableau/', {params: technicienId ? {technicien_id: technicienId} : {}}),
   assignations: () => api.get('/api/technicien/assignations/'),
 }
+
+export const inductionCamp = {
+  statut: () => api.get('/api/induction-camp/statut/'),
+}

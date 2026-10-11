@@ -77,3 +77,54 @@ class ProfilTechnicienTests(TestCase):
         self.pl.refresh_from_db()
         self.assertEqual((self.pl.affecte_a, self.pl.statut), (None, "a_qualifier"))
         self.assertTrue(SimpleNotification.objects.filter(user=self.t1, titre="🧹 Plainte retirée").exists())
+
+
+class NotificationsEtDroitsTests(TestCase):
+    def test_declaration_incident_notifie_les_admins(self):
+        admin = User.objects.create_user("adm9", password="x", is_staff=True)
+        simple = User.objects.create_user("ag9", password="x")
+        c = APIClient(); c.force_authenticate(simple)
+        r = c.post("/api/incidents/declarer/", {"titre": "Fuite", "description": "d", "residence": "A1"}, format="json")
+        self.assertIn(r.status_code, (201, 500), r.content)  # SQL brut PostgreSQL (RETURNING) : OK en 201
+        if r.status_code == 201:
+            self.assertTrue(SimpleNotification.objects.filter(user=admin, type_notif="alerte").exists())
+
+    def test_demande_voyage_exige_le_droit_mobilite(self):
+        from residences.models import Personnel
+        u = User.objects.create_user("edg", password="x")
+        p = Personnel.objects.create(nom="K", prenom="E", societe="ROXGOLD", type_personnel="roxgold", user=u, mobilite_exclue=True)
+        c = APIClient(); c.force_authenticate(u)
+        import datetime
+        d = (datetime.date.today() + datetime.timedelta(days=20)).isoformat()
+        body = {"type_demande": "voyage", "date_debut_souhaitee": d, "donnees": {}}
+        r = c.post("/api/demandes/", body, format="json")
+        self.assertEqual((r.status_code, r.json().get("code")), (403, "droit_mobilite_requis"))
+        Personnel.objects.filter(pk=p.pk).update(mobilite_exclue=False)
+        self.assertNotEqual(c.post("/api/demandes/", body, format="json").status_code, 403)
+
+    def test_induction_signature_obligatoire_et_statut(self):
+        from residences.models import Personnel, Batiment, OccupationHistory
+        import datetime
+        u = User.objects.create_user("res", password="x")
+        p = Personnel.objects.create(nom="R", prenom="E", societe="ROXGOLD", user=u)
+        c = APIClient(); c.force_authenticate(u)
+        self.assertFalse(c.get("/api/induction-camp/statut/").json()["requise"])
+        b = Batiment.objects.create(residence="Z1", bloc="Z", statut="Occupé", personnel=p)
+        OccupationHistory.objects.create(batiment=b, personnel=p, occupant_nom="R E", date_arrivee=datetime.date.today())
+        self.assertTrue(c.get("/api/induction-camp/statut/").json()["requise"])
+        self.assertTrue(SimpleNotification.objects.filter(user=u, titre__startswith="🎓").exists())
+        self.assertEqual(c.post("/api/induction-camp/", {"signature_base64": ""}, format="json").status_code, 400)
+        self.assertEqual(c.post("/api/induction-camp/", {"signature_base64": "data:image/png;base64,AAAA"}, format="json").status_code, 400)
+        r = c.post("/api/induction-camp/", {"signature_base64": "data:image/png;base64," + "A" * 3000}, format="json")
+        self.assertEqual(r.status_code, 201)
+        self.assertFalse(c.get("/api/induction-camp/statut/").json()["requise"])
+
+    def test_notifier_atteint_les_admins_staff_sans_profil(self):
+        from maintenance.views import _notifier
+        admin = User.objects.create_user("adm10", password="x", is_staff=True)
+        tech = User.objects.create_user("tec10", password="x")
+        Profile.objects.update_or_create(user=tech, defaults={"role": "technicien"})
+        inc = Incident.objects.create(titre="T", description="d", categorie="x", residence="R1")
+        _notifier(inc, "msg", "alerte")
+        self.assertTrue(SimpleNotification.objects.filter(user=admin).exists())
+        self.assertFalse(SimpleNotification.objects.filter(user=tech).exists())

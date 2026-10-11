@@ -74,6 +74,7 @@ def custom_login(request):
                 if pers:
                     profile['personnel_id'] = pers.id
                     profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+                    profile['droit_mobilite'] = bool(pers.a_droit_mobilite)
             except Exception:
                 pass
     except Exception:
@@ -125,6 +126,7 @@ def auth_me(request):
         if pers:
             profile['personnel_id'] = pers.id
             profile['personnel_nom'] = f'{pers.nom} {pers.prenom}'
+            profile['droit_mobilite'] = bool(pers.a_droit_mobilite)
     except Exception:
         pass
     return Response({

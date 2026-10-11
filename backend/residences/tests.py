@@ -5,6 +5,7 @@ Couvre precisement les regles de securite non negociables (section 54) :
 un occupant ne peut jamais choisir sa chambre, voir/modifier la plainte
 d'un autre, ni s'auto-qualifier/affecter/resoudre.
 """
+SIG = "data:image/png;base64," + "A" * 3000
 from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -774,9 +775,9 @@ class InductionCampRecordTests(TestCase):
         autre = User.objects.create_user("autre", password="x")
         c = APIClient(); c.force_authenticate(u)
         self.assertEqual(c.get("/api/induction-camp/").json(), [])
-        r = c.post("/api/induction-camp/", {"signature_base64": "data:x", "appareils": [{"type": "TV"}], "quiz_score": 5}, format="json")
+        r = c.post("/api/induction-camp/", {"signature_base64": SIG, "appareils": [{"type": "TV"}], "quiz_score": 5}, format="json")
         self.assertEqual(r.status_code, 201)
-        c.post("/api/induction-camp/", {"signature_base64": "data:x"}, format="json")   # idempotent
+        c.post("/api/induction-camp/", {"signature_base64": SIG}, format="json")   # idempotent
         d = c.get("/api/induction-camp/").json()
         self.assertEqual([x["user"] for x in d], [u.id])
         c2 = APIClient(); c2.force_authenticate(autre)
@@ -793,7 +794,7 @@ class InductionCampResumeTests(TestCase):
         Personnel.objects.create(nom="Dylan", prenom="D", societe="ROXGOLD", user=ud)
         Personnel.objects.create(nom="SansCompte", prenom="X", societe="ROXGOLD")
         c = APIClient(); c.force_authenticate(ue)
-        c.post("/api/induction-camp/", {"signature_base64": "s", "appareils": [{"type": "TV"}]}, format="json")
+        c.post("/api/induction-camp/", {"signature_base64": SIG, "appareils": [{"type": "TV"}]}, format="json")
         self.assertEqual(c.get("/api/induction-camp/resume/").status_code, 403)
         c.force_authenticate(adm)
         d = c.get("/api/induction-camp/resume/").json()

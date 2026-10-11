@@ -286,7 +286,11 @@ export default function InductionCamp() {
           quiz_score: quizScore,
         })
       })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        if (d.code === 'signature_requise') { toast.error(d.error); setSaving(false); return }
+        throw new Error(`HTTP ${r.status}`)
+      }
       setValidated(true)
     } catch(e) { toast.error("Enregistrement impossible — réessayez (votre signature est conservée).") }
     setSaving(false)

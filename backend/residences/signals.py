@@ -1,6 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Personnel
+from .models import Personnel, OccupationHistory
 
 
 @receiver(post_save, sender=Personnel)
@@ -21,3 +21,24 @@ def sync_personnel_snapshot_to_batiments(sender, instance, created, **kwargs):
         occupant=f"{instance.nom} {instance.prenom}",
         societe=instance.societe,
     )
+
+
+@receiver(post_save, sender=OccupationHistory)
+def induction_camp_au_premier_hebergement(sender, instance, created, **kwargs):
+    """Premier hébergement d'une personne : l'induction du camp devient obligatoire -> notification."""
+    if not created or not instance.personnel_id:
+        return
+    try:
+        pers = instance.personnel
+        if not pers or not pers.user_id:
+            return
+        if OccupationHistory.objects.filter(personnel_id=pers.id).count() != 1:
+            return
+        from .models import InductionCampRecord
+        if InductionCampRecord.objects.filter(user_id=pers.user_id).exists():
+            return
+        from evenements.models import SimpleNotification
+        SimpleNotification.objects.create(user_id=pers.user_id, personnel=pers, titre="🎓 Induction du camp obligatoire",
+            message="Vous êtes hébergé(e) pour la première fois : veuillez faire l'induction du camp (signature obligatoire).", type_notif="alerte")
+    except Exception:
+        pass

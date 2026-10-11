@@ -13,7 +13,7 @@ import { toast } from '../toast'
 import { MobileHeader, MobileDrawer } from './MobileChrome'
 import { prechargerPages } from '../prechargement'
 import { demarrerPulse, arreterPulse, sonNotifActif, activerSonNotif } from '../utils/pulse'
-import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
+import { rolesAPI, batiments, suiviConvois, itinerairesModeles, inductionCamp } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
 
@@ -335,6 +335,15 @@ export default function Layout() {
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
   useEffect(() => { demarrerPulse(); return () => arreterPulse() }, [])
+  // Induction du camp OBLIGATOIRE dès le 1er hébergement : tant qu'elle n'est pas signée, retour forcé sur la page d'induction.
+  const [inductionRequise, setInductionRequise] = useState(false)
+  useEffect(() => {
+    if (!user) return
+    inductionCamp.statut().then(r => setInductionRequise(!!r.data?.requise)).catch(() => {})
+  }, [user?.id, location.pathname])
+  useEffect(() => {
+    if (inductionRequise && location.pathname !== '/induction-camp') navigate('/induction-camp', { replace: true })
+  }, [inductionRequise, location.pathname])
   const isMobile = useIsMobile()
 
   // Applique toujours le thème clair, quoi qu'il y ait en localStorage

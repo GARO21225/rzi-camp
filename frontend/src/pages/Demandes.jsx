@@ -34,6 +34,8 @@ export default function Demandes() {
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = ['admin'].includes(role) || user?.is_staff || user?.is_superuser
+  // Seuls les admins et les personnes ayant le droit Centre de mobilité peuvent demander un voyage
+  const peutVoyager = !!isAdmin || user?.profile?.droit_mobilite !== false
 
   const [data, setData] = useState([])
   const [stats, setStats] = useState(null)
@@ -307,10 +309,10 @@ export default function Demandes() {
               style={{ background:'rgba(37,99,235,.1)', color:'var(--rzc-blue)', border:'1px solid rgba(37,99,235,.25)', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
               🏠 Réserver résidence
             </button>
-            <button onClick={()=>setCreateModal('voyage')}
+            {peutVoyager && <button onClick={()=>setCreateModal('voyage')}
               style={{ background:'rgba(234,88,12,.1)', color:'#ea580c', border:'1px solid rgba(234,88,12,.25)', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
               ✈️ Planifier voyage
-            </button>
+            </button>}
           </div>
         )}
       </div>
@@ -346,10 +348,10 @@ export default function Demandes() {
             style={{ width:46, height:46, borderRadius:23, background:'#2563EB', border:'none', boxShadow:'0 6px 16px rgba(37,99,235,.4)', fontSize:19, cursor:'pointer' }}>
             🏠
           </button>
-          <button onClick={()=>setCreateModal('voyage')} aria-label="Planifier voyage"
+          {peutVoyager && <button onClick={()=>setCreateModal('voyage')} aria-label="Planifier voyage"
             style={{ width:54, height:54, borderRadius:27, background:'#C9972B', border:'none', boxShadow:'0 6px 16px rgba(201,151,43,.4)', fontSize:22, cursor:'pointer' }}>
             ✈️
-          </button>
+          </button>}
         </div>
       )}
 
