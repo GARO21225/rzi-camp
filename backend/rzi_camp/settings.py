@@ -60,6 +60,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
+    "rzi_camp.middleware.SlowRequestMiddleware",
     # Filet de securite diagnostic GLOBAL pour /api/ - voir
     # rzi_camp/middleware.py pour le contexte complet. En dernier de la
     # liste : process_exception() est appele en ordre INVERSE de

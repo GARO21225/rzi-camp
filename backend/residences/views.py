@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.permissions import TokenInQueryOrHeader
 from django.db import transaction
+from django.db.models import Q
 
 from .models import (
     Departement, Entreprise,
@@ -1065,32 +1066,40 @@ def conflit_residence_principale(batiment, personnel_obj, date_arrivee=None, dat
     """Retourne None si la chambre peut être attribuée à `personnel_obj`, sinon le dict
     d'avertissement (409) : la chambre est la résidence principale de quelqu'un d'autre
     - présent dans la chambre, ou absent avec un retour qui chevauche le séjour demandé
-    (ou dont le retour n'est pas renseigné : on ne peut alors pas exclure le chevauchement)."""
-    from .models import ResidentPrincipal
+    (ou dont le retour n'est pas renseigné : on ne peut alors pas exclure le chevauchement).
+
+    Chambres partagées (doubles) : un invité n'est en conflit que si, une fois sa place prise, il ne reste plus
+    assez de places pour les résidents principaux présents ou de retour pendant son séjour."""
     from voyages.models import Voyage
-    rp = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True) \
-        .exclude(personnel=personnel_obj).select_related("personnel").first()
-    if not rp:
-        return None
+    from .chambres_partagees import places_du_groupe, rp_actifs
+    pid = getattr(personnel_obj, "id", None)
+    places = places_du_groupe(batiment)
     today = datetime.date.today()
-    nom = f"{rp.personnel.nom} {rp.personnel.prenom}"
-    present = batiment.statut == "Occupé" and batiment.personnel_id == rp.personnel_id
-    retour = None
-    if not present:
-        voyages = Voyage.objects.filter(personnel=rp.personnel).exclude(statut="annule") \
-            .filter(date_retour_prevue__gte=today).order_by("-date_retour_prevue")
-        actif = voyages.filter(statut__in=["planifie", "en_voyage"]).first() or voyages.first()
-        retour = actif.date_retour_prevue if actif else None
-    chevauche = True  # pas de date de fin / de retour connue -> on ne peut pas exclure le chevauchement
-    if retour and date_fin:
-        try:
-            chevauche = datetime.date.fromisoformat(str(date_fin)) >= retour
-        except ValueError:
-            pass
-    if not (present or chevauche):
+    besoins = []
+    for rp in rp_actifs(batiment):
+        if rp.personnel_id == pid:
+            continue
+        present = any(p.statut == "Occupé" and p.personnel_id == rp.personnel_id for p in places)
+        retour = None
+        if not present:
+            voyages = Voyage.objects.filter(personnel=rp.personnel).exclude(statut="annule") \
+                .filter(date_retour_prevue__gte=today).order_by("-date_retour_prevue")
+            actif = voyages.filter(statut__in=["planifie", "en_voyage"]).first() or voyages.first()
+            retour = actif.date_retour_prevue if actif else None
+        chevauche = True  # pas de date de fin / de retour connue -> on ne peut pas exclure le chevauchement
+        if retour and date_fin:
+            try:
+                chevauche = datetime.date.fromisoformat(str(date_fin)) >= retour
+            except ValueError:
+                pass
+        if present or chevauche:
+            besoins.append((rp, present, retour))
+    if len(besoins) <= len(places) - 1:
         return None
+    rp, present, retour = besoins[0]
+    nom = f"{rp.personnel.nom} {rp.personnel.prenom}"
     if present:
-        detail = f"y est actuellement logé(e)"
+        detail = "y est actuellement logé(e)"
     elif retour:
         detail = f"est absent(e), de retour prévu le {retour.strftime('%d/%m/%Y')}"
     else:
@@ -1205,6 +1214,15 @@ class BatimentViewSet(viewsets.ModelViewSet):
             # quelqu'un d'absent - meme logique que le controle applique
             # a l'affectation elle-meme (partial_update), qui ne se fie
             # jamais non plus au seul statut.
+            if b.groupe_chambre or (b.residents_principaux_max or 1) > 1:
+                conf = conflit_residence_principale(b, None, None, date_fin)
+                if conf:
+                    incompatibles.append({"residence": b.residence, "motif": conf["error"].split(" — ")[0]})
+                elif b.statut == "Libre":
+                    compatibles.append(b)
+                else:
+                    incompatibles.append({"residence": b.residence, "motif": "Occupée"})
+                continue
             rp = ResidentPrincipal.objects.filter(batiment=b, date_fin__isnull=True).select_related("personnel").first()
             if not rp:
                 if b.statut == "Libre":
@@ -1300,9 +1318,26 @@ class BatimentViewSet(viewsets.ModelViewSet):
             return Response({"error": "Nom de bloc requis (30 caractères max)."}, status=400)
         if nouveau != ancien and Batiment.objects.filter(residence=nouveau).exists():
             return Response({"error": f"Une chambre « {nouveau} » existe déjà."}, status=400)
+        # Chambre partagée (double) : groupe + nombre max de résidents principaux
+        groupe = (request.data.get("groupe_chambre", b.groupe_chambre) or "").strip()
+        try:
+            rp_max = int(request.data.get("residents_principaux_max", b.residents_principaux_max) or 1)
+        except (TypeError, ValueError):
+            return Response({"error": "Nombre de résidents principaux invalide."}, status=400)
+        if len(groupe) > 20:
+            return Response({"error": "Nom de groupe : 20 caractères max."}, status=400)
+        if not 1 <= rp_max <= 6:
+            return Response({"error": "Le nombre de résidents principaux doit être compris entre 1 et 6."}, status=400)
+        from .chambres_partagees import rp_actifs
+        b.groupe_chambre, b.residents_principaux_max = groupe, rp_max
+        actifs = len(rp_actifs(b))
+        if rp_max < actifs:
+            return Response({"error": f"Impossible : {actifs} résident(s) principal(aux) actif(s) déjà déclaré(s) sur cette chambre."}, status=400)
         with transaction.atomic():
             b.residence, b.bloc, b.etage = nouveau, bloc, etage
             b.save()
+            if groupe:
+                Batiment.objects.filter(groupe_chambre=groupe).update(residents_principaux_max=rp_max)
             if nouveau != ancien:
                 try:
                     from maintenance.models import Incident
@@ -2001,12 +2036,10 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
             return None, {"error": f"La chambre {batiment.residence} est en maintenance — indisponible pour une résidence principale."}, 400
         with transaction.atomic():
             list(ResidentPrincipal.objects.select_for_update().filter(batiment=batiment, date_fin__isnull=True))
-            conflit = ResidentPrincipal.objects.filter(batiment=batiment, date_fin__isnull=True).exclude(personnel=personnel).first()
-            if conflit:
-                return None, {
-                    "error": f"{batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}.",
-                    "conflit_personnel": conflit.personnel_id,
-                }, 409
+            from .chambres_partagees import refus_declaration
+            refus = refus_declaration(batiment, personnel)
+            if refus:
+                return None, refus, 409
             deja = ResidentPrincipal.objects.filter(personnel=personnel, date_fin__isnull=True).first()
             if deja:
                 if deja.batiment_id == batiment.id:
@@ -2113,9 +2146,10 @@ class ResidentPrincipalViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             list(ResidentPrincipal.objects.select_for_update().filter(batiment=nouveau_batiment, date_fin__isnull=True))
-            conflit = ResidentPrincipal.objects.filter(batiment=nouveau_batiment, date_fin__isnull=True).exclude(personnel=rp.personnel).first()
-            if conflit:
-                return Response({"error": f"{nouveau_batiment.residence} est déjà la résidence principale de {conflit.personnel.nom} {conflit.personnel.prenom}."}, status=409)
+            from .chambres_partagees import refus_declaration
+            refus = refus_declaration(nouveau_batiment, rp.personnel)
+            if refus:
+                return Response(refus, status=409)
 
             rp.date_fin = timezone.localdate()
             rp.motif_fin = "Changement de chambre"
@@ -2186,6 +2220,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
         role = getattr(getattr(u, "profile", None), "role", "")
         return role in ("admin", "manager", "superviseur")
 
+    def _peut_traiter(self, u, p):
+        """Superviseur/admin, ou la personne (ex. technicien) à qui CETTE plainte est affectée."""
+        return self._habilite(u) or (p.affecte_a_id is not None and p.affecte_a_id == u.id)
+
     def get_queryset(self):
         qs = super().get_queryset()
         u = self.request.user
@@ -2206,8 +2244,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
         # Regle 42/54 : un occupant ne voit QUE ses propres plaintes,
         # jamais celles d'un autre - filtre applique cote backend, jamais
         # laisse au frontend.
+        # (+ celles qui lui sont AFFECTÉES : profil technicien)
         pers = Personnel.objects.filter(user=u).first()
-        return qs.filter(occupant=pers) if pers else qs.none()
+        cond = Q(affecte_a=u) | (Q(occupant=pers) if pers else Q(pk__in=[]))
+        return qs.filter(cond)
 
     def _notifier(self, user_cible, titre, message):
         try:
@@ -2362,21 +2402,47 @@ class PlainteViewSet(viewsets.ModelViewSet):
         affecte_a_id = request.data.get("affecte_a")
         if not affecte_a_id:
             return Response({"error":"affecte_a requis."}, status=400)
+        if not User.objects.filter(pk=affecte_a_id, is_active=True).exists():
+            return Response({"error":"Responsable introuvable."}, status=400)
+        ancien = p.affecte_a
         p.affecte_a_id = affecte_a_id
         if request.data.get("service") is not None: p.service = request.data["service"]
         p.statut = "affectee"
         p.date_affectation = timezone.now()
+        p.prise_en_charge_par = None
+        p.date_prise_en_charge = None
         p.save()
+        if ancien and ancien.id != p.affecte_a_id:
+            self._notifier(ancien, "🧹 Plainte réaffectée", f"La plainte #{p.id} ({p.batiment.residence}) ne vous est plus affectée.")
         self._notifier(p.affecte_a, "🧹 Plainte (ré)affectée", f"{p.occupant.nom} {p.occupant.prenom} ({p.batiment.residence}) — {p.description[:80]}")
         self._notifier(p.utilisateur, "🧹 Votre plainte a été affectée", "Un responsable a été désigné pour traiter votre plainte.")
         return Response(PlainteSerializer(p).data)
 
     @action(detail=True, methods=["post"])
-    def prendre_en_charge(self, request, pk=None):
-        """Section 31 : l'agent affecte prend la plainte en charge - enregistre qui, quand."""
+    def retirer(self, request, pk=None):
+        """Retire l'affectation (admin) : la plainte repasse « à qualifier », l'ancien responsable est prévenu."""
         if not self._habilite(request.user):
             return Response({"error":"Non habilité."}, status=403)
         p = self.get_object()
+        if p.statut in ("cloturee","rejetee","resolue","confirmee"):
+            return Response({"error":"Cette plainte est déjà traitée."}, status=400)
+        ancien = p.affecte_a
+        if not ancien:
+            return Response({"error":"Aucun responsable affecté."}, status=400)
+        p.affecte_a = None
+        p.prise_en_charge_par = None
+        p.date_prise_en_charge = None
+        p.statut = "a_qualifier"
+        p.save()
+        self._notifier(ancien, "🧹 Plainte retirée", f"La plainte #{p.id} ({p.batiment.residence}) ne vous est plus affectée.")
+        return Response(PlainteSerializer(p).data)
+
+    @action(detail=True, methods=["post"])
+    def prendre_en_charge(self, request, pk=None):
+        """Section 31 : l'agent affecte prend la plainte en charge - enregistre qui, quand."""
+        p = self.get_object()
+        if not self._peut_traiter(request.user, p):
+            return Response({"error":"Non habilité."}, status=403)
         if p.statut != "affectee":
             return Response({"error":"Cette plainte doit d'abord être affectée."}, status=400)
         p.statut = "prise_en_charge"
@@ -2389,9 +2455,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def demarrer(self, request, pk=None):
         """Passage explicite a EN_COURS (apres prise en charge, ou reprise apres attente)."""
-        if not self._habilite(request.user):
-            return Response({"error":"Non habilité."}, status=403)
         p = self.get_object()
+        if not self._peut_traiter(request.user, p):
+            return Response({"error":"Non habilité."}, status=403)
         if p.statut not in ("prise_en_charge","en_attente"):
             return Response({"error":"Statut incompatible."}, status=400)
         p.statut = "en_cours"
@@ -2401,9 +2467,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def mettre_en_attente(self, request, pk=None):
         """Section 33 : motif obligatoire, historise (HistoricalRecords)."""
-        if not self._habilite(request.user):
-            return Response({"error":"Non habilité."}, status=403)
         p = self.get_object()
+        if not self._peut_traiter(request.user, p):
+            return Response({"error":"Non habilité."}, status=403)
         motif = request.data.get("motif_attente")
         if not motif:
             return Response({"error":"Le motif de mise en attente est obligatoire."}, status=400)
@@ -2422,9 +2488,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
         dupliquer sa logique ici. Le champ incident_lie est le SEUL
         pont entre les deux systemes.
         """
-        if not self._habilite(request.user):
-            return Response({"error":"Non habilité."}, status=403)
         p = self.get_object()
+        if not self._peut_traiter(request.user, p):
+            return Response({"error":"Non habilité."}, status=403)
         incident_id = request.data.get("incident_id")
         if not incident_id:
             return Response({"error":"incident_id requis."}, status=400)
@@ -2440,9 +2506,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def resoudre(self, request, pk=None):
         """Section 34 - si un Incident Maintenance est lie, recupere ses infos plutot que de les redemander (section 32)."""
-        if not self._habilite(request.user):
-            return Response({"error":"Non habilité."}, status=403)
         p = self.get_object()
+        if not self._peut_traiter(request.user, p):
+            return Response({"error":"Non habilité."}, status=403)
         if p.statut not in ("prise_en_charge","en_cours","en_attente","reouverte"):
             return Response({"error":"Cette plainte ne peut pas être résolue dans son état actuel."}, status=400)
         p.action_resolution = request.data.get("action_resolution", "")

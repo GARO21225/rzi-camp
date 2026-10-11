@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useSurPulse } from '../hooks/useSurPulse'
 import { useNavigate } from 'react-router-dom'
 import { villesDescente, joursPour, libelleJours, messageJour } from '../utils/itineraires'
 import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI, itinerairesModeles as itinerairesAPI, plaintes as plaintesAPI } from '../api'
@@ -81,8 +82,8 @@ export default function Demandes() {
     ['maintenance_plaintes','🛠️🧹 Maintenance & Plaintes'],
   ]
 
-  const load = () => {
-    setLoading(true)
+  const load = (silencieux) => {
+    if (silencieux !== true) setLoading(true)
     const p = {}
     if (tab === 'pending') p.statut = 'en_attente'
     else if (tab === 'propositions') p.statut = 'proposition'
@@ -179,6 +180,7 @@ export default function Demandes() {
   })
 
   useEffect(()=>{ load() }, [tab])
+  useSurPulse(['demandes'], () => load(true))
 
   const submitDemande = async (type, forcer=false) => {
     if (type === 'voyage' && !form.donnees?.motif) { toast.error('Choisissez un motif.'); return }

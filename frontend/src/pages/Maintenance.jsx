@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import ComboLibre from '../components/ComboLibre'
+import { TableauTechnicien, AssignationsPanel } from '../components/TechnicienPanels'
+import { useSurPulse } from '../hooks/useSurPulse'
 import { useNavigate } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
@@ -419,6 +421,7 @@ export default function Maintenance() {
   // que l'affichage reste necessaire pour un simple agent).
   const isTechnicien = user?.profile?.role === 'technicien'
   const isGestionnaire = isAdmin || isTechnicien
+  const [vue, setVue] = useState(user?.profile?.role === 'technicien' ? 'tableau' : 'incidents')
   const [incidents, setIncidents] = useState([])
   const [stats,     setStats]     = useState({})
   const [techns,    setTechns]    = useState([])
@@ -539,8 +542,8 @@ export default function Maintenance() {
       }).catch(()=>{})
   },[])
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (silencieux) => {
+    if (silencieux !== true) setLoading(true)
     try {
       const [ri, rs, rt] = await Promise.allSettled([
         incAPI.list({ page_size:100 }),
@@ -554,6 +557,8 @@ export default function Maintenance() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useSurPulse(['incidents'], () => load(true))
+  const ouvrirIncident = (id) => { const i = incidents.find(x => x.id === id); if (i) setSelected(i); else load() }
 
   const filtered = incidents.filter(i => {
     // Les dossiers clôturés ne vivent plus dans Maintenance : ils sont
@@ -850,7 +855,18 @@ export default function Maintenance() {
         {/* ── Tableaux de bord/graphiques : admin + technicien uniquement
             (demande d'Edgar) - un simple agent qui consulte ses 1-2
             incidents declares n'en a aucun usage. ── */}
-        {isGestionnaire && <>
+        {isGestionnaire && (
+          <div style={{ display:'flex', gap:8, marginBottom:14, overflowX:'auto' }}>
+            {[['incidents','🔧 Incidents'], ...(isTechnicien ? [['tableau','📋 Mon tableau de bord']] : []), ...(isAdmin ? [['assignations','👥 Assignations']] : [])].map(([v,l])=>(
+              <button key={v} onClick={()=>setVue(v)}
+                style={{ flexShrink:0, padding:'8px 16px', borderRadius:99, border:'none', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit',
+                  background: vue===v ? 'var(--rzc-navy)' : '#e2e8f0', color: vue===v ? '#fff' : '#334155' }}>{l}</button>
+            ))}
+          </div>
+        )}
+        {isTechnicien && vue==='tableau' && <TableauTechnicien onOuvrirIncident={ouvrirIncident} />}
+        {isAdmin && vue==='assignations' && <AssignationsPanel onOuvrirIncident={ouvrirIncident} />}
+        {isGestionnaire && vue==='incidents' && <>
         {/* ── KPIs enrichis ── */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
           {[
@@ -1101,7 +1117,7 @@ export default function Maintenance() {
         })()}
         </>}
 
-        {isMobile ? (
+        {vue==='incidents' && (isMobile ? (
           <div style={{marginBottom:14}}>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="🔍 Rechercher..."
@@ -1222,9 +1238,9 @@ export default function Maintenance() {
           </div>
           )}
         </div>
-        )}
+        ))}
 
-        {loading ? (
+        {vue==='incidents' && (loading ? (
           <div style={{ textAlign:'center', padding:60, fontSize:32 }}>⏳</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign:'center', padding:60, color:'#94a3b8' }}>
@@ -1320,7 +1336,7 @@ export default function Maintenance() {
               )
             })}
           </div>
-        )}
+        ))}
 
         {/* ══ MODAL DÉCLARER ══ */}
         {showNew && (
@@ -1531,6 +1547,22 @@ export default function Maintenance() {
                 </div>
 
                 {/* Actions */}
+                {isAdmin && ['assigne','en_cours'].includes(selected.statut) && (
+                  <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+                    <button onClick={()=>{setActionModal('assigner');setActionTechId('')}}
+                      style={{ flex:1, background:'#f97316', color:'#fff', border:'none', padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+                      🔁 Réassigner
+                    </button>
+                    <button onClick={async()=>{
+                        if (!(await confirmDialog("Retirer l'assignation ? L'incident redevient « déclaré » et le technicien est prévenu."))) return
+                        try { await incAPI.retirer(selected.id); toast.success('Assignation retirée'); setSelected(null); load() }
+                        catch(e) { toast.error(e?.response?.data?.error || 'Action impossible') }
+                      }}
+                      style={{ flex:1, background:'#fee2e2', color:'#b91c1c', border:'none', padding:11, borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
+                      ✖ Retirer
+                    </button>
+                  </div>
+                )}
                 {isAdmin && selected.statut==='declare' && (
                   <button onClick={()=>{setActionModal('assigner');setActionTechId('')}}
                     style={{ width:'100%', background:'#f97316', color:'#fff', border:'none',
@@ -1760,9 +1792,16 @@ export default function Maintenance() {
                 {actionModal==='assigner' ? (
                   <select value={actionTechId} onChange={e=>setActionTechId(e.target.value)} style={inp}>
                     <option value="">-- Sélectionner un technicien --</option>
-                    {techns.map(t=>(
-                      <option key={t.id} value={t.id}>{t.first_name} {t.last_name} ({t.username})</option>
-                    ))}
+                    <optgroup label="Administrateurs">
+                      {techns.filter(t=>t.role==='admin').map(t=>(
+                        <option key={t.id} value={t.id}>{t.nom} ({t.username}) · {t.incidents_actifs} en cours</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Techniciens">
+                      {techns.filter(t=>t.role!=='admin').map(t=>(
+                        <option key={t.id} value={t.id}>{t.nom} ({t.username}) · {t.incidents_actifs} en cours</option>
+                      ))}
+                    </optgroup>
                   </select>
                 ) : (
                   <textarea value={actionComment} onChange={e=>setActionComment(e.target.value)}

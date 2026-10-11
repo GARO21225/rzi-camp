@@ -2,6 +2,7 @@
  * Personnel — Gestion des membres, QR codes, sous-traitants
  * Version stable - Erreurs gérées par Error Boundary
  */
+import { libelleResidentsPrincipaux } from '../utils/chambres'
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI, departementsAPI, entreprisesAPI } from '../api'
 import SelectRecherche from '../components/SelectRecherche'
@@ -1640,7 +1641,7 @@ export default function Personnel() {
                 <option value="">— Choisir une chambre —</option>
                 {rpBatiments.filter(b=>b.statut!=='Maintenance').map(b=>(
                   <option key={b.id} value={b.id}>
-                    {b.residence} {b.resident_principal && b.resident_principal.personnel_id!==rpModal.id ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}
+                    {b.residence} {libelleResidentsPrincipaux(b, rpModal.id)}
                   </option>
                 ))}
               </select>

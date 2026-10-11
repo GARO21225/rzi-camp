@@ -235,9 +235,24 @@ class PersonnelSerializer(serializers.ModelSerializer):
 class BatimentSerializer(serializers.ModelSerializer):
     personnel_detail = PersonnelSerializer(source="personnel", read_only=True)
     resident_principal = serializers.SerializerMethodField()
+    residents_principaux = serializers.SerializerMethodField()
     class Meta:
         model  = Batiment
         fields = "__all__"
+
+    def get_residents_principaux(self, obj):
+        """Tous les résidents principaux actifs de la chambre / du groupe (chambres partagées) + type."""
+        if not hasattr(self, '_rp_groupes_cache'):
+            from residences.models import ResidentPrincipal
+            self._rp_groupes_cache = {}
+            for rp in ResidentPrincipal.objects.filter(date_fin__isnull=True).select_related("personnel", "batiment"):
+                cle = rp.batiment.groupe_chambre or f"#{rp.batiment_id}"
+                self._rp_groupes_cache.setdefault(cle, []).append({
+                    "id": rp.id, "personnel_id": rp.personnel_id, "batiment": rp.batiment.residence,
+                    "personnel_nom": f"{rp.personnel.nom} {rp.personnel.prenom}" if rp.personnel else "—"})
+        liste = self._rp_groupes_cache.get(obj.groupe_chambre or f"#{obj.id}", [])
+        partage = bool(obj.groupe_chambre) or (obj.residents_principaux_max or 1) > 1
+        return liste if partage else []
 
     def get_resident_principal(self, obj):
         """

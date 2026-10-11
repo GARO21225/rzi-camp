@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from .pulse import pulse
 
 
 
@@ -442,6 +443,7 @@ urlpatterns = [
     path('api/backup-status/', backup_status, name='backup_status'),
     path('api/diagnostic/', diagnostic, name='diagnostic'),
     path('api/version/', version, name='version'),
+    path('api/pulse/', pulse, name='pulse'),
     # Endpoint de debug supprimé (test-boutique) : exposait le schéma de la
     # base sans authentification et pouvait insérer de fausses ventes.
     path('api/', include('residences.urls')),

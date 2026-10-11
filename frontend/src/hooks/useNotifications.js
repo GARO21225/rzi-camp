@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { notifications } from '../api'
 import { useStore } from '../store'
+import { useSurPulse } from './useSurPulse'
 
 export function useNotifications() {
   const { token } = useStore()
@@ -30,11 +31,13 @@ export function useNotifications() {
     // No-op: pas de WebSocket pour le moment
   }, [token, fetch])
 
+  useSurPulse(['notifs'], () => fetch())
+
   useEffect(() => {
     if (!token) return
     fetch()
     connectWS()
-    pollRef.current = setInterval(() => { if (!document.hidden) fetch() }, 20000) // toutes les 20 s, seulement si l'app est à l'écran
+    pollRef.current = setInterval(() => { if (!document.hidden) fetch() }, 60000) // filet de sécurité : le rafraîchissement 5 s passe par /api/pulse/
     if (window.Notification?.permission === 'default') {
       window.Notification.requestPermission().catch(() => {})
     }

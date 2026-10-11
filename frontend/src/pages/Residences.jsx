@@ -1,4 +1,5 @@
 
+import { libelleResidentsPrincipaux } from '../utils/chambres'
 import React, { useEffect, useState } from 'react'
 import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI, plaintes as plaintesAPI } from '../api'
 import { usePlainteCategories } from '../constants/plaintes'
@@ -108,7 +109,7 @@ export default function Residences() {
   const validerRenommage = async () => {
     const r = renameRoom
     try {
-      await batiments.renommer(r.id, { residence: (r.residence||'').trim(), bloc: (r.bloc||'').trim(), etage: parseInt(r.etage,10) || 0 })
+      await batiments.renommer(r.id, { residence: (r.residence||'').trim(), bloc: (r.bloc||'').trim(), etage: parseInt(r.etage,10) || 0, groupe_chambre: (r.groupe_chambre||'').trim(), residents_principaux_max: parseInt(r.residents_principaux_max,10) || 1 })
       toast.success('Chambre mise à jour')
       setRenameRoom(null); load(); chargerTousBlocs()
     } catch (er) { toast.error(er?.response?.data?.error || `Erreur (${er?.response?.status || er.message})`) }
@@ -498,7 +499,7 @@ export default function Residences() {
                 </p>
               )}
               <div style={{display:'flex',gap:8,marginTop:4}}>
-                {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Renommer">🏷️</button>}
+                {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0,groupe_chambre:b.groupe_chambre||'',residents_principaux_max:b.residents_principaux_max||1})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Renommer">🏷️</button>}
                 {isAdmin && <button onClick={()=>openEdit(b)} style={{flex:1,background:'var(--rzc-navy)',color:'#fff',border:'none',borderRadius:8,padding:8,fontSize:11.5,fontWeight:700}}>✏️ Modifier</button>}
                 <button onClick={()=>openHistory(b)} style={{flex:isAdmin?'none':1,background:'var(--rzc-charcoal-l2)',border:'1px solid var(--rzc-border-light)',color:'var(--rzc-text-3)',borderRadius:8,padding:'8px 12px',fontSize:13}} title="Historique">📋{!isAdmin && ' Historique'}</button>
                 {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{background:'var(--rzc-red)',color:'#fff',border:'none',borderRadius:8,padding:'8px 10px',fontSize:13}} title="Supprimer définitivement">🗑️</button>}
@@ -537,7 +538,7 @@ export default function Residences() {
                     <td style={{ padding:'9px 12px', fontFamily:'monospace', fontSize:11, color:b.date_depart?'var(--rzc-red)':'var(--rzc-text-3)' }}>{b.date_depart||'—'}</td>
                     <td style={{ padding:'9px 12px' }}>
                       <div style={{ display:'flex', gap:5 }}>
-                        {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11}} title="Renommer la chambre / changer de bloc">🏷️</button>}
+                        {isAdmin && <button onClick={()=>setRenameRoom({id:b.id,residence:b.residence,bloc:b.bloc,etage:b.etage||0,groupe_chambre:b.groupe_chambre||'',residents_principaux_max:b.residents_principaux_max||1})} style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:11}} title="Renommer la chambre / changer de bloc">🏷️</button>}
                         {isAdmin && <button onClick={()=>openEdit(b)} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'4px 10px', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600 }}>Modifier</button>}
                         <button onClick={()=>openHistory(b)} style={{ background:'var(--rzc-charcoal-l2)', border:'1px solid var(--rzc-border-light)', color:'var(--rzc-text-3)', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Historique">📋{!isAdmin && ' Historique'}</button>
                         {isSuperuser && <button onClick={()=>supprimerBatiment(b)} style={{ background:'var(--rzc-red)', color:'#fff', border:'none', padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:11 }} title="Supprimer définitivement">🗑️</button>}
@@ -567,6 +568,19 @@ export default function Residences() {
             <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Étage (0 = rez-de-chaussée)</label>
             <input type="number" min="0" value={renameRoom.etage ?? 0} onChange={e=>setRenameRoom(r=>({...r,etage:e.target.value}))}
               style={{ width:'100%', padding:'9px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 12px', background:'#fff', color:'#0f172a' }}/>
+            <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', marginBottom:12 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#334155', marginBottom:6 }}>👥 Chambre double / partagée</div>
+              <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Groupe (ex. B104 pour les places B104-A et B104-B)</label>
+              <input value={renameRoom.groupe_chambre ?? ''} maxLength={20} onChange={e=>setRenameRoom(r=>({...r,groupe_chambre:e.target.value}))} placeholder="vide = chambre ordinaire"
+                style={{ width:'100%', padding:'8px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 8px', background:'#fff', color:'#0f172a', boxSizing:'border-box' }}/>
+              <label style={{ fontSize:11, fontWeight:700, color:'#475569' }}>Résidents principaux (au total)</label>
+              <input type="number" min="1" max="6" value={renameRoom.residents_principaux_max ?? 1} onChange={e=>setRenameRoom(r=>({...r,residents_principaux_max:e.target.value}))}
+                style={{ width:'100%', padding:'8px 10px', border:'1px solid #cbd5e1', borderRadius:8, fontSize:13, margin:'4px 0 6px', background:'#fff', color:'#0f172a', boxSizing:'border-box' }}/>
+              <div style={{ fontSize:10.5, color:'#64748b', lineHeight:1.4 }}>
+                • 2 résidents sur 1 lit : alternent (un sur le camp, l'autre en repos) → 1 chambre, total = 2.<br/>
+                • 3 résidents pour 2 places : créer B104-A et B104-B avec le même groupe « B104 », total = 3 (2 sur le camp, 1 hors).
+              </div>
+            </div>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={()=>setRenameRoom(null)} style={{ background:'#f1f5f9', color:'#334155', border:'none', padding:'8px 14px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:600 }}>Annuler</button>
               <button onClick={validerRenommage} style={{ background:'#7c3aed', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12.5, fontWeight:700 }}>Enregistrer</button>
@@ -871,6 +885,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
   const [rpModal, setRpModal] = useState(null)
   const [personnelChoisi, setPersonnelChoisi] = useState('')
   const [batimentChoisi, setBatimentChoisi] = useState('')
+  const PLAINTE_CATEGORIES = usePlainteCategories()
   const [plainteModal, setPlainteModal] = useState(null) // { rp } - anomalie sur cette residence
   const [plainteForm, setPlainteForm] = useState({ description:'', categorie:'Proprete', sous_categorie:'poubelle' })
   const [selectionnes, setSelectionnes] = useState(new Set())
@@ -1185,7 +1200,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
               <SelectRecherche value={batimentChoisi} onChange={e=>setBatimentChoisi(e.target.value)} style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
                 <option value="">— Choisir —</option>
                 {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
-                  <option key={b.id} value={b.id}>{b.residence} {b.resident_principal ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
+                  <option key={b.id} value={b.id}>{b.residence} {libelleResidentsPrincipaux(b)}</option>
                 ))}
               </SelectRecherche>
               <button onClick={declarer} style={{ width:'100%', background:'#16a34a', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
@@ -1211,7 +1226,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
                 style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16 }}>
                 <option value="">— Choisir —</option>
                 {batimentsList.filter(b=>b.statut!=='Maintenance').map(b=>(
-                  <option key={b.id} value={b.id}>{b.residence} {b.resident_principal && b.resident_principal.personnel_id!==modifierModal.rp.personnel_id ? `(déjà résidence principale de ${b.resident_principal.personnel_nom})` : ''}</option>
+                  <option key={b.id} value={b.id}>{b.residence} {libelleResidentsPrincipaux(b, modifierModal.rp.personnel_id)}</option>
                 ))}
               </SelectRecherche>
               <button onClick={confirmerModifier} style={{ width:'100%', background:'#2563eb', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>

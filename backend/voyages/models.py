@@ -201,6 +201,11 @@ class Voyage(models.Model):
             from residences.models import Batiment
             b = Batiment.objects.filter(personnel_id=self.personnel_id).first()
 
+        if b is not None and self.personnel_id and b.groupe_chambre:
+            # Chambre partagee (ex. B104-A / B104-B) : on libere la place que cette personne occupe REELLEMENT.
+            from residences.chambres_partagees import place_occupee_par
+            b = place_occupee_par(self.personnel_id, b) or b
+
         # Ne libere que si la chambre est bien occupee par CETTE personne -
         # jamais l'occupation (potentiellement temporaire) de quelqu'un
         # d'autre, meme si elle est rattachee comme residence principale.
@@ -275,6 +280,12 @@ class Voyage(models.Model):
                 autre = (Voyage.objects.filter(personnel_id=self.personnel_id, batiment__isnull=False)
                          .exclude(pk=self.pk).order_by("-date_depart", "-id").first())
                 b = autre.batiment if autre else None
+
+        if b and self.personnel_id and b.groupe_chambre:
+            # Chambre partagee : la personne reprend sa place si elle l'occupe encore, sinon la premiere place libre
+            # du groupe (2 sur le camp en meme temps, le 3e hors camp).
+            from residences.chambres_partagees import place_occupee_par, place_libre
+            b = place_occupee_par(self.personnel_id, b) or place_libre(b, preferee=b) or b
 
         if b:
             resultat["residence"] = b.residence

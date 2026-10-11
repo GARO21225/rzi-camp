@@ -233,6 +233,7 @@ export const incidents = {
   verifierSLA:  () => api.post('/api/incidents/verifier_sla/'),
   // Workflow
   assigner:     (id,d) => api.post(`/api/incidents/${id}/assigner/`, d),
+  retirer:      (id) => api.post(`/api/incidents/${id}/retirer/`, {}),
   commencer:    (id,d) => api.post(`/api/incidents/${id}/commencer/`, d),
   resoudre:     (id,d) => api.post(`/api/incidents/${id}/resoudre/`, d),
   cloturer:     (id,d) => api.post(`/api/incidents/${id}/cloturer/`, d),
@@ -475,6 +476,8 @@ export const plaintes = {
   supprimer: (id) => api.delete(`/api/plaintes/${id}/`),
   qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
   affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
+  retirer: (id) => api.post(`/api/plaintes/${id}/retirer/`, {}),
+  demarrer: (id) => api.post(`/api/plaintes/${id}/demarrer/`, {}),
   prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
   traiter: (id, d) => api.post(`/api/plaintes/${id}/traiter/`, d),
   mettreEnAttente: (id, motif_attente) => api.post(`/api/plaintes/${id}/mettre_en_attente/`, {motif_attente}),
@@ -507,4 +510,9 @@ export const entreprisesAPI = {
   create: (d)     => api.post('/api/entreprises/', d),
   update: (id, d) => api.patch(`/api/entreprises/${id}/`, d),
   delete: (id)    => api.delete(`/api/entreprises/${id}/`),
+}
+
+export const technicien = {
+  tableau: (technicienId) => api.get('/api/technicien/tableau/', {params: technicienId ? {technicien_id: technicienId} : {}}),
+  assignations: () => api.get('/api/technicien/assignations/'),
 }

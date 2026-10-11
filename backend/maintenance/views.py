@@ -15,7 +15,7 @@ def _notifier(incident, message, type_notif='info'):
         from accounts.models import Profile
         dest = set()
         # Admins
-        for p in Profile.objects.filter(role__in=['admin','technicien']).select_related('user'):
+        for p in Profile.objects.filter(role='admin').select_related('user'):
             dest.add(p.user)
         # Auteur
         if incident.auteur:
@@ -36,6 +36,20 @@ def _notifier(incident, message, type_notif='info'):
 
 from rest_framework.decorators import api_view, permission_classes as pc
 from rest_framework.permissions import AllowAny, IsAuthenticated
+
+
+def _prevenir_assignation(incident, nouveau, ancien):
+    """Notifie le nouveau responsable (tâche reçue) et l'ancien (tâche retirée)."""
+    try:
+        from evenements.models import SimpleNotification
+        if nouveau:
+            SimpleNotification.objects.create(user=nouveau, titre=f"🔧 Tâche assignée — incident #{incident.id}",
+                message=f"{incident.titre[:60]} · {incident.residence}{(' ' + incident.bloc) if incident.bloc else ''} · priorité {incident.priorite}", type_notif='alerte')
+        if ancien and (not nouveau or ancien.id != nouveau.id):
+            SimpleNotification.objects.create(user=ancien, titre=f"🔧 Tâche retirée — incident #{incident.id}",
+                message=f"{incident.titre[:60]} ne vous est plus assigné.", type_notif='info')
+    except Exception:
+        pass
 
 
 def _est_admin(u):
@@ -489,36 +503,54 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def assigner(self, request, pk=None):
-        """Assigner au technicien via SQL"""
+        """Assigner / RÉASSIGNER à un technicien (ou admin). Le nouveau responsable ET l'ancien sont prévenus."""
         from django.db import connection
         u = request.user
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         tech_id = request.data.get('technicien_id')
         if not tech_id:
             return Response({'error': 'technicien_id requis'}, status=400)
-        if not is_admin:
-            # Un non-admin peut prendre en charge un incident NON assigne
-            # (auto-prise en charge) ou le passer a quelqu'un d'autre s'il
-            # en est deja le titulaire (reassignation/passation) - mais pas
-            # arracher un incident assigne a quelqu'un d'autre.
-            with connection.cursor() as c:
-                c.execute('SELECT assigne_a_id FROM maintenance_incident WHERE id=%s', [pk])
-                row = c.fetchone()
-            if row and row[0] not in (None, u.id):
-                return Response({'error': "Cet incident est déjà pris en charge par quelqu'un d'autre — seul un admin peut le réassigner."}, status=403)
+        cible = User.objects.filter(pk=tech_id, is_active=True).first()
+        if not cible:
+            return Response({'error': 'Technicien introuvable'}, status=400)
+        inc = Incident.objects.filter(pk=pk).first()
+        if not inc:
+            return Response({'error': 'Incident introuvable'}, status=404)
+        if inc.statut in ('cloture', 'annule'):
+            return Response({'error': 'Cet incident est clôturé/annulé.'}, status=400)
+        if not is_admin and inc.assigne_a_id not in (None, u.id):
+            return Response({'error': "Cet incident est déjà pris en charge par quelqu'un d'autre — seul un admin peut le réassigner."}, status=403)
+        ancien = inc.assigne_a
+        nom = cible.get_full_name() or cible.username
+        txt = f'Réassigné à {nom}' if ancien and ancien.id != cible.id else f'Assigné à {nom}'
         try:
-            with connection.cursor() as c:
-                c.execute('UPDATE maintenance_incident SET statut=%s, assigne_a_id=%s, date_assignation=NOW() WHERE id=%s',
-                          ['assigne', tech_id, pk])
-                auteur_id = request.user.id if request.user and request.user.is_authenticated else None
-                try:
-                    c.execute('INSERT INTO maintenance_commentaireincident (incident_id,auteur_id,type_comment,contenu,date_creation,photo_base64) VALUES (%s,%s,%s,%s,NOW(),%s)',
-                              [pk, auteur_id, 'assignation', 'Incident assigné', ''])
-                except Exception:
-                    pass
-            return Response({'id': pk, 'statut': 'assigne'})
+            Incident.objects.filter(pk=pk).update(statut='assigne', assigne_a=cible, date_assignation=timezone.now(), date_debut=None)
+            CommentaireIncident.objects.create(incident_id=pk, auteur=u if u.is_authenticated else None, type_comment='assignation', contenu=txt)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+        _prevenir_assignation(inc, cible, ancien)
+        return Response({'id': pk, 'statut': 'assigne'})
+
+    @action(detail=True, methods=['post'])
+    def retirer(self, request, pk=None):
+        """Retire l'assignation (admin) : l'incident redevient « déclaré » et le technicien est prévenu."""
+        from django.db import connection
+        u = request.user
+        if not _est_admin(u):
+            return Response({'error': 'Admin requis'}, status=403)
+        inc = Incident.objects.filter(pk=pk).first()
+        if not inc:
+            return Response({'error': 'Incident introuvable'}, status=404)
+        if not inc.assigne_a_id:
+            return Response({'error': "Cet incident n'est assigné à personne."}, status=400)
+        if inc.statut in ('resolu', 'cloture', 'annule'):
+            return Response({'error': 'Cet incident est déjà traité.'}, status=400)
+        ancien = inc.assigne_a
+        Incident.objects.filter(pk=pk).update(statut='declare', assigne_a=None, date_assignation=None, date_debut=None)
+        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='assignation',
+                                           contenu=f"Assignation retirée à {ancien.get_full_name() or ancien.username}")
+        _prevenir_assignation(inc, None, ancien)
+        return Response({'id': pk, 'statut': 'declare'})
 
     @action(detail=True, methods=['post'])
     def commencer(self, request, pk=None):
@@ -691,6 +723,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
         return Response([{
             'id':       t.user.id,
             'nom':      t.user.get_full_name() or t.user.username,
+            'first_name': t.user.first_name,
+            'last_name':  t.user.last_name,
             'username': t.user.username,
             'role':     t.role,
             'incidents_actifs': Incident.objects.filter(

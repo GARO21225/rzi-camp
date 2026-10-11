@@ -873,3 +873,92 @@ class ModifierRotationEtStatutTests(TestCase):
         r = self.c.post("/api/voyages/partir_rotation/", {"rotation_id": "R-M"}, format="json")
         self.assertEqual(r.status_code, 400)
         self.assertIn("déjà parti", r.json()["error"])
+
+
+    def test_rotation_sans_passager_passe_en_voyage_quand_le_chauffeur_part(self):
+        def statut():
+            resp = self.c.get("/api/voyages/rotations/")
+            d = resp.json()
+            return [x for x in d["rotations"] if x["rotation_id"] == "R-M"][0]
+        self.assertEqual(statut()["statut"], "planifie")
+        s = SuiviConvoi.objects.create(rotation=Rotation.objects.get(rotation_id="R-M"), statut="en_route", depart_at=timezone.now())
+        r = statut()
+        self.assertEqual((r["statut"], r["suivi_statut"]), ("en_voyage", "en_route"))
+        SuiviConvoi.objects.filter(pk=s.pk).update(statut="arrive", arrivee_at=timezone.now())
+        self.assertEqual(statut()["statut"], "retour")
+
+
+class ChambresDoublesTests(TestCase):
+    """Chambres partagées : alternance (1 place / 2 résidents) et rotation (2 places B104-A/B / 3 résidents)."""
+
+    def setUp(self):
+        from residences.models import Batiment
+        self.today = datetime.date.today()
+        self.admin = User.objects.create_user("admd", password="x", is_staff=True)
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+        self.P = [Personnel.objects.create(nom=f"N{i}", prenom="P", societe="ROXGOLD") for i in range(4)]
+        self.Batiment = Batiment
+
+    def declarer(self, p, b):
+        return self.c.post("/api/residents-principaux/declarer/", {"personnel": p.id, "batiment": b.id}, format="json")
+
+    def loger(self, p, b):
+        self.Batiment.objects.filter(pk=b.pk).update(statut="Occupé", personnel=p, occupant=f"{p.nom} {p.prenom}")
+
+    def voyage(self, p, statut="en_voyage"):
+        return Voyage.objects.create(personnel=p, origine="Abidjan", destination="CAMP", trajet_aller_seul=False, date_depart=self.today,
+                                     date_retour_prevue=self.today, statut=statut, statut_validation="valide")
+
+    def test_alternance_un_lit_deux_residents(self):
+        b = self.Batiment.objects.create(residence="B104", bloc="B", statut="Libre", residents_principaux_max=2)
+        a, c2, c3 = self.P[0], self.P[1], self.P[2]
+        self.assertEqual(self.declarer(a, b).status_code, 201)
+        self.assertEqual(self.declarer(c2, b).status_code, 201)
+        r = self.declarer(c3, b)
+        self.assertEqual(r.status_code, 409); self.assertIn("complète", r.json()["error"])
+        # A est sur le camp ; B revient : la chambre est prise -> conflit signalé, pas d'écrasement
+        self.loger(a, b)
+        res = self.voyage(c2).revenir(self.today)
+        b.refresh_from_db()
+        self.assertEqual((res["chambre_restituee"], b.personnel_id), (False, a.id))
+        self.assertIn("N0", res["chambre_occupee_par"])
+        # A part (libère), B revient : OK
+        va = self.voyage(a, "planifie"); va.partir(self.today)
+        b.refresh_from_db(); self.assertEqual(b.statut, "Libre")
+        self.assertTrue(self.voyage(c2).revenir(self.today)["chambre_restituee"])
+        b.refresh_from_db(); self.assertEqual(b.personnel_id, c2.id)
+
+    def test_rotation_trois_residents_deux_places(self):
+        a = self.Batiment.objects.create(residence="B104-A", bloc="B", statut="Libre", groupe_chambre="B104", residents_principaux_max=3)
+        b = self.Batiment.objects.create(residence="B104-B", bloc="B", statut="Libre", groupe_chambre="B104", residents_principaux_max=3)
+        p1, p2, p3, p4 = self.P
+        self.assertEqual(self.declarer(p1, a).status_code, 201)
+        self.assertEqual(self.declarer(p2, b).status_code, 201)
+        self.assertEqual(self.declarer(p3, a).status_code, 201)   # le 3e : sur le groupe, quelle que soit la place
+        self.assertEqual(self.declarer(p4, b).status_code, 409)    # le 4e : groupe complet
+        self.loger(p1, a); self.loger(p2, b)
+        # p3 revient alors que les 2 places sont prises : conflit
+        res = self.voyage(p3).revenir(self.today)
+        self.assertFalse(res["chambre_restituee"])
+        # p1 part -> la place A se libère ; p3 revient et prend A (ou la première place libre du groupe)
+        self.voyage(p1, "planifie").partir(self.today)
+        a.refresh_from_db(); self.assertEqual(a.statut, "Libre")
+        res = self.voyage(p3).revenir(self.today)
+        a.refresh_from_db()
+        self.assertEqual((res["chambre_restituee"], a.personnel_id), (True, p3.id))
+        # p2 (en B) part : libère SA place B, pas A
+        self.voyage(p2, "planifie").partir(self.today)
+        a.refresh_from_db(); b.refresh_from_db()
+        self.assertEqual((a.personnel_id, b.personnel_id), (p3.id, None))
+
+    def test_invite_refuse_si_residents_ont_besoin_des_places_et_chambre_ordinaire_inchangee(self):
+        from residences.views import conflit_residence_principale
+        a = self.Batiment.objects.create(residence="C20-A", bloc="C", statut="Libre", groupe_chambre="C20", residents_principaux_max=2)
+        b = self.Batiment.objects.create(residence="C20-B", bloc="C", statut="Libre", groupe_chambre="C20", residents_principaux_max=2)
+        self.declarer(self.P[0], a); self.declarer(self.P[1], b)
+        self.loger(self.P[0], a); self.loger(self.P[1], b)
+        invite = self.P[3]
+        self.assertIsNotNone(conflit_residence_principale(self.Batiment.objects.get(pk=a.pk), invite, None, None))
+        simple = self.Batiment.objects.create(residence="D1", bloc="D", statut="Libre")
+        self.assertIsNone(conflit_residence_principale(simple, invite, None, None))
+        self.assertEqual(self.declarer(self.P[0], simple).status_code, 409)  # déjà résident de C20-A

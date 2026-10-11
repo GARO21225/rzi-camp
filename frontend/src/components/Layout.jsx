@@ -12,6 +12,7 @@ import ConfirmDialogContainer from './ConfirmDialogContainer'
 import { toast } from '../toast'
 import { MobileHeader, MobileDrawer } from './MobileChrome'
 import { prechargerPages } from '../prechargement'
+import { demarrerPulse, arreterPulse, sonNotifActif, activerSonNotif } from '../utils/pulse'
 import { rolesAPI, batiments, suiviConvois, itinerairesModeles } from '../api'
 
 /* REFONTE: logo migré du base64 inline vers le fichier PNG du design system */
@@ -21,13 +22,14 @@ import { ROLE_LABELS, getRole, isAdminUser, buildNav, isPathAllowed, homePathFor
 // Page à ouvrir pour une notification système, d'après son titre
 function pageNotif(n) {
   const t = (n.evenement_titre || '').toLowerCase()
-  if (t.includes('maintenance')) return '/maintenance'
+  if (t.includes('maintenance') || t.includes('incident') || t.includes('tâche') || t.includes('plainte')) return '/maintenance'
   if (t.includes('demande')) return '/demandes'
   if (t.includes('convoi') || t.includes('départ') || t.includes('mobilit') || t.includes('voyage')) return '/rotations'
   return '/accueil'
 }
 
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
+  const [son, setSon] = React.useState(sonNotifActif())
   return (
     <div style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
@@ -39,6 +41,7 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
           🔔 Notifications {count > 0 && <span style={{ background: '#dc2626', color: '#ffffff', borderRadius: 20, padding: '1px 8px', fontSize: 10, marginLeft: 8 }}>{count}</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button title={son ? 'Son activé (cliquer pour couper)' : 'Son coupé (cliquer pour activer)'} onClick={() => { activerSonNotif(!son); setSon(!son) }} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#ffffff', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>{son ? '🔊' : '🔇'}</button>
           {count > 0 && <button onClick={onMarkAll} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#ffffff', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11 }}>✓ Tout lire</button>}
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#ffffff', width: 26, height: 26, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
@@ -331,6 +334,7 @@ export default function Layout() {
   const theme = 'light'
   const notifRef = useRef(null)
   const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
+  useEffect(() => { demarrerPulse(); return () => arreterPulse() }, [])
   const isMobile = useIsMobile()
 
   // Applique toujours le thème clair, quoi qu'il y ait en localStorage

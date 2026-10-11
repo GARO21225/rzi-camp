@@ -257,6 +257,11 @@ class Batiment(models.Model):
     # Les etages d'un meme batiment partagent la meme emprise sur la carte ;
     # la carte SIG filtre par etage pour les afficher separement.
     etage = models.IntegerField(default=0)
+    # Chambres partagées (doubles) : voir residences/chambres_partagees.py.
+    groupe_chambre = models.CharField(max_length=20, blank=True, default="", db_index=True,
+        help_text="Chambre partagée : les places (ex. B104-A, B104-B) portent le même groupe (« B104 »).")
+    residents_principaux_max = models.PositiveSmallIntegerField(default=1,
+        help_text="Nombre maximal de résidents principaux actifs pour la chambre / le groupe (1 = chambre ordinaire).")
     history = HistoricalRecords()
 
     class Meta:

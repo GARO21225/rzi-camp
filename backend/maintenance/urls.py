@@ -1,11 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from .technicien import tableau_technicien, assignations
 from .views import IncidentViewSet, declarer_incident, list_incidents, stats_incidents
 
 router = DefaultRouter()
 router.register('incidents', IncidentViewSet, basename='incident')
 
 urlpatterns = [
+    path('technicien/tableau/', tableau_technicien, name='technicien_tableau'),
+    path('technicien/assignations/', assignations, name='technicien_assignations'),
     path('incidents/declarer/', declarer_incident, name='declarer_incident'),
     path('incidents/liste/',    list_incidents,    name='list_incidents'),
     path('incidents/stats-sql/',stats_incidents,   name='stats_incidents'),

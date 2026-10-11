@@ -107,6 +107,9 @@ def fixer_prochain_depart(personnel, date_prochain_depart):
         return None
     rp = ResidentPrincipal.objects.filter(personnel=personnel, date_fin__isnull=True).select_related("batiment").first()
     b = rp.batiment if rp and rp.batiment_id else Batiment.objects.filter(personnel=personnel).first()
+    if b is not None and b.groupe_chambre:
+        from residences.chambres_partagees import place_occupee_par
+        b = place_occupee_par(personnel.id, b) or b
     # Jamais sur une chambre occupée par quelqu'un d'autre (ce serait SA date de départ)
     if b and b.personnel_id == personnel.id:
         b.date_depart = date_prochain_depart

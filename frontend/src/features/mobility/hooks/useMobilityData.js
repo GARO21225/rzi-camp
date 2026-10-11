@@ -1,3 +1,4 @@
+import { useSurPulse } from '../../../hooks/useSurPulse'
 // État + rafraîchissement des données du Centre de Mobilité (30 s, uniquement onglet visible).
 import { useState, useEffect, useCallback } from 'react'
 import { chargerCentreMobilite } from '../services/mobilityApi'
@@ -7,13 +8,13 @@ const VIDE = {
   retoursAnticipes: [], demandesAOrganiser: [], itineraires: [], demandesVoyageEnAttente: [],
 }
 
-export function useMobilityData(intervalMs = 30000) {
+export function useMobilityData(intervalMs = 60000) {
   const [data, setData] = useState(VIDE)
   const [loading, setLoading] = useState(true)
   const [echecs, setEchecs] = useState([])   // ressources non chargées (réponse partielle)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (silencieux) => {
+    if (silencieux !== true) setLoading(true)
     try {
       const { donnees, echecs: e } = await chargerCentreMobilite()
       // Une ressource en échec garde sa dernière valeur connue (pas d'écran vidé par un raté réseau).
@@ -25,6 +26,7 @@ export function useMobilityData(intervalMs = 30000) {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useSurPulse(['demandes', 'notifs'], () => load(true))
   useEffect(() => {
     const iv = setInterval(() => { if (!document.hidden) load() }, intervalMs)
     return () => clearInterval(iv)
