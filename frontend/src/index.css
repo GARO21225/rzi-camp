@@ -671,6 +671,8 @@ input:focus, select:focus, textarea:focus {
     align-items: safe center !important;
     /* la barre de menu flottante (≈ 90 px) ne doit jamais masquer les boutons du bas */
     padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+    /* le geste de défilement reste DANS la fenêtre (ne « traverse » pas vers la page en arrière-plan) */
+    overscroll-behavior: contain;
   }
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div {
     max-height: none !important;
@@ -681,5 +683,11 @@ input:focus, select:focus, textarea:focus {
 /* Une fenêtre modale ouverte passe AU-DESSUS de tout : la barre de menu flottante est masquée
    (sinon elle recouvre les boutons « Valider / Soumettre » en bas de la fenêtre). */
 @media (max-width: 768px) {
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]) .bottom-tab-bar { display: none !important; }
+  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]) .bottom-tab-bar,
+  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]) .bottom-tab-bar,
+  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) .bottom-tab-bar { display: none !important; }
+  /* Fenêtre ouverte : la page derrière ne défile plus (seule la fenêtre défile). */
+  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]),
+  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]),
+  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) { overflow: hidden !important; }
 }

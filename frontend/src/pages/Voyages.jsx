@@ -324,14 +324,25 @@ export default function Voyages() {
   }, [])
   useEffect(() => { chargerRotationsDispo() }, [chargerRotationsDispo])
 
-  const rejoindre = async (rotationId) => {
+  // Rejoindre un convoi : le passager dit OÙ il monte et OÙ il descend (JMP, manifeste et billet en dépendent).
+  const [joinModal, setJoinModal] = useState(null)   // { rot, origine, destination, date_retour_prevue }
+  const rejoindre = (rot) => {
     const persoId = isAdmin ? null : myPersonnel?.id
     if (!persoId) return toast.error('Profil personnel introuvable pour rejoindre automatiquement')
+    const arrets = rot.arrets_itineraire || []
+    setJoinModal({ rot, origine: arrets[0] || rot.origine || '', destination: arrets[arrets.length-1] || rot.destination || '', date_retour_prevue: '' })
+  }
+  const confirmerRejoindre = async () => {
+    const { rot, origine, destination, date_retour_prevue } = joinModal
+    if (!origine || !destination) return toast.error('Indiquez où vous montez et où vous descendez.')
+    setSubmitting(true)
     try {
-      await voyages.rejoindreRotation(rotationId, persoId)
+      await voyages.rejoindreRotation(rot.rotation_id, myPersonnel.id, { origine, destination, ...(date_retour_prevue ? { date_retour_prevue } : {}) })
       toast.success('Vous avez rejoint la rotation !')
+      setJoinModal(null)
       loadVoyages(); chargerRotationsDispo()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+    finally { setSubmitting(false) }
   }
 
   const validerVoyage = async (v) => {
@@ -475,7 +486,7 @@ export default function Voyages() {
                   <span>○ {lib} libre{lib>1?'s':''}</span>
                 </div>
                 {!isAdmin && (
-                  <button onClick={()=>rejoindre(rot.rotation_id)}
+                  <button onClick={()=>rejoindre(rot)}
                     style={{width:'100%',background:'var(--rzc-navy)',color:'#fff',border:'none',padding:9,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
                     Rejoindre cette rotation
                   </button>
@@ -925,6 +936,60 @@ export default function Voyages() {
           </div>
         </div>
       )}
+
+      {/* ═══ MODAL REJOINDRE : où je monte / où je descends ═══ */}
+      {joinModal && (() => {
+        const arrets = joinModal.rot.arrets_itineraire || []
+        const iM = arrets.indexOf(joinModal.origine)
+        const montees = arrets.slice(0, -1)
+        const descentes = arrets.filter((a, i) => i > iM)
+        const lbl = { display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontWeight:700 }
+        return (
+        <div style={{ position:'fixed',inset:0,background:'rgba(15,36,71,.65)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1100,padding:16 }}
+          onClick={e=>e.target===e.currentTarget&&setJoinModal(null)}>
+          <div style={{ background:'var(--rzc-white)',width:'100%',maxWidth:400,borderRadius:16,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'var(--rzc-navy)',color:'#fff',padding:'14px 20px' }}>
+              <span style={{ fontWeight:700,fontSize:15 }}>🧳 Rejoindre le convoi {joinModal.rot.rotation_id}</span>
+            </div>
+            <div style={{ padding:20,display:'flex',flexDirection:'column',gap:12 }}>
+              <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>
+                {joinModal.rot.origine} → {joinModal.rot.destination} · départ {fmtFR(joinModal.rot.date_depart)}
+              </div>
+              <div>
+                <label style={lbl}>Je monte à *</label>
+                {arrets.length > 0 ? (
+                  <select value={joinModal.origine} style={inp} onChange={e=>{
+                    const m = e.target.value, i = arrets.indexOf(m)
+                    setJoinModal(j=>({...j, origine:m, destination: arrets.indexOf(j.destination) > i ? j.destination : ''}))
+                  }}>
+                    <option value="">— Choisir —</option>
+                    {montees.map(a=><option key={a} value={a}>{a}</option>)}
+                  </select>
+                ) : <input value={joinModal.origine} style={inp} onChange={e=>setJoinModal(j=>({...j, origine:e.target.value}))}/>}
+              </div>
+              <div>
+                <label style={lbl}>Je descends à *</label>
+                {arrets.length > 0 ? (
+                  <select value={joinModal.destination} style={inp} onChange={e=>setJoinModal(j=>({...j, destination:e.target.value}))}>
+                    <option value="">— Choisir —</option>
+                    {descentes.map(a=><option key={a} value={a}>{a}</option>)}
+                  </select>
+                ) : <input value={joinModal.destination} style={inp} onChange={e=>setJoinModal(j=>({...j, destination:e.target.value}))}/>}
+              </div>
+              <div>
+                <label style={lbl}>Date de retour (facultatif)</label>
+                <input type="date" value={joinModal.date_retour_prevue} min={joinModal.rot.date_depart} style={inp}
+                  onChange={e=>setJoinModal(j=>({...j, date_retour_prevue:e.target.value}))}/>
+              </div>
+              <div style={{ display:'flex',gap:10 }}>
+                <button onClick={()=>setJoinModal(null)} style={{ flex:1,background:'#f8fafc',color:'var(--rzc-text-3)',border:'1px solid #e2e8f0',padding:11,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600 }}>Annuler</button>
+                <button disabled={submitting} onClick={confirmerRejoindre} style={{ flex:2,background:'var(--rzc-navy)',color:'#fff',border:'none',padding:11,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:700,opacity:submitting?.6:1 }}>Confirmer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
 
       {/* ═══ MODAL REFUS ═══ */}
       {refusModal && (

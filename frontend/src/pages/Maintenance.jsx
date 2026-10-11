@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import ComboLibre from '../components/ComboLibre'
 import { useNavigate } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
@@ -732,7 +733,7 @@ export default function Maintenance() {
         }
         return ''
       }
-      let imported=0, errors=[]
+      let imported=0; const errors=[]
       for (let i=1; i<lines.length; i++) {
         const row = lines[i].split(sep)
         const titre = getCol(row,['titre','title'])
@@ -1357,13 +1358,9 @@ export default function Maintenance() {
                 <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <input value={form.residence} onChange={e=>setForm({...form,residence:e.target.value})}
-                      placeholder="Sélectionner ou saisir..." style={inp} list="res-list"/>
-                    <datalist id="res-list">
-                      {(residences.length>0 ? residences
-                        : [...new Set(incidents.map(i=>i.residence).filter(Boolean))]
-                      ).map(r=><option key={r} value={r}/>)}
-                    </datalist>
+                    <ComboLibre value={form.residence} onChange={v=>setForm(f=>({...f,residence:v}))}
+                      placeholder="Choisir dans la liste ou saisir…" style={inp}
+                      options={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}/>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
@@ -1699,7 +1696,8 @@ export default function Maintenance() {
                 <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <input value={editInc.residence} onChange={e=>setEditInc({...editInc,residence:e.target.value})} style={inp}/>
+                    <ComboLibre value={editInc.residence||''} onChange={v=>setEditInc(x=>({...x,residence:v}))} style={inp}
+                      options={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}/>
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>

@@ -5,6 +5,8 @@ import SelectRecherche from '../components/SelectRecherche'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import { BASE, tok, hdrs, api } from '../features/mobility/services/mobilityApi'
 import { useMobilityData } from '../features/mobility/hooks/useMobilityData'
+import { useActionsMobilite } from '../features/mobility/hooks/useActionsMobilite'
+import MobilityValidations from '../features/mobility/components/MobilityValidations'
 import { C, ST_CFG } from '../features/mobility/utils/theme'
 import { vehiculeOccupe, conducteurOccupe, personnelOccupe } from '../features/mobility/utils/conflits'
 import { fmt, toISO, addDays } from '../features/mobility/utils/format'
@@ -112,6 +114,7 @@ export default function MissionControl() {
   const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
   const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
   const [organiserMode, setOrganiserMode] = useState('nouvelle')
+  const { enCours, agir, envoyer } = useActionsMobilite(load)
   const [organiserRotationCible, setOrganiserRotationCible] = useState('')
   const [weekOff,    setWeekOff]   = useState(0)
   const [selVoyage,  setSelVoyage] = useState(null)
@@ -1300,7 +1303,8 @@ export default function MissionControl() {
                                       ))}
                                   </SelectRecherche>
                                   <button className="mc-btn mc-btn-primary"
-                                    disabled={saving||!formJoin.personnel_id||formJoin.rotation_id!==r.rotation_id}
+                                    disabled={saving||!formJoin.personnel_id||formJoin.rotation_id!==r.rotation_id||((r.arrets_itineraire||[]).length>0&&(!formJoin.origine||!formJoin.destination))}
+                                    title={(r.arrets_itineraire||[]).length>0&&(!formJoin.origine||!formJoin.destination)?'Indiquez où il monte et où il descend':undefined}
                                     onClick={()=>rejoindreRotation(r.rotation_id, parseInt(formJoin.personnel_id), formJoin)}>
                                     + Ajouter
                                   </button>
@@ -1656,14 +1660,15 @@ export default function MissionControl() {
                             const reserve = v => debut && reserves.some(r => r.statut!=='annulé' && (r.immat||'').trim().toLowerCase()===(v.matricule||'').trim().toLowerCase()
                               && r.date >= debut && r.date <= fin)
                             const occupe = v => debut && !!vehiculeOccupe(v.matricule, rotations, debut, fin, organiserMode==='existante' ? organiserRotationCible : convoiAuto?.rotation_id)
-                            // Même parc que la page Réservations → Véhicules (serveur + saisies locales)
+                            // MÊME liste que la page Réservations → Véhicules (aucun véhicule n'est masqué) :
+                            // les indisponibles restent visibles, grisés, avec la raison.
                             const parc = vehiculesDuParc(flotte, lireFleetLocale())
-                            const dispo = parc.filter(v=>!reserve(v) && !occupe(v))
-                            const masques = parc.length - dispo.length
-                            return <>
-                              {dispo.map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
-                              {masques>0 && <option value="" disabled>— {masques} véhicule(s) masqué(s) : réservé(s) ou déjà sur un convoi à ces dates —</option>}
-                            </>
+                            const ordre = { '4x4':0, pickup:1, minibus:2 }
+                            const trie = [...parc].sort((a,b)=>(ordre[a.categorie] ?? 3)-(ordre[b.categorie] ?? 3))
+                            return trie.map(v=>{
+                              const raison = reserve(v) ? 'réservé' : occupe(v) ? 'déjà sur un convoi' : ''
+                              return <option key={v.id} value={v.matricule} disabled={!!raison}>{v.nom} — {v.matricule||'sans immat.'} ({v.capacite} places){raison?` — ${raison} à ces dates`:''}</option>
+                            })
                           })()}
                         </SelectRecherche>
                       </div>
@@ -1692,22 +1697,28 @@ export default function MissionControl() {
                       )}
                     </div>
                     )}
-                    <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12}}
-                      disabled={!pret}
-                      onClick={async()=>{
+                    <button className="mc-btn mc-btn-primary" style={{width:'100%',justifyContent:'center',padding:12,opacity:enCours.organiser?.6:1}}
+                      disabled={!pret||!!enCours.organiser}
+                      onClick={()=>agir('organiser',async()=>{
                         const body = {
                           demande_ids: demandesSelectionnees, voyage_ids: voyagesSelectionnes,
                           ...(organiserMode==='existante' ? { rotation_id: organiserRotationCible } : {}),
                           ...organiserForm,
                         }
-                        const res = await api('/api/voyages/organiser_demandes_en_rotation/', {method:'POST', body:JSON.stringify(body)})
-                        const d = await res.json()
+                        const chemin = '/api/voyages/organiser_demandes_en_rotation/'
+                        let res = await api(chemin, {method:'POST', body:JSON.stringify(body)})
+                        let d = await res.json().catch(()=>({}))
+                        if (!res.ok && d.code==='jour_non_autorise' && d.forcable && await confirmDialog(`${d.error}\n\nOrganiser quand même ?`)) {
+                          res = await api(chemin, {method:'POST', body:JSON.stringify({...body, forcer_jour:true})})
+                          d = await res.json().catch(()=>({}))
+                        }
                         if (res.ok) {
                           flash(`Rotation ${d.rotation_id} : ${d.nb_passagers_total}/${d.nb_places_total} places occupées`)
-                          reinitialiser(); load()
+                          reinitialiser(); await load()
                         } else { toast.error(d.error || 'Erreur') }
-                      }}>
-                      {organiserMode==='existante' ? `🔗 Ajouter ${nbSel} voyageur(s) à la rotation` : (convoiAuto ? `✦ Organiser le convoi (${nbSel} voyageur(s))` : `✦ Créer la rotation (${nbSel} voyageur(s))`)}
+                      })}>
+                      {enCours.organiser ? '⏳ Organisation en cours…' : <>
+                      {organiserMode==='existante' ? `🔗 Ajouter ${nbSel} voyageur(s) à la rotation` : (convoiAuto ? `✦ Organiser le convoi (${nbSel} voyageur(s))` : `✦ Créer la rotation (${nbSel} voyageur(s))`)}</>}
                     </button>
                   </div>
                 )}
@@ -2225,86 +2236,7 @@ export default function MissionControl() {
 
         {/* ══ VUE VALIDATIONS EN ATTENTE ═══════════════════════════ */}
         {view==='validations' && isAdmin && (
-          <div className="mc-fade">
-            {/* Demandes de voyage (page Demandes) encore en_attente :
-                meme bouton Valider/Rejeter que sur la page Demandes
-                (memes endpoints /api/demandes/<id>/valider|rejeter/) -
-                une seule validation, juste accessible aussi d'ici. */}
-            {demandesVoyageEnAttente.length > 0 && (
-              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
-                <div style={{fontSize:11,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:.5}}>
-                  📨 Demandes de voyage ({demandesVoyageEnAttente.length})
-                </div>
-                {demandesVoyageEnAttente.map(d=>(
-                  <Panel key={`d${d.id}`} style={{padding:16}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:14,color:C.text}}>{d.demandeur_nom}</div>
-                        <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                          🧳 {d.donnees?.destination || '—'} · {fmt(d.date_debut_souhaitee)} → {fmt(d.date_fin_souhaitee)}
-                          {d.donnees?.vehicule_personnel && <> · <b>🚗 Véhicule personnel{d.donnees?.immatriculation ? ` (${d.donnees.immatriculation})` : ''}</b></>}
-                        </div>
-                        {d.message_demandeur && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {d.message_demandeur}</div>}
-                      </div>
-                      <div style={{display:'flex',gap:8}}>
-                        <button className="mc-btn" style={{background:C.green,color:'#fff'}}
-                          onClick={async()=>{
-                            try{ await api(`/api/demandes/${d.id}/valider/`,{method:'POST',body:JSON.stringify({})}); toast.success('Demande validée'); load() }
-                            catch{ toast.error('Erreur') }
-                          }}>✅ Valider</button>
-                        <button className="mc-btn" style={{background:C.red,color:'#fff'}}
-                          onClick={async()=>{
-                            const motif = prompt(`Motif du rejet de la demande de ${d.demandeur_nom} (obligatoire) :`)
-                            if(!motif) return
-                            try{ await api(`/api/demandes/${d.id}/rejeter/`,{method:'POST',body:JSON.stringify({commentaire:motif})}); toast.success('Demande rejetée'); load() }
-                            catch{ toast.error('Erreur') }
-                          }}>❌ Rejeter</button>
-                      </div>
-                    </div>
-                  </Panel>
-                ))}
-              </div>
-            )}
-            {(() => {
-              const enAttente = voyages.filter(v=>v.statut_validation==='en_attente')
-              return (enAttente.length===0 && demandesVoyageEnAttente.length===0) ? (
-                <Panel style={{padding:40,textAlign:'center'}}>
-                  <div style={{fontSize:40,marginBottom:10}}>✅</div>
-                  <div style={{color:C.muted,fontSize:13}}>Aucune demande en attente de validation.</div>
-                </Panel>
-              ) : enAttente.length===0 ? null : (
-                <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  {enAttente.map(v=>(
-                    <Panel key={v.id} style={{padding:16}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
-                        <div>
-                          <div style={{fontWeight:800,fontSize:14,color:C.text}}>{v.personnel_nom}</div>
-                          <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                            {v.personnel_societe} · 🧳 {v.destination} · {fmt(v.date_depart)} → {fmt(v.date_retour_prevue)}
-                          </div>
-                          {v.motif && <div style={{fontSize:11,color:C.muted,marginTop:2}}>Motif : {v.motif}</div>}
-                        </div>
-                        <div style={{display:'flex',gap:8}}>
-                          <button className="mc-btn" style={{background:C.green,color:'#fff'}}
-                            onClick={async()=>{
-                              try{ await api(`/api/voyages/${v.id}/valider/`,{method:'POST'}); toast.success('Voyage validé'); load() }
-                              catch{ toast.error('Erreur') }
-                            }}>✅ Valider</button>
-                          <button className="mc-btn" style={{background:C.red,color:'#fff'}}
-                            onClick={async()=>{
-                              const ok = await confirmDialog(`Refuser le voyage de ${v.personnel_nom} vers ${v.destination} ?`)
-                              if(!ok) return
-                              try{ await api(`/api/voyages/${v.id}/refuser/`,{method:'POST',body:JSON.stringify({motif:''})}); toast.success('Voyage refusé'); load() }
-                              catch{ toast.error('Erreur') }
-                            }}>❌ Refuser</button>
-                        </div>
-                      </div>
-                    </Panel>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
+          <MobilityValidations voyages={voyages} demandes={demandesVoyageEnAttente} enCours={enCours} agir={agir} envoyer={envoyer}/>
         )}
 
         {/* ══ VUE LISTE COMPLÈTE — façon billet d'agence de voyage ═══ */}

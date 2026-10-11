@@ -2897,7 +2897,11 @@ class DemandeViewSet(viewsets.ModelViewSet):
             from voyages.views import _refus_jour
             don = request.data.get("donnees") or {}
             if isinstance(don, dict):
-                refus = _refus_jour(request, don.get("origine") or "Camp Roxgold Sango", don.get("destination") or "",
+                # Sens du trajet : celui choisi (monte/descend), sinon celui de l'itinéraire — jamais « Camp → Camp » par défaut.
+                from voyages.models import ItineraireModele
+                it = ItineraireModele.objects.filter(pk=don.get("itineraire_modele") or None).first()
+                refus = _refus_jour(request, don.get("origine") or (it.origine if it else "") or "Camp Roxgold Sango",
+                                    don.get("destination") or (it.destination if it else ""),
                                     request.data.get("date_debut_souhaitee"), request.data.get("date_fin_souhaitee"))
                 if refus:
                     return refus
@@ -2939,7 +2943,20 @@ class DemandeViewSet(viewsets.ModelViewSet):
         demande = self.get_object()
         if demande.statut not in ("en_attente", "proposition"):
             return Response({"error":"Demande non en attente"}, status=400)
-        
+
+        # Voyage : les jours de circulation s'appliquent aussi à la validation (dates modifiées depuis
+        # la saisie, demandes anciennes). Un admin peut forcer après confirmation (forcer_jour).
+        if demande.type_demande == "voyage" and isinstance(demande.donnees, dict):
+            from voyages.views import _refus_jour
+            from voyages.models import ItineraireModele
+            don = demande.donnees
+            it = ItineraireModele.objects.filter(pk=don.get("itineraire_modele") or None).first()
+            refus = _refus_jour(request, don.get("origine") or (it.origine if it else "") or "Camp Roxgold Sango",
+                                don.get("destination") or (it.destination if it else ""),
+                                demande.date_debut_souhaitee, demande.date_fin_souhaitee)
+            if refus:
+                return refus
+
         demande.statut = "validee"
         demande.traite_par = request.user
         demande.commentaire_admin = request.data.get("commentaire","Demande validée")
@@ -3068,7 +3085,10 @@ class DemandeViewSet(viewsets.ModelViewSet):
                                 if demande.date_fin_souhaitee:
                                     creer_trajet_retour(voyage_cree, itineraire_obj, request.user)
                         except Exception as ve:
-                            pass  # Continue even if voyage creation fails
+                            # Ne plus avaler l'erreur : la demande reste validée mais l'admin voit pourquoi le voyage manque.
+                            import logging
+                            logging.getLogger(__name__).exception("Création du voyage depuis la demande %s", demande.pk)
+                            demande.commentaire_admin = (demande.commentaire_admin or "") + f" ⚠️ Voyage non créé automatiquement ({ve})."
         
         demande.save()
         try:

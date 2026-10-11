@@ -20,7 +20,9 @@ export function joursPour(itineraires, origine, destination) {
   const o = estCamp(origine), d = estCamp(destination)
   if (o === d) return null
   const it = (itineraires || []).find(i => i.actif !== false && (i.jours_voyage || []).length && estCamp(i.origine) === o && estCamp(i.destination) === d)
-  return it ? [...it.jours_voyage].sort((a, b) => a - b) : null
+  if (it) return [...it.jours_voyage].sort((a, b) => a - b)
+  // Même repli que le serveur : sans jours enregistrés, Abidjan ⇄ Camp garde ses jours par défaut.
+  return /abidjan/i.test(o ? destination : origine) ? (o ? [0, 2, 4] : [1, 3, 5]) : null
 }
 
 export const libelleJours = (jours) => (jours || []).map(j => JOURS[j]).join(', ')

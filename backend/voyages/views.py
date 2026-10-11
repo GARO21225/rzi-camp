@@ -297,6 +297,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not is_admin:
             return Response({"error":"Admin requis"}, status=403)
         voyage = self.get_object()
+        refus = _refus_jour(request, voyage.origine, voyage.destination, voyage.date_depart)
+        if refus:
+            return refus
         voyage.statut_validation = "valide"
         voyage.valide_par = u
         from django.utils import timezone
@@ -1065,6 +1068,32 @@ class VoyageViewSet(viewsets.ModelViewSet):
         if not itineraire_obj and rotation and rotation.itineraire_modele_id:
             itineraire_obj = rotation.itineraire_modele
 
+        # ── Cohérence convoi / voyageurs : un convoi = un sens, un jour ──
+        from .trajets import est_camp as _est_camp
+        sens = lambda o, d: (_est_camp(o), _est_camp(d))
+        ref = itineraire_obj or rotation
+        if ref:
+            sens_convoi = sens(ref.origine, ref.destination)
+            for v in voyages:
+                if sens(v.origine, v.destination) != sens_convoi:
+                    return Response({
+                        "error": f"{v.personnel.nom} {v.personnel.prenom} voyage {v.origine or '?'} → {v.destination or '?'} : "
+                                 f"incompatible avec le convoi {ref.origine} → {ref.destination}. Choisissez le bon itinéraire ou le bon convoi.",
+                        "code": "sens_incompatible"}, status=400)
+        date_convoi = rotation.date_depart if rotation else None
+        dates = {v.date_depart for v in voyages}
+        if date_convoi:
+            dates.add(date_convoi)
+        if len(dates) > 1:
+            return Response({
+                "error": "Un convoi part un seul jour : les voyageurs sélectionnés n'ont pas la même date de départ ("
+                         + ", ".join(d.strftime('%d/%m/%Y') for d in sorted(dates)) + "). Organisez-les séparément.",
+                "code": "dates_differentes"}, status=400)
+        if ref and dates:
+            refus = _refus_jour(request, ref.origine, ref.destination, next(iter(dates)))
+            if refus:
+                return refus
+
         with transaction.atomic():
             if rotation:
                 Rotation.objects.select_for_update().filter(pk=rotation.pk).first()
@@ -1538,6 +1567,19 @@ class VoyageViewSet(viewsets.ModelViewSet):
             date_retour_effectif = date_retour_passager or ref_date_retour
             origine_effective     = origine_passager or ref_origine
             destination_effective = destination_passager or ref_destination
+            # Montée / descente : doivent être des arrêts de l'itinéraire du convoi, dans l'ordre du trajet
+            # (sinon JMP, manifeste et billet afficheraient un trajet impossible).
+            itin_convoi = rotation_obj.itineraire_modele if (rotation_obj and rotation_obj.itineraire_modele_id) else None
+            if itin_convoi and (origine_passager or destination_passager):
+                arrets = [(itin_convoi.origine or "").strip()] + itin_convoi.villes_descente()
+                bas = [a.lower() for a in arrets]
+                im = bas.index(origine_effective.strip().lower()) if origine_effective.strip().lower() in bas else None
+                idc = bas.index(destination_effective.strip().lower()) if destination_effective.strip().lower() in bas else None
+                if im is None or idc is None:
+                    return Response({"error": "Le point de montée et de descente doivent être des arrêts du convoi : " + " → ".join(arrets) + ".",
+                                     "code": "arret_invalide"}, status=400)
+                if idc <= im:
+                    return Response({"error": "La descente doit être après la montée sur le trajet du convoi.", "code": "arret_invalide"}, status=400)
             if ref_date_depart and date_retour_effectif and str(date_retour_effectif) < str(ref_date_depart):
                 return Response({"error": "La date de retour ne peut pas être avant la date de départ du convoi"}, status=400)
             # Jours de circulation : la date de retour saisie pour CE passager est un trajet en sens inverse

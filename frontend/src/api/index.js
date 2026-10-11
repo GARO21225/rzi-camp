@@ -293,7 +293,7 @@ export const voyages = {
   refuser: (id, motif) => api.post(`/api/voyages/${id}/refuser/`, {motif}),
   billetUrl: (id) => withToken(`${BASE}/api/voyages/${id}/billet/`),
   rotationsDisponibles: () => api.get('/api/voyages/rotations/'),
-  rejoindreRotation: (rotation_id, personnel_id) => api.post('/api/voyages/rejoindre_rotation/', {rotation_id, personnel_id}),
+  rejoindreRotation: (rotation_id, personnel_id, extra = {}) => api.post('/api/voyages/rejoindre_rotation/', {rotation_id, personnel_id, ...extra}),
   retoursAnticipes: () => api.get('/api/voyages/retours_anticipes/'),
 }
 // Suivi en direct des convois (conducteur -> Centre de Mobilité)

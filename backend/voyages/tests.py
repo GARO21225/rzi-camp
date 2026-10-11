@@ -149,13 +149,14 @@ class OrganiserRotationTests(TestCase):
         self.itin = ItineraireModele.objects.get(nom="Camp → Abidjan")
         self.bus = VehiculeFlotte.objects.create(nom="Coaster", categorie="bus", matricule="1111AA01", capacite=20)
         self.chauffeur = Personnel.objects.create(nom="Traoré", prenom="Moussa", societe="ROXGOLD")
-        self.dd = datetime.date.today() + datetime.timedelta(days=3)
+        d = datetime.date.today() + datetime.timedelta(days=3)
+        self.dd = d + datetime.timedelta(days=(2 - d.weekday()) % 7)   # mercredi : départ Camp → Abidjan autorisé
 
     def demande_validee(self, nom, **donnees):
         u = User.objects.create_user(nom.lower(), password="x")
         Personnel.objects.create(nom=nom, prenom="X", societe="ROXGOLD", user=u)
         d = self.Demande.objects.create(type_demande="voyage", demandeur=u, message_demandeur="rotation",
-                                        date_debut_souhaitee=self.dd, date_fin_souhaitee=self.dd + datetime.timedelta(days=14),
+                                        date_debut_souhaitee=self.dd, date_fin_souhaitee=self.dd + datetime.timedelta(days=13),
                                         donnees=donnees)
         r = self.c.post(f"/api/demandes/{d.id}/valider/", {}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
@@ -292,14 +293,15 @@ class TrajetsAllerSimpleTests(TestCase):
         from .models import ItineraireModele
         abj_camp = ItineraireModele.objects.get(nom="Abidjan → Camp")
         dd = self.today + datetime.timedelta(days=3)
+        dd += datetime.timedelta(days=(1 - dd.weekday()) % 7)   # mardi : Abidjan → Camp autorisé
         d = Demande.objects.create(type_demande="voyage", demandeur=self.u, message_demandeur="retour",
-                                   date_debut_souhaitee=dd, date_fin_souhaitee=dd + datetime.timedelta(days=28),
+                                   date_debut_souhaitee=dd, date_fin_souhaitee=dd + datetime.timedelta(days=27),   # lundi : départ du camp autorisé
                                    donnees={"itineraire_modele": abj_camp.id})
         self.c.force_authenticate(self.admin)
         self.assertEqual(self.c.post(f"/api/demandes/{d.id}/valider/", {}, format="json").status_code, 200)
         v = Voyage.objects.get(demande_origine=d)
         self.assertEqual((v.destination, v.statut, v.trajet_aller_seul), ("CAMP", "planifie", False))
-        self.assertEqual(v.date_retour_prevue, dd + datetime.timedelta(days=28))
+        self.assertEqual(v.date_retour_prevue, dd + datetime.timedelta(days=27))
         self.b.refresh_from_db()
         self.assertEqual(self.b.statut, "Occupé")  # pas libérée par un trajet VERS le camp
 
@@ -590,3 +592,87 @@ class DatesPasseesEtRetourPassagerTests(TestCase):
         self.assertEqual(r.json()["code"], "jour_non_autorise")
         r = self.c.post("/api/voyages/rejoindre_rotation/", {**base, "date_retour_prevue": str(mercredi + datetime.timedelta(days=1))}, format="json")
         self.assertEqual(r.status_code, 201, r.content)
+
+
+class DemandeEdgarJoursDepartTests(TestCase):
+    """Cas Edgar : demande Abidjan → Camp, « je repars du camp le » doit tomber un jour Camp → Abidjan (lun/mer/ven)."""
+
+    def setUp(self):
+        from .models import ItineraireModele
+        self.u = User.objects.create_user("edgar2", password="x")
+        Personnel.objects.create(nom="Kouamé", prenom="Edgar", societe="ROXGOLD", user=self.u)
+        self.admin = User.objects.create_user("adm2", password="x", is_staff=True)
+        self.today = datetime.date.today()
+        # Itinéraire créé « à la main » SANS jours : la règle par défaut s'applique quand même.
+        self.it = ItineraireModele.objects.create(nom="Abidjan-Camp", origine="ABIDJAN", destination="CAMP", jours_voyage=[])
+        ItineraireModele.objects.filter(origine__iexact="CAMP").update(jours_voyage=[])
+
+    def jour(self, weekday, apres=10):
+        d = self.today + datetime.timedelta(days=apres)
+        return d + datetime.timedelta(days=(weekday - d.weekday()) % 7)
+
+    def poster(self, debut, fin, client=None):
+        c = client or APIClient()
+        c.force_authenticate(self.u)
+        return c.post("/api/demandes/", {"type_demande": "voyage", "message_demandeur": "x",
+                      "date_debut_souhaitee": str(debut), "date_fin_souhaitee": str(fin),
+                      "donnees": {"itineraire_modele": self.it.id}}, format="json")   # ni origine ni destination dans donnees
+
+    def test_depart_du_camp_un_samedi_refuse(self):
+        mardi = self.jour(1)
+        samedi = mardi + datetime.timedelta(days=11)
+        r = self.poster(mardi, samedi)
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(r.json()["code"], "jour_non_autorise")
+
+    def test_depart_du_camp_un_vendredi_accepte(self):
+        mardi = self.jour(1)
+        self.assertEqual(self.poster(mardi, mardi + datetime.timedelta(days=10)).status_code, 201)
+
+    def test_validation_reverifie_les_jours(self):
+        from residences.models import Demande
+        mardi = self.jour(1)
+        d = Demande.objects.create(type_demande="voyage", demandeur=self.u, message_demandeur="x",
+                                   date_debut_souhaitee=mardi, date_fin_souhaitee=mardi + datetime.timedelta(days=11),
+                                   donnees={"itineraire_modele": self.it.id})
+        c = APIClient(); c.force_authenticate(self.admin)
+        r = c.post(f"/api/demandes/{d.id}/valider/", {}, format="json")
+        self.assertEqual((r.status_code, r.json()["code"]), (400, "jour_non_autorise"))
+        d.refresh_from_db(); self.assertEqual(d.statut, "en_attente")
+        self.assertEqual(c.post(f"/api/demandes/{d.id}/valider/", {"forcer_jour": True}, format="json").status_code, 200)
+
+
+class OrganiserSensEtDateTests(TestCase):
+    def setUp(self):
+        from .models import ItineraireModele, VehiculeFlotte
+        self.admin = User.objects.create_user("adm3", password="x", is_staff=True)
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+        VehiculeFlotte.objects.create(nom="Bus", categorie="bus", matricule="B1", capacite=20)
+        self.chauffeur = Personnel.objects.create(nom="Dri", prenom="V", societe="ROXGOLD")
+        self.aller = ItineraireModele.objects.get(nom="Camp → Abidjan")
+        self.retour = ItineraireModele.objects.get(nom="Abidjan → Camp")
+        d = datetime.date.today() + datetime.timedelta(days=5)
+        self.lundi = d + datetime.timedelta(days=(0 - d.weekday()) % 7)
+
+    def voyage(self, nom, date):
+        p = Personnel.objects.create(nom=nom, prenom="X", societe="ROXGOLD")
+        return Voyage.objects.create(personnel=p, origine="Camp Roxgold Sango", destination="Abidjan", date_depart=date,
+                                     date_retour_prevue=date + datetime.timedelta(days=1), statut_validation="valide")
+
+    def organiser(self, v_ids, it):
+        return self.c.post("/api/voyages/organiser_demandes_en_rotation/", {"voyage_ids": v_ids, "vehicule_matricule": "B1",
+                           "vehicule": "Bus", "conducteur_id": self.chauffeur.id, "itineraire_modele_id": it.id}, format="json")
+
+    def test_itineraire_de_sens_contraire_refuse(self):
+        v = self.voyage("A", self.lundi)
+        r = self.organiser([v.id], self.retour)
+        self.assertEqual((r.status_code, r.json()["code"]), (400, "sens_incompatible"))
+
+    def test_dates_differentes_refusees(self):
+        a, b = self.voyage("A", self.lundi), self.voyage("B", self.lundi + datetime.timedelta(days=2))
+        r = self.organiser([a.id, b.id], self.aller)
+        self.assertEqual((r.status_code, r.json()["code"]), (400, "dates_differentes"))
+
+    def test_meme_sens_meme_jour_ok(self):
+        a, b = self.voyage("A", self.lundi), self.voyage("B", self.lundi)
+        self.assertEqual(self.organiser([a.id, b.id], self.aller).status_code, 201)

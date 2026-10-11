@@ -500,6 +500,11 @@ class ItineraireModele(models.Model):
         for it in cls.objects.filter(actif=True):
             if cls._est_camp(it.origine) == o and cls._est_camp(it.destination) == d and it.jours_voyage:
                 return sorted(int(j) for j in it.jours_voyage)
+        # Aucun itinéraire configuré avec des jours (ex. itinéraire créé après la migration 0035,
+        # ou jours vidés) : la rotation Abidjan ⇄ Camp garde ses jours par défaut, pas de trajet « libre ».
+        autre = destination if o else origine
+        if "abidjan" in (autre or "").lower():
+            return [0, 2, 4] if o else [1, 3, 5]
         return None
 
     @classmethod
