@@ -57,3 +57,32 @@ class CloCheNotificationsSystemeTests(TestCase):
         d = c.get("/api/notifications/compteur/").data
         self.assertEqual(d["non_lues"], 12)
         self.assertEqual(len([n for n in d["notifications"] if n.get("source") == "system"]), 10)
+
+
+class PorteeIncidentsSqlTests(TestCase):
+    """Les endpoints SQL (liste / détail / stats) doivent respecter la portée : un non-admin ne voit que les siens."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from .models import Incident
+        cat = Incident._meta.get_field("categorie").choices[0][0]
+        self.edgar = User.objects.create_user("edgar", password="x")
+        self.dylan = User.objects.create_user("dylan", password="x")
+        self.admin = User.objects.create_user("adm", password="x", is_staff=True)
+        self.i_dylan = Incident.objects.create(titre="Prise HS", description="d", categorie=cat, residence="B1", auteur=self.dylan)
+        self.i_edgar = Incident.objects.create(titre="Fuite", description="d", categorie=cat, residence="A2", auteur=self.edgar)
+        self.c = APIClient()
+
+    def test_non_admin_ne_voit_que_ses_incidents(self):
+        self.c.force_authenticate(self.edgar)
+        titres = [i["titre"] for i in self.c.get("/api/incidents/liste/").json()["results"]]
+        self.assertEqual(titres, ["Fuite"])
+        self.assertEqual(self.c.get(f"/api/incidents/{self.i_dylan.id}/detail/").status_code, 404)
+        self.assertEqual(self.c.get(f"/api/incidents/{self.i_edgar.id}/detail/").status_code, 200)
+        self.assertEqual(self.c.get("/api/incidents/stats-sql/").json()["total"], 1)
+
+    def test_admin_voit_tout(self):
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.get("/api/incidents/liste/").json()["count"], 2)
+        self.assertEqual(self.c.get("/api/incidents/stats-sql/").json()["total"], 2)

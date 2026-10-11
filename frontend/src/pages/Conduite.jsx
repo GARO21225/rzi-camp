@@ -23,6 +23,19 @@ const TYPES_ARRET = [
   ['incident', '⚠️', 'Incident'],
 ]
 
+// Aide adaptée à l'environnement : l'app installée (Capacitor/PWA) n'a ni cadenas ni barre d'adresse.
+function messageLocalisationRefusee() {
+  const ua = navigator.userAgent || ''
+  const natif = !!window.Capacitor?.isNativePlatform?.()
+  const ios = /iPhone|iPad|iPod/i.test(ua)
+  if (natif || window.matchMedia?.('(display-mode: standalone)').matches) {
+    return ios
+      ? "Localisation refusée. Ouvrez Réglages → Confidentialité → Service de localisation → Roxgold SiteLife → « Pendant l'utilisation », puis revenez ici et touchez « Réessayer »."
+      : "Localisation refusée. Ouvrez Paramètres Android → Applications → Roxgold SiteLife → Autorisations → Position → « Autoriser », puis revenez ici et touchez « Réessayer ». (Si l'option n'existe pas, l'application doit être mise à jour.)"
+  }
+  return "Localisation refusée. Touchez le cadenas à côté de l'adresse → Autorisations → Position → Autoriser, puis « Réessayer »."
+}
+
 function lirePosition(timeout = 8000) {
   return new Promise(resolve => {
     if (!navigator.geolocation) return resolve(null)
@@ -142,7 +155,7 @@ export default function Conduite() {
         })
       },
       e => setGpsErreur(e.code === 1
-        ? "Localisation refusée. Touchez le cadenas à côté de l'adresse → Autorisations → Position → Autoriser, puis « Réessayer »."
+        ? messageLocalisationRefusee()
         : 'Signal GPS faible — nouvelle tentative en cours...'),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     )

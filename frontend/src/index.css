@@ -669,7 +669,8 @@ input:focus, select:focus, textarea:focus {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     align-items: safe center !important;
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    /* la barre de menu flottante (≈ 90 px) ne doit jamais masquer les boutons du bas */
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
   }
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div {
     max-height: none !important;

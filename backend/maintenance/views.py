@@ -37,6 +37,19 @@ def _notifier(incident, message, type_notif='info'):
 from rest_framework.decorators import api_view, permission_classes as pc
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+
+def _est_admin(u):
+    return bool(u.is_staff or u.is_superuser or getattr(getattr(u, "profile", None), "role", None) == "admin")
+
+
+def _portee_sql(request, alias="i"):
+    """Fragment SQL + paramètres limitant un NON-admin à ses incidents (déclarés par lui ou à lui assignés).
+    Les endpoints SQL directs contournaient get_queryset() de IncidentViewSet : tout utilisateur
+    connecté voyait donc tous les incidents du camp."""
+    if _est_admin(request.user):
+        return "", []
+    return f" AND ({alias}.auteur_id = %s OR {alias}.assigne_a_id = %s)", [request.user.id, request.user.id]
+
 @api_view(['GET'])
 @pc([IsAuthenticated])
 def detail_incident(request, pk):
@@ -56,7 +69,7 @@ def detail_incident(request, pk):
                 "FROM maintenance_incident i "
                 "LEFT JOIN auth_user u ON u.id=i.auteur_id "
                 "LEFT JOIN auth_user a ON a.id=i.assigne_a_id "
-                "WHERE i.id=%s", [pk]
+                "WHERE i.id=%s" + _portee_sql(request)[0], [pk] + _portee_sql(request)[1]
             )
             cols = [d[0] for d in c.description]
             row = c.fetchone()
@@ -112,8 +125,8 @@ def stats_incidents(request):
                     COUNT(*) FILTER (WHERE statut='cloture') as cloture,
                     COUNT(*) FILTER (WHERE sla_depasse=TRUE AND statut NOT IN ('cloture','annule')) as sla_depasse,
                     COUNT(*) FILTER (WHERE priorite='critique' AND statut NOT IN ('cloture','annule')) as critique
-                FROM maintenance_incident
-            """)
+                FROM maintenance_incident i
+                WHERE 1=1 """ + _portee_sql(request)[0], _portee_sql(request)[1])
             row = c.fetchone()
             cols = [d[0] for d in c.description]
             stats = dict(zip(cols, row))
@@ -146,7 +159,9 @@ def list_incidents(request):
     if priorite:  where.append('i.priorite = %s');  args.append(priorite)
     if categorie: where.append('i.categorie = %s'); args.append(categorie)
 
-    where_sql = ' AND '.join(where)
+    portee_sql, portee_args = _portee_sql(request)
+    where_sql = ' AND '.join(where) + portee_sql
+    args = args + portee_args
 
     try:
         with connection.cursor() as c:
