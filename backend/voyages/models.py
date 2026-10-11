@@ -470,6 +470,9 @@ class ItineraireModele(models.Model):
     origine     = models.CharField(max_length=200)
     destination = models.CharField(max_length=200)
     actif       = models.BooleanField(default=True)
+    # Jours de la semaine où ce trajet circule (0 = lundi … 6 = dimanche). Vide = tous les jours.
+    # Ex. Abidjan → Camp : mardi, jeudi, samedi ; Camp → Abidjan : lundi, mercredi, vendredi.
+    jours_voyage = models.JSONField(default=list, blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -478,6 +481,41 @@ class ItineraireModele(models.Model):
 
     def __str__(self):
         return self.nom
+
+    JOURS_NOMS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+
+    @staticmethod
+    def _est_camp(texte):
+        t = (texte or "").lower()
+        return "camp" in t or "sango" in t
+
+    @classmethod
+    def jours_pour(cls, origine, destination):
+        """Jours (0=lundi…) où circule le trajet origine → destination, ou None si libre.
+        On retrouve l'itinéraire par son sens (depuis le camp / vers le camp) : « Camp Roxgold Sango → Daloa »
+        et « CAMP → ABIDJAN » circulent les mêmes jours."""
+        o, d = cls._est_camp(origine), cls._est_camp(destination)
+        if o == d:
+            return None
+        for it in cls.objects.filter(actif=True):
+            if cls._est_camp(it.origine) == o and cls._est_camp(it.destination) == d and it.jours_voyage:
+                return sorted(int(j) for j in it.jours_voyage)
+        return None
+
+    @classmethod
+    def libelle_jours(cls, jours):
+        return ", ".join(cls.JOURS_NOMS[j] for j in jours)
+
+    @classmethod
+    def verifier_jour(cls, origine, destination, jour):
+        """None si le trajet circule ce jour-là, sinon un message d'erreur clair."""
+        if not jour:
+            return None
+        jours = cls.jours_pour(origine, destination)
+        if jours is None or jour.weekday() in jours:
+            return None
+        return (f"Le trajet {origine or '?'} → {destination or '?'} circule le {cls.libelle_jours(jours)} uniquement "
+                f"({jour:%d/%m/%Y} est un {cls.JOURS_NOMS[jour.weekday()]}).")
 
     def villes_descente(self):
         """Villes où un passager peut descendre, dans l'ordre du trajet :

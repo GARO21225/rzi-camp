@@ -3,6 +3,8 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import SelectRecherche from '../components/SelectRecherche'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
+import ImportListePassagers from '../components/ImportListePassagers'
+import { messageJour, joursPour, libelleJours } from '../utils/itineraires'
 import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
@@ -543,6 +545,7 @@ export default function MissionControl() {
   const [showCreate, setShowCreate]= useState(false) // 'rotation' | 'individuel' | null
   const [msg,        setMsg]       = useState(null)
   const [saving,     setSaving]    = useState(false)
+  const [importConvoi, setImportConvoi] = useState(null)   // convoi dans lequel on importe une liste
 
   // Formulaires
   const [formRot, setFormRot] = useState({
@@ -622,12 +625,30 @@ export default function MissionControl() {
   useEffect(()=>{ const iv=setInterval(()=>{ if(!document.hidden) load() },30000); return()=>clearInterval(iv) },[load])
 
   // ── Actions ───────────────────────────────────────────────────────
+  // Ajoute les personnes retenues (fenêtre d'import) au convoi, une par une, puis résume.
+  const ajouterPassagersAuConvoi = async (r, personnes) => {
+    setSaving(true)
+    let ok = 0; const echoues = []
+    for (const p of personnes) {
+      try {
+        const res = await api('/api/voyages/rejoindre_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id, personnel_id:p.id})})
+        if (res.ok) ok++
+        else { const d = await res.json().catch(()=>({})); echoues.push(`${p.nom} ${p.prenom} (${d.error||'erreur'})`) }
+      } catch { echoues.push(`${p.nom} ${p.prenom} (réseau)`) }
+    }
+    setSaving(false); setImportConvoi(null)
+    let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
+    if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
+    flash(msg, echoues.length===0)
+    load()
+  }
+
   const flash = (text, ok=true) => {
     setMsg({text,ok})
     setTimeout(()=>setMsg(null),3000)
   }
 
-  const creerRotation = async () => {
+  const creerRotation = async (forcer=false) => {
     if (!formRot.date_depart) return flash('Date de départ requise',false)
     if (formRot.mode_transport !== 'a_pied' && !formRot.vehicule) return flash('Véhicule requis (du parc ou saisi librement)',false)
     setSaving(true)
@@ -649,9 +670,15 @@ export default function MissionControl() {
           ...formRot,
           date_retour_prevue: formRot.date_depart,
           trajet_aller_seul: true,
+          ...(forcer===true ? {forcer_jour:true} : {}),
         })
       })
       const data = await res.json()
+      if (!res.ok && data.code==='jour_non_autorise' && data.forcable) {
+        setSaving(false)
+        if (await confirmDialog(`${data.error}\n\nCréer quand même ce convoi ?`, {titre:'📅 Jour hors programme'})) return creerRotation(true)
+        return
+      }
       if (res.ok) {
         flash(`Convoi ${data.rotation_id} créé — ajoutez les passagers depuis sa fiche`)
         setShowCreate(null)
@@ -666,7 +693,7 @@ export default function MissionControl() {
     setSaving(false)
   }
 
-  const creerIndividuel = async () => {
+  const creerIndividuel = async (forcer=false) => {
     if (!formIndiv.personnel_id || !formIndiv.date_depart || !formIndiv.date_retour_prevue) {
       return flash('Personnel et dates requis', false)
     }
@@ -690,9 +717,15 @@ export default function MissionControl() {
           nb_places_total: formIndiv.nb_places_total || 4,
           type_voyage: 'individuel',
           passagers: [formIndiv.personnel_id],
+          ...(forcer===true ? {forcer_jour:true} : {}),
         })
       })
       const data = await res.json()
+      if (!res.ok && data.code==='jour_non_autorise' && data.forcable) {
+        setSaving(false)
+        if (await confirmDialog(`${data.error}\n\nCréer quand même ce voyage ?`, {titre:'📅 Jour hors programme'})) return creerIndividuel(true)
+        return
+      }
       if (res.ok) {
         flash('Voyage individuel créé')
         setShowCreate(null)
@@ -1057,6 +1090,13 @@ export default function MissionControl() {
   return (
     <div className="mc-root">
       <style>{css}</style>
+      {importConvoi && (
+        <ImportListePassagers convoi={importConvoi} personnel={personnel}
+          dejaIds={(importConvoi.passagers||[]).filter(pp=>pp.statut!=='retour').map(pp=>pp.personnel_id).filter(Boolean)}
+          libres={importConvoi.places_libres ?? 0}
+          enCours={saving} onClose={()=>setImportConvoi(null)}
+          onAjouter={(pers)=>ajouterPassagersAuConvoi(importConvoi, pers)} />
+      )}
 
       {/* TOAST */}
       {msg && (
@@ -1674,41 +1714,7 @@ export default function MissionControl() {
                                 </div>
                                 <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'8px 12px',
                                     background:C.accent,color:'#000',fontWeight:800,marginBottom:8,border:'none',borderRadius:8}}
-                                    onClick={async ()=>{
-                                      const saisie = prompt(`Coller une liste de numéros de téléphone à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
-                                      if (!saisie) return
-                                      const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
-                                      const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
-                                      const dejaPresents = (r.passagers||[]).map(pp=>`${pp.personnel__nom} ${pp.personnel__prenom}`.toLowerCase())
-                                      let placesRestantes = libres
-                                      const trouves = []
-                                      const introuvables = []
-                                      const complets = []
-                                      for (const tel of numeros) {
-                                        const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
-                                        if (!p) { introuvables.push(tel); continue }
-                                        if (dejaPresents.includes(`${p.nom} ${p.prenom}`.toLowerCase())) continue
-                                        if (placesRestantes <= 0) { complets.push(tel); continue }
-                                        trouves.push(p)
-                                        placesRestantes--
-                                      }
-                                      setSaving(true)
-                                      let ok = 0, echoues = []
-                                      for (const p of trouves) {
-                                        try {
-                                          const res = await api('/api/voyages/rejoindre_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id, personnel_id:p.id})})
-                                          if (res.ok) ok++
-                                          else { const d = await res.json(); echoues.push(`${p.nom} ${p.prenom} (${d.error||'erreur'})`) }
-                                        } catch { echoues.push(`${p.nom} ${p.prenom} (réseau)`) }
-                                      }
-                                      setSaving(false)
-                                      let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
-                                      if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s).`
-                                      if (complets.length) msg += ` ${complets.length} refusé(s) — convoi complet.`
-                                      if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
-                                      flash(msg, echoues.length===0 && introuvables.length===0 && complets.length===0)
-                                      load()
-                                    }}>
+                                    onClick={()=>setImportConvoi(r)}>
                                   📋 Importer une liste dans ce convoi
                                 </button>
                                 <div style={{display:'flex',gap:8}}>
@@ -1826,41 +1832,7 @@ export default function MissionControl() {
                             {isAdmin && isMobile && libres>0 && r.statut==='planifie' && (
                               <button type="button" className="mc-btn" style={{width:'100%',fontSize:12,padding:'9px 12px',
                                   background:C.accent,color:'#000',fontWeight:800,marginBottom:10,border:'none',borderRadius:9,justifyContent:'center'}}
-                                  onClick={async ()=>{
-                                    const saisie = prompt(`Coller une liste de numéros de téléphone à ajouter à ${r.vehicule||r.rotation_id} (un par ligne, ou séparés par des virgules) :`)
-                                    if (!saisie) return
-                                    const normTel = (v) => (v||'').replace(/\D/g,'').replace(/^225/,'').slice(-9)
-                                    const numeros = saisie.split(/[\n,;]+/).map(s=>normTel(s)).filter(Boolean)
-                                    const dejaPresents = (r.passagers||[]).map(pp=>`${pp.personnel__nom} ${pp.personnel__prenom}`.toLowerCase())
-                                    let placesRestantes = libres
-                                    const trouves = []
-                                    const introuvables = []
-                                    const complets = []
-                                    for (const tel of numeros) {
-                                      const p = personnel.find(pp => normTel(pp.telephone)===tel || normTel(pp.numero_whatsapp)===tel)
-                                      if (!p) { introuvables.push(tel); continue }
-                                      if (dejaPresents.includes(`${p.nom} ${p.prenom}`.toLowerCase())) continue
-                                      if (placesRestantes <= 0) { complets.push(tel); continue }
-                                      trouves.push(p)
-                                      placesRestantes--
-                                    }
-                                    setSaving(true)
-                                    let ok = 0, echoues = []
-                                    for (const p of trouves) {
-                                      try {
-                                        const res = await api('/api/voyages/rejoindre_rotation/', {method:'POST', body: JSON.stringify({rotation_id:r.rotation_id, personnel_id:p.id})})
-                                        if (res.ok) ok++
-                                        else { const d = await res.json(); echoues.push(`${p.nom} ${p.prenom} (${d.error||'erreur'})`) }
-                                      } catch { echoues.push(`${p.nom} ${p.prenom} (réseau)`) }
-                                    }
-                                    setSaving(false)
-                                    let msg = `${ok} passager(s) ajouté(s) à ${r.vehicule||r.rotation_id}.`
-                                    if (introuvables.length) msg += ` ${introuvables.length} numéro(s) introuvable(s).`
-                                    if (complets.length) msg += ` ${complets.length} refusé(s) — convoi complet.`
-                                    if (echoues.length) msg += ` ${echoues.length} échec(s) : ${echoues.join(', ')}.`
-                                    flash(msg, echoues.length===0 && introuvables.length===0 && complets.length===0)
-                                    load()
-                                  }}>
+                                  onClick={()=>setImportConvoi(r)}>
                                 📋 Importer une liste dans ce convoi
                               </button>
                             )}
@@ -2107,7 +2079,27 @@ export default function MissionControl() {
                             setOrganiserForm(f=>({...f,vehicule_matricule:e.target.value,vehicule:vf?.nom||''}))
                           }} style={inputStyle}>
                           <option value="">Sélectionner...</option>
-                          {flotte.filter(v=>v.actif).map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
+                          {(() => {
+                            // Dates du/des voyageur(s) sélectionné(s) : on retire les véhicules déjà réservés
+                            // (page Réservations) ou déjà affectés à un autre convoi sur ces dates.
+                            const sel = [
+                              ...demandesAOrganiser.filter(d=>demandesSelectionnees.includes(d.demande_id)),
+                              ...individuelsARattacher.filter(v=>voyagesSelectionnes.includes(v.id)),
+                            ]
+                            const debut = sel.map(x=>x.date_depart).filter(Boolean).sort()[0]
+                            const fin   = sel.map(x=>x.date_retour_prevue||x.date_depart).filter(Boolean).sort().slice(-1)[0] || debut
+                            let reserves = []
+                            try { reserves = JSON.parse(localStorage.getItem('rzi_reservations_v3')||'[]') } catch(e) {}
+                            const reserve = v => debut && reserves.some(r => r.statut!=='annulé' && (r.immat||'').trim().toLowerCase()===(v.matricule||'').trim().toLowerCase()
+                              && r.date >= debut && r.date <= fin)
+                            const occupe = v => debut && !!vehiculeOccupe(v.matricule, rotations, debut, fin, organiserMode==='existante' ? organiserRotationCible : convoiAuto?.rotation_id)
+                            const dispo = flotte.filter(v=>v.actif && !reserve(v) && !occupe(v))
+                            const masques = flotte.filter(v=>v.actif).length - dispo.length
+                            return <>
+                              {dispo.map(v=><option key={v.id} value={v.matricule}>{v.nom} — {v.matricule} ({v.capacite} places)</option>)}
+                              {masques>0 && <option value="" disabled>— {masques} véhicule(s) masqué(s) : réservé(s) ou déjà sur un convoi à ces dates —</option>}
+                            </>
+                          })()}
                         </SelectRecherche>
                       </div>
                       <div>
@@ -3458,6 +3450,8 @@ export default function MissionControl() {
                       <input type="date" value={formRot.date_depart}
                         onChange={e=>setFormRot(p=>({...p,date_depart:e.target.value}))}
                         style={inputStyle}/>
+                      {(() => { const j = joursPour(itineraires, formRot.origine, formRot.destination); const m = messageJour(itineraires, formRot.origine, formRot.destination, formRot.date_depart)
+                        return j ? <div style={{fontSize:10,color:m?C.amber:C.muted,marginTop:3}}>{m ? `⚠️ ${m}` : `📅 Départs : ${libelleJours(j)}`}</div> : null })()}
                     </div>
                     <div style={{gridColumn:'span 2'}}>
                       <label style={labelStyle}>Point de rendez-vous</label>
@@ -3529,6 +3523,8 @@ export default function MissionControl() {
                       <label style={labelStyle}>Date départ *</label>
                       <input type="date" value={formIndiv.date_depart}
                         onChange={e=>setFormIndiv(p=>({...p,date_depart:e.target.value}))} style={inputStyle}/>
+                      {(() => { const j = joursPour(itineraires, formIndiv.origine, formIndiv.destination); const m = messageJour(itineraires, formIndiv.origine, formIndiv.destination, formIndiv.date_depart)
+                        return j ? <div style={{fontSize:10,color:m?C.amber:C.muted,marginTop:3}}>{m ? `⚠️ ${m}` : `📅 Départs : ${libelleJours(j)}`}</div> : null })()}
                     </div>
                     <div>
                       <label style={labelStyle}>Heure départ</label>
@@ -3539,6 +3535,8 @@ export default function MissionControl() {
                       <label style={labelStyle}>Retour prévu *</label>
                       <input type="date" value={formIndiv.date_retour_prevue} min={formIndiv.date_depart||undefined}
                         onChange={e=>setFormIndiv(p=>({...p,date_retour_prevue:e.target.value}))} style={inputStyle}/>
+                      {(() => { const j = joursPour(itineraires, formIndiv.destination, formIndiv.origine); const m = messageJour(itineraires, formIndiv.destination, formIndiv.origine, formIndiv.date_retour_prevue)
+                        return j ? <div style={{fontSize:10,color:m?C.amber:C.muted,marginTop:3}}>{m ? `⚠️ ${m}` : `📅 Retours : ${libelleJours(j)}`}</div> : null })()}
                       {formIndiv.date_depart && formIndiv.date_retour_prevue && formIndiv.date_retour_prevue < formIndiv.date_depart && (
                         <div style={{fontSize:10,color:C.red,marginTop:3}}>⚠️ Ne peut pas être avant le départ ({fmt(formIndiv.date_depart)})</div>
                       )}

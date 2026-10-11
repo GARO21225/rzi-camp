@@ -33,11 +33,23 @@ def _est_admin(u):
     return bool(u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin"))
 
 
+def _noms_utilisateur(u):
+    """« nom prénom » / « prénom nom » (minuscules) des fiches Personnel de l'utilisateur."""
+    from residences.models import Personnel
+    noms = set()
+    for p in Personnel.objects.filter(user=u):
+        noms.add(f"{p.nom} {p.prenom}".strip().lower())
+        noms.add(f"{p.prenom} {p.nom}".strip().lower())
+    return noms
+
+
 def _est_conducteur(u, rotation):
-    return any(
-        p is not None and p.user_id == u.id
-        for p in (rotation.conducteur_personnel, rotation.conducteur_secondaire_personnel)
-    )
+    if any(p is not None and p.user_id == u.id
+           for p in (rotation.conducteur_personnel, rotation.conducteur_secondaire_personnel)):
+        return True
+    # Chauffeur choisi par son nom (texte) sans lien vers sa fiche : on le reconnaît par son nom.
+    noms = _noms_utilisateur(u)
+    return any((n or "").strip().lower() in noms for n in (rotation.conducteur, rotation.conducteur_secondaire) if n)
 
 
 def _nom(p):
@@ -142,11 +154,14 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
     # ── Lecture ──────────────────────────────────────────────────
     @action(detail=False, methods=["get"])
     def mes_convois(self, request):
-        """Convois dont l'utilisateur est conducteur, d'hier à J+1, pas encore arrivés."""
+        """Convois dont l'utilisateur est conducteur, d'hier à J+7, pas encore arrivés."""
         today = timezone.localdate()
+        filtre = Q(conducteur_personnel__user=request.user) | Q(conducteur_secondaire_personnel__user=request.user)
+        for n in _noms_utilisateur(request.user):
+            filtre |= Q(conducteur__iexact=n) | Q(conducteur_secondaire__iexact=n)
         qs = Rotation.objects.select_related("suivi", "conducteur_personnel").filter(
-            Q(conducteur_personnel__user=request.user) | Q(conducteur_secondaire_personnel__user=request.user),
-            date_depart__range=(today - datetime.timedelta(days=1), today + datetime.timedelta(days=1)),
+            filtre,
+            date_depart__range=(today - datetime.timedelta(days=1), today + datetime.timedelta(days=7)),
         ).exclude(statut="annule").exclude(suivi__statut="arrive").order_by("date_depart", "heure_depart")
         return Response([_serialiser(r) for r in qs])
 

@@ -4,6 +4,7 @@ import { parametres as paramAPI, personnel as personnelAPI, rolesAPI, rapportsPl
 import { useStore } from '../store'
 import InductionAdmin from './InductionAdmin'
 import MapSafe from '../components/MapSafe'
+import { JOURS_COURTS, libelleJours } from '../utils/itineraires'
 import MotifsMobiliteTab from '../components/MotifsMobiliteTab'
 import DepartementsEntreprisesTab from '../components/DepartementsEntreprisesTab'
 import Boutique from './Boutique'
@@ -525,13 +526,13 @@ function ItinerairesTab({ isAdmin }) {
 
   const ouvrirNouveau = () => {
     setEditing(null)
-    setForm({ nom:'', origine:'', destination:'', actif:true })
+    setForm({ nom:'', origine:'', destination:'', actif:true, jours_voyage:[] })
     setShowForm(true)
   }
 
   const ouvrirEdition = (it) => {
     setEditing(it)
-    setForm({ nom:it.nom, origine:it.origine, destination:it.destination, actif:it.actif })
+    setForm({ nom:it.nom, origine:it.origine, destination:it.destination, actif:it.actif, jours_voyage:it.jours_voyage||[] })
     setShowForm(true)
   }
 
@@ -616,7 +617,7 @@ function ItinerairesTab({ isAdmin }) {
               <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f8fafc' }}>
                 <div style={{ flex:1, cursor:'pointer' }} onClick={()=>setOuvert(ouvert===it.id?null:it.id)}>
                   <div style={{ fontSize:13, fontWeight:600 }}>{ouvert===it.id?'▾':'▸'} {it.nom}</div>
-                  <div style={{ fontSize:11, color:'#64748b' }}>{it.origine} → {it.destination} · {(it.etapes||[]).length} étape(s)</div>
+                  <div style={{ fontSize:11, color:'#64748b' }}>{it.origine} → {it.destination} · {(it.etapes||[]).length} étape(s) · 📅 {(it.jours_voyage||[]).length ? libelleJours(it.jours_voyage) : 'tous les jours'}</div>
                 </div>
                 {isAdmin && <>
                   <button onClick={()=>toggleActif(it)}
@@ -702,6 +703,14 @@ function ItinerairesTab({ isAdmin }) {
                 <input value={form.destination} onChange={e=>setForm(f=>({...f,destination:e.target.value}))}
                   placeholder="Ex: ABIDJAN"
                   style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, boxSizing:'border-box', marginTop:4 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#64748b' }}>JOURS DE VOYAGE <span style={{fontWeight:400}}>(aucun coché = tous les jours)</span></label>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:6 }}>
+                  {JOURS_COURTS.map((j,i)=>{ const on=(form.jours_voyage||[]).includes(i); return (
+                    <button type="button" key={j} onClick={()=>setForm(f=>({...f,jours_voyage: on ? f.jours_voyage.filter(x=>x!==i) : [...(f.jours_voyage||[]),i].sort()}))}
+                      style={{ padding:'6px 10px', borderRadius:8, border:'1px solid '+(on?'#1E3A8A':'#e2e8f0'), background:on?'#1E3A8A':'#fff', color:on?'#fff':'#475569', fontWeight:700, fontSize:12, cursor:'pointer' }}>{j}</button>) })}
+                </div>
               </div>
               <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, cursor:'pointer' }}>
                 <input type="checkbox" checked={form.actif} onChange={e=>setForm(f=>({...f,actif:e.target.checked}))}/>

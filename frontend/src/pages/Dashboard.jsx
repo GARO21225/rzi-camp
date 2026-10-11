@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAppName } from '../hooks/useAppName'
 import MapSafe from '../components/MapSafe'
+import DepartResidentForm from '../components/DepartResidentForm'
 
 // ─────────────────────────────────────────────────────────────────
 //  CARTE DIGITAL TWIN — évolution de la carte Leaflet existante
@@ -384,6 +385,7 @@ export default function Dashboard() {
   const [monDepartDate, setMonDepartDate] = useState('')
   const [deptModal, setDeptModal] = useState(false)
   const [deptDates, setDeptDates] = useState({})
+  const [departOuvert, setDepartOuvert] = useState(null)   // chambre dont on saisit descente + retour
   const [deptBusy, setDeptBusy] = useState(null)
 
   const load = useCallback(async () => {
@@ -510,16 +512,6 @@ export default function Dashboard() {
   // ── Décision de départ pour le compte d'un résident — admin uniquement,
   // depuis la liste déjà exposée par /api/batiments/stats/ ──
   const departsRetardList = d.bat?.departs_en_retard_list || []
-  const confirmerDepartPourAdmin = async (batimentId) => {
-    setDeptBusy(batimentId)
-    try {
-      const r = await fetch(`${BASE}/api/batiments/${batimentId}/confirmer_depart/`, {
-        method: 'POST', headers: hdrs(), body: JSON.stringify({ action: 'confirme' }),
-      })
-      if (!r.ok) throw new Error((await r.json().catch(()=>({})))?.error || 'Erreur')
-      await load()
-    } catch (e) { alert(e.message) } finally { setDeptBusy(null) }
-  }
   const reporterDepartPourAdmin = async (batimentId) => {
     const nouvelle_date = deptDates[batimentId]
     if (!nouvelle_date) return
@@ -848,7 +840,7 @@ export default function Dashboard() {
                   <div style={{ fontWeight:700, fontSize:13 }}>{r.personnel__nom} {r.personnel__prenom} — {r.residence}</div>
                   <div style={{ fontSize:11.5, color:'#64748b', marginBottom:8 }}>Doit/devait partir le {new Date(r.date_depart).toLocaleDateString('fr-FR')}</div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                    <button onClick={()=>confirmerDepartPourAdmin(r.batiment_id)} disabled={deptBusy===r.batiment_id}
+                    <button onClick={()=>setDepartOuvert(departOuvert===r.batiment_id ? null : r.batiment_id)} disabled={deptBusy===r.batiment_id}
                       style={{ background:'#16A34A', color:'#fff', border:'none', borderRadius:99, padding:'6px 14px', cursor:deptBusy===r.batiment_id?'wait':'pointer', fontSize:11.5, fontWeight:700 }}>
                       ✅ Il part — libérer la chambre
                     </button>
@@ -861,6 +853,10 @@ export default function Dashboard() {
                       📅 Il reste — nouvelle date
                     </button>
                   </div>
+                  {departOuvert===r.batiment_id && (
+                    <DepartResidentForm batimentId={r.batiment_id} onCancel={()=>setDepartOuvert(null)}
+                      onDone={()=>{ setDepartOuvert(null); load() }} />
+                  )}
                 </div>
               ))}
             </div>

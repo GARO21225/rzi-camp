@@ -36,6 +36,54 @@ def _check_voyage_conflit(personnel_id, date_depart, date_retour, exclude_pk=Non
     return qs.first()
 
 
+def _personnel_par_nom(nom):
+    """Retrouve le Personnel d'un nom saisi/choisi en texte (« NOM Prénom » ou « Prénom NOM »).
+    Renvoie None si aucun ou plusieurs (ambigu). Sert à relier le chauffeur à son compte
+    pour que « Ma conduite » retrouve ses convois."""
+    nom = " ".join((nom or "").split()).casefold()
+    if not nom:
+        return None
+    from residences.models import Personnel
+    # Comparaison en Python : lower()/iexact de SQLite ne gèrent pas les accents (É).
+    ids = [pid for pid, n, pr in Personnel.objects.values_list("id", "nom", "prenom")
+           if nom in (f"{n} {pr}".strip().casefold(), f"{pr} {n}".strip().casefold())]
+    return Personnel.objects.filter(id=ids[0]).first() if len(ids) == 1 else None
+
+
+def _erreur_jours(origine, destination, date_depart, date_retour=None):
+    """Message d'erreur si le départ ou le retour tombe un jour où le trajet ne circule pas
+    (Abidjan → Camp : mar/jeu/sam ; Camp → Abidjan : lun/mer/ven — voir ItineraireModele.jours_voyage)."""
+    from .models import ItineraireModele
+    def d(x):
+        if not x:
+            return None
+        if isinstance(x, datetime.date):
+            return x
+        try:
+            return datetime.date.fromisoformat(str(x)[:10])
+        except ValueError:
+            return None
+    dep, ret = d(date_depart), d(date_retour)
+    erreur = ItineraireModele.verifier_jour(origine, destination, dep)
+    if not erreur and dep and ret and ret != dep:
+        erreur = ItineraireModele.verifier_jour(destination, origine, ret)
+        if erreur:
+            erreur = "Retour : " + erreur
+    return erreur
+
+
+def _refus_jour(request, origine, destination, date_depart, date_retour=None):
+    """Réponse 400 si le jour n'est pas autorisé. Un admin peut forcer (forcer_jour=true) après confirmation."""
+    u = request.user
+    est_admin = u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")
+    if est_admin and str(request.data.get("forcer_jour", "")).lower() in ("1", "true", "oui"):
+        return None
+    msg = _erreur_jours(origine, destination, date_depart, date_retour)
+    if not msg:
+        return None
+    return Response({"error": msg, "code": "jour_non_autorise", "forcable": bool(est_admin)}, status=400)
+
+
 def _conducteur_en_conflit(conducteur_id, nom, date_depart, date_retour, exclude_rotation_id=None):
     """Cherche si cette personne (par ID si fourni, sinon par nom en texte
     libre) est deja conducteur (principal OU second) d'un AUTRE convoi actif
@@ -168,6 +216,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
         date_retour = request.data.get("date_retour_prevue")
         if date_depart and date_retour and str(date_retour) < str(date_depart):
             return Response({"error": "La date de retour ne peut pas être avant la date de départ"}, status=400)
+        if date_depart:
+            refus = _refus_jour(request, request.data.get("origine") or "Camp Roxgold Sango", request.data.get("destination") or "", date_depart, date_retour)
+            if refus:
+                return refus
         if personnel_id and date_depart and date_retour:
             conflict = _check_voyage_conflit(personnel_id, date_depart, date_retour)
             if conflict:
@@ -331,7 +383,8 @@ class VoyageViewSet(viewsets.ModelViewSet):
         voyage.vehicule_matricule = request.data.get("vehicule_matricule", "")
         voyage.vehicule_photo = request.data.get("vehicule_photo", "")
         voyage.conducteur = nouveau_conducteur
-        voyage.save(update_fields=["vehicule","vehicule_matricule","vehicule_photo","conducteur"])
+        voyage.conducteur_personnel = _personnel_par_nom(nouveau_conducteur)
+        voyage.save(update_fields=["vehicule","vehicule_matricule","vehicule_photo","conducteur","conducteur_personnel"])
         return Response(VoyageSerializer(voyage).data)
 
     @action(detail=True, methods=['post'])
@@ -971,6 +1024,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
             conducteur_secondaire_personnel = _Pers.objects.filter(pk=data.get("conducteur_secondaire_id")).first()
             if conducteur_secondaire_personnel:
                 conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
+        if not conducteur_personnel and conducteur:
+            conducteur_personnel = _personnel_par_nom(conducteur)
+        if not conducteur_secondaire_personnel and conducteur_secondaire:
+            conducteur_secondaire_personnel = _personnel_par_nom(conducteur_secondaire)
         vehicule = data.get("vehicule", "") or ""
         vehicule_matricule = data.get("vehicule_matricule", "") or ""
         if rotation and not vehicule_matricule:
@@ -1104,6 +1161,10 @@ class VoyageViewSet(viewsets.ModelViewSet):
             conducteur_secondaire_personnel = _Pers.objects.filter(pk=conducteur_secondaire_id).first()
             if conducteur_secondaire_personnel:
                 conducteur_secondaire = f"{conducteur_secondaire_personnel.nom} {conducteur_secondaire_personnel.prenom}"
+        if not conducteur_personnel and conducteur:
+            conducteur_personnel = _personnel_par_nom(conducteur)
+        if not conducteur_secondaire_personnel and conducteur_secondaire:
+            conducteur_secondaire_personnel = _personnel_par_nom(conducteur_secondaire)
         niveau_alerte   = data.get("niveau_alerte", 1)
         trajet_aller_seul = bool(data.get("trajet_aller_seul", False))
         nb_places       = int(data.get("nb_places_total",15))
@@ -1123,6 +1184,9 @@ class VoyageViewSet(viewsets.ModelViewSet):
             return Response({"error":"Seul un admin peut créer une rotation groupée. Utilisez le voyage individuel pour votre propre déplacement."}, status=403)
         if not date_depart:
             return Response({"error":"date_depart requis"},status=400)
+        refus = _refus_jour(request, origine, destination, date_depart, data.get("date_retour_prevue"))
+        if refus:
+            return refus
 
         # Regle : le conducteur ne peut pas etre aussi passager de la meme
         # rotation - SAUF si c'est un voyage SOLO (une seule personne) : la

@@ -276,7 +276,7 @@ class ItineraireModeleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItineraireModele
-        fields = ["id","nom","origine","destination","actif","etapes"]
+        fields = ["id","nom","origine","destination","actif","jours_voyage","etapes"]
 
 
 class VehiculeFlotteSerializer(serializers.ModelSerializer):

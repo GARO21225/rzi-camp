@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { villesDescente, joursPour, libelleJours, messageJour } from '../utils/itineraires'
 import { demandes as demandesAPI, batiments as batAPI, personnel as personnelAPI, voyages as voyagesAPI, inductionAPI, incidents as incidentsAPI, itinerairesModeles as itinerairesAPI, plaintes as plaintesAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
@@ -177,13 +178,21 @@ export default function Demandes() {
 
   useEffect(()=>{ load() }, [tab])
 
-  const submitDemande = async (type) => {
+  const submitDemande = async (type, forcer=false) => {
     try {
-      await demandesAPI.create({ type_demande:type, ...form })
+      await demandesAPI.create({ type_demande:type, ...form, ...(forcer?{forcer_jour:true}:{}) })
       setCreateModal(null)
       setForm({ message_demandeur:'', residence_souhaitee:'', date_debut_souhaitee:today, date_fin_souhaitee:'', donnees:{} })
       load()
-    } catch(e) { toast.error(e.response?.data?JSON.stringify(e.response.data):e.message) }
+    } catch(e) {
+      const d = e.response?.data
+      if (d?.code === 'jour_non_autorise') {
+        if (d.forcable && isAdmin && await confirmDialog(`${d.error}\n\nCréer quand même ?`)) return submitDemande(type, true)
+        if (!(d.forcable && isAdmin)) toast.error(d.error)
+        return
+      }
+      toast.error(d?.error || d?.detail || (d?JSON.stringify(d):e.message))
+    }
   }
 
   const doAction = async () => {
@@ -523,6 +532,45 @@ export default function Demandes() {
                     <option value="">— Sélectionner un itinéraire —</option>
                     {itineraires.map(i=><option key={i.id} value={i.id}>{i.nom} ({i.origine} → {i.destination})</option>)}
                   </select>
+                  {(() => {
+                    const it = itineraires.find(i=>String(i.id)===String(form.donnees?.itineraire_modele))
+                    if (!it) return null
+                    const arrets = [it.origine, ...villesDescente(it)]
+                    const monte = form.donnees?.origine || it.origine
+                    const idx = Math.max(0, arrets.findIndex(a=>a.toLowerCase()===String(monte).toLowerCase()))
+                    const montees = arrets.slice(0, -1)
+                    const descentes = arrets.slice(idx + 1)
+                    const desc = form.donnees?.destination || it.destination
+                    const lbl = { display:'block', fontSize:11, color:'var(--text-dim)', marginBottom:4, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:1 }
+                    const jours = joursPour(itineraires, monte, desc)
+                    const alerte = messageJour(itineraires, monte, desc, form.date_debut_souhaitee)
+                    return (
+                      <>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:10 }}>
+                          <div>
+                            <label style={lbl}>Je monte à</label>
+                            <select value={monte} style={inp} onChange={e=>{
+                              const m = e.target.value
+                              const i = arrets.findIndex(a=>a.toLowerCase()===m.toLowerCase())
+                              const suivants = arrets.slice(i + 1)
+                              const d = suivants.some(a=>a.toLowerCase()===String(desc).toLowerCase()) ? desc : (suivants[suivants.length-1] || '')
+                              setForm({...form, donnees:{...form.donnees, origine:m, destination:d}})
+                            }}>
+                              {montees.map(a=><option key={a} value={a}>{a}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={lbl}>Je descends à</label>
+                            <select value={desc} style={inp} onChange={e=>setForm({...form, donnees:{...form.donnees, destination:e.target.value}})}>
+                              {descentes.map(a=><option key={a} value={a}>{a}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        {jours && !alerte && <div style={{fontSize:11,color:'var(--text-dim)',marginTop:4}}>📅 Ce trajet circule : {libelleJours(jours)}.</div>}
+                        {alerte && <div style={{fontSize:11,color:'#b45309',marginTop:4,fontWeight:600}}>⚠️ {alerte}</div>}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
 

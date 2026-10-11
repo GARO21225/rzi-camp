@@ -1752,6 +1752,10 @@ class BatimentViewSet(viewsets.ModelViewSet):
                     return Response({"error":"Date de retour invalide."}, status=400)
                 if date_retour <= max(date_dep, today):
                     return Response({"error":"La date de retour doit être postérieure au départ."}, status=400)
+                from voyages.models import ItineraireModele as _It
+                erreur_jour = _It.verifier_jour(request.data.get("destination") or "Abidjan", "Camp Roxgold Sango", date_retour)
+                if erreur_jour and str(request.data.get("forcer_jour", "")).lower() not in ("1", "true", "oui"):
+                    return Response({"error": "Retour : " + erreur_jour, "code": "jour_non_autorise", "forcable": bool(is_admin)}, status=400)
                 conflit = _check_voyage_conflit(personnel_obj.id, date_dep, date_retour)
                 if conflit:
                     return Response({"error": f"Un autre voyage est déjà prévu du {conflit.date_depart:%d/%m/%Y} au {conflit.date_retour_prevue:%d/%m/%Y} sur cette période."}, status=400)
@@ -2882,6 +2886,15 @@ class DemandeViewSet(viewsets.ModelViewSet):
                     return Response({
                         "error": "Les demandes de voyage doivent être envoyées au moins 48h avant la date de départ. Pour un départ plus proche, contactez l'administrateur directement."
                     }, status=400)
+        if request.data.get("type_demande") == "voyage":
+            # Jours de circulation (Abidjan → Camp : mar/jeu/sam · Camp → Abidjan : lun/mer/ven)
+            from voyages.views import _refus_jour
+            don = request.data.get("donnees") or {}
+            if isinstance(don, dict):
+                refus = _refus_jour(request, don.get("origine") or "Camp Roxgold Sango", don.get("destination") or "",
+                                    request.data.get("date_debut_souhaitee"), request.data.get("date_fin_souhaitee"))
+                if refus:
+                    return refus
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
