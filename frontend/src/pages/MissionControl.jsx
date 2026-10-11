@@ -3,6 +3,8 @@ import { toast, confirmDialog } from '../toast'
 import LieuInput from '../components/LieuInput'
 import SelectRecherche from '../components/SelectRecherche'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
+import { BASE, tok, hdrs, api } from '../features/mobility/services/mobilityApi'
+import { useMobilityData } from '../features/mobility/hooks/useMobilityData'
 import MobilityOverview from '../features/mobility/components/MobilityOverview'
 import ImportListePassagers from '../components/ImportListePassagers'
 import { messageJour, joursPour, libelleJours } from '../utils/itineraires'
@@ -11,10 +13,6 @@ import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
 import { useStore } from '../store'
 
-const BASE = import.meta.env.VITE_API_URL || window.location.origin
-const tok  = () => localStorage.getItem('access_token') || ''
-const hdrs = () => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' })
-const api  = (path, opts) => fetch(`${BASE}${path}`, { headers: hdrs(), ...opts })
 
 // ── Palette & Config ────────────────────────────────────────────────
 // Palette Roxgold (bleu marine / blanc / gris industriel + touches or) —
@@ -494,9 +492,8 @@ export default function MissionControl() {
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
   const [view,       setView]      = useState('apercu')
-  const [voyages,    setVoyages]   = useState([])
-  const [rotations,  setRotations] = useState([])
-  const [demandesAOrganiser, setDemandesAOrganiser] = useState([])
+  const { voyages, rotations, demandesAOrganiser, demandesVoyageEnAttente, personnel, stats, loading, rappels,
+    flotte, itineraires, retoursAnticipes, echecs, load } = useMobilityData()
   const [demandesSelectionnees, setDemandesSelectionnees] = useState([])
   // Demandes de voyage (page Demandes) encore en_attente - affichees ICI
   // AUSSI dans l'onglet Validations (demande d'Edgar : pouvoir valider
@@ -504,7 +501,6 @@ export default function MissionControl() {
   // appelle le MEME endpoint /api/demandes/<id>/valider/ que la page
   // Demandes - une seule et unique validation, juste accessible des deux
   // endroits.
-  const [demandesVoyageEnAttente, setDemandesVoyageEnAttente] = useState([])
   const [organiserForm, setOrganiserForm] = useState({ vehicule:'', vehicule_matricule:'', conducteur_id:'', conducteur_secondaire_id:'', itineraire_modele_id:'' })
   // Départs individuels hors convoi (ex: "Mon départ" confirmé par le
   // résident) sélectionnés pour être rattachés à une rotation, et mode
@@ -513,9 +509,6 @@ export default function MissionControl() {
   const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
   const [organiserMode, setOrganiserMode] = useState('nouvelle')
   const [organiserRotationCible, setOrganiserRotationCible] = useState('')
-  const [personnel,  setPersonnel] = useState([])
-  const [stats,      setStats]     = useState({})
-  const [loading,    setLoading]   = useState(true)
   const [weekOff,    setWeekOff]   = useState(0)
   const [selVoyage,  setSelVoyage] = useState(null)
   const [selRot,     setSelRot]    = useState(null)
@@ -578,53 +571,16 @@ export default function MissionControl() {
     vehicule:'', vehicule_matricule:'', vehicule_photo:'', conducteur:'',
     point_rdv:'Entrée camp', motif:'',
   })
-  const [rappels, setRappels] = useState([])
   const [moisCal, setMoisCal] = useState(new Date())
   const [detailVoyage, setDetailVoyage] = useState(null)
   const [etapesDetail, setEtapesDetail] = useState([])
   const [rechercheListe, setRechercheListe] = useState('')
   const [selectionListe, setSelectionListe] = useState(new Set())
-  const [flotte, setFlotte] = useState([])
-  const [itineraires, setItineraires] = useState([])
-  const [retoursAnticipes, setRetoursAnticipes] = useState([])
   const [nouvelleEtape, setNouvelleEtape] = useState(null)
   const [changerVehiculeForm, setChangerVehiculeForm] = useState(null)
   const [changerConvoiForm, setChangerConvoiForm] = useState(null)
 
   // ── Load ──────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [rv, rs, rp, rr, rrap, rvf, rra, rorg, rit, rdv] = await Promise.allSettled([
-        api('/api/voyages/?page_size=200').then(r=>r.json()),
-        api('/api/voyages/stats/').then(r=>r.json()),
-        api('/api/personnel/?page_size=500&actif=true&droit_mobilite=true').then(r=>r.json()),
-        api('/api/voyages/rotations/').then(r=>r.json()),
-        api('/api/voyages/rappels_rotation/').then(r=>r.json()),
-        api('/api/vehicules-flotte/').then(r=>r.json()),
-        api('/api/voyages/retours_anticipes/').then(r=>r.json()),
-        api('/api/voyages/demandes_a_organiser/').then(r=>r.json()),
-        api('/api/itineraires-modeles/').then(r=>r.json()),
-        api('/api/demandes/?type_demande=voyage&statut=en_attente&page_size=200').then(r=>r.json()),
-      ])
-      if (rv.status==='fulfilled') setVoyages(rv.value?.results||rv.value||[])
-      if (rs.status==='fulfilled') setStats(rs.value||{})
-      if (rp.status==='fulfilled') setPersonnel(rp.value?.results||rp.value||[])
-      if (rr.status==='fulfilled') setRotations(rr.value?.rotations||[])
-      if (rrap.status==='fulfilled') setRappels(Array.isArray(rrap.value) ? rrap.value : [])
-      if (rorg.status==='fulfilled') setDemandesAOrganiser(rorg.value?.demandes_a_organiser||[])
-      if (rvf.status==='fulfilled') setFlotte(rvf.value?.results||rvf.value||[])
-      if (rra.status==='fulfilled') setRetoursAnticipes(Array.isArray(rra.value) ? rra.value : [])
-      if (rit.status==='fulfilled') setItineraires(rit.value?.results||rit.value||[])
-      if (rdv.status==='fulfilled') setDemandesVoyageEnAttente(rdv.value?.results||rdv.value||[])
-    } catch(e) {}
-    setLoading(false)
-  }, [])
-
-  useEffect(()=>{ load() },[load])
-  // Pas de rechargement quand l'onglet est en arrière-plan (PC laissé ouvert, téléphone verrouillé)
-  useEffect(()=>{ const iv=setInterval(()=>{ if(!document.hidden) load() },30000); return()=>clearInterval(iv) },[load])
-
   // ── Actions ───────────────────────────────────────────────────────
   // Ajoute les personnes retenues (fenêtre d'import) au convoi, une par une, puis résume.
   const ajouterPassagersAuConvoi = async (r, personnes) => {
@@ -1185,6 +1141,13 @@ export default function MissionControl() {
             )}
           </div>
         </div>
+
+        {echecs.length > 0 && (
+          <div style={{margin:'0 0 12px',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'8px 12px',fontSize:12,color:'#991B1B',display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+            ⚠️ Données incomplètes ({echecs.join(', ')}) — les dernières valeurs connues sont affichées.
+            <button onClick={load} style={{background:'#991B1B',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',fontWeight:700,cursor:'pointer'}}>Réessayer</button>
+          </div>
+        )}
 
         {/* Retours anticipés — visible peu importe l'onglet actif */}
         {isAdmin && retoursAnticipes.length > 0 && (
@@ -2440,7 +2403,7 @@ export default function MissionControl() {
               </div>
               {(() => {
                 const convoisDisponibles = [...new Set(voyages.filter(v=>v.rotation_id).map(v=>v.rotation_id))]
-                let filtres = voyages.filter(v => {
+                const filtres = voyages.filter(v => {
                   if (manifFiltreConvoi !== 'tous' && v.rotation_id !== manifFiltreConvoi) return false
                   if (manifFiltreDestination && !(v.destination||'').toLowerCase().includes(manifFiltreDestination.toLowerCase())) return false
                   if (manifFiltreDateDebut && v.date_depart < manifFiltreDateDebut) return false
