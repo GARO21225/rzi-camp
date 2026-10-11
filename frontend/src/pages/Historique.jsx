@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI, plaintes as plaintesAPI } from '../api'
 import { toast } from '../toast'
 import { useStore } from '../store'
@@ -11,9 +11,12 @@ import { useIsMobile } from '../hooks/useIsMobile'
 const TABS_PAR_ROLE = {
   restauration: ['repas'],
   technicien:   ['maintenance'],
-  agent:        ['voyages_pers','personne'],
+  agent:        ['voyages_pers','personne','trajets'],
   menage:       ['chambre'],
 }
+
+// Carte + exports des trajets « Ma conduite » : chargé à la demande (Leaflet)
+const HistoriqueTrajets = lazy(() => import('../components/HistoriqueTrajets'))
 
 const todayStr = new Date().toISOString().slice(0,10)
 const yearAgoStr = new Date(Date.now()-365*86400000).toISOString().slice(0,10)
@@ -469,6 +472,7 @@ export default function Historique() {
     ['personne','👤 Parcours d\'un résident'],
     ['voyages_pers','✈️ Voyages personnel'],
     ['ensemble','🌍 Tous les voyages'],
+    ['trajets','🚐 Trajets de convois (GPS)'],
     ['repas','🍽️ Restaurant'],
     ['maintenance','🛠️ Maintenance (clôturés)'],
     ['plaintes','🧹 Plaintes (historique)'],
@@ -719,6 +723,13 @@ export default function Historique() {
             </div>
           ):<div style={{padding:40,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div>}
         </div>
+      )}
+
+      {/* ── TRAJETS DE CONVOIS (Ma conduite) ── */}
+      {tab==='trajets' && (
+        <Suspense fallback={<div style={{padding:30,textAlign:'center',color:'var(--text-dim)'}}>⏳ Chargement…</div>}>
+          <HistoriqueTrajets />
+        </Suspense>
       )}
 
       {/* ── RESTAURANT ── */}

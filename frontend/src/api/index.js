@@ -306,6 +306,11 @@ export const suiviConvois = {
   arret:      (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arret/`, d),
   reprendre:  (rid)         => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/reprendre/`),
   arriver:    (rid, d)      => api.post(`/api/suivi-convois/${encodeURIComponent(rid)}/arriver/`, d),
+  historique: (params)      => api.get('/api/suivi-convois/historique/', { params }),
+  rapport:    (rid)         => api.get(`/api/suivi-convois/${encodeURIComponent(rid)}/rapport/`),
+  // Exports : fichiers générés par le serveur (mêmes droits que l'historique), récupérés avec le jeton.
+  exportCsv:  (rid)         => api.get(`/api/suivi-convois/${encodeURIComponent(rid)}/export_csv/`, { responseType: 'blob' }),
+  exportPdf:  (rid)         => api.get(`/api/suivi-convois/${encodeURIComponent(rid)}/export_pdf/`, { responseType: 'blob' }),
 }
 export const etapesVoyage = {
   list: (voyageId) => api.get('/api/etapes-voyage/', {params:{voyage:voyageId}}),

@@ -799,3 +799,16 @@ class InductionCampResumeTests(TestCase):
         d = c.get("/api/induction-camp/resume/").json()
         self.assertEqual((d["total"], d["termines"], d["non_commences"]), (2, 1, 1))
         self.assertEqual([l["nom"] for l in d["lignes"] if l["complete"]], ["KOUAMÉ EDGAR"])
+
+
+class BatimentNomsTests(TestCase):
+    def test_noms_ouvert_a_un_non_admin_sans_occupants(self):
+        from rest_framework.test import APIClient
+        from django.contrib.auth.models import User
+        Batiment.objects.create(residence="R-7", bloc="B", statut="Libre")
+        u = User.objects.create_user("simple", password="x")
+        c = APIClient(); c.force_authenticate(u)
+        r = c.get("/api/batiments/noms/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn({"residence": "R-7", "bloc": "B"}, r.json()["residences"])
+        self.assertNotIn("personnel", str(r.json()))

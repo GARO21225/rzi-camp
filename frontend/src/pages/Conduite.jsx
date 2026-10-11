@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import MapSafe, { trajetValide } from '../components/MapSafe'
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet'
 import { suiviConvois } from '../api'
+import { LIBELLE_GPS, verifierEnvironnement, messageErreur, demanderPosition, statutGps, positionFraiche, sauverBlob } from '../utils/gps'
 import { toast, confirmDialog } from '../toast'
 import {
   TILE_URL, TILE_ATTRIBUTION, CENTRE_DEFAUT, LIBELLE_STATUT, ICONE_ARRET,
@@ -12,7 +13,8 @@ import {
 // le trajet (façon Yango côté chauffeur) : gros bouton PARTIR, position GPS
 // envoyée automatiquement, signalement des arrêts en 2 taps.
 
-const ENVOI_POSITION_MS = 15000
+const ENVOI_POSITION_DEFAUT_S = 15   // la valeur du serveur (intervalle_envoi_s) prime
+const CLE_ATTENTE = rid => `rzi_gps_attente_${rid}`   // points non encore reçus par le serveur (reprise après coupure)
 
 const TYPES_ARRET = [
   ['pause', '☕', 'Pause'],
@@ -36,19 +38,8 @@ function messageLocalisationRefusee() {
   return "Localisation refusée. Touchez le cadenas à côté de l'adresse → Autorisations → Position → Autoriser, puis « Réessayer »."
 }
 
-function lirePosition(timeout = 8000) {
-  return new Promise(resolve => {
-    if (!navigator.geolocation) return resolve(null)
-    navigator.geolocation.getCurrentPosition(
-      p => resolve(p.coords),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout, maximumAge: 10000 },
-    )
-  })
-}
-
 const coordsPayload = c => c ? {
-  latitude: c.latitude, longitude: c.longitude,
+  latitude: c.latitude, longitude: c.longitude, precision: c.accuracy != null ? c.accuracy : null,
   vitesse_kmh: c.speed != null && c.speed >= 0 ? c.speed * 3.6 : null,
   cap: c.heading != null && !Number.isNaN(c.heading) ? c.heading : null,
 } : {}
@@ -57,6 +48,32 @@ const btn = (bg, extra = {}) => ({
   background: bg, color: '#fff', border: 'none', borderRadius: 14, padding: '16px 18px',
   fontSize: 17, fontWeight: 800, cursor: 'pointer', width: '100%', minHeight: 56, ...extra,
 })
+
+
+const COULEUR_GPS = {
+  active: ['#F0FDF4', '#BBF7D0', '#166534'], autorisee: ['#EFF6FF', '#BFDBFE', '#1E40AF'], recherche: ['#EFF6FF', '#BFDBFE', '#1E40AF'],
+  requise: ['#FFFBEB', '#FDE68A', '#92400E'], non_autorisee: ['#FEF2F2', '#FECACA', '#991B1B'], erreur: ['#FEF2F2', '#FECACA', '#991B1B'],
+}
+
+// Bouton d'autorisation GPS — DISTINCT de « PARTIR » : autoriser la localisation ne démarre pas le trajet.
+function PanneauGps({ statut, position, message, onAutoriser }) {
+  const [bg, bord, txt] = COULEUR_GPS[statut] || COULEUR_GPS.requise
+  const prec = position?.prec != null ? Math.round(position.prec) : null
+  return (
+    <div style={{ background: bg, border: `1px solid ${bord}`, borderRadius: 14, padding: '12px 14px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: txt, fontWeight: 800, fontSize: 15 }}>
+        <span>{statut === 'active' ? '📍' : statut === 'recherche' ? '⏳' : '📡'}</span> {LIBELLE_GPS[statut]}
+      </div>
+      {statut === 'active' && prec != null && <div style={{ fontSize: 12, color: txt, marginTop: 2 }}>Précision ≈ ±{prec} m{prec > 100 ? ' — faible : sortez à l\'air libre' : ''}</div>}
+      {message && <div style={{ fontSize: 13, color: txt, marginTop: 6, lineHeight: 1.4 }}>{message}</div>}
+      {statut !== 'active' && statut !== 'recherche' && (
+        <button onClick={onAutoriser} style={btn('#0F2A5C', { marginTop: 10, fontSize: 16, minHeight: 50 })}>
+          📍 {statut === 'non_autorisee' || statut === 'erreur' ? 'Réessayer la localisation' : 'Autoriser ma localisation GPS'}
+        </button>
+      )}
+    </div>
+  )
+}
 
 function ModalArret({ convoi, onClose, onValider }) {
   const [type, setType] = useState('pause')
@@ -121,12 +138,18 @@ function ModalArret({ convoi, onClose, onValider }) {
 export default function Conduite() {
   const [convois, setConvois] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [maPos, setMaPos] = useState(null)
-  const [gpsErreur, setGpsErreur] = useState(null)
-  const [gpsEssai, setGpsEssai] = useState(0)   // +1 = relance la demande de localisation (geste utilisateur)
   const [modalArret, setModalArret] = useState(false)
-  const dernierePos = useRef(null)
-  // Trace affichée : trace déjà connue du serveur (reprise après rechargement) + points GPS locaux
+  // ── État GPS : jamais « autorisé » sans réponse réelle du navigateur ──
+  const [permission, setPermission] = useState(null)      // 'granted' | 'denied' | 'prompt' | null (API absente)
+  const [gpsPos, setGpsPos] = useState(null)              // { lat, lng, prec, t } dernière position RÉELLE reçue
+  const [recherche, setRecherche] = useState(false)
+  const [gpsCode, setGpsCode] = useState(null)            // 'refuse' | 'delai' | 'indisponible' | 'non_securise' | 'absent'
+  const [gpsEssai, setGpsEssai] = useState(0)
+  const dernierePos = useRef(null)                        // coords brutes (vitesse, cap…)
+  const flushRef = useRef(null)                           // envoi immédiat des positions en attente
+  const [attente, setAttente] = useState(0)               // points en attente d'envoi (réseau coupé)
+  const [dernierEnvoi, setDernierEnvoi] = useState(null)
+  const [, forceTick] = useState(0)
   const [traceServeur, setTraceServeur] = useState([])
   const [traceLocale, setTraceLocale] = useState([])
 
@@ -136,36 +159,95 @@ export default function Conduite() {
 
   const actif = (convois || []).find(c => c.suivi && c.suivi.statut !== 'arrive') || null
   const rid = actif?.rotation_id
+  const intervalleMs = (actif?.intervalle_envoi_s || ENVOI_POSITION_DEFAUT_S) * 1000
 
-  // ── GPS + envoi périodique pendant le trajet ──────────────────
+  const aide = messageLocalisationRefusee()
+  const env = verifierEnvironnement()
+  const gpsMessage = env ? env.message : gpsCode ? messageErreur(gpsCode, aide) : null
+  const statut = env ? 'erreur' : statutGps({ permission, position: positionFraiche(gpsPos) ? gpsPos : null, enRecherche: recherche, erreur: gpsCode })
+
+  const enregistrerPosition = useCallback((coords, t) => {
+    dernierePos.current = coords
+    const pt = { lat: coords.latitude, lng: coords.longitude, prec: coords.accuracy, t: t || Date.now() }
+    setGpsPos(pt); setGpsCode(null)
+    return pt
+  }, [])
+
+  // Permissions API (absente sur certains mobiles) : renseigne seulement le statut de départ.
+  useEffect(() => {
+    let st = null
+    navigator.permissions?.query?.({ name: 'geolocation' }).then(r => {
+      st = r; setPermission(r.state)
+      r.onchange = () => setPermission(r.state)
+    }).catch(() => {})
+    return () => { if (st) st.onchange = null }
+  }, [])
+
+  // Action de l'utilisateur : demande réelle d'autorisation + première position valide.
+  const autoriser = useCallback(async () => {
+    setRecherche(true); setGpsCode(null)
+    const r = await demanderPosition({ timeout: 20000 })
+    setRecherche(false)
+    if (r.ok) { enregistrerPosition(r.coords, r.horodatage); setPermission('granted'); setGpsEssai(n => n + 1) }
+    else { setGpsCode(r.code); if (r.code === 'refuse') setPermission('denied') }
+  }, [enregistrerPosition])
+
+  // Autorisation déjà accordée : on vérifie qu'une position est réellement obtenue (sans nouvelle invite).
+  useEffect(() => { if (permission === 'granted' && !gpsPos && !recherche && !gpsCode) autoriser() }, [permission]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Surveillance continue dès qu'une position réelle existe (liste ET trajet), trace locale pendant le trajet.
+  const surveille = !!gpsPos || permission === 'granted'
+  useEffect(() => {
+    if (!surveille || env) return
+    const watchId = navigator.geolocation.watchPosition(
+      p => {
+        const pt = enregistrerPosition(p.coords, p.timestamp)
+        const ll = [pt.lat, pt.lng]
+        setTraceLocale(t => {
+          const d = t[t.length - 1]
+          if (d && Math.abs(d[0] - ll[0]) < 0.00014 && Math.abs(d[1] - ll[1]) < 0.00014) return t   // bruit GPS < ~15 m
+          return [...t.slice(-1999), ll]
+        })
+      },
+      e => { const code = e.code === 1 ? 'refuse' : e.code === 3 ? 'delai' : 'indisponible'; setGpsCode(code); if (code === 'refuse') setPermission('denied') },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+    )
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [surveille, gpsEssai, env, enregistrerPosition])
+
+  // ── Envoi périodique au serveur : points horodatés, identifiants uniques, reprise après coupure réseau ──
   useEffect(() => {
     if (!rid) return
     suiviConvois.get(rid).then(r => setTraceServeur(r.data?.suivi?.trace || [])).catch(() => {})
-    if (!window.isSecureContext) { setGpsErreur("Localisation bloquée : la page doit être ouverte en HTTPS valide (utilisez l'adresse app.roxgold-sitelife.com, pas l'adresse IP)."); return }
-    if (!navigator.geolocation) { setGpsErreur("Ce téléphone ne fournit pas de localisation."); return }
-    const watchId = navigator.geolocation.watchPosition(
-      p => {
-        const pt = [p.coords.latitude, p.coords.longitude]
-        dernierePos.current = p.coords; setMaPos(pt); setGpsErreur(null)
-        setTraceLocale(t => {
-          const d = t[t.length - 1]
-          // ignore le bruit GPS (< ~15 m) pour ne pas surcharger la trace
-          if (d && Math.abs(d[0] - pt[0]) < 0.00014 && Math.abs(d[1] - pt[1]) < 0.00014) return t
-          return [...t.slice(-1999), pt]
-        })
-      },
-      e => setGpsErreur(e.code === 1
-        ? messageLocalisationRefusee()
-        : 'Signal GPS faible — nouvelle tentative en cours...'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
-    )
-    const envoyer = () => {
+    const cle = CLE_ATTENTE(rid)
+    const lire = () => { try { return JSON.parse(localStorage.getItem(cle) || '[]') } catch { return [] } }
+    const ecrire = a => { try { localStorage.setItem(cle, JSON.stringify(a.slice(-500))) } catch { /* stockage plein : on garde en mémoire seulement */ } setAttente(a.length) }
+    let enVol = false, dernierEnvoye = null
+    const envoyer = async () => {
+      if (enVol) return
       const c = dernierePos.current
-      if (c) suiviConvois.position(rid, coordsPayload(c)).catch(() => {})
+      let file = lire()
+      if (c && (!dernierEnvoye || dernierEnvoye.latitude !== c.latitude || dernierEnvoye.longitude !== c.longitude || file.length === 0)) {
+        file.push({ ...coordsPayload(c), client_id: `${rid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, horodatage: new Date().toISOString() })
+        dernierEnvoye = c
+      }
+      if (!file.length) return
+      enVol = true
+      const lot = file.slice(0, 200)
+      try {
+        await suiviConvois.position(rid, { points: lot })
+        file = file.slice(lot.length); setDernierEnvoi(Date.now())
+      } catch (e) {
+        if (e?.response?.status === 400 && !e.response.data?.doublons) file = file.slice(lot.length)   // lot invalide : inutile de le rejouer
+      } finally { ecrire(file); enVol = false }
     }
-    const id = setInterval(envoyer, ENVOI_POSITION_MS)
-    return () => { navigator.geolocation.clearWatch(watchId); clearInterval(id) }
-  }, [rid, gpsEssai])
+    flushRef.current = envoyer
+    envoyer()
+    const id = setInterval(envoyer, intervalleMs)
+    window.addEventListener('online', envoyer)
+    const tick = setInterval(() => forceTick(n => n + 1), 5000)
+    return () => { clearInterval(id); clearInterval(tick); window.removeEventListener('online', envoyer) }
+  }, [rid, intervalleMs])
 
   // ── Garder l'écran allumé pendant le trajet (sinon le navigateur coupe le GPS) ──
   useEffect(() => {
@@ -181,13 +263,13 @@ export default function Conduite() {
   const majConvoi = data => setConvois(cs => (cs || []).map(c => c.rotation_id === data.rotation_id ? { ...c, ...data } : c))
 
   const partir = async (cv) => {
+    if (!positionFraiche(gpsPos)) { toast.error('Autorisez la localisation et attendez la position GPS avant de partir.'); return }
     const ok = await confirmDialog(`Démarrer le trajet ${cv.origine || 'Camp'} → ${cv.destination || '?'} avec ${cv.nb_passagers_prevus} passager(s) ?\n\nLe Centre de Mobilité vous suivra sur la carte jusqu'à l'arrivée.`,
       { titre: '🚐 Partir', danger: false })
     if (!ok) return
     setBusy(true)
     try {
-      const c = await lirePosition()
-      if (c) { dernierePos.current = c; setMaPos([c.latitude, c.longitude]) }
+      const c = dernierePos.current
       const r = await suiviConvois.partir(cv.rotation_id, coordsPayload(c))
       majConvoi(r.data)
       toast.success('Bon trajet ! Le Centre de Mobilité vous voit en direct.')
@@ -198,7 +280,7 @@ export default function Conduite() {
 
   const signalerArret = async (d) => {
     try {
-      const c = dernierePos.current || await lirePosition(5000)
+      const c = dernierePos.current || (await demanderPosition({ timeout: 5000, maximumAge: 10000 })).coords
       const r = await suiviConvois.arret(rid, { ...d, ...coordsPayload(c) })
       majConvoi(r.data)
       setModalArret(false)
@@ -213,12 +295,21 @@ export default function Conduite() {
     finally { setBusy(false) }
   }
 
+  const telecharger = async (type) => {
+    try {
+      const r = type === 'pdf' ? await suiviConvois.exportPdf(rid) : await suiviConvois.exportCsv(rid)
+      sauverBlob(r.data, type === 'pdf' ? `rapport_trajet_${rid}.pdf` : `trajet_${rid}.csv`)
+    } catch { toast.error("Téléchargement impossible — vérifiez la connexion") }
+  }
+
   const arriver = async () => {
     const ok = await confirmDialog(`Confirmer l'arrivée à ${actif.destination || 'destination'} ?`, { titre: '🏁 Arrivée', danger: false })
     if (!ok) return
     setBusy(true)
     try {
+      await flushRef.current?.()   // les positions en attente partent AVANT la clôture
       const r = await suiviConvois.arriver(rid, coordsPayload(dernierePos.current))
+      try { localStorage.removeItem(CLE_ATTENTE(rid)) } catch { /* sans importance */ }
       majConvoi(r.data)
       toast.success('Arrivée enregistrée. Merci et bonne journée !')
       charger()
@@ -233,6 +324,7 @@ export default function Conduite() {
     return (
       <div style={{ padding: 16, maxWidth: 560, margin: '0 auto' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F1A2E', margin: '4px 0 14px' }}>🚐 Ma conduite</h2>
+        <PanneauGps statut={statut} position={gpsPos} message={gpsMessage} onAutoriser={autoriser} />
         {convois.length === 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, textAlign: 'center', color: '#5B6472', border: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>🛣️</div>
@@ -250,9 +342,10 @@ export default function Conduite() {
               {cv.point_rdv && <> · RDV {cv.point_rdv}</>}
               <br />👥 {cv.nb_passagers_prevus} passager(s) prévus
             </div>
-            <button onClick={() => partir(cv)} disabled={busy} style={btn(busy ? '#94a3b8' : '#16A34A', { fontSize: 20, letterSpacing: 1 })}>
+            <button onClick={() => partir(cv)} disabled={busy || statut !== 'active'} style={btn(busy || statut !== 'active' ? '#94a3b8' : '#16A34A', { fontSize: 20, letterSpacing: 1 })}>
               {busy ? '⏳' : '▶  PARTIR'}
             </button>
+            {statut !== 'active' && <div style={{ fontSize: 12, color: '#92400E', marginTop: 6, textAlign: 'center' }}>Départ possible uniquement avec une position GPS active.</div>}
           </div>
         ))}
       </div>
@@ -262,7 +355,7 @@ export default function Conduite() {
   // ── Trajet en cours ───────────────────────────────────────────
   const s = actif.suivi
   const trace = [...traceServeur, ...traceLocale]
-  const posVehicule = maPos || (s.latitude != null ? [s.latitude, s.longitude] : null)
+  const posVehicule = gpsPos ? [gpsPos.lat, gpsPos.lng] : (s.latitude != null ? [s.latitude, s.longitude] : null)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div style={{ position: 'relative', height: '46dvh', minHeight: 260 }}>
@@ -277,18 +370,15 @@ export default function Conduite() {
           {posVehicule && <Marker position={posVehicule} icon={iconeVehicule(s.statut, s.nb_a_bord)} />}
         </MapContainer>
         </MapSafe>
-        {gpsErreur && (
-          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 500, background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
-            📡 {gpsErreur}
-            <button onClick={() => { setGpsErreur(null); setGpsEssai(n => n + 1) }}
-              style={{ display: 'block', marginTop: 8, background: '#991B1B', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, cursor: 'pointer' }}>
-              🔄 Réessayer
-            </button>
-          </div>
-        )}
       </div>
 
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 560, width: '100%', margin: '0 auto' }}>
+        {statut !== 'active' && <PanneauGps statut={statut} position={gpsPos} message={gpsMessage} onAutoriser={autoriser} />}
+        <div style={{ fontSize: 12, color: attente > 0 ? '#92400E' : '#5B6472', background: attente > 0 ? '#FFFBEB' : '#F8FAFC', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
+          📡 {statut === 'active' ? `GPS actif${gpsPos?.prec != null ? ` (±${Math.round(gpsPos.prec)} m)` : ''}` : LIBELLE_GPS[statut]}
+          {dernierEnvoi ? ` · dernier envoi il y a ${Math.round((Date.now() - dernierEnvoi) / 1000)} s` : ' · aucun envoi confirmé pour l\'instant'}
+          {attente > 0 && ` · ⚠️ ${attente} position(s) en attente (réseau coupé) — renvoi automatique`}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
           {[
             ['👥', `${s.nb_a_bord}/${s.nb_passagers_depart}`, 'à bord'],
@@ -322,8 +412,14 @@ export default function Conduite() {
             ))}
           </div>
         )}
-        <div style={{ fontSize: 12, color: '#5B6472', textAlign: 'center' }}>
-          Gardez cette page ouverte pendant le trajet : votre position est envoyée toutes les 15 secondes.
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <button onClick={() => telecharger('pdf')} style={btn('#475569', { fontSize: 13, minHeight: 44, padding: '10px' })}>📄 Rapport PDF (provisoire)</button>
+          <button onClick={() => telecharger('csv')} style={btn('#475569', { fontSize: 13, minHeight: 44, padding: '10px' })}>📊 Données CSV</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#5B6472', textAlign: 'center', lineHeight: 1.5 }}>
+          Gardez cette page ouverte et l'écran allumé : la position est envoyée toutes les {Math.round(intervalleMs / 1000)} secondes.
+          Le suivi s'interrompt si le téléphone se verrouille ou si l'application passe en arrière-plan (limite des navigateurs mobiles) ;
+          les positions manquantes ne sont pas inventées, le rapport indique si la trace est incomplète.
         </div>
       </div>
 

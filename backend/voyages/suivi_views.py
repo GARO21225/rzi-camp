@@ -13,20 +13,27 @@ Toutes les routes sont indexées par rotation_id (clé historique déjà utilis�
 partout dans le Centre de Mobilité), pas par l'id numérique de Rotation.
 """
 import datetime
+import os
 
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.http import HttpResponse
 
+from . import suivi_rapports
 from .models import Rotation, Voyage, SuiviConvoi, PositionConvoi, ArretConvoi, DeposeArret
 
 # Intervalle minimal entre deux points enregistrés dans la trace (la position
 # "courante" est, elle, toujours mise à jour).
 INTERVALLE_TRACE_S = 10
 MAX_POINTS_TRACE = 600
+# Fréquence d'envoi demandée au téléphone (configurable) et seuil au-delà duquel la position est dite ancienne.
+INTERVALLE_ENVOI_S = int(os.environ.get("SUIVI_INTERVALLE_S", "15"))
+POSITION_ANCIENNE_S = int(os.environ.get("SUIVI_POSITION_ANCIENNE_S", "120"))
+MAX_POINTS_PAR_ENVOI = 200
 
 
 def _est_admin(u):
@@ -61,6 +68,26 @@ def _float(v):
         return float(v) if v not in (None, "") else None
     except (TypeError, ValueError):
         return None
+
+
+def _coord_valide(lat, lng):
+    return lat is not None and lng is not None and -90 <= lat <= 90 and -180 <= lng <= 180 and not (lat == 0 and lng == 0)
+
+
+def _horodatage_serveur(brut, now, depart_at):
+    """Heure d'un point reçu : celle du téléphone SEULEMENT si plausible (entre le départ et maintenant) ;
+    jamais dans le futur. Renvoie None si le point est antérieur au départ du convoi."""
+    from django.utils.dateparse import parse_datetime
+    t = parse_datetime(str(brut)) if brut else None
+    if t is None:
+        return now
+    if timezone.is_naive(t):
+        t = timezone.make_aware(t, datetime.timezone.utc)
+    if t > now:
+        return now
+    if t < depart_at:
+        return None
+    return t
 
 
 def _notifier_admins(titre, message, type_notif="info"):
@@ -99,6 +126,7 @@ def _serialiser(rotation, avec_trace=False):
         "point_rdv": rotation.point_rdv,
         "nb_places_total": rotation.nb_places_total,
         "nb_passagers_prevus": _passagers(rotation).filter(statut__in=["planifie", "en_voyage"]).count(),
+        "intervalle_envoi_s": INTERVALLE_ENVOI_S,
         "suivi": None,
     }
     if not suivi:
@@ -115,6 +143,11 @@ def _serialiser(rotation, avec_trace=False):
         "vitesse_kmh": suivi.vitesse_kmh,
         "cap": suivi.cap,
         "position_at": suivi.position_at,
+        "precision_m": suivi.precision_m,
+        # Calculé côté serveur : le front ne présente JAMAIS une vieille position comme actuelle.
+        "position_age_s": int((timezone.now() - suivi.position_at).total_seconds()) if suivi.position_at else None,
+        "position_ancienne": bool(suivi.statut != "arrive" and (not suivi.position_at or (timezone.now() - suivi.position_at).total_seconds() > POSITION_ANCIENNE_S)),
+        "duree_s": suivi.duree_s, "distance_km": suivi.distance_km,
         "nb_passagers_depart": suivi.nb_passagers_depart,
         "nb_a_bord": max(0, suivi.nb_passagers_depart - len(deposes_ids)),
         "arret_en_cours": arret_en_cours.id if arret_en_cours else None,
@@ -190,6 +223,15 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
             return err
         if hasattr(rotation, "suivi"):
             return Response({"error": "Ce convoi est déjà parti"}, status=400)
+        if rotation.statut == "annule":
+            return Response({"error": "Ce convoi est annulé."}, status=400)
+        # Pas de départ « à l'aveugle » : une position GPS réelle et valide est obligatoire.
+        lat0, lng0 = _float(request.data.get("latitude")), _float(request.data.get("longitude"))
+        if not _coord_valide(lat0, lng0):
+            return Response({"error": "Position GPS valide requise : autorisez la localisation et attendez la position avant de partir.",
+                             "code": "gps_requis"}, status=400)
+        if SuiviConvoi.objects.filter(demarre_par=request.user, statut__in=["en_route", "arret"]).exists():
+            return Response({"error": "Vous avez déjà un trajet en cours : terminez-le avant d'en démarrer un autre.", "code": "trajet_en_cours"}, status=400)
         en_attente = [_nom(v.personnel) for v in _passagers(rotation).filter(statut="planifie", statut_validation="en_attente")]
         if en_attente:
             return Response({"error": "Départ impossible : demande(s) sans décision (validez ou refusez) — " + ", ".join(en_attente),
@@ -205,12 +247,16 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
                 except Exception as e:
                     echecs.append(f"{_nom(v.personnel)}: {e}")
             nb = _passagers(rotation).filter(statut="en_voyage").count()
-            SuiviConvoi.objects.create(
-                rotation=rotation, statut="en_route", depart_at=now, demarre_par=request.user,
-                nb_passagers_depart=nb,
-                latitude=_float(request.data.get("latitude")), longitude=_float(request.data.get("longitude")),
-                position_at=now if request.data.get("latitude") else None,
-            )
+            try:
+                suivi_cree = SuiviConvoi.objects.create(
+                    rotation=rotation, statut="en_route", depart_at=now, demarre_par=request.user,
+                    nb_passagers_depart=nb, latitude=lat0, longitude=lng0, position_at=now,
+                    depart_latitude=lat0, depart_longitude=lng0, precision_m=_float(request.data.get("precision")),
+                )
+            except IntegrityError:   # double clic / deux appareils : un seul voyage actif par mission
+                return Response({"error": "Ce convoi est déjà parti"}, status=400)
+            PositionConvoi.objects.create(suivi=suivi_cree, latitude=lat0, longitude=lng0, date_heure=now,
+                                          precision_m=_float(request.data.get("precision")), client_id="depart")
         _notifier_admins(
             f"🚐 Départ convoi {rotation.vehicule_matricule or rotation.vehicule or rotation.rotation_id}",
             f"{rotation.conducteur or 'Le conducteur'} est parti à {timezone.localtime(now):%H:%M} "
@@ -220,25 +266,66 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"])
     def position(self, request, rotation_id=None):
+        """Une position (latitude, longitude, precision, vitesse_kmh, cap, client_id, horodatage) ou un lot
+        `points: [...]` renvoyé après une perte de réseau. `client_id` rend le renvoi idempotent (pas de doublon)."""
         rotation, err = self._rotation(request, rotation_id)
         if err:
             return err
-        lat, lng = _float(request.data.get("latitude")), _float(request.data.get("longitude"))
-        if lat is None or lng is None or not (-90 <= lat <= 90 and -180 <= lng <= 180):
-            return Response({"error": "latitude/longitude invalides"}, status=400)
         suivi = rotation.suivi
         if suivi.statut == "arrive":
             return Response({"ok": True, "ignore": "convoi arrivé"})
+        brut = request.data.get("points")
+        if brut is None:
+            brut = [request.data]
+        if not isinstance(brut, list) or not brut:
+            return Response({"error": "points invalides"}, status=400)
+        if len(brut) > MAX_POINTS_PAR_ENVOI:
+            return Response({"error": f"Trop de points ({MAX_POINTS_PAR_ENVOI} maximum par envoi)"}, status=400)
         now = timezone.now()
-        vitesse = _float(request.data.get("vitesse_kmh"))
-        dernier = suivi.positions.order_by("-date_heure").values_list("date_heure", flat=True).first()
-        if not dernier or (now - dernier).total_seconds() >= INTERVALLE_TRACE_S:
-            PositionConvoi.objects.create(suivi=suivi, latitude=lat, longitude=lng, vitesse_kmh=vitesse, date_heure=now)
-        suivi.latitude, suivi.longitude, suivi.position_at = lat, lng, now
-        suivi.vitesse_kmh = vitesse
-        suivi.cap = _float(request.data.get("cap"))
-        suivi.save(update_fields=["latitude", "longitude", "position_at", "vitesse_kmh", "cap"])
-        return Response({"ok": True})
+        enregistres = doublons = rejetes = 0
+        dernier_ok = None
+        for pt in brut:
+            if not isinstance(pt, dict):
+                rejetes += 1
+                continue
+            lat, lng = _float(pt.get("latitude")), _float(pt.get("longitude"))
+            if not _coord_valide(lat, lng):
+                rejetes += 1
+                continue
+            t = _horodatage_serveur(pt.get("horodatage"), now, suivi.depart_at)
+            if t is None:
+                rejetes += 1
+                continue
+            cid = str(pt.get("client_id") or "")[:40]
+            vitesse, precision = _float(pt.get("vitesse_kmh")), _float(pt.get("precision"))
+            if cid:
+                if suivi.positions.filter(client_id=cid).exists():
+                    doublons += 1
+                    continue
+            else:
+                dernier = suivi.positions.order_by("-date_heure").values_list("date_heure", flat=True).first()
+                if dernier and (t - dernier).total_seconds() < INTERVALLE_TRACE_S:
+                    doublons += 1
+                    continue
+            try:
+                with transaction.atomic():
+                    PositionConvoi.objects.create(suivi=suivi, latitude=lat, longitude=lng, vitesse_kmh=vitesse,
+                                                  precision_m=precision, date_heure=t, client_id=cid)
+            except IntegrityError:
+                doublons += 1
+                continue
+            enregistres += 1
+            if dernier_ok is None or t >= dernier_ok[0]:
+                dernier_ok = (t, lat, lng, vitesse, precision, _float(pt.get("cap")))
+        # La position « courante » ne recule jamais : un point ancien renvoyé en différé ne l'écrase pas.
+        if dernier_ok and (suivi.position_at is None or dernier_ok[0] >= suivi.position_at):
+            t, lat, lng, vitesse, precision, cap = dernier_ok
+            suivi.latitude, suivi.longitude, suivi.position_at = lat, lng, t
+            suivi.vitesse_kmh, suivi.precision_m, suivi.cap = vitesse, precision, cap
+            suivi.save(update_fields=["latitude", "longitude", "position_at", "vitesse_kmh", "precision_m", "cap"])
+        if enregistres == 0 and doublons == 0 and rejetes:
+            return Response({"error": "latitude/longitude invalides", "rejetes": rejetes}, status=400)
+        return Response({"ok": True, "enregistres": enregistres, "doublons": doublons, "rejetes": rejetes})
 
     @action(detail=True, methods=["post"])
     def arret(self, request, rotation_id=None):
@@ -304,24 +391,96 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"])
     def arriver(self, request, rotation_id=None):
+        """Clôture : heure d'arrivée, dernière position, durée et distance calculées PAR LE SERVEUR. Idempotent."""
         rotation, err = self._rotation(request, rotation_id)
         if err:
             return err
-        suivi = rotation.suivi
-        if suivi.statut == "arrive":
-            return Response(_serialiser(rotation))
-        now = timezone.now()
-        suivi.arrets.filter(fin__isnull=True).update(fin=now)
-        suivi.statut, suivi.arrivee_at = "arrive", now
-        lat, lng = _float(request.data.get("latitude")), _float(request.data.get("longitude"))
-        if lat is not None and lng is not None:
-            suivi.latitude, suivi.longitude, suivi.position_at = lat, lng, now
-        suivi.save()
-        duree = now - suivi.depart_at
-        h, m = divmod(int(duree.total_seconds() // 60), 60)
+        with transaction.atomic():
+            suivi = SuiviConvoi.objects.select_for_update().get(pk=rotation.suivi.pk)
+            if suivi.statut == "arrive":   # clôture répétée : aucun effet, aucune notification
+                return Response({**_serialiser(rotation), "deja_cloture": True})
+            now = timezone.now()
+            suivi.arrets.filter(fin__isnull=True).update(fin=now)
+            lat, lng = _float(request.data.get("latitude")), _float(request.data.get("longitude"))
+            if _coord_valide(lat, lng):
+                suivi.latitude, suivi.longitude, suivi.position_at = lat, lng, now
+                suivi.precision_m = _float(request.data.get("precision"))
+                PositionConvoi.objects.get_or_create(suivi=suivi, client_id="arrivee", defaults=dict(
+                    latitude=lat, longitude=lng, date_heure=now, precision_m=suivi.precision_m))
+            suivi.statut, suivi.arrivee_at, suivi.cloture_par = "arrive", now, request.user
+            suivi.duree_s = max(0, int((now - suivi.depart_at).total_seconds()))
+            suivi.distance_km = suivi_rapports.distance_trace_km(suivi_rapports.lire_points(suivi))
+            suivi.save()
+        rotation.suivi = suivi
+        h, m = divmod(suivi.duree_s // 60, 60)
         _notifier_admins(
             f"🏁 Convoi {rotation.vehicule_matricule or rotation.rotation_id} arrivé",
             f"{rotation.destination or 'Destination'} atteinte à {timezone.localtime(now):%H:%M} "
-            f"(trajet {h}h{m:02d}) · {suivi.nb_a_bord()} passager(s) à bord",
+            f"(trajet {h}h{m:02d}, ~{suivi.distance_km} km) · {suivi.nb_a_bord()} passager(s) à bord",
         )
         return Response(_serialiser(rotation))
+
+    # ── Historique et rapports (mêmes règles d'accès que le suivi) ──
+    def _filtre_acces(self, request):
+        if _est_admin(request.user):
+            return Q()
+        f = Q(conducteur_personnel__user=request.user) | Q(conducteur_secondaire_personnel__user=request.user)
+        for n in _noms_utilisateur(request.user):
+            f |= Q(conducteur__iexact=n) | Q(conducteur_secondaire__iexact=n)
+        return f
+
+    @action(detail=False, methods=["get"])
+    def historique(self, request):
+        """Trajets suivis (en cours et terminés). Filtres : du, au (date de départ), chauffeur, vehicule,
+        rotation_id, statut. Admin : tous ; conducteur : uniquement ses propres convois."""
+        qs = Rotation.objects.select_related("suivi", "conducteur_personnel").filter(self._filtre_acces(request), suivi__isnull=False)
+        g = request.query_params
+        if g.get("du"):
+            qs = qs.filter(suivi__depart_at__date__gte=g["du"])
+        if g.get("au"):
+            qs = qs.filter(suivi__depart_at__date__lte=g["au"])
+        if g.get("chauffeur"):
+            qs = qs.filter(Q(conducteur__icontains=g["chauffeur"]) | Q(conducteur_personnel__nom__icontains=g["chauffeur"]) | Q(conducteur_personnel__prenom__icontains=g["chauffeur"]))
+        if g.get("vehicule"):
+            qs = qs.filter(Q(vehicule__icontains=g["vehicule"]) | Q(vehicule_matricule__icontains=g["vehicule"]))
+        if g.get("rotation_id"):
+            qs = qs.filter(rotation_id__icontains=g["rotation_id"])
+        if g.get("statut") in ("en_route", "arret", "arrive"):
+            qs = qs.filter(suivi__statut=g["statut"])
+        lignes = []
+        for r in qs.order_by("-suivi__depart_at")[:300]:
+            d = _serialiser(r)
+            d["mission"] = f"{r.origine or '—'} → {r.destination or '—'}"
+            lignes.append(d)
+        return Response(lignes)
+
+    @action(detail=True, methods=["get"])
+    def rapport(self, request, rotation_id=None):
+        rotation, err = self._rotation(request, rotation_id, ecriture=False)
+        if err:
+            return err
+        if not hasattr(rotation, "suivi"):
+            return Response({"error": "Ce convoi n'est pas encore parti"}, status=404)
+        return Response(suivi_rapports.donnees_rapport(rotation))
+
+    @action(detail=True, methods=["get"])
+    def export_csv(self, request, rotation_id=None):
+        rotation, err = self._rotation(request, rotation_id, ecriture=False)
+        if err:
+            return err
+        if not hasattr(rotation, "suivi"):
+            return Response({"error": "Ce convoi n'est pas encore parti"}, status=404)
+        rep = HttpResponse(suivi_rapports.export_csv(rotation), content_type="text/csv; charset=utf-8")
+        rep["Content-Disposition"] = f'attachment; filename="trajet_{rotation.rotation_id}.csv"'
+        return rep
+
+    @action(detail=True, methods=["get"])
+    def export_pdf(self, request, rotation_id=None):
+        rotation, err = self._rotation(request, rotation_id, ecriture=False)
+        if err:
+            return err
+        if not hasattr(rotation, "suivi"):
+            return Response({"error": "Ce convoi n'est pas encore parti"}, status=404)
+        rep = HttpResponse(suivi_rapports.export_pdf(rotation), content_type="application/pdf")
+        rep["Content-Disposition"] = f'attachment; filename="rapport_trajet_{rotation.rotation_id}.pdf"'
+        return rep

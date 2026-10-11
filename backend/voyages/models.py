@@ -618,6 +618,13 @@ class SuiviConvoi(models.Model):
     position_at = models.DateTimeField(null=True, blank=True)
     nb_passagers_depart = models.PositiveIntegerField(default=0)
     demarre_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    depart_latitude = models.FloatField(null=True, blank=True)
+    depart_longitude = models.FloatField(null=True, blank=True)
+    precision_m = models.FloatField(null=True, blank=True, help_text="Précision GPS de la dernière position (mètres)")
+    # Calculés par le SERVEUR à la clôture (jamais fournis par le client)
+    duree_s = models.PositiveIntegerField(null=True, blank=True)
+    distance_km = models.FloatField(null=True, blank=True)
+    cloture_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         verbose_name = "Suivi de convoi"
@@ -637,10 +644,16 @@ class PositionConvoi(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     vitesse_kmh = models.FloatField(null=True, blank=True)
+    precision_m = models.FloatField(null=True, blank=True)
     date_heure = models.DateTimeField(db_index=True)
+    # Identifiant généré par le téléphone : un renvoi après perte de réseau ne crée pas de doublon.
+    client_id = models.CharField(max_length=40, blank=True, default="")
 
     class Meta:
         ordering = ["suivi", "date_heure"]
+        constraints = [
+            models.UniqueConstraint(fields=["suivi", "client_id"], condition=~models.Q(client_id=""), name="position_convoi_client_unique"),
+        ]
 
 
 class ArretConvoi(models.Model):

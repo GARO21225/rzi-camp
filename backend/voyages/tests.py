@@ -1,4 +1,5 @@
 import datetime
+from django.utils import timezone
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -6,7 +7,7 @@ from rest_framework.test import APIClient
 
 from residences.models import Personnel
 from evenements.models import SimpleNotification
-from .models import Rotation, Voyage, SuiviConvoi, ArretConvoi, EvenementMonteeDescente
+from .models import Rotation, Voyage, SuiviConvoi, ArretConvoi, EvenementMonteeDescente, PositionConvoi
 
 
 class SuiviConvoiTests(TestCase):
@@ -89,7 +90,8 @@ class SuiviConvoiTests(TestCase):
 
     def test_admin_peut_demarrer(self):
         self.c.force_authenticate(self.admin)
-        self.assertEqual(self.c.post(self.url("partir"), {}, format="json").status_code, 201)
+        self.assertEqual(self.c.post(self.url("partir"), {}, format="json").status_code, 400)   # GPS obligatoire
+        self.assertEqual(self.c.post(self.url("partir"), {"latitude": 9.1, "longitude": -5.1}, format="json").status_code, 201)
 
 
 class ConfirmerDepartItineraireTests(TestCase):
@@ -676,3 +678,151 @@ class OrganiserSensEtDateTests(TestCase):
     def test_meme_sens_meme_jour_ok(self):
         a, b = self.voyage("A", self.lundi), self.voyage("B", self.lundi)
         self.assertEqual(self.organiser([a.id, b.id], self.aller).status_code, 201)
+
+
+class AutomatisationHorsRequeteTests(TestCase):
+    def test_pas_de_traitement_dans_la_requete_si_le_planificateur_tourne(self):
+        from django.core.cache import cache
+        from unittest import mock
+        from . import automatisation
+        cache.clear()
+        with mock.patch.object(automatisation, "appliquer_voyages_du_jour", return_value={}) as m:
+            cache.set("planificateur_tick", 1, 55)
+            self.assertIsNone(automatisation.appliquer_si_necessaire())
+            m.assert_not_called()
+            cache.delete("planificateur_tick")
+            automatisation.appliquer_si_necessaire()
+            m.assert_called_once()
+
+
+class SuiviGpsRapportTests(TestCase):
+    """Ma conduite : GPS obligatoire, positions idempotentes, clôture serveur, historique, exports, permissions."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("adm4", password="x", is_staff=True)
+        self.u = User.objects.create_user("chauf4", password="x")
+        self.autre = User.objects.create_user("autre4", password="x")
+        p = Personnel.objects.create(nom="Dri", prenom="Awa", societe="ROXGOLD", user=self.u)
+        pa = Personnel.objects.create(nom="Autre", prenom="Chauf", societe="ROXGOLD", user=self.autre)
+        today = datetime.date.today()
+        mk = lambda rid, pers, nom: Rotation.objects.create(rotation_id=rid, vehicule="BUS", vehicule_matricule="9999ZZ", conducteur=nom,
+            conducteur_personnel=pers, origine="Camp", destination="Abidjan", date_depart=today, date_retour_prevue=today)
+        mk("R-A", p, "Awa Dri"); mk("R-B", pa, "Chauf Autre")
+        self.c = APIClient()
+        self.c.force_authenticate(self.u)
+
+    def url(self, rid, a=""):
+        return f"/api/suivi-convois/{rid}/{a + '/' if a else ''}"
+
+    def demarrer(self, rid="R-A"):
+        r = self.c.post(self.url(rid, "partir"), {"latitude": 9.10, "longitude": -5.10, "precision": 12}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        # départ simulé 10 min plus tôt pour pouvoir rejouer des points « passés »
+        il_y_a = timezone.now() - datetime.timedelta(minutes=10)
+        SuiviConvoi.objects.filter(rotation__rotation_id=rid).update(depart_at=il_y_a, position_at=il_y_a)
+        PositionConvoi.objects.filter(suivi__rotation__rotation_id=rid).update(date_heure=il_y_a)
+
+    def test_partir_sans_gps_ou_coordonnees_invalides_refuse(self):
+        for body in ({}, {"latitude": 95, "longitude": 0}, {"latitude": 0, "longitude": 0}, {"latitude": "x", "longitude": 1}):
+            r = self.c.post(self.url("R-A", "partir"), body, format="json")
+            self.assertEqual((r.status_code, r.json().get("code")), (400, "gps_requis"), body)
+        self.assertFalse(SuiviConvoi.objects.exists())
+
+    def test_un_seul_trajet_actif_par_chauffeur_et_par_mission(self):
+        self.demarrer()
+        self.assertEqual(self.c.post(self.url("R-A", "partir"), {"latitude": 9.1, "longitude": -5.1}, format="json").status_code, 400)
+        Rotation.objects.filter(rotation_id="R-B").update(conducteur_personnel=Personnel.objects.get(user=self.u), conducteur="Awa Dri")
+        r = self.c.post(self.url("R-B", "partir"), {"latitude": 9.1, "longitude": -5.1}, format="json")
+        self.assertEqual(r.json().get("code"), "trajet_en_cours")
+
+    def test_positions_idempotentes_et_lot_apres_perte_reseau(self):
+        self.demarrer()
+        t0 = timezone.now()
+        lot = [{"latitude": 9.0 + i * 0.01, "longitude": -5.1, "precision": 8, "client_id": f"p{i}",
+                "horodatage": (t0 - datetime.timedelta(seconds=30 - i * 10)).isoformat()} for i in range(3)]
+        r = self.c.post(self.url("R-A", "position"), {"points": lot}, format="json")
+        self.assertEqual((r.json()["enregistres"], r.json()["doublons"]), (3, 0), r.content)
+        r = self.c.post(self.url("R-A", "position"), {"points": lot}, format="json")   # renvoi identique
+        self.assertEqual((r.json()["enregistres"], r.json()["doublons"]), (0, 3))
+        self.assertEqual(PositionConvoi.objects.count(), 4)   # départ + 3
+        # un point ancien renvoyé en différé n'écrase pas la position courante
+        s = SuiviConvoi.objects.get()
+        self.assertAlmostEqual(s.latitude, 9.02)
+        # futur ramené à maintenant, avant départ rejeté, coordonnées invalides rejetées
+        r = self.c.post(self.url("R-A", "position"), {"points": [
+            {"latitude": 8.5, "longitude": -5, "client_id": "f", "horodatage": (t0 + datetime.timedelta(days=3)).isoformat()},
+            {"latitude": 8.4, "longitude": -5, "client_id": "v", "horodatage": (t0 - datetime.timedelta(days=3)).isoformat()},
+            {"latitude": 200, "longitude": -5, "client_id": "x"}]}, format="json")
+        self.assertEqual((r.json()["enregistres"], r.json()["rejetes"]), (1, 2))
+        self.assertLessEqual(PositionConvoi.objects.get(client_id="f").date_heure, timezone.now())
+        self.assertEqual(self.c.post(self.url("R-A", "position"), {"latitude": 999, "longitude": 0}, format="json").status_code, 400)
+
+    def test_cloture_serveur_idempotente_duree_distance(self):
+        self.demarrer()
+        t0 = timezone.now()
+        self.c.post(self.url("R-A", "position"), {"points": [
+            {"latitude": 9.05, "longitude": -5.10, "client_id": "a", "horodatage": (t0 - datetime.timedelta(minutes=5)).isoformat()},
+            {"latitude": 9.00, "longitude": -5.10, "client_id": "b", "horodatage": (t0 - datetime.timedelta(minutes=2)).isoformat()}]}, format="json")
+        r = self.c.post(self.url("R-A", "arriver"), {"latitude": 8.99, "longitude": -5.10, "duree_s": 99999, "distance_km": 5}, format="json")   # valeurs client ignorées
+        self.assertEqual(r.status_code, 200, r.content)
+        s = SuiviConvoi.objects.get()
+        self.assertEqual(s.statut, "arrive")
+        self.assertEqual(s.cloture_par, self.u)
+        self.assertAlmostEqual(s.duree_s, 600, delta=10)   # 10 min simulées ; le 99999 du client est ignoré
+        self.assertAlmostEqual(s.distance_km, 12.2, delta=0.5)   # 0,11° de latitude ≈ 12,2 km
+        n = SimpleNotification.objects.filter(user=self.admin).count()
+        r = self.c.post(self.url("R-A", "arriver"), {}, format="json")   # clôture répétée
+        self.assertTrue(r.json().get("deja_cloture"))
+        self.assertEqual(SimpleNotification.objects.filter(user=self.admin).count(), n)
+        self.assertEqual(self.c.post(self.url("R-A", "reprendre"), {}, format="json").status_code, 400)
+
+    def test_historique_filtres_et_permissions(self):
+        self.demarrer()
+        self.c.post(self.url("R-A", "arriver"), {"latitude": 9.0, "longitude": -5.1}, format="json")
+        ca = APIClient(); ca.force_authenticate(self.autre)
+        ca.post(self.url("R-B", "partir"), {"latitude": 9.1, "longitude": -5.1}, format="json")
+        mes = self.c.get("/api/suivi-convois/historique/").json()
+        self.assertEqual([x["rotation_id"] for x in mes], ["R-A"])               # le chauffeur ne voit QUE le sien
+        adm = APIClient(); adm.force_authenticate(self.admin)
+        self.assertEqual({x["rotation_id"] for x in adm.get("/api/suivi-convois/historique/").json()}, {"R-A", "R-B"})
+        self.assertEqual([x["rotation_id"] for x in adm.get("/api/suivi-convois/historique/?statut=arrive").json()], ["R-A"])
+        self.assertEqual([x["rotation_id"] for x in adm.get("/api/suivi-convois/historique/?chauffeur=autre").json()], ["R-B"])
+        self.assertEqual(adm.get("/api/suivi-convois/historique/?vehicule=ABSENT").json(), [])
+        # l'autre chauffeur ne peut ni lire ni exporter le trajet de R-A
+        for a in ("rapport", "export_csv", "export_pdf"):
+            self.assertEqual(ca.get(self.url("R-A", a)).status_code, 403, a)
+            self.assertEqual(self.c.get(self.url("R-B", a)).status_code, 403, a)
+        self.assertEqual(APIClient().get("/api/suivi-convois/historique/").status_code, 401)
+
+    def test_exports_csv_pdf_donnees_reelles_et_provisoire(self):
+        self.demarrer()
+        self.c.post(self.url("R-A", "arret"), {"type": "pause", "lieu": "Péage", "latitude": 9.0, "longitude": -5.1}, format="json")
+        r = self.c.get(self.url("R-A", "rapport")).json()
+        self.assertTrue(r["provisoire"])
+        self.assertEqual(r["completude"] in ("complete", "partielle"), True)
+        csv_ = self.c.get(self.url("R-A", "export_csv"))
+        self.assertEqual(csv_.status_code, 200)
+        txt = csv_.content.decode("utf-8-sig")
+        self.assertIn("position;", txt); self.assertIn("Péage", txt); self.assertIn(";oui", txt)   # provisoire
+        pdf = self.c.get(self.url("R-A", "export_pdf"))
+        self.assertEqual((pdf.status_code, pdf["Content-Type"]), (200, "application/pdf"))
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
+        self.c.post(self.url("R-A", "arriver"), {"latitude": 8.9, "longitude": -5.1}, format="json")
+        r = self.c.get(self.url("R-A", "rapport")).json()
+        self.assertFalse(r["provisoire"])
+        self.assertEqual([e["type"] for e in r["chronologie"]][0], "depart")
+        self.assertEqual(r["chronologie"][-1]["type"], "arrivee")
+        self.assertIn(";non", self.c.get(self.url("R-A", "export_csv")).content.decode("utf-8-sig"))
+
+    def test_persistance_apres_redemarrage_donnees_en_base(self):
+        self.demarrer()
+        self.c.post(self.url("R-A", "position"), {"latitude": 9.0, "longitude": -5.1, "client_id": "z"}, format="json")
+        self.c = APIClient(); self.c.force_authenticate(self.u)   # « nouvelle session »
+        self.assertEqual(self.c.get(self.url("R-A", "rapport")).json()["nb_positions"], 2)
+
+    def test_position_ancienne_signalee_par_le_serveur(self):
+        self.demarrer()
+        SuiviConvoi.objects.update(position_at=timezone.now() - datetime.timedelta(minutes=10))
+        s = self.c.get(self.url("R-A")).json()["suivi"]
+        self.assertTrue(s["position_ancienne"])
+        self.assertGreaterEqual(s["position_age_s"], 600)

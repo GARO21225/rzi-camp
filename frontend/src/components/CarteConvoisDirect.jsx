@@ -196,7 +196,8 @@ export default function CarteConvoisDirect() {
         {convois.map(cv => {
           const s = cv.suivi
           const dernierArret = s?.arrets?.[s.arrets.length - 1]
-          const perime = s?.statut !== 'arrive' && s?.position_at && (Date.now() - new Date(s.position_at).getTime() > 5 * 60000)
+          // Drapeau calculé par le serveur (> 2 min sans position) : une vieille position n'est jamais présentée comme actuelle.
+          const perime = s?.statut !== 'arrive' && (s?.position_ancienne || (s?.position_at && Date.now() - new Date(s.position_at).getTime() > 2 * 60000))
           return (
             <div key={cv.rotation_id}
               onClick={() => s?.latitude != null && setCible([s.latitude, s.longitude])}
@@ -214,7 +215,7 @@ export default function CarteConvoisDirect() {
                 {s?.statut === 'arret' && dernierArret && <> — {dernierArret.type_label}{dernierArret.lieu && ` à ${dernierArret.lieu}`}</>}
               </div>
               <div style={{ fontSize: 11, color: perime ? '#DC2626' : '#5B6472', marginTop: 4 }}>
-                🧑‍✈️ {cv.conducteur} · Parti à {heure(s?.depart_at)} · 📡 {ilYa(s?.position_at)}{perime && ' ⚠️ signal perdu ?'}
+                🧑‍✈️ {cv.conducteur} · Parti à {heure(s?.depart_at)} · 📡 {ilYa(s?.position_at)}{perime && ' ⚠️ position ancienne — chauffeur peut-être hors ligne'}
               </div>
               {s?.arrets?.length > 0 && (
                 <div style={{ marginTop: 8, borderTop: '1px dashed rgba(15,26,46,.12)', paddingTop: 6 }}>

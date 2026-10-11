@@ -1116,6 +1116,13 @@ class BatimentViewSet(viewsets.ModelViewSet):
         from voyages.automatisation import appliquer_si_necessaire
         appliquer_si_necessaire()
 
+    @action(detail=False, methods=["get"])
+    def noms(self, request):
+        """Noms des résidences/blocs (sans occupant) pour les listes de choix : déclarer un incident,
+        une plainte… Ouvert à tout connecté — le détail des occupants reste réservé par _build_qs."""
+        lignes = Batiment.objects.exclude(residence="").values_list("residence", "bloc").order_by("residence")
+        return Response({"residences": [{"residence": r, "bloc": b or ""} for r, b in lignes]})
+
     def _build_qs(self, request=None):
         """Build filtered QuerySet — always returns a real QuerySet"""
         qs = Batiment.objects.select_related("personnel__user__profile").all()

@@ -86,6 +86,10 @@ def appliquer_si_necessaire(delai=120):
     """Version paresseuse : au plus une fois toutes les `delai` secondes
     (pas besoin de cron sur l'hôte)."""
     try:
+        # Le planificateur (asgi.py) applique déjà la liaison chaque minute : on ne fait PAS payer ce
+        # traitement (plusieurs secondes avec beaucoup de voyages) à l'utilisateur dont la requête tombe dessus.
+        if cache.get("planificateur_tick") is not None:
+            return None
         if not cache.add(CLE_THROTTLE, 1, delai):
             return None
         return appliquer_voyages_du_jour()

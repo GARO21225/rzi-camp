@@ -521,12 +521,21 @@ export default function Maintenance() {
   useEffect(() => {
     const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
     const token = localStorage.getItem('access_token') || ''
-    fetch(`${BASE}/api/batiments/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
+    const h = {'Authorization':`Bearer ${token}`}
+    // Noms de toutes les résidences (ouvert à tout connecté, sans occupants) : la liste complète est
+    // indispensable pour un non-admin, qui ne voit que SA chambre via /api/batiments/.
+    fetch(`${BASE}/api/batiments/noms/`, {headers:h})
       .then(r=>r.json())
       .then(d=>{
-        const list = d.results || d || []
-        const resids = [...new Set(list.map(b=>b.residence).filter(Boolean))].sort()
+        const resids = [...new Set((d.residences||[]).map(b=>b.residence).filter(Boolean))].sort()
         if(resids.length) setResidences(resids)
+      }).catch(()=>{})
+    // Sa propre chambre, proposée d'office (modifiable) quand le formulaire est vide.
+    fetch(`${BASE}/api/batiments/?page_size=5&mon_residence=1`, {headers:h})
+      .then(r=>r.json())
+      .then(d=>{
+        const mine = (d.results || d || [])
+        if (mine.length === 1 && mine[0].residence) setForm(f => f.residence ? f : { ...f, residence: mine[0].residence, bloc: f.bloc || mine[0].bloc || '' })
       }).catch(()=>{})
   },[])
 
