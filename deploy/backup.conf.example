@@ -1,0 +1,6 @@
+# Copier vers deploy/backup.conf (ignoré par git) et renseigner :
+SERVEUR_CIBLE="backup@IP_DU_AUTRE_VPS"          # utilisateur@adresse du serveur de secours
+DOSSIER_CIBLE="/home/backup/rzi-camp-backups/"   # dossier de destination (créé automatiquement)
+CLE_SSH="$HOME/.ssh/rzi_backup_key"              # clé SSH dédiée (voir BACKUP.md)
+PORT_SSH=22
+RETENTION_DISTANTE_JOURS=90

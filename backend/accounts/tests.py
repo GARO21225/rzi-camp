@@ -807,3 +807,31 @@ class CampOccupancyTests(TestCase):
         _, h2 = generer_contenu_rapport("Occ", "occupation", {"occ_soustraitants": False, "occ_visiteurs": False, "occ_tendance": False})
         self.assertNotIn("Main Contractors", h2)
         self.assertNotIn("Visitors Finance", h2)
+
+
+class CampOccupancyChambresTests(TestCase):
+    def test_une_chambre_compte_une_fois_meme_avec_deux_personnes_dans_l_historique(self):
+        import datetime
+        from django.utils import timezone
+        from residences.models import Personnel, Batiment, OccupationHistory
+        from .rapports_email import generer_contenu_rapport
+        today = timezone.localtime(timezone.now()).date()
+        b = Batiment.objects.create(residence="B104", bloc="B", statut="Occupé")
+        for nom in ("P1", "P2"):
+            p = Personnel.objects.create(nom=nom, prenom="x", societe="ROXGOLD", type_personnel="roxgold", departement="Mining")
+            OccupationHistory.objects.create(batiment=b, personnel=p, occupant_nom=nom, societe="ROXGOLD", date_arrivee=today - datetime.timedelta(days=3))
+        _, h = generer_contenu_rapport("Occ", "occupation")
+        self.assertRegex(h, r"Total Daily Camp Occupancy</td>\s*<td[^>]*>1</td>")
+
+
+class DiagnosticLectureSeuleTests(TestCase):
+    def test_diagnostic_public_minimal_et_detail_authentifie_sans_seed(self):
+        from rest_framework.test import APIClient
+        from django.contrib.auth.models import User
+        c = APIClient()
+        d = c.get("/api/diagnostic/").json()
+        self.assertEqual(d["database"], "connected"); self.assertNotIn("compteurs", d)
+        c.force_authenticate(User.objects.create_user("dg", password="x"))
+        d = c.get("/api/diagnostic/").json()
+        self.assertIn("compteurs", d); self.assertEqual(d["migrations_en_attente"], 0)
+        self.assertEqual(c.post("/api/force-seed/", {"secret": "roxgold2026"}, format="json").status_code, 404)

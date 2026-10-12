@@ -1391,7 +1391,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
           </div>
           {['synthese','residences','occupation'].includes(form.type_rapport) && (
             <div style={{border:'1px solid #fde68a',borderRadius:10,padding:'10px 12px',marginBottom:10,background:'#fff'}}>
-              <div style={{fontWeight:700,fontSize:12.5,color:'#92400e',marginBottom:8}}>🏕️ Camp Occupancy — ce que le rapport contient</div>
+              <div style={{fontWeight:700,fontSize:12.5,color:'#92400e',marginBottom:8}}>🏕️ Camp Occupancy — occupation des chambres (1 chambre occupée = 1)</div>
               <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',fontSize:12.5,color:'#475569'}}>
                 <label>Jour <select value={form.jour_reference} onChange={e=>setForm(f=>({...f,jour_reference:e.target.value}))}
                   style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}><option value="aujourdhui">Aujourd'hui</option><option value="hier">Hier (nuit écoulée)</option></select></label>

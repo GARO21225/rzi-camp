@@ -395,13 +395,10 @@ def backup_status(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def diagnostic(request):
-    """Endpoint public de statut système — utilisé par StatusPage.jsx sans authentification
-    (page de monitoring consultée avant même qu'un login soit possible si la DB est down).
-    Volontairement minimal : ne renvoie ni comptes de lignes ni versions de dépendances,
-    qui sont des informations utiles à un attaquant en reconnaissance et inutiles
-    pour la simple question "le système répond-il"."""
+    """État RÉEL du système (lecture seule, aucune donnée inventée ni modifiée).
+    Public : uniquement « la base répond-elle ». Détail : utilisateurs connectés."""
     from django.db import connection
-    from rest_framework.response import Response
+    from django.conf import settings
     result = {'status': 'ok', 'database': 'disconnected'}
     try:
         with connection.cursor() as c:
@@ -409,22 +406,38 @@ def diagnostic(request):
         result['database'] = 'connected'
     except Exception:
         result['database'] = 'disconnected'
-    # Détail (comptes, versions) réservé aux utilisateurs authentifiés
+        result['status'] = 'degraded'
     if request.user and request.user.is_authenticated:
         import sys
-        result['python'] = sys.version
+        from django.core.cache import cache
+        from django.contrib.auth.models import User
+        result['python'] = sys.version.split()[0]
         result['django'] = __import__('django').get_version()
+        result['db_engine'] = settings.DATABASES['default']['ENGINE'].split('.')[-1]
+        result['debug'] = bool(settings.DEBUG)
         try:
-            with connection.cursor() as c:
-                result['tables'] = {}
-                c.execute("SELECT COUNT(*) FROM residences_personnel")
-                result['tables']['personnel'] = c.fetchone()[0]
-                c.execute("SELECT COUNT(*) FROM maintenance_incident")
-                result['tables']['incidents'] = c.fetchone()[0]
-                c.execute("SELECT COUNT(*) FROM restauration_consommationboutique")
-                result['tables']['consommations'] = c.fetchone()[0]
+            cache.set('diag_ping', '1', 10)
+            result['cache'] = 'ok' if cache.get('diag_ping') == '1' else 'ko'
+        except Exception:
+            result['cache'] = 'ko'
+        try:
+            from django.db.migrations.executor import MigrationExecutor
+            ex = MigrationExecutor(connection)
+            result['migrations_appliquees'] = len(ex.loader.applied_migrations)
+            result['migrations_en_attente'] = len(ex.migration_plan(ex.loader.graph.leaf_nodes()))
         except Exception as e:
-            result['database_error'] = str(e)
+            result['migrations_erreur'] = str(e)[:120]
+        try:
+            from residences.models import Personnel, Batiment
+            from maintenance.models import Incident
+            result['compteurs'] = {
+                'utilisateurs': User.objects.count(), 'personnel': Personnel.objects.count(),
+                'batiments': Batiment.objects.count(), 'incidents': Incident.objects.count(),
+            }
+        except Exception as e:
+            result['database_error'] = str(e)[:120]
+        if result.get('cache') != 'ok' or result.get('migrations_en_attente'):
+            result['status'] = 'degraded'
     return Response(result)
 
 @api_view(['GET'])

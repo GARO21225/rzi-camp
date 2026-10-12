@@ -702,6 +702,137 @@ class IncidentViewSet(viewsets.ModelViewSet):
         )
         return Response({'ok': True})
 
+    # ── Actions de masse (admin) ──────────────────────────────────
+
+    ACTIONS_MASSE = ('supprimer', 'modifier', 'assigner', 'retirer', 'commencer', 'resoudre',
+                     'cloturer', 'escalader', 'annuler', 'commenter')
+
+    @action(detail=False, methods=['post'])
+    def actions_masse(self, request):
+        """Applique UNE action à plusieurs incidents. Admin uniquement.
+        Corps : {ids:[..], action:'...', ...paramètres}. Chaque incident est
+        traité séparément (ORM, transaction propre) : un échec n'annule pas
+        les autres. Réponse : {ok:n, echecs:[{id,titre,raison}]}."""
+        from django.db import transaction
+        u = request.user
+        if not _est_admin(u):
+            return Response({'error': 'Admin requis'}, status=403)
+        act = request.data.get('action')
+        ids = request.data.get('ids') or []
+        if act not in self.ACTIONS_MASSE:
+            return Response({'error': 'Action inconnue'}, status=400)
+        if not isinstance(ids, list) or not ids:
+            return Response({'error': 'Aucun incident sélectionné'}, status=400)
+        try:
+            ids = [int(i) for i in ids][:500]
+        except (TypeError, ValueError):
+            return Response({'error': 'ids invalides'}, status=400)
+        p = request.data
+
+        cible = None
+        if act == 'assigner':
+            cible = User.objects.filter(pk=p.get('technicien_id') or 0, is_active=True).first()
+            if not cible:
+                return Response({'error': 'Technicien introuvable'}, status=400)
+        champs = {}
+        if act == 'modifier':
+            if p.get('priorite') in dict(Incident.PRIORITE):
+                champs['priorite'] = p['priorite']
+            if p.get('categorie') in dict(Incident.CATEGORIE):
+                champs['categorie'] = p['categorie']
+            for f in ('residence', 'bloc'):
+                if isinstance(p.get(f), str) and p[f].strip():
+                    champs[f] = p[f].strip()[:200]
+            if not champs:
+                return Response({'error': 'Rien à modifier'}, status=400)
+        raison = (p.get('raison') or '').strip()
+        if act == 'annuler' and not raison:
+            return Response({'error': "La raison de l'annulation est obligatoire."}, status=400)
+        contenu = (p.get('contenu') or p.get('commentaire') or '').strip()
+        if act == 'commenter' and not contenu:
+            return Response({'error': 'Message vide'}, status=400)
+
+        trouves = {i.id: i for i in Incident.objects.filter(pk__in=ids)}
+        ok, echecs = 0, []
+
+        def refus(inc, raison_):
+            echecs.append({'id': inc.id, 'titre': inc.titre, 'raison': raison_})
+
+        for pk in ids:
+            inc = trouves.get(pk)
+            if not inc:
+                echecs.append({'id': pk, 'titre': '', 'raison': 'Introuvable'})
+                continue
+            now = timezone.now()
+            try:
+                with transaction.atomic():
+                    if act == 'supprimer':
+                        inc.delete()
+                    elif act == 'modifier':
+                        for k, v in champs.items():
+                            setattr(inc, k, v)
+                        if 'priorite' in champs and inc.statut not in ('resolu', 'cloture', 'annule'):
+                            inc.sla_echeance = now + timezone.timedelta(hours=get_sla_heures()[inc.priorite])
+                        inc.save()
+                        CommentaireIncident.objects.create(incident=inc, auteur=u, type_comment='info',
+                                                           contenu='Modification en masse : ' + ', '.join(f'{k}={v}' for k, v in champs.items()))
+                    elif act == 'assigner':
+                        if inc.statut in ('cloture', 'annule', 'resolu'):
+                            refus(inc, 'Incident déjà traité'); continue
+                        ancien = inc.assigne_a
+                        nom = cible.get_full_name() or cible.username
+                        txt = f'Réassigné à {nom}' if ancien and ancien.id != cible.id else f'Assigné à {nom}'
+                        Incident.objects.filter(pk=pk).update(statut='assigne', assigne_a=cible, date_assignation=now, date_debut=None)
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='assignation', contenu=txt)
+                        _prevenir_assignation(inc, cible, ancien)
+                    elif act == 'retirer':
+                        if not inc.assigne_a_id or inc.statut in ('resolu', 'cloture', 'annule'):
+                            refus(inc, "Pas d'assignation à retirer"); continue
+                        ancien = inc.assigne_a
+                        Incident.objects.filter(pk=pk).update(statut='declare', assigne_a=None, date_assignation=None, date_debut=None)
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='assignation',
+                                                           contenu=f"Assignation retirée à {ancien.get_full_name() or ancien.username}")
+                        _prevenir_assignation(inc, None, ancien)
+                    elif act == 'commencer':
+                        if inc.statut not in ('declare', 'assigne'):
+                            refus(inc, f'Statut {inc.statut}'); continue
+                        Incident.objects.filter(pk=pk).update(statut='en_cours', date_debut=now)
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='debut', contenu=contenu or 'Intervention démarrée')
+                    elif act == 'resoudre':
+                        if inc.statut not in ('declare', 'assigne', 'en_cours'):
+                            refus(inc, f'Statut {inc.statut}'); continue
+                        txt = contenu or 'Incident résolu'
+                        Incident.objects.filter(pk=pk).update(statut='resolu', date_resolution=now, commentaire_resolution=txt)
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='resolution', contenu=txt)
+                    elif act == 'cloturer':
+                        if inc.statut in ('cloture', 'annule'):
+                            refus(inc, f'Statut {inc.statut}'); continue
+                        txt = contenu or 'Incident clôturé'
+                        Incident.objects.filter(pk=pk).update(statut='cloture', date_cloture=now, commentaire_cloture=txt)
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='cloture', contenu=txt)
+                    elif act == 'escalader':
+                        mapping = {'basse': 'moyenne', 'moyenne': 'haute', 'haute': 'critique'}
+                        if inc.priorite not in mapping or inc.statut in ('resolu', 'cloture', 'annule'):
+                            refus(inc, 'Déjà critique ou traité'); continue
+                        ancienne, inc.priorite = inc.priorite, mapping[inc.priorite]
+                        inc.sla_echeance = now + timezone.timedelta(hours=get_sla_heures()[inc.priorite])
+                        inc.save()
+                        CommentaireIncident.objects.create(incident=inc, auteur=u, type_comment='escalade',
+                                                           contenu=f"Escalade {ancienne} → {inc.priorite}: {raison or 'Escalade en masse'}")
+                        _notifier(inc, f"⚠️ Escalade priorité: {ancienne} → {inc.priorite}", 'escalade')
+                    elif act == 'annuler':
+                        if inc.statut in ('cloture', 'annule'):
+                            refus(inc, f'Statut {inc.statut}'); continue
+                        Incident.objects.filter(pk=pk).update(statut='annule')
+                        CommentaireIncident.objects.create(incident_id=pk, auteur=u, type_comment='info', contenu=f"Incident annulé: {raison}")
+                    elif act == 'commenter':
+                        CommentaireIncident.objects.create(incident=inc, auteur=u, type_comment='info', contenu=contenu)
+                        self._notifier_message(inc, u, contenu)
+                ok += 1
+            except Exception as e:
+                refus(inc, str(e)[:120])
+        return Response({'ok': ok, 'echecs': echecs, 'action': act})
+
     # ── Stats ─────────────────────────────────────────────────────
 
     @action(detail=False, methods=['get'])

@@ -63,3 +63,7 @@ htmlcov/
 # Sauvegardes de base de donnees - JAMAIS sur un depot public (donnees personnel/sante)
 backups/
 *.dump
+
+# Sauvegardes
+backups/
+deploy/backup.conf

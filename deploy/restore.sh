@@ -14,8 +14,9 @@ set -e
 cd "$(dirname "$0")/.."
 
 FICHIER="$1"
+MEDIA="$2"   # optionnel : backups/media_AAAAMMJJ_HHMMSS.tgz
 if [ -z "$FICHIER" ]; then
-  echo "Usage: $0 <chemin_vers_sauvegarde.dump>"
+  echo "Usage: $0 <chemin_vers_sauvegarde.dump> [chemin_vers_media.tgz]"
   echo
   echo "Sauvegardes disponibles :"
   ls -la ./backups/*.dump 2>/dev/null || echo "  (aucune trouvée dans ./backups)"
@@ -41,6 +42,11 @@ docker compose stop backend
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Restauration en cours..."
 cat "$FICHIER" | docker compose exec -T db pg_restore -U rzi -d rzi_camp --clean --if-exists
+
+if [ -n "$MEDIA" ] && [ -f "$MEDIA" ]; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Restauration des fichiers médias..."
+  docker compose run --rm -T --no-deps -v "$(pwd)/$MEDIA:/tmp/media.tgz:ro" backend sh -c "tar xzf /tmp/media.tgz -C /app"
+fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Redémarrage du backend..."
 docker compose start backend

@@ -435,6 +435,9 @@ export default function Maintenance() {
   const [slaOnly,    setSlaOnly]    = useState(false)
   const [selIds,     setSelIds]     = useState(new Set())
   const [massAct,    setMassAct]    = useState('')
+  const [massVal,    setMassVal]    = useState('')
+  const [massVal2,   setMassVal2]   = useState('')
+  const [massBusy,   setMassBusy]   = useState(false)
   const [residences, setResidences] = useState([])
   const [dateDebut,  setDateDebut]  = useState('')
   const [dateFin,    setDateFin]    = useState('')
@@ -688,6 +691,38 @@ export default function Maintenance() {
 
   const inp = { width:'100%', border:'2px solid #e2e8f0', borderRadius:9,
     padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }
+
+  const MASS_LIBELLES = { supprimer:'Supprimer', modifier:'Modifier', assigner:'Assigner / réassigner', retirer:'Retirer l\'assignation',
+    commencer:'Commencer', resoudre:'Résoudre', cloturer:'Clôturer', escalader:'Escalader la priorité', annuler:'Annuler', commenter:'Commenter' }
+  const lancerMasse = async () => {
+    const ids = [...selIds]
+    if (!ids.length || !massAct) return
+    const body = { ids, action: massAct }
+    if (massAct === 'assigner') { if (!massVal) return toast.error('Choisissez un technicien'); body.technicien_id = massVal }
+    if (massAct === 'modifier') {
+      if (!massVal && !massVal2) return toast.error('Choisissez une priorité ou une catégorie')
+      if (massVal) body.priorite = massVal
+      if (massVal2) body.categorie = massVal2
+    }
+    if (massAct === 'annuler') { if (!massVal.trim()) return toast.error("La raison est obligatoire"); body.raison = massVal.trim() }
+    if (massAct === 'commenter') { if (!massVal.trim()) return toast.error('Message vide'); body.contenu = massVal.trim() }
+    if (['resoudre','cloturer','commencer'].includes(massAct) && massVal.trim()) body.contenu = massVal.trim()
+    const msg = massAct === 'supprimer'
+      ? `Supprimer DÉFINITIVEMENT ${ids.length} incident(s) ? Cette action est irréversible.`
+      : `${MASS_LIBELLES[massAct]} : ${ids.length} incident(s) concerné(s). Confirmer ?`
+    if (!(await confirmDialog(msg))) return
+    setMassBusy(true)
+    try {
+      const { data } = await incAPI.actionsMasse(body)
+      if (data.echecs?.length) {
+        toast.error(`${data.ok} traité(s), ${data.echecs.length} ignoré(s) : ` + data.echecs.slice(0,3).map(e => `${e.titre||('#'+e.id)} (${e.raison})`).join(' ; '))
+      } else toast.success(`${data.ok} incident(s) traité(s)`)
+      setSelIds(new Set()); setMassAct(''); setMassVal(''); setMassVal2(''); setSelected(null)
+      await load(true)
+    } catch (e) {
+      toast.error(e.response?.data?.error || e.response?.data?.detail || 'Erreur action de masse')
+    } finally { setMassBusy(false) }
+  }
 
   const exportCSV = (filteredList) => {
     const headers = ['ID','Titre','Description','Catégorie','Priorité','Statut','Résidence','Bloc','Déclaré par','Assigné à','Date déclaration','Échéance SLA','SLA dépassé']
@@ -1239,6 +1274,46 @@ export default function Maintenance() {
           )}
         </div>
         ))}
+
+        {vue==='incidents' && isAdmin && selIds.size > 0 && (
+          <div style={{ position:'sticky', top:0, zIndex:20, background:'#0f172a', color:'#fff', borderRadius:12,
+            padding:'10px 14px', marginBottom:12, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+            <b style={{ fontSize:13 }}>☑️ {selIds.size} sélectionné(s)</b>
+            <select value={massAct} onChange={e=>{setMassAct(e.target.value); setMassVal(''); setMassVal2('')}} style={{ ...inp, maxWidth:210 }}>
+              <option value="">Action en masse…</option>
+              {Object.entries(MASS_LIBELLES).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+            {massAct === 'assigner' && (
+              <select value={massVal} onChange={e=>setMassVal(e.target.value)} style={{ ...inp, maxWidth:200 }}>
+                <option value="">Technicien…</option>
+                {techns.map(t => <option key={t.id} value={t.id}>{t.nom} ({t.incidents_actifs})</option>)}
+              </select>
+            )}
+            {massAct === 'modifier' && <>
+              <select value={massVal} onChange={e=>setMassVal(e.target.value)} style={{ ...inp, maxWidth:150 }}>
+                <option value="">Priorité (inchangée)</option>
+                {Object.entries(PRIOS).map(([k,v]) => <option key={k} value={k}>{v.l}</option>)}
+              </select>
+              <select value={massVal2} onChange={e=>setMassVal2(e.target.value)} style={{ ...inp, maxWidth:170 }}>
+                <option value="">Catégorie (inchangée)</option>
+                {['Plomberie','Electricite','Serrurerie','Climatisation','Toiture','Proprete','Informatique','Generateur','Vehicule','Autre'].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </>}
+            {['annuler','commenter','resoudre','cloturer','commencer'].includes(massAct) && (
+              <input value={massVal} onChange={e=>setMassVal(e.target.value)} style={{ ...inp, maxWidth:260 }}
+                placeholder={massAct==='annuler' ? 'Raison (obligatoire)' : massAct==='commenter' ? 'Message' : 'Commentaire (optionnel)'} />
+            )}
+            <button onClick={lancerMasse} disabled={!massAct || massBusy}
+              style={{ background: massAct==='supprimer' ? '#dc2626' : '#2563eb', color:'#fff', border:'none', padding:'8px 14px',
+                borderRadius:8, fontWeight:700, fontSize:12, cursor: (!massAct||massBusy)?'not-allowed':'pointer', opacity: (!massAct||massBusy)?.5:1 }}>
+              {massBusy ? '⏳…' : 'Appliquer'}
+            </button>
+            <button onClick={()=>{setSelIds(new Set()); setMassAct('')}}
+              style={{ background:'transparent', color:'#cbd5e1', border:'1px solid #475569', padding:'7px 12px', borderRadius:8, fontSize:12, cursor:'pointer' }}>
+              Désélectionner
+            </button>
+          </div>
+        )}
 
         {vue==='incidents' && (loading ? (
           <div style={{ textAlign:'center', padding:60, fontSize:32 }}>⏳</div>

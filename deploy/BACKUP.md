@@ -47,11 +47,31 @@ tail -20 /var/log/rzi-camp-backup.log
 
 ```bash
 cd /opt/stacks/rzi-camp
-./deploy/restore.sh backups/rzi_camp_20260906_020000.dump
+ls -lh backups/                                   # choisir un fichier
+./deploy/restore.sh backups/rzi_camp_AAAAMMJJ_HHMMSS.dump backups/media_AAAAMMJJ_HHMMSS.tgz
 ```
-⚠️ Destructif — remplace toutes les données actuelles. Le script demande une
-confirmation explicite avant d'agir, et arrête proprement le backend pendant
-l'opération pour éviter toute écriture concurrente.
+Le 2e argument (médias : vidéos d'induction, photos) est facultatif. ⚠️ Destructif : remplace toutes les données
+actuelles ; confirmation « OUI » demandée ; le backend est arrêté pendant l'opération puis relancé.
+
+### Restaurer sur un NOUVEAU serveur (VPS perdu)
+```bash
+git clone https://github.com/GARO21225/rzi-camp /opt/stacks/rzi-camp && cd /opt/stacks/rzi-camp
+git checkout claude/focused-rubin-9cy2g2
+# récupérer depuis le serveur de secours le .env et les dernières sauvegardes
+rsync -av USER@IP_AUTRE_VPS:/home/backup/rzi-camp-backups/ ./backups/
+cp backups/env_AAAAMMJJ_HHMMSS.bak .env            # (le plus récent)
+docker compose up -d db redis && sleep 15
+docker compose up -d --build
+./deploy/restore.sh backups/rzi_camp_AAAAMMJJ_HHMMSS.dump backups/media_AAAAMMJJ_HHMMSS.tgz
+docker compose exec backend python manage.py migrate
+```
+
+## Vérifier que la sauvegarde automatique tourne
+```bash
+crontab -l | grep backup                  # la ligne cron existe ?
+ls -lh /opt/stacks/rzi-camp/backups/ | tail -5   # un .dump récent (< 24 h) et sa taille ?
+tail -20 /var/log/rzi-camp-backup.log     # "Sauvegarde base terminée" sans erreur ?
+```
 
 ## Copies hors-serveur (recommandé, pas encore en place)
 
@@ -60,25 +80,25 @@ En cas de panne physique du serveur lui-même, elles disparaissent avec le
 reste. Pour s'en protéger, copier périodiquement le dossier `backups/` vers
 un autre emplacement — au choix, selon ce qui est disponible :
 
-### Option A — Un serveur/ordinateur local (déjà prêt : `deploy/backup-sync-local.sh`)
+### Option A — Un autre VPS / serveur (script prêt : `deploy/backup-sync-local.sh`)
 
-Si un autre serveur ou ordinateur est disponible (au camp, au bureau...),
-utilisez le script fourni :
 ```bash
-# Une fois : générer une clé SSH dédiée et l'autoriser sur la machine cible
+# 1. Sur CE serveur : clé SSH dédiée (une fois)
 ssh-keygen -t ed25519 -f ~/.ssh/rzi_backup_key -N ""
-ssh-copy-id -i ~/.ssh/rzi_backup_key.pub USER@ADRESSE_SERVEUR_LOCAL
+ssh-copy-id -i ~/.ssh/rzi_backup_key.pub USER@IP_AUTRE_VPS
 
-# Modifier deploy/backup-sync-local.sh : renseigner SERVEUR_CIBLE et DOSSIER_CIBLE
+# 2. Configuration (fichier ignoré par git)
+cp deploy/backup.conf.example deploy/backup.conf && nano deploy/backup.conf
 
-# Tester manuellement
+# 3. Test manuel
 ./deploy/backup-sync-local.sh
 
-# Automatiser (juste après backup.sh, à 2h30 pour laisser le temps au dump de finir)
+# 4. Automatiser (30 min après la sauvegarde de 2h)
 crontab -e
-# ajouter :
 30 2 * * * cd /opt/stacks/rzi-camp && ./deploy/backup-sync-local.sh >> /var/log/rzi-camp-backup.log 2>&1
 ```
+La copie distante n'utilise PAS `--delete` : si les sauvegardes locales disparaissent par erreur, celles du
+serveur de secours sont conservées (purge distante après `RETENTION_DISTANTE_JOURS`, 90 j par défaut).
 
 ### Option B — Un service cloud (Hetzner Storage Box, S3, Backblaze...)
 

@@ -241,6 +241,7 @@ export const incidents = {
   commenter:    (id,d) => api.post(`/api/incidents/${id}/commenter/`, d),
   addComment:   (id,d) => api.post(`/api/incidents/${id}/commenter/`, d),
   annuler:      (id,d) => api.post(`/api/incidents/${id}/annuler/`, d),
+  actionsMasse: (d) => api.post('/api/incidents/actions_masse/', d),
 }
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),

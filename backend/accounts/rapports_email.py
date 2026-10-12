@@ -15,7 +15,7 @@ import html as _h
 TYPES = {
     "synthese":    "📊 Synthèse générale (tout)",
     "residences":  "🏠 Résidences & occupation (+ Camp Occupancy)",
-    "occupation":  "🏕️ Camp Occupancy (départements, sous-traitants, visiteurs)",
+    "occupation":  "🏕️ Camp Occupancy — chambres occupées (départements, sous-traitants, visiteurs)",
     "maintenance": "🛠️ Maintenance & incidents",
     "mobilite":    "✈️ Mobilité (départs / retours)",
     "boutique":    "🛒 Boutique & stock",
@@ -192,24 +192,23 @@ def _sec_boutique(o, today):
 
 # ───────────── Camp Occupancy (même format que le fichier « Camp Occupancy ») ─────────────
 def _occupants(jour, today):
-    """Personnes hébergées la nuit du `jour` : [(Personnel|None, société_texte)], dédoublonnées."""
+    """CHAMBRES occupées la nuit du `jour` : [(Personnel|None, société_texte)], UNE entrée par chambre
+    (Camp Occupancy = occupation des chambres, pas le nombre de personnes présentes sur le site)."""
     from django.db.models import Q
     from residences.models import OccupationHistory, Batiment
     vus, res = set(), []
     hist = (OccupationHistory.objects.filter(date_arrivee__lte=jour)
-            .filter(Q(date_depart__isnull=True) | Q(date_depart__gt=jour)).select_related("personnel"))
+            .filter(Q(date_depart__isnull=True) | Q(date_depart__gt=jour)).select_related("personnel").order_by("-date_arrivee", "-id"))
     for h in hist:
-        cle = ("p", h.personnel_id) if h.personnel_id else ("n", (h.occupant_nom or "").strip().lower())
-        if cle in vus:
+        if h.batiment_id in vus:
             continue
-        vus.add(cle)
+        vus.add(h.batiment_id)
         res.append((h.personnel, h.societe or ""))
     if jour >= today:   # chambres occupées aujourd'hui sans ligne d'historique
         for b in Batiment.objects.filter(statut="Occupé").select_related("personnel"):
-            cle = ("p", b.personnel_id) if b.personnel_id else ("n", (b.occupant or "").strip().lower())
-            if cle in vus or cle == ("n", ""):
+            if b.pk in vus or (not b.personnel_id and not (b.occupant or "").strip()):
                 continue
-            vus.add(cle)
+            vus.add(b.pk)
             res.append((b.personnel, ""))
     return res
 
@@ -291,8 +290,8 @@ def _sec_occupation(o, today):
     total = t_dep + t_ent + t_vis
     corps = (f"<div style='text-align:center;margin-bottom:6px'><div style='font-size:11px;color:#64748b;letter-spacing:1px'>ROXGOLD SANGO</div>"
              f"<div style='font-size:16px;font-weight:700;color:#0F2A5C'>Camp Occupancy</div>"
-             f"<div style='font-size:12px;color:#64748b'>{jour:%d/%m/%Y}</div></div>")
-    corps += _kpis([("Total camp", total, "#0F2A5C"), ("Employés Roxgold", t_dep, "#2563EB"), ("Sous-traitants", t_ent, "#C9972B"), ("Visiteurs", t_vis, "#7C3AED")])
+             f"<div style='font-size:12px;color:#64748b'>{jour:%d/%m/%Y} · occupation des chambres (1 chambre occupée = 1)</div></div>")
+    corps += _kpis([("Chambres occupées", total, "#0F2A5C"), ("Employés Roxgold", t_dep, "#2563EB"), ("Sous-traitants", t_ent, "#C9972B"), ("Visiteurs", t_vis, "#7C3AED")])
     if o["occ_graphiques"]:
         corps += _barres("Répartition du camp", [("Employés Roxgold", t_dep), ("Sous-traitants", t_ent), ("Visiteurs", t_vis)],
                          lambda l: {"Employés Roxgold": "#2563EB", "Sous-traitants": "#C9972B"}.get(l, "#7C3AED"))

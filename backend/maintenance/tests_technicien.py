@@ -128,3 +128,50 @@ class NotificationsEtDroitsTests(TestCase):
         _notifier(inc, "msg", "alerte")
         self.assertTrue(SimpleNotification.objects.filter(user=admin).exists())
         self.assertFalse(SimpleNotification.objects.filter(user=tech).exists())
+
+
+class ActionsMasseIncidentsTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user("admm", password="x", is_staff=True)
+        Profile.objects.update_or_create(user=self.admin, defaults={"role": "admin"})
+        self.tech = User.objects.create_user("techm", password="x")
+        Profile.objects.update_or_create(user=self.tech, defaults={"role": "technicien"})
+        self.i = [Incident.objects.create(titre=f"I{n}", description="d", categorie="Plomberie", residence="C10", auteur=self.admin)
+                  for n in range(3)]
+        self.a, self.t = APIClient(), APIClient()
+        self.a.force_authenticate(self.admin); self.t.force_authenticate(self.tech)
+        self.ids = [x.id for x in self.i]
+
+    def post(self, **d):
+        return self.a.post("/api/incidents/actions_masse/", {"ids": self.ids, **d}, format="json")
+
+    def test_non_admin_refuse(self):
+        r = self.t.post("/api/incidents/actions_masse/", {"ids": self.ids, "action": "supprimer"}, format="json")
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(Incident.objects.count(), 3)
+
+    def test_assigner_puis_retirer(self):
+        r = self.post(action="assigner", technicien_id=self.tech.id)
+        self.assertEqual(r.json()["ok"], 3, r.content)
+        self.assertEqual(Incident.objects.filter(assigne_a=self.tech, statut="assigne").count(), 3)
+        self.assertTrue(SimpleNotification.objects.filter(user=self.tech).exists())
+        r = self.post(action="retirer")
+        self.assertEqual(r.json()["ok"], 3)
+        self.assertEqual(Incident.objects.filter(statut="declare", assigne_a=None).count(), 3)
+
+    def test_modifier_escalader_et_echec_partiel(self):
+        self.post(action="modifier", priorite="basse", categorie="Serrurerie")
+        self.assertEqual(Incident.objects.filter(priorite="basse", categorie="Serrurerie").count(), 3)
+        self.assertEqual(self.post(action="escalader").json()["ok"], 3)
+        self.assertEqual(Incident.objects.filter(priorite="moyenne").count(), 3)
+        Incident.objects.filter(pk=self.ids[0]).update(statut="cloture")
+        r = self.post(action="commencer").json()
+        self.assertEqual(r["ok"], 2)
+        self.assertEqual(len(r["echecs"]), 1)
+
+    def test_resoudre_cloturer_annuler_supprimer(self):
+        self.assertEqual(self.post(action="resoudre", contenu="ok").json()["ok"], 3)
+        self.assertEqual(self.post(action="cloturer").json()["ok"], 3)
+        self.assertEqual(self.post(action="annuler").status_code, 400)  # raison obligatoire
+        self.assertEqual(self.post(action="supprimer").json()["ok"], 3)
+        self.assertEqual(Incident.objects.count(), 0)

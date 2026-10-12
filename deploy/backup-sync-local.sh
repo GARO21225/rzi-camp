@@ -1,39 +1,33 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────
-# Copie les sauvegardes locales (dossier backups/) vers un AUTRE serveur
-# ou ordinateur, sur le même réseau ou ailleurs — protège contre une panne
-# physique du serveur Hetzner lui-même (les sauvegardes locales seules n'y
-# survivraient pas).
+# Copie les sauvegardes (dossier backups/) vers UN AUTRE serveur (VPS, NAS, PC...) via SSH/rsync.
+# Protège d'une perte totale du VPS (disque mort, compte supprimé, erreur d'administration).
 #
-# Mise en place (une seule fois) :
-#   1. Sur le serveur cible (la machine qui recevra les copies), s'assurer
-#      que SSH est accessible.
-#   2. Depuis ce serveur Hetzner, générer une clé SSH dédiée si pas déjà fait :
-#        ssh-keygen -t ed25519 -f ~/.ssh/rzi_backup_key -N ""
-#   3. Copier la clé publique sur la machine cible :
-#        ssh-copy-id -i ~/.ssh/rzi_backup_key.pub USER@ADRESSE_SERVEUR_LOCAL
-#   4. Renseigner les 3 variables ci-dessous.
-#   5. Automatiser en crontab, juste après backup.sh (voir BACKUP.md) :
-#        30 2 * * * cd /opt/stacks/rzi-camp && ./deploy/backup-sync-local.sh >> /var/log/rzi-camp-backup.log 2>&1
+# Configuration : copier deploy/backup.conf.example vers deploy/backup.conf et le remplir
+# (backup.conf est ignoré par git — il contient l'adresse du serveur de secours).
+#
+# IMPORTANT : pas d'option --delete. Si le dossier backups/ est vidé ou corrompu ici par erreur,
+# la copie distante est CONSERVÉE. La purge distante (rétention) se fait séparément ci-dessous.
 # ─────────────────────────────────────────────────────────────────
 set -e
-
-# ── À renseigner ──
-SERVEUR_CIBLE="USER@ADRESSE_SERVEUR_LOCAL"     # ex: backup@192.168.1.50
-DOSSIER_CIBLE="/home/backup/rzi-camp-backups/"  # doit déjà exister sur la machine cible
-CLE_SSH="$HOME/.ssh/rzi_backup_key"
-
 cd "$(dirname "$0")/.."
 
-if [ "$SERVEUR_CIBLE" = "USER@ADRESSE_SERVEUR_LOCAL" ]; then
-  echo "❌ Configuration manquante : ouvrez deploy/backup-sync-local.sh et renseignez SERVEUR_CIBLE."
-  exit 1
-fi
+CONF="deploy/backup.conf"
+[ -f "$CONF" ] || { echo "❌ $CONF introuvable : copiez deploy/backup.conf.example vers $CONF et renseignez-le."; exit 1; }
+# shellcheck disable=SC1090
+. "$CONF"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Synchronisation vers $SERVEUR_CIBLE..."
+: "${SERVEUR_CIBLE:?SERVEUR_CIBLE non défini}" "${DOSSIER_CIBLE:?DOSSIER_CIBLE non défini}"
+CLE_SSH="${CLE_SSH:-$HOME/.ssh/rzi_backup_key}"
+PORT_SSH="${PORT_SSH:-22}"
+RETENTION_DISTANTE_JOURS="${RETENTION_DISTANTE_JOURS:-90}"
+SSH="ssh -i $CLE_SSH -p $PORT_SSH -o StrictHostKeyChecking=accept-new"
 
-rsync -avz --delete \
-  -e "ssh -i $CLE_SSH -o StrictHostKeyChecking=accept-new" \
-  ./backups/ "$SERVEUR_CIBLE:$DOSSIER_CIBLE"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Synchronisation vers $SERVEUR_CIBLE:$DOSSIER_CIBLE ..."
+$SSH "$SERVEUR_CIBLE" "mkdir -p '$DOSSIER_CIBLE'"
+rsync -az --chmod=F600 -e "$SSH" ./backups/ "$SERVEUR_CIBLE:$DOSSIER_CIBLE"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Synchronisation terminée."
+# Rétention côté serveur de secours
+$SSH "$SERVEUR_CIBLE" "find '$DOSSIER_CIBLE' -type f \( -name 'rzi_camp_*.dump' -o -name 'media_*.tgz' -o -name 'env_*.bak' \) -mtime +$RETENTION_DISTANTE_JOURS -delete"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Synchronisation terminée ($(ls ./backups/*.dump 2>/dev/null | wc -l) dump(s) locaux)."
