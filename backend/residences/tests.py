@@ -979,3 +979,12 @@ class HistoriqueChambreConfidentialiteTests(TestCase):
     def test_admin_voit_tout(self):
         noms = {r["occupant"] for r in self._vue("recherche", _admin(), {"batiment": "A2"}).data["results"]}
         self.assertEqual(noms, {"Moi M", "Autre A"})
+
+
+class SuppressionPersonnelDesactiveCompteTests(TestCase):
+    def test_compte_desactive_a_la_suppression_de_la_fiche(self):
+        u = User.objects.create_user("res_sup", "r@a.com", "pass")
+        p = Personnel.objects.create(nom="Sup", prenom="S", societe="ROXGOLD", numero="SP1", telephone="1", type_personnel="roxgold", user=u)
+        p.delete()
+        u.refresh_from_db()
+        self.assertFalse(u.is_active)

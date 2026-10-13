@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import ChoixPersonne from '../components/ChoixPersonne'
 import { useNavigate } from 'react-router-dom'
 import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../api'
 import { useStore } from '../store'
@@ -521,10 +522,15 @@ export default function Plaintes() {
                   ) : <span style={{fontSize:12, color:'#94a3b8'}}>Personne d'affecté pour le moment</span>}
                 </div>
                 <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
-                  <select value={agentChoisi} onChange={e=>setAgentChoisi(e.target.value)} style={{flex:'1 1 180px', padding:8, borderRadius:7, border:'1px solid #e2e8f0', fontSize:12.5}}>
-                    <option value="">{detailModal.affecte_a ? 'Réaffecter à…' : 'Affecter à…'}</option>
-                    {agents.filter(a => a.id !== detailModal.affecte_a).map(a => <option key={a.id} value={a.id}>{a.nom} — {a.role || 'compte'} · {a.en_cours} en cours</option>)}
-                  </select>
+                  <div style={{flex:'1 1 220px'}}>
+                    {agentChoisi && (() => { const a = agents.find(x => String(x.id) === String(agentChoisi)); return a ? (
+                      <div style={{marginBottom:6, fontSize:12.5, fontWeight:700, color:'#6d28d9'}}>
+                        ✔ {a.nom} <button type="button" onClick={()=>setAgentChoisi('')} style={{border:'none', background:'none', color:'#dc2626', cursor:'pointer', fontWeight:700}}>×</button>
+                      </div>) : null })()}
+                    <ChoixPersonne placeholder={detailModal.affecte_a ? 'Réaffecter à… (saisir un nom)' : 'Affecter à… (saisir un nom)'}
+                      options={agents.filter(a => a.id !== detailModal.affecte_a).map(a => ({ id:a.id, nom:a.nom, detail:`${a.role || 'compte'} · ${a.en_cours} en cours` }))}
+                      onChoisir={id => setAgentChoisi(String(id))} />
+                  </div>
                   <button disabled={!agentChoisi} onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: Number(agentChoisi)}, detailModal.affecte_a ? 'Réaffectée' : 'Affectée')}
                     style={{background: agentChoisi ? '#7c3aed' : '#cbd5e1', color:'#fff', border:'none', padding:'8px 14px', borderRadius:7, cursor: agentChoisi ? 'pointer' : 'default', fontWeight:700, fontSize:12.5}}>
                     {detailModal.affecte_a ? '↻ Réaffecter' : 'Affecter'}

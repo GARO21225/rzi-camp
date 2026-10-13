@@ -866,7 +866,7 @@ class AnalyticsEndpointTests(TestCase):
         c.force_authenticate(User.objects.create_user("an1", "a@a.com", "pass"))
         r = c.get("/api/analytics/?jours=14")
         self.assertEqual(r.status_code, 200)
-        for k in ("parc", "personnel", "incidents", "voyages"):
+        for k in ("parc", "personnel", "incidents", "voyages", "plaintes", "evenements", "alertes"):
             self.assertIn(k, r.data)
         self.assertEqual(len(r.data["parc"]["tendance"]), 14)
         self.assertEqual(len(r.data["voyages"]["programme"]), 14)

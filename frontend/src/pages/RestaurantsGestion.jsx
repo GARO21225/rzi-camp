@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import ChoixPersonne from '../components/ChoixPersonne'
 import { restaurants as api, qr as qrAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 
@@ -58,10 +59,9 @@ function Affectations({ restos, recharger, peutGerer }) {
                   👨‍🍳 {s.nom} <button onClick={() => affecter(r, ids.filter(i => i !== s.id))} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>×</button>
                 </span>))}
             </div>
-            <select value="" onChange={e => { if (e.target.value) affecter(r, [...ids, Number(e.target.value)]) }} style={{ ...inp, maxWidth: 320 }}>
-              <option value="">➕ Affecter un superviseur…</option>
-              {candidats.filter(c => !ids.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.nom}{c.role ? ` (${c.role})` : ''}</option>)}
-            </select>
+            <ChoixPersonne placeholder="➕ Saisir un nom pour affecter un superviseur…"
+              options={candidats.filter(c => !ids.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, detail: c.role }))}
+              onChoisir={id => affecter(r, [...ids, id])} />
           </div>)
       })}
     </div>

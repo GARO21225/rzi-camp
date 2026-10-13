@@ -293,6 +293,71 @@ export default function Demandes() {
     return base.filter(d=>d.type_demande===typeFilter)
   }
 
+  // Boutons d'action d'une demande (carte mobile et ligne de tableau PC)
+  const actionsDe = (d, compact) => (
+        <div style={isMobile
+          ? { display:'flex', gap:8, width:'100%', marginTop:2 }
+          : { display:'flex', flexWrap:'wrap', gap:8, width:'100%', ...(compact ? {} : { paddingTop:10, borderTop:'1px solid #f1f5f9' }) }}>
+          {/* Plainte : pas de Valider/Rejeter generique ici - son
+              workflow (qualifier/affecter/prendre en charge/
+              resoudre) vit deja entierement dans la page Plaintes,
+              qu'on reutilise plutot que de le reimplementer ici. */}
+          {isAdmin && d._source === 'plainte' && (
+            <button onClick={()=>navigate('/plaintes')}
+              style={isMobile
+                ? { flex:1, background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                : { background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
+              🧹 Traiter dans Plaintes →
+            </button>
+          )}
+          {isAdmin && d._source !== 'plainte' && d.statut === 'en_attente' && (
+            <>
+              <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
+                style={isMobile
+                  ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                  : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
+              {!['induction','incident'].includes(d._source) && (
+                <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
+                  style={isMobile
+                    ? { flex:1, background:'rgba(124,58,237,.10)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.25)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                    : { background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
+              )}
+              <button onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
+                style={isMobile
+                  ? { background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
+                  : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌{isMobile?'':' Rejeter'}</button>
+            </>
+          )}
+          {isAdmin && d.statut === 'proposition' && (
+            <span style={{ fontSize:11, color:'#7c3aed', fontStyle:'italic' }}>Réponse attendue...</span>
+          )}
+          {!isAdmin && d.statut === 'proposition' && (
+            <>
+              <button onClick={()=>doAgentAction(d,'accepter')}
+                style={isMobile
+                  ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                  : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Accepter</button>
+              <button onClick={()=>doAgentAction(d,'refuser')}
+                style={isMobile
+                  ? { flex:1, background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
+                  : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Refuser</button>
+            </>
+          )}
+          {!isAdmin && d.statut === 'en_attente' && (
+            <button onClick={()=>doAgentAction(d,'annuler')}
+              style={isMobile
+                ? { flex:1, background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', borderRadius:8, padding:8, fontSize:11.5, cursor:'pointer' }
+                : { background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
+          )}
+          {isAdmin && d._source !== 'plainte' && (
+            <button onClick={()=>deleteDemande(d)}
+              style={isMobile
+                ? { background:'rgba(220,38,38,.06)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
+                : { background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>🗑</button>
+          )}
+        </div>
+  )
+
   return (
     <div style={{ padding: isMobile ? '16px' : '16px 24px', width:'100%', boxSizing:'border-box' }}>
       {/* Header */}
@@ -403,7 +468,51 @@ export default function Demandes() {
               {!isAdmin && <div style={{ fontSize:12, marginTop:6 }}>Utilisez les boutons ci-dessus pour soumettre une demande</div>}
             </div>
           )}
-          {filterData().map(d => {
+          {!isMobile && filterData().length > 0 && (
+            <div style={{ gridColumn:'1 / -1', background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'var(--shadow)', overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                <thead>
+                  <tr style={{ background:'var(--surface2)', textAlign:'left' }}>
+                    {['Type', ...(isAdmin ? ['Demandeur'] : []), 'Détail', 'Date', 'Statut', 'Actions'].map(h => (
+                      <th key={h} style={{ padding:'11px 16px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'var(--text-dim)', whiteSpace:'nowrap' }}>{h}</th>))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filterData().map(d => {
+                    const tc = TYPE_COLORS[d.type_demande] || TYPE_COLORS.maintenance
+                    const sc = STATUT_STYLES[d.statut] || STATUT_STYLES.en_attente
+                    return (
+                      <tr key={d.id} style={{ borderTop:'1px solid #f1f5f9', background: d.statut==='en_attente' ? 'rgba(240,165,0,.05)' : 'transparent', verticalAlign:'top' }}>
+                        <td style={{ padding:'14px 16px', whiteSpace:'nowrap' }}>
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'var(--blue)' }}>
+                            <span style={{ width:32, height:32, borderRadius:9, background:tc.bg, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>{tc.icon}</span>{tc.label}
+                          </span>
+                        </td>
+                        {isAdmin && <td style={{ padding:'14px 16px', fontWeight:600 }}>{d.demandeur_nom}</td>}
+                        <td style={{ padding:'14px 16px', maxWidth:460 }}>
+                          {d.message_demandeur && <div style={{ lineHeight:1.45, marginBottom:4 }}>{d.message_demandeur}</div>}
+                          <div style={{ display:'flex', gap:12, fontSize:11.5, color:'var(--text-dim)', flexWrap:'wrap' }}>
+                            {d.residence_souhaitee && <span>🏠 {d.residence_souhaitee}</span>}
+                            {d.date_debut_souhaitee && <span>📅 {d.date_debut_souhaitee}{d.date_fin_souhaitee ? ` → ${d.date_fin_souhaitee}` : ''}</span>}
+                          </div>
+                          {d.commentaire_admin && (
+                            <div style={{ marginTop:6, fontSize:12, background:d.statut==='proposition'?'rgba(124,58,237,.06)':'rgba(22,163,74,.06)', borderRadius:8, padding:'6px 10px' }}>
+                              {d.statut==='proposition' && <b style={{color:'#7c3aed'}}>💬 Proposition : </b>}
+                              {d.statut==='validee' && <b style={{color:'#16a34a'}}>✅ Admin : </b>}
+                              {d.statut==='rejetee' && <b style={{color:'#dc2626'}}>❌ Rejet : </b>}
+                              {d.commentaire_admin}
+                              {d.proposition_admin && Object.entries(d.proposition_admin).map(([k,v]) => <span key={k}> · <b>{k} :</b> {v}</span>)}
+                            </div>)}
+                        </td>
+                        <td style={{ padding:'14px 16px', whiteSpace:'nowrap', color:'var(--text-dim)' }}>{new Date(d.date_creation).toLocaleDateString('fr-FR')}</td>
+                        <td style={{ padding:'14px 16px', whiteSpace:'nowrap' }}><span style={{ background:sc.bg, color:sc.color, padding:'3px 11px', borderRadius:20, fontSize:11.5, fontWeight:700 }}>{sc.label}</span></td>
+                        <td style={{ padding:'14px 16px', minWidth:230 }}>{actionsDe(d, true)}</td>
+                      </tr>)
+                  })}
+                </tbody>
+              </table>
+            </div>)}
+          {isMobile && filterData().map(d => {
             const tc = TYPE_COLORS[d.type_demande] || TYPE_COLORS.maintenance
             const sc = STATUT_STYLES[d.statut] || STATUT_STYLES.en_attente
             return (
@@ -441,68 +550,7 @@ export default function Demandes() {
                   )}
                 </div>
 
-                {/* Actions */}
-                <div style={isMobile
-                  ? { display:'flex', gap:8, width:'100%', marginTop:2 }
-                  : { display:'flex', flexWrap:'wrap', gap:8, width:'100%', paddingTop:10, borderTop:'1px solid #f1f5f9' }}>
-                  {/* Plainte : pas de Valider/Rejeter generique ici - son
-                      workflow (qualifier/affecter/prendre en charge/
-                      resoudre) vit deja entierement dans la page Plaintes,
-                      qu'on reutilise plutot que de le reimplementer ici. */}
-                  {isAdmin && d._source === 'plainte' && (
-                    <button onClick={()=>navigate('/plaintes')}
-                      style={isMobile
-                        ? { flex:1, background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
-                        : { background:'rgba(220,38,38,.08)', color:'#b91c1c', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                      🧹 Traiter dans Plaintes →
-                    </button>
-                  )}
-                  {isAdmin && d._source !== 'plainte' && d.statut === 'en_attente' && (
-                    <>
-                      <button onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-                        style={isMobile
-                          ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
-                          : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Valider</button>
-                      {!['induction','incident'].includes(d._source) && (
-                        <button onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-                          style={isMobile
-                            ? { flex:1, background:'rgba(124,58,237,.10)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.25)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
-                            : { background:'rgba(124,58,237,.1)', color:'#7c3aed', border:'1px solid rgba(124,58,237,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>💬 Proposer</button>
-                      )}
-                      <button onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
-                        style={isMobile
-                          ? { background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
-                          : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌{isMobile?'':' Rejeter'}</button>
-                    </>
-                  )}
-                  {isAdmin && d.statut === 'proposition' && (
-                    <span style={{ fontSize:11, color:'#7c3aed', fontStyle:'italic' }}>Réponse attendue...</span>
-                  )}
-                  {!isAdmin && d.statut === 'proposition' && (
-                    <>
-                      <button onClick={()=>doAgentAction(d,'accepter')}
-                        style={isMobile
-                          ? { flex:1, background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
-                          : { background:'rgba(22,163,74,.1)', color:'#16a34a', border:'1px solid rgba(22,163,74,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>✅ Accepter</button>
-                      <button onClick={()=>doAgentAction(d,'refuser')}
-                        style={isMobile
-                          ? { flex:1, background:'rgba(220,38,38,.08)', color:'#DC2626', border:'1px solid rgba(220,38,38,.2)', borderRadius:8, padding:8, fontSize:11.5, fontWeight:700, cursor:'pointer' }
-                          : { background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.2)', padding:'6px 10px', borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:700 }}>❌ Refuser</button>
-                    </>
-                  )}
-                  {!isAdmin && d.statut === 'en_attente' && (
-                    <button onClick={()=>doAgentAction(d,'annuler')}
-                      style={isMobile
-                        ? { flex:1, background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', borderRadius:8, padding:8, fontSize:11.5, cursor:'pointer' }
-                        : { background:'rgba(100,116,139,.1)', color:'var(--rzc-text-3)', border:'1px solid rgba(100,116,139,.2)', padding:'5px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>Annuler</button>
-                  )}
-                  {isAdmin && d._source !== 'plainte' && (
-                    <button onClick={()=>deleteDemande(d)}
-                      style={isMobile
-                        ? { background:'rgba(220,38,38,.06)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', borderRadius:8, padding:'8px 10px', fontSize:11.5, cursor:'pointer' }
-                        : { background:'rgba(220,38,38,.08)', color:'#dc2626', border:'1px solid rgba(220,38,38,.15)', padding:'4px 8px', borderRadius:7, cursor:'pointer', fontSize:10 }}>🗑</button>
-                  )}
-                </div>
+                {actionsDe(d, false)}
               </div>
             )
           })}

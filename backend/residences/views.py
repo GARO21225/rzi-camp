@@ -2591,6 +2591,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
         roles = ("technicien", "menage", "agent", "superviseur", "manager", "admin")
         users = (User.objects.filter(is_active=True)
                  .filter(Q(profile__role__in=roles) | Q(is_staff=True) | Q(is_superuser=True))
+                 # compte « fantôme » (résident dont la fiche Personnel a été supprimée) → pas assignable
+                 .exclude(Q(personnel__isnull=True) & ~Q(is_staff=True) & ~Q(is_superuser=True)
+                          & (Q(profile__isnull=True) | Q(profile__role__in=["agent", ""])))
                  .select_related("profile").distinct())
         charge = dict(Plainte.objects.exclude(statut__in=["resolue","confirmee","cloturee","rejetee"])
                       .exclude(affecte_a=None).values_list("affecte_a").annotate(n=Count("id")))

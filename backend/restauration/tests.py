@@ -301,3 +301,18 @@ class QrSigneEtSuppressionTests(RestaurantsSuperviseursTests):
         self.assertEqual(semaine_du_nom("ROXgold CDI 12th - 18th OCT 2026.docx"), datetime.date(2026, 10, 12))
         self.assertEqual(semaine_du_nom("menu 28th SEP - 4th OCT 2026.docx"), datetime.date(2026, 9, 28))
         self.assertIsNone(semaine_du_nom("menu.docx"))
+
+
+class CandidatsSansComptesFantomesTests(TestCase):
+    def test_compte_sans_fiche_personnel_non_propose(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from residences.models import Personnel
+        adm = User.objects.create_superuser("boss_c", "b@a.com", "pass")
+        ok = User.objects.create_user("vivant_c", "v@a.com", "pass", first_name="Vivant")
+        Personnel.objects.create(nom="Vivant", prenom="V", societe="ROXGOLD", numero="FX1", telephone="1", type_personnel="roxgold", user=ok)
+        User.objects.create_user("fantome_c", "f@a.com", "pass", first_name="Fantome")
+        c = APIClient(); c.force_authenticate(adm)
+        noms = [x["nom"] for x in c.get("/api/restaurants/candidats/").data]
+        self.assertTrue(any("Vivant" in n or "vivant_c" in n for n in noms))
+        self.assertFalse(any("Fantome" in n or "fantome_c" in n for n in noms))

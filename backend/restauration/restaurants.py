@@ -171,10 +171,15 @@ class RestaurantViewSet(viewsets.ViewSet):
         err = self._gestion(request)
         if err: return err
         q = (request.query_params.get("q") or "").strip()
-        qs = User.objects.filter(is_active=True).select_related("profile")
+        from django.db.models import Q
+        # exclut les comptes « fantômes » (fiche Personnel supprimée, compte resté actif)
+        qs = (User.objects.filter(is_active=True)
+              .exclude(Q(personnel__isnull=True) & ~Q(is_staff=True) & ~Q(is_superuser=True)
+                       & (Q(profile__isnull=True) | Q(profile__role__in=["agent", ""])))
+              .select_related("profile"))
         if q:
-            from django.db.models import Q
-            qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+            qs = qs.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+                           | Q(personnel__nom__icontains=q) | Q(personnel__prenom__icontains=q))
         return Response([{"id": x.id, "nom": _nom_user(x), "role": _role(x)} for x in qs.order_by("first_name", "username")[:60]])
 
     @action(detail=False, methods=["get", "post"])

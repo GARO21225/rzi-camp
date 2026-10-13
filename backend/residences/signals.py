@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from .models import Personnel, OccupationHistory
 
@@ -42,3 +42,13 @@ def induction_camp_au_premier_hebergement(sender, instance, created, **kwargs):
             message="Vous êtes hébergé(e) pour la première fois : veuillez faire l'induction du camp (signature obligatoire).", type_notif="alerte")
     except Exception:
         pass
+
+
+@receiver(pre_delete, sender=Personnel)
+def desactiver_compte_personnel_supprime(sender, instance, **kwargs):
+    """Supprimer une fiche ne doit pas laisser un compte actif « fantôme » (assignable, connectable) :
+    le compte résident lié est désactivé (jamais un admin/staff)."""
+    u = instance.user
+    if u and u.is_active and not (u.is_staff or u.is_superuser):
+        u.is_active = False
+        u.save(update_fields=["is_active"])

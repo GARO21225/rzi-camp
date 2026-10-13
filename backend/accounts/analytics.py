@@ -78,7 +78,27 @@ def analytics(request):
     ret_j = Counter(voy.filter(statut__in=("planifie", "en_voyage"), date_retour_prevue__range=(today, fin)).values_list("date_retour_prevue", flat=True))
     voy_prog = [{"date": j.isoformat(), "departs": dep_j.get(j, 0), "retours": ret_j.get(j, 0)} for j in _jours(today, 14)]
 
+    # ── Plaintes, événements, alertes (utilisé aussi par l'assistant) ──
+    from evenements.models import AlerteCampus, Evenement
+    from residences.models import Plainte
+    clos = ["resolue", "confirmee", "cloturee", "rejetee"]
+    pl_ouv = Plainte.objects.exclude(statut__in=clos)
+    maintenant = timezone.now()
+    ev = Evenement.objects.exclude(statut__in=("annule", "termine"))
+    plaintes = {
+        "ouvertes": pl_ouv.count(), "non_affectees": pl_ouv.filter(affecte_a__isnull=True).count(),
+        "par_statut": dict(Plainte.objects.values_list("statut").annotate(n=Count("id")).values_list("statut", "n")),
+    }
+    evenements = {
+        "en_cours": ev.filter(date_debut__lte=maintenant).filter(Q(date_fin__isnull=True) | Q(date_fin__gte=maintenant)).count(),
+        "a_venir_7j": ev.filter(date_debut__gt=maintenant, date_debut__lte=maintenant + timedelta(days=7)).count(),
+        "prochains": [{"titre": e.titre, "date": e.date_debut.isoformat(), "lieu": e.lieu}
+                      for e in ev.filter(date_debut__gt=maintenant).order_by("date_debut")[:3]],
+    }
+    alertes = {"actives": list(AlerteCampus.objects.filter(active=True).values_list("message", flat=True)[:5])}
+
     return Response({
+        "plaintes": plaintes, "evenements": evenements, "alertes": alertes,
         "genere": timezone.now().isoformat(), "jours": nb,
         "parc": {
             "total": total, "par_statut": dict(par_statut), "hors_service": hors_service,

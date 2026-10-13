@@ -4,30 +4,17 @@
  */
 import React, { useState, useEffect, useRef } from 'react'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { analyticsAPI, personnel as personnelAPI } from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
-const hdrs = () => ({ 'Content-Type':'application/json', 'Authorization':`Bearer ${localStorage.getItem('access_token')||''}` })
 
-// Collecte les données du camp — statistiques complètes (pas des
-// échantillons partiels) pour que les réponses soient exactes, pas
-// approximatives sur les 5-10 premiers enregistrements seulement.
+// Une seule requête agrégée (/api/analytics/) : parc, personnel, maintenance, mobilité, plaintes, événements, alertes.
 async function collectCampData() {
-  const endpoints = [
-    ['/api/batiments/stats/', 'residences'],
-    ['/api/incidents/stats-sql/', 'incidents'],
-    ['/api/voyages/stats/', 'voyages'],
-    ['/api/personnel/?page_size=1000', 'personnel'],
-  ]
-  const data = {}
-  await Promise.allSettled(
-    endpoints.map(async ([path, key]) => {
-      try {
-        const r = await fetch(`${BASE}${path}`, { headers: hdrs() })
-        if (r.ok) data[key] = await r.json()
-      } catch(e) {}
-    })
-  )
-  return data
+  try { return (await analyticsAPI.get(30)).data } catch (e) { return null }
+}
+
+// L'induction n'est pas dans l'agrégat : chargée seulement quand on la demande.
+async function chargerInduction() {
+  try { const j = (await personnelAPI.list({ page_size: 1000 })).data; return j.results || j } catch (e) { return null }
 }
 
 function MessageBubble({ msg }) {
@@ -48,93 +35,104 @@ function MessageBubble({ msg }) {
         boxShadow: '0 2px 8px rgba(0,0,0,.08)',
         whiteSpace:'pre-wrap',
       }}>
-        {msg.content}
+        {String(msg.content).split(/(\*\*[^*]+\*\*)/g).map((t, k) => t.startsWith('**') ? <b key={k}>{t.slice(2, -2)}</b> : t)}
         {msg.loading && <span style={{opacity:.5}}>▋</span>}
       </div>
     </div>
   )
 }
 
-// ── Moteur de réponses — règles + données réelles, sans API externe ──
-// Pas de clé/abonnement IA payant nécessaire : reconnaît l'intention par
-// mots-clés et formule la réponse à partir des vraies données du camp déjà
-// chargées. Couvre les questions courantes ; pour le reste, oriente vers
-// la bonne page de l'app plutôt que d'inventer une réponse.
-function repondre(question, data) {
-  const q = question.toLowerCase()
-  const res = data?.residences || {}
-  const inc = data?.incidents || {}
-  const voy = data?.voyages || {}
-  const perso = data?.personnel?.results || data?.personnel || []
+// ── Moteur de réponses — règles + données réelles du camp, sans API externe ──
+// Reconnaît l'intention par mots-clés (accents ignorés) et formule la réponse à partir des
+// chiffres réels. Ce n'est pas un modèle de langage : pour une question hors sujets, il oriente
+// vers la bonne page plutôt que d'inventer.
+const norm = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const duree = h => h == null ? '—' : h >= 48 ? `${(h / 24).toFixed(1)} j` : `${h} h`
+const jour = iso => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
-  const contient = (...mots) => mots.some(m => q.includes(m))
+function resume(d) {
+  const p = d.parc, i = d.incidents, pl = d.plaintes, ev = d.evenements
+  return `📊 **Situation du camp**\n\n`
+    + `🏠 Occupation : ${p.taux}% (${p.par_statut['Occupé'] || 0} occupée(s), ${p.par_statut['Libre'] || 0} libre(s))\n`
+    + `✈️ ${d.voyages.par_statut.en_voyage || 0} en voyage, ${d.voyages.par_statut.planifie || 0} planifié(s)\n`
+    + `🛠️ ${i.ouverts} incident(s) ouvert(s)${i.critiques_ouverts ? ` dont ${i.critiques_ouverts} critique(s)` : ''}${i.sla_depasse ? `, ${i.sla_depasse} SLA dépassé(s)` : ''}\n`
+    + `🧹 ${pl.ouvertes} plainte(s) ouverte(s)${pl.non_affectees ? ` dont ${pl.non_affectees} non affectée(s)` : ''}\n`
+    + `📅 ${ev.en_cours} événement(s) en cours, ${ev.a_venir_7j} dans les 7 jours\n`
+    + (d.alertes.actives.length ? `🚨 ${d.alertes.actives.length} alerte(s) active(s)` : `✅ Aucune alerte active`)
+}
 
-  if (contient('occupation', 'taux', 'plein', 'occupé')) {
-    return `🏠 Taux d'occupation actuel : **${res.taux_occupation ?? '—'}%**\n`
-      + `• ${res.par_statut?.['Occupé'] ?? 0} résidence(s) occupée(s)\n`
-      + `• ${res.par_statut?.['Libre'] ?? 0} libre(s)\n`
-      + `• ${res.par_statut?.['Réservé'] ?? 0} réservée(s)\n`
-      + `• ${res.par_statut?.['Maintenance'] ?? 0} en maintenance`
-  }
+const INTENTIONS = [
+  [['resume', 'situation', 'aujourd', 'global', 'bilan', 'point'], d => resume(d)],
+  [['alerte', 'danger', 'urgence', 'securite'], d => d.alertes.actives.length
+    ? `🚨 ${d.alertes.actives.length} alerte(s) active(s) :\n` + d.alertes.actives.map(m => `• ${m}`).join('\n')
+    : '✅ Aucune alerte active en ce moment.'],
+  [['evenement', 'reunion', 'agenda', 'programme'], d => {
+    const e = d.evenements
+    return `📅 ${e.en_cours} événement(s) en cours, ${e.a_venir_7j} dans les 7 prochains jours.`
+      + (e.prochains.length ? '\n\nÀ venir :\n' + e.prochains.map(x => `• ${x.titre} — ${jour(x.date)}${x.lieu ? ` (${x.lieu})` : ''}`).join('\n') : '')
+  }],
+  [['plainte', 'reclamation', 'menage', 'propre'], d => {
+    const p = d.plaintes
+    return `🧹 ${p.ouvertes} plainte(s) ouverte(s), dont ${p.non_affectees} sans responsable.\n`
+      + Object.entries(p.par_statut).map(([k, n]) => `• ${k} : ${n}`).join('\n') + '\nAffectation et suivi dans Plaintes.'
+  }],
+  [['incident', 'maintenance', 'panne', 'sla', 'technicien'], d => {
+    const i = d.incidents
+    return `🛠️ ${i.ouverts} incident(s) ouvert(s)\n• ${i.critiques_ouverts} critique(s)\n• ${i.sla_depasse} SLA dépassé(s)\n`
+      + `• Délai moyen de résolution : ${duree(i.delai_moyen_h)}\n`
+      + (i.par_categorie.length ? `• Catégorie la plus fréquente : ${i.par_categorie[0].categorie} (${i.par_categorie[0].n})\n` : '') + 'Détails dans Maintenance.'
+  }],
+  [['voyage', 'deplacement', 'rotation', 'transit', 'depart', 'retour', 'mobilite'], d => {
+    const v = d.voyages, prog = v.programme
+    const dep = prog.reduce((s, x) => s + x.departs, 0), ret = prog.reduce((s, x) => s + x.retours, 0)
+    return `✈️ ${v.par_statut.en_voyage || 0} personne(s) en voyage, ${v.par_statut.planifie || 0} voyage(s) planifié(s).\n`
+      + `Sur les 14 prochains jours : ${dep} départ(s) et ${ret} retour(s) attendus.`
+  }],
+  [['societe', 'sous-traitant', 'sous traitant', 'effectif', 'personnel', 'combien de personnes'], d => {
+    const t = d.personnel.par_type
+    return `👥 ${d.personnel.total} personne(s) enregistrée(s) : ${t.roxgold || 0} Roxgold, ${t.sous_traitant || 0} sous-traitants, ${t.visiteur || 0} visiteurs.\n`
+      + `Principales sociétés : ` + d.personnel.par_societe.slice(0, 4).map(s => `${s.societe} (${s.n})`).join(', ')
+  }],
+  [['occupation', 'taux', 'plein', 'occupe', 'residence', 'chambre', 'dispo', 'libre', 'bloc'], d => {
+    const p = d.parc
+    const blocs = p.par_bloc.slice(0, 3).map(b => `${b.bloc} ${b.occupes}/${b.total}`).join(' · ')
+    return `🏠 Taux d'occupation : **${p.taux}%**\n• ${p.par_statut['Occupé'] || 0} occupée(s)\n• ${p.par_statut['Libre'] || 0} libre(s)\n`
+      + `• ${p.par_statut['Réservé'] || 0} réservée(s)\n• ${p.hors_service} en maintenance\nBlocs les plus grands : ${blocs}`
+  }],
+]
 
-  if (contient('résidence', 'chambre', 'dispo', 'libre')) {
-    const libres = res.par_statut?.['Libre'] ?? 0
-    return libres > 0
-      ? `🟢 ${libres} résidence(s) libre(s) actuellement. Voir la liste complète dans Résidences.`
-      : `🔴 Aucune résidence libre en ce moment.`
-  }
-
-  if (contient('voyage', 'déplacement', 'rotation', 'transit')) {
-    return `✈️ ${voy.en_voyage ?? 0} personne(s) actuellement en déplacement.\n`
-      + `${voy.planifies ? `📅 ${voy.planifies} voyage(s) planifié(s) à venir.` : ''}`
-  }
-
-  if (contient('incident', 'maintenance', 'panne', 'sla')) {
-    const ouverts = (inc.declare||0) + (inc.assigne||0) + (inc.en_cours||0)
-    return `🛠️ ${ouverts} incident(s) de maintenance ouvert(s)\n`
-      + `• ${inc.critique ?? 0} critique(s)\n`
-      + `• ${inc.sla_depasse ?? 0} SLA dépassé(s)\n`
-      + `Détails dans Maintenance.`
-  }
-
-  if (contient('induction', 'qhse', 'formé', 'formation')) {
-    const total = perso.length
-    const induits = perso.filter(p => p.inductionrecord?.statut === 'valide').length
+async function repondre(question, data) {
+  const q = norm(question)
+  if (/induction|qhse|forme|formation/.test(q)) {
+    const perso = await chargerInduction()
+    if (!perso) return 'Données d\'induction indisponibles pour le moment.'
+    const ok = perso.filter(p => p.inductionrecord?.statut === 'valide').length
     const enCours = perso.filter(p => p.inductionrecord?.statut === 'en_cours').length
-    const nonFait = total - induits - enCours
-    return total
-      ? `🎓 Sur ${total} membre(s) du personnel :\n• ${induits} induit(s) (validé)\n• ${enCours} en cours\n• ${nonFait} pas encore commencé`
-      : `Données personnel indisponibles pour le moment.`
+    return `🎓 Sur ${perso.length} personne(s) :\n• ${ok} induite(s) (validé)\n• ${enCours} en cours\n• ${perso.length - ok - enCours} pas encore commencé`
   }
-
-  if (contient('résumé', 'situation', 'aujourd\'hui', 'aujourdhui', 'global')) {
-    const ouverts = (inc.declare||0) + (inc.assigne||0) + (inc.en_cours||0)
-    return `📊 **Situation du camp**\n\n`
-      + `🏠 Occupation : ${res.taux_occupation ?? '—'}% (${res.par_statut?.['Libre'] ?? 0} libre(s))\n`
-      + `✈️ ${voy.en_voyage ?? 0} en déplacement\n`
-      + `🛠️ ${ouverts} incident(s) ouvert(s)${inc.critique ? ` dont ${inc.critique} critique(s)` : ''}\n`
-      + `👥 ${perso.length || '—'} membre(s) du personnel suivi(s)`
-  }
-
-  return `Je peux répondre sur : l'occupation des résidences, les incidents de maintenance, `
-    + `les voyages/rotations, l'induction QHSE, ou un résumé global du camp. `
-    + `Reformulez votre question avec l'un de ces sujets, ou utilisez les pages dédiées dans le menu.`
+  if (!data) return '⚠️ Je n\'arrive pas à charger les données du camp. Appuyez sur 🔄 pour réessayer.'
+  const hit = INTENTIONS.find(([mots]) => mots.some(m => q.includes(m)))
+  if (hit) return hit[1](data)
+  return `Je peux répondre sur : la situation du camp, l'occupation des résidences, les incidents de maintenance, les plaintes, `
+    + `les événements et alertes, les voyages, le personnel par société et l'induction QHSE. Reformulez avec l'un de ces sujets.`
 }
 
 const SUGGESTIONS = [
-  "Quel est le taux d'occupation actuel du camp ?",
-  "Combien de personnes sont en voyage en ce moment ?",
-  "Quels sont les incidents de maintenance non résolus ?",
-  "Donne-moi un résumé de la situation du camp aujourd'hui",
+  "Donne-moi un résumé de la situation du camp",
+  "Quel est le taux d'occupation ?",
+  "Quelles alertes sont actives ?",
+  "Combien de plaintes ouvertes ?",
+  "Quels événements arrivent ?",
+  "Combien de départs et retours à venir ?",
+  "Quels incidents de maintenance sont ouverts ?",
   "Qui n'a pas encore fait son induction QHSE ?",
-  "Quelles résidences sont disponibles ?",
 ]
 
 export default function AssistantIA() {
   const isMobile = useIsMobile()
   const [messages, setMessages] = useState([{
     role: 'assistant',
-    content: "Bonjour ! Je suis l'assistant IA du camp Roxgold Sango. Je suis connecté à toutes vos données en temps réel.\n\nJe peux vous aider avec :\n• 📊 Statistiques et rapports du camp\n• 🏠 État des résidences et occupation\n• 👤 Suivi du personnel et des inducti\ons\n• 🛠️ Maintenance et incidents\n• ✈️ Rotations et voyages\n\nQue puis-je faire pour vous ?"
+    content: "Bonjour ! Je suis l'assistant du camp Roxgold Sango. Je réponds avec les chiffres réels de l'application (pas de réponse inventée).\n\nJe peux vous renseigner sur :\n• 📊 La situation globale du camp\n• 🏠 Occupation et résidences\n• 🛠️ Maintenance et incidents\n• 🧹 Plaintes en cours\n• 📅 Événements et 🚨 alertes\n• ✈️ Voyages, départs et retours\n• 👥 Personnel par société, 🎓 induction QHSE\n\nQue voulez-vous savoir ?"
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -164,7 +162,7 @@ export default function AssistantIA() {
       // Petite latence volontaire pour garder l'effet "réflexion" — l'app
       // reste réactive et gratuite, pas d'appel réseau externe nécessaire.
       await new Promise(r => setTimeout(r, 350))
-      const answer = repondre(q, campData)
+      const answer = await repondre(q, campData)
 
       setMessages(prev => {
         const updated = [...prev]
