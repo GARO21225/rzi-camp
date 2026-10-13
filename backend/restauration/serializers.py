@@ -17,12 +17,13 @@ class RepasLogSerializer(serializers.ModelSerializer):
     type_repas_label = serializers.SerializerMethodField()
     personnel_id    = serializers.SerializerMethodField()
     valide_par_nom  = serializers.SerializerMethodField()
+    restaurant_nom  = serializers.CharField(source="restaurant.nom", read_only=True, default="")
 
     class Meta:
         model  = RepasLog
         fields = ["id","resident","societe","residence",
                   "type_repas","type_repas_label","personnel_id",
-                  "date_validation","valide_par_nom"]
+                  "date_validation","valide_par_nom","restaurant_nom"]
 
     def get_resident(self, obj):
         try:

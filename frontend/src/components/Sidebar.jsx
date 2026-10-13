@@ -23,6 +23,7 @@ const NAV_GROUPS = [
       { to: '/residences',   label: 'Résidences',    icon: '🏠', badge: 204 },
       { to: '/maintenance',  label: 'Maintenance',   icon: '🛠️', badge: 7 },
       { to: '/restauration', label: 'Restauration',  icon: '🍽️' },
+      { to: '/restaurants',  label: 'Restaurants & superviseurs', icon: '👨‍🍳' },
       { to: '/qr',           label: 'QR Anti-Fraude',icon: '🔒' },
     ],
   },

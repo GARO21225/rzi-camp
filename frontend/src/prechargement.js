@@ -22,6 +22,7 @@ const PAGES = {
   '/epi': () => import('./pages/EquipementsEPI'),
   '/annuaire': () => import('./pages/AnnuairePage'),
   '/restauration': () => import('./pages/Restauration'),
+  '/restaurants': () => import('./pages/RestaurantsGestion'),
   '/reservations': () => import('./pages/ReservationsPage'),
   '/maintenance': () => import('./pages/Maintenance'),
   '/plaintes': () => import('./pages/Plaintes'),

@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useStore } from '../store'
-import { qr as qrAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI, parametres as parametresAPI } from '../api'
+import { qr as qrAPI, restaurants as restosAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI, parametres as parametresAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { toast, confirmDialog } from '../toast'
 
@@ -45,9 +45,21 @@ const playSound = (type) => {
 }
 
 // ── Appels API ─────────────────────────────────────────────────────
+// Restaurant ou le superviseur scanne (choisi dans l'en-tete) - variable de module
+// car le scanner camera est un composant separe qui appelle cette fonction.
+let _restoId = null
+// « Menu du 5-11 oct. » : semaine (lun-dim) contenant la date affichee
+function libelleSemaineMenu(iso) {
+  const d = new Date(iso + 'T12:00:00'); if (isNaN(d)) return ''
+  const lundi = new Date(d); lundi.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  const dim = new Date(lundi); dim.setDate(lundi.getDate() + 6)
+  const mois = (x) => x.toLocaleDateString('fr-FR', { month: 'short' })
+  return lundi.getMonth() === dim.getMonth() ? `Menu du ${lundi.getDate()}-${dim.getDate()} ${mois(dim)}` : `Menu du ${lundi.getDate()} ${mois(lundi)}-${dim.getDate()} ${mois(dim)}`
+}
+
 async function apiScanPersonnel(qr_data, type_repas) {
   try {
-    const r = await qrAPI.scannerPersonnel({ qr_data: qr_data.trim(), type_repas })
+    const r = await qrAPI.scannerPersonnel({ qr_data: qr_data.trim(), type_repas, ...(_restoId ? { restaurant_id: _restoId } : {}) })
     return r.data
   } catch(e) {
     const msg = e.response?.data?.erreur || e.response?.data?.detail || e.message || 'Erreur réseau'
@@ -647,6 +659,17 @@ export default function Restauration() {
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const importMenuInputRef = useRef(null)
+  const [mesRestos, setMesRestos] = useState([])
+  const [restoId, setRestoId] = useState('')
+  useEffect(() => {
+    restosAPI.mes().then(r => {
+      const l = r.data.restaurants || []
+      setMesRestos(l)
+      const memo = Number(sessionStorage.getItem('resto_actif') || 0)
+      setRestoId(String((l.find(x => x.id === memo) || l[0] || {}).id || ''))
+    }).catch(() => {})
+  }, [])
+  useEffect(() => { _restoId = restoId ? Number(restoId) : null; try { sessionStorage.setItem('resto_actif', restoId || '') } catch {} }, [restoId])
   const [importingMenu, setImportingMenu] = useState(false)
   const [menuSelMode, setMenuSelMode] = useState(false)
   const [menuSel, setMenuSel] = useState(new Set())
@@ -772,7 +795,13 @@ export default function Restauration() {
               {isMobile ? `${stats.today} repas servis aujourd'hui` : (repas ? heureRepas(repas) : 'Heures de service')}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {mesRestos.length > 0 && (
+              <select value={restoId} onChange={e => setRestoId(e.target.value)} title="Restaurant où vous scannez"
+                style={{ border: '1px solid #c4b5fd', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontWeight: 700, color: '#5b21b6', background: '#faf5ff', maxWidth: 190 }}>
+                {mesRestos.length > 1 && <option value="">— Restaurant —</option>}
+                {mesRestos.map(r => <option key={r.id} value={r.id}>🍽️ {r.nom}</option>)}
+              </select>)}
             <button onClick={() => { setTypeRepas('petit_dejeuner') }} style={{ background: typeRepas === 'petit_dejeuner' ? 'rgba(249,115,22,.1)' : 'var(--rzc-charcoal-l2)', border: `1px solid ${typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-border-light)'}`, color: typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-text-3)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
               🌅
             </button>
@@ -816,6 +845,7 @@ export default function Restauration() {
               style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 7px',
                 fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
                 colorScheme:'dark' }}/>
+            <span style={{ fontSize:11, color:'#fde68a', fontWeight:700 }}>{libelleSemaineMenu(menuDate)}</span>
             {isResto && (
               <>
                 <input type="file" accept=".docx" ref={importMenuInputRef} style={{ display:'none' }}
@@ -827,7 +857,7 @@ export default function Restauration() {
                     setImportingMenu(true)
                     try {
                       const r = await menuAPI.importerSemaine(f)
-                      toast.success(`Menu importé : ${r.data.crees} plat(s), période ${r.data.periode}`)
+                      toast.success(`${r.data.libelle || 'Menu importé'} : ${r.data.crees} plat(s) importé(s)`)
                       const rr = await menuAPI.list({date_service:menuDate}); setMenuItems(rr.data.results||rr.data||[])
                     } catch (err) {
                       toast.error(err?.response?.data?.error || "Erreur d'import")

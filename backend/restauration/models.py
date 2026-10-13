@@ -27,8 +27,38 @@ class QRToken(models.Model):
         return f"QR {self.token[:8]} - {self.resident} ({self.type_repas})"
 
 
+class Restaurant(models.Model):
+    """Lieu de restauration du camp (Camp, Process, Atelier...) - parametrable
+    depuis l'ecran Restaurants (ajout, renommage, desactivation)."""
+    nom   = models.CharField(max_length=100, unique=True)
+    ordre = models.PositiveIntegerField(default=0)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+
+    def __str__(self):
+        return self.nom
+
+
+class SuperviseurRestaurant(models.Model):
+    """Superviseur affecte a un restaurant par le Camp Boss : c'est lui qui
+    scanne les QR des agents a l'entree de CE restaurant."""
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="superviseurs")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="restaurants_supervises")
+    affecte_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    date_affectation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("restaurant", "user")
+
+    def __str__(self):
+        return f"{self.user} -> {self.restaurant}"
+
+
 class RepasLog(models.Model):
     qr_token = models.OneToOneField(QRToken, on_delete=models.CASCADE, related_name="repas")
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True, related_name="repas")
     personnel = models.ForeignKey(Personnel, on_delete=models.SET_NULL, null=True, blank=True, related_name="repas_pris")
     valide_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     date_validation = models.DateTimeField(auto_now_add=True)

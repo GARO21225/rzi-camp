@@ -279,3 +279,15 @@ def extraire_menu_semaine(fichier):
     if not uniq:
         raise MenuImportError("Aucun plat reconnu dans ce fichier — gabarit inattendu.")
     return uniq, dates
+
+
+MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
+        'septembre', 'octobre', 'novembre', 'décembre']
+
+
+def libelle_semaine(dates):
+    """« Menu du 5-11 octobre 2026 » (ou « Menu du 28/09-4/10/2026 » à cheval sur 2 mois)."""
+    a, b = min(dates), max(dates)
+    if (a.year, a.month) == (b.year, b.month):
+        return f"Menu du {a.day}-{b.day} {MOIS[a.month - 1]} {a.year}"
+    return f"Menu du {a.day}/{a.month}-{b.day}/{b.month}/{b.year}"

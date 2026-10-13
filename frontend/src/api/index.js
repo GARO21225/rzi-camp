@@ -243,6 +243,19 @@ export const incidents = {
   annuler:      (id,d) => api.post(`/api/incidents/${id}/annuler/`, d),
   actionsMasse: (d) => api.post('/api/incidents/actions_masse/', d),
 }
+export const restaurants = {
+  list:      () => api.get('/api/restaurants/'),
+  mes:       () => api.get('/api/restaurants/mes/'),
+  create:    (d) => api.post('/api/restaurants/', d),
+  update:    (id, d) => api.patch(`/api/restaurants/${id}/`, d),
+  supprimer: (id) => api.delete(`/api/restaurants/${id}/`),
+  affecter:  (id, user_ids) => api.post(`/api/restaurants/${id}/affecter/`, { user_ids }),
+  candidats: (q) => api.get('/api/restaurants/candidats/', { params: { q } }),
+  reglages:  () => api.get('/api/restaurants/reglages/'),
+  setReglages: (d) => api.post('/api/restaurants/reglages/', d),
+  rapport:   (p) => api.get('/api/restaurants/rapport/', { params: p }),
+}
+
 export const qr = {
   generer: (d) => api.post('/api/qr/generer/', d),
   scan: (d) => api.post('/api/qr/scan/', d),

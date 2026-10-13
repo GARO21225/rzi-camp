@@ -10,6 +10,7 @@ from django.db import connection, transaction
 from django.contrib.auth.models import User
 from evenements.models import SimpleNotification
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration, QuestionAvis, ReponseAvis
+from .restaurants import resoudre_restaurant_scan
 from .serializers import QRTokenSerializer, RepasLogSerializer, AuditLogSerializer, AvisRestaurationSerializer, QuestionAvisSerializer
 
 class QRTokenViewSet(viewsets.ViewSet):
@@ -24,6 +25,9 @@ class QRTokenViewSet(viewsets.ViewSet):
     def scan(self, request):
         """Scan QR personnel — version ultra-simplifiée sans risque 500"""
         try:
+            resto, err_resto = resoudre_restaurant_scan(request)
+            if err_resto:
+                return err_resto
             # 1. Extraire les données
             qr_raw = request.data.get("qr_data", "") or ""
             type_repas = request.data.get("type_repas", "dejeuner") or "dejeuner"
@@ -109,11 +113,13 @@ class QRTokenViewSet(viewsets.ViewSet):
                 qr_token     = qt,
                 personnel    = pers_obj,
                 valide_par   = valide_par,
+                restaurant   = resto,
                 date_validation = now,
             )
 
             return Response({
                 "valid": True,
+                "restaurant": resto.nom if resto else "",
                 "resident": f"{nom} {prenom}",
                 "residence": "",
                 "type_repas": type_repas,
@@ -136,6 +142,9 @@ class QRTokenViewSet(viewsets.ViewSet):
     def valider_par_personnel(self, request):
         """Valide un repas via ID personnel direct"""
         try:
+            resto, err_resto = resoudre_restaurant_scan(request)
+            if err_resto:
+                return err_resto
             personnel_id = request.data.get("personnel_id")
             type_repas = request.data.get("type_repas", "dejeuner") or "dejeuner"
 
@@ -216,11 +225,13 @@ class QRTokenViewSet(viewsets.ViewSet):
                     qr_token        = qt,
                     personnel       = pers_obj,
                     valide_par      = valide_by,
+                    restaurant      = resto,
                     date_validation = now,
                 )
 
             return Response({
                 "valid":    True,
+                "restaurant": resto.nom if resto else "",
                 "resident": f"{nom} {prenom}",
                 "societe":  societe or "",
                 "type_repas": type_repas,
@@ -1499,7 +1510,7 @@ class MenuJourViewSet(viewsets.ModelViewSet):
         if not fichier:
             return Response({"error": "Fichier .docx requis (champ 'fichier')."}, status=400)
 
-        from .menu_import import extraire_menu_semaine, MenuImportError
+        from .menu_import import extraire_menu_semaine, MenuImportError, libelle_semaine
         try:
             entries, dates = extraire_menu_semaine(fichier)
         except MenuImportError as e:
@@ -1515,4 +1526,5 @@ class MenuJourViewSet(viewsets.ModelViewSet):
             "crees": len(entries),
             "remplaces": supprimes,
             "periode": f"{min(dates)} → {max(dates)}",
+            "libelle": libelle_semaine(dates),
         })

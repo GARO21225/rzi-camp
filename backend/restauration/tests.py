@@ -157,3 +157,80 @@ class BarProfilsTests(TestCase):
 
     def test_admin_modifie_les_prix(self):
         self.assertEqual(self.en(self.admin).patch(f"/api/boutique/articles/{self.art.id}/", {"prix": 600}, format="json").status_code, 200)
+
+
+class RestaurantsSuperviseursTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from accounts.models import Profile
+        from residences.models import Personnel
+        from restauration.models import Restaurant
+        self.boss = User.objects.create_user("boss", password="x")
+        Profile.objects.update_or_create(user=self.boss, defaults={"role": "camp_boss"})
+        self.sup = User.objects.create_user("sup", password="x", first_name="Sup", last_name="Un")
+        Profile.objects.update_or_create(user=self.sup, defaults={"role": "restauration"})
+        self.autre = User.objects.create_user("autre", password="x")
+        Profile.objects.update_or_create(user=self.autre, defaults={"role": "restauration"})
+        self.agent = Personnel.objects.create(nom="Agent", prenom="Un", societe="ROXGOLD")
+        self.R = Restaurant
+        self.cb, self.cs, self.ca = APIClient(), APIClient(), APIClient()
+        # relire les utilisateurs : le profil reverse est mis en cache par le signal de creation
+        self.boss, self.sup, self.autre = (User.objects.get(pk=u.pk) for u in (self.boss, self.sup, self.autre))
+        self.cb.force_authenticate(self.boss); self.cs.force_authenticate(self.sup); self.ca.force_authenticate(self.autre)
+
+    def scan(self, c, **kw):
+        return c.post("/api/qr/scan/", {"qr_data": str(self.agent.id), "type_repas": "dejeuner", **kw}, format="json")
+
+    def test_trois_restaurants_par_defaut(self):
+        self.assertEqual(sorted(self.R.objects.values_list("nom", flat=True)),
+                         ["Restaurant de l'atelier", "Restaurant du CAMP", "Restaurant du Process"])
+
+    def test_seul_le_camp_boss_affecte(self):
+        r = self.R.objects.get(nom="Restaurant du CAMP")
+        self.assertEqual(self.cs.post(f"/api/restaurants/{r.id}/affecter/", {"user_ids": [self.sup.id]}, format="json").status_code, 403)
+        res = self.cb.post(f"/api/restaurants/{r.id}/affecter/", {"user_ids": [self.sup.id]}, format="json")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()["superviseurs"][0]["id"], self.sup.id)
+
+    def test_scan_reserve_aux_superviseurs_affectes(self):
+        r = self.R.objects.get(nom="Restaurant du Process")
+        self.cb.post(f"/api/restaurants/{r.id}/affecter/", {"user_ids": [self.sup.id]}, format="json")
+        self.assertEqual(self.scan(self.ca).status_code, 403)          # non affecté
+        ok = self.scan(self.cs)
+        self.assertEqual(ok.status_code, 200, ok.content)
+        self.assertEqual(ok.json()["restaurant"], "Restaurant du Process")
+        from restauration.models import RepasLog
+        self.assertEqual(RepasLog.objects.get().restaurant_id, r.id)
+        # autre restaurant que le sien : refusé
+        autre = self.R.objects.get(nom="Restaurant du CAMP")
+        self.assertEqual(self.scan(self.cs, restaurant_id=autre.id).status_code, 403)
+
+    def test_reglage_scan_libre(self):
+        self.assertEqual(self.scan(self.ca).status_code, 403)
+        self.cb.post("/api/restaurants/reglages/", {"scan_reserve": False}, format="json")
+        self.assertEqual(self.scan(self.ca).status_code, 200)
+
+    def test_rapport_api_et_email(self):
+        r = self.R.objects.get(nom="Restaurant du CAMP")
+        self.cb.post(f"/api/restaurants/{r.id}/affecter/", {"user_ids": [self.sup.id]}, format="json")
+        self.scan(self.cs)
+        from django.utils import timezone
+        j = timezone.localdate().isoformat()
+        d = self.cb.get(f"/api/restaurants/rapport/?debut={j}&fin={j}").json()
+        self.assertEqual(d["total"], 1)
+        self.assertEqual(d["par_restaurant"][0][0], "Restaurant du CAMP")
+        from django.contrib.auth.models import User as U
+        from rest_framework.test import APIClient as AC
+        simple = AC(); simple.force_authenticate(U.objects.create_user("simple", password="x"))
+        self.assertEqual(simple.get(f"/api/restaurants/rapport/?debut={j}&fin={j}").status_code, 403)
+        from accounts.rapports_email import generer_contenu_rapport
+        _, html = generer_contenu_rapport("Test", "restauration", {"resto_periode": "aujourdhui"})
+        self.assertIn("Restaurant du CAMP", html)
+        self.assertIn("Repas servis", html)
+
+    def test_libelle_menu(self):
+        import datetime
+        from restauration.menu_import import libelle_semaine
+        d = [datetime.date(2026, 10, 5) + datetime.timedelta(days=i) for i in range(7)]
+        self.assertEqual(libelle_semaine(d), "Menu du 5-11 octobre 2026")

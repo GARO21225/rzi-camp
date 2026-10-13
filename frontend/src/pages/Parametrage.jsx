@@ -111,6 +111,7 @@ const CHAMPS = [
 ]
 
 const LIENS_RAPIDES = [
+  { to: '/restaurants',     label: 'Restaurants & superviseurs', icon: '🍽️', desc: 'Affectations, rapport des repas, réglages du scan' },
   { to: '/boutique',        label: 'Menu du jour & Boutique', icon: '🍽️', desc: 'Articles, prix, stock' },
   { to: '/mon-compte',      label: 'Mon compte', icon: '👤', desc: 'Mot de passe, informations personnelles' },
 ]
@@ -1028,7 +1029,7 @@ const PAGES_ASSIGNABLES = [
   ['/personnel', '👤 Personnel'], ['/presences', '🟢 Présences'], ['/induction', '🎓 Induction QHSE'],
   ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
   ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],
-  ['/restauration', '🍽️ Restauration'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
+  ['/restauration', '🍽️ Restauration'], ['/restaurants', '👨‍🍳 Restaurants & rapport'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
   ['/maintenance', '🛠️ Maintenance'], ['/plaintes', '🚨 Plaintes'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
   // Boutique POS, Centre Opérationnel, Workflow Hub, Induction (administration) : SUSPENDUS (doublons
@@ -1273,7 +1274,8 @@ function RapportsPlanifiesTab({ isAdmin }) {
   const [liste, setListe] = useState([])
   const [loading, setLoading] = useState(true)
   const FORM0 = { nom:'', type_rapport:'synthese', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'', horizon_jours:1, seuil_stock:5, details:false,
-    jour_reference:'aujourdhui', occ_departements:true, occ_soustraitants:true, occ_visiteurs:true, occ_graphiques:true, occ_tendance:true, jours_tendance:7, masquer_zeros:false }
+    jour_reference:'aujourdhui', occ_departements:true, occ_soustraitants:true, occ_visiteurs:true, occ_graphiques:true, occ_tendance:true, jours_tendance:7, masquer_zeros:false,
+    resto_periode:'hier', resto_par_restaurant:true, resto_par_repas:true, resto_par_superviseur:true, resto_par_societe:true, resto_graphiques:true, resto_tendance:true }
   const [form, setForm] = useState(FORM0)
   const [types, setTypes] = useState({})
   const [creating, setCreating] = useState(false)
@@ -1297,7 +1299,9 @@ function RapportsPlanifiesTab({ isAdmin }) {
         nom: form.nom.trim(), type_rapport: form.type_rapport, frequence: form.frequence, heure: form.heure, destinataires,
         options: { horizon_jours: Number(form.horizon_jours)||1, seuil_stock: Number(form.seuil_stock)||0, details: !!form.details,
           jour_reference: form.jour_reference, occ_departements: !!form.occ_departements, occ_soustraitants: !!form.occ_soustraitants, occ_visiteurs: !!form.occ_visiteurs,
-          occ_graphiques: !!form.occ_graphiques, occ_tendance: !!form.occ_tendance, jours_tendance: Number(form.jours_tendance)||7, masquer_zeros: !!form.masquer_zeros },
+          occ_graphiques: !!form.occ_graphiques, occ_tendance: !!form.occ_tendance, jours_tendance: Number(form.jours_tendance)||7, masquer_zeros: !!form.masquer_zeros,
+          resto_periode: form.resto_periode, resto_par_restaurant: !!form.resto_par_restaurant, resto_par_repas: !!form.resto_par_repas, resto_par_superviseur: !!form.resto_par_superviseur,
+          resto_par_societe: !!form.resto_par_societe, resto_graphiques: !!form.resto_graphiques, resto_tendance: !!form.resto_tendance },
         jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
         jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
       }
@@ -1314,7 +1318,9 @@ function RapportsPlanifiesTab({ isAdmin }) {
       heure:(r.heure||'07:00').slice(0,5), destinataires:(r.destinataires||[]).join(', '),
       horizon_jours:o.horizon_jours ?? 1, seuil_stock:o.seuil_stock ?? 5, details:!!o.details,
       jour_reference:o.jour_reference ?? 'aujourdhui', occ_departements:o.occ_departements ?? true, occ_soustraitants:o.occ_soustraitants ?? true, occ_visiteurs:o.occ_visiteurs ?? true,
-      occ_graphiques:o.occ_graphiques ?? true, occ_tendance:o.occ_tendance ?? true, jours_tendance:o.jours_tendance ?? 7, masquer_zeros:!!o.masquer_zeros })
+      occ_graphiques:o.occ_graphiques ?? true, occ_tendance:o.occ_tendance ?? true, jours_tendance:o.jours_tendance ?? 7, masquer_zeros:!!o.masquer_zeros,
+      resto_periode:o.resto_periode ?? 'hier', resto_par_restaurant:o.resto_par_restaurant ?? true, resto_par_repas:o.resto_par_repas ?? true, resto_par_superviseur:o.resto_par_superviseur ?? true,
+      resto_par_societe:o.resto_par_societe ?? true, resto_graphiques:o.resto_graphiques ?? true, resto_tendance:o.resto_tendance ?? true })
     setEditId(r.id)
     window.scrollTo({ top:0, behavior:'smooth' })
   }
@@ -1401,6 +1407,21 @@ function RapportsPlanifiesTab({ isAdmin }) {
                   </label>))}
                 {form.occ_tendance && <label>sur <input type="number" min={2} max={31} value={form.jours_tendance} onChange={e=>setForm(f=>({...f,jours_tendance:e.target.value}))}
                   style={{width:56,border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}/> jours</label>}
+              </div>
+            </div>
+          )}
+          {['synthese','restauration'].includes(form.type_rapport) && (
+            <div style={{border:'1px solid #bfdbfe',borderRadius:10,padding:'10px 12px',marginBottom:10,background:'#fff'}}>
+              <div style={{fontWeight:700,fontSize:12.5,color:'#1e40af',marginBottom:8}}>🍽️ Restauration — repas servis</div>
+              <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',fontSize:12.5,color:'#475569'}}>
+                <label>Période <select value={form.resto_periode} onChange={e=>setForm(f=>({...f,resto_periode:e.target.value}))}
+                  style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}>
+                  <option value="hier">Hier</option><option value="aujourdhui">Aujourd'hui</option><option value="7j">7 derniers jours</option>
+                  <option value="semaine">Semaine dernière (lun-dim)</option><option value="mois">Mois en cours</option><option value="mois_precedent">Mois précédent</option></select></label>
+                {[['resto_par_restaurant','Par restaurant'],['resto_par_repas','Par repas'],['resto_par_superviseur','Par superviseur'],['resto_par_societe','Par société'],['resto_graphiques','Graphiques'],['resto_tendance','Tendance par jour']].map(([k,l])=>(
+                  <label key={k} style={{display:'flex',gap:5,alignItems:'center',cursor:'pointer'}}>
+                    <input type="checkbox" checked={!!form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.checked}))}/> {l}
+                  </label>))}
               </div>
             </div>
           )}
