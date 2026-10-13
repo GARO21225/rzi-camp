@@ -54,6 +54,7 @@ export default function Plaintes() {
   const [actionForm, setActionForm] = useState({})
   const [selection, setSelection] = useState(new Set())
   const [bulkRunning, setBulkRunning] = useState(false)
+  const [envoiEnCours, setEnvoiEnCours] = useState(false)   // anti double-clic (une plainte = une seule requête)
   const [editModal, setEditModal] = useState(false)
   const [editForm, setEditForm] = useState({categorie:'', sous_categorie:'', description:'', commentaire:''})
   const STATUTS_CLOTURES = ['cloturee','rejetee']
@@ -89,7 +90,9 @@ export default function Plaintes() {
   useEffect(() => { charger() }, [charger])
 
   const creerPlainte = async () => {
+    if (envoiEnCours) return
     if (!nouvelleForm.description.trim()) return toast.error('Description requise')
+    setEnvoiEnCours(true)
     try {
       await plaintesAPI.creer(nouvelleForm)
       toast.success('Plainte déposée')
@@ -97,9 +100,12 @@ export default function Plaintes() {
       setNouvelleForm({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:''})
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+    setEnvoiEnCours(false)
   }
 
   const soumettreControle = async () => {
+    if (envoiEnCours) return
+    setEnvoiEnCours(true)
     try {
       const r = await controlesAPI.creer({notes_proprete: notesProprete})
       if (r.data.plainte_generee_ref) {
@@ -110,6 +116,7 @@ export default function Plaintes() {
       setControleModal(false); setNotesProprete({})
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
+    setEnvoiEnCours(false)
   }
 
   const confirmerResolution = async (id, resolu) => {
@@ -368,7 +375,7 @@ export default function Plaintes() {
             <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Description</label>
             <textarea value={nouvelleForm.description} onChange={e=>setNouvelleForm(f=>({...f, description:e.target.value}))}
               rows={3} style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:14, marginTop:4}}/>
-            <button onClick={creerPlainte} style={{width:'100%', background:'#dc2626', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700}}>
+            <button onClick={creerPlainte} disabled={envoiEnCours} style={{opacity:envoiEnCours?.6:1, width:'100%', background:'#dc2626', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700}}>
               Envoyer
             </button>
           </div>
@@ -395,7 +402,7 @@ export default function Plaintes() {
                 <Etoiles value={notesProprete[c]} onChange={n=>setNotesProprete(f=>({...f, [c]:n}))}/>
               </div>
             ))}
-            <button onClick={soumettreControle} style={{width:'100%', background:'#f59e0b', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700, marginTop:16}}>
+            <button onClick={soumettreControle} disabled={envoiEnCours} style={{opacity:envoiEnCours?.6:1, width:'100%', background:'#f59e0b', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700, marginTop:16}}>
               Enregistrer le contrôle
             </button>
           </div>

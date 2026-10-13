@@ -2297,6 +2297,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
         if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
 
+        doublon = self._doublon_recent(pers, categorie, description)
+        if doublon:
+            return Response(PlainteSerializer(doublon).data, status=200)
+
         plainte = Plainte.objects.create(
             occupant=pers, utilisateur=u, batiment=batiment, type_occupant=type_occupant,
             categorie=categorie, sous_categorie=sous_categorie, description=description,
@@ -2305,6 +2309,13 @@ class PlainteViewSet(viewsets.ModelViewSet):
         )
         self._notifier_habilites("🧹 Nouvelle plainte", f"{pers.nom} {pers.prenom} ({batiment.residence}) — {categorie} : {description[:80]}")
         return Response(PlainteSerializer(plainte).data, status=201)
+
+    def _doublon_recent(self, pers, categorie, description):
+        """Anti double-clic : même occupant, même catégorie, même texte, déposée il y a moins de 2 minutes."""
+        return Plainte.objects.filter(
+            occupant=pers, categorie=categorie, description=description,
+            date_creation__gte=timezone.now() - timezone.timedelta(minutes=2),
+        ).exclude(statut__in=["rejetee", "cloturee"]).order_by("-id").first()
 
     def _type_occupant_de(self, pers, batiment):
         """Partage entre create() (self-service) et creer_pour_occupant() (admin, depuis Residents principaux) - jamais duplique."""
@@ -2350,6 +2361,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
             return Response({"error":"Catégorie et description requises."}, status=400)
         if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
+
+        doublon = self._doublon_recent(pers, categorie, description)
+        if doublon:
+            return Response(PlainteSerializer(doublon).data, status=200)
 
         plainte = Plainte.objects.create(
             occupant=pers, utilisateur=request.user, batiment=batiment,
@@ -2923,6 +2938,40 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
                 "motif_depart": h.motif_depart,
                 "source": "history",
             })
+
+        # Occupants dont la trace n'existe QUE dans l'historique d'audit de la chambre
+        # (modification « sans historique », import, ancienne version) : on les ajoute
+        # pour que « qui a dormi dans A02 » soit complet. Dédoublonné par personne.
+        if batiment_q and not personnel_id and not date_debut and not date_fin:
+            connus = {(r["personnel_id"] or ("n", (r["occupant"] or "").strip().lower())) for r in results}
+            hb_qs = Batiment.history.filter(statut="Occupé")
+            if exact:
+                hb_qs = hb_qs.filter(Q(residence__iexact=batiment_q) | Q(groupe_chambre__iexact=batiment_q))
+            else:
+                hb_qs = hb_qs.filter(residence__icontains=batiment_q)
+            vus = {}
+            for h in hb_qs.order_by("history_date"):
+                cle = h.personnel_id or ("n", (h.occupant or "").strip().lower())
+                if cle == ("n", "") or cle in connus:
+                    continue
+                e = vus.setdefault(cle, {"h": h, "debut": h.date_arrivee or h.history_date.date(), "fin": None})
+                e["fin"] = h.date_depart
+                e["dernier"] = h.history_date.date()
+            for cle, e in vus.items():
+                h = e["h"]
+                d1 = e["debut"]
+                d2 = e["fin"] or e["dernier"]
+                nom = h.occupant or ""
+                if not nom and h.personnel_id:
+                    pp = Personnel.objects.filter(pk=h.personnel_id).first()
+                    nom = f"{pp.nom} {pp.prenom}" if pp else "—"
+                results.append({
+                    "id": f"trace-{h.id}", "residence": h.residence, "bloc": h.bloc, "occupant": nom,
+                    "societe": h.societe or "", "personnel_id": h.personnel_id,
+                    "date_arrivee": str(d1), "date_depart": str(e["fin"]) if e["fin"] else None,
+                    "duree_jours": max((d2 - d1).days, 1), "en_cours": False,
+                    "motif_depart": "Trace d'audit (sans fiche d'historique)", "source": "trace",
+                })
 
         results.sort(key=lambda x: x["date_arrivee"], reverse=True)
         personnes = {(r["personnel_id"] or r["occupant"]) for r in results}

@@ -903,3 +903,42 @@ class HistoriqueChambreExacteTests(TestCase):
     def test_sans_exact_comportement_historique(self):
         noms = {x["occupant"] for x in self._rech(batiment="A2")["results"]}
         self.assertIn("Intrus", noms)
+
+
+class HistoriqueChambreTraceAuditTests(TestCase):
+    """Un occupant passé seulement tracé par l'audit de la chambre (pas d'OccupationHistory) doit apparaître."""
+
+    def test_occupant_trace_par_audit_est_liste(self):
+        import datetime
+        from .views import OccupationHistoryViewSet
+        admin = _admin()
+        b = Batiment.objects.create(residence="A02", bloc="A", statut="Libre")
+        p1 = Personnel.objects.create(nom="Kouassi", prenom="Jean", societe="ROXGOLD", numero="TR1", telephone="1", type_personnel="roxgold")
+        b.statut, b.personnel, b.occupant, b.date_arrivee = "Occupé", p1, "Kouassi Jean", datetime.date(2025, 3, 1)
+        b.save()                       # génère une ligne HistoricalBatiment
+        b.statut, b.personnel, b.occupant = "Libre", None, None
+        b.save()                       # chambre libérée SANS OccupationHistory
+        req = APIRequestFactory().get("/api/occupation-history/recherche/", {"batiment": "A02", "exact": 1})
+        force_authenticate(req, user=admin)
+        data = OccupationHistoryViewSet.as_view({"get": "recherche"})(req).data
+        self.assertEqual([r["occupant"] for r in data["results"]], ["Kouassi Jean"])
+        self.assertEqual(data["results"][0]["source"], "trace")
+
+
+class PlainteAntiDoublonTests(TestCase):
+    """Valider plusieurs fois de suite (double-clic) ne crée qu'une seule plainte."""
+
+    def test_cinq_validations_une_seule_plainte(self):
+        rf = APIRequestFactory()
+        admin = _admin()
+        occ = Personnel.objects.create(nom="Yao", prenom="Paul", societe="ROXGOLD", numero="AD1", telephone="1", type_personnel="roxgold")
+        Batiment.objects.create(residence="F01", bloc="F", statut="Occupé", personnel=occ)
+        ids = set()
+        for _ in range(5):
+            req = rf.post("/api/plaintes/creer_pour_occupant/", {"personnel": occ.id, "categorie": "Electricite", "description": "Prise HS"}, format="json")
+            force_authenticate(req, user=admin)
+            r = PlainteViewSet.as_view({"post": "creer_pour_occupant"})(req)
+            self.assertIn(r.status_code, (200, 201))
+            ids.add(r.data["id"])
+        self.assertEqual(len(ids), 1)
+        self.assertEqual(Plainte.objects.count(), 1)

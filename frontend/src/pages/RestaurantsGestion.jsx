@@ -4,6 +4,10 @@ import { toast, confirmDialog } from '../toast'
 
 // RESTAURANTS — affectation des superviseurs + réglages (Paramétrage). Le tableau de bord est dans la page Restauration.
 const NAVY = '#0f2a5c', OR = '#c9972b'
+const carte = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(15,23,42,.08)', border: '1px solid #eef2f7' }
+const titreCarte = { fontWeight: 800, fontSize: 13.5, color: '#0f172a', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 8 }
+const inp = { border: '1px solid #cbd5e1', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0f172a' }
+const btn = (bg, fg = '#fff') => ({ background: bg, color: fg, border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' })
 
 function Affectations({ restos, recharger, peutGerer }) {
   const [candidats, setCandidats] = useState([])
