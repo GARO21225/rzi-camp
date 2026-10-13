@@ -233,10 +233,40 @@ def _context_titles(p):
     return None
 
 
-def extraire_menu_semaine(fichier):
+MOIS_EN = {'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12,
+           'JANV': 1, 'FEV': 2, 'FÉV': 2, 'AVR': 4, 'MAI': 5, 'JUIN': 6, 'JUIL': 7, 'AOU': 8, 'AOÛ': 8, 'SEPT': 9, 'DEC': 12, 'DÉC': 12}
+
+
+def semaine_du_nom(nom):
+    """Lundi de la semaine annoncée dans le NOM du fichier : « ROXgold CDI 12th - 18th OCT 2026.docx »
+    (ou « 28th SEP - 4th OCT 2026 »). None si non reconnu."""
+    nom = re.sub(r'[_\s]+', ' ', nom or '')
+    m = re.search(r'(\d{1,2})(?:st|nd|rd|th)?\s*([A-Za-zéûÉ]{3,9})?\s*[-–]\s*(\d{1,2})(?:st|nd|rd|th)?\s*([A-Za-zéûÉ]{3,9})\s*(20\d{2})', nom)
+    if not m:
+        return None
+    j1, m1, j2, m2, an = m.groups()
+    mois = lambda t: MOIS_EN.get((t or '').upper()[:4]) or MOIS_EN.get((t or '').upper()[:3])
+    mo2 = mois(m2)
+    if not mo2:
+        return None
+    mo1 = mois(m1) or mo2
+    try:
+        fin = datetime.date(int(an), mo2, int(j2))
+        debut = datetime.date(int(an) - (1 if mo1 > mo2 else 0), mo1, int(j1))
+    except ValueError:
+        return None
+    return debut if 5 <= (fin - debut).days <= 7 else None
+
+
+def extraire_menu_semaine(fichier, date_debut=None):
     """fichier : objet file-like (ex: request.FILES['fichier']). Retourne
-    (entries, dates) — entries : dicts prêts pour MenuJour.objects.create(**e),
-    dates : les 7 dates couvertes (pour effacer avant ré-import)."""
+    (entries, dates, avertissement) — entries : dicts prêts pour MenuJour.objects.create(**e),
+    dates : les 7 dates couvertes (pour effacer avant ré-import).
+
+    Semaine : `date_debut` (explicite) > semaine annoncée dans le NOM du fichier > dates des
+    en-têtes. Le prestataire oublie parfois de mettre à jour les dates DANS le document
+    (fichier « 12-18 OCT » dont les en-têtes disent encore 5-11) : sans ce garde-fou l'import
+    écrasait la semaine précédente."""
     import docx
     try:
         d = docx.Document(fichier)
@@ -286,7 +316,18 @@ def extraire_menu_semaine(fichier):
 
     if not uniq:
         raise MenuImportError("Aucun plat reconnu dans ce fichier — gabarit inattendu.")
-    return uniq, dates
+
+    avertissement = ''
+    cible = date_debut or semaine_du_nom(getattr(fichier, 'name', ''))
+    if cible and cible != dates[0]:
+        decal = {old: cible + datetime.timedelta(days=i) for i, old in enumerate(dates)}
+        avertissement = (f"Les dates écrites DANS le document ({dates[0]:%d/%m} → {dates[-1]:%d/%m}) ne correspondent pas à "
+                         f"{'la semaine choisie' if date_debut else 'la semaine du nom du fichier'} : menu placé sur "
+                         f"{cible:%d/%m} → {(cible + datetime.timedelta(days=6)):%d/%m}.")
+        for e in uniq:
+            e['date_service'] = decal[e['date_service']]
+        dates = [decal[d] for d in dates]
+    return uniq, dates, avertissement
 
 
 MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',

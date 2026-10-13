@@ -679,14 +679,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                 )
                 if created_flag:
                     # Générer QR
-                    import qrcode, io, base64
-                    qr_str = f"{p.pk:04d}"
-                    p.qr_code_string = qr_str
-                    qr_img = qrcode.make(qr_str, box_size=20, border=2)
-                    buf = io.BytesIO()
-                    qr_img.save(buf, format="PNG")
-                    p.qr_code_data = base64.b64encode(buf.getvalue()).decode()
-                    p.save(update_fields=["qr_code_string","qr_code_data"])
+                    p.generer_qr()   # QR signé (comme partout ailleurs)
                     created += 1
                 else:
                     skipped += 1

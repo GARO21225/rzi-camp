@@ -183,10 +183,20 @@ class RestaurantViewSet(viewsets.ViewSet):
         if err: return err
         from accounts.models import Parametre
         if request.method == "POST":
-            val = "1" if request.data.get("scan_reserve") else "0"
-            Parametre.objects.update_or_create(cle=CLE_SCAN_RESERVE, defaults={
-                "valeur": val, "description": "Scan des repas réservé aux superviseurs affectés à un restaurant"})
-        return Response({"scan_reserve": scan_reserve()})
+            if "scan_reserve" in request.data:
+                Parametre.objects.update_or_create(cle=CLE_SCAN_RESERVE, defaults={
+                    "valeur": "1" if request.data.get("scan_reserve") else "0",
+                    "description": "Scan des repas réservé aux superviseurs affectés à un restaurant"})
+            if "qr_signe_obligatoire" in request.data:
+                Parametre.objects.update_or_create(cle="resto_qr_signe_obligatoire", defaults={
+                    "valeur": "1" if request.data.get("qr_signe_obligatoire") else "0",
+                    "description": "Le scan n'accepte que les QR signés (refuse le numéro seul)"})
+        from residences.models import Personnel
+        non_signes = sum(1 for pk, qr in Personnel.objects.filter(actif=True).values_list("pk", "qr_code_string")
+                         if qr != Personnel.qr_signe(pk))
+        return Response({"scan_reserve": scan_reserve(),
+                         "qr_signe_obligatoire": str(Parametre.get("resto_qr_signe_obligatoire", "1")).strip() not in ("0", "false", ""),
+                         "qr_non_signes": non_signes})
 
     @action(detail=False, methods=["get"])
     def rapport(self, request):
@@ -210,4 +220,36 @@ class RestaurantViewSet(viewsets.ViewSet):
         rid = request.query_params.get("restaurant")
         if str(rid or "").isdigit():
             ids = [int(rid)] if ids is None else [i for i in ids if i == int(rid)]
-        return Response(agreger(debut, fin, ids))
+        tr = request.query_params.get("repas")
+        tr = tr if tr in ("petit_dejeuner", "dejeuner", "diner") else None
+        return Response(agreger(debut, fin, ids, tr))
+
+
+    @action(detail=False, methods=["post"])
+    def envoyer_rapport(self, request):
+        """Envoie CE rapport (période choisie) par email : {debut, fin, emails:[...]} - Camp Boss / admin."""
+        err = self._gestion(request)
+        if err: return err
+        from accounts.email import envoyer_email
+        from accounts.models import Parametre
+        from accounts.rapports_email import generer_contenu_rapport
+        emails = [e.strip() for e in (request.data.get("emails") or []) if "@" in str(e)]
+        if not emails:
+            return Response({"error": "Au moins une adresse email valide."}, status=400)
+        if Parametre.get("email_provider", "test") == "test":
+            return Response({"error": "Fournisseur email sur « test » : activer Resend dans Paramétrage → Connexion par Email."}, status=400)
+        try:
+            datetime.date.fromisoformat(str(request.data.get("debut")))
+            datetime.date.fromisoformat(str(request.data.get("fin")))
+        except ValueError:
+            return Response({"error": "Période invalide"}, status=400)
+        sujet, corps = generer_contenu_rapport("Rapport Restauration", "restauration",
+                                               {"resto_periode": "perso", "resto_debut": str(request.data["debut"]), "resto_fin": str(request.data["fin"])})
+        ok_n, erreurs = 0, []
+        for dest in emails[:20]:
+            ok, info = envoyer_email(dest, sujet, corps, type_message="rapport", campagne="Rapport Restauration")
+            if ok: ok_n += 1
+            else: erreurs.append(f"{dest} : {info}")
+        if not ok_n:
+            return Response({"error": "Échec : " + " ; ".join(erreurs)}, status=400)
+        return Response({"ok": True, "envoyes": ok_n, "erreurs": erreurs})

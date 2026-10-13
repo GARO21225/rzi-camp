@@ -1,3 +1,4 @@
+import re
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework import viewsets, filters, status
@@ -37,10 +38,21 @@ class QRTokenViewSet(viewsets.ViewSet):
 
             qr_clean = str(qr_raw).strip()
 
-            # 2. Chercher le personnel par ID numérique (format: "0001", "0042")
+            # 2. QR signé « 000123.ABCDEF1234 ». Un numéro seul (« 0042 ») est forgeable :
+            #    refusé par défaut (réglage Restaurants > Réglages « QR signé obligatoire »).
+            from accounts.models import Parametre
+            signe_obligatoire = str(Parametre.get("resto_qr_signe_obligatoire", "1")).strip() not in ("0", "false", "")
             personnel_id = None
             if qr_clean.isdigit():
+                if signe_obligatoire:
+                    return Response({"valid": False, "erreur": "QR ancien format (numéro seul) refusé : faire régénérer le badge par l'administrateur."}, status=400)
                 personnel_id = int(qr_clean)
+            elif signe_obligatoire:
+                from residences.models import Personnel as _P
+                m = re.fullmatch(r"(\d{6})\.([0-9A-F]{10})", qr_clean)
+                if not m or _P.qr_signe(int(m.group(1))) != qr_clean:
+                    return Response({"valid": False, "erreur": "QR invalide (signature incorrecte)"}, status=400)
+                personnel_id = int(m.group(1))
 
             # 3. Requête SQL directe pour éviter tout problème ORM
             with connection.cursor() as cursor:
@@ -247,9 +259,8 @@ class QRTokenViewSet(viewsets.ViewSet):
     def vider_historique(self, request):
         """Vider l'historique (admin seulement)"""
         user = request.user
-        is_admin = user.is_staff or user.is_superuser or (hasattr(user, "profile") and user.profile.role == "admin")
-        if not is_admin:
-            return Response({"error": "Admin requis"}, status=403)
+        if not user.is_superuser:
+            return Response({"error": "Réservé au super utilisateur."}, status=403)
 
         type_repas = request.query_params.get("type_repas")
 
@@ -266,6 +277,20 @@ class QRTokenViewSet(viewsets.ViewSet):
 
 
 class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
+    def destroy(self, request, *args, **kwargs):
+        """Suppression d'un repas scanné : SUPER UTILISATEUR uniquement (le repas redevient disponible pour la personne)."""
+        if not request.user.is_superuser:
+            return Response({"error": "Réservé au super utilisateur."}, status=403)
+        r = RepasLog.objects.select_related("qr_token", "restaurant").filter(pk=kwargs.get("pk")).first()
+        if not r:
+            return Response({"error": "Introuvable"}, status=404)
+        detail = f"{r.qr_token.resident} — {r.qr_token.type_repas} — {timezone.localtime(r.date_validation):%d/%m/%Y %H:%M}" + (f" — {r.restaurant.nom}" if r.restaurant_id else "")
+        qt = r.qr_token
+        with transaction.atomic():
+            r.delete(); qt.delete()
+            AuditLog.objects.create(utilisateur=request.user, action="Suppression repas", module="Restauration", detail=detail[:500])
+        return Response(status=204)
+
     queryset = RepasLog.objects.select_related("qr_token", "qr_token__personnel", "valide_par", "personnel").all()
     serializer_class = RepasLogSerializer
 
@@ -1513,22 +1538,30 @@ class MenuJourViewSet(viewsets.ModelViewSet):
             return Response({"error": "Fichier .docx requis (champ 'fichier')."}, status=400)
 
         from .menu_import import extraire_menu_semaine, MenuImportError, libelle_semaine
+        date_debut = None
+        if request.data.get('date_debut'):
+            try:
+                date_debut = __import__('datetime').date.fromisoformat(str(request.data['date_debut'])[:10])
+            except ValueError:
+                return Response({"error": "date_debut invalide (AAAA-MM-JJ)."}, status=400)
         try:
-            entries, dates = extraire_menu_semaine(fichier)
+            entries, dates, avertissement = extraire_menu_semaine(fichier, date_debut)
         except MenuImportError as e:
             return Response({"error": str(e)}, status=400)
         except Exception as e:
             return Response({"error": f"Erreur d'import inattendue : {e}"}, status=400)
 
+        existants = MenuJour.objects.filter(date_service__in=dates).count()
+        infos = {
+            "crees": len(entries), "remplaces": existants,
+            "periode": f"{min(dates)} → {max(dates)}", "libelle": libelle_semaine(dates),
+            "avertissement": avertissement,
+        }
+        if str(request.data.get('apercu', '')).lower() in ('1', 'true'):
+            return Response({**infos, "apercu": True})   # rien n'est écrit
+
         # Atomique : un echec de creation ne doit pas laisser la semaine videe
         with transaction.atomic():
-            supprimes = MenuJour.objects.filter(date_service__in=dates).count()
             MenuJour.objects.filter(date_service__in=dates).delete()
             MenuJour.objects.bulk_create([MenuJour(**e) for e in entries])
-
-        return Response({
-            "crees": len(entries),
-            "remplaces": supprimes,
-            "periode": f"{min(dates)} → {max(dates)}",
-            "libelle": libelle_semaine(dates),
-        })
+        return Response(infos)

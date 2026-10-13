@@ -523,7 +523,7 @@ function LastScanCard({ scan, isMobile, repasLabel }) {
 }
 
 // ── Liste historique ────────────────────────────────────────────────
-function HistoriqueList({ data, onRefresh, loading, isMobile }) {
+function HistoriqueList({ data, onRefresh, loading, isMobile, peutSupprimer, onSupprimer }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterJour, setFilterJour] = useState('today')
 
@@ -573,9 +573,10 @@ function HistoriqueList({ data, onRefresh, loading, isMobile }) {
                   padding:'8px 0', borderBottom: i<filteredData.length-1 ? '1px solid rgba(15,26,46,.08)' : 'none' }}>
                   <div style={{ minWidth:0 }}>
                     <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#0F1A2E' }}>{r.resident||'—'}</p>
-                    <p style={{ margin:'1px 0 0', fontSize:11, color:'#8B95A1' }}>{r.societe||'—'}</p>
+                    <p style={{ margin:'1px 0 0', fontSize:11, color:'#8B95A1' }}>{r.societe||'—'}{r.restaurant_nom ? ` · 🍽️ ${r.restaurant_nom}` : ''}</p>
                   </div>
-                  <span style={{ fontSize:11, color:'#8B95A1', flexShrink:0 }}>{dt?.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})||'—'}</span>
+                  <span style={{ fontSize:11, color:'#8B95A1', flexShrink:0 }}>{dt?.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})||'—'}
+                    {peutSupprimer && <button onClick={()=>onSupprimer(r)} style={{ marginLeft:8, background:'none', border:'none', cursor:'pointer' }}>🗑️</button>}</span>
                 </div>
               )
             })}
@@ -645,8 +646,10 @@ function HistoriqueList({ data, onRefresh, loading, isMobile }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--rzc-navy)' }}>{r.resident || '—'}</div>
                       <div style={{ fontSize: 11, color: 'var(--rzc-text-3)', marginTop: 2 }}>{r.societe || ''}</div>
+                      {r.restaurant_nom && <div style={{ fontSize: 11, color: '#5b21b6', fontWeight: 600, marginTop: 2 }}>🍽️ {r.restaurant_nom}</div>}
                     </div>
                     <div style={{ textAlign: 'right', marginLeft: 8 }}>
+                      {peutSupprimer && <button onClick={() => onSupprimer(r)} title="Supprimer ce repas (super utilisateur)" style={{ float: 'right', marginLeft: 8, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '1px 7px', fontSize: 12, cursor: 'pointer' }}>🗑️</button>}
                       <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
                         {dt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) || '—'}
                       </div>
@@ -672,7 +675,7 @@ export default function Restauration() {
   const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
-  const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
+  const isResto = ['admin', 'restauration', 'camp_boss'].includes(role) || user?.is_staff || user?.is_superuser
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const importMenuInputRef = useRef(null)
   const rechargeRef = useRef(null)
@@ -852,17 +855,16 @@ export default function Restauration() {
               uniquement, cf. gestion du menu déjà réservée au desktop plus bas */}
           {!isMobile && (
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,.7)', fontWeight:600 }}>🗓️ Menu du</span>
+            <span style={{ fontSize:12, color:'#334155', fontWeight:700 }}>🗓️ Menu du</span>
             <input type="date" value={menuDate}
               onChange={async e=>{
                 setMenuDate(e.target.value)
                 try{const r=await menuAPI.list({date_service:e.target.value});setMenuItems(r.data.results||r.data||[])}
                 catch{ setMenuItems([]) }
               }}
-              style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 7px',
-                fontSize:11, outline:'none', background:'rgba(255,255,255,.15)', color:'#fff',
-                colorScheme:'dark' }}/>
-            <span style={{ fontSize:11, color:'#fde68a', fontWeight:700 }}>{libelleSemaineMenu(menuDate)}</span>
+              style={{ border:'1px solid #cbd5e1', borderRadius:6, padding:'4px 8px',
+                fontSize:12, outline:'none', background:'#fff', color:'#0f172a' }}/>
+            <span style={{ fontSize:12, color:'#92400e', fontWeight:700, background:'#fef3c7', borderRadius:6, padding:'3px 8px' }}>{libelleSemaineMenu(menuDate)}</span>
             {isResto && (
               <>
                 <input type="file" accept=".docx" ref={importMenuInputRef} style={{ display:'none' }}
@@ -870,26 +872,33 @@ export default function Restauration() {
                     const f = e.target.files?.[0]
                     e.target.value = ''
                     if (!f) return
-                    if (!await confirmDialog(`Importer "${f.name}" ?\n\nTout menu déjà enregistré sur la semaine couverte par ce fichier sera remplacé.`)) return
                     setImportingMenu(true)
                     try {
+                      // 1) aperçu sans rien écrire : semaine détectée, nb de plats, avertissement
+                      const ap = (await menuAPI.importerSemaine(f, { apercu: true })).data
+                      const msg = `${ap.libelle}\n${ap.crees} plat(s) à importer — ${ap.remplaces} plat(s) déjà enregistrés sur ces dates seront remplacés.` +
+                        (ap.avertissement ? `\n\n⚠️ ${ap.avertissement}` : '') + `\n\nImporter « ${f.name} » ?`
+                      if (!await confirmDialog(msg)) { setImportingMenu(false); return }
+                      // 2) import réel
                       const r = await menuAPI.importerSemaine(f)
                       toast.success(`${r.data.libelle || 'Menu importé'} : ${r.data.crees} plat(s) importé(s)`)
-                      const rr = await menuAPI.list({date_service:menuDate}); setMenuItems(rr.data.results||rr.data||[])
+                      const jour = r.data.periode ? r.data.periode.slice(0, 10) : menuDate
+                      setMenuDate(jour)
+                      const rr = await menuAPI.list({date_service:jour}); setMenuItems(rr.data.results||rr.data||[])
                     } catch (err) {
                       toast.error(err?.response?.data?.error || "Erreur d'import")
                     } finally { setImportingMenu(false) }
                   }}/>
                 <button onClick={()=>importMenuInputRef.current?.click()} disabled={importingMenu}
                   title="Importer le menu de la semaine depuis le fichier .docx du prestataire"
-                  style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 10px',
-                    fontSize:11, fontWeight:600, background:'rgba(255,255,255,.15)', color:'#fff',
+                  style={{ border:'none', borderRadius:6, padding:'5px 12px',
+                    fontSize:12, fontWeight:700, background:'#2563eb', color:'#fff',
                     cursor: importingMenu ? 'wait' : 'pointer' }}>
                   {importingMenu ? '⏳ Import...' : '📥 Importer la semaine (.docx)'}
                 </button>
                 <button onClick={()=> menuSelMode ? quitMenuSel() : setMenuSelMode(true)}
-                  style={{ border:'1px solid rgba(255,255,255,.3)', borderRadius:6, padding:'3px 10px',
-                    fontSize:11, fontWeight:600, background: menuSelMode ? '#dc2626' : 'rgba(255,255,255,.15)', color:'#fff', cursor:'pointer' }}>
+                  style={{ border:'none', borderRadius:6, padding:'5px 12px',
+                    fontSize:12, fontWeight:700, background: menuSelMode ? '#dc2626' : '#475569', color:'#fff', cursor:'pointer' }}>
                   {menuSelMode ? '✕ Quitter la sélection' : '☑ Actions en masse'}
                 </button>
               </>
@@ -1226,6 +1235,12 @@ export default function Restauration() {
             onRefresh={loadHistorique}
               loading={loading}
             isMobile={isMobile}
+            peutSupprimer={!!user?.is_superuser}
+            onSupprimer={async (r) => {
+              if (!(await confirmDialog(`Supprimer le repas de ${r.resident} ? Il pourra reprendre ce repas.`))) return
+              try { await qrAPI.supprimerRepas(r.id); toast.success('Repas supprimé'); loadHistorique() }
+              catch (e) { toast.error(e.response?.data?.error || 'Suppression impossible') }
+            }}
           />
         </div>
 

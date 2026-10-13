@@ -190,6 +190,15 @@ class Personnel(models.Model):
         self.save(update_fields=["user", "login_genere", "password_genere"])
         return username, password
 
+    @staticmethod
+    def qr_signe(pk):
+        """Contenu du QR signé d'une fiche : « 000123.ABCDEF1234 » (HMAC-SHA256 tronqué)."""
+        import hmac, hashlib
+        from django.conf import settings
+        qr_id = f"{int(pk):06d}"
+        sig = hmac.new(settings.SECRET_KEY.encode(), qr_id.encode(), hashlib.sha256).hexdigest()[:10].upper()
+        return f"{qr_id}.{sig}"
+
     def generer_qr(self):
         """QR signé : le PK seul serait un identifiant séquentiel (0001, 0002...)
         trivialement devinable/forgeable — n'importe qui aurait pu écrire un
@@ -204,11 +213,7 @@ class Personnel(models.Model):
         import hmac, hashlib
         from django.conf import settings
 
-        qr_id = f"{self.pk:06d}"
-        signature = hmac.new(
-            settings.SECRET_KEY.encode(), qr_id.encode(), hashlib.sha256
-        ).hexdigest()[:10].upper()
-        qr_string = f"{qr_id}.{signature}"
+        qr_string = self.qr_signe(self.pk)
         self.qr_code_string = qr_string
         # Génération haute qualité
         qr_obj = qrcode.QRCode(

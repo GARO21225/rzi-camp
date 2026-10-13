@@ -180,7 +180,8 @@ class RestaurantsSuperviseursTests(TestCase):
         self.cb.force_authenticate(self.boss); self.cs.force_authenticate(self.sup); self.ca.force_authenticate(self.autre)
 
     def scan(self, c, **kw):
-        return c.post("/api/qr/scan/", {"qr_data": str(self.agent.id), "type_repas": "dejeuner", **kw}, format="json")
+        from residences.models import Personnel
+        return c.post("/api/qr/scan/", {"qr_data": Personnel.qr_signe(self.agent.id), "type_repas": "dejeuner", **kw}, format="json")
 
     def test_trois_restaurants_par_defaut(self):
         self.assertEqual(sorted(self.R.objects.values_list("nom", flat=True)),
@@ -265,3 +266,38 @@ class RapportEntiteEtImportMenuTests(RestaurantsSuperviseursTests):
         simple = __import__("rest_framework.test", fromlist=["APIClient"]).APIClient()
         simple.force_authenticate(User.objects.create_user("quidam", password="x"))
         self.assertEqual(simple.post("/api/menu/importer_semaine/", {}, format="multipart").status_code, 403)
+
+
+class QrSigneEtSuppressionTests(RestaurantsSuperviseursTests):
+    def test_scan_refuse_numero_seul_et_signature_fausse(self):
+        self.cb.post("/api/restaurants/reglages/", {"scan_reserve": False}, format="json")
+        r = self.cb.post("/api/qr/scan/", {"qr_data": str(self.agent.id), "type_repas": "dejeuner"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("ancien format", r.json()["erreur"])
+        faux = "%06d.%s" % (self.agent.id, "0" * 10)
+        self.assertEqual(self.cb.post("/api/qr/scan/", {"qr_data": faux, "type_repas": "dejeuner"}, format="json").status_code, 400)
+        # reglage desactive : l'ancien format repasse
+        self.cb.post("/api/restaurants/reglages/", {"qr_signe_obligatoire": False}, format="json")
+        r = self.cb.post("/api/qr/scan/", {"qr_data": str(self.agent.id), "type_repas": "dejeuner"}, format="json")
+        self.assertEqual(r.status_code, 200, r.content)
+
+    def test_suppression_repas_super_utilisateur_seulement(self):
+        from restauration.models import RepasLog, AuditLog
+        self.cb.post("/api/restaurants/reglages/", {"scan_reserve": False}, format="json")
+        self.scan(self.cb)
+        rid = RepasLog.objects.get().id
+        self.assertEqual(self.cb.delete(f"/api/repas/{rid}/").status_code, 403)       # camp boss : non
+        su = User.objects.create_superuser("root", password="x")
+        from rest_framework.test import APIClient
+        c = APIClient(); c.force_authenticate(su)
+        self.assertEqual(c.delete(f"/api/repas/{rid}/").status_code, 204)
+        self.assertEqual(RepasLog.objects.count(), 0)
+        self.assertTrue(AuditLog.objects.filter(action="Suppression repas").exists())
+        self.assertEqual(self.scan(self.cb).status_code, 200)   # peut reprendre son repas
+
+    def test_import_menu_semaine_du_nom_du_fichier(self):
+        import datetime
+        from restauration.menu_import import semaine_du_nom
+        self.assertEqual(semaine_du_nom("ROXgold CDI 12th - 18th OCT 2026.docx"), datetime.date(2026, 10, 12))
+        self.assertEqual(semaine_du_nom("menu 28th SEP - 4th OCT 2026.docx"), datetime.date(2026, 9, 28))
+        self.assertIsNone(semaine_du_nom("menu.docx"))

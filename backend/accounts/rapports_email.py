@@ -29,7 +29,8 @@ OPTIONS_DEFAUT = {
     "occ_graphiques": True, "occ_tendance": True, "jours_tendance": 7,
     "masquer_zeros": False,
     # Restauration
-    "resto_periode": "hier",   # aujourdhui | hier | 7j | semaine | mois | mois_precedent
+    "resto_periode": "hier",   # aujourdhui | hier | 7j | semaine | mois | mois_precedent | perso
+    "resto_debut": "", "resto_fin": "",   # utilisés si resto_periode == "perso"
     "resto_par_restaurant": True, "resto_par_repas": True, "resto_par_superviseur": True,
     "resto_par_societe": True, "resto_par_entite": True, "resto_graphiques": True, "resto_tendance": True,
 }
@@ -56,7 +57,7 @@ def options_effectives(opts):
         o["jours_tendance"] = 7
     if o["jour_reference"] not in ("aujourdhui", "hier"):
         o["jour_reference"] = "aujourdhui"
-    if o["resto_periode"] not in ("aujourdhui", "hier", "7j", "semaine", "mois", "mois_precedent"):
+    if o["resto_periode"] not in ("aujourdhui", "hier", "7j", "semaine", "mois", "mois_precedent", "perso"):
         o["resto_periode"] = "hier"
     return o
 
@@ -333,19 +334,39 @@ def _sec_occupation(o, today):
     return _titre("🏕️ Camp Occupancy") + corps
 
 LIBELLE_PERIODE_RESTO = {"aujourdhui": "aujourd'hui", "hier": "hier", "7j": "7 derniers jours", "semaine": "semaine dernière (lun-dim)",
-                         "mois": "mois en cours", "mois_precedent": "mois précédent"}
+                         "mois": "mois en cours", "mois_precedent": "mois précédent", "perso": "période choisie"}
 
 
 def _sec_restauration(o, today):
     from restauration.rapport import agreger, bornes
-    debut, fin = bornes(o["resto_periode"], today)
-    d = agreger(debut, fin)
+    debut, fin = bornes(o["resto_periode"], today, o.get("resto_debut"), o.get("resto_fin"))
+    d = agreger(debut, fin, today=today)
     quand = f"{debut:%d/%m/%Y}" if debut == fin else f"{debut:%d/%m/%Y} → {fin:%d/%m/%Y}"
     corps = (f"<div style='font-size:12px;color:#64748b;margin-bottom:6px'>{_e(LIBELLE_PERIODE_RESTO[o['resto_periode']])} · {quand}</div>")
-    corps += _kpis([("Repas servis", d["total"], "#0F2A5C"), ("Moyenne / jour", d["moyenne_par_jour"], "#2563EB"),
-                    ("Personnes distinctes", d["personnes_uniques"], "#16A34A"), ("Restaurants actifs", len([1 for r, _ in d["par_restaurant"] if r != "Non renseigné"]), "#C9972B")])
+    prec = d["precedent"]["total"]
+    if prec:
+        delta = round((d["total"] - prec) / prec * 100)
+        var = f"{'▲' if delta > 0 else '▼' if delta < 0 else '='} {abs(delta)} % vs période précédente ({prec})"
+        coul_var = "#16A34A" if delta >= 0 else "#DC2626"
+    else:
+        var, coul_var = "", "#64748B"
+    tuiles = [("Repas servis", d["total"], "#0F2A5C"), ("Moyenne / jour", d["moyenne_par_jour"], "#2563EB"),
+              ("Personnes distinctes", d["personnes_uniques"], "#16A34A")]
+    if d["couverture"] is not None:
+        tuiles.append(("Couverture repas", f"{d['couverture']} %", "#C9972B"))
+    corps += _kpis(tuiles)
+    if var:
+        corps += f"<div style='font-size:12px;font-weight:700;color:{coul_var};margin:2px 0 8px'>{var}</div>"
     if not d["total"]:
-        return _titre("🍽️ Restauration") + corps + "<p style='font-size:12.5px;color:#64748b'>Aucun repas scanné sur la période.</p>"
+        corps += "<p style='font-size:12.5px;color:#64748b'>Aucun repas scanné sur la période.</p>"
+    sat = d["satisfaction"]
+    if sat["nb"]:
+        corps += f"<div style='font-size:12.5px;color:#334155;margin:6px 0'>⭐ Satisfaction : <b>{sat['moyenne']}/5</b> sur {sat['nb']} avis</div>"
+    for a_ in d["alertes"]:
+        coul = "#DC2626" if a_["niveau"] == "rouge" else "#D97706"
+        corps += f"<div style='font-size:12px;color:{coul};margin:3px 0'>⚠️ {_e(a_['texte'])}</div>"
+    if not d["total"]:
+        return _titre("🍽️ Restauration") + corps
     grap = o["resto_graphiques"]
     blocs = []
     if o["resto_par_restaurant"]:
@@ -376,7 +397,7 @@ def _sec_restauration(o, today):
         corps += (f"<div style='font-size:12px;font-weight:700;color:#475569;margin:14px 0 4px'>Restaurant × repas</div>"
                   f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #e2e8f0'><tr><th align='left' style='padding:4px 8px;font-size:11px;color:#fff;background:#0F2A5C'>Restaurant</th>{ent}</tr>{lig}</table>")
     if o["resto_tendance"] and d["nb_jours"] > 1 and grap:
-        corps += _colonnes("Repas servis par jour", [(f"{x[8:10]}/{x[5:7]}", n) for x, n in d["par_jour"]][-31:])
+        corps += _colonnes("Repas servis par jour", [(f"{x['date'][8:10]}/{x['date'][5:7]}", x["total"]) for x in d["serie"]][-31:])
     if o["details"] and d["par_heure"]:
         corps += _barres("Affluence par heure", d["par_heure"], "#16A34A", pct_total=False)
     return _titre("🍽️ Restauration — repas servis") + corps

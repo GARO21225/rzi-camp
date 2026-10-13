@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI, plaintes as plaintesAPI } from '../api'
-import { toast } from '../toast'
+import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 
@@ -383,12 +383,13 @@ export default function Historique() {
 
   const exportRepasCSV = () => {
     if (!repasFiltered.length) return
-    const headers = ['Personnel','Société','Type repas','Date','Heure','Validé par']
+    const headers = ['Personnel','Société','Restaurant','Type repas','Date','Heure','Validé par']
     const rows = repasFiltered.map(r => {
       const dt = r.date_validation ? new Date(r.date_validation) : null
       return [
         r.resident || '',
         r.societe || '',
+        r.restaurant_nom || '',
         r.type_repas_label || r.type_repas || '',
         dt ? dt.toLocaleDateString('fr-FR') : '',
         dt ? dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '',
@@ -449,6 +450,11 @@ export default function Historique() {
     )
   }
 
+  const supprimerRepas = async (r) => {
+    if (!(await confirmDialog(`Supprimer le repas de ${r.resident} (${r.type_repas_label || r.type_repas}) ? Il pourra reprendre ce repas.`))) return
+    try { await qr.supprimerRepas(r.id); toast.success('Repas supprimé'); loadRepas() }
+    catch (e) { toast.error(e.response?.data?.error || 'Suppression impossible') }
+  }
   const loadRepas = async () => {
     setRepasLoading(true)
     try {
@@ -794,10 +800,11 @@ export default function Historique() {
                         <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{r.resident||'—'}</span>
                         <span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span>
                       </div>
-                      <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}</p>
+                      <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}{r.restaurant_nom ? ` · 🍽️ ${r.restaurant_nom}` : ''}</p>
                       <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
                         {dt ? dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'} · Validé par {r.valide_par_nom||'—'}
                       </p>
+                      {user?.is_superuser && <button onClick={()=>supprimerRepas(r)} style={{marginTop:6,background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:6,padding:'3px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>🗑️ Supprimer</button>}
                     </div>
                   )
                 })}
@@ -814,7 +821,7 @@ export default function Historique() {
               <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
                   <thead><tr style={{background:'var(--surface2)'}}>
-                    {['Personnel','Société','Type repas','Date/Hora','Validé par'].map(h=>(
+                    {['Personnel','Société','Restaurant','Type repas','Date/Heure','Validé par', ...(user?.is_superuser ? [''] : [])].map(h=>(
                       <th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontFamily:'monospace',color:'var(--text-dim)',letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -825,11 +832,13 @@ export default function Historique() {
                         <tr key={r.id||i} style={{borderTop:'1px solid var(--border)',background:i%2?'var(--surface2)':'#fff'}}>
                           <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{r.resident||'—'}</td>
                           <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,fontWeight:600,color:'#0f2a5c'}}>{r.restaurant_nom ? `🍽️ ${r.restaurant_nom}` : <span style={{color:'#94a3b8'}}>—</span>}</td>
                           <td style={{padding:'9px 12px'}}><span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span></td>
                           <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>
                             {dt ? dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}
                           </td>
                           <td style={{padding:'9px 12px',fontSize:11,color:'var(--text-dim)'}}>{r.valide_par_nom||'—'}</td>
+                          {user?.is_superuser && <td style={{padding:'6px 12px'}}><button onClick={()=>supprimerRepas(r)} title="Supprimer ce repas (super utilisateur)" style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:6,padding:'3px 8px',fontSize:12,fontWeight:700,cursor:'pointer'}}>🗑️</button></td>}
                         </tr>
                       )
                     })}

@@ -212,9 +212,11 @@ export const menu = {
   delete: (id) => api.delete(`/api/menu/${id}/`),
   today:  () => api.get('/api/menu/today/'),
   bulk:   (d) => api.post('/api/menu/bulk/', d),
-  importerSemaine: (fichier) => {
+  importerSemaine: (fichier, opts = {}) => {
     const fd = new FormData()
     fd.append('fichier', fichier)
+    if (opts.apercu) fd.append('apercu', '1')
+    if (opts.date_debut) fd.append('date_debut', opts.date_debut)
     return api.post('/api/menu/importer_semaine/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
 }
@@ -254,6 +256,7 @@ export const restaurants = {
   reglages:  () => api.get('/api/restaurants/reglages/'),
   setReglages: (d) => api.post('/api/restaurants/reglages/', d),
   rapport:   (p) => api.get('/api/restaurants/rapport/', { params: p }),
+  envoyerRapport: (d) => api.post('/api/restaurants/envoyer_rapport/', d),
 }
 
 export const qr = {
@@ -265,6 +268,8 @@ export const qr = {
   historiqueScans:  (p) => api.get('/api/repas/', { params: p }),
   viderHistorique: (type_repas) => api.delete(`/api/qr/vider_historique/?type_repas=${type_repas}`),
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
+  supprimerRepas: (id) => api.delete(`/api/repas/${id}/`),
+  regenererTousQr: () => api.post('/api/personnel/regenerer_tous_qr/', {}),
   repas: (p) => api.get('/api/repas/', {params:p}),
   historiqueScans: (p) => api.get('/api/repas/', {params:p}),
 }
