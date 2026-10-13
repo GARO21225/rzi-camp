@@ -315,7 +315,8 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
   const [message, setMsg] = useState('')
   const [result, setResult] = useState(null)
   const scannerRef = useRef(null)
-  const cooldown = useRef(false)
+  const busy = useRef(false)
+  const lastCode = useRef({ v: '', t: 0 })
   const alive = useRef(true)
 
   useEffect(() => {
@@ -337,18 +338,36 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
     if (!alive.current) return
     setPhase('init'); setResult(null); setMsg('')
     try {
-      const { Html5Qrcode } = await import('html5-qrcode')
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode')
       if (!alive.current) return
-      const s = new Html5Qrcode('qr_viewport')
+      // Detecteur natif du telephone (BarcodeDetector) quand il existe, QR uniquement :
+      // le decodage JS generique etait la cause du « il faut tourner pour scanner ».
+      const s = new Html5Qrcode('qr_viewport', {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        useBarCodeDetectorIfSupported: true,
+        verbose: false,
+      })
       scannerRef.current = s
       await s.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 200, height: 200 } },
+        {
+          fps: 25,
+          // Zone de lecture = 85 % du cadre (avant : 200 px fixes, le QR devait etre
+          // pile dans un petit carre).
+          qrbox: (w, h) => { const t = Math.floor(Math.min(w, h) * 0.85); return { width: t, height: t } },
+          disableFlip: true,
+          videoConstraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] },
+        },
         async (decoded) => {
-          if (cooldown.current || !alive.current) return
-          cooldown.current = true
+          if (!alive.current || busy.current) return
+          // Meme QR encore devant la camera : ignore 4 s (evite « Deja pris » juste apres un succes)
+          const now = Date.now()
+          if (decoded === lastCode.current.v && now - lastCode.current.t < 4000) return
+          lastCode.current = { v: decoded, t: now }
+          busy.current = true
           setPhase('loading')
           setMsg('')
+          let delai = 1200
           try {
             const data = await apiScanPersonnel(decoded, typeRepas)
             if (!alive.current) return
@@ -364,12 +383,15 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
             setPhase(isAlready ? 'already' : 'error')
             playSound(isAlready ? 'already' : 'error')
             onError && onError(msg)
+            delai = 1800
           }
+          // Le scanner reste actif pendant l'affichage du resultat : un AUTRE QR est
+          // accepte tout de suite (plus d'attente fixe de 3,5 s).
+          busy.current = false
           setTimeout(() => {
-            if (!alive.current) return
-            cooldown.current = false
+            if (!alive.current || busy.current) return
             setPhase('scan'); setResult(null); setMsg('')
-          }, 3500)
+          }, delai)
         },
         () => {}
       )
@@ -404,13 +426,13 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
       </div>
 
       {/* Camera view */}
-      <div style={{ background: '#000', position: 'relative', minHeight: 200, maxHeight: 260 }}>
-        <div id="qr_viewport" style={{ width: '100%', minHeight: 200, maxHeight: 260 }} />
+      <div style={{ background: '#000', position: 'relative', minHeight: 240 }}>
+        <div id="qr_viewport" style={{ width: '100%', minHeight: 240 }} />
 
         {/* Crosshair guide */}
         {phase === 'scan' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <div style={{ width: 180, height: 180, border: '2px solid rgba(124,58,237,.7)', borderRadius: 16, position: 'relative' }}>
+            <div style={{ width: '70%', aspectRatio: '1 / 1', maxHeight: '85%', border: '2px solid rgba(124,58,237,.7)', borderRadius: 16, position: 'relative' }}>
               {/* Corner accents */}
               <div style={{ position: 'absolute', top: -3, left: -3, width: 30, height: 30, borderTop: '4px solid #7c3aed', borderLeft: '4px solid #7c3aed', borderRadius: '8px 0 0 0' }} />
               <div style={{ position: 'absolute', top: -3, right: -3, width: 30, height: 30, borderTop: '4px solid #7c3aed', borderRight: '4px solid #7c3aed', borderRadius: '0 8px 0 0' }} />
@@ -456,12 +478,6 @@ function QRScanner({ typeRepas, onSuccess, onError }) {
         )}
       </div>
 
-      {/* Retry hint */}
-      {(phase === 'ok' || phase === 'already' || phase === 'error') && (
-        <div style={{ background: 'rgba(0,0,0,.4)', padding: '8px 12px', textAlign: 'center', color: 'rgba(255,255,255,.6)', fontSize: 11 }}>
-          Prochain scan disponible dans 3.5s...
-        </div>
-      )}
     </div>
   )
 }
@@ -659,6 +675,7 @@ export default function Restauration() {
   const isResto = ['admin', 'restauration'].includes(role) || user?.is_staff || user?.is_superuser
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const importMenuInputRef = useRef(null)
+  const rechargeRef = useRef(null)
   const [mesRestos, setMesRestos] = useState([])
   const [restoId, setRestoId] = useState('')
   useEffect(() => {
@@ -1186,7 +1203,9 @@ export default function Restauration() {
               key={typeRepas}
               typeRepas={typeRepas}
               onSuccess={() => {
-                setTimeout(() => loadHistorique(), 1500)
+                // un seul rechargement apres une rafale de scans (avant : 1 liste de 500 repas par scan)
+                clearTimeout(rechargeRef.current)
+                rechargeRef.current = setTimeout(() => loadHistorique(), 4000)
                 setShowAvis(true)
               }}
             />

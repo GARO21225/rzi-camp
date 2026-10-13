@@ -31,10 +31,10 @@ OPTIONS_DEFAUT = {
     # Restauration
     "resto_periode": "hier",   # aujourdhui | hier | 7j | semaine | mois | mois_precedent
     "resto_par_restaurant": True, "resto_par_repas": True, "resto_par_superviseur": True,
-    "resto_par_societe": True, "resto_graphiques": True, "resto_tendance": True,
+    "resto_par_societe": True, "resto_par_entite": True, "resto_graphiques": True, "resto_tendance": True,
 }
 BOOLS_OCC = ("occ_departements", "occ_soustraitants", "occ_visiteurs", "occ_graphiques", "occ_tendance", "masquer_zeros",
-             "resto_par_restaurant", "resto_par_repas", "resto_par_superviseur", "resto_par_societe", "resto_graphiques", "resto_tendance")
+             "resto_par_restaurant", "resto_par_repas", "resto_par_superviseur", "resto_par_societe", "resto_par_entite", "resto_graphiques", "resto_tendance")
 
 
 def options_effectives(opts):
@@ -354,9 +354,17 @@ def _sec_restauration(o, today):
         blocs.append(("Par repas", d["par_repas"], "#C9972B"))
     if o["resto_par_superviseur"]:
         blocs.append(("Par superviseur (scans)", d["par_superviseur"][:10], "#7C3AED"))
+    if o["resto_par_entite"]:
+        e = d["par_entite"]
+        blocs.append(("Par entité", e["types"], "#0F2A5C"))
+        blocs.append(("Employés Roxgold — par département", e["departements"], "#2563EB"))
+        blocs.append(("Sous-traitants — par entreprise", e["soustraitants"][:15], "#C9972B"))
+        blocs.append(("Visiteurs — par département", e["visiteurs"], "#7C3AED"))
     if o["resto_par_societe"]:
         blocs.append(("Par société (top 10)", d["par_societe"][:10], "#2563EB"))
     for titre, lignes, coul in blocs:
+        if not lignes:
+            continue
         corps += _barres(titre, lignes, coul) if grap else _tableau_occ(titre, lignes, "Total", o)
     if o["resto_par_restaurant"] and o["resto_par_repas"] and len(d["matrice"]) > 0:
         repas_cols = ["Petit-déjeuner", "Déjeuner", "Dîner"]

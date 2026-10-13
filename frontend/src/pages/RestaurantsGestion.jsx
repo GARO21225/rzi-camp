@@ -59,7 +59,7 @@ function Rapport({ restos }) {
   const raccourci = (jours) => { const f = new Date(); setFin(isoJour(f)); setDebut(isoJour(new Date(f.getTime() - (jours - 1) * 86400000))) }
   const csv = () => {
     if (!d) return
-    const lignes = [['Date', 'Repas servis'], ...d.par_jour, [], ['Restaurant', 'Repas'], ...d.par_restaurant, [], ['Superviseur', 'Scans'], ...d.par_superviseur, [], ['Société', 'Repas'], ...d.par_societe]
+    const lignes = [['Date', 'Repas servis'], ...d.par_jour, [], ['Restaurant', 'Repas'], ...d.par_restaurant, [], ['Superviseur', 'Scans'], ...d.par_superviseur, [], ['Entité', 'Repas'], ...(d.par_entite?.types || []), [], ['Département Roxgold', 'Repas'], ...(d.par_entite?.departements || []), [], ['Sous-traitant', 'Repas'], ...(d.par_entite?.soustraitants || []), [], ['Visiteurs', 'Repas'], ...(d.par_entite?.visiteurs || []), [], ['Société', 'Repas'], ...d.par_societe]
     const blob = new Blob(['﻿' + lignes.map(l => l.join(';')).join('\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `repas_${debut}_${fin}.csv`; a.click()
   }
@@ -101,6 +101,10 @@ function Rapport({ restos }) {
         <Barres titre="Par restaurant" data={d.par_restaurant} />
         <Barres titre="Par repas" data={d.par_repas} />
         <Barres titre="Par superviseur (scans effectués)" data={d.par_superviseur} />
+        <Barres titre="Par entité" data={d.par_entite?.types} />
+        <Barres titre="Employés Roxgold — par département" data={d.par_entite?.departements} />
+        <Barres titre="Sous-traitants — par entreprise" data={d.par_entite?.soustraitants} />
+        <Barres titre="Visiteurs — par département" data={d.par_entite?.visiteurs} />
         <Barres titre="Par société" data={d.par_societe} />
         <Barres titre="Affluence par heure" data={d.par_heure} />
         {Object.keys(d.matrice).length > 0 && (

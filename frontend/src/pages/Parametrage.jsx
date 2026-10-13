@@ -1275,7 +1275,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
   const [loading, setLoading] = useState(true)
   const FORM0 = { nom:'', type_rapport:'synthese', frequence:'hebdomadaire', jour_semaine:0, jour_mois:1, heure:'07:00', destinataires:'', horizon_jours:1, seuil_stock:5, details:false,
     jour_reference:'aujourdhui', occ_departements:true, occ_soustraitants:true, occ_visiteurs:true, occ_graphiques:true, occ_tendance:true, jours_tendance:7, masquer_zeros:false,
-    resto_periode:'hier', resto_par_restaurant:true, resto_par_repas:true, resto_par_superviseur:true, resto_par_societe:true, resto_graphiques:true, resto_tendance:true }
+    resto_periode:'hier', resto_par_restaurant:true, resto_par_repas:true, resto_par_superviseur:true, resto_par_societe:true, resto_par_entite:true, resto_graphiques:true, resto_tendance:true }
   const [form, setForm] = useState(FORM0)
   const [types, setTypes] = useState({})
   const [creating, setCreating] = useState(false)
@@ -1301,7 +1301,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
           jour_reference: form.jour_reference, occ_departements: !!form.occ_departements, occ_soustraitants: !!form.occ_soustraitants, occ_visiteurs: !!form.occ_visiteurs,
           occ_graphiques: !!form.occ_graphiques, occ_tendance: !!form.occ_tendance, jours_tendance: Number(form.jours_tendance)||7, masquer_zeros: !!form.masquer_zeros,
           resto_periode: form.resto_periode, resto_par_restaurant: !!form.resto_par_restaurant, resto_par_repas: !!form.resto_par_repas, resto_par_superviseur: !!form.resto_par_superviseur,
-          resto_par_societe: !!form.resto_par_societe, resto_graphiques: !!form.resto_graphiques, resto_tendance: !!form.resto_tendance },
+          resto_par_societe: !!form.resto_par_societe, resto_par_entite: !!form.resto_par_entite, resto_graphiques: !!form.resto_graphiques, resto_tendance: !!form.resto_tendance },
         jour_semaine: form.frequence==='hebdomadaire' ? form.jour_semaine : null,
         jour_mois: form.frequence==='mensuel' ? form.jour_mois : null,
       }
@@ -1320,7 +1320,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
       jour_reference:o.jour_reference ?? 'aujourdhui', occ_departements:o.occ_departements ?? true, occ_soustraitants:o.occ_soustraitants ?? true, occ_visiteurs:o.occ_visiteurs ?? true,
       occ_graphiques:o.occ_graphiques ?? true, occ_tendance:o.occ_tendance ?? true, jours_tendance:o.jours_tendance ?? 7, masquer_zeros:!!o.masquer_zeros,
       resto_periode:o.resto_periode ?? 'hier', resto_par_restaurant:o.resto_par_restaurant ?? true, resto_par_repas:o.resto_par_repas ?? true, resto_par_superviseur:o.resto_par_superviseur ?? true,
-      resto_par_societe:o.resto_par_societe ?? true, resto_graphiques:o.resto_graphiques ?? true, resto_tendance:o.resto_tendance ?? true })
+      resto_par_societe:o.resto_par_societe ?? true, resto_par_entite:o.resto_par_entite ?? true, resto_graphiques:o.resto_graphiques ?? true, resto_tendance:o.resto_tendance ?? true })
     setEditId(r.id)
     window.scrollTo({ top:0, behavior:'smooth' })
   }
@@ -1418,7 +1418,7 @@ function RapportsPlanifiesTab({ isAdmin }) {
                   style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px'}}>
                   <option value="hier">Hier</option><option value="aujourdhui">Aujourd'hui</option><option value="7j">7 derniers jours</option>
                   <option value="semaine">Semaine dernière (lun-dim)</option><option value="mois">Mois en cours</option><option value="mois_precedent">Mois précédent</option></select></label>
-                {[['resto_par_restaurant','Par restaurant'],['resto_par_repas','Par repas'],['resto_par_superviseur','Par superviseur'],['resto_par_societe','Par société'],['resto_graphiques','Graphiques'],['resto_tendance','Tendance par jour']].map(([k,l])=>(
+                {[['resto_par_restaurant','Par restaurant'],['resto_par_repas','Par repas'],['resto_par_superviseur','Par superviseur'],['resto_par_entite','Par entité (Roxgold / sous-traitants / visiteurs)'],['resto_par_societe','Par société'],['resto_graphiques','Graphiques'],['resto_tendance','Tendance par jour']].map(([k,l])=>(
                   <label key={k} style={{display:'flex',gap:5,alignItems:'center',cursor:'pointer'}}>
                     <input type="checkbox" checked={!!form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.checked}))}/> {l}
                   </label>))}

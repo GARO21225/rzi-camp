@@ -139,11 +139,14 @@ def _parse_menu_table(tbl, repas, dates=None):
     if dates is None:
         dates = []
         for c in header:
-            m = re.search(r'(\d{1,2})-(\d{1,2})-(\d{4})', c[2])
+            m = re.search(r'(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4}|\d{2})\b', c[2])
             if not m:
                 raise MenuImportError(f"Date introuvable dans l'en-tête : {c[2]!r}")
             d, mo, y = map(int, m.groups())
-            dates.append(datetime.date(y, mo, d))
+            try:
+                dates.append(datetime.date(y + 2000 if y < 100 else y, mo, d))
+            except ValueError:
+                raise MenuImportError(f"Date invalide dans l'en-tête : {c[2]!r}")
 
     entries = []
     section = None  # (type_plat, label)
@@ -267,7 +270,12 @@ def extraire_menu_semaine(fichier):
     if taste_tbls:
         entries += _parse_taste_tables(taste_tbls, dates)
 
-    # dédoublonnage (ex: "BBQ NIGHT" présent dans le dîner et dans Taste of the World)
+    # dédoublonnage (ex: "BBQ NIGHT" présent dans le dîner ET dans Taste of the World) :
+    # un « thème » (special) déjà servi comme plat le même jour au même repas n'est pas répété
+    def cle_theme(nom):
+        return re.sub(r'[^A-Z0-9]', '', re.sub(r'\([^)]*\)?', '', nom).upper())
+    plats = {(e['date_service'], e['repas'], cle_theme(e['nom'])) for e in entries if e['type_plat'] != 'special'}
+    entries = [e for e in entries if e['type_plat'] != 'special' or (e['date_service'], e['repas'], cle_theme(e['nom'])) not in plats]
     seen, uniq = set(), []
     for e in entries:
         k = (e['date_service'], e['repas'], e['type_plat'], e['nom'].lower())

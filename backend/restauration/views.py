@@ -1502,9 +1502,11 @@ class MenuJourViewSet(viewsets.ModelViewSet):
         cumulé.
         """
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")
-        if not is_admin:
-            return Response({"error": "Admin requis."}, status=403)
+        role = getattr(getattr(u, "profile", None), "role", "")
+        # Meme population que le bouton affiche dans l'ecran Restauration (isResto)
+        # et que bulk() : admin, Camp Boss, equipe Restauration.
+        if not (u.is_staff or u.is_superuser or role in ("admin", "restauration", "camp_boss")):
+            return Response({"error": "Réservé à l'administrateur, au Camp Boss ou à l'équipe Restauration."}, status=403)
 
         fichier = request.FILES.get('fichier')
         if not fichier:
@@ -1518,9 +1520,11 @@ class MenuJourViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": f"Erreur d'import inattendue : {e}"}, status=400)
 
-        supprimes = MenuJour.objects.filter(date_service__in=dates).count()
-        MenuJour.objects.filter(date_service__in=dates).delete()
-        MenuJour.objects.bulk_create([MenuJour(**e) for e in entries])
+        # Atomique : un echec de creation ne doit pas laisser la semaine videe
+        with transaction.atomic():
+            supprimes = MenuJour.objects.filter(date_service__in=dates).count()
+            MenuJour.objects.filter(date_service__in=dates).delete()
+            MenuJour.objects.bulk_create([MenuJour(**e) for e in entries])
 
         return Response({
             "crees": len(entries),

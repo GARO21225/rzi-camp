@@ -9,6 +9,32 @@ from .models import RepasLog
 LIBELLE_REPAS = {"petit_dejeuner": "Petit-déjeuner", "dejeuner": "Déjeuner", "diner": "Dîner"}
 
 
+def _par_entite(qs):
+    """Repas par ENTITE, comme le Camp Occupancy : employés Roxgold (par département),
+    sous-traitants (par entreprise, « Nom - Mère » pour une filiale), visiteurs (par département)."""
+    from residences.models import Departement, Entreprise
+    deps = {d.nom.lower(): d.nom for d in Departement.objects.all()}
+    ents = {e.nom.lower(): e for e in Entreprise.objects.select_related("entreprise_mere")}
+    NR = "Non renseigné"
+    rox, sst, vis = {}, {}, {}
+    for typ, soc, dep, n in qs.values_list("personnel__type_personnel", "personnel__societe", "personnel__departement").annotate(n=Count("id")):
+        soc, dep = (soc or "").strip(), (dep or "").strip()
+        nom_dep = deps.get(dep.lower(), dep or NR)
+        if typ == "visiteur":
+            vis[nom_dep] = vis.get(nom_dep, 0) + n
+        elif typ == "sous_traitant" or (soc and soc.lower() in ents and soc.upper() != "ROXGOLD"):
+            e = ents.get(soc.lower())
+            lib = (f"{e.nom} - {e.entreprise_mere.nom}" if e and e.entreprise_mere_id else (e.nom if e else (soc or "Société non renseignée")))
+            sst[lib] = sst.get(lib, 0) + n
+        elif typ:
+            rox[nom_dep] = rox.get(nom_dep, 0) + n
+        else:   # repas sans fiche personnel rattachée
+            rox[NR] = rox.get(NR, 0) + n
+    tri = lambda d: sorted(d.items(), key=lambda x: -x[1])
+    return {"types": [(l, sum(x.values())) for l, x in (("Employés Roxgold", rox), ("Sous-traitants", sst), ("Visiteurs", vis)) if x],
+            "departements": tri(rox), "soustraitants": tri(sst), "visiteurs": tri(vis)}
+
+
 def agreger(debut, fin, restaurant_ids=None):
     """debut/fin : dates incluses. restaurant_ids : None = tous."""
     qs = RepasLog.objects.filter(date_validation__date__gte=debut, date_validation__date__lte=fin)
@@ -44,7 +70,7 @@ def agreger(debut, fin, restaurant_ids=None):
         "moyenne_par_jour": round(total / nb_jours, 1) if nb_jours else 0,
         "personnes_uniques": uniques,
         "par_jour": serie, "par_repas": par_repas, "par_restaurant": par_resto,
-        "par_superviseur": par_superviseur, "par_societe": par_societe,
+        "par_superviseur": par_superviseur, "par_societe": par_societe, "par_entite": _par_entite(qs),
         "par_heure": [(f"{h:02d}h", n) for h, n in par_heure],
         "matrice": matrice,
     }

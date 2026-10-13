@@ -234,3 +234,34 @@ class RestaurantsSuperviseursTests(TestCase):
         from restauration.menu_import import libelle_semaine
         d = [datetime.date(2026, 10, 5) + datetime.timedelta(days=i) for i in range(7)]
         self.assertEqual(libelle_semaine(d), "Menu du 5-11 octobre 2026")
+
+
+class RapportEntiteEtImportMenuTests(RestaurantsSuperviseursTests):
+    def test_rapport_par_entite(self):
+        from residences.models import Personnel, Departement, Entreprise
+        from restauration.models import RepasLog, QRToken
+        Departement.objects.get_or_create(nom="Process")
+        mere, _ = Entreprise.objects.get_or_create(nom="MOTA ENGIL")
+        Entreprise.objects.update_or_create(nom="JACHRIS", defaults={"entreprise_mere": mere})
+        rox = Personnel.objects.create(nom="R", prenom="x", societe="ROXGOLD", departement="Process")
+        sst = Personnel.objects.create(nom="S", prenom="x", societe="JACHRIS", type_personnel="sous_traitant")
+        vis = Personnel.objects.create(nom="V", prenom="x", societe="AUTRE", type_personnel="visiteur", departement="Process")
+        for p in (rox, sst, vis):
+            qt = QRToken.objects.create(token=f"t{p.pk}", resident="r", expire_le=timezone.now(), utilise=True)
+            RepasLog.objects.create(qr_token=qt, personnel=p)
+        j = timezone.localdate().isoformat()
+        e = self.cb.get(f"/api/restaurants/rapport/?debut={j}&fin={j}").json()["par_entite"]
+        self.assertEqual(dict(map(tuple, e["types"])), {"Employés Roxgold": 1, "Sous-traitants": 1, "Visiteurs": 1})
+        self.assertEqual(e["soustraitants"][0][0], "JACHRIS - MOTA ENGIL")
+        self.assertEqual(e["departements"][0][0], "Process")
+        from accounts.rapports_email import generer_contenu_rapport
+        _, html = generer_contenu_rapport("T", "restauration", {"resto_periode": "aujourdhui"})
+        self.assertIn("JACHRIS - MOTA ENGIL", html)
+
+    def test_import_menu_ouvert_a_l_equipe_restauration(self):
+        # avant : 403 « Admin requis » alors que le bouton etait affiche
+        r = self.cs.post("/api/menu/importer_semaine/", {}, format="multipart")
+        self.assertEqual(r.status_code, 400)
+        simple = __import__("rest_framework.test", fromlist=["APIClient"]).APIClient()
+        simple.force_authenticate(User.objects.create_user("quidam", password="x"))
+        self.assertEqual(simple.post("/api/menu/importer_semaine/", {}, format="multipart").status_code, 403)
