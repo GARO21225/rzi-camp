@@ -39,8 +39,30 @@ export function bip() {
   } catch {}
 }
 
+// Sirène d'urgence (alerte danger / sécurité) : deux tons alternés, plus longue et plus forte qu'un bip.
+// Joue même si le son des notifications est coupé : c'est un signal de sécurité.
+export function alarme() {
+  try {
+    debloquerAudio()
+    if (!audioCtx || audioCtx.state !== 'running') return false
+    const t0 = audioCtx.currentTime
+    for (let i = 0; i < 6; i++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain()
+      o.type = 'square'; o.frequency.value = i % 2 ? 660 : 960
+      g.gain.setValueAtTime(0.0001, t0 + i * 0.3)
+      g.gain.exponentialRampToValueAtTime(0.28, t0 + i * 0.3 + 0.03)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.3 + 0.28)
+      o.connect(g); g.connect(audioCtx.destination)
+      o.start(t0 + i * 0.3); o.stop(t0 + i * 0.3 + 0.29)
+    }
+    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300])
+    return true
+  } catch { return false }
+}
+export const sonDebloque = () => { debloquerAudio(); return !!audioCtx && audioCtx.state === 'running' }
+
 const sigs = (d) => ({
-  notifs: JSON.stringify(d.notifs), demandes: d.demandes?.sig, incidents: d.incidents?.sig, plaintes: d.plaintes?.sig,
+  notifs: JSON.stringify(d.notifs), alertes: d.alertes?.sig, demandes: d.demandes?.sig, incidents: d.incidents?.sig, plaintes: d.plaintes?.sig,
 })
 
 async function tick() {

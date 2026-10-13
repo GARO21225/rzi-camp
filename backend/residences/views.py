@@ -2568,6 +2568,79 @@ class PlainteViewSet(viewsets.ModelViewSet):
         return Response(PlainteSerializer(p).data)
 
     @action(detail=False, methods=["get"])
+    def agents(self, request):
+        """Responsables assignables (techniciens, ménage, superviseurs, admins) + leur charge en cours."""
+        if not self._habilite(request.user):
+            return Response({"error":"Non habilité."}, status=403)
+        from django.db.models import Count
+        roles = ("technicien", "menage", "agent", "superviseur", "manager", "admin")
+        users = (User.objects.filter(is_active=True)
+                 .filter(Q(profile__role__in=roles) | Q(is_staff=True) | Q(is_superuser=True))
+                 .select_related("profile").distinct())
+        charge = dict(Plainte.objects.exclude(statut__in=["resolue","confirmee","cloturee","rejetee"])
+                      .exclude(affecte_a=None).values_list("affecte_a").annotate(n=Count("id")))
+        out = [{
+            "id": u.id, "nom": u.get_full_name() or u.username,
+            "role": getattr(getattr(u, "profile", None), "role", "") or ("admin" if u.is_superuser else ""),
+            "en_cours": charge.get(u.id, 0),
+        } for u in users]
+        out.sort(key=lambda a: (a["en_cours"], a["nom"].lower()))
+        return Response(out)
+
+    @action(detail=True, methods=["get"])
+    def chronologie(self, request, pk=None):
+        """Frise des étapes réelles de la plainte, reconstituée depuis l'historique (qui, quand, quoi)."""
+        p = self.get_object()
+        if not (self._habilite(request.user) or p.utilisateur_id == request.user.id
+                or p.affecte_a_id == request.user.id or p.occupant.user_id == request.user.id):
+            return Response({"error":"Non habilité."}, status=403)
+        noms = {}
+        def nom(uid):
+            if not uid: return None
+            if uid not in noms:
+                u = User.objects.filter(pk=uid).first()
+                noms[uid] = (u.get_full_name() or u.username) if u else None
+            return noms[uid]
+        etapes = []
+        prec = None
+        for h in p.history.all().order_by("history_date", "history_id"):
+            par = nom(h.history_user_id)
+            if prec is None:
+                etapes.append({"cle": "depose", "titre": "Plainte déposée", "detail": (h.categorie or "").replace("_", " "),
+                               "date": h.history_date, "par": nom(h.utilisateur_id) or par})
+            else:
+                if h.affecte_a_id != prec.affecte_a_id:
+                    if not h.affecte_a_id:
+                        etapes.append({"cle": "retiree", "titre": "Affectation retirée", "detail": f"Ancien responsable : {nom(prec.affecte_a_id)}", "date": h.history_date, "par": par})
+                    elif prec.affecte_a_id:
+                        etapes.append({"cle": "reaffectee", "titre": "Réaffectée", "detail": f"{nom(prec.affecte_a_id)} → {nom(h.affecte_a_id)}", "date": h.history_date, "par": par})
+                    else:
+                        etapes.append({"cle": "affectee", "titre": "Affectée", "detail": f"Responsable : {nom(h.affecte_a_id)}", "date": h.history_date, "par": par})
+                if h.statut != prec.statut:
+                    libelle = dict(Plainte.STATUT_CHOICES).get(h.statut, h.statut)
+                    if h.statut == "affectee":
+                        pass  # déjà décrit par l'étape d'affectation
+                    elif h.statut == "a_qualifier" and not h.affecte_a_id and prec.affecte_a_id:
+                        pass  # idem (retrait)
+                    else:
+                        detail = ""
+                        if h.statut == "en_attente":
+                            detail = h.get_motif_attente_display() if h.motif_attente else ""
+                        elif h.statut == "rejetee":
+                            detail = h.motif_rejet or ""
+                        elif h.statut == "reouverte":
+                            detail = h.motif_reouverture or ""
+                        elif h.statut == "resolue":
+                            detail = h.action_resolution or ""
+                        etapes.append({"cle": h.statut, "titre": libelle, "detail": detail, "date": h.history_date,
+                                       "par": nom(h.resolu_par_id) if h.statut == "resolue" and h.resolu_par_id else
+                                              (nom(h.prise_en_charge_par_id) if h.statut == "prise_en_charge" and h.prise_en_charge_par_id else par)})
+            prec = h
+        for e in etapes:
+            e["date"] = e["date"].isoformat() if e["date"] else None
+        return Response({"etapes": etapes, "statut": p.statut, "affecte_a": p.affecte_a_id, "affecte_a_nom": nom(p.affecte_a_id)})
+
+    @action(detail=False, methods=["get"])
     def dashboard(self, request):
         """Section 38-39 : compteurs par statut + indicateurs de base."""
         if not self._habilite(request.user):
@@ -2770,7 +2843,12 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Build history queryset — no mandatory filter, show all if no criteria
         qs = OccupationHistory.objects.select_related("batiment","personnel").all()
-        if batiment_q:
+        # « exact=1 » (choix d'une chambre précise) : A2 ne ramène plus A20…A29,
+        # mais inclut les places d'une chambre partagée (A2-A, A2-B → groupe « A2 »).
+        exact = request.query_params.get("exact", "") in ("1", "true")
+        if batiment_q and exact:
+            qs = qs.filter(Q(batiment__residence__iexact=batiment_q) | Q(batiment__groupe_chambre__iexact=batiment_q))
+        elif batiment_q:
             qs = qs.filter(batiment__residence__icontains=batiment_q)
         if personnel_id:
             qs = qs.filter(personnel_id=personnel_id)
@@ -2791,7 +2869,9 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Also include current batiment occupants not yet in history
         bats_qs = Batiment.objects.select_related("personnel").filter(statut="Occupé")
-        if batiment_q:
+        if batiment_q and exact:
+            bats_qs = bats_qs.filter(Q(residence__iexact=batiment_q) | Q(groupe_chambre__iexact=batiment_q))
+        elif batiment_q:
             bats_qs = bats_qs.filter(residence__icontains=batiment_q)
         if personnel_id:
             bats_qs = bats_qs.filter(personnel_id=personnel_id)
@@ -2803,9 +2883,11 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
                 Q(residence__icontains=nom_search)
             )
 
-        existing_bat_ids = set(qs.values_list("batiment_id", flat=True))
+        # Occupant actuel déjà couvert par une ligne d'historique OUVERTE de la même personne ?
+        # (avant : toute ligne d'historique de la chambre masquait l'occupant actuel)
+        ouverts = set(OccupationHistory.objects.filter(date_depart__isnull=True).values_list("batiment_id", "personnel_id"))
         for b in bats_qs:
-            if b.id not in existing_bat_ids and b.date_arrivee:
+            if (b.id, b.personnel_id) not in ouverts and b.date_arrivee:
                 d1 = b.date_arrivee
                 days = (today - d1).days
                 results.append({
@@ -2843,7 +2925,9 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             })
 
         results.sort(key=lambda x: x["date_arrivee"], reverse=True)
-        return Response({"count":len(results),"results":results})
+        personnes = {(r["personnel_id"] or r["occupant"]) for r in results}
+        return Response({"count":len(results),"results":results,
+                         "resume": {"nb_personnes": len(personnes), "nuits_total": sum(r["duree_jours"] for r in results)}})
 
 
 

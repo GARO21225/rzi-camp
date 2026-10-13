@@ -84,12 +84,24 @@ class Evenement(models.Model):
             # jamais eu de groupe choisi (avant l'ajout de ce systeme).
             residents = Personnel.objects.filter(batiments__statut="Occupé").distinct()
         created = 0
+        urgent = self.type_event in ("alerte", "securite")
         for p in residents:
             _, ok = Notification.objects.get_or_create(
                 evenement=self, personnel=p,
                 defaults={"envoye_par": self.cree_par}
             )
-            if ok: created += 1
+            if ok:
+                created += 1
+                # Notification « cloche » + son : sans cela, seul le personnel
+                # (fiche liée) voyait la ligne dans la liste, jamais de signal
+                # temps réel (le pulse ne suit que SimpleNotification).
+                if p.user_id:
+                    SimpleNotification.objects.create(
+                        user_id=p.user_id,
+                        titre=("🚨 " if urgent else "📅 ") + self.titre,
+                        message=(self.description or "")[:200],
+                        type_notif="alerte" if urgent else "info",
+                    )
         return created
 
 

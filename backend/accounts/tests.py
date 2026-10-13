@@ -835,3 +835,23 @@ class DiagnosticLectureSeuleTests(TestCase):
         d = c.get("/api/diagnostic/").json()
         self.assertIn("compteurs", d); self.assertEqual(d["migrations_en_attente"], 0)
         self.assertEqual(c.post("/api/force-seed/", {"secret": "roxgold2026"}, format="json").status_code, 404)
+
+
+class RapportInstantaneTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.admin = User.objects.create_superuser("adm_ri", "a@a.com", "pass")
+        self.simple = User.objects.create_user("simple_ri", "s@a.com", "pass")
+        self.c = APIClient()
+
+    def test_admin_obtient_le_rapport_restauration_en_html_riche(self):
+        self.c.force_authenticate(self.admin)
+        r = self.c.get("/api/rapports-planifies/instantane/", {"type": "restauration", "resto_periode": "7j"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("TABLEAU DE BORD RESTAURATION", r.data["html"])
+
+    def test_type_inconnu_et_non_admin(self):
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.get("/api/rapports-planifies/instantane/", {"type": "x"}).status_code, 400)
+        self.c.force_authenticate(self.simple)
+        self.assertEqual(self.c.get("/api/rapports-planifies/instantane/", {"type": "occupation"}).status_code, 403)

@@ -111,7 +111,7 @@ const CHAMPS = [
 ]
 
 const LIENS_RAPIDES = [
-  { to: '/restaurants',     label: 'Restaurants & superviseurs', icon: '🍽️', desc: 'Affectations, rapport des repas, réglages du scan' },
+  { to: '/restaurants',     label: 'Restaurants & superviseurs', icon: '🍽️', desc: 'Affectation des superviseurs par restaurant et réglages du scan (le tableau de bord est dans la page Restauration)' },
   { to: '/boutique',        label: 'Menu du jour & Boutique', icon: '🍽️', desc: 'Articles, prix, stock' },
   { to: '/mon-compte',      label: 'Mon compte', icon: '👤', desc: 'Mot de passe, informations personnelles' },
 ]
@@ -1029,7 +1029,7 @@ const PAGES_ASSIGNABLES = [
   ['/personnel', '👤 Personnel'], ['/presences', '🟢 Présences'], ['/induction', '🎓 Induction QHSE'],
   ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
   ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],
-  ['/restauration', '🍽️ Restauration'], ['/restaurants', '👨‍🍳 Restaurants & rapport'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
+  ['/restauration', '🍽️ Restauration'], ['/restaurants', '👨‍🍳 Restaurants & superviseurs'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
   ['/maintenance', '🛠️ Maintenance'], ['/plaintes', '🚨 Plaintes'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
   // Boutique POS, Centre Opérationnel, Workflow Hub, Induction (administration) : SUSPENDUS (doublons

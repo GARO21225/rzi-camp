@@ -1,4 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
+import { rapportsPlanifiesAPI } from '../api'
+import { useStore } from '../store'
+import { toast } from '../toast'
+const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
 import { useNavigate } from 'react-router-dom'
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin
@@ -442,8 +446,7 @@ tr:last-child td{border-bottom:none}
 }
 
 // ── Composant principal ────────────────────────────────────────────────
-export default function RapportsPage() {
-  const navigate = useNavigate()
+function RapportGlobalPdf() {
   const [loading,  setLoading]  = useState(false)
   const [progress, setProgress] = useState('')
   const [periode,  setPeriode]  = useState({debut:'',fin:''})
@@ -506,23 +509,8 @@ export default function RapportsPage() {
   ]
 
   return (
-    <div style={{padding:24,background:'var(--rzc-charcoal)',minHeight:'100%'}}>
-      <div style={{maxWidth:800,margin:'0 auto'}}>
-
-        {/* Header */}
-        <div style={{marginBottom:28, display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10}}>
-          <div>
-            <h1 style={{fontSize:22,fontWeight:900,color:'#0f172a',margin:0}}>📋 Rapports</h1>
-            <p style={{fontSize:13,color:'var(--rzc-text-3)',margin:'6px 0 0'}}>
-              Génération automatique de rapports détaillés sur tous les périmètres
-            </p>
-          </div>
-          <button onClick={()=>navigate('/analytics')}
-            style={{ display:'flex', alignItems:'center', gap:6, background:'var(--rzc-navy)', color:'#fff',
-              border:'none', padding:'8px 14px', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-            📈 Voir les graphiques (Analytics)
-          </button>
-        </div>
+    <div>
+      <div>
 
         {/* Rapport global */}
         <div style={{background:'var(--rzc-white)',borderRadius:16,border:'1px solid #e2e8f0',
@@ -635,6 +623,126 @@ export default function RapportsPage() {
             pour imprimer ou sauvegarder en PDF. Choisissez "Enregistrer au format PDF" comme imprimante 
             pour obtenir un fichier PDF téléchargeable.
           </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Rapport « à la volée » : même contenu que l'email, affiché pleine largeur ──
+const TYPES_INSTANT = {
+  occupation:  { titre: '🏕️ Camp Occupancy', desc: 'Chambres occupées — départements, sous-traitants, visiteurs' },
+  residences:  { titre: '🏠 Résidences', desc: 'Occupation, départs et arrivées, + Camp Occupancy' },
+  maintenance: { titre: '🛠️ Maintenance', desc: 'Incidents, SLA, techniciens' },
+  mobilite:    { titre: '✈️ Mobilité', desc: 'Départs et retours à venir' },
+  boutique:    { titre: '🛒 Boutique & stock', desc: 'Ventes et alertes de stock' },
+  synthese:    { titre: '📊 Synthèse générale', desc: 'Tout, comme le rapport automatique' },
+}
+
+function RapportInstantane({ type }) {
+  const [opts, setOpts] = useState({ jour_reference: 'aujourdhui', jours_tendance: 7, masquer_zeros: false, horizon_jours: 7, seuil_stock: 5, details: false, resto_periode: '7j' })
+  const [data, setData] = useState(null)
+  const [chargement, setChargement] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const [mail, setMail] = useState(false)
+  const [emails, setEmails] = useState('')
+  const [envoi, setEnvoi] = useState(false)
+
+  useEffect(() => {
+    let vivant = true
+    setChargement(true); setErreur('')
+    rapportsPlanifiesAPI.instantane({ type, ...opts })
+      .then(r => { if (vivant) setData(r.data) })
+      .catch(e => { if (vivant) setErreur(e.response?.data?.error || 'Rapport indisponible') })
+      .finally(() => { if (vivant) setChargement(false) })
+    return () => { vivant = false }
+  }, [type, JSON.stringify(opts)])
+
+  const champ = { border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: '#fff' }
+  const envoyer = async () => {
+    const liste = emails.split(/[,;\s]+/).filter(Boolean)
+    if (!liste.length) return toast.error('Saisissez au moins une adresse')
+    setEnvoi(true)
+    try {
+      const r = await rapportsPlanifiesAPI.envoyerInstantane({ type, emails: liste, ...opts })
+      toast.success(`Envoyé à ${r.data.envoyes} destinataire(s)`); setMail(false)
+    } catch (e) { toast.error(e.response?.data?.error || 'Envoi impossible') }
+    setEnvoi(false)
+  }
+
+  return (
+    <div>
+      <div className="no-print" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+        <div style={{ fontSize: 12.5, color: '#64748b', flex: '1 1 260px' }}>{TYPES_INSTANT[type].desc}</div>
+        {['occupation', 'residences', 'synthese'].includes(type) && (<>
+          <select value={opts.jour_reference} onChange={e => setOpts(o => ({ ...o, jour_reference: e.target.value }))} style={champ}>
+            <option value="aujourdhui">Situation d'aujourd'hui</option><option value="hier">Situation d'hier</option></select>
+          <select value={opts.jours_tendance} onChange={e => setOpts(o => ({ ...o, jours_tendance: Number(e.target.value) }))} style={champ}>
+            {[7, 14, 30].map(n => <option key={n} value={n}>Tendance {n} j</option>)}</select>
+          <label style={{ fontSize: 12.5, display: 'flex', gap: 5, alignItems: 'center' }}><input type="checkbox" checked={opts.masquer_zeros} onChange={e => setOpts(o => ({ ...o, masquer_zeros: e.target.checked }))} /> Masquer les zéros</label>
+        </>)}
+        {['maintenance', 'mobilite', 'synthese'].includes(type) && (
+          <select value={opts.horizon_jours} onChange={e => setOpts(o => ({ ...o, horizon_jours: Number(e.target.value) }))} style={champ}>
+            {[1, 3, 7, 14, 30].map(n => <option key={n} value={n}>Horizon {n} j</option>)}</select>)}
+        {['boutique', 'synthese'].includes(type) && (
+          <label style={{ fontSize: 12.5 }}>Seuil stock <input type="number" min="0" value={opts.seuil_stock} onChange={e => setOpts(o => ({ ...o, seuil_stock: e.target.value }))} style={{ ...champ, width: 64 }} /></label>)}
+        <label style={{ fontSize: 12.5, display: 'flex', gap: 5, alignItems: 'center' }}><input type="checkbox" checked={opts.details} onChange={e => setOpts(o => ({ ...o, details: e.target.checked }))} /> Détails</label>
+        <button onClick={() => window.print()} style={{ ...champ, cursor: 'pointer', fontWeight: 700 }}>🖨️ Imprimer</button>
+        <button onClick={() => setMail(m => !m)} style={{ background: '#0f2a5c', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5 }}>✉️ Envoyer par email</button>
+      </div>
+      {mail && (
+        <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <input value={emails} onChange={e => setEmails(e.target.value)} placeholder="adresses séparées par une virgule" style={{ ...champ, flex: '1 1 320px' }} />
+          <button disabled={envoi} onClick={envoyer} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontWeight: 700 }}>{envoi ? 'Envoi…' : 'Envoyer'}</button>
+        </div>)}
+      {erreur ? <div style={{ padding: 24, background: '#fef2f2', color: '#b91c1c', borderRadius: 12 }}>{erreur}</div>
+        : chargement && !data ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Génération…</div>
+        : data && (
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 20, opacity: chargement ? .6 : 1, transition: 'opacity .2s' }}>
+            <div dangerouslySetInnerHTML={{ __html: data.html }} />
+          </div>)}
+    </div>
+  )
+}
+
+// ── Composant principal : centre de rapports pleine page ──
+export default function RapportsPage() {
+  const navigate = useNavigate()
+  const { user } = useStore()
+  const role = user?.profile?.role
+  const isAdmin = !!(user?.is_staff || user?.is_superuser) || role === 'admin'
+  const voitResto = isAdmin || ['restauration', 'camp_boss'].includes(role)
+  const modules = [
+    ...(voitResto ? [['resto', '🍽️ Restauration', 'Tableau de bord complet, par restaurant et entité']] : []),
+    ...(isAdmin ? Object.entries(TYPES_INSTANT).map(([k, v]) => [k, v.titre, v.desc]) : []),
+    ['pdf', '📄 Rapport global PDF', 'Hébergement, personnel, incidents, voyages, boutique'],
+  ]
+  const [module, setModule] = useState(modules[0][0])
+
+  return (
+    <div className="rzc-page-scope" style={{ padding: '16px 20px', width: '100%', boxSizing: 'border-box' }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0f2a5c', margin: 0 }}>📋 Rapports</h1>
+          <p style={{ fontSize: 12.5, color: '#64748b', margin: '4px 0 0' }}>Les mêmes rapports que ceux envoyés par email, à consulter, imprimer ou envoyer à la demande.</p>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {isAdmin && <button onClick={() => navigate('/parametrage')} style={{ background: '#fff', color: '#0f2a5c', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✉️ Rapports automatiques (Paramétrage)</button>}
+          <button onClick={() => navigate('/analytics')} style={{ background: '#0f2a5c', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>📈 Analytics</button>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 230px) minmax(0, 1fr)', gap: 18, alignItems: 'start' }} className="rapports-grille">
+        <style>{`@media (max-width: 800px){ .rapports-grille{ grid-template-columns: minmax(0,1fr) !important } .rapports-rail{ flex-direction: row !important; overflow-x:auto } .rapports-rail button{ flex-shrink:0 } } @media print{ .rapports-rail{ display:none !important } .rapports-grille{ grid-template-columns: 1fr !important } }`}</style>
+        <div className="rapports-rail no-print" style={{ display: 'flex', flexDirection: 'column', gap: 6, position: 'sticky', top: 8 }}>
+          {modules.map(([k, l, d]) => (
+            <button key={k} onClick={() => setModule(k)} title={d}
+              style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 10, border: '1px solid ' + (module === k ? '#0f2a5c' : '#e2e8f0'), cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                background: module === k ? '#0f2a5c' : '#fff', color: module === k ? '#fff' : '#334155' }}>{l}</button>))}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          {module === 'resto' && <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement…</div>}><RestoTableauDeBord /></Suspense>}
+          {TYPES_INSTANT[module] && <RapportInstantane key={module} type={module} />}
+          {module === 'pdf' && <RapportGlobalPdf />}
         </div>
       </div>
     </div>

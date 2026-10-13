@@ -53,6 +53,7 @@ try {
 } catch {}
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
+import AlerteLive from './components/AlerteLive'
 import { useTheme } from './hooks/useTheme'
 
 // ── Enregistrement Service Worker (offline mode) ──────────────
@@ -261,6 +262,7 @@ export default function App() {
       <ToastContainer />
       <InactivityWarning />
       {token && <EventNotifBanner />}
+      {token && <AlerteLive />}
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>

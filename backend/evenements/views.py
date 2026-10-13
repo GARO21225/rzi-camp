@@ -110,7 +110,15 @@ class EvenementViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         if not self._is_admin(request.user):
             return Response({"error":"Admin uniquement"}, status=403)
-        return super().create(request, *args, **kwargs)
+        reponse = super().create(request, *args, **kwargs)
+        # La page envoie notifier_residents=true à la création : ce champ
+        # était ignoré (personne n'était notifié tant que l'admin ne cliquait
+        # pas « Notifier » ensuite). Désormais appliqué, sauf refus explicite.
+        voulu = request.data.get("notifier_residents", True)
+        if reponse.status_code == 201 and str(voulu).lower() not in ("false", "0", "no", ""):
+            evt = Evenement.objects.filter(pk=reponse.data.get("id")).first()
+            reponse.data["residents_notifies"] = evt.notifier_residents() if evt else 0
+        return reponse
 
     def update(self, request, *args, **kwargs):
         if not self._is_admin(request.user):

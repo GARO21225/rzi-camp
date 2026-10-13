@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { evenements as evtAPI } from '../api'
+import { bip } from '../utils/pulse'
 
 // ── Notification Style Glovo ────────────────────────────────────
 // Affiche les événements récents sous forme de banner coloré
@@ -33,6 +34,7 @@ export default function EventNotifBanner() {
       if (fresh.length > 0) {
         // Afficher seulement le plus récent
         setNotifs([fresh[0]])
+        bip()
         // Marquer comme vu après 8s
         setTimeout(() => {
           const updated = [...seen, fresh[0].id]
@@ -47,7 +49,7 @@ export default function EventNotifBanner() {
     // Vérifier au montage
     const timer = setTimeout(checkEvents, 2000)
     // Vérifier toutes les 2 minutes
-    const interval = setInterval(checkEvents, 2 * 60 * 1000)
+    const interval = setInterval(checkEvents, 30 * 1000)
     // Écouter les nouvelles notifs du SW
     const onMsg = (e) => {
       if (e.data?.type === 'NEW_EVENT') checkEvents()
@@ -66,11 +68,12 @@ export default function EventNotifBanner() {
   const typeColors = {
     urgence:  { bg: '#dc2626', accent: '#fca5a5', icon: '🚨' },
     reunion:  { bg: '#2563eb', accent: '#bfdbfe', icon: '📅' },
+    alerte:   { bg: '#dc2626', accent: '#fca5a5', icon: '🚨' },
     social:   { bg: '#7c3aed', accent: '#ddd6fe', icon: '🎉' },
     securite: { bg: '#ea580c', accent: '#fed7aa', icon: '🛡️' },
     info:     { bg: '#0891b2', accent: '#cffafe', icon: 'ℹ️' },
   }
-  const style = typeColors[evt.type_evenement] || { bg: 'var(--rzc-navy)', accent: '#bfdbfe', icon: '📢' }
+  const style = typeColors[evt.type_event === 'alerte' ? 'urgence' : evt.type_event] || { bg: 'var(--rzc-navy)', accent: '#bfdbfe', icon: '📢' }
 
   return (
     <div

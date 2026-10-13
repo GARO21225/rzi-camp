@@ -57,6 +57,18 @@ export default function Plaintes() {
   const [editModal, setEditModal] = useState(false)
   const [editForm, setEditForm] = useState({categorie:'', sous_categorie:'', description:'', commentaire:''})
   const STATUTS_CLOTURES = ['cloturee','rejetee']
+  const [agents, setAgents] = useState([])
+  const [agentChoisi, setAgentChoisi] = useState('')
+  const [frise, setFrise] = useState(null)
+  const chargerFrise = useCallback(async (id) => {
+    setFrise(null)
+    try { const r = await plaintesAPI.chronologie(id); setFrise(r.data) } catch { setFrise({ etapes: [] }) }
+  }, [])
+  useEffect(() => {
+    if (!detailModal) { setFrise(null); setAgentChoisi(''); return }
+    chargerFrise(detailModal.id)
+    if (isAdmin && agents.length === 0) plaintesAPI.agents().then(r => setAgents(r.data || [])).catch(() => {})
+  }, [detailModal?.id])
 
   const charger = useCallback(async () => {
     setLoading(true)
@@ -113,10 +125,13 @@ export default function Plaintes() {
 
   const actionAdmin = async (id, action, data, successMsg) => {
     try {
-      await plaintesAPI[action](id, data)
+      const r = await plaintesAPI[action](id, data)
       toast.success(successMsg)
       setActionForm({}); charger()
-      if (detailModal) setDetailModal(null)
+      if (detailModal) {
+        if (['affecter','retirer'].includes(action) && r?.data?.id) { setDetailModal(r.data); setAgentChoisi(''); chargerFrise(id) }
+        else setDetailModal(null)
+      }
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
 
@@ -428,6 +443,33 @@ export default function Plaintes() {
               {detailModal.occupant_nom} · {detailModal.batiment_residence} · {new Date(detailModal.date_creation).toLocaleString('fr-FR')}
             </div>
 
+            {/* Frise des étapes */}
+            <div style={{margin:'0 0 14px', padding:'12px 14px', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10}}>
+              <div style={{fontSize:12, fontWeight:800, marginBottom:10, color:'#0f172a'}}>Suivi de la plainte</div>
+              {!frise ? <div style={{fontSize:12, color:'#94a3b8'}}>Chargement…</div> :
+               frise.etapes.length === 0 ? <div style={{fontSize:12, color:'#94a3b8'}}>Aucune étape enregistrée.</div> : (
+                <div>
+                  {frise.etapes.map((e, i) => {
+                    const dernier = i === frise.etapes.length - 1
+                    const c = {depose:'#3b82f6', retiree:'#ef4444', reaffectee:'#8b5cf6', affectee:'#8b5cf6', prise_en_charge:'#06b6d4', en_cours:'#f97316', en_attente:'#94a3b8', resolue:'#22c55e', confirmee:'#16a34a', cloturee:'#64748b', rejetee:'#ef4444', reouverte:'#dc2626', a_qualifier:'#f59e0b'}[e.cle] || '#64748b'
+                    return (
+                      <div key={i} style={{display:'flex', gap:12}}>
+                        <div style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                          <div style={{width:14, height:14, borderRadius:7, background: dernier ? c : '#fff', border:`3px solid ${c}`, boxSizing:'border-box', flexShrink:0, boxShadow: dernier ? `0 0 0 4px ${c}25` : 'none'}}/>
+                          {!dernier && <div style={{width:2, flex:1, minHeight:22, background:'#e2e8f0'}}/>}
+                        </div>
+                        <div style={{paddingBottom: dernier ? 0 : 12, minWidth:0}}>
+                          <div style={{fontSize:12.5, fontWeight:800, color:c}}>{e.titre}</div>
+                          {e.detail && <div style={{fontSize:12, color:'#334155'}}>{e.detail}</div>}
+                          <div style={{fontSize:10.5, color:'#94a3b8'}}>{new Date(e.date).toLocaleString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}{e.par ? ` · ${e.par}` : ''}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Modifier/Supprimer : admin toujours (correction d'une
                 erreur de saisie, meme tardive) ; occupant uniquement tant
                 que sa plainte n'a pas encore ete traitee ("nouvelle") -
@@ -459,18 +501,37 @@ export default function Plaintes() {
                 <button onClick={()=>actionAdmin(detailModal.id, 'qualifier', actionForm, 'Plainte qualifiée')} style={{width:'100%', background:'#8b5cf6', color:'#fff', border:'none', padding:9, borderRadius:7, cursor:'pointer', fontWeight:700, marginTop:8}}>Qualifier</button>
               </div>
             )}
-            {isAdmin && ['a_qualifier','affectee'].includes(detailModal.statut) && (
-              <div style={{background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12}}>
-                <div style={{fontSize:12, fontWeight:700, marginBottom:8}}>Affecter / Prendre en charge</div>
-                {/* BUG REEL CORRIGE ICI : envoyait actionForm.affecte_a, qui
-                    n'est JAMAIS renseigné nulle part dans ce formulaire (aucun
-                    champ ne l'alimente) — le bouton envoyait donc toujours
-                    affecte_a:null, et le backend (qui l'exige) répondait
-                    systématiquement "affecte_a requis." Pour "Affecter à moi",
-                    la bonne valeur est l'id de l'utilisateur CONNECTÉ. */}
-                <button onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: user.id}, 'Affectée')} style={{background:'#06b6d4', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, marginRight:6}}>Affecter à moi</button>
-                <button onClick={()=>actionAdmin(detailModal.id, 'prendreEnCharge', {}, 'Prise en charge')} style={{background:'#f97316', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700}}>Prendre en charge</button>
+            {isAdmin && !['cloturee','rejetee','resolue','confirmee'].includes(detailModal.statut) && (
+              <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:12, marginBottom:12}}>
+                <div style={{fontSize:12, fontWeight:700, marginBottom:8}}>👤 Responsable</div>
+                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+                  {detailModal.affecte_a ? (
+                    <>
+                      <span style={{background:'#ede9fe', color:'#6d28d9', fontWeight:800, fontSize:12.5, padding:'5px 12px', borderRadius:99}}>{detailModal.affecte_a_nom}</span>
+                      <button onClick={async()=>{ if (await confirmDialog(`Retirer ${detailModal.affecte_a_nom} de cette plainte ?`)) actionAdmin(detailModal.id, 'retirer', undefined, 'Affectation retirée') }}
+                        style={{background:'#fff', color:'#dc2626', border:'1px solid #fecaca', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:11.5}}>✕ Retirer</button>
+                    </>
+                  ) : <span style={{fontSize:12, color:'#94a3b8'}}>Personne d'affecté pour le moment</span>}
+                </div>
+                <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                  <select value={agentChoisi} onChange={e=>setAgentChoisi(e.target.value)} style={{flex:'1 1 180px', padding:8, borderRadius:7, border:'1px solid #e2e8f0', fontSize:12.5}}>
+                    <option value="">{detailModal.affecte_a ? 'Réaffecter à…' : 'Affecter à…'}</option>
+                    {agents.filter(a => a.id !== detailModal.affecte_a).map(a => <option key={a.id} value={a.id}>{a.nom} — {a.role || 'compte'} · {a.en_cours} en cours</option>)}
+                  </select>
+                  <button disabled={!agentChoisi} onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: Number(agentChoisi)}, detailModal.affecte_a ? 'Réaffectée' : 'Affectée')}
+                    style={{background: agentChoisi ? '#7c3aed' : '#cbd5e1', color:'#fff', border:'none', padding:'8px 14px', borderRadius:7, cursor: agentChoisi ? 'pointer' : 'default', fontWeight:700, fontSize:12.5}}>
+                    {detailModal.affecte_a ? '↻ Réaffecter' : 'Affecter'}
+                  </button>
+                  {detailModal.affecte_a !== user?.id && (
+                    <button onClick={()=>actionAdmin(detailModal.id, 'affecter', {affecte_a: user.id}, 'Affectée à moi')}
+                      style={{background:'#06b6d4', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:12.5}}>Moi</button>
+                  )}
+                </div>
               </div>
+            )}
+            {(isAdmin || detailModal.affecte_a === user?.id) && detailModal.statut === 'affectee' && (
+              <button onClick={()=>actionAdmin(detailModal.id, 'prendreEnCharge', {}, 'Prise en charge')}
+                style={{width:'100%', background:'#f97316', color:'#fff', border:'none', padding:10, borderRadius:8, cursor:'pointer', fontWeight:700, marginBottom:12}}>▶ Prendre en charge</button>
             )}
             {isAdmin && ['prise_en_charge','en_cours','en_attente'].includes(detailModal.statut) && (
               <div style={{background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12}}>

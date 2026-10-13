@@ -2,12 +2,13 @@
  * RESTAURATION — Scanner QR Personnel
  * Interface complète pour le restaurant : scan QR + historique + statistiques
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useStore } from '../store'
 import { qr as qrAPI, restaurants as restosAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI, parametres as parametresAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { toast, confirmDialog } from '../toast'
+const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
 
 // ── Configuration repas ───────────────────────────────────────────
 // Valeurs par défaut (repli si le paramétrage n'a pas pu être chargé) —
@@ -680,6 +681,7 @@ export default function Restauration() {
   const importMenuInputRef = useRef(null)
   const rechargeRef = useRef(null)
   const [mesRestos, setMesRestos] = useState([])
+  const [vue, setVue] = useState('scan')   // 'scan' | 'dashboard' (tableau de bord, pleine page)
   const [restoId, setRestoId] = useState('')
   useEffect(() => {
     restosAPI.mes().then(r => {
@@ -803,10 +805,30 @@ export default function Restauration() {
   }, [typeRepas])
 
 
+  const barreVues = isResto && (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+      {[['scan', '📷 Scan & menu'], ['dashboard', '📊 Tableau de bord']].map(([k, l]) => (
+        <button key={k} onClick={() => setVue(k)}
+          style={{ padding: '8px 16px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
+            background: vue === k ? '#0f2a5c' : '#e2e8f0', color: vue === k ? '#fff' : '#475569' }}>{l}</button>))}
+    </div>
+  )
+  if (isResto && vue === 'dashboard') {
+    return (
+      <div className="rzc-page-scope" style={{ padding: isMobile ? 12 : '16px 20px', width: '100%', boxSizing: 'border-box' }}>
+        {barreVues}
+        <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement…</div>}>
+          <RestoTableauDeBord />
+        </Suspense>
+      </div>
+    )
+  }
+
   // ── Interface Restaurant (scan personnel) ──
   if (isResto) {
     return (
       <div className="rzc-page-scope" style={{ padding: 16 }}>
+        {barreVues}
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'baseline' : 'flex-start', marginBottom: 16 }}>
           <div>

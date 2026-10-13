@@ -63,7 +63,7 @@ export const ROLE_NAV = {
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
     { to:'/restauration', label:'🍽️ Restauration' },
-    { to:'/restaurants', label:'👨‍🍳 Restaurants & rapport' },
+    { to:'/restaurants', label:'👨‍🍳 Restaurants & superviseurs' },
   ],
   technicien: [
     { to:'/carte', label:'🗺️ Carte GIS' },

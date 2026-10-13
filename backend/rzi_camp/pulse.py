@@ -34,6 +34,14 @@ def _calculer(u):
         pass
     out["notifs"] = {"non_lues": (a["non_lues"] or 0) + ev, "dernier": a["dernier"] or 0}
 
+    # Alertes campus + événements d'urgence : visibles de TOUT utilisateur
+    # connecté (même sans fiche personnel, ex. compte admin) pour déclencher
+    # bannière + sirène en temps réel.
+    from evenements.models import AlerteCampus, Evenement
+    al = AlerteCampus.objects.filter(active=True).aggregate(n=Count("id"), dernier=Max("id"))
+    ev = Evenement.objects.filter(type_event__in=["alerte", "securite"], statut__in=["planifie", "en_cours"]).aggregate(n=Count("id"), dernier=Max("id"))
+    out["alertes"] = {"sig": _sig({**al, "e": ev["n"], "ed": ev["dernier"]})}
+
     from residences.models import Demande, Plainte
     dq = Demande.objects.all() if admin else Demande.objects.filter(demandeur=u)
     a = dq.aggregate(n=Count("id"), att=Count("id", filter=Q(statut="en_attente")), prop=Count("id", filter=Q(statut="proposition")),

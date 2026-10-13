@@ -813,3 +813,93 @@ class BatimentNomsTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn({"residence": "R-7", "bloc": "B"}, r.json()["residences"])
         self.assertNotIn("personnel", str(r.json()))
+
+
+class PlainteAssignationEtFriseTests(TestCase):
+    """Assigner / réassigner / retirer + frise d'étapes reconstituée depuis l'historique."""
+
+    def setUp(self):
+        self.rf = APIRequestFactory()
+        self.admin = _admin()
+        self.t1 = User.objects.create_user("tech1", "t1@a.com", "pass", first_name="Awa", last_name="Tech")
+        self.t2 = User.objects.create_user("tech2", "t2@a.com", "pass", first_name="Ben", last_name="Tech")
+        from accounts.models import Profile
+        for u in (self.t1, self.t2):
+            Profile.objects.update_or_create(user=u, defaults={"role": "technicien"})
+        occ_u = User.objects.create_user("occup", "o@a.com", "pass")
+        occ = Personnel.objects.create(nom="Zadi", prenom="Eric", societe="ROXGOLD", numero="PF1", telephone="1", type_personnel="roxgold", user=occ_u)
+        Batiment.objects.create(residence="D01", bloc="D", statut="Occupé", personnel=occ)
+        req = self.rf.post("/api/plaintes/", {"categorie": "Electricite", "sous_categorie": "prise", "description": "Prise HS"}, format="json")
+        force_authenticate(req, user=occ_u)
+        self.pk = PlainteViewSet.as_view({"post": "create"})(req).data["id"]
+
+    def _post(self, action, data=None):
+        req = self.rf.post(f"/api/plaintes/{self.pk}/{action}/", data or {}, format="json")
+        force_authenticate(req, user=self.admin)
+        return PlainteViewSet.as_view({"post": action})(req, pk=self.pk)
+
+    def _get(self, action, detail=True):
+        req = self.rf.get(f"/api/plaintes/{self.pk}/{action}/")
+        force_authenticate(req, user=self.admin)
+        view = PlainteViewSet.as_view({"get": action})
+        return view(req, pk=self.pk) if detail else view(req)
+
+    def test_agents_liste_les_techniciens_avec_charge(self):
+        self._post("affecter", {"affecte_a": self.t1.id})
+        noms = {a["id"]: a for a in self._get("agents", detail=False).data}
+        self.assertIn(self.t1.id, noms)
+        self.assertEqual(noms[self.t1.id]["en_cours"], 1)
+        self.assertEqual(noms[self.t2.id]["en_cours"], 0)
+
+    def test_affecter_reaffecter_retirer_et_frise(self):
+        self.assertEqual(self._post("affecter", {"affecte_a": self.t1.id}).status_code, 200)
+        self.assertEqual(self._post("affecter", {"affecte_a": self.t2.id}).data["affecte_a"], self.t2.id)
+        r = self._post("retirer")
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.data["affecte_a"])
+        cles = [e["cle"] for e in self._get("chronologie").data["etapes"]]
+        self.assertEqual(cles[0], "depose")
+        self.assertEqual(cles[1:4], ["affectee", "reaffectee", "retiree"])
+
+    def test_agents_refuse_un_simple_occupant(self):
+        occ_u = User.objects.get(username="occup")
+        req = self.rf.get("/api/plaintes/agents/")
+        force_authenticate(req, user=occ_u)
+        self.assertEqual(PlainteViewSet.as_view({"get": "agents"})(req).status_code, 403)
+
+
+class HistoriqueChambreExacteTests(TestCase):
+    """Chambre A2 : ne ramène pas A20…A29, liste tous les occupants (passés + actuel) et un résumé."""
+
+    def setUp(self):
+        import datetime
+        from .models import OccupationHistory
+        self.admin = _admin()
+        self.rf = APIRequestFactory()
+        self.a2 = Batiment.objects.create(residence="A2", bloc="A", statut="Occupé")
+        self.a21 = Batiment.objects.create(residence="A21", bloc="A", statut="Libre")
+        d = datetime.date
+        OccupationHistory.objects.create(batiment=self.a2, occupant_nom="Un", date_arrivee=d(2025, 1, 1), date_depart=d(2025, 1, 11))
+        OccupationHistory.objects.create(batiment=self.a2, occupant_nom="Deux", date_arrivee=d(2025, 2, 1), date_depart=d(2025, 2, 6))
+        OccupationHistory.objects.create(batiment=self.a21, occupant_nom="Intrus", date_arrivee=d(2025, 3, 1), date_depart=d(2025, 3, 3))
+        actuel = Personnel.objects.create(nom="Actuel", prenom="P", societe="ROXGOLD", numero="HC1", telephone="1", type_personnel="roxgold")
+        self.a2.personnel, self.a2.occupant, self.a2.date_arrivee = actuel, "Actuel P", d(2025, 6, 1)
+        self.a2.save()
+        # l'occupant actuel a déjà une ligne d'historique pour une autre personne : il doit rester visible
+        self.view = None
+
+    def _rech(self, **params):
+        from .views import OccupationHistoryViewSet
+        req = self.rf.get("/api/occupation-history/recherche/", params)
+        force_authenticate(req, user=self.admin)
+        return OccupationHistoryViewSet.as_view({"get": "recherche"})(req).data
+
+    def test_exact_exclut_a21_et_inclut_occupant_actuel(self):
+        r = self._rech(batiment="A2", exact=1)
+        noms = sorted(x["occupant"] for x in r["results"])
+        self.assertEqual(noms, ["Actuel P", "Deux", "Un"])
+        self.assertEqual(r["resume"]["nb_personnes"], 3)
+
+    def test_sans_exact_comportement_historique(self):
+        noms = {x["occupant"] for x in self._rech(batiment="A2")["results"]}
+        self.assertIn("Intrus", noms)

@@ -322,9 +322,10 @@ export default function Historique() {
     batiment:'',     // dropdown sélection
     batiment_saisie:'', // saisie libre
     nom:'',          // nom occupant (saisie libre)
-    date_debut: yearAgoStr,
-    date_fin: todayStr
+    date_debut: '',   // vide = toute l'histoire de la chambre (avant : 1 an seulement)
+    date_fin: ''
   })
+  const [resumeChambre, setResumeChambre] = useState(null)
   const [personneQ, setPersonneQ] = useState({personnel:'', date_debut:yearAgoStr, date_fin:todayStr})
   const [selPers, setSelPers] = useState('')
 
@@ -343,12 +344,14 @@ export default function Historique() {
       const p = {}
       const bat = chambreQ.batiment_saisie || chambreQ.batiment
       if (bat) p.batiment = bat
+      if (chambreQ.batiment && !chambreQ.batiment_saisie) p.exact = 1   // choix dans la liste = chambre précise
       if (chambreQ.nom) p.nom = chambreQ.nom
       if (chambreQ.date_debut) p.date_debut = chambreQ.date_debut
       if (chambreQ.date_fin) p.date_fin = chambreQ.date_fin
       // If no filter at all, still search (show all)
       const r = await occupationHistory.recherche(p)
       setResults(r.data.results||r.data||[])
+      setResumeChambre(bat ? { chambre: bat, ...(r.data.resume || {}) } : null)
     } catch(e) { toast.error('Erreur: '+(e.response?.data?JSON.stringify(e.response.data):e.message)) }
     finally { setLoading(false) }
   }
@@ -552,7 +555,7 @@ export default function Historique() {
                 💡 Sans filtre → affiche <b>toutes les occupations</b>
               </div>
               <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>{setChambreQ({batiment:'',batiment_saisie:'',nom:'',date_debut:yearAgoStr,date_fin:todayStr})}}
+                <button onClick={()=>{setChambreQ({batiment:'',batiment_saisie:'',nom:'',date_debut:'',date_fin:''}); setResumeChambre(null)}}
                   style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text-dim)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:12}}>
                   ✕ Reset
                 </button>
@@ -564,6 +567,13 @@ export default function Historique() {
             </div>
           </SearchCard>
 
+          {resumeChambre && searched && (
+            <div style={{marginBottom:10,background:'linear-gradient(135deg,#0f2a5c,#1e40af)',color:'#fff',borderRadius:12,padding:'14px 18px',display:'flex',gap:22,alignItems:'center',flexWrap:'wrap'}}>
+              <div style={{fontSize:15,fontWeight:800}}>🏠 Chambre {resumeChambre.chambre}</div>
+              <div><span style={{fontSize:24,fontWeight:900}}>{resumeChambre.nb_personnes ?? '—'}</span> <span style={{fontSize:12,opacity:.85}}>personne(s) ont dormi ici</span></div>
+              <div><span style={{fontSize:24,fontWeight:900}}>{resumeChambre.nuits_total ?? '—'}</span> <span style={{fontSize:12,opacity:.85}}>nuit(s) au total</span></div>
+            </div>
+          )}
           {results.length>0 && (
             <div style={{marginBottom:10,display:'flex',justifyContent:'flex-end'}}>
               <button onClick={exportChambre}

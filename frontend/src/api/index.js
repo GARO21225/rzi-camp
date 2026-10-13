@@ -445,6 +445,8 @@ export const rapportsPlanifiesAPI = {
   types:  ()      => api.get('/api/rapports-planifies/types/'),
   envoyer:(id)    => api.post(`/api/rapports-planifies/${id}/envoyer/`),
   apercu: (id)    => api.get(`/api/rapports-planifies/${id}/apercu/`),
+  instantane: (params) => api.get('/api/rapports-planifies/instantane/', { params }),
+  envoyerInstantane: (d) => api.post('/api/rapports-planifies/envoyer_instantane/', d),
 }
 
 // ── Mot de passe ──
@@ -496,6 +498,8 @@ export const plaintes = {
   qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
   affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
   retirer: (id) => api.post(`/api/plaintes/${id}/retirer/`, {}),
+  agents: () => api.get('/api/plaintes/agents/'),
+  chronologie: (id) => api.get(`/api/plaintes/${id}/chronologie/`),
   demarrer: (id) => api.post(`/api/plaintes/${id}/demarrer/`, {}),
   prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
   traiter: (id, d) => api.post(`/api/plaintes/${id}/traiter/`, d),

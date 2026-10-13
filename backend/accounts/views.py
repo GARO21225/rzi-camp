@@ -533,6 +533,60 @@ class RapportPlanifieViewSet(viewsets.ModelViewSet):
             return Response({"error": "Échec : " + " ; ".join(erreurs)}, status=400)
         return Response({"ok": True, "destinataires": r.destinataires, "erreurs": erreurs})
 
+    def _options_requete(self, data):
+        """Options d'un rapport « à la volée » (page Rapports) : uniquement les clés connues, valeurs booléennes normalisées."""
+        from .rapports_email import OPTIONS_DEFAUT
+        opts = {}
+        for k in OPTIONS_DEFAUT:
+            if k in data:
+                v = data.get(k)
+                if isinstance(v, str) and v.lower() in ("true", "false"):
+                    v = v.lower() == "true"
+                opts[k] = v
+        return opts
+
+    @action(detail=False, methods=["get"], url_path="instantane")
+    def instantane(self, request):
+        """Rapport généré à la demande (même contenu que l'email) — alimente la page Rapports."""
+        err = self._check(request)
+        if err: return err
+        from .rapports_email import generer_contenu_rapport, TYPES
+        t = request.query_params.get("type", "synthese")
+        if t not in TYPES:
+            return Response({"error": "Type inconnu"}, status=400)
+        try:
+            largeur = max(480, min(1400, int(request.query_params.get("largeur", 960))))
+        except ValueError:
+            largeur = 960
+        sujet, corps = generer_contenu_rapport(TYPES[t].split(" — ")[0], t, self._options_requete(request.query_params), largeur=largeur)
+        return Response({"sujet": sujet, "html": corps})
+
+    @action(detail=False, methods=["post"], url_path="envoyer_instantane")
+    def envoyer_instantane(self, request):
+        """Envoie le rapport affiché à des adresses saisies (sans créer de planification)."""
+        err = self._check(request)
+        if err: return err
+        from .rapports_email import generer_contenu_rapport, TYPES
+        from .email import envoyer_email
+        from .models import Parametre
+        t = request.data.get("type", "synthese")
+        if t not in TYPES:
+            return Response({"error": "Type inconnu"}, status=400)
+        emails = [e.strip() for e in (request.data.get("emails") or []) if "@" in str(e)]
+        if not emails:
+            return Response({"error": "Aucune adresse valide."}, status=400)
+        if Parametre.get('email_provider', 'test') == 'test':
+            return Response({"error": "Le fournisseur email est sur « test » (aucun envoi réel) : passe email_provider = resend dans Paramétrage → Connexion par Email."}, status=400)
+        sujet, corps = generer_contenu_rapport(TYPES[t].split(" — ")[0], t, self._options_requete(request.data))
+        ok_n, erreurs = 0, []
+        for dest in emails[:20]:
+            ok, info = envoyer_email(dest, sujet, corps, type_message="rapport", campagne="Rapport à la demande")
+            if ok: ok_n += 1
+            else: erreurs.append(f"{dest} : {info}")
+        if not ok_n:
+            return Response({"error": "Échec : " + " ; ".join(erreurs)}, status=400)
+        return Response({"ok": True, "envoyes": ok_n, "erreurs": erreurs})
+
     @action(detail=True, methods=["get"], url_path="apercu")
     def apercu(self, request, pk=None):
         err = self._check(request)

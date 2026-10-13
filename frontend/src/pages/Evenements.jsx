@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { alarme } from '../utils/pulse'
 import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupesAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
@@ -219,14 +220,14 @@ export default function Evenements() {
   const ALERTE_COLORS = { info:'var(--rzc-blue)', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
 
   return (
-    <div style={{ padding:'16px' }}>
+    <div style={{ padding: isMobile ? '16px' : '20px 24px', width:'100%', boxSizing:'border-box' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems: isMobile ? 'baseline' : 'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
           <h2 style={{ fontSize: isMobile ? 20 : 19, fontWeight:700, color: isMobile ? '#0F1A2E' : 'var(--blue)' }}>{isMobile ? 'Événements' : '📅 Événements du Campus'}</h2>
           {isMobile ? (
             <span style={{ fontSize:12.5, color:'#5B6472', fontWeight:600 }}>{events.length} au total</span>
           ) : (
-            <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications automatiques aux résidents · WebSocket temps réel</p>
+            <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications aux résidents · alertes avec sirène en temps réel</p>
           )}
         </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -240,6 +241,9 @@ export default function Evenements() {
             ) : (
               isAdmin && (
                 <>
+                  <button onClick={()=>{ alarme() || toast.warning('Cliquez d\'abord sur la page pour autoriser le son') }} title="Tester la sirène sur cet appareil" style={{ background:'var(--surface2)', color:'var(--text-dim)', border:'1px solid var(--border)', padding:'7px 12px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                    🔊 Tester le son
+                  </button>
                   <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
                     ⚠️ Alerte campus
                   </button>
@@ -309,6 +313,8 @@ export default function Evenements() {
       </div>
       )}
 
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) 340px', gap:20, alignItems:'start' }}>
+      <div style={{ minWidth:0 }}>
       {/* Tabs — chips défilables horizontalement sur mobile (4 onglets ne
           tiennent pas confortablement sur 390px en largeur égale) */}
       <div style={{ display:'flex', gap: isMobile ? 8 : 2, marginBottom:16,
@@ -345,7 +351,7 @@ export default function Evenements() {
               <div key={evt.id} style={ isMobile ? {
                   background:'#fff', border: estTermine ? '1px solid rgba(15,26,46,.10)' : evt.statut==='en_cours' ? '1px solid rgba(22,163,74,.35)' : '1px solid rgba(15,26,46,.10)',
                   borderRadius:14, padding:13, marginBottom:10, display:'flex', flexDirection:'column', gap:12, opacity:estTermine?0.7:1, minWidth:0, maxWidth:'100%', boxSizing:'border-box', overflow:'hidden',
-                } : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection:'row', gap:14, opacity:estTermine?0.7:1 }}>
+                } : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:16, marginBottom:10, boxShadow:'var(--shadow)', display:'flex', flexDirection:'column', gap:12, opacity:estTermine?0.7:1, borderLeft:`4px solid ${tc.color}` }}>
                 <div style={{ display:'flex', gap: isMobile ? 12 : 14, width: isMobile ? '100%' : 'auto' }}>
                   {/* Type icon */}
                   <div style={{ width: isMobile ? 40 : 52, height: isMobile ? 40 : 52, borderRadius: isMobile ? 10 : 12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize: isMobile ? 18 : 24, flexShrink:0 }}>
@@ -397,8 +403,8 @@ export default function Evenements() {
 
                 {/* Actions — colonne étroite sur desktop, ligne défilante
                     pleine largeur sous la carte sur mobile (pattern chip) */}
-                <div style={{ display:'flex', flexDirection: isMobile ? 'row' : 'column', gap:6, flexShrink:0,
-                  flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                <div style={{ display:'flex', flexDirection:'row', gap:6, flexShrink:0, flexWrap:'wrap',
+                  ...(isMobile ? {} : { paddingTop:10, borderTop:'1px solid var(--border)' }) }}>
                   {evt.qr_requis && !estTermine && (
                     <button onClick={()=>{
                         setQrModal({evt}); setQrResult(null); setBoissonChoix(''); setPersonnelPourQui('')
@@ -441,6 +447,46 @@ export default function Evenements() {
           )}
         </div>
       )}
+
+      </div>
+      {!isMobile && (
+        <aside style={{ display:'flex', flexDirection:'column', gap:14, position:'sticky', top:12 }}>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:14, boxShadow:'var(--shadow)' }}>
+            <div style={{ fontSize:12, fontWeight:800, textTransform:'uppercase', letterSpacing:1, color:'#ea580c', marginBottom:10 }}>▶ En cours ({enCoursListe.length})</div>
+            {enCoursListe.length===0 ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>Rien en ce moment.</div> : enCoursListe.map(e=>(
+              <div key={e.id} style={{ padding:'7px 0', borderTop:'1px solid var(--border)' }}>
+                <div style={{ fontSize:13, fontWeight:700 }}>{e.titre}</div>
+                <div style={{ fontSize:11, color:'var(--text-dim)' }}>{e.lieu||'—'}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:14, boxShadow:'var(--shadow)' }}>
+            <div style={{ fontSize:12, fontWeight:800, textTransform:'uppercase', letterSpacing:1, color:'#16a34a', marginBottom:10 }}>🗓️ Prochains ({upcoming.length})</div>
+            {upcoming.length===0 ? <div style={{ fontSize:12, color:'var(--text-dim)' }}>Aucun événement planifié.</div> : [...upcoming].sort((x,y)=>new Date(x.date_debut)-new Date(y.date_debut)).slice(0,6).map(e=>{
+              const d = new Date(e.date_debut)
+              return (
+                <div key={e.id} style={{ display:'flex', gap:10, padding:'8px 0', borderTop:'1px solid var(--border)' }}>
+                  <div style={{ width:44, textAlign:'center', background:'var(--surface2)', borderRadius:8, padding:'4px 0', flexShrink:0 }}>
+                    <div style={{ fontSize:17, fontWeight:800, lineHeight:1 }}>{d.getDate()}</div>
+                    <div style={{ fontSize:9.5, textTransform:'uppercase', color:'var(--text-dim)' }}>{d.toLocaleDateString('fr-FR',{month:'short'})}</div>
+                  </div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.titre}</div>
+                    <div style={{ fontSize:11, color:'var(--text-dim)' }}>{d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}{e.lieu?` · ${e.lieu}`:''}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {alertes.length>0 && (
+            <div style={{ background:'rgba(220,38,38,.06)', border:'1px solid rgba(220,38,38,.25)', borderRadius:12, padding:14 }}>
+              <div style={{ fontSize:12, fontWeight:800, textTransform:'uppercase', letterSpacing:1, color:'#dc2626', marginBottom:8 }}>🚨 Alertes actives ({alertes.length})</div>
+              {alertes.map(a=><div key={a.id} style={{ fontSize:12.5, padding:'5px 0', borderTop:'1px solid rgba(220,38,38,.15)' }}>{a.message}</div>)}
+            </div>
+          )}
+        </aside>
+      )}
+      </div>
 
       {/* CREATE MODAL */}
       {modal && (

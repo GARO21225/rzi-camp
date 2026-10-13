@@ -339,74 +339,17 @@ LIBELLE_PERIODE_RESTO = {"aujourdhui": "aujourd'hui", "hier": "hier", "7j": "7 d
 
 def _sec_restauration(o, today):
     from restauration.rapport import agreger, bornes
+    from restauration.rapport_email import html_dashboard
     debut, fin = bornes(o["resto_periode"], today, o.get("resto_debut"), o.get("resto_fin"))
     d = agreger(debut, fin, today=today)
     quand = f"{debut:%d/%m/%Y}" if debut == fin else f"{debut:%d/%m/%Y} → {fin:%d/%m/%Y}"
-    corps = (f"<div style='font-size:12px;color:#64748b;margin-bottom:6px'>{_e(LIBELLE_PERIODE_RESTO[o['resto_periode']])} · {quand}</div>")
-    prec = d["precedent"]["total"]
-    if prec:
-        delta = round((d["total"] - prec) / prec * 100)
-        var = f"{'▲' if delta > 0 else '▼' if delta < 0 else '='} {abs(delta)} % vs période précédente ({prec})"
-        coul_var = "#16A34A" if delta >= 0 else "#DC2626"
-    else:
-        var, coul_var = "", "#64748B"
-    tuiles = [("Repas servis", d["total"], "#0F2A5C"), ("Moyenne / jour", d["moyenne_par_jour"], "#2563EB"),
-              ("Personnes distinctes", d["personnes_uniques"], "#16A34A")]
-    if d["couverture"] is not None:
-        tuiles.append(("Couverture repas", f"{d['couverture']} %", "#C9972B"))
-    corps += _kpis(tuiles)
-    if var:
-        corps += f"<div style='font-size:12px;font-weight:700;color:{coul_var};margin:2px 0 8px'>{var}</div>"
-    if not d["total"]:
-        corps += "<p style='font-size:12.5px;color:#64748b'>Aucun repas scanné sur la période.</p>"
-    sat = d["satisfaction"]
-    if sat["nb"]:
-        corps += f"<div style='font-size:12.5px;color:#334155;margin:6px 0'>⭐ Satisfaction : <b>{sat['moyenne']}/5</b> sur {sat['nb']} avis</div>"
-    for a_ in d["alertes"]:
-        coul = "#DC2626" if a_["niveau"] == "rouge" else "#D97706"
-        corps += f"<div style='font-size:12px;color:{coul};margin:3px 0'>⚠️ {_e(a_['texte'])}</div>"
-    if not d["total"]:
-        return _titre("🍽️ Restauration") + corps
-    grap = o["resto_graphiques"]
-    blocs = []
-    if o["resto_par_restaurant"]:
-        blocs.append(("Par restaurant", d["par_restaurant"], "#0F2A5C"))
-    if o["resto_par_repas"]:
-        blocs.append(("Par repas", d["par_repas"], "#C9972B"))
-    if o["resto_par_superviseur"]:
-        blocs.append(("Par superviseur (scans)", d["par_superviseur"][:10], "#7C3AED"))
-    if o["resto_par_entite"]:
-        e = d["par_entite"]
-        blocs.append(("Par entité", e["types"], "#0F2A5C"))
-        blocs.append(("Employés Roxgold — par département", e["departements"], "#2563EB"))
-        blocs.append(("Sous-traitants — par entreprise", e["soustraitants"][:15], "#C9972B"))
-        blocs.append(("Visiteurs — par département", e["visiteurs"], "#7C3AED"))
-    if o["resto_par_societe"]:
-        blocs.append(("Par société (top 10)", d["par_societe"][:10], "#2563EB"))
-    for titre, lignes, coul in blocs:
-        if not lignes:
-            continue
-        corps += _barres(titre, lignes, coul) if grap else _tableau_occ(titre, lignes, "Total", o)
-    if o["resto_par_restaurant"] and o["resto_par_repas"] and len(d["matrice"]) > 0:
-        repas_cols = ["Petit-déjeuner", "Déjeuner", "Dîner"]
-        ent = "".join(f"<th align='right' style='padding:4px 8px;font-size:11px;color:#fff;background:#0F2A5C'>{c}</th>" for c in repas_cols)
-        lig = "".join(
-            f"<tr><td style='padding:4px 8px;font-size:12.5px;border-bottom:1px solid #e2e8f0'>{_e(r)}</td>" +
-            "".join(f"<td align='right' style='padding:4px 8px;font-size:12.5px;border-bottom:1px solid #e2e8f0'>{m.get(c, 0)}</td>" for c in repas_cols) + "</tr>"
-            for r, m in d["matrice"].items())
-        corps += (f"<div style='font-size:12px;font-weight:700;color:#475569;margin:14px 0 4px'>Restaurant × repas</div>"
-                  f"<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='border:1px solid #e2e8f0'><tr><th align='left' style='padding:4px 8px;font-size:11px;color:#fff;background:#0F2A5C'>Restaurant</th>{ent}</tr>{lig}</table>")
-    if o["resto_tendance"] and d["nb_jours"] > 1 and grap:
-        corps += _colonnes("Repas servis par jour", [(f"{x['date'][8:10]}/{x['date'][5:7]}", x["total"]) for x in d["serie"]][-31:])
-    if o["details"] and d["par_heure"]:
-        corps += _barres("Affluence par heure", d["par_heure"], "#16A34A", pct_total=False)
-    return _titre("🍽️ Restauration — repas servis") + corps
+    return _titre("🍽️ Restauration") + html_dashboard(d, o, LIBELLE_PERIODE_RESTO[o["resto_periode"]], quand)
 
 
 SECTIONS = {"residences": _sec_residences, "occupation": _sec_occupation, "maintenance": _sec_maintenance, "mobilite": _sec_mobilite, "boutique": _sec_boutique, "restauration": _sec_restauration}
 
 
-def generer_contenu_rapport(nom, type_rapport="synthese", options=None):
+def generer_contenu_rapport(nom, type_rapport="synthese", options=None, largeur=600):
     o = options_effectives(options)
     today = timezone.localtime(timezone.now()).date()
     if type_rapport == "residences":
@@ -416,7 +359,7 @@ def generer_contenu_rapport(nom, type_rapport="synthese", options=None):
     corps = "".join(SECTIONS[c](o, today) for c in cles)
     sujet = f"📊 {nom} — {today:%d/%m/%Y}"
     html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+    <div style="font-family:Arial,sans-serif;max-width:{largeur}px;margin:0 auto">
       <div style="background:#0F2A5C;color:#fff;padding:20px;border-radius:10px 10px 0 0">
         <h2 style="margin:0">{_e(nom)}</h2>
         <p style="margin:4px 0 0;opacity:.8">Roxgold SiteLife — {today:%d/%m/%Y}</p>
