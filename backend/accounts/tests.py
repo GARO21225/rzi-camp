@@ -855,3 +855,18 @@ class RapportInstantaneTests(TestCase):
         self.assertEqual(self.c.get("/api/rapports-planifies/instantane/", {"type": "x"}).status_code, 400)
         self.c.force_authenticate(self.simple)
         self.assertEqual(self.c.get("/api/rapports-planifies/instantane/", {"type": "occupation"}).status_code, 403)
+
+
+class AnalyticsEndpointTests(TestCase):
+    def test_structure_et_auth(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        c = APIClient()
+        self.assertEqual(c.get("/api/analytics/").status_code, 401)
+        c.force_authenticate(User.objects.create_user("an1", "a@a.com", "pass"))
+        r = c.get("/api/analytics/?jours=14")
+        self.assertEqual(r.status_code, 200)
+        for k in ("parc", "personnel", "incidents", "voyages"):
+            self.assertIn(k, r.data)
+        self.assertEqual(len(r.data["parc"]["tendance"]), 14)
+        self.assertEqual(len(r.data["voyages"]["programme"]), 14)

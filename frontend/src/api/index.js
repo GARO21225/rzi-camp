@@ -437,6 +437,8 @@ export const rolesAPI = {
   delete: (id)    => api.delete(`/api/roles/${id}/`),
 }
 
+export const analyticsAPI = { get: (jours = 30) => api.get('/api/analytics/', { params: { jours } }) }
+
 export const rapportsPlanifiesAPI = {
   list:   ()      => api.get('/api/rapports-planifies/'),
   create: (d)     => api.post('/api/rapports-planifies/', d),

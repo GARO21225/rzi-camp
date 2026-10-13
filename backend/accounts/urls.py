@@ -7,11 +7,14 @@ router = DefaultRouter()
 router.register('roles', RoleCustomViewSet, basename='role-custom')
 router.register('rapports-planifies', RapportPlanifieViewSet, basename='rapport-planifie')
 
+from .analytics import analytics as analytics_vue
+
 urlpatterns = [
     path("", include(router.urls)),
     path("forgot-password/", views.forgot_password, name="forgot_password"),
     path("reset-password-confirm/", views.reset_password_confirm, name="reset_password_confirm"),
     path("diagnostic/", views.diagnostic_status, name="diagnostic"),
+    path("analytics/", analytics_vue, name="analytics"),
     path("change-password/", views.change_password, name="change_password"),
     path("reset-password/<int:user_id>/", views.reset_user_password, name="reset_user_password"),
     path("auth/me/", me),

@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
-import { rapportsPlanifiesAPI } from '../api'
+import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
+import { rapportsPlanifiesAPI, incidents as incAPI } from '../api'
+import { genererRapport } from '../utils/rapportMaintenance'
 import { useStore } from '../store'
 import { toast } from '../toast'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
@@ -705,6 +706,61 @@ function RapportInstantane({ type }) {
   )
 }
 
+
+// ── Maintenance : le rapport complet du tableau de bord (graphiques, SLA, techniciens) + version e-mail ──
+function RapportMaintenance() {
+  const [vue, setVue] = useState('complet')
+  const [incidents, setIncidents] = useState(null)
+  const [stats, setStats] = useState({})
+  const [periode, setPeriode] = useState({ debut: '', fin: '' })
+  const [erreur, setErreur] = useState('')
+
+  useEffect(() => {
+    Promise.all([incAPI.list({ page_size: 500 }), incAPI.stats()])
+      .then(([a, b]) => { setIncidents(a.data?.results || a.data || []); setStats(b.data || {}) })
+      .catch(() => setErreur('Incidents indisponibles'))
+  }, [])
+
+  const html = useMemo(() => {
+    if (!incidents) return ''
+    const liste = incidents.filter(i => {
+      if (periode.debut && new Date(i.date_creation) < new Date(periode.debut)) return false
+      if (periode.fin && new Date(i.date_creation) > new Date(periode.fin + 'T23:59:59')) return false
+      return true
+    })
+    return genererRapport(liste, stats, periode)
+  }, [incidents, stats, periode])
+
+  const champ = { border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: '#fff' }
+  const onglet = v => ({ padding: '7px 16px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
+    background: vue === v ? '#0f2a5c' : '#e2e8f0', color: vue === v ? '#fff' : '#334155' })
+  const imprimer = () => {
+    const w = window.open('', '_blank')
+    if (!w) return toast.error('Autorisez les fenêtres pour imprimer')
+    w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400)
+  }
+
+  return (
+    <div>
+      <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <button style={onglet('complet')} onClick={() => setVue('complet')}>📊 Rapport complet</button>
+        <button style={onglet('email')} onClick={() => setVue('email')}>✉️ Version e-mail</button>
+        {vue === 'complet' && (<>
+          <span style={{ marginLeft: 'auto', fontSize: 12.5, color: '#64748b' }}>Du</span>
+          <input type="date" value={periode.debut} onChange={e => setPeriode(p => ({ ...p, debut: e.target.value }))} style={champ} />
+          <span style={{ fontSize: 12.5, color: '#64748b' }}>au</span>
+          <input type="date" value={periode.fin} onChange={e => setPeriode(p => ({ ...p, fin: e.target.value }))} style={champ} />
+          <button onClick={imprimer} disabled={!incidents} style={{ ...champ, cursor: 'pointer', fontWeight: 700 }}>🖨️ Imprimer</button>
+        </>)}
+      </div>
+      {vue === 'email' ? <RapportInstantane key="maintenance" type="maintenance" />
+        : erreur ? <div style={{ padding: 24, background: '#fef2f2', color: '#b91c1c', borderRadius: 12 }}>{erreur}</div>
+        : !incidents ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement…</div>
+        : <iframe title="Rapport maintenance" srcDoc={html.replace('</head>', '<style>body>.no-print{display:none!important}</style></head>')} style={{ width: '100%', height: 'calc(100vh - 190px)', minHeight: 520, border: '1px solid #e2e8f0', borderRadius: 14, background: '#fff' }} />}
+    </div>
+  )
+}
+
 // ── Composant principal : centre de rapports pleine page ──
 export default function RapportsPage() {
   const navigate = useNavigate()
@@ -741,7 +797,8 @@ export default function RapportsPage() {
         </div>
         <div style={{ minWidth: 0 }}>
           {module === 'resto' && <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>⏳ Chargement…</div>}><RestoTableauDeBord /></Suspense>}
-          {TYPES_INSTANT[module] && <RapportInstantane key={module} type={module} />}
+          {module === 'maintenance' && <RapportMaintenance />}
+          {TYPES_INSTANT[module] && module !== 'maintenance' && <RapportInstantane key={module} type={module} />}
           {module === 'pdf' && <RapportGlobalPdf />}
         </div>
       </div>

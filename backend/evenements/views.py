@@ -117,7 +117,9 @@ class EvenementViewSet(viewsets.ModelViewSet):
         voulu = request.data.get("notifier_residents", True)
         if reponse.status_code == 201 and str(voulu).lower() not in ("false", "0", "no", ""):
             evt = Evenement.objects.filter(pk=reponse.data.get("id")).first()
-            reponse.data["residents_notifies"] = evt.notifier_residents() if evt else 0
+            nouveaux = evt.notifier_residents() if evt else 0
+            reponse.data["residents_notifies"] = getattr(evt, "total_cible", 0)
+            reponse.data["nouveaux"] = nouveaux
         return reponse
 
     def update(self, request, *args, **kwargs):
@@ -322,8 +324,9 @@ class EvenementViewSet(viewsets.ModelViewSet):
         if not self._is_admin(request.user):
             return Response({"error":"Admin uniquement"}, status=403)
         evt = self.get_object()
-        n = evt.notifier_residents()
-        return Response({"ok":True,"residents_notifies":n})
+        nouveaux = evt.notifier_residents()
+        # total = public ciblé (déjà notifiés inclus) ; « nouveaux » = envois réellement créés
+        return Response({"ok":True,"residents_notifies":evt.total_cible,"nouveaux":nouveaux})
 
     @action(detail=True, methods=["patch"])
     def changer_statut(self, request, pk=None):

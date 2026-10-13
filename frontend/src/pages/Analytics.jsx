@@ -2,11 +2,11 @@
  * ANALYTICS v2 — Tableau de bord intelligence métier
  * Statistiques avancées pour la direction du camp
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { batiments, incidents, voyages as voyAPI, personnel as personnelAPI } from '../api'
+import { analyticsAPI } from '../api'
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from 'recharts'
 
@@ -154,220 +154,156 @@ function RapportHSESousTraitants() {
   )
 }
 
+const STATUT_PARC = { 'Occupé':['Occupées', C.blue], 'Libre':['Libres', C.green], 'Réservé':['Réservées', C.orange], 'Maintenance':['En maintenance', C.red] }
+const STATUT_INC = { declare:['Déclarés','#3b82f6'], assigne:['Assignés','#f97316'], en_cours:['En cours','#eab308'], resolu:['Résolus','#16a34a'], cloture:['Clôturés','#64748b'], annule:['Annulés','#cbd5e1'] }
+const PRIO = { critique:['Critique','#dc2626'], haute:['Haute','#f97316'], moyenne:['Moyenne','#eab308'], basse:['Basse','#16a34a'] }
+const TYPE_PERS = { roxgold:'Roxgold', sous_traitant:'Sous-traitants', visiteur:'Visiteurs' }
+const jourCourt = iso => new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'short' })
+
+const Carte = ({ titre, children, span, aide }) => (
+  <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'18px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.05)', gridColumn: span ? `span ${span}` : undefined, minWidth:0 }}>
+    <div style={{ fontWeight:800, fontSize:14, color:'var(--rzc-navy)' }}>{titre}</div>
+    {aide && <div style={{ fontSize:11.5, color:'#94a3b8', margin:'2px 0 0' }}>{aide}</div>}
+    <div style={{ marginTop:14 }}>{children}</div>
+  </div>
+)
+
+const Barre = ({ libelle, n, max, couleur, suffixe }) => (
+  <div style={{ marginBottom:10 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, marginBottom:4, gap:8 }}>
+      <span style={{ fontWeight:600, color:'#334155', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{libelle}</span>
+      <span style={{ fontWeight:800, color:couleur }}>{n}{suffixe || ''}</span>
+    </div>
+    <div style={{ height:7, background:'#f1f5f9', borderRadius:20, overflow:'hidden' }}>
+      <div style={{ width:`${max ? Math.min(100, n / max * 100) : 0}%`, height:'100%', background:couleur, borderRadius:20 }} />
+    </div>
+  </div>
+)
+
 export default function Analytics() {
   const navigate = useNavigate()
-  const [bats,  setBats]  = useState(null)
-  const [inc,   setInc]   = useState(null)
-  const [voy,   setVoy]   = useState(null)
-  const [perso, setPerso] = useState([])
-  const [tab,   setTab]   = useState('residence')
+  const [d, setD] = useState(null)
+  const [erreur, setErreur] = useState('')
+  const [jours, setJours] = useState(30)
+  const [tab, setTab] = useState('residence')
 
   useEffect(() => {
-    batiments.stats().then(r => {
-      const d = r.data, ps = d.par_statut || {}
-      setBats({
-        total:       d.total || 203,
-        libres:      ps['Libre'] || 0,
-        occupes:     ps['Occupé'] || 0,
-        reserves:    ps['Réservé'] || 0,
-        maintenance: ps['Maintenance'] || 0,
-        taux:        d.taux_occupation || 0,
-        par_bloc:    d.par_bloc || [],
-        departs_s1:  d.departs_s1 || 0,
-      })
-    }).catch(() => {})
-    incidents.stats().then(r => setInc(r.data)).catch(() => {})
-    voyAPI.stats().then(r => setVoy(r.data)).catch(() => {})
-    personnelAPI.list({ page_size:500 }).then(r => setPerso(r.data.results || r.data || [])).catch(() => {})
-  }, [])
+    setErreur('')
+    analyticsAPI.get(jours).then(r => setD(r.data)).catch(() => setErreur('Données indisponibles — réessayez.'))
+  }, [jours])
 
-  // Données calculées
-  const occupancyPie = bats ? [
-    { name:'Libres',      v:bats.libres,      fill:C.green },
-    { name:'Occupés',     v:bats.occupes,     fill:C.blue },
-    { name:'Réservés',    v:bats.reserves,    fill:C.orange },
-    { name:'Maintenance', v:bats.maintenance, fill:C.red },
-  ] : []
+  const parcData = useMemo(() => d ? Object.entries(d.parc.par_statut).map(([k, v]) => ({ name:(STATUT_PARC[k] || [k, '#64748b'])[0], v, fill:(STATUT_PARC[k] || [k, '#64748b'])[1] })) : [], [d])
+  const tendanceParc = useMemo(() => d ? d.parc.tendance.map(t => ({ ...t, j:jourCourt(t.date) })) : [], [d])
+  const tendanceInc = useMemo(() => d ? d.incidents.tendance.map(t => ({ ...t, j:jourCourt(t.date) })) : [], [d])
+  const progVoy = useMemo(() => d ? d.voyages.programme.map(t => ({ ...t, j:jourCourt(t.date) })) : [], [d])
 
-  const typePersonnel = Object.entries(
-    perso.reduce((a,p) => { a[p.type_personnel||'roxgold'] = (a[p.type_personnel||'roxgold']||0)+1; return a }, {})
-  ).map(([name,v]) => ({ name:{roxgold:'Roxgold',sous_traitant:'Sous-traitant',visiteur:'Visiteur'}[name]||name, v }))
-
-  const blocData = (bats?.par_bloc || []).slice(0,10).map(b => ({
-    name: b.bloc?.replace('Bloc_','') || '',
-    total: b.total,
-    occupes: Math.round(b.total * (bats?.taux||0) / 100)
-  }))
-
-  const TABS = [
-    ['residence','🏠 Résidences'],
-    ['personnel','👤 Personnel'],
-    ['incidents','🔧 Incidents'],
-    ['voyages',  '✈️ Voyages'],
-  ]
+  const TABS = [['residence','🏠 Hébergement'], ['personnel','👤 Personnel'], ['incidents','🔧 Maintenance'], ['voyages','✈️ Mobilité'], ['hse','🛡️ Conformité HSE']]
+  const tip = { borderRadius:10, fontSize:12 }
+  const grille = { display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap:16 }
 
   return (
-    <div style={{ padding:16, flex:1 }}>
-      <div style={{ marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10 }}>
+    <div className="rzc-page-scope" style={{ padding:'16px 20px', width:'100%', boxSizing:'border-box' }}>
+      <div style={{ marginBottom:16, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10 }}>
         <div>
           <h2 style={{ fontSize:22, fontWeight:800, color:'var(--rzc-navy)', margin:0 }}>📈 Analytics</h2>
-          <p style={{ fontSize:12, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>
-            Tableau de bord intelligence métier · Camp Roxgold Sango
-          </p>
+          <p style={{ fontSize:12.5, color:'var(--rzc-text-3)', margin:'4px 0 0' }}>Camp Roxgold Sango · chiffres réels, tendances sur {jours} jours</p>
         </div>
-        <a href="/rapports" onClick={e=>{e.preventDefault(); navigate('/rapports')}}
-          title="Pour un document imprimable/PDF, direction Rapports"
-          style={{ display:'flex', alignItems:'center', gap:6, background:'var(--rzc-navy)', color:'#fff',
-            textDecoration:'none', padding:'8px 14px', borderRadius:9, fontSize:12, fontWeight:700 }}>
-          📄 Générer un rapport PDF
-        </a>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          {[14, 30, 60].map(n => (
+            <button key={n} onClick={() => setJours(n)} style={{ padding:'7px 14px', borderRadius:99, border:'none', cursor:'pointer', fontWeight:700, fontSize:12.5, fontFamily:'inherit',
+              background: jours === n ? 'var(--rzc-navy)' : '#e2e8f0', color: jours === n ? '#fff' : '#334155' }}>{n} j</button>))}
+          <button onClick={() => navigate('/rapports')} style={{ background:'var(--rzc-navy)', color:'#fff', border:'none', padding:'8px 14px', borderRadius:9, fontSize:12.5, fontWeight:700, cursor:'pointer' }}>📄 Rapports</button>
+        </div>
       </div>
 
-      {/* KPIs globaux */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:12, marginBottom:24 }}>
-        <StatBlock label="Bâtiments" value={bats?.total} icon="🏗️" color={C.blue} sub={`${bats?.taux?.toFixed(1)||0}% occupé`} />
-        <StatBlock label="Libres" value={bats?.libres} icon="✅" color={C.green} sub={`${bats?.total?Math.round(bats.libres/bats.total*100):0}% du parc`} />
-        <StatBlock label="Incidents" value={inc?.total||0} icon="🚨" color={C.red} sub={`${inc?.ouverts||0} ouverts`} />
-        <StatBlock label="Voyages" value={voy?.total||0} icon="✈️" color={C.orange} sub={`${voy?.en_voyage||0} en voyage`} />
-        <StatBlock label="Personnel" value={perso.length} icon="👤" color={C.purple} sub="Total enregistrés" />
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:6, marginBottom:18, flexWrap:'wrap' }}>
-        {TABS.map(([k,l]) => (
-          <button key={k} onClick={() => setTab(k)}
-            style={{ padding:'8px 16px', borderRadius:10, border:'1px solid', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit',
-              background: tab===k ? 'var(--rzc-navy)' : 'var(--rzc-white)',
-              color:      tab===k ? 'var(--rzc-white)'    : 'var(--rzc-text-2)',
-              borderColor:tab===k ? 'var(--rzc-navy)' : 'var(--rzc-border-light)' }}>
-            {l}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Résidences ── */}
-      {tab === 'residence' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
-          {/* Donut */}
-          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>📊 Répartition occupation</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={occupancyPie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="v" paddingAngle={3}>
-                  {occupancyPie.map((e,i) => <Cell key={i} fill={e.fill} />)}
-                </Pie>
-                <Tooltip formatter={(v,n) => [v+' chambres', n]} contentStyle={{ borderRadius:10, fontSize:12 }} />
-                <Legend iconType="circle" iconSize={10} formatter={(v,e) => `${v}: ${e.payload.v}`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Barres par bloc */}
-          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>🏗️ Chambres par bloc (top 10)</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={blocData} barSize={20}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--rzc-charcoal)" />
-                <XAxis dataKey="name" tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius:10, fontSize:12 }} />
-                <Bar dataKey="total" fill={C.blue} radius={[4,4,0,0]} name="Total" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Barres de statut */}
-          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.06)', gridColumn:'span 2' }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>📈 Taux par statut</div>
-            {occupancyPie.map(s => (
-              <div key={s.name} style={{ marginBottom:12 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, fontSize:12 }}>
-                  <span style={{ fontWeight:600, color:'var(--rzc-text-2)' }}>{s.name}</span>
-                  <span style={{ fontWeight:700, color:s.fill }}>{s.v} chambres · {bats?.total ? Math.round(s.v/bats.total*100) : 0}%</span>
-                </div>
-                <div style={{ height:8, background:'var(--rzc-charcoal)', borderRadius:20, overflow:'hidden' }}>
-                  <div style={{ width:`${bats?.total ? Math.round(s.v/bats.total*100) : 0}%`, height:'100%', background:s.fill, borderRadius:20, transition:'width .5s ease' }} />
-                </div>
-              </div>
-            ))}
-          </div>
+      {erreur ? <div style={{ padding:24, background:'#fef2f2', color:'#b91c1c', borderRadius:12 }}>{erreur}</div>
+        : !d ? <div style={{ padding:60, textAlign:'center', color:'#94a3b8' }}>⏳ Chargement…</div> : (<>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:12, marginBottom:18 }}>
+          <StatBlock label="Taux d'occupation" value={`${d.parc.taux}%`} icon="🏠" color={C.blue} sub={`${d.parc.par_statut['Occupé'] || 0} / ${d.parc.total - d.parc.hors_service} chambres exploitables`} />
+          <StatBlock label="Chambres libres" value={d.parc.par_statut['Libre'] || 0} icon="✅" color={C.green} sub={d.parc.hors_service ? `${d.parc.hors_service} hors service` : 'Aucune hors service'} />
+          <StatBlock label="Incidents ouverts" value={d.incidents.ouverts} icon="🚨" color={C.red} sub={`${d.incidents.critiques_ouverts} critique(s) · ${d.incidents.sla_depasse} SLA dépassé`} />
+          <StatBlock label="Personnes enregistrées" value={d.personnel.total} icon="👤" color={C.purple} sub={`${d.personnel.par_type.sous_traitant || 0} sous-traitants`} />
+          <StatBlock label="Voyages en cours" value={d.voyages.par_statut.en_voyage || 0} icon="✈️" color={C.orange} sub={`${d.voyages.par_statut.planifie || 0} planifié(s)`} />
         </div>
-      )}
 
-      {/* ── Personnel ── */}
-      {tab === 'personnel' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
-          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>👥 Type de personnel</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={typePersonnel} cx="50%" cy="50%" outerRadius={85} dataKey="v" paddingAngle={4}>
-                  {typePersonnel.map((_,i) => <Cell key={i} fill={[C.blue,C.orange,C.purple][i%3]} />)}
-                </Pie>
-                <Tooltip formatter={(v,n) => [v+' agents', n]} contentStyle={{ borderRadius:10, fontSize:12 }} />
-                <Legend iconType="circle" iconSize={10} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:14, padding:20 }}>
-            <div style={{ fontWeight:700, fontSize:14, color:'var(--rzc-navy)', marginBottom:16 }}>🏢 Par société (top 5)</div>
-            {Object.entries(
-              perso.reduce((a,p) => { const s=p.societe||'N/A'; a[s]=(a[s]||0)+1; return a }, {})
-            ).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([soc,cnt]) => (
-              <div key={soc} style={{ marginBottom:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                  <span style={{ fontWeight:600 }}>{soc}</span>
-                  <span style={{ fontWeight:700, color:C.blue }}>{cnt}</span>
-                </div>
-                <div style={{ height:6, background:'var(--rzc-charcoal)', borderRadius:20, overflow:'hidden' }}>
-                  <div style={{ width:`${Math.round(cnt/perso.length*100)}%`, height:'100%', background:C.blue, borderRadius:20 }} />
-                </div>
-              </div>
-            ))}
-          </div>
+        <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+          {TABS.map(([k, l]) => (
+            <button key={k} onClick={() => setTab(k)} style={{ padding:'8px 16px', borderRadius:10, border:'1px solid', cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit',
+              background: tab === k ? 'var(--rzc-navy)' : '#fff', color: tab === k ? '#fff' : '#334155', borderColor: tab === k ? 'var(--rzc-navy)' : '#e2e8f0' }}>{l}</button>))}
         </div>
-      )}
 
-      {/* ── Incidents ── */}
-      {tab === 'incidents' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:14 }}>
-          {[
-            ['Total incidents',    inc?.total||0,    '📋', C.blue,   'Tous statuts confondus'],
-            ['Ouverts',           inc?.ouverts||0,   '🔴', C.red,    'À traiter en priorité'],
-            ['En cours',          inc?.en_cours||0,  '🟡', C.orange, 'En cours de résolution'],
-            ['Résolus',           inc?.resolus||0,   '✅', C.green,  'Traités avec succès'],
-          ].map(([label,value,icon,color,sub]) => (
-            <StatBlock key={label} label={label} value={value} icon={icon} color={color} sub={sub} />
-          ))}
-        </div>
-      )}
+        {tab === 'residence' && (
+          <div style={grille}>
+            <Carte titre="📊 Répartition du parc" aide={`${d.parc.total} chambres au total`}>
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart><Pie data={parcData} cx="50%" cy="50%" innerRadius={60} outerRadius={92} dataKey="v" paddingAngle={3}>{parcData.map((e, i) => <Cell key={i} fill={e.fill} />)}</Pie>
+                  <Tooltip formatter={(v, n) => [v + ' chambres', n]} contentStyle={tip} /><Legend iconType="circle" iconSize={10} formatter={(v, e) => `${v} : ${e.payload.v}`} /></PieChart>
+              </ResponsiveContainer>
+            </Carte>
+            <Carte titre="📈 Chambres occupées par nuit" aide="Reconstitué depuis l'historique des occupations">
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={tendanceParc}><defs><linearGradient id="gocc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1e3a8a" stopOpacity={.35} /><stop offset="100%" stopColor="#1e3a8a" stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="j" tick={{ fontSize:10 }} interval="preserveStartEnd" minTickGap={24} /><YAxis tick={{ fontSize:10 }} allowDecimals={false} />
+                  <Tooltip contentStyle={tip} /><Area type="monotone" dataKey="occupees" name="Occupées" stroke="#1e3a8a" strokeWidth={2.5} fill="url(#gocc)" /></AreaChart>
+              </ResponsiveContainer>
+            </Carte>
+            <Carte titre="🏗️ Occupation par bloc" span={2} aide="Occupées / total, du plus grand au plus petit bloc">
+              <ResponsiveContainer width="100%" height={Math.max(220, Math.min(d.parc.par_bloc.length, 14) * 26)}>
+                <BarChart data={d.parc.par_bloc.slice(0, 14)} layout="vertical" margin={{ left:10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} /><XAxis type="number" tick={{ fontSize:10 }} allowDecimals={false} /><YAxis type="category" dataKey="bloc" width={90} tick={{ fontSize:11 }} />
+                  <Tooltip contentStyle={tip} /><Legend /><Bar dataKey="occupes" name="Occupées" stackId="a" fill={C.blue} /><Bar dataKey="total" name="Total" fill="#cbd5e1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Carte>
+          </div>)}
 
-      {/* ── Voyages ── */}
-      {tab === 'voyages' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:14 }}>
-          {[
-            ['Total voyages',    voy?.total||0,    '✈️', C.blue,   'Tous statuts'],
-            ['Planifiés',        voy?.planifies||0,'📅', C.gold,   'Départs à venir'],
-            ['En voyage',        voy?.en_voyage||0,'🚀', C.orange, 'Actuellement hors camp'],
-            ['Retours',          voy?.retours||0,  '🏠', C.green,  'Rentrés au camp'],
-            ['Annulés',          voy?.annules||0,  '❌', C.red,    'Voyages annulés'],
-          ].map(([label,value,icon,color,sub]) => (
-            <StatBlock key={label} label={label} value={value} icon={icon} color={color} sub={sub} />
-          ))}
-        </div>
-      )}
+        {tab === 'personnel' && (
+          <div style={grille}>
+            <Carte titre="👥 Par type de personnel">
+              {Object.entries(d.personnel.par_type).sort((a, b) => b[1] - a[1]).map(([k, n], i) => <Barre key={k} libelle={TYPE_PERS[k] || k} n={n} max={d.personnel.total} couleur={[C.blue, C.orange, C.purple, C.teal][i % 4]} suffixe={` · ${Math.round(n / d.personnel.total * 100)}%`} />)}
+            </Carte>
+            <Carte titre="🏢 Principales sociétés" aide="Top 8 par effectif enregistré">
+              {d.personnel.par_societe.map(s => <Barre key={s.societe} libelle={s.societe} n={s.n} max={d.personnel.par_societe[0]?.n || 1} couleur={C.blue} />)}
+            </Carte>
+          </div>)}
 
-      {/* Rapport HSE Sous-traitants */}
-      <div style={{background:'var(--rzc-white)',borderRadius:14,padding:20,marginTop:16,
-        boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
-        <div style={{fontWeight:800,fontSize:16,color:'var(--rzc-navy)',marginBottom:4}}>
-          🛡️ Conformité HSE par Société Sous-traitante
-        </div>
-        <div style={{fontSize:12,color:'var(--rzc-text-3)',marginBottom:16}}>
-          Induction · Incidents · EPI · Score global de conformité
-        </div>
-        <RapportHSESousTraitants/>
-      </div>
+        {tab === 'incidents' && (
+          <div style={grille}>
+            <Carte titre="📊 Créés vs résolus" aide={`Sur ${jours} jours · délai moyen de résolution : ${d.incidents.delai_moyen_h != null ? (d.incidents.delai_moyen_h >= 48 ? `${(d.incidents.delai_moyen_h / 24).toFixed(1)} j` : `${d.incidents.delai_moyen_h} h`) : '—'}`}>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={tendanceInc}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="j" tick={{ fontSize:10 }} interval="preserveStartEnd" minTickGap={24} /><YAxis tick={{ fontSize:10 }} allowDecimals={false} />
+                  <Tooltip contentStyle={tip} /><Legend /><Bar dataKey="crees" name="Créés" fill={C.red} radius={[3, 3, 0, 0]} /><Bar dataKey="resolus" name="Résolus" fill={C.green} radius={[3, 3, 0, 0]} /></BarChart>
+              </ResponsiveContainer>
+            </Carte>
+            <Carte titre="🎯 Par priorité" aide={`${d.incidents.total} incident(s) au total`}>
+              {Object.entries(PRIO).map(([k, [l, c]]) => <Barre key={k} libelle={l} n={d.incidents.par_priorite[k] || 0} max={d.incidents.total} couleur={c} />)}
+            </Carte>
+            <Carte titre="📋 Par statut">
+              {Object.entries(STATUT_INC).map(([k, [l, c]]) => <Barre key={k} libelle={l} n={d.incidents.par_statut[k] || 0} max={d.incidents.total} couleur={c} />)}
+            </Carte>
+            <Carte titre="🔧 Catégories les plus fréquentes">
+              {d.incidents.par_categorie.length ? d.incidents.par_categorie.map(c => <Barre key={c.categorie} libelle={c.categorie} n={c.n} max={d.incidents.par_categorie[0].n} couleur={C.blue} />) : <div style={{ color:'#94a3b8', fontSize:12.5 }}>Aucun incident enregistré</div>}
+            </Carte>
+          </div>)}
+
+        {tab === 'voyages' && (
+          <div style={grille}>
+            <Carte titre="🗓️ Départs et retours — 14 prochains jours" span={2} aide="Voyages planifiés et retours attendus">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={progVoy}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="j" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} allowDecimals={false} />
+                  <Tooltip contentStyle={tip} /><Legend /><Bar dataKey="departs" name="Départs" fill={C.orange} radius={[3, 3, 0, 0]} /><Bar dataKey="retours" name="Retours" fill={C.green} radius={[3, 3, 0, 0]} /></BarChart>
+              </ResponsiveContainer>
+            </Carte>
+            <Carte titre="✈️ Par statut" aide={`${d.voyages.total} voyage(s) au total`}>
+              {[['planifie', 'Planifiés', C.gold], ['en_voyage', 'En voyage', C.orange], ['retour', 'Retournés', C.green], ['annule', 'Annulés', C.red]].map(([k, l, c]) => <Barre key={k} libelle={l} n={d.voyages.par_statut[k] || 0} max={d.voyages.total} couleur={c} />)}
+            </Carte>
+          </div>)}
+
+        {tab === 'hse' && (
+          <Carte titre="🛡️ Conformité HSE par société sous-traitante" aide="Induction · incidents · EPI · score global">
+            <RapportHSESousTraitants />
+          </Carte>)}
+      </>)}
     </div>
   )
 }

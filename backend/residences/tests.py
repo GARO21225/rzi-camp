@@ -942,3 +942,40 @@ class PlainteAntiDoublonTests(TestCase):
             ids.add(r.data["id"])
         self.assertEqual(len(ids), 1)
         self.assertEqual(Plainte.objects.count(), 1)
+
+
+class HistoriqueChambreConfidentialiteTests(TestCase):
+    """Un résident ne voit que ses propres séjours dans une chambre, jamais ceux des autres."""
+
+    def setUp(self):
+        import datetime
+        from .models import OccupationHistory
+        self.rf = APIRequestFactory()
+        self.moi_u = User.objects.create_user("moi_h", "m@a.com", "pass")
+        self.moi = Personnel.objects.create(nom="Moi", prenom="M", societe="ROXGOLD", numero="CF1", telephone="1", type_personnel="roxgold", user=self.moi_u)
+        self.autre = Personnel.objects.create(nom="Autre", prenom="A", societe="ROXGOLD", numero="CF2", telephone="1", type_personnel="roxgold")
+        b = Batiment.objects.create(residence="A2", bloc="A", statut="Libre")
+        d = datetime.date
+        OccupationHistory.objects.create(batiment=b, personnel=self.moi, occupant_nom="Moi M", date_arrivee=d(2026, 1, 1), date_depart=d(2026, 1, 5))
+        OccupationHistory.objects.create(batiment=b, personnel=self.autre, occupant_nom="Autre A", date_arrivee=d(2026, 2, 1), date_depart=d(2026, 2, 5))
+
+    def _vue(self, action, user, params=None):
+        from .views import OccupationHistoryViewSet
+        req = self.rf.get("/x/", params or {})
+        force_authenticate(req, user=user)
+        return OccupationHistoryViewSet.as_view({"get": action})(req)
+
+    def test_recherche_et_liste_limitees_a_soi(self):
+        noms = [r["occupant"] for r in self._vue("recherche", self.moi_u, {"batiment": "A2"}).data["results"]]
+        self.assertEqual(noms, ["Moi M"])
+        liste = self._vue("list", self.moi_u, {"batiment": "A2"}).data
+        liste = liste.get("results", liste)
+        self.assertEqual([r["occupant_nom"] for r in liste], ["Moi M"])
+
+    def test_recherche_ignore_le_filtre_personnel_dun_autre(self):
+        data = self._vue("recherche", self.moi_u, {"personnel": self.autre.id}).data
+        self.assertEqual([r["occupant"] for r in data["results"]], ["Moi M"])
+
+    def test_admin_voit_tout(self):
+        noms = {r["occupant"] for r in self._vue("recherche", _admin(), {"batiment": "A2"}).data["results"]}
+        self.assertEqual(noms, {"Moi M", "Autre A"})

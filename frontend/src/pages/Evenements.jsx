@@ -184,7 +184,7 @@ export default function Evenements() {
 
   const notifier = async (id, titre) => {
     const r = await evtAPI.notifier(id)
-    toast.success(`✅ ${r.data.residents_notifies} résident(s) notifié(s) pour "${titre}"`)
+    toast.success(`✅ ${r.data.residents_notifies} résident(s) ciblé(s) pour "${titre}" — ${r.data.nouveaux ?? 0} nouvelle(s) notification(s)${r.data.nouveaux === 0 ? ' (déjà tous notifiés)' : ''}`)
   }
 
   const deleteEvt = async (id, titre) => {

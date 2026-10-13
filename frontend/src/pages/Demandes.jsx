@@ -294,11 +294,11 @@ export default function Demandes() {
   }
 
   return (
-    <div style={{ padding:'16px' }}>
+    <div style={{ padding: isMobile ? '16px' : '16px 24px', width:'100%', boxSizing:'border-box' }}>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize:19, fontWeight:700, color:'var(--blue)' }}>📋 Demandes & Workflow</h2>
+          <h2 style={{ fontSize:isMobile?19:24, fontWeight:800, color:'var(--blue)', margin:0 }}>📋 Demandes & Workflow</h2>
           <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>
             {isAdmin ? 'Validation admin · Suivi complet des demandes' : 'Soumettez vos demandes · Suivez leur statut'}
           </p>
@@ -359,7 +359,7 @@ export default function Demandes() {
       {isAdmin && stats && (
         <div style={isMobile
           ? { display:'flex', gap:8, overflowX:'auto', marginBottom:16, paddingBottom:4 }
-          : { display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
+          : { display:'grid', gridTemplateColumns:'repeat(5, minmax(0,1fr))', gap:14, marginBottom:18 }}>
           {[
             [(stats.en_attente||0) + voyagesEnAttente.length + inductionsEnAttente.length + incidentsEnAttente.length,'En attente','#d08800','⏳'],
             [stats.propositions,'Propositions','#7c3aed','💬'],
@@ -369,8 +369,8 @@ export default function Demandes() {
           ].map(([v,l,c,ic])=>(
             <div key={l} style={isMobile
               ? { flexShrink:0, minWidth:88, background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }
-              : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 14px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
-              <div style={{ fontFamily:'monospace', fontSize:isMobile?18:24, fontWeight:700, color:c }}>{v}</div>
+              : { background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:'16px 18px', borderTop:`3px solid ${c}`, boxShadow:'var(--shadow)' }}>
+              <div style={{ fontFamily:'monospace', fontSize:isMobile?18:32, fontWeight:700, color:c }}>{v}</div>
               <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4, textTransform:'uppercase', letterSpacing:1, whiteSpace:'nowrap' }}>{ic} {l}</div>
             </div>
           ))}
@@ -380,7 +380,7 @@ export default function Demandes() {
       {/* Tabs */}
       <div style={isMobile
         ? { display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4 }
-        : { display:'flex', gap:2, marginBottom:14, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)' }}>
+        : { display:'flex', gap:2, marginBottom:16, background:'var(--surface2)', borderRadius:10, padding:4, border:'1px solid var(--border)', maxWidth:900 }}>
         {(isAdmin ? ADMIN_TABS : AGENT_TABS).map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={isMobile
@@ -395,9 +395,9 @@ export default function Demandes() {
 
       {/* List */}
       {loading ? <div style={{padding:32,textAlign:'center',color:'var(--text-dim)'}}>Chargement...</div> : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={isMobile ? { display:'flex', flexDirection:'column', gap:10 } : { display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%,560px), 1fr))', gap:14, alignItems:'start' }}>
           {filterData().length === 0 && (
-            <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
+            <div style={{ gridColumn:'1 / -1', background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:10 }}>📋</div>
               <div style={{ fontSize:14 }}>{isAdmin ? "Aucune demande en attente" : "Aucune demande soumise"}</div>
               {!isAdmin && <div style={{ fontSize:12, marginTop:6 }}>Utilisez les boutons ci-dessus pour soumettre une demande</div>}
@@ -407,17 +407,17 @@ export default function Demandes() {
             const tc = TYPE_COLORS[d.type_demande] || TYPE_COLORS.maintenance
             const sc = STATUT_STYLES[d.statut] || STATUT_STYLES.en_attente
             return (
-              <div key={d.id} style={{ background:'var(--rzc-white)', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:isMobile?13:16, boxShadow:'var(--shadow)', display:'flex', gap:isMobile?12:14, alignItems:'flex-start', flexWrap:isMobile?'wrap':'nowrap' }}>
+              <div key={d.id} style={{ background:'var(--rzc-white)', border:`1px solid ${d.statut==='en_attente'?'rgba(240,165,0,.3)':'var(--border)'}`, borderRadius:12, padding:isMobile?13:16, boxShadow:'var(--shadow)', display:'flex', gap:isMobile?12:14, alignItems:'flex-start', flexWrap:'wrap' }}>
                 <div style={{ width:isMobile?44:50, height:isMobile?44:50, borderRadius:12, background:tc.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:isMobile?20:22, flexShrink:0 }}>
                   {tc.icon}
                 </div>
-                <div style={{ flex:1, minWidth:isMobile?'70%':0 }}>
+                <div style={{ flex:1, minWidth:isMobile?'70%':'calc(100% - 70px)' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
                     <span style={{ fontWeight:700, fontSize:14, color:'var(--blue)' }}>{tc.label}</span>
                     <span style={{ background:sc.bg, color:sc.color, padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:700 }}>{sc.label}</span>
                     {isAdmin && <span style={{ fontSize:12, color:'var(--text-dim)' }}>par {d.demandeur_nom}</span>}
                   </div>
-                  {d.message_demandeur && <div style={{ fontSize:12, color:'var(--text-dim)', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.message_demandeur}</div>}
+                  {d.message_demandeur && <div style={{ fontSize:isMobile?12:13, color:'var(--text-dim)', marginBottom:6, ...(isMobile ? { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } : { lineHeight:1.45 }) }}>{d.message_demandeur}</div>}
                   <div style={{ display:'flex', gap:12, fontSize:11, color:'var(--text-dim)', flexWrap:'wrap' }}>
                     {d.residence_souhaitee && <span>🏠 {d.residence_souhaitee}</span>}
                     {d.date_debut_souhaitee && <span>📅 {d.date_debut_souhaitee}</span>}
@@ -444,7 +444,7 @@ export default function Demandes() {
                 {/* Actions */}
                 <div style={isMobile
                   ? { display:'flex', gap:8, width:'100%', marginTop:2 }
-                  : { display:'flex', flexDirection:'column', gap:6, flexShrink:0, minWidth:120 }}>
+                  : { display:'flex', flexWrap:'wrap', gap:8, width:'100%', paddingTop:10, borderTop:'1px solid #f1f5f9' }}>
                   {/* Plainte : pas de Valider/Rejeter generique ici - son
                       workflow (qualifier/affecter/prendre en charge/
                       resoudre) vit deja entierement dans la page Plaintes,

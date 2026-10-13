@@ -84,8 +84,10 @@ class Evenement(models.Model):
             # jamais eu de groupe choisi (avant l'ajout de ce systeme).
             residents = Personnel.objects.filter(batiments__statut="Occupé").distinct()
         created = 0
+        self.total_cible = 0
         urgent = self.type_event in ("alerte", "securite")
         for p in residents:
+            self.total_cible += 1
             _, ok = Notification.objects.get_or_create(
                 evenement=self, personnel=p,
                 defaults={"envoye_par": self.cree_par}

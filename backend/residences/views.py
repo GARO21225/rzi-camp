@@ -2801,8 +2801,20 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OccupationHistory.objects.select_related("batiment","personnel").all()
     serializer_class = OccupationHistorySerializer
 
+    # Confidentialité : qui a dormi dans une chambre n'est visible que par la gestion.
+    # Un résident ne voit QUE ses propres séjours (jamais les autres occupants d'une chambre).
+    ROLES_VOIENT_TOUT = ("admin", "manager", "superviseur", "camp_boss")
+
+    @classmethod
+    def _voit_tout(cls, u):
+        if u.is_staff or u.is_superuser:
+            return True
+        return getattr(getattr(u, "profile", None), "role", "") in cls.ROLES_VOIENT_TOUT
+
     def get_queryset(self):
         qs = OccupationHistory.objects.select_related("batiment","personnel").all()
+        if not self._voit_tout(self.request.user):
+            qs = qs.filter(personnel__user=self.request.user)
         batiment = self.request.query_params.get("batiment")
         personnel = self.request.query_params.get("personnel")
         date_debut = self.request.query_params.get("date_debut")
@@ -2819,6 +2831,8 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         import csv
         from django.http import HttpResponse
         qs = OccupationHistory.objects.select_related("batiment","personnel").order_by("-date_arrivee")
+        if not self._voit_tout(request.user):
+            qs = qs.filter(personnel__user=request.user)
         batiment = request.query_params.get("batiment")
         personnel = request.query_params.get("personnel")
         if batiment: qs = qs.filter(batiment__residence__icontains=batiment)
@@ -2850,6 +2864,13 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         """
         batiment_q = request.query_params.get("batiment","").strip()
         personnel_id = request.query_params.get("personnel","").strip()
+        restreint = not self._voit_tout(request.user)
+        if restreint:
+            # un résident ne peut consulter que son propre parcours
+            moi = Personnel.objects.filter(user=request.user).first()
+            if not moi:
+                return Response({"count": 0, "results": [], "resume": {"nb_personnes": 0, "nuits_total": 0}})
+            personnel_id = str(moi.id)
         date_debut = request.query_params.get("date_debut","").strip()
         date_fin = request.query_params.get("date_fin","").strip()
         nom_search = request.query_params.get("nom","").strip()
@@ -2942,13 +2963,15 @@ class OccupationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         # Occupants dont la trace n'existe QUE dans l'historique d'audit de la chambre
         # (modification « sans historique », import, ancienne version) : on les ajoute
         # pour que « qui a dormi dans A02 » soit complet. Dédoublonné par personne.
-        if batiment_q and not personnel_id and not date_debut and not date_fin:
+        if batiment_q and (not personnel_id or restreint) and not date_debut and not date_fin:
             connus = {(r["personnel_id"] or ("n", (r["occupant"] or "").strip().lower())) for r in results}
             hb_qs = Batiment.history.filter(statut="Occupé")
             if exact:
                 hb_qs = hb_qs.filter(Q(residence__iexact=batiment_q) | Q(groupe_chambre__iexact=batiment_q))
             else:
                 hb_qs = hb_qs.filter(residence__icontains=batiment_q)
+            if restreint:
+                hb_qs = hb_qs.filter(personnel_id=personnel_id)
             vus = {}
             for h in hb_qs.order_by("history_date"):
                 cle = h.personnel_id or ("n", (h.occupant or "").strip().lower())

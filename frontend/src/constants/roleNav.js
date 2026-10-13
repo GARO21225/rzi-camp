@@ -65,6 +65,14 @@ export const ROLE_NAV = {
     { to:'/restauration', label:'🍽️ Restauration' },
     { to:'/restaurants', label:'👨‍🍳 Restaurants & superviseurs' },
   ],
+  camp_boss: [
+    { to:'/carte', label:'🗺️ Carte GIS' },
+    { to:'/evenements', label:'📅 Événements' },
+    { to:'/restauration', label:'🍽️ Restauration' },
+    { to:'/restaurants', label:'👨‍🍳 Restaurants & superviseurs' },
+    { to:'/historique', label:'📋 Historique' },
+    { to:'/analytics', label:'📈 Analytics' },
+  ],
   technicien: [
     { to:'/carte', label:'🗺️ Carte GIS' },
     { to:'/evenements', label:'📅 Événements' },
@@ -126,6 +134,7 @@ export const ROLE_LABELS = {
   hse: 'HSE / QHSE',
   accueil: "Agent d'accueil",
   manager: 'Manager',
+  camp_boss: 'Camp Boss',
 }
 
 // Pages personnelles accessibles à TOUT utilisateur connecté, même si son
