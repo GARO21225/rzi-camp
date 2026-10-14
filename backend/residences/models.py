@@ -922,3 +922,18 @@ class InductionCampRecord(models.Model):
 
     def __str__(self):
         return f"Induction Camp — {self.user}"
+
+
+class InductionCampExemption(models.Model):
+    """Personne dispensée de l'induction Camp (ex. direction, intervenant de passage, déjà formé ailleurs).
+    Une exemption est motivée, tracée (qui, quand) et révocable ; elle sort la personne des « non commencés »."""
+    personnel = models.OneToOneField('Personnel', on_delete=models.CASCADE, related_name='exemption_induction_camp')
+    motif = models.CharField(max_length=200)
+    accorde_par = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Exemption induction Camp'
+
+    def __str__(self):
+        return f"Exemption — {self.personnel} ({self.motif})"

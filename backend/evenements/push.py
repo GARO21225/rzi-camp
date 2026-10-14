@@ -72,7 +72,7 @@ def _jwt_vapid(endpoint, priv, sujet):
 
 def _envoyer_un(sub, donnees, urgent, priv, pub):
     try:
-        sujet = os.environ.get("VAPID_SUBJECT", "mailto:admin@rzi-camp.local")
+        sujet = os.environ.get("VAPID_SUBJECT") or "mailto:edgar.kouame225@gmail.com"
         r = requests.post(
             sub["endpoint"], data=chiffrer(json.dumps(donnees).encode(), sub["p256dh"], sub["auth"]), timeout=10,
             headers={"Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream",

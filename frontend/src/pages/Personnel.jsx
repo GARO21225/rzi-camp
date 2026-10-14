@@ -713,6 +713,11 @@ export default function Personnel() {
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     {p.societe || '—'}{p.poste ? ` · ${p.poste}` : ''}{chambre ? ` · 🏠 ${chambre}` : ''}
                   </p>
+                  {(p.telephone || p.telephone_2) && (
+                    <p style={{margin:'2px 0 0',fontSize:11.5,color:'var(--rzc-text-3,#5B6472)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      📞 {[p.telephone, p.telephone_2].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
                 </div>
                 {p.qr_code_data && (
                   <span onClick={e=>{e.stopPropagation(); setQrModal(p)}}

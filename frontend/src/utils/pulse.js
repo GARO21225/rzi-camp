@@ -2,7 +2,7 @@
 // Son d'alerte quand une nouvelle notification arrive (déverrouillé par le premier geste de l'utilisateur).
 import api from '../api'
 
-const INTERVALLE_MS = 5000
+const INTERVALLE_MS = 3000
 let timer = null, derniere = null, audioCtx = null, abonnes = []
 let sonActif = (() => { try { return localStorage.getItem('rzi_son_notif') !== '0' } catch { return true } })()
 
@@ -18,7 +18,7 @@ const debloquerAudio = () => {
   } catch {}
 }
 if (typeof window !== 'undefined') {
-  ;['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, debloquerAudio, { passive: true }))
+  ;['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => window.addEventListener(ev, debloquerAudio, { passive: true }))
 }
 
 export function bip() {
@@ -86,6 +86,8 @@ export function demarrerPulse() {
   tick()
   timer = setInterval(tick, INTERVALLE_MS)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick() })
+  // Le service worker signale un push reçu : on interroge tout de suite (le son part sans attendre le prochain cycle).
+  try { navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.type === 'PUSH_RECU' || e.data?.type === 'NEW_EVENT') tick() }) } catch {}
 }
 export function arreterPulse() { clearInterval(timer); timer = null; derniere = null }
 

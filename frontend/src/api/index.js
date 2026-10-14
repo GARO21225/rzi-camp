@@ -551,4 +551,8 @@ export const technicien = {
 
 export const inductionCamp = {
   statut: () => api.get('/api/induction-camp/statut/'),
+  resume: () => api.get('/api/induction-camp/resume/'),
+  exempter: (personnel_ids, motif) => api.post('/api/induction-camp/exempter/', { personnel_ids, motif }),
+  retirerExemption: (personnel_ids) => api.post('/api/induction-camp/retirer_exemption/', { personnel_ids }),
+  export: (params) => api.get('/api/induction-camp/export/', { params, responseType: 'blob' }),
 }

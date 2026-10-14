@@ -802,6 +802,43 @@ class InductionCampResumeTests(TestCase):
         self.assertEqual([l["nom"] for l in d["lignes"] if l["complete"]], ["KOUAMÉ EDGAR"])
 
 
+class InductionCampExemptionTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        self.adm = User.objects.create_user("adm", password="x", is_staff=True)
+        self.u1 = User.objects.create_user("a", password="x"); self.u2 = User.objects.create_user("b", password="x")
+        self.p1 = Personnel.objects.create(nom="Alpha", prenom="A", societe="ROXGOLD", user=self.u1)
+        self.p2 = Personnel.objects.create(nom="Beta", prenom="B", societe="SODEXO", user=self.u2)
+        self.c = APIClient(); self.c.force_authenticate(self.adm)
+
+    def test_exemption_motivee_et_kpi(self):
+        r = self.c.post("/api/induction-camp/exempter/", {"personnel_ids": [self.p1.id]}, format="json")
+        self.assertEqual(r.status_code, 400)  # motif obligatoire
+        r = self.c.post("/api/induction-camp/exempter/", {"personnel_ids": [self.p1.id], "motif": "Direction"}, format="json")
+        self.assertEqual(r.json()["exemptes"], 1)
+        d = self.c.get("/api/induction-camp/resume/").json()
+        self.assertEqual((d["total"], d["exemptes"], d["non_commences"], d["termines"]), (2, 1, 1, 0))
+        self.assertEqual(d["taux"], 0.0)
+        self.assertEqual({x["societe"] for x in d["par_societe"]}, {"ROXGOLD", "SODEXO"})
+        self.assertEqual(len(d["par_jour"]), 30)
+        from rest_framework.test import APIClient
+        cu = APIClient(); cu.force_authenticate(self.u1)
+        self.assertEqual(cu.get("/api/induction-camp/statut/").json()["exempte"], True)
+        self.assertEqual(cu.post("/api/induction-camp/exempter/", {"personnel_ids": [self.p2.id], "motif": "x"}, format="json").status_code, 403)
+        self.c.post("/api/induction-camp/retirer_exemption/", {"personnel_ids": [self.p1.id]}, format="json")
+        self.assertEqual(self.c.get("/api/induction-camp/resume/").json()["exemptes"], 0)
+
+    def test_export_csv_xlsx_filtre(self):
+        self.c.post("/api/induction-camp/exempter/", {"personnel_ids": [self.p1.id], "motif": "Direction"}, format="json")
+        r = self.c.get("/api/induction-camp/export/?statut=exempte")
+        self.assertEqual(r.status_code, 200)
+        t = r.content.decode("utf-8-sig")
+        self.assertIn("Direction", t); self.assertNotIn("SODEXO", t)
+        r = self.c.get("/api/induction-camp/export/?fmt=xlsx")
+        self.assertTrue(r.content.startswith(b"PK"))
+
+
 class BatimentNomsTests(TestCase):
     def test_noms_ouvert_a_un_non_admin_sans_occupants(self):
         from rest_framework.test import APIClient

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { toast } from '../toast'
+import { inductionCamp } from '../api'
+import InductionCampAdmin from './InductionCampAdmin'
 
 // ─────────────────────────────────────────────
 //  DONNÉES CAMP
@@ -78,20 +80,6 @@ function ProgressRing({ pct, size=80, stroke=6, color='#F0A500', children }) {
   )
 }
 
-function Particle({ x, y, color, size, delay }) {
-  return (
-    <div style={{
-      position:'absolute', left:`${x}%`, top:`${y}%`,
-      width:size, height:size, borderRadius:'50%',
-      background:color, opacity:.4,
-      animation:`float ${2+delay}s ease-in-out ${delay}s infinite alternate`,
-    }}/>
-  )
-}
-
-// ─────────────────────────────────────────────
-//  COMPOSANT PRINCIPAL
-// ─────────────────────────────────────────────
 export default function InductionCamp() {
   const isMobile = useIsMobile()
   const { user } = useStore()
@@ -101,7 +89,7 @@ export default function InductionCamp() {
   // Vérification induction existante
   const [dejaComplete, setDejaComplete] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
-  const [resume,setResume] = useState(null)   // { total, termines, non_commences, lignes } — parcours Camp
+  const [exempte,setExempte] = useState(false)
   const isAdmin = user?.is_superuser || user?.is_staff || user?.profile?.role === 'admin'
   // Admin : arrive directement sur le suivi de toutes les inductions (il peut
   // basculer sur l'aperçu « participant ») ; un agent ne voit que SON parcours.
@@ -160,12 +148,8 @@ export default function InductionCamp() {
       setLoadingCheck(false)
     }
     checkExisting()
-    // Si admin, charger toutes les inductions camp
-    if (isAdmin) {
-      fetch(`${BASE}/api/induction-camp/resume/`, {
-        headers: { Authorization: `Bearer ${tok()}` }
-      }).then(r=>r.json()).then(d => setResume(d && d.lignes ? d : null)).catch(()=>{})
-    }
+    // Exemption éventuelle (dispense motivée par l'admin)
+    inductionCamp.statut().then(r => { if (r.data?.exempte) setExempte(true) }).catch(()=>{})
   }, [])
 
   // États globaux
@@ -313,8 +297,9 @@ export default function InductionCamp() {
 
   // CSS global
   const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-    .ic-root { font-family:'Space Grotesk',system-ui,sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    .ic-root { font-family:'IBM Plex Sans',system-ui,sans-serif; }
+    .ic-root h1,.ic-root h2,.ic-root h3 { font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif; text-transform:uppercase; letter-spacing:.03em; }
     @keyframes float { from{transform:translateY(0) scale(1)} to{transform:translateY(-20px) scale(1.1)} }
     @keyframes icBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
     @keyframes icPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.05)} }
@@ -437,113 +422,44 @@ export default function InductionCamp() {
     </div>
   )
 
-  // ── Vue Admin ─────────────────────────────────────────────────────
-  if (isAdmin && adminView) return (
-    <div style={{minHeight:'100%',background:'var(--rzc-fond-induction,#0F2A5C)',color:'#fff',padding:24}}>
-      <div style={{maxWidth:900,margin:'0 auto'}}>
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
-          <button onClick={()=>setAdminView(false)}
-            style={{background:'rgba(255,255,255,.1)',border:'none',color:'#94a3b8',
-              borderRadius:8,padding:'8px 14px',cursor:'pointer',fontSize:13}}>
-            ← Retour
-          </button>
-          <h1 style={{fontSize:20,fontWeight:800,margin:0}}>🏕️ Induction Camp — Vue Admin</h1>
-          <span style={{marginLeft:'auto',background:'rgba(240,165,0,.2)',color:'#ffd97a',
-            padding:'4px 12px',borderRadius:99,fontSize:12,fontWeight:600}}>
-            {resume?.total ?? 0} résident(s) avec compte
-          </span>
-        </div>
+  // ── Vue Admin : cockpit registre (KPI, filtres, exemptions, exports) ──
+  if (isAdmin && adminView) return <InductionCampAdmin onApercu={()=>setAdminView(false)} />
 
-        {/* KPIs — source : parcours Induction Camp (signature enregistrée), pas le suivi QHSE */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
-          {[
-            {l:'Résidents',v:resume?.total ?? 0,c:'#60a5fa'},
-            {l:'Terminé',v:resume?.termines ?? 0,c:'#34d399'},
-            {l:'Non commencé',v:resume?.non_commences ?? 0,c:'#f87171'},
-          ].map(k=>(
-            <div key={k.l} style={{background:'rgba(255,255,255,.05)',borderRadius:12,
-              padding:'14px 16px',borderLeft:`3px solid ${k.c}`}}>
-              <div style={{fontSize:24,fontWeight:900,color:k.c}}>{k.v}</div>
-              <div style={{fontSize:11,color:'#64748b',marginTop:4,textTransform:'uppercase',letterSpacing:.5}}>{k.l}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{background:'rgba(255,255,255,.04)',borderRadius:12,overflow:'hidden',border:'1px solid rgba(255,255,255,.08)'}}>
-          {(resume?.lignes||[]).length===0 && (
-            <div style={{padding:30,textAlign:'center',color:'#64748b'}}>Aucun résident avec compte</div>
-          )}
-          {(resume?.lignes||[]).map(l=>(
-            <div key={l.personnel_id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
-              <div style={{flex:'1 1 160px',minWidth:0}}>
-                <div style={{fontWeight:700,color:'#e2eaf6',fontSize:13.5}}>{l.nom}</div>
-                {l.societe && <div style={{fontSize:11,color:'#64748b'}}>{l.societe}</div>}
-              </div>
-              <span style={{background:l.complete?'rgba(52,211,153,.15)':'rgba(100,116,139,.2)',color:l.complete?'#34d399':'#94a3b8',padding:'3px 10px',borderRadius:99,fontSize:11,fontWeight:700}}>
-                {l.complete?'✓ Terminé':'Non commencé'}
-              </span>
-              <span style={{fontSize:11.5,color:'#94a3b8',minWidth:110,textAlign:'right'}}>
-                {l.complete ? `${l.appareils} appareil(s) · ${new Date(l.date_completion).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})}` : '—'}
-              </span>
-            </div>
-          ))}
+  // ── Exempté : aucune induction à passer ─────────────────────────
+  if (exempte && !dejaComplete) return (
+    <div style={{minHeight:'100%',background:'#f6f1e4',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{maxWidth:460,width:'100%',background:'#fffdf7',border:'2px solid #0f1d3a'}}>
+        <div style={{height:10,background:'repeating-linear-gradient(-45deg,#e8a200 0 8px,#0f1d3a 8px 16px)'}}/>
+        <div style={{padding:'28px 26px',textAlign:'center',color:'#0f1d3a'}}>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,letterSpacing:'.14em',color:'#6b6657'}}>INDUCTION DU CAMP</div>
+          <div style={{fontFamily:"'Barlow Condensed','Arial Narrow',Impact,sans-serif",fontSize:40,fontWeight:700,textTransform:'uppercase',lineHeight:1.05,margin:'8px 0'}}>Dispense accordée</div>
+          <p style={{fontSize:14,color:'#6b6657',margin:'0 0 20px'}}>{nomUser}, tu es exempté(e) de l'induction du camp. Rien à faire de ton côté.</p>
+          <button onClick={()=>window.location.href='/'} style={{background:'#0f1d3a',color:'#fffdf7',border:'none',padding:'11px 22px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Tableau de bord →</button>
         </div>
       </div>
     </div>
   )
 
-  // ── Déjà complété — afficher badge ───────────────────────────────
+  // ── Déjà complété — permis d'accès (papier ivoire, encre marine) ──
   if (dejaComplete) return (
-    <div style={{minHeight:'100%',background:'linear-gradient(135deg,var(--rzc-fond-induction,#0F2A5C),color-mix(in srgb, var(--rzc-fond-induction,#0F2A5C) 65%, white),var(--rzc-fond-induction,#0F2A5C))',
-      display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{maxWidth:500,width:'100%',textAlign:'center'}}>
-        <div style={{fontSize:72,marginBottom:12,animation:'icBounce 2s ease infinite'}}>🏅</div>
-        <div style={{background:'rgba(255,255,255,.06)',backdropFilter:'blur(20px)',
-          border:'1px solid rgba(255,255,255,.12)',borderRadius:24,padding:36,
-          boxShadow:'0 25px 60px rgba(0,0,0,.4)'}}>
-          <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:'uppercase',
-            color:'#64748b',marginBottom:14}}>CERTIFICAT D'INDUCTION CAMP</div>
-          <div style={{display:'flex',justifyContent:'center',marginBottom:20}}>
-            <div style={{width:80,height:80,borderRadius:'50%',
-              background:'linear-gradient(135deg,#10b981,#059669)',
-              display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,
-              boxShadow:'0 0 30px rgba(16,185,129,.4)'}}>⛏️</div>
+    <div style={{minHeight:'100%',background:'#f6f1e4',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{maxWidth:460,width:'100%',background:'#fffdf7',border:'2px solid #0f1d3a',color:'#0f1d3a',position:'relative'}}>
+        <div style={{height:10,background:'repeating-linear-gradient(-45deg,#e8a200 0 8px,#0f1d3a 8px 16px)'}}/>
+        <div style={{padding:'24px 26px 26px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',fontFamily:"'JetBrains Mono',monospace",fontSize:11,letterSpacing:'.12em',color:'#6b6657'}}>
+            <span>PERMIS D'ACCÈS · SITE SANGO</span><span>VALIDE</span>
           </div>
-          <div style={{fontSize:22,fontWeight:900,color:'#fff',marginBottom:6}}>{nomUser}</div>
-          <div style={{fontSize:13,color:'#94a3b8',marginBottom:20}}>
-            A complété l'induction du camp Roxgold Sango
-          </div>
-          <div style={{background:'rgba(16,185,129,.1)',border:'1px solid rgba(16,185,129,.25)',
-            borderRadius:12,padding:'12px 16px',marginBottom:20,textAlign:'left'}}>
-            {['✅ Infrastructures du camp découvertes',
-              '✅ Règles de vie lues et acceptées',
-              '✅ Quiz de validation réussi',
-              '✅ Engagement signé électroniquement'
-            ].map(l=>(
-              <div key={l} style={{fontSize:12,color:'#6ee7b7',padding:'3px 0'}}>{l}</div>
-            ))}
-          </div>
-          <div style={{background:'linear-gradient(135deg,#ffd400,#f59e0b)',
-            borderRadius:10,padding:'10px 16px',marginBottom:20}}>
-            <p style={{fontSize:13,fontWeight:800,color:'var(--rzc-navy)',margin:0}}>
-              🎉 Bienvenue — Induction validée !
-            </p>
-          </div>
-          <div style={{display:'flex',gap:8,justifyContent:'center'}}>
-            <button onClick={()=>window.location.href='/'}
-              style={{background:'linear-gradient(135deg,#F0A500,#C9972B)',color:'#fff',
-                border:'none',borderRadius:10,padding:'12px 24px',
-                fontSize:14,fontWeight:700,cursor:'pointer'}}>
-              Dashboard →
-            </button>
-            {isAdmin && (
-              <button onClick={()=>setAdminView(true)}
-                style={{background:'rgba(212,160,23,.18)',color:'var(--rzc-bright-gold)',
-                  border:'1px solid rgba(212,160,23,.35)',borderRadius:10,
-                  padding:'12px 24px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
-                Vue Admin 👁️
-              </button>
-            )}
+          <div style={{fontFamily:"'Barlow Condensed','Arial Narrow',Impact,sans-serif",fontSize:42,fontWeight:700,textTransform:'uppercase',lineHeight:1,margin:'14px 0 4px'}}>Induction du camp</div>
+          <div style={{fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:24,fontWeight:600,textTransform:'uppercase',color:'#1f7a4d',borderTop:'2px solid #0f1d3a',paddingTop:8,marginTop:8}}>{nomUser}</div>
+          <div style={{fontSize:13,color:'#6b6657',margin:'4px 0 16px'}}>A complété l'induction du camp Roxgold Sango.</div>
+          {['Infrastructures du camp découvertes','Règles de vie lues et acceptées','Quiz de validation réussi','Engagement signé électroniquement'].map(l=>(
+            <div key={l} style={{display:'flex',gap:10,alignItems:'center',padding:'6px 0',borderBottom:'1px dashed #d9d0b8',fontSize:13}}>
+              <span style={{width:18,height:18,border:'2px solid #1f7a4d',color:'#1f7a4d',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900}}>✓</span>{l}
+            </div>
+          ))}
+          <div style={{display:'flex',gap:8,marginTop:20,flexWrap:'wrap'}}>
+            <button onClick={()=>window.location.href='/'} style={{background:'#0f1d3a',color:'#fffdf7',border:'none',padding:'11px 22px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Tableau de bord →</button>
+            {isAdmin && <button onClick={()=>setAdminView(true)} style={{background:'#fffdf7',color:'#0f1d3a',border:'2px solid #0f1d3a',padding:'9px 20px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Registre admin</button>}
           </div>
         </div>
       </div>
@@ -560,31 +476,13 @@ export default function InductionCamp() {
   // Conserve une légère variation par étape (plus clair/plus sombre) pour
   // garder un peu de vie visuelle au fil du parcours.
   const bg = 'var(--rzc-fond-induction, #0F2A5C)'
-  const clair  = `color-mix(in srgb, ${bg} 65%, white)`
   const fonce  = `color-mix(in srgb, ${bg} 80%, black)`
-  const bgGradients = [
-    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Bienvenue
-    `linear-gradient(135deg,${fonce} 0%,${clair} 50%,${fonce} 100%)`, // Infra
-    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Règles
-    `linear-gradient(135deg,${fonce} 0%,${clair} 50%,${fonce} 100%)`, // Quiz
-    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Appareils
-    `linear-gradient(135deg,${bg} 0%,${clair} 50%,${bg} 100%)`,   // Signature
-  ]
-
   return (
     <div className="ic-root" style={{minHeight:'100%',
-      background:bgGradients[etape],color:'#fff',
-      transition:'background 0.6s ease'}}>
+      background:fonce,color:'#fff'}}>
       <style>{css}</style>
 
-      {/* Particules de fond */}
-      <div style={{position:'fixed',inset:0,pointerEvents:'none',overflow:'hidden',zIndex:0}}>
-        {Array.from({length:12},(_,i)=>(
-          <Particle key={i} x={Math.random()*100} y={Math.random()*100}
-            color={['#F0A500','#8b5cf6','#10b981','#ffd400'][i%4]}
-            size={3+Math.random()*4} delay={Math.random()*3}/>
-        ))}
-      </div>
+      <div style={{height:10,background:'repeating-linear-gradient(-45deg,#e8a200 0 8px,#0f1d3a 8px 16px)'}}/>
 
       <div style={{position:'relative',zIndex:1,maxWidth:860,margin:'0 auto',padding:'20px 16px'}}>
 

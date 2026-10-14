@@ -4088,32 +4088,155 @@ class InductionCampRecordViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def statut(self, request):
-        """Mon induction Camp : `requise` = j'ai déjà été hébergé(e) (ou je le suis) et je ne l'ai pas encore signée."""
-        from .models import InductionCampRecord, Personnel, OccupationHistory, Batiment
+        """Mon induction Camp : `requise` = j'ai déjà été hébergé(e) (ou je le suis) et je ne l'ai pas encore signée.
+        Une personne exemptée n'est jamais « requise »."""
+        from .models import InductionCampRecord, Personnel, OccupationHistory, Batiment, InductionCampExemption
         u = request.user
         if _is_admin_user(u):
             return Response({"complete": True, "requise": False})
         complete = InductionCampRecord.objects.filter(user=u).exists()
         pers = Personnel.objects.filter(user=u).first()
+        exempte = bool(pers) and InductionCampExemption.objects.filter(personnel=pers).exists()
         heberge = bool(pers) and (OccupationHistory.objects.filter(personnel=pers).exists() or Batiment.objects.filter(personnel=pers).exists())
-        return Response({"complete": complete, "requise": heberge and not complete})
+        return Response({"complete": complete, "exempte": exempte, "requise": heberge and not complete and not exempte})
+
+    @staticmethod
+    def _lignes():
+        """Une ligne par personne active avec compte : statut = termine | exempte | non_commence."""
+        from .models import InductionCampRecord, InductionCampExemption, Personnel
+        faits = {r.user_id: r for r in InductionCampRecord.objects.all()}
+        exempts = {e.personnel_id: e for e in InductionCampExemption.objects.select_related("accorde_par")}
+        chambres = {}
+        for b in Batiment.objects.filter(statut="Occupé", personnel__isnull=False).values("personnel_id", "residence"):
+            chambres.setdefault(b["personnel_id"], b["residence"])
+        lignes = []
+        for p in Personnel.objects.filter(actif=True, user__isnull=False).order_by("nom", "prenom"):
+            r, ex = faits.get(p.user_id), exempts.get(p.id)
+            statut = "termine" if r else ("exempte" if ex else "non_commence")
+            lignes.append({
+                "personnel_id": p.id, "nom": f"{p.nom} {p.prenom}".strip(), "societe": p.societe or "",
+                "departement": p.departement or "", "type": p.type_personnel, "chambre": chambres.get(p.id, ""),
+                "statut": statut, "complete": bool(r),
+                "date_completion": r.date_completion if r else None,
+                "quiz_score": r.quiz_score if r else None,
+                "appareils": len(r.appareils) if r else 0,
+                "exempte": bool(ex), "motif_exemption": ex.motif if ex else "",
+                "exempte_par": (ex.accorde_par.get_full_name() or ex.accorde_par.username) if ex and ex.accorde_par else "",
+                "date_exemption": ex.date_creation if ex else None,
+            })
+        return lignes
 
     @action(detail=False, methods=["get"])
     def resume(self, request):
-        """Admin : situation de l'induction Camp de chaque résident ayant un compte (source = parcours Camp,
-        pas le suivi QHSE). Total = personnes actives avec compte ; terminé = parcours signé enregistré."""
+        """Admin : situation de l'induction Camp de chaque résident ayant un compte + indicateurs (KPI).
+        Source = parcours Camp (signature enregistrée), pas le suivi QHSE."""
         if not _is_admin_user(request.user):
             return Response({"error": "Admin uniquement"}, status=403)
-        from .models import InductionCampRecord, Personnel
-        faits = {r.user_id: r for r in InductionCampRecord.objects.all()}
-        lignes = []
-        for p in Personnel.objects.filter(actif=True, user__isnull=False).order_by("nom", "prenom"):
-            r = faits.get(p.user_id)
-            lignes.append({"personnel_id": p.id, "nom": f"{p.nom} {p.prenom}".strip(), "societe": p.societe or "",
-                           "complete": bool(r), "date_completion": r.date_completion if r else None,
-                           "appareils": len(r.appareils) if r else 0})
-        termines = sum(1 for l in lignes if l["complete"])
-        return Response({"total": len(lignes), "termines": termines, "non_commences": len(lignes) - termines, "lignes": lignes})
+        from collections import Counter, defaultdict
+        from django.utils import timezone
+        lignes = self._lignes()
+        termines = sum(1 for l in lignes if l["statut"] == "termine")
+        exemptes = sum(1 for l in lignes if l["statut"] == "exempte")
+        attendus = len(lignes) - exemptes
+        par_soc = defaultdict(lambda: {"total": 0, "termines": 0, "exemptes": 0})
+        par_dep = defaultdict(lambda: {"total": 0, "termines": 0, "exemptes": 0})
+        for l in lignes:
+            for cle, reg in ((l["societe"] or "Non renseignée", par_soc), (l["departement"] or "Non renseigné", par_dep)):
+                reg[cle]["total"] += 1
+                reg[cle]["termines"] += l["statut"] == "termine"
+                reg[cle]["exemptes"] += l["statut"] == "exempte"
+        today = timezone.localdate()
+        jours = Counter(timezone.localtime(l["date_completion"]).date() for l in lignes if l["date_completion"])
+        scores = [l["quiz_score"] for l in lignes if l["quiz_score"] is not None]
+        from datetime import timedelta
+        return Response({
+            "total": len(lignes), "termines": termines, "exemptes": exemptes,
+            "non_commences": len(lignes) - termines - exemptes,
+            "taux": round(termines * 100 / attendus, 1) if attendus else 100.0,
+            "score_moyen": round(sum(scores) / len(scores), 1) if scores else None,
+            "appareils_total": sum(l["appareils"] for l in lignes),
+            "par_societe": sorted(({"societe": k, **v} for k, v in par_soc.items()), key=lambda x: -x["total"]),
+            "par_departement": sorted(({"departement": k, **v} for k, v in par_dep.items()), key=lambda x: -x["total"]),
+            "par_jour": [{"date": (today - timedelta(days=n)).isoformat(), "n": jours.get(today - timedelta(days=n), 0)} for n in range(29, -1, -1)],
+            "lignes": lignes,
+        })
+
+    @action(detail=False, methods=["post"])
+    def exempter(self, request):
+        """Admin : dispense une ou plusieurs personnes (`personnel_ids`, `motif` obligatoire)."""
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+        from .models import InductionCampExemption, Personnel
+        motif = str(request.data.get("motif") or "").strip()[:200]
+        ids = [int(i) for i in (request.data.get("personnel_ids") or []) if str(i).isdigit()]
+        if not motif:
+            return Response({"error": "Le motif de l'exemption est obligatoire."}, status=400)
+        if not ids:
+            return Response({"error": "Aucune personne sélectionnée."}, status=400)
+        n = 0
+        for p in Personnel.objects.filter(id__in=ids):
+            _, cree = InductionCampExemption.objects.update_or_create(
+                personnel=p, defaults={"motif": motif, "accorde_par": request.user})
+            n += 1
+        return Response({"ok": True, "exemptes": n})
+
+    @action(detail=False, methods=["post"])
+    def retirer_exemption(self, request):
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+        from .models import InductionCampExemption
+        ids = [int(i) for i in (request.data.get("personnel_ids") or []) if str(i).isdigit()]
+        n, _ = InductionCampExemption.objects.filter(personnel_id__in=ids).delete()
+        return Response({"ok": True, "retirees": n})
+
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        """Admin : extraction CSV ou Excel. Filtres : statut (termine|non_commence|exempte), societe, departement, du, au (date de complétion)."""
+        if not _is_admin_user(request.user):
+            return Response({"error": "Admin uniquement"}, status=403)
+        import csv, io
+        from django.http import HttpResponse
+        from django.utils import timezone
+        q = request.query_params
+        lignes = self._lignes()
+        if q.get("statut") in ("termine", "non_commence", "exempte"):
+            lignes = [l for l in lignes if l["statut"] == q["statut"]]
+        if q.get("societe"):
+            lignes = [l for l in lignes if l["societe"].lower() == q["societe"].lower()]
+        if q.get("departement"):
+            lignes = [l for l in lignes if l["departement"].lower() == q["departement"].lower()]
+        def jour(l):
+            return timezone.localtime(l["date_completion"]).date().isoformat() if l["date_completion"] else ""
+        if q.get("du"):
+            lignes = [l for l in lignes if jour(l) and jour(l) >= q["du"]]
+        if q.get("au"):
+            lignes = [l for l in lignes if jour(l) and jour(l) <= q["au"]]
+        libelle = {"termine": "Terminé", "exempte": "Exempté", "non_commence": "Non commencé"}
+        entetes = ["Nom", "Société", "Département", "Type", "Chambre", "Statut", "Date de complétion", "Score quiz", "Appareils déclarés", "Motif exemption", "Exempté par", "Date exemption"]
+        rows = [[l["nom"], l["societe"], l["departement"], l["type"], l["chambre"], libelle[l["statut"]], jour(l),
+                 l["quiz_score"] if l["quiz_score"] is not None else "", l["appareils"], l["motif_exemption"], l["exempte_par"],
+                 timezone.localtime(l["date_exemption"]).date().isoformat() if l["date_exemption"] else ""] for l in lignes]
+        nom = f"induction_camp_{timezone.localdate().isoformat()}"
+        if q.get("fmt") == "xlsx":
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill
+            wb = Workbook(); ws = wb.active; ws.title = "Induction Camp"
+            ws.append(entetes)
+            for c in ws[1]:
+                c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="0F2A5C")
+            for r in rows: ws.append(r)
+            for col, larg in zip("ABCDEFGHIJKL", (28, 22, 20, 14, 12, 14, 16, 11, 12, 30, 20, 14)):
+                ws.column_dimensions[col].width = larg
+            ws.freeze_panes = "A2"
+            buf = io.BytesIO(); wb.save(buf)
+            rep = HttpResponse(buf.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            rep["Content-Disposition"] = f'attachment; filename="{nom}.xlsx"'
+            return rep
+        buf = io.StringIO(); w = csv.writer(buf, delimiter=";")
+        w.writerow(entetes); w.writerows(rows)
+        rep = HttpResponse("\ufeff" + buf.getvalue(), content_type="text/csv; charset=utf-8")
+        rep["Content-Disposition"] = f'attachment; filename="{nom}.csv"'
+        return rep
 
     def create(self, request):
         from .models import InductionCampRecord
