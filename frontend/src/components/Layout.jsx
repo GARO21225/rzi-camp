@@ -682,6 +682,7 @@ export default function Layout() {
               <div style={{ fontSize: 10, color: '#8A8A8A', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700 }}>
                 Navigation
               </div>
+              <div style={{ fontSize: 9.5, color: '#64748B', fontFamily: 'var(--font-mono)', marginTop: 3 }}>build {typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev'}</div>
             </div>
             <div style={{ padding: 8, paddingBottom: isMobile ? 'calc(100px + env(safe-area-inset-bottom, 0px))' : 8, flex: 1 }}>
               {(() => {
