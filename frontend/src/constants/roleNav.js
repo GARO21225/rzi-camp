@@ -175,10 +175,19 @@ function depuisMenuPages(menuPages) {
 export function buildNav(role, isAdmin, roleMenuOverride, agentMenuOverride) {
   if (isAdmin) return ROLE_NAV.admin
   const resident = depuisMenuPages(agentMenuOverride) || ROLE_NAV.agent
-  if (role === 'agent') return depuisMenuPages(roleMenuOverride) || resident
+  // Induction QHSE : HSE et service médical gèrent tous les dossiers ; les autres ne voient QUE la leur.
+  const gere = role === 'hse' || role === 'medical'
+  const induction = list => {
+    const sans = list.filter(i => i.to !== '/induction')
+    const e = list.find(i => i.to === '/induction')
+    if (!e && !gere) return list
+    const entree = { to: '/induction', label: gere ? '🎓 Induction QHSE' : '🎓 Mon induction QHSE' }
+    return e ? list.map(i => i.to === '/induction' ? entree : i) : [...sans, entree]
+  }
+  if (role === 'agent') return induction(depuisMenuPages(roleMenuOverride) || resident)
   const metier = depuisMenuPages(roleMenuOverride) || ROLE_NAV[role] || []
   const vus = new Set()
-  return [...metier, ...resident].filter(i => i.to && !vus.has(i.to) && vus.add(i.to))
+  return induction([...metier, ...resident].filter(i => i.to && !vus.has(i.to) && vus.add(i.to)))
 }
 
 // Une page est autorisée si elle (ou une de ses sous-routes) figure dans le

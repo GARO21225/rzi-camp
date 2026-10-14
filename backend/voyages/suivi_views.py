@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 
 from . import suivi_rapports
-from .models import Rotation, Voyage, SuiviConvoi, PositionConvoi, ArretConvoi, DeposeArret
+from .models import Rotation, Voyage, SuiviConvoi, PositionConvoi, ArretConvoi, DeposeArret, RamasseArret
 
 # Intervalle minimal entre deux points enregistrés dans la trace (la position
 # "courante" est, elle, toujours mise à jour).
@@ -131,9 +131,18 @@ def _serialiser(rotation, avec_trace=False):
     }
     if not suivi:
         return data
-    arrets = list(suivi.arrets.prefetch_related("deposes__voyage__personnel"))
+    arrets = list(suivi.arrets.prefetch_related("deposes__voyage__personnel", "ramasses__voyage__personnel"))
     arret_en_cours = next((a for a in reversed(arrets) if a.fin is None), None)
-    deposes_ids = set(DeposeArret.objects.filter(arret__suivi=suivi).values_list("voyage_id", flat=True))
+    a_bord_ids = suivi.ids_a_bord()
+    # À ramasser : affectés au convoi mais pas à bord (arrivés après le départ) ou descendus plus tôt (ils peuvent remonter)
+    a_ramasser = []
+    for v in _passagers(rotation).exclude(statut_validation="refuse"):
+        if v.id in a_bord_ids or v.statut not in ("planifie", "en_voyage"):
+            continue
+        if v.statut == "planifie" and v.statut_validation == "en_attente":
+            continue
+        a_ramasser.append({"voyage_id": v.id, "nom": _nom(v.personnel), "origine": v.origine,
+                           "etat": "descendu" if v.statut == "en_voyage" else "attendu"})
     data["suivi"] = {
         "statut": suivi.statut,
         "depart_at": suivi.depart_at,
@@ -149,18 +158,20 @@ def _serialiser(rotation, avec_trace=False):
         "position_ancienne": bool(suivi.statut != "arrive" and (not suivi.position_at or (timezone.now() - suivi.position_at).total_seconds() > POSITION_ANCIENNE_S)),
         "duree_s": suivi.duree_s, "distance_km": suivi.distance_km,
         "nb_passagers_depart": suivi.nb_passagers_depart,
-        "nb_a_bord": max(0, suivi.nb_passagers_depart - len(deposes_ids)),
+        "nb_a_bord": len(a_bord_ids),
         "arret_en_cours": arret_en_cours.id if arret_en_cours else None,
         "arrets": [{
             "id": a.id, "type": a.type_arret, "type_label": a.get_type_arret_display(),
             "lieu": a.lieu, "note": a.note, "latitude": a.latitude, "longitude": a.longitude,
             "debut": a.debut, "fin": a.fin, "nb_a_bord": a.nb_a_bord,
             "deposes": [_nom(d.voyage.personnel) for d in a.deposes.all()],
+            "ramasses": [_nom(d.voyage.personnel) for d in a.ramasses.all()],
         } for a in arrets],
         "a_bord": [
             {"voyage_id": v.id, "nom": _nom(v.personnel), "destination": v.destination}
-            for v in _passagers(rotation).filter(statut="en_voyage") if v.id not in deposes_ids
+            for v in _passagers(rotation).filter(statut="en_voyage") if v.id in a_bord_ids
         ],
+        "a_ramasser": a_ramasser,
     }
     if avec_trace:
         pts = list(suivi.positions.order_by("-date_heure").values_list("latitude", "longitude")[:MAX_POINTS_TRACE])
@@ -343,6 +354,7 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
         lat, lng = _float(request.data.get("latitude")), _float(request.data.get("longitude"))
         lieu = (request.data.get("lieu") or "").strip()[:150]
         ids = [int(i) for i in (request.data.get("deposes") or []) if str(i).isdigit()]
+        ids_montent = [int(i) for i in (request.data.get("ramasses") or []) if str(i).isdigit()]
         with transaction.atomic():
             suivi.arrets.filter(fin__isnull=True).update(fin=now)
             a = ArretConvoi.objects.create(
@@ -353,11 +365,29 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
                 debut=now,
             )
             from .models import EvenementMonteeDescente
+            a_bord_avant = suivi.ids_a_bord()
             for v in _passagers(rotation).filter(id__in=ids, statut="en_voyage"):
+                if v.id not in a_bord_avant:
+                    continue
                 DeposeArret.objects.get_or_create(arret=a, voyage=v)
                 # Alimente aussi le journal montée/descente existant (billet / itinéraire réel)
                 EvenementMonteeDescente.objects.create(
                     voyage=v, type_evenement="descente", lieu=lieu or "En route", date_heure=now,
+                    latitude=a.latitude, longitude=a.longitude, enregistre_par=request.user,
+                )
+            for v in _passagers(rotation).filter(id__in=ids_montent).exclude(statut_validation="refuse"):
+                if v.id in a_bord_avant:
+                    continue
+                if v.statut == "planifie":
+                    try:
+                        v.partir(None)
+                    except Exception:
+                        continue
+                elif v.statut != "en_voyage":
+                    continue
+                RamasseArret.objects.get_or_create(arret=a, voyage=v)
+                EvenementMonteeDescente.objects.create(
+                    voyage=v, type_evenement="montee", lieu=lieu or "En route", date_heure=now,
                     latitude=a.latitude, longitude=a.longitude, enregistre_par=request.user,
                 )
             a.nb_a_bord = suivi.nb_a_bord()
@@ -367,10 +397,12 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
                 suivi.latitude, suivi.longitude, suivi.position_at = lat, lng, now
             suivi.save(update_fields=["statut", "latitude", "longitude", "position_at"])
         nb_deposes = a.deposes.count()
+        nb_ramasses = a.ramasses.count()
         _notifier_admins(
             f"{a.get_type_arret_display()} — convoi {rotation.vehicule_matricule or rotation.rotation_id}",
             f"{lieu or 'Lieu non précisé'} à {timezone.localtime(now):%H:%M}"
             + (f" · {nb_deposes} passager(s) déposé(s)" if nb_deposes else "")
+            + (f" · {nb_ramasses} passager(s) ramassé(s)" if nb_ramasses else "")
             + f" · {a.nb_a_bord} à bord" + (f" · {a.note}" if a.note else ""),
             type_notif="alerte" if type_arret == "incident" else "info",
         )

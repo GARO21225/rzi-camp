@@ -75,18 +75,21 @@ function PanneauGps({ statut, position, message, onAutoriser }) {
   )
 }
 
-function ModalArret({ convoi, onClose, onValider }) {
-  const [type, setType] = useState('pause')
+function ModalArret({ convoi, onClose, onValider, typeInitial }) {
+  const [type, setType] = useState(typeInitial || 'pause')
   const [lieu, setLieu] = useState('')
   const [note, setNote] = useState('')
   const [deposes, setDeposes] = useState([])
+  const [ramasses, setRamasses] = useState([])
   const [busy, setBusy] = useState(false)
   const aBord = convoi.suivi?.a_bord || []
+  const aRamasser = convoi.suivi?.a_ramasser || []
+  const basculer = id => setRamasses(d => d.includes(id) ? d.filter(x => x !== id) : [...d, id])
   const toggle = id => setDeposes(d => d.includes(id) ? d.filter(x => x !== id) : [...d, id])
 
   const valider = async () => {
     setBusy(true)
-    try { await onValider({ type, lieu, note, deposes: type === 'depose' ? deposes : [] }) }
+    try { await onValider({ type, lieu, note, deposes: type === 'depose' ? deposes : [], ramasses: type === 'ramassage' ? ramasses : [] }) }
     finally { setBusy(false) }
   }
 
@@ -122,12 +125,25 @@ function ModalArret({ convoi, onClose, onValider }) {
             ))}
           </div>
         )}
+        {type === 'ramassage' && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1A2E', marginBottom: 6 }}>Qui monte ici ? ({ramasses.length}/{aRamasser.length})</div>
+            {aRamasser.length === 0 && <div style={{ fontSize: 13, color: '#5B6472', lineHeight: 1.4 }}>Aucun passager à ramasser : tous les passagers affectés à ce convoi sont déjà à bord. Le Centre de Mobilité peut en ajouter à ce convoi.</div>}
+            {aRamasser.map(p => (
+              <label key={p.voyage_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                <input type="checkbox" checked={ramasses.includes(p.voyage_id)} onChange={() => basculer(p.voyage_id)} style={{ width: 22, height: 22 }} />
+                <span style={{ fontSize: 15, color: '#0F1A2E', flex: 1 }}>{p.nom}</span>
+                <span style={{ fontSize: 12, color: p.etat === 'descendu' ? '#92400E' : '#5B6472' }}>{p.etat === 'descendu' ? 'était descendu' : (p.origine || 'attendu')}</span>
+              </label>
+            ))}
+          </div>
+        )}
         {(type === 'incident' || type === 'controle') && (
           <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Détail (facultatif)" rows={2}
             style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 10, boxSizing: 'border-box', fontFamily: 'inherit' }} />
         )}
-        <button onClick={valider} disabled={busy || (type === 'depose' && deposes.length === 0)}
-          style={btn(busy || (type === 'depose' && deposes.length === 0) ? '#94a3b8' : (type === 'incident' ? '#DC2626' : '#0F2A5C'))}>
+        <button onClick={valider} disabled={busy || (type === 'depose' && deposes.length === 0) || (type === 'ramassage' && ramasses.length === 0)}
+          style={btn(busy || (type === 'depose' && deposes.length === 0) || (type === 'ramassage' && ramasses.length === 0) ? '#94a3b8' : (type === 'incident' ? '#DC2626' : '#0F2A5C'))}>
           {busy ? '⏳ Envoi...' : '📣 Notifier le Centre de Mobilité'}
         </button>
       </div>
@@ -401,6 +417,18 @@ export default function Conduite() {
           : <button onClick={() => setModalArret(true)} disabled={busy} style={btn('#D4A017')}>⏸️ Signaler un arrêt</button>}
         <button onClick={arriver} disabled={busy} style={btn('#0F2A5C')}>🏁 Arrivé à destination</button>
 
+        {s.a_ramasser?.length > 0 && (
+          <div style={{ background: '#FFF8E6', border: '1px solid #FDE68A', borderRadius: 12, padding: '10px 14px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#92400E', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>⬆️ À ramasser ({s.a_ramasser.length})</div>
+            {s.a_ramasser.map(p => (
+              <div key={p.voyage_id} style={{ fontSize: 14, color: '#0F1A2E', padding: '5px 0', borderBottom: '1px solid #f1e7c4' }}>
+                {p.nom} <span style={{ color: '#5B6472', fontSize: 12 }}>· {p.etat === 'descendu' ? 'était descendu' : (p.origine || 'attendu')}</span>
+              </div>
+            ))}
+            <button onClick={() => setModalArret('ramassage')} style={btn('#D4A017', { marginTop: 10, minHeight: 46, fontSize: 15 })}>⬆️ Ramasser des passagers</button>
+          </div>
+        )}
+
         {s.arrets?.length > 0 && (
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: '#5B6472', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Arrêts signalés</div>
@@ -408,6 +436,7 @@ export default function Conduite() {
               <div key={a.id} style={{ fontSize: 14, color: '#0F1A2E', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
                 {ICONE_ARRET[a.type]} <b>{heure(a.debut)}</b> {a.lieu || a.type_label.replace(/^\S+\s/, '')}
                 {a.deposes.length > 0 && <span style={{ color: '#5B6472' }}> · déposés : {a.deposes.join(', ')}</span>}
+                {a.ramasses?.length > 0 && <span style={{ color: '#5B6472' }}> · ramassés : {a.ramasses.join(', ')}</span>}
               </div>
             ))}
           </div>
@@ -423,7 +452,7 @@ export default function Conduite() {
         </div>
       </div>
 
-      {modalArret && <ModalArret convoi={actif} onClose={() => setModalArret(false)} onValider={signalerArret} />}
+      {modalArret && <ModalArret convoi={actif} typeInitial={modalArret === 'ramassage' ? 'ramassage' : undefined} onClose={() => setModalArret(false)} onValider={signalerArret} />}
     </div>
   )
 }

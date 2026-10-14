@@ -54,6 +54,7 @@ try {
 import { PWAInstallButton } from './components/PWAInstall'
 import EventNotifBanner from './components/EventNotifBanner'
 import AlerteLive from './components/AlerteLive'
+import PushActivation from './components/PushActivation'
 import { useTheme } from './hooks/useTheme'
 
 // ── Enregistrement Service Worker (offline mode) ──────────────
@@ -263,6 +264,7 @@ export default function App() {
       <InactivityWarning />
       {token && <EventNotifBanner />}
       {token && <AlerteLive />}
+      {token && <PushActivation />}
       <InactivityGuard />
       <PWAInstallButton />
       <Routes>

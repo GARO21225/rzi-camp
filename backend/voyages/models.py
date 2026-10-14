@@ -643,10 +643,17 @@ class SuiviConvoi(models.Model):
     def __str__(self):
         return f"Suivi {self.rotation.rotation_id} — {self.statut}"
 
+    def ids_a_bord(self):
+        """Voyages actuellement à bord : partis avec le convoi (ou ramassés), moins ceux déposés, dans l'ordre des arrêts."""
+        ids = set(Voyage.objects.filter(rotation_id=self.rotation.rotation_id, statut="en_voyage").values_list("id", flat=True))
+        for a in self.arrets.order_by("debut", "id"):
+            ids -= set(a.deposes.values_list("voyage_id", flat=True))
+            ids |= set(a.ramasses.values_list("voyage_id", flat=True))
+        return ids
+
     def nb_a_bord(self):
-        """Passagers partis avec le convoi, moins ceux déposés en route."""
-        deposes = DeposeArret.objects.filter(arret__suivi=self).values("voyage_id").distinct().count()
-        return max(0, self.nb_passagers_depart - deposes)
+        """Passagers à bord : partis avec le convoi + ramassés en route − déposés."""
+        return len(self.ids_a_bord())
 
 
 class PositionConvoi(models.Model):
@@ -697,6 +704,15 @@ class DeposeArret(models.Model):
     """Passager déposé lors d'un arrêt (lié à son Voyage)."""
     arret = models.ForeignKey(ArretConvoi, on_delete=models.CASCADE, related_name="deposes")
     voyage = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="deposes_convoi")
+
+    class Meta:
+        unique_together = [["arret", "voyage"]]
+
+
+class RamasseArret(models.Model):
+    """Passager qui monte (ramassage) lors d'un arrêt — pendant de DeposeArret."""
+    arret = models.ForeignKey(ArretConvoi, on_delete=models.CASCADE, related_name="ramasses")
+    voyage = models.ForeignKey(Voyage, on_delete=models.CASCADE, related_name="ramasses_convoi")
 
     class Meta:
         unique_together = [["arret", "voyage"]]

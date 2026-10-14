@@ -169,6 +169,7 @@ export default function AnnuairePage() {
                 (selected.inductionrecord.statut==='valide'?'✅ Induit':'⏳ En cours') :
                 '❌ Non commencé'],
               ['📞 Téléphone', selected.telephone || '—'],
+              ...(selected.telephone_2 ? [['📞 Second numéro', selected.telephone_2]] : []),
               ['💬 WhatsApp', selected.numero_whatsapp || '—'],
               ['📧 Email', selected.email || '—'],
               ['🪪 Matricule', selected.matricule || '—'],
@@ -182,7 +183,7 @@ export default function AnnuairePage() {
             ))}
 
             {/* Boutons d'action rapide */}
-            {(selected.telephone || selected.numero_whatsapp || selected.email) && (
+            {(selected.telephone || selected.telephone_2 || selected.numero_whatsapp || selected.email) && (
               <div style={{display:'flex',gap:10,marginTop:16,marginBottom:4,flexWrap:'wrap'}}>
                 {selected.telephone && (
                   <a href={`tel:${selected.telephone}`}
@@ -191,6 +192,15 @@ export default function AnnuairePage() {
                       fontSize:14,background:'#059669',color:'var(--rzc-white)',
                       boxShadow:'0 2px 8px rgba(5,150,105,.3)'}}>
                     📞 Appeler
+                  </a>
+                )}
+                {selected.telephone_2 && (
+                  <a href={`tel:${selected.telephone_2}`}
+                    style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                      gap:8,padding:'12px',borderRadius:12,textDecoration:'none',fontWeight:700,
+                      fontSize:14,background:'#0f766e',color:'var(--rzc-white)',
+                      boxShadow:'0 2px 8px rgba(15,118,110,.3)'}}>
+                    📞 2ᵉ numéro
                   </a>
                 )}
                 {selected.telephone && (

@@ -194,3 +194,21 @@ class QREvenement(models.Model):
     def __str__(self):
         return f"QR {self.evenement.titre} - {self.personnel}"
 
+
+
+class VapidCle(models.Model):
+    """Paire de clés VAPID du serveur (Web Push). Générée automatiquement au premier usage, jamais exposée
+    par l'API (seule la clé publique est servie). Une seule ligne."""
+    publique = models.CharField(max_length=200)
+    privee_pem = models.TextField()
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+
+class PushSubscription(models.Model):
+    """Abonnement Web Push d'un appareil (PWA installée / navigateur) d'un utilisateur."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=300, blank=True, default="")
+    date_creation = models.DateTimeField(auto_now_add=True)

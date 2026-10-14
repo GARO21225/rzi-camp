@@ -213,6 +213,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                             telephone,
                             numero_whatsapp,
                             type_personnel,
+                            telephone_2,
                             actif,
                             profil,
                             est_expatrie,
@@ -227,7 +228,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                         )
                         VALUES (
                             %s, %s, %s, '', %s, %s, %s, %s, %s,
-                            TRUE, 'agent', FALSE, '', FALSE, FALSE, '', '', '', '', %s
+                            '', TRUE, 'agent', FALSE, '', FALSE, FALSE, '', '', '', '', %s
                         )
                         RETURNING id
                         """,
@@ -3577,11 +3578,15 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
     def _is_admin(self, u):
         return u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
 
+    def _is_admin_ou_hse(self, u):
+        """Décision finale sur un dossier : administrateur ou service HSE (les mêmes droits que dans l'écran Induction)."""
+        return self._is_admin(u) or getattr(getattr(u, "profile", None), "role", "") == "hse"
+
     @action(detail=True, methods=['post'])
     def valider(self, request, pk=None):
-        """Admin valide une induction terminee (toutes les etapes + quiz reussi)."""
-        if not self._is_admin(request.user):
-            return Response({"error":"Admin requis"}, status=403)
+        """Admin / HSE valide une induction terminee (toutes les etapes + quiz reussi)."""
+        if not self._is_admin_ou_hse(request.user):
+            return Response({"error":"Admin ou HSE requis"}, status=403)
         rec = self.get_object()
         rec.statut = 'valide'
         rec.save(update_fields=['statut'])
@@ -3589,9 +3594,9 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def refuser(self, request, pk=None):
-        """Admin refuse une induction (ex: quiz insuffisant, docs invalides) - motif obligatoire."""
-        if not self._is_admin(request.user):
-            return Response({"error":"Admin requis"}, status=403)
+        """Admin / HSE refuse une induction (ex: quiz insuffisant, docs invalides) - motif obligatoire."""
+        if not self._is_admin_ou_hse(request.user):
+            return Response({"error":"Admin ou HSE requis"}, status=403)
         motif = request.data.get('motif','').strip()
         if not motif:
             return Response({"error":"Le motif de refus est obligatoire."}, status=400)

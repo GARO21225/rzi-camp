@@ -81,6 +81,30 @@ class SuiviConvoiTests(TestCase):
         self.assertEqual(r.data[0]["suivi"]["nb_a_bord"], 2)
         self.assertGreaterEqual(len(r.data[0]["suivi"]["trace"]), 1)
 
+    def test_ramassage_liste_et_montee(self):
+        """Le chauffeur voit qui ramasser (arrivé après le départ ou descendu plus tôt) et le fait monter."""
+        self.c.force_authenticate(self.chauffeur_user)
+        self.c.post(self.url("partir"), {"latitude": 9.1, "longitude": -5.1}, format="json")
+        # un passager affecté APRÈS le départ
+        tard = Personnel.objects.create(nom="Retard", prenom="R", societe="ROXGOLD")
+        today = datetime.date.today()
+        v_tard = Voyage.objects.create(personnel=tard, rotation_id="ROT-T1", destination="Abidjan", statut_validation="valide",
+                                       date_depart=today, date_retour_prevue=today + datetime.timedelta(days=14), origine="Péage")
+        # un passager descend
+        self.c.post(self.url("arret"), {"type": "depose", "lieu": "Bouaké", "deposes": [self.voyages[0].id]}, format="json")
+        r = self.c.get("/api/suivi-convois/mes_convois/")
+        liste = {x["voyage_id"]: x["etat"] for x in r.data[0]["suivi"]["a_ramasser"]}
+        self.assertEqual(liste, {v_tard.id: "attendu", self.voyages[0].id: "descendu"})
+        self.assertEqual(r.data[0]["suivi"]["nb_a_bord"], 2)
+
+        r = self.c.post(self.url("arret"), {"type": "ramassage", "lieu": "Péage", "ramasses": [v_tard.id, self.voyages[0].id]}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data["suivi"]["nb_a_bord"], 4)
+        self.assertEqual(r.data["suivi"]["a_ramasser"], [])
+        v_tard.refresh_from_db()
+        self.assertEqual(v_tard.statut, "en_voyage")
+        self.assertTrue(EvenementMonteeDescente.objects.filter(voyage=v_tard, type_evenement="montee").exists())
+
     def test_acces_refuse_aux_non_conducteurs(self):
         self.c.force_authenticate(self.autre_user)
         self.assertEqual(self.c.post(self.url("partir"), {}, format="json").status_code, 403)

@@ -52,7 +52,7 @@ export default function EventNotifBanner() {
     const interval = setInterval(checkEvents, 30 * 1000)
     // Écouter les nouvelles notifs du SW
     const onMsg = (e) => {
-      if (e.data?.type === 'NEW_EVENT') checkEvents()
+      if (e.data?.type === 'NEW_EVENT' || e.data?.type === 'PUSH_RECU') checkEvents()
     }
     navigator.serviceWorker?.addEventListener('message', onMsg)
     return () => {

@@ -114,7 +114,7 @@ export default function Personnel() {
   // calcul n'est pas gratuit à répéter inutilement.
   const filtered = useMemo(() => data.filter(p => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.telephone,p.numero_whatsapp,p.profil,p.matricule]
+    const matchSearch = !q || [p.nom,p.prenom,p.email,p.societe,p.numero,p.telephone,p.telephone_2,p.numero_whatsapp,p.profil,p.matricule]
       .some(v => (v||'').toLowerCase().includes(q))
     const matchType    = !typeFilter    || p.type_personnel === typeFilter
     const matchSociete = !societeFilter || (p.societe||'').toLowerCase().includes(societeFilter.toLowerCase())
@@ -157,7 +157,7 @@ export default function Personnel() {
         }
       }
       setModal(null)
-      setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
+      setForm({nom:'',prenom:'',email:'',telephone:'',telephone_2:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
       load()
     } catch(e) {
       setErr(e.response?.data?.detail || JSON.stringify(e.response?.data) || 'Erreur')
@@ -692,7 +692,7 @@ export default function Personnel() {
               <button key={p.id} onClick={() => {
                   setForm({
                     nom:p.nom, prenom:p.prenom, email:p.email||'',
-                    telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
+                    telephone:p.telephone||'', telephone_2:p.telephone_2||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
                     type_personnel:p.type_personnel||'employe',
                     numero:p.numero||'', actif:p.actif,
                     est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite, mobilite:!!p.a_droit_mobilite
@@ -733,7 +733,7 @@ export default function Personnel() {
 
         {!lectureSeule && (
           <button onClick={()=>{
-              setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
+              setForm({nom:'',prenom:'',email:'',telephone:'',telephone_2:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
               setErr(''); setModal('new')
             }}
             aria-label="Ajouter un membre du personnel"
@@ -764,7 +764,7 @@ export default function Personnel() {
             {!lectureSeule && (
               <>
                 <button onClick={()=>{
-                  setForm({nom:'',prenom:'',email:'',telephone:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
+                  setForm({nom:'',prenom:'',email:'',telephone:'',telephone_2:'',numero_whatsapp:'',departement:'',societe:'ROXGOLD',type_personnel:'roxgold',numero:'',actif:true,est_expatrie:false,pays_origine:'',eligible_mobilite:false,mobilite:true})
                   setErr(''); setModal('new')
                 }} style={{...btn('var(--rzc-ore-gold)'), color:'#1A1206'}}>
                   ➕ Nouveau membre
@@ -968,6 +968,7 @@ export default function Personnel() {
                     </td>
                     <td style={{padding:'10px 14px',fontSize:12,color:'var(--rzc-text-2)'}}>
                       <div>{p.telephone || '—'}</div>
+                      {p.telephone_2 && <div style={{fontSize:11,color:'var(--rzc-text-3)',marginTop:2}}>📞 {p.telephone_2}</div>}
                       {p.numero_whatsapp && (
                         <div style={{fontSize:11,color:'#16a34a',marginTop:2}}>💬 {p.numero_whatsapp}</div>
                       )}
@@ -996,7 +997,7 @@ export default function Personnel() {
                           <button onClick={() => {
                             setForm({
                               nom:p.nom, prenom:p.prenom, email:p.email||'',
-                              telephone:p.telephone||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
+                              telephone:p.telephone||'', telephone_2:p.telephone_2||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
                               type_personnel:p.type_personnel||'employe',
                               numero:p.numero||'', actif:p.actif,
                               est_expatrie:!!p.est_expatrie, pays_origine:p.pays_origine||'', eligible_mobilite:!!p.eligible_mobilite, mobilite:!!p.a_droit_mobilite
@@ -1178,6 +1179,11 @@ export default function Personnel() {
                       placeholder="0701234567"
                     />
                     <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Obligatoire — format 0XXXXXXXXX</div>
+                  </div>
+                    <div>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:4}}>SECOND NUMÉRO</label>
+                    <input type="tel" value={form.telephone_2||''} onChange={e=>setForm({...form,telephone_2:e.target.value})} style={inp} placeholder="Autre numéro" />
+                    <div style={{fontSize:10.5,color:'var(--rzc-text-3)',marginTop:3}}>Facultatif — utile si le premier est injoignable</div>
                   </div>
                 </div>
 

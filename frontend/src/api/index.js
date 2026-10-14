@@ -437,6 +437,13 @@ export const rolesAPI = {
   delete: (id)    => api.delete(`/api/roles/${id}/`),
 }
 
+export const pushAPI = {
+  cle: () => api.get('/api/push/cle/'),
+  abonner: (subscription) => api.post('/api/push/abonner/', { subscription }),
+  desabonner: (endpoint) => api.post('/api/push/desabonner/', { endpoint }),
+  test: () => api.post('/api/push/test/'),
+}
+
 export const analyticsAPI = { get: (jours = 30) => api.get('/api/analytics/', { params: { jours } }) }
 
 export const rapportsPlanifiesAPI = {
