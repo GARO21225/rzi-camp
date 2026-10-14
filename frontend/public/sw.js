@@ -60,3 +60,35 @@ self.addEventListener('message', (event) => {
     // gérée par useOffline.js côté application, ce SW ne fait que l'assets cache.
   }
 })
+
+// ── Web Push : notification système (son + vibration) même application fermée ──
+self.addEventListener('push', (event) => {
+  let d = {}
+  try { d = event.data ? event.data.json() : {} } catch { d = { titre: 'RZI Camp', corps: event.data ? event.data.text() : '' } }
+  const urgent = !!d.urgent
+  event.waitUntil((async () => {
+    await self.registration.showNotification(d.titre || 'RZI Camp', {
+      body: d.corps || '',
+      icon: '/logo192.png',
+      badge: '/logo192.png',
+      tag: d.tag || undefined,
+      renotify: !!d.tag,
+      requireInteraction: urgent,                 // une alerte reste affichée jusqu'à action
+      vibrate: urgent ? [400, 150, 400, 150, 800] : [200, 100, 200],
+      data: { url: d.url || '/' },
+    })
+    // Application ouverte : prévient la page pour déclencher la sirène / bip interne aussi.
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    fenetres.forEach(c => c.postMessage({ type: 'PUSH_RECU', urgent }))
+  })())
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/'
+  event.waitUntil((async () => {
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const c of fenetres) { if ('focus' in c) { await c.focus(); return } }
+    await self.clients.openWindow(url)
+  })())
+})
