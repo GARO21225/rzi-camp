@@ -31,7 +31,7 @@ function pageNotif(n) {
 function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
   const [son, setSon] = React.useState(sonNotifActif())
   return (
-    <div style={{
+    <div className="notif-panel" style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
       background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16,
       boxShadow: '0 12px 40px rgba(30,58,138,.25)', zIndex: 1000, overflow: 'hidden',
@@ -518,8 +518,6 @@ export default function Layout() {
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
         *{-webkit-font-smoothing:antialiased;box-sizing:border-box}
-        button{transition:all .15s ease}
-        button:active{transform:scale(.97)}
       `}</style>
 
       {isMobile ? (<>
@@ -621,7 +619,7 @@ export default function Layout() {
       )}
 
       {isMobile && mobileSearchOpen && (
-        <div style={{ background: '#06142E', borderBottom: '1px solid rgba(227,178,60,.22)', padding: '10px 14px', zIndex: 499 }}>
+        <div className="mh-recherche">
           <GlobalSearch onNavigate={() => setMobileSearchOpen(false)} />
         </div>
       )}
@@ -759,7 +757,7 @@ export default function Layout() {
           ci-dessus) — sinon elle peut se retrouver clipée/masquée selon le navigateur mobile,
           ce qui masquait la barre (et ce qu'elle devait montrer) chez l'utilisateur. */}
       {isMobile && createPortal(
-        <BottomTabBar isAdmin={isAdmin} nav={nav} onOpenMenu={() => setSidebarOpen(true)} />,
+        <BottomTabBar isAdmin={isAdmin} nav={nav} menuOpen={sidebarOpen} onOpenMenu={() => setSidebarOpen(true)} />,
         document.body
       )}
       <ConfirmDialogContainer />

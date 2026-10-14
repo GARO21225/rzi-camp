@@ -27,7 +27,32 @@ const PATHS = {
   box:       <><path d="M4 8l8-4 8 4v8l-8 4-8-4z" /><path d="M4 8l8 4 8-4M12 12v8" /></>,
   report:    <><path d="M5 20V10M12 20V4M19 20v-7" /></>,
   check:     <path d="M5 12l5 5L20 7" />,
+  bed:       <><path d="M3 18V6M3 14h18v4" /><path d="M21 14v-2a3 3 0 00-3-3h-7v5" /><circle cx="7" cy="11" r="2" /></>,
+  map:       <><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></>,
+  suitcase:  <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M3 12h18" /></>,
+  cart:      <><path d="M3 4h2l2.4 11h11L21 8H6.2" /><circle cx="9" cy="19.5" r="1.3" /><circle cx="17" cy="19.5" r="1.3" /></>,
+  message:   <path d="M4 5h16v11H9l-5 4z" />,
+  shield:    <><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /><path d="M9 12l2 2 4-4" /></>,
+  sliders:   <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>,
+  spark:     <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />,
+  pulse:     <path d="M3 12h4l3-7 4 14 3-7h4" />,
+  tent:      <><path d="M3 20L12 4l9 16z" /><path d="M9 20l3-6 3 6" /></>,
+  helmet:    <><path d="M3 17h18" /><path d="M5 17a7 7 0 0114 0" /><path d="M12 6v5M9 7.5V11M15 7.5V11" /></>,
+  grid:      <><rect x="4" y="4" width="6.5" height="6.5" rx="1.8" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8" /></>,
 }
+
+// Icône de chaque page du menu (coque mobile). Une page absente d'ici
+// (menu personnalisé côté serveur) garde son emoji : rien ne casse.
+const ICONES_ROUTE = {
+  '/': 'dashboard', '/accueil': 'home', '/carte': 'map', '/personnel': 'user', '/presences': 'check',
+  '/induction': 'shield', '/induction-camp': 'tent', '/epi': 'helmet', '/annuaire': 'users',
+  '/residences': 'bed', '/rotations': 'compass', '/conduite': 'bus', '/voyages': 'suitcase',
+  '/restauration': 'utensils', '/restaurants': 'utensils', '/boutique': 'cart', '/reservations': 'calendar',
+  '/maintenance': 'wrench', '/plaintes': 'message', '/evenements': 'calendar', '/demandes': 'file',
+  '/analytics': 'report', '/rapports': 'report', '/historique': 'file', '/audit': 'search',
+  '/assistant': 'spark', '/status': 'pulse', '/parametrage': 'sliders', '/mon-compte': 'user',
+}
+export const iconeRoute = (to) => ICONES_ROUTE[to] || null
 
 export default function Icon({ name, size = 20, style }) {
   return (

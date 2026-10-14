@@ -1,15 +1,14 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { iconeEtLibelle } from '../constants/roleNav'
+import Icon, { iconeRoute } from './Icon'
 
 // En-tête et tiroir de navigation propres au TÉLÉPHONE (direction « Filon
 // d'or », même langage visuel que l'Accueil résident). La version
 // ordinateur de Layout n'est pas touchée.
 
-const NUIT = '#06142E'
-const NUIT_2 = '#0B2350'
-const OR = '#E3B23C'
-const DISPLAY = "'IBM Plex Sans', system-ui, sans-serif"
+// Styles dans index.css (section « Coque mobile ») : les états :active,
+// les transitions et les media queries ne s'écrivent pas en style inline.
 
 // /api/auth/me/ ne renvoie pas toujours first_name/last_name : le nom
 // complet est alors dans profile.nom (« Edgar Kouamé »).
@@ -30,58 +29,59 @@ function titrePage(pathname, nav) {
   return null
 }
 
-const boutonRond = (actif) => ({
-  width: 40, height: 40, minWidth: 40, minHeight: 40, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)',
-  background: actif ? 'rgba(227,178,60,.18)' : 'rgba(255,255,255,.05)', color: '#F1F5F9',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, cursor: 'pointer', position: 'relative', padding: 0,
-})
-
 export function MobileHeader({ user, logoUrl, nav, notifRef, notifOpen, onNotif, notifCount, notifPanel, searchOpen, onSearch, onMenu }) {
   const { pathname } = useLocation()
   const titre = titrePage(pathname, nav)
   const surAccueil = pathname === '/accueil'
+  // L'en-tête se détache (ombre + filet doré) dès que la page défile,
+  // comme une barre de navigation iOS ; à plat tant qu'on est en haut.
+  const [defile, setDefile] = useState(false)
+  useEffect(() => {
+    const zone = document.querySelector('.main-scroll')
+    if (!zone) return
+    const maj = () => setDefile(zone.scrollTop > 4)
+    maj()
+    zone.addEventListener('scroll', maj, { passive: true })
+    return () => zone.removeEventListener('scroll', maj)
+  }, [pathname])
+  const detache = defile || !surAccueil
+
   return (
-    <header style={{
-      height: 60, flexShrink: 0, zIndex: 500, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px',
-      background: surAccueil ? NUIT : `linear-gradient(180deg, ${NUIT_2}, ${NUIT})`,
-      borderBottom: surAccueil ? 'none' : '1px solid rgba(227,178,60,.22)',
-      boxShadow: surAccueil ? 'none' : '0 6px 20px -12px rgba(0,0,0,.6)',
-    }}>
-      <div style={{ background: '#fff', borderRadius: 12, height: 38, padding: '0 9px', display: 'flex', alignItems: 'center', flexShrink: 0,
-        boxShadow: `0 0 0 1px ${OR}40` }}>
-        <img src={logoUrl || '/roxgold-logo.png'} alt="Roxgold" style={{ height: 24, objectFit: 'contain', display: 'block' }} />
+    <header className="mh" data-detache={detache || undefined}>
+      <div className="mh-logo">
+        <img src={logoUrl || '/roxgold-logo.png'} alt="Roxgold" />
       </div>
-      <div style={{ flex: 1, minWidth: 0, paddingLeft: 4 }}>
+      <div className="mh-titre">
+        {/* key = titre : le libellé se fond (léger flou) à chaque changement de page */}
         {titre ? (
-          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 17, color: '#fff',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: -.2 }}>{titre}</div>
+          <div key={titre} className="mh-titre-page">{titre}</div>
         ) : (
-          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 9.5, letterSpacing: 1.2, color: OR, textTransform: 'uppercase', lineHeight: 1.35,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Résidence<br /><span style={{ color: '#fff', fontSize: 11, letterSpacing: .3 }}>Roxgold Sango</span>
+          <div key="accueil" className="mh-titre-site">
+            Résidence<br /><span>Roxgold Sango</span>
           </div>
         )}
       </div>
-      <button onClick={onSearch} aria-label="Rechercher" style={boutonRond(searchOpen)}>🔍</button>
+      <button type="button" onClick={onSearch} aria-label="Rechercher" aria-pressed={searchOpen} className="mh-bouton" data-actif={searchOpen || undefined}>
+        <Icon name={searchOpen ? 'close' : 'search'} size={19} />
+      </button>
       <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
-        <button onClick={onNotif} aria-label="Notifications" style={boutonRond(notifOpen)}>
-          🔔
-          {notifCount > 0 && (
-            <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 19, height: 19, padding: '0 4px', borderRadius: 10,
-              background: OR, color: NUIT, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: `2px solid ${NUIT}` }}>{notifCount > 9 ? '9+' : notifCount}</span>
-          )}
+        <button type="button" onClick={onNotif} aria-label={`Notifications${notifCount ? ` (${notifCount} non lues)` : ''}`} className="mh-bouton" data-actif={notifOpen || undefined}>
+          <Icon name="bell" size={19} />
+          {notifCount > 0 && <span key={notifCount} className="mh-pastille">{notifCount > 9 ? '9+' : notifCount}</span>}
         </button>
         {notifPanel}
       </div>
-      <button onClick={onMenu} aria-label="Menu et profil"
-        style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, borderRadius: '50%', border: `2px solid ${OR}`, padding: 0, cursor: 'pointer',
-          background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 700, fontSize: 13, fontFamily: DISPLAY, flexShrink: 0 }}>
+      <button type="button" onClick={onMenu} aria-label="Menu et profil" className="mh-avatar">
         {initiales(user)}
       </button>
     </header>
   )
 }
+
+// Durée de sortie du tiroir — doit rester égale à la transition de
+// .md:not([data-ouvert]) dans index.css (entrée 420 ms, sortie 260 ms :
+// l'utilisateur n'attend jamais la fermeture).
+const SORTIE_MS = 260
 
 export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, onCompte }) {
   // Regroupe les entrées par groupe (menu admin) ; un menu sans groupe
@@ -98,86 +98,115 @@ export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, on
     if (groupes[1] && !groupes[1].titre) { groupes[0].items.push(...groupes[1].items); groupes.splice(1, 1) }
   }
 
+  // Monté tant que l'animation de sortie n'est pas finie.
+  const [monte, setMonte] = useState(open)
+  const [visible, setVisible] = useState(false)
+  const feuille = useRef(null)
+  const voile = useRef(null)
+  const glisse = useRef(null)
+
+  useEffect(() => {
+    if (open) {
+      setMonte(true)
+      // deux frames : le navigateur peint la position fermée avant la transition
+      const r = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
+      return () => cancelAnimationFrame(r)
+    }
+    setVisible(false)
+    const t = setTimeout(() => setMonte(false), SORTIE_MS)
+    return () => clearTimeout(t)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const k = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [open, onClose])
+
+  // ── Glisser pour fermer : la feuille suit le doigt (transform posé
+  // directement, sans re-rendu React), freinée vers le haut ; un geste
+  // rapide suffit, inutile de tirer jusqu'au bout.
+  const debut = e => {
+    if (glisse.current || (e.pointerType === 'mouse' && e.button !== 0)) return
+    glisse.current = { y0: e.clientY, t0: performance.now(), dy: 0, id: e.pointerId }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    feuille.current.style.transition = 'none'
+    voile.current.style.transition = 'none'
+  }
+  const bouge = e => {
+    const g = glisse.current
+    if (!g || e.pointerId !== g.id) return
+    const brut = e.clientY - g.y0
+    g.dy = brut > 0 ? brut : -Math.sqrt(-brut) * 2.5
+    const h = feuille.current.offsetHeight || 1
+    feuille.current.style.transform = `translate3d(0, ${g.dy}px, 0)`
+    voile.current.style.opacity = String(Math.max(0, 1 - Math.max(0, g.dy) / h))
+  }
+  const fin = e => {
+    const g = glisse.current
+    if (!g || e.pointerId !== g.id) return
+    glisse.current = null
+    const vitesse = g.dy / Math.max(1, performance.now() - g.t0)
+    feuille.current.style.transition = ''
+    voile.current.style.transition = ''
+    feuille.current.style.transform = ''
+    voile.current.style.opacity = ''
+    if (g.dy > (feuille.current.offsetHeight || 0) * 0.28 || (g.dy > 12 && vitesse > 0.11)) onClose()
+  }
+  const poignee = { onPointerDown: debut, onPointerMove: bouge, onPointerUp: fin, onPointerCancel: fin }
+
+  if (!monte) return null
+  let n = 0 // index global des tuiles, pour la cascade d'entrée
+
   return (
-    <>
-      <style>{`
-        @keyframes mdUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
-        @keyframes mdFade { from { opacity: 0 } to { opacity: 1 } }
-        .md-tile:active { transform: scale(.95); }
-      `}</style>
-      {open && (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(3,10,24,.6)', animation: 'mdFade .2s ease both' }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92dvh', display: 'flex', flexDirection: 'column',
-            background: '#EEF1F6', borderRadius: '28px 28px 0 0', overflow: 'hidden',
-            boxShadow: '0 -20px 60px -10px rgba(0,0,0,.5)', animation: 'mdUp .24s ease-out both',
-          }}>
-            {/* Carte profil */}
-            <div style={{ position: 'relative', padding: '12px 18px 20px', color: '#fff', flexShrink: 0,
-              background: `radial-gradient(120% 120% at 90% 0%, ${NUIT_2}, ${NUIT} 65%)` }}>
-              <div style={{ width: 42, height: 5, borderRadius: 3, background: 'rgba(255,255,255,.25)', margin: '0 auto 14px' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: `linear-gradient(140deg, ${OR}, #B9851F)`, color: NUIT, fontWeight: 700, fontSize: 18, fontFamily: DISPLAY,
-                  boxShadow: `0 0 0 4px ${OR}30` }}>{initiales(user)}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {nomAffiche(user)}
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: OR, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 2 }}>{roleLabel}</div>
-                </div>
-                <button onClick={onClose} aria-label="Fermer"
-                  style={{ ...boutonRond(false), borderRadius: '50%', width: 36, height: 36, minWidth: 36, minHeight: 36, fontSize: 14 }}>✕</button>
-              </div>
+    <div className="md" data-ouvert={visible || undefined} role="dialog" aria-modal="true" aria-label="Menu">
+      <div ref={voile} className="md-voile" onClick={onClose} />
+      <div ref={feuille} className="md-feuille">
+        {/* Carte profil — zone de prise du geste */}
+        <div className="md-profil" {...poignee}>
+          <div className="md-poignee" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="md-avatar">{initiales(user)}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="md-nom">{nomAffiche(user)}</div>
+              <div className="md-role">{roleLabel}</div>
             </div>
-
-            {/* Tuiles */}
-            <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', padding: '16px 14px 8px', flex: 1 }}>
-              {groupes.map((g, gi) => (
-                <div key={g.titre || gi} style={{ marginBottom: 16 }}>
-                  {g.titre && (
-                    <div style={{ fontFamily: DISPLAY, fontSize: 10, fontWeight: 700, letterSpacing: 1.6,
-                      textTransform: 'uppercase', color: '#5B6472', margin: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 14, height: 2, background: OR, borderRadius: 2 }} />{g.titre}
-                    </div>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                    {g.items.map((item, i) => {
-                      const { icon, label } = iconeEtLibelle(item)
-                      return (
-                        <NavLink key={item.to} to={item.to} end={item.exact || item.to === '/'} onClick={onClose} className="md-tile"
-                          style={({ isActive }) => ({
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '11px 4px 9px', minWidth: 0,
-                            borderRadius: 14, textDecoration: 'none', transition: 'transform .15s',
-                            background: isActive ? `linear-gradient(150deg, ${NUIT_2}, ${NUIT})` : '#fff',
-                            border: isActive ? `1px solid ${OR}` : '1px solid rgba(15,26,46,.06)',
-                            boxShadow: isActive ? `0 4px 12px -6px ${NUIT}` : '0 1px 4px rgba(6,20,46,.07)',
-                          })}>
-                          {({ isActive }) => (<>
-                            <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
-                            <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.15, fontFamily: DISPLAY,
-                              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px',
-                              color: isActive ? OR : '#0F1A2E' }}>{label}</span>
-                          </>)}
-                        </NavLink>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pied : compte + déconnexion */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '10px 14px calc(14px + env(safe-area-inset-bottom, 0px))',
-              borderTop: '1px solid rgba(15,26,46,.08)', background: '#fff', flexShrink: 0 }}>
-              <button onClick={onCompte} style={{ border: '1px solid rgba(15,26,46,.12)', background: '#fff', color: '#0F1A2E', borderRadius: 14,
-                padding: '12px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>👤 Mon compte</button>
-              <button onClick={onLogout} style={{ border: 'none', background: '#FEF2F2', color: '#B91C1C', borderRadius: 14,
-                padding: '12px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>⎋ Déconnexion</button>
-            </div>
+            <button type="button" onClick={onClose} onPointerDown={e => e.stopPropagation()} aria-label="Fermer" className="mh-bouton" style={{ borderRadius: '50%' }}>
+              <Icon name="close" size={17} />
+            </button>
           </div>
         </div>
-      )}
-    </>
+
+        {/* Tuiles */}
+        <div className="md-corps">
+          {groupes.map((g, gi) => (
+            <div key={g.titre || gi} style={{ marginBottom: 18 }}>
+              {g.titre && <div className="md-groupe"><span />{g.titre}</div>}
+              <div className="md-grille">
+                {g.items.map(item => {
+                  const { icon, label } = iconeEtLibelle(item)
+                  const svg = iconeRoute(item.to)
+                  const rang = n++
+                  return (
+                    <NavLink key={item.to} to={item.to} end={item.exact || item.to === '/'} onClick={onClose}
+                      className="md-tuile" style={{ '--rang': Math.min(rang, 14) }}>
+                      <span className="md-tuile-ico">{svg ? <Icon name={svg} size={21} /> : <span style={{ fontSize: 19, lineHeight: 1 }}>{icon}</span>}</span>
+                      <span className="md-tuile-label">{label}</span>
+                    </NavLink>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pied : compte + déconnexion */}
+        <div className="md-pied">
+          <button type="button" onClick={onCompte} className="md-action"><Icon name="user" size={18} />Mon compte</button>
+          <button type="button" onClick={onLogout} className="md-action md-action-sortie"><Icon name="logout" size={18} />Déconnexion</button>
+        </div>
+      </div>
+    </div>
   )
 }
