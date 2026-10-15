@@ -47,6 +47,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     # fois, juste apres creation/regeneration du compte (create()/
     # regenerer_compte() l'injectent deja manuellement dans LEUR propre
     # reponse, independamment de ce serializer).
+    induction_requise = serializers.SerializerMethodField()
     a_droit_mobilite = serializers.BooleanField(read_only=True)
     # Écriture : « mobilite » = true/false → accorde / retire le droit, quel que soit le type
     # (Roxgold/sous-traitant : le droit est par défaut, on le retire via mobilite_exclue ;
@@ -142,6 +143,14 @@ class PersonnelSerializer(serializers.ModelSerializer):
         except: pass
         return None
 
+    def get_induction_requise(self, obj):
+        """False si la personne est exemptée (« sans induction ») — source unique : InductionCampExemption.
+        Les ids exemptés sont chargés une seule fois par sérialiseur (pas de requête par ligne)."""
+        if not hasattr(self, '_exemptes_cache'):
+            from residences.models import InductionCampExemption
+            self._exemptes_cache = set(InductionCampExemption.objects.values_list('personnel_id', flat=True))
+        return obj.pk not in self._exemptes_cache
+
     def get_user_active(self, obj):
         try:
             if obj.user: return obj.user.is_active
@@ -227,7 +236,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
             "type_label", "email", "qr_code_data", "qr_code_string", "actif",
             "date_creation", "user_role", "user_active", "login_genere",
             "profil", "profil_label", "est_expatrie", "pays_origine",
-            "eligible_mobilite", "mobilite_exclue", "mobilite", "a_droit_mobilite", "residence_principale",
+            "eligible_mobilite", "mobilite_exclue", "mobilite", "a_droit_mobilite", "residence_principale", "induction_requise",
         ]
         read_only_fields = ["qr_code_data", "qr_code_string", "date_creation"]
 

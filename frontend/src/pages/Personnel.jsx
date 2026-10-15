@@ -4,7 +4,7 @@
  */
 import { libelleResidentsPrincipaux } from '../utils/chambres'
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI, departementsAPI, entreprisesAPI } from '../api'
+import { personnel as personnelAPI, rolesAPI, residentsPrincipaux as rpAPI, batiments as batimentsAPI, parametres as paramAPI, auth as authAPI, departementsAPI, entreprisesAPI, inductionCamp } from '../api'
 import SelectRecherche from '../components/SelectRecherche'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
@@ -204,6 +204,17 @@ export default function Personnel() {
       return
     }
     
+    if (action === 'no_induction' || action === 'with_induction') {
+      try {
+        const ids = [...selected_ids]
+        if (action === 'no_induction') await inductionCamp.exempter(ids, 'Marqué sans induction (fiche Personnel)')
+        else await inductionCamp.retirerExemption(ids)
+        toast.success(action === 'no_induction' ? `${ids.length} personne(s) marquée(s) sans induction` : `Induction de nouveau requise pour ${ids.length} personne(s)`)
+      } catch (e) { toast.error(e?.response?.data?.error || 'Action refusée par le serveur') }
+      setSelectedIds(new Set()); load(); setMassAction('')
+      return
+    }
+
     let echecs = 0
     for (const id of selected_ids) {
       try {
@@ -212,8 +223,6 @@ export default function Personnel() {
         else if (action.startsWith('profil:')) body = { profil: action.slice(7) }
         else if (action === 'activer')    body = { actif: true }
         else if (action === 'desactiver') body = { actif: false }
-        else if (action === 'no_induction')   body = { induction_requise: false }
-        else if (action === 'with_induction') body = { induction_requise: true }
         else if (action === 'expatrie')       body = { est_expatrie: true }
         else if (action === 'non_expatrie')   body = { est_expatrie: false }
         else if (action === 'mobilite_oui')   body = { mobilite: true }
@@ -1062,32 +1071,20 @@ export default function Personnel() {
                             {p.actif ? '🔒' : '🔓'}
                           </button>
                           <button onClick={async()=>{
-                              const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
-                              const token = localStorage.getItem('access_token') || ''
-                              // Toggle: false si actuellement true (ou undefined), true si false
-                              const curVal = p.induction_requise !== false
-                              const newVal = !curVal
-                              // Sauvegarder en localStorage immédiatement (évite 500 si colonne absente)
-                              const lsKey = `rzi_no_induction_${p.id}`
-                              if (!newVal) {
-                                localStorage.setItem(lsKey, '1')
-                              } else {
-                                localStorage.removeItem(lsKey)
-                              }
-                              // Essayer l'API backend (silencieux si erreur)
-                              fetch(`${BASE}/api/personnel/${p.id}/toggle_induction/`, {
-                                method:'PATCH',
-                                headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                                body: JSON.stringify({induction_requise: newVal})
-                              }).catch(()=>{})
-                              load()
+                              const requise = p.induction_requise === false   // clic : on inverse
+                              try {
+                                if (requise) await inductionCamp.retirerExemption([p.id])
+                                else await inductionCamp.exempter([p.id], 'Marqué sans induction (fiche Personnel)')
+                                toast.success(requise ? 'Induction de nouveau requise' : 'Marqué sans induction')
+                                load()
+                              } catch (e) { toast.error(e?.response?.data?.error || 'Action refusée') }
                             }}
                             style={{background: p.induction_requise===false?'var(--rzc-bright-gold-l)':'var(--rzc-green-l)',
                               color: p.induction_requise===false?'var(--rzc-bright-gold)':'#15803D',
                               border: `1px solid ${p.induction_requise===false?'rgba(245,197,66,.3)':'rgba(74,222,128,.3)'}`,
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
-                            title={(()=>{const k=localStorage.getItem(`rzi_no_induction_${p.id}`);const noInd=p.induction_requise===false||k==='1';return noInd?"Activer l'induction":"Marquer sans induction"})()}>
-                            {(p.induction_requise===false||localStorage.getItem(`rzi_no_induction_${p.id}`))?'🚫':'✅'}
+                            title={p.induction_requise===false ? "Sans induction — cliquer pour la rendre à nouveau requise" : "Marquer sans induction"}>
+                            {p.induction_requise===false ? '🚫' : '✅'}
                           </button>
                           <button onClick={() => setConfirmDel(p)}
                             style={{background:'var(--rzc-red-l)',color:'#DC2626',border:'1px solid rgba(220,38,38,.25)',

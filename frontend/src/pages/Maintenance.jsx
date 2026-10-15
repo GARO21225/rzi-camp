@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import ComboLibre from '../components/ComboLibre'
+import LieuIncident from '../components/LieuIncident'
 import { TableauTechnicien, AssignationsPanel } from '../components/TechnicienPanels'
 import { useSurPulse } from '../hooks/useSurPulse'
 import { useNavigate } from 'react-router-dom'
@@ -228,7 +228,7 @@ export default function Maintenance() {
   })
 
   const declarer = async () => {
-    if (!form.titre || !form.description || !form.residence) { setErr('Titre, description et résidence requis'); return }
+    if (!form.titre || !form.description || !form.residence) { setErr('Titre, description et lieu (résidence ou infrastructure) requis'); return }
     setSubmitting(true); setErr('')
     try {
       const payload = { titre:form.titre, description:form.description, categorie:form.categorie,
@@ -1106,19 +1106,9 @@ export default function Maintenance() {
                     </select>
                   </div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <ComboLibre value={form.residence} onChange={v=>setForm(f=>({...f,residence:v}))}
-                      placeholder="Choisir dans la liste ou saisir…" style={inp}
-                      options={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}/>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
-                    <input value={form.bloc} onChange={e=>setForm({...form,bloc:e.target.value})}
-                      placeholder="Ex: Bloc 3, Ch. 12" style={inp}/>
-                  </div>
-                </div>
+                <LieuIncident residence={form.residence} bloc={form.bloc} isMobile={isMobile} style={inp}
+                  residences={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}
+                  onChange={({residence,bloc})=>setForm(f=>({...f,residence,bloc}))}/>
                 <label style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px',
                   background: form.photo_b64 ? '#f0fdf4' : '#f8fafc',
                   border: `2px dashed ${form.photo_b64 ? '#16a34a' : '#e2e8f0'}`,
@@ -1460,17 +1450,9 @@ export default function Maintenance() {
                     </select>
                   </div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>RÉSIDENCE *</label>
-                    <ComboLibre value={editInc.residence||''} onChange={v=>setEditInc(x=>({...x,residence:v}))} style={inp}
-                      options={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}/>
-                  </div>
-                  <div>
-                    <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 }}>BLOC / CHAMBRE</label>
-                    <input value={editInc.bloc||''} onChange={e=>setEditInc({...editInc,bloc:e.target.value})} style={inp}/>
-                  </div>
-                </div>
+                <LieuIncident residence={editInc.residence||''} bloc={editInc.bloc||''} isMobile={isMobile} style={inp}
+                  residences={residences.length>0 ? residences : [...new Set(incidents.map(i=>i.residence).filter(Boolean))].sort()}
+                  onChange={({residence,bloc})=>setEditInc(x=>({...x,residence,bloc}))}/>
                 <div style={{ display:'flex', gap:10 }}>
                   <button onClick={async()=>{
                     try {

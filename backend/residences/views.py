@@ -698,25 +698,22 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'])
     def toggle_induction(self, request, pk=None):
-        """Toggle induction_requise via SQL direct (champ ajouté via setup_db)"""
+        """« Sans induction » / « Induction requise » : crée ou retire l'exemption d'induction Camp (admin)."""
         u = request.user
-        is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
+        is_admin = u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")
         if not is_admin:
-            return Response({'error':"Admin requis"}, status=403)
-        from django.db import connection
-        valeur = request.data.get('induction_requise', True)
-        try:
-            with connection.cursor() as c:
-                # Vérifier si colonne existe
-                c.execute("SELECT EXISTS(SELECT FROM information_schema.columns WHERE table_name='residences_personnel' AND column_name='induction_requise')")
-                col_exists = c.fetchone()[0]
-                if not col_exists:
-                    c.execute("ALTER TABLE residences_personnel ADD COLUMN induction_requise BOOLEAN NOT NULL DEFAULT TRUE")
-                c.execute("UPDATE residences_personnel SET induction_requise=%s WHERE id=%s", [valeur, pk])
-            return Response({'id': pk, 'induction_requise': valeur})
-        except Exception as e:
-            return Response({'detail': str(e)}, status=500)
-
+            return Response({'error': "Admin requis"}, status=403)
+        from .models import InductionCampExemption
+        pers = self.get_object()
+        requise = request.data.get('induction_requise', True)
+        if requise in (False, 'false', 'False', '0', 0):
+            InductionCampExemption.objects.update_or_create(
+                personnel=pers, defaults={"motif": "Marqué sans induction (fiche Personnel)", "accorde_par": u})
+            requise = False
+        else:
+            InductionCampExemption.objects.filter(personnel=pers).delete()
+            requise = True
+        return Response({'id': pers.pk, 'induction_requise': requise})
 
 
 class PointInteretViewSet(viewsets.ModelViewSet):

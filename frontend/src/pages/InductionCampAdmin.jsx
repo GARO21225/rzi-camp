@@ -3,17 +3,16 @@ import { inductionCamp } from '../api'
 import { toast } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
 
-// Cockpit admin de l'induction Camp — « registre de contrôle » : papier ivoire,
-// encre marine, ambre sécurité, filets hachurés. Pas de glassmorphism : c'est un outil de pointage.
-const ENCRE = '#0f1d3a', PAPIER = '#f6f1e4', CARTE = '#fffdf7', FILET = '#d9d0b8'
-const AMBRE = '#e8a200', VERT = '#1f7a4d', ROUGE = '#b3261e', GRIS = '#6b6657'
+// Cockpit admin de l'induction Camp — « registre de contrôle » aux couleurs Roxgold : bleu marine (#0F2A5C) et or (#D4A017).
+const ENCRE = '#0F2A5C', PAPIER = '#F3F5F9', CARTE = '#FFFFFF', FILET = '#D8DEE9'
+const AMBRE = '#D4A017', VERT = '#1F7A4D', ROUGE = '#B3261E', GRIS = '#5B6B86'
 const TITRE = "'Barlow Condensed','Arial Narrow',Impact,sans-serif"
 const MONO = "'JetBrains Mono',monospace"
-const HACHURE = `repeating-linear-gradient(-45deg,${AMBRE} 0 8px,${ENCRE} 8px 16px)`
+const FILET_OR = `linear-gradient(90deg,${AMBRE},#F0C24A 55%,${AMBRE})`
 
 const STATUTS = {
   termine: { l: 'Terminé', c: VERT, bg: '#e3f2e9' },
-  exempte: { l: 'Exempté', c: '#7a4f00', bg: '#fdf0cc' },
+  exempte: { l: 'Exempté', c: '#7A5600', bg: '#FBF1D3' },
   non_commence: { l: 'À faire', c: ROUGE, bg: '#fbe6e4' },
 }
 
@@ -21,20 +20,19 @@ const css = `
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap');
 .ica-tuile{animation:icaIn .45s both cubic-bezier(.2,.7,.2,1)}
 @keyframes icaIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.ica-ligne:hover{background:#fbf6e6}
-.ica-btn{font-family:${TITRE};letter-spacing:.06em;text-transform:uppercase;font-weight:700;cursor:pointer;border:2px solid ${ENCRE};background:${CARTE};color:${ENCRE};padding:7px 14px;font-size:14px}
+.ica-ligne:hover{background:#F6F8FC}
+.ica-btn{font-family:${TITRE};letter-spacing:.06em;text-transform:uppercase;font-weight:700;cursor:pointer;border:1.5px solid ${ENCRE};background:${CARTE};color:${ENCRE};padding:7px 14px;font-size:14px;border-radius:6px}
 .ica-btn:hover{background:${ENCRE};color:${CARTE}}
-.ica-btn.plein{background:${ENCRE};color:${CARTE}}.ica-btn.plein:hover{background:${AMBRE};color:${ENCRE};border-color:${ENCRE}}
+.ica-btn.plein{background:${AMBRE};color:${ENCRE};border-color:${AMBRE}}.ica-btn.plein:hover{background:${ENCRE};color:#fff;border-color:${ENCRE}}
 .ica-btn:disabled{opacity:.4;cursor:not-allowed}
 `
 
 function Tuile({ label, valeur, sous, couleur, i }) {
   return (
-    <div className="ica-tuile" style={{ animationDelay: `${i * 60}ms`, background: CARTE, border: `2px solid ${ENCRE}`, padding: '12px 14px', position: 'relative' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, background: couleur }} />
-      <div style={{ fontFamily: TITRE, fontSize: 13, letterSpacing: '.12em', textTransform: 'uppercase', color: GRIS, paddingLeft: 8 }}>{label}</div>
-      <div style={{ fontFamily: TITRE, fontSize: 44, fontWeight: 700, lineHeight: 1, color: ENCRE, paddingLeft: 8 }}>{valeur}</div>
-      {sous && <div style={{ fontFamily: MONO, fontSize: 11, color: GRIS, paddingLeft: 8, marginTop: 2 }}>{sous}</div>}
+    <div className="ica-tuile" style={{ animationDelay: `${i * 60}ms`, background: CARTE, border: `1px solid ${FILET}`, borderTop: `3px solid ${couleur}`, borderRadius: 8, padding: '12px 14px', position: 'relative', boxShadow: '0 1px 3px rgba(15,42,92,.06)' }}>
+      <div style={{ fontFamily: TITRE, fontSize: 13, letterSpacing: '.12em', textTransform: 'uppercase', color: GRIS }}>{label}</div>
+      <div style={{ fontFamily: TITRE, fontSize: 44, fontWeight: 700, lineHeight: 1, color: ENCRE }}>{valeur}</div>
+      {sous && <div style={{ fontFamily: MONO, fontSize: 11, color: GRIS, marginTop: 2 }}>{sous}</div>}
     </div>
   )
 }
@@ -47,7 +45,7 @@ function BarreRepartition({ nom, total, termines, exemptes }) {
         <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{nom}</b>
         <span style={{ fontFamily: MONO, fontSize: 11.5 }}>{termines + exemptes}/{total}</span>
       </div>
-      <div style={{ display: 'flex', height: 12, background: '#ebe4cf', border: `1px solid ${FILET}` }}>
+      <div style={{ display: 'flex', height: 12, background: '#E6EAF2', border: `1px solid ${FILET}` }}>
         <div style={{ width: `${pc(termines)}%`, background: VERT }} />
         <div style={{ width: `${pc(exemptes)}%`, background: AMBRE }} />
       </div>
@@ -124,27 +122,28 @@ export default function InductionCampAdmin({ onApercu }) {
   const toutCoche = selectionnables.length > 0 && selectionnables.every(l => sel.has(l.personnel_id))
   const bascule = id => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const champ = { fontFamily: 'inherit', fontSize: 13.5, padding: '8px 10px', border: `2px solid ${ENCRE}`, background: CARTE, color: ENCRE, borderRadius: 0 }
+  const champ = { fontFamily: 'inherit', fontSize: 13.5, padding: '8px 10px', border: `1.5px solid ${FILET}`, background: CARTE, color: ENCRE, borderRadius: 6 }
   const societes = [...new Set((d?.lignes || []).map(l => l.societe).filter(Boolean))].sort()
 
   return (
     <div style={{ minHeight: '100%', background: PAPIER, color: ENCRE, fontFamily: "'IBM Plex Sans',system-ui,sans-serif" }}>
       <style>{css}</style>
-      <div style={{ height: 10, background: HACHURE }} />
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: mobile ? '16px 14px 40px' : '26px 24px 50px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+      <div style={{ background: `linear-gradient(135deg,#081B3D,${ENCRE})`, borderBottom: `4px solid ${AMBRE}` }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: mobile ? '16px 14px 18px' : '22px 24px 24px', display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', color: GRIS }}>REGISTRE · SITE SANGO</div>
-            <h1 style={{ fontFamily: TITRE, fontSize: mobile ? 34 : 46, margin: 0, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '.02em' }}>Induction du camp</h1>
+            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', color: '#F0C24A' }}>ROXGOLD · REGISTRE SITE SANGO</div>
+            <h1 style={{ fontFamily: TITRE, fontSize: mobile ? 34 : 44, margin: 0, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '.02em', color: '#fff' }}>Induction du camp</h1>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="ica-btn" onClick={onApercu}>Aperçu participant</button>
-            <button className="ica-btn" onClick={() => exportFichier('csv')}>CSV</button>
+            <button className="ica-btn" style={{ background: 'transparent', color: '#fff', borderColor: 'rgba(255,255,255,.55)' }} onClick={onApercu}>Aperçu participant</button>
+            <button className="ica-btn" style={{ background: 'transparent', color: '#fff', borderColor: 'rgba(255,255,255,.55)' }} onClick={() => exportFichier('csv')}>CSV</button>
             <button className="ica-btn plein" onClick={() => exportFichier('xlsx')}>Excel</button>
           </div>
         </div>
+      </div>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: mobile ? '16px 14px 40px' : '22px 24px 50px' }}>
 
-        {erreur && <div style={{ background: '#fbe6e4', border: `2px solid ${ROUGE}`, padding: 12, marginBottom: 14 }}>Chargement impossible. <button className="ica-btn" onClick={charger}>Réessayer</button></div>}
+        {erreur && <div style={{ background: '#FBE6E4', border: `2px solid ${ROUGE}`, padding: 12, marginBottom: 14 }}>Chargement impossible. <button className="ica-btn" onClick={charger}>Réessayer</button></div>}
         {!d && !erreur && <div style={{ padding: 40, textAlign: 'center', fontFamily: MONO, color: GRIS }}>Chargement du registre…</div>}
 
         {d && <>
@@ -157,11 +156,11 @@ export default function InductionCampAdmin({ onApercu }) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div style={{ background: CARTE, border: `2px solid ${ENCRE}`, padding: 14 }}>
+            <div style={{ background: CARTE, border: `1px solid ${FILET}`, borderRadius: 8, padding: 14, boxShadow: '0 1px 3px rgba(15,42,92,.06)' }}>
               <div style={{ fontFamily: TITRE, fontSize: 18, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>Signatures par jour</div>
               <Courbe jours={d.par_jour} />
             </div>
-            <div style={{ background: CARTE, border: `2px solid ${ENCRE}`, padding: 14 }}>
+            <div style={{ background: CARTE, border: `1px solid ${FILET}`, borderRadius: 8, padding: 14, boxShadow: '0 1px 3px rgba(15,42,92,.06)' }}>
               <div style={{ fontFamily: TITRE, fontSize: 18, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>
                 Avancement par société <span style={{ fontFamily: MONO, fontSize: 10, color: GRIS }}>■ terminé <span style={{ color: AMBRE }}>■</span> exempté</span>
               </div>
@@ -184,8 +183,8 @@ export default function InductionCampAdmin({ onApercu }) {
             <button className="ica-btn plein" disabled={!sel.size} onClick={() => setModal([...sel])}>Exempter ({sel.size})</button>
           </div>
 
-          <div style={{ background: CARTE, border: `2px solid ${ENCRE}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: ENCRE, color: CARTE, fontFamily: TITRE, letterSpacing: '.1em', textTransform: 'uppercase', fontSize: 14 }}>
+          <div style={{ background: CARTE, border: `1px solid ${FILET}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 3px rgba(15,42,92,.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: ENCRE, color: '#fff', borderBottom: `3px solid ${AMBRE}`, fontFamily: TITRE, letterSpacing: '.1em', textTransform: 'uppercase', fontSize: 14 }}>
               <input type="checkbox" checked={toutCoche} disabled={!selectionnables.length}
                 onChange={() => setSel(toutCoche ? new Set() : new Set(selectionnables.map(l => l.personnel_id)))} aria-label="Tout sélectionner (à faire)" />
               <span style={{ flex: 1 }}>Résident</span>
@@ -225,7 +224,7 @@ export default function InductionCampAdmin({ onApercu }) {
       {modal && (
         <div onClick={() => !envoi && setModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: CARTE, borderRadius: 16, maxWidth: 440, width: '100%', overflow: 'hidden' }}>
-            <div style={{ height: 8, background: HACHURE }} />
+            <div style={{ height: 6, background: FILET_OR }} />
             <div style={{ padding: 20 }}>
               <div style={{ fontFamily: TITRE, fontSize: 26, textTransform: 'uppercase' }}>Exempter {modal.length} personne(s)</div>
               <p style={{ fontSize: 13, color: GRIS, margin: '4px 0 12px' }}>La personne ne sera plus relancée et n'aura plus à passer l'induction. Le motif est conservé avec ton nom.</p>

@@ -7,7 +7,7 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const normTel = (v) => String(v || '').replace(/\D/g, '').replace(/^225/, '').slice(-9)
 
 const CLES = {
-  telephone: { label: 'Téléphone / WhatsApp', exemple: '0701234567', cherche: (p, v) => !!normTel(v) && (normTel(p.telephone) === normTel(v) || normTel(p.numero_whatsapp) === normTel(v)), tel: true },
+  telephone: { label: 'Téléphone / WhatsApp', exemple: '0701234567', cherche: (p, v) => !!normTel(v) && (normTel(p.telephone) === normTel(v) || normTel(p.numero_whatsapp) === normTel(v) || normTel(p.telephone_2) === normTel(v)), tel: true },
   matricule: { label: 'Matricule', exemple: 'a001', cherche: (p, v) => !!norm(v) && norm(p.numero) === norm(v) },
   email:     { label: 'Email', exemple: 'prenom.nom@exemple.com', cherche: (p, v) => !!norm(v) && norm(p.email) === norm(v) },
   nom:       { label: 'Nom complet (Nom Prénom)', exemple: 'KOUAME Edgar', cherche: (p, v) => !!norm(v) && [`${p.nom} ${p.prenom}`, `${p.prenom} ${p.nom}`].map(norm).includes(norm(v)) },

@@ -39,7 +39,7 @@ export default function AnnuairePage() {
     if (!search.trim()) { setResults([]); return }
     const q = search.toLowerCase()
     const found = all.filter(p =>
-      [p.nom,p.prenom,p.societe,p.email,p.numero,p.matricule].some(v=>(v||'').toLowerCase().includes(q))
+      [p.nom,p.prenom,p.societe,p.email,p.numero,p.matricule,p.telephone,p.telephone_2,p.numero_whatsapp].some(v=>(v||'').toLowerCase().includes(q))
     )
     setResults(found.slice(0,20))
   }, [search, all])
@@ -69,7 +69,7 @@ export default function AnnuairePage() {
         <input
           value={search}
           onChange={e=>setSearch(e.target.value)}
-          placeholder="Rechercher par nom, société, badge, matricule..."
+          placeholder="Rechercher par nom, société, matricule, numéro..."
           style={{...inp, paddingLeft:50, fontSize:16, boxShadow:'0 4px 16px rgba(30,58,138,.1)'}}
           autoFocus
         />
@@ -123,6 +123,11 @@ export default function AnnuairePage() {
                     <div style={{fontSize:12,color:'var(--rzc-text-3)'}}>
                       {p.societe||'—'} · {p.type_personnel||'—'}
                     </div>
+                    {(p.telephone || p.telephone_2) && (
+                      <div style={{fontSize:12,color:'var(--rzc-navy)',fontWeight:600,marginTop:2}}>
+                        📞 {[p.telephone, p.telephone_2].filter(Boolean).join('  ·  ')}
+                      </div>
+                    )}
                   </div>
                   <span style={{background:st.bg,color:st.color,padding:'3px 10px',
                     borderRadius:99,fontSize:11,fontWeight:700,flexShrink:0}}>

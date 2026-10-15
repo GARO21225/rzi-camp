@@ -829,6 +829,15 @@ class InductionCampExemptionTests(TestCase):
         self.c.post("/api/induction-camp/retirer_exemption/", {"personnel_ids": [self.p1.id]}, format="json")
         self.assertEqual(self.c.get("/api/induction-camp/resume/").json()["exemptes"], 0)
 
+    def test_sans_induction_depuis_personnel(self):
+        r = self.c.patch(f"/api/personnel/{self.p1.id}/toggle_induction/", {"induction_requise": False}, format="json")
+        self.assertEqual(r.json()["induction_requise"], False)
+        lst = {x["id"]: x["induction_requise"] for x in self.c.get("/api/personnel/?page_size=50").json().get("results", [])}
+        self.assertEqual((lst[self.p1.id], lst[self.p2.id]), (False, True))
+        self.assertEqual(self.c.get("/api/induction-camp/resume/").json()["exemptes"], 1)
+        self.c.patch(f"/api/personnel/{self.p1.id}/toggle_induction/", {"induction_requise": True}, format="json")
+        self.assertEqual(self.c.get("/api/induction-camp/resume/").json()["exemptes"], 0)
+
     def test_export_csv_xlsx_filtre(self):
         self.c.post("/api/induction-camp/exempter/", {"personnel_ids": [self.p1.id], "motif": "Direction"}, format="json")
         r = self.c.get("/api/induction-camp/export/?statut=exempte")
