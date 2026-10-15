@@ -59,7 +59,7 @@ export function PWAInstallButton() {
 
   // iOS Instructions
   if (showIOS) return (
-    <div style={{
+    <div className="pwa-invite" style={{
       position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 9998,
       background: '#fff', border: '2px solid #1e3a8a', borderRadius: 16,
       padding: '16px 18px', boxShadow: '0 8px 32px rgba(30,58,138,.25)',
@@ -94,7 +94,7 @@ export function PWAInstallButton() {
 
   // Android / Chrome
   if (showAndroid) return (
-    <button onClick={installAndroid}
+    <button onClick={installAndroid} className="pwa-invite"
       style={{
         position: 'fixed', bottom: 20, right: 16, zIndex: 9998,
         background: 'linear-gradient(135deg,#1e3a8a,#2563eb)',

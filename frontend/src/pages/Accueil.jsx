@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { personnel as personnelAPI, voyages as voyagesAPI, evenements as evenementsAPI, demandes as demandesAPI } from '../api'
 import { ROLE_LABELS, getRole, iconeEtLibelle } from '../constants/roleNav'
 import { nomAffiche } from '../components/MobileChrome'
+import Icon, { iconeRoute } from '../components/Icon'
 
 // ════════════════════════════════════════════════════════════════
 // Accueil résident — direction « Filon d'or » : nuit marine profonde
@@ -161,9 +162,12 @@ export default function Accueil() {
   return (
     <div style={{ minHeight: '100%', background: '#EEF1F6', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
       <style>{`
-        @keyframes accReveal { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-        .acc-reveal { animation: accReveal .35s ease-out both; }
-        .acc-tuile:active { transform: scale(.96); }
+        /* « translate » et non transform : l'animation (fill both) laisse le
+           transform libre pour le retour au toucher des tuiles. */
+        @keyframes accReveal { from { opacity: 0; translate: 0 8px } to { opacity: 1; translate: 0 0 } }
+        .acc-reveal { animation: accReveal .4s cubic-bezier(.23, 1, .32, 1) both; }
+        .acc-tuile { transition: transform .14s cubic-bezier(.23, 1, .32, 1); }
+        .acc-tuile:active { transform: scale(.95); }
         @media (prefers-reduced-motion: reduce) { .acc-reveal { animation: none !important } }
       `}</style>
 
@@ -264,14 +268,15 @@ export default function Accueil() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
               {raccourcis.map((item, i) => {
                 const { icon, label } = iconeEtLibelle(item)
+                const svg = iconeRoute(item.to)
                 return (
                   <button key={item.to} className="acc-reveal acc-tuile" onClick={() => navigate(item.to)}
                     style={{ animationDelay: `${120 + i * 30}ms`, border: '1px solid rgba(15,26,46,.07)', background: '#fff',
                       borderRadius: 16, padding: '12px 4px 10px', minHeight: 0, minWidth: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', gap: 7, boxShadow: '0 2px 8px rgba(6,20,46,.06)', transition: 'transform .15s' }}>
+                      alignItems: 'center', gap: 7, boxShadow: '0 2px 8px rgba(6,20,46,.06)' }}>
                     <span style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 19, background: `linear-gradient(150deg, ${NUIT_2}, ${NUIT})`,
-                      boxShadow: `inset 0 0 0 1px ${OR}55` }}>{icon}</span>
+                      fontSize: 19, color: OR, background: `linear-gradient(150deg, ${NUIT_2}, ${NUIT})`,
+                      boxShadow: `inset 0 0 0 1px ${OR}55` }}>{svg ? <Icon name={svg} size={20} /> : icon}</span>
                     <span style={{ fontSize: 11.5, fontWeight: 600, color: ENCRE, fontFamily: DISPLAY, maxWidth: '100%',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{label}</span>
                   </button>

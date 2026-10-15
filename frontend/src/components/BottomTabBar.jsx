@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { iconeEtLibelle } from '../constants/roleNav'
+import Icon, { iconeRoute } from './Icon'
 
 // Barre de navigation mobile en bas d'ecran, style application native —
 // les destinations les plus utilisees restent accessibles en un tap
@@ -9,10 +10,12 @@ import { iconeEtLibelle } from '../constants/roleNav'
 // visible qui differencie une app mobile d'un site web retreci.
 //
 // Design "flottant" : barre en verre depoli (blur) detachee des bords,
-// coins tres arrondis, onglet actif surligne d'un halo dore, et
-// l'onglet central (index 2) elevé en bouton circulaire doré avec un
-// leger glow — cible la plus utilisee du role (Résidences pour l'admin,
-// Demandes pour l'agent) sans changer la structure TABS existante.
+// coins tres arrondis, une pastille doree unique qui GLISSE d'un onglet
+// a l'autre (on voit d'ou l'on vient et ou l'on va), et l'onglet central
+// (index 2) elevé en bouton circulaire doré — cible la plus utilisee du
+// role (Résidences pour l'admin, Demandes pour l'agent). Styles dans
+// index.css (section « Coque mobile ») : :active et media queries
+// impossibles en style inline.
 const TABS = {
   admin: [
     { to:'/', label:'Accueil', icon:'📊', exact:true },
@@ -64,85 +67,57 @@ function isTabActive(tab, pathname) {
   return tab.exact ? pathname === tab.to : pathname.startsWith(tab.to)
 }
 
-export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu }) {
+// Icône d'onglet : trait vectoriel si la page en a un, sinon son emoji.
+function IconeOnglet({ tab, size }) {
+  const nom = iconeRoute(tab.to)
+  return nom ? <Icon name={nom} size={size} /> : <span style={{ fontSize: size - 1, lineHeight: 1 }}>{tab.icon}</span>
+}
+
+export default function BottomTabBar({ isAdmin, nav = [], onOpenMenu, menuOpen = false }) {
   const tabs = isAdmin ? TABS.admin : tabsUtilisateur(nav)
   // Le bouton central eleve n'a de sens qu'avec un nombre impair d'onglets
   // (sinon il n'est pas au centre visuel de la barre).
   const centre = tabs.length === 5 ? CENTER_INDEX : -1
   const { pathname } = useLocation()
+  const slots = tabs.length + 1 // + « Plus »
+  const iActif = menuOpen ? tabs.length : tabs.findIndex(t => isTabActive(t, pathname))
+  // La pastille garde sa dernière position quand elle disparaît (onglet
+  // central ou page hors barre) : elle réapparaît sur place au lieu de
+  // traverser la barre depuis la gauche.
+  const dernier = useRef(iActif >= 0 ? iActif : 0)
+  if (iActif >= 0 && iActif !== centre) dernier.current = iActif
+  const pastilleVisible = iActif >= 0 && iActif !== centre
 
   return (
-    <nav className="bottom-tab-bar" style={{
-      position:'fixed', left:14, right:14, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))',
-      zIndex:100, height:66, display:'flex', alignItems:'stretch', padding:'0 6px',
-      background:'#0A1A3A',
-      border:'1px solid rgba(227,178,60,.18)', borderRadius:26,
-      boxShadow:'0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
-    }}>
+    <nav className="bottom-tab-bar" aria-label="Navigation principale">
+      <span aria-hidden="true" className="tb-pastille" style={{
+        width: `calc((100% - 12px) / ${slots})`,
+        transform: `translateX(${dernier.current * 100}%)`,
+        opacity: pastilleVisible ? 1 : 0,
+      }}><span /></span>
       {tabs.map((t, i) => {
-        const active = isTabActive(t, pathname)
+        const active = i === iActif
 
         if (i === centre) {
           return (
-            <NavLink key={t.to} to={t.to} end={t.exact}
-              style={{
-                flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                position:'relative', textDecoration:'none',
-              }}>
-              <span style={{
-                position:'absolute', top:-26, width:58, height:58, borderRadius:'50%',
-                background:'radial-gradient(circle at 32% 28%, #F4D26B, #C9972B 65%, #A9791E)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                border:'4px solid #06142E',
-                boxShadow: active
-                  ? '0 0 0 6px rgba(212,160,23,.28), 0 8px 18px rgba(201,151,43,.45)'
-                  : '0 8px 18px rgba(201,151,43,.35)',
-                transition:'box-shadow .2s',
-              }}>
-                <span style={{ fontSize:22 }}>{t.icon}</span>
-              </span>
-              <span style={{
-                position:'absolute', bottom:9, fontSize:9, fontWeight:700,
-                color: active ? '#F0C445' : '#D8B45A', whiteSpace:'nowrap',
-              }}>{t.label}</span>
+            <NavLink key={t.to} to={t.to} end={t.exact} className="tb-item tb-centre" data-active={active || undefined}>
+              <span className="tb-centre-bouton"><IconeOnglet tab={t} size={24} /></span>
+              <span className="tb-label">{t.label}</span>
             </NavLink>
           )
         }
 
         return (
-          <NavLink key={t.to} to={t.to} end={t.exact}
-            style={{
-              flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', gap:3, textDecoration:'none', position:'relative',
-            }}>
-            {active && (
-              <span style={{
-                position:'absolute', top:2, width:38, height:38, borderRadius:14,
-                background:'linear-gradient(180deg, rgba(240,196,69,.18), rgba(240,196,69,.05))',
-                border:'1px solid rgba(240,196,69,.35)', zIndex:0,
-              }} />
-            )}
-            <span style={{
-              position:'relative', zIndex:1, fontSize:20, lineHeight:1,
-              filter: active ? 'none' : 'grayscale(.15) opacity(.75)',
-              transform: active ? 'translateY(-1px)' : 'none',
-              transition:'.2s',
-            }}>{t.icon}</span>
-            <span style={{
-              position:'relative', zIndex:1, fontSize:9, fontWeight: active ? 700 : 600,
-              letterSpacing:.2, color: active ? '#F0C445' : '#8E9AB3',
-            }}>{t.label}</span>
+          <NavLink key={t.to} to={t.to} end={t.exact} className="tb-item" data-active={active || undefined}>
+            <span className="tb-ico"><IconeOnglet tab={t} size={22} /></span>
+            <span className="tb-label">{t.label}</span>
           </NavLink>
         )
       })}
-      <button onClick={onOpenMenu}
-        style={{
-          flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-          justifyContent:'center', gap:3, background:'none', border:'none',
-          cursor:'pointer', color:'#7E8AA3', position:'relative',
-        }}>
-        <span style={{ fontSize:20, lineHeight:1 }}>☰</span>
-        <span style={{ fontSize:9, fontWeight:600, letterSpacing:.2 }}>Plus</span>
+      <button type="button" onClick={onOpenMenu} className="tb-item" data-active={menuOpen || undefined}
+        aria-label="Plus de pages" aria-expanded={menuOpen}>
+        <span className="tb-ico"><Icon name="grid" size={22} /></span>
+        <span className="tb-label">Plus</span>
       </button>
     </nav>
   )
