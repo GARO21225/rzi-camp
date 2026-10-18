@@ -508,7 +508,7 @@ export const plaintes = {
   qualifier: (id, d) => api.post(`/api/plaintes/${id}/qualifier/`, d),
   affecter: (id, d) => api.post(`/api/plaintes/${id}/affecter/`, d),
   retirer: (id) => api.post(`/api/plaintes/${id}/retirer/`, {}),
-  agents: () => api.get('/api/plaintes/agents/'),
+  agents: (params) => api.get('/api/plaintes/agents/', {params}),
   chronologie: (id) => api.get(`/api/plaintes/${id}/chronologie/`),
   demarrer: (id) => api.post(`/api/plaintes/${id}/demarrer/`, {}),
   prendreEnCharge: (id) => api.post(`/api/plaintes/${id}/prendre_en_charge/`, {}),
@@ -518,7 +518,7 @@ export const plaintes = {
   resoudre: (id, d) => api.post(`/api/plaintes/${id}/resoudre/`, d),
   confirmer: (id, resolu, motif) => api.post(`/api/plaintes/${id}/confirmer/`, {resolu, motif}),
   rejeter: (id, motif) => api.post(`/api/plaintes/${id}/rejeter/`, {motif}),
-  dashboard: () => api.get('/api/plaintes/dashboard/'),
+  dashboard: (params) => api.get('/api/plaintes/dashboard/', {params}),
   exportCsv: (params) => `${BASE}/api/plaintes/export_csv/?${new URLSearchParams(params).toString()}`,
 }
 export const plaintesCategories = {

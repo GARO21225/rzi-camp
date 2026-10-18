@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { batiments, personnel as personnelAPI, occupationHistory, occupationHistoryAdmin, residentsPrincipaux, incidents as incidentsAPI, plaintes as plaintesAPI } from '../api'
 import { usePlainteCategories } from '../constants/plaintes'
 import { useStore } from '../store'
+import PhotoCapture from '../components/PhotoCapture'
 import { toast, confirmDialog } from '../toast'
 import SelectRecherche from '../components/SelectRecherche'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -887,7 +888,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
   const [batimentChoisi, setBatimentChoisi] = useState('')
   const PLAINTE_CATEGORIES = usePlainteCategories()
   const [plainteModal, setPlainteModal] = useState(null) // { rp } - anomalie sur cette residence
-  const [plainteForm, setPlainteForm] = useState({ description:'', categorie:'Proprete', sous_categorie:'poubelle' })
+  const [plainteForm, setPlainteForm] = useState({ description:'', categorie:'Proprete', sous_categorie:'poubelle', photo_base64:'' })
   const [selectionnes, setSelectionnes] = useState(new Set())
   const [modifierModal, setModifierModal] = useState(null) // { rp } - changement de chambre
   const [nouvelleBatimentChoisi, setNouvelleBatimentChoisi] = useState('')
@@ -1000,14 +1001,16 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
   const soumettrePlainte = async () => {
     if (plainteEnvoi) return
     if (!plainteForm.description.trim()) return toast.error('Description requise.')
+    if (!plainteForm.photo_base64) return toast.error('Une photo du problème est obligatoire.')
     setPlainteEnvoi(true)
     try {
       await plaintesAPI.creerPourOccupant({
         personnel: plainteModal.rp.personnel, categorie: plainteForm.categorie,
         sous_categorie: plainteForm.sous_categorie, description: plainteForm.description,
+        photo_base64: plainteForm.photo_base64,
       })
       toast.success('Plainte créée — suivie dans Gestion des Plaintes (Qualification → Résolution → Confirmation → Clôture).')
-      setPlainteModal(null); setPlainteForm({description:'',categorie:'Proprete',sous_categorie:'poubelle'})
+      setPlainteModal(null); setPlainteForm({description:'',categorie:'Proprete',sous_categorie:'poubelle',photo_base64:''})
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
     setPlainteEnvoi(false)
   }
@@ -1305,6 +1308,7 @@ function ResidentsPrincipauxTab({ isAdmin, personnelList, batimentsList, isMobil
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:6, textTransform:'uppercase' }}>Description</label>
               <textarea value={plainteForm.description} onChange={e=>setPlainteForm(f=>({...f,description:e.target.value}))} rows={3}
                 style={{ width:'100%', border:'1px solid #e2e8f0', borderRadius:8, padding:'9px 12px', fontSize:13, marginBottom:16, boxSizing:'border-box', resize:'vertical' }}/>
+              <PhotoCapture label="Photo du problème" requis value={plainteForm.photo_base64} onChange={v=>setPlainteForm(f=>({...f,photo_base64:v}))} />
               <button onClick={soumettrePlainte} disabled={plainteEnvoi} style={{ opacity:plainteEnvoi?.6:1, width:'100%', background:'#c2410c', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                 Signaler
               </button>

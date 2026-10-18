@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { technicien as techAPI, incidents as incAPI, plaintes as plaintesAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useSurPulse } from '../hooks/useSurPulse'
+import PhotoCapture from './PhotoCapture'
 
 const PRIO = { critique: '#dc2626', haute: '#f97316', moyenne: '#eab308', basse: '#64748b' }
 const STATUT = {
@@ -44,6 +45,7 @@ export function TableauTechnicien({ technicienId, onOuvrirIncident }) {
   const [erreur, setErreur] = useState('')
   const [resoudre, setResoudre] = useState(null)
   const [texte, setTexte] = useState('')
+  const [photoApres, setPhotoApres] = useState('')
   const charger = useCallback(() => techAPI.tableau(technicienId).then(r => { setD(r.data); setErreur('') }).catch(e => setErreur(msg(e))), [technicienId])
   useEffect(() => { charger() }, [charger])
   useSurPulse(['incidents', 'plaintes', 'notifs'], charger)
@@ -79,7 +81,7 @@ export function TableauTechnicien({ technicienId, onOuvrirIncident }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {t.statut === 'affectee' && <button style={btn('#2563eb')} onClick={() => agir(() => plaintesAPI.prendreEnCharge(t.id), 'Plainte prise en charge')}>Prendre en charge</button>}
             {['prise_en_charge', 'en_attente'].includes(t.statut) && <button style={btn('#eab308')} onClick={() => agir(() => plaintesAPI.demarrer(t.id), 'Intervention démarrée')}>Démarrer</button>}
-            {['prise_en_charge', 'en_cours', 'en_attente', 'reouverte'].includes(t.statut) && <button style={btn('#16a34a')} onClick={() => { setResoudre(t); setTexte('') }}>Résoudre</button>}
+            {['prise_en_charge', 'en_cours', 'en_attente', 'reouverte'].includes(t.statut) && <button style={btn('#16a34a')} onClick={() => { setResoudre(t); setTexte(''); setPhotoApres('') }}>Résoudre</button>}
           </div>
         )} />
       ))}
@@ -87,10 +89,11 @@ export function TableauTechnicien({ technicienId, onOuvrirIncident }) {
         <div onClick={() => setResoudre(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 420 }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>✅ Résoudre la plainte #{resoudre.id}</div>
-            <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={4} placeholder="Action réalisée…" style={{ width: '100%', boxSizing: 'border-box', borderRadius: 8, border: '1px solid #cbd5e1', padding: 8, fontFamily: 'inherit' }} />
+            <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={4} placeholder="Action réalisée…" style={{ width: '100%', boxSizing: 'border-box', borderRadius: 8, border: '1px solid #cbd5e1', padding: 8, fontFamily: 'inherit', marginBottom: 10 }} />
+            <PhotoCapture label="Photo après intervention" requis value={photoApres} onChange={setPhotoApres} />
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button style={{ ...btn('#94a3b8'), flex: 1 }} onClick={() => setResoudre(null)}>Annuler</button>
-              <button style={{ ...btn('#16a34a'), flex: 1 }} disabled={!texte.trim()} onClick={() => { const t = resoudre; setResoudre(null); agir(() => plaintesAPI.resoudre(t.id, { action_resolution: texte.trim() }), 'Plainte résolue') }}>Confirmer</button>
+              <button style={{ ...btn('#16a34a'), flex: 1 }} disabled={!texte.trim() || !photoApres} onClick={() => { const t = resoudre; setResoudre(null); agir(() => plaintesAPI.resoudre(t.id, { action_resolution: texte.trim(), photo_resolution_base64: photoApres }), 'Plainte résolue') }}>Confirmer</button>
             </div>
           </div>
         </div>

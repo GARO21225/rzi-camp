@@ -11,6 +11,7 @@ import { toast, confirmDialog } from '../toast'
 
 import { imprimerHtml } from '../utils/impression'
 import { ficheIntervention } from '../utils/ficheIntervention'
+import { compressImage } from '../utils/photo'
 
 class MaintenanceBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null } }
@@ -87,6 +88,9 @@ export default function Maintenance() {
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
   const [slaOnly,    setSlaOnly]    = useState(false)
+  const [catFilter,  setCatFilter]  = useState('')
+  const [resFilter,  setResFilter]  = useState('')
+  const [techFilter, setTechFilter] = useState('')
   const [selIds,     setSelIds]     = useState(new Set())
   const [massAct,    setMassAct]    = useState('')
   const [massVal,    setMassVal]    = useState('')
@@ -128,22 +132,45 @@ export default function Maintenance() {
   // Agrégats coûteux mémoïsés — recalculés uniquement quand `incidents`/`stats`
   // changent réellement, pas à chaque render du composant (recherche, filtres,
   // ouverture de modal, etc. qui n'ont rien à voir avec la liste d'incidents).
+  const nomTech = (i) => i.assigne_a_nom || i.assigne_a_username || (i.assigne_a ? `Technicien #${i.assigne_a}` : '')
+  // Le tableau de bord suit les filtres : période, catégorie, résidence, technicien, priorité (+ statut / SLA pour les graphiques)
+  const passeFiltres = useCallback((i, sansStatut) => {
+    if (prioFilter && i.priorite !== prioFilter) return false
+    if (catFilter && i.categorie !== catFilter) return false
+    if (resFilter && i.residence !== resFilter) return false
+    if (techFilter && nomTech(i) !== techFilter) return false
+    if (dateDebut && i.date_creation && new Date(i.date_creation) < new Date(dateDebut)) return false
+    if (dateFin && i.date_creation && new Date(i.date_creation) > new Date(dateFin + 'T23:59:59')) return false
+    if (!sansStatut) {
+      if (statFilter && i.statut !== statFilter) return false
+      if (slaOnly && !i.sla_depasse) return false
+    }
+    return true
+  }, [prioFilter, catFilter, resFilter, techFilter, dateDebut, dateFin, statFilter, slaOnly])
+  const jeuK = useMemo(() => incidents.filter(i => passeFiltres(i, true)), [incidents, passeFiltres])          // compteurs par statut
+  const jeu  = useMemo(() => incidents.filter(i => passeFiltres(i, false)), [incidents, passeFiltres])         // graphiques
+  const dashFiltre = !!(prioFilter || catFilter || resFilter || techFilter || dateDebut || dateFin || statFilter || slaOnly)
+  const reinitDash = () => { setPrioFilter(''); setCatFilter(''); setResFilter(''); setTechFilter(''); setDateDebut(''); setDateFin(''); setStatFilter(''); setSlaOnly(false) }
+  const basculer = (setter) => (v) => setter(cur => cur === v ? '' : v)
+
   const chartsData = useMemo(() => {
     const COLORS_STATUT = { declare:'#2563EB', assigne:'#D4A017', en_cours:'#B87333', resolu:'#16A34A', cloture:'#5B6472' }
     const LABELS_STATUT = { declare:'Déclarés', assigne:'Assignés', en_cours:'En cours', resolu:'Résolus', cloture:'Clôturés' }
-    const pieData = Object.entries(stats)
+    const cptStatut = {}
+    jeuK.forEach(i => { cptStatut[i.statut] = (cptStatut[i.statut] || 0) + 1 })
+    const pieData = Object.entries(dashFiltre ? cptStatut : (Object.keys(stats).length ? stats : cptStatut))
       .filter(([k]) => COLORS_STATUT[k])
-      .map(([k, n]) => [LABELS_STATUT[k], n, COLORS_STATUT[k]])
+      .map(([k, n]) => [LABELS_STATUT[k], n, COLORS_STATUT[k], k])
       .filter(([,n]) => n > 0)
     const pieTotal = pieData.reduce((s,[,n]) => s + n, 0)
 
     const byCatFull = {}
-    incidents.forEach(i => { if (i.categorie) byCatFull[i.categorie] = (byCatFull[i.categorie] || 0) + 1 })
+    jeu.forEach(i => { if (i.categorie) byCatFull[i.categorie] = (byCatFull[i.categorie] || 0) + 1 })
     const catData = Object.entries(byCatFull).sort((a,b) => b[1]-a[1]).slice(0, 8)
     const maxCatVal = Math.max(...catData.map(([,n]) => n), 1)
 
     const byMonthFull = {}
-    incidents.forEach(i => {
+    jeu.forEach(i => {
       if (i.date_creation) {
         const m = new Date(i.date_creation).toLocaleDateString('fr-FR', { month:'short', year:'2-digit' })
         byMonthFull[m] = (byMonthFull[m] || 0) + 1
@@ -153,30 +180,30 @@ export default function Maintenance() {
     const maxMonthVal = Math.max(...monthData.map(([,n]) => n), 1)
 
     return { pieData, pieTotal, catData, maxCatVal, monthData, maxMonthVal }
-  }, [incidents, stats])
+  }, [jeu, jeuK, stats, dashFiltre])
 
   const kpisComplementaires = useMemo(() => {
     const byPrioFull = { critique:0, haute:0, moyenne:0, basse:0 }
-    incidents.forEach(i => { if (i.priorite && byPrioFull[i.priorite] !== undefined) byPrioFull[i.priorite]++ })
+    jeu.forEach(i => { if (i.priorite && byPrioFull[i.priorite] !== undefined) byPrioFull[i.priorite]++ })
     const prioTotal = Object.values(byPrioFull).reduce((s,n) => s+n, 0)
 
     const byTech = {}
-    incidents.forEach(i => {
-      const nom = i.assigne_a_nom || i.assigne_a_username || (i.assigne_a ? `Technicien #${i.assigne_a}` : null)
+    jeu.forEach(i => {
+      const nom = nomTech(i) || null
       if (nom) byTech[nom] = (byTech[nom] || 0) + 1
     })
     const topTechs = Object.entries(byTech).sort((a,b) => b[1]-a[1]).slice(0,5)
 
     const byResidence = {}
-    incidents.forEach(i => { if (i.residence) byResidence[i.residence] = (byResidence[i.residence] || 0) + 1 })
+    jeu.forEach(i => { if (i.residence) byResidence[i.residence] = (byResidence[i.residence] || 0) + 1 })
     const topResidences = Object.entries(byResidence).sort((a,b) => b[1]-a[1]).slice(0,5)
 
-    const critResolus = incidents.filter(i => i.priorite==='critique' && ['resolu','cloture'].includes(i.statut))
-    const critTotal = incidents.filter(i => i.priorite==='critique')
+    const critResolus = jeu.filter(i => i.priorite==='critique' && ['resolu','cloture'].includes(i.statut))
+    const critTotal = jeu.filter(i => i.priorite==='critique')
     const tauxCritResolu = critTotal.length ? Math.round(critResolus.length / critTotal.length * 100) : null
 
     return { byPrioFull, prioTotal, topTechs, topResidences, tauxCritResolu }
-  }, [incidents])
+  }, [jeu])
 
   useEffect(() => {
     const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
@@ -236,6 +263,9 @@ export default function Maintenance() {
     if (statFilter && i.statut !== statFilter) return false
     if (prioFilter && i.priorite !== prioFilter) return false
     if (slaOnly && !i.sla_depasse) return false
+    if (catFilter && i.categorie !== catFilter) return false
+    if (resFilter && i.residence !== resFilter) return false
+    if (techFilter && nomTech(i) !== techFilter) return false
     if (dateDebut && i.date_creation && new Date(i.date_creation) < new Date(dateDebut)) return false
     if (dateFin && i.date_creation && new Date(i.date_creation) > new Date(dateFin + 'T23:59:59')) return false
     return true
@@ -293,31 +323,6 @@ export default function Maintenance() {
     } catch(e) { toast.error(e.response?.data?.error || e.response?.data?.detail || 'Envoi impossible') }
     finally { setEnvoiMessage(false) }
   }
-
-  const compressImage = (file, maxSizeKB=800) => new Promise((resolve) => {
-    const canvas = document.createElement('canvas')
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      let w = img.width, h = img.height
-      const maxDim = 1200
-      if (w > maxDim || h > maxDim) {
-        if (w > h) { h = Math.round(h * maxDim/w); w = maxDim }
-        else { w = Math.round(w * maxDim/h); h = maxDim }
-      }
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      let quality = 0.85
-      let b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
-      while (b64.length > maxSizeKB*1024 && quality > 0.3) {
-        quality -= 0.1
-        b64 = canvas.toDataURL('image/jpeg', quality).split(',')[1]
-      }
-      URL.revokeObjectURL(url)
-      resolve(b64)
-    }
-    img.src = url
-  })
 
   const uploadPhoto = (type_comment) => {
     const input = document.createElement('input')
@@ -543,18 +548,36 @@ export default function Maintenance() {
         {isTechnicien && vue==='tableau' && <TableauTechnicien onOuvrirIncident={ouvrirIncident} />}
         {isAdmin && vue==='assignations' && <AssignationsPanel onOuvrirIncident={ouvrirIncident} />}
         {isGestionnaire && vue==='incidents' && <>
+        {/* ── Filtres du tableau de bord (interactif : chaque indicateur est cliquable) ── */}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:12, background:'#F3F5F9', border:'1px solid #D8DEE9', borderRadius:12, padding:10 }}>
+          <label style={{ fontSize:11, color:'#5B6B86', fontWeight:700 }}>Du <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)} style={{ ...inp, maxWidth:140 }} /></label>
+          <label style={{ fontSize:11, color:'#5B6B86', fontWeight:700 }}>Au <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)} style={{ ...inp, maxWidth:140 }} /></label>
+          {[["Aujourd'hui",0],['7 j',7],['30 j',30]].map(([l,n]) => (
+            <button key={l} type="button" onClick={()=>{ const d=new Date(); const f=x=>x.toISOString().slice(0,10); setDateFin(f(d)); d.setDate(d.getDate()-n); setDateDebut(f(d)) }}
+              style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:99, padding:'5px 12px', fontSize:11.5, fontWeight:700, color:'#0F2A5C', cursor:'pointer', fontFamily:'inherit' }}>{l}</button>
+          ))}
+          {[['Catégorie',catFilter,setCatFilter],['Résidence',resFilter,setResFilter],['Technicien',techFilter,setTechFilter],['Priorité',prioFilter,setPrioFilter]].map(([l,v,set]) => v && (
+            <button key={l} type="button" onClick={()=>set('')} title="Retirer ce filtre"
+              style={{ background:'#0F2A5C', color:'#fff', border:'none', borderRadius:99, padding:'5px 12px', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>{l} : {v} ✕</button>
+          ))}
+          <span style={{ marginLeft:'auto', fontSize:12, color:'#5B6B86', fontWeight:700 }}>{jeu.length} incident(s){dashFiltre ? ' (filtré)' : ''}</span>
+          {dashFiltre && <button type="button" onClick={reinitDash}
+            style={{ background:'#D4A017', color:'#081B3D', border:'none', borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:800, cursor:'pointer', fontFamily:'inherit' }}>Réinitialiser</button>}
+        </div>
+
         {/* ── KPIs enrichis ── */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(6, minmax(0, 1fr))', gap:10, marginBottom:12 }}>
           {[
-            ['📢','Déclarés',    stats.declare||0,   '#3b82f6','#eff6ff'],
-            ['👷','Assignés',    stats.assigne||0,   '#f97316','#fff7ed'],
-            ['⚙️','En cours',   stats.en_cours||0,  '#eab308','#fefce8'],
-            ['✅','Résolus',     stats.resolu||0,    '#16a34a','#f0fdf4'],
-            ['⚠️','SLA dépassé',stats.sla_depasse||0,'#dc2626','#fee2e2'],
-            ['🔴','Critiques',  stats.critique||0,  '#7c3aed','#f5f3ff'],
-          ].map(([ic,l,v,c,bg]) => (
-            <div key={l} style={{ background:bg, borderRadius:12, padding:'12px 14px',
-              borderLeft:`3px solid ${c}`, boxShadow:'0 1px 4px rgba(0,0,0,.05)' }}>
+            ['📢','Déclarés',    dashFiltre ? jeuK.filter(i=>i.statut==='declare').length : (stats.declare||0),   '#3b82f6','#eff6ff', ()=>basculer(setStatFilter)('declare'), statFilter==='declare'],
+            ['👷','Assignés',    dashFiltre ? jeuK.filter(i=>i.statut==='assigne').length : (stats.assigne||0),   '#f97316','#fff7ed', ()=>basculer(setStatFilter)('assigne'), statFilter==='assigne'],
+            ['⚙️','En cours',   dashFiltre ? jeuK.filter(i=>i.statut==='en_cours').length : (stats.en_cours||0),  '#eab308','#fefce8', ()=>basculer(setStatFilter)('en_cours'), statFilter==='en_cours'],
+            ['✅','Résolus',     dashFiltre ? jeuK.filter(i=>i.statut==='resolu').length : (stats.resolu||0),    '#16a34a','#f0fdf4', ()=>basculer(setStatFilter)('resolu'), statFilter==='resolu'],
+            ['⚠️','SLA dépassé',dashFiltre ? jeuK.filter(i=>i.sla_depasse && !['resolu','cloture','annule'].includes(i.statut)).length : (stats.sla_depasse||0),'#dc2626','#fee2e2', ()=>setSlaOnly(v=>!v), slaOnly],
+            ['🔴','Critiques',  dashFiltre ? jeuK.filter(i=>i.priorite==='critique').length : (stats.critique||0),  '#7c3aed','#f5f3ff', ()=>basculer(setPrioFilter)('critique'), prioFilter==='critique'],
+          ].map(([ic,l,v,c,bg,clic,actif]) => (
+            <div key={l} role="button" tabIndex={0} aria-pressed={actif} onClick={clic} onKeyDown={e=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); clic() } }}
+              style={{ background:actif ? `${c}22` : bg, borderRadius:12, padding:'12px 14px', cursor:'pointer', transition:'transform .15s, box-shadow .15s',
+              borderLeft:`3px solid ${c}`, boxShadow: actif ? `0 4px 14px ${c}44` : '0 1px 4px rgba(0,0,0,.05)', outline: actif ? `2px solid ${c}` : 'none' }}>
               <div style={{ fontSize:20, marginBottom:4 }}>{ic}</div>
               <div style={{ fontSize:22, fontWeight:900, color:c, lineHeight:1 }}>{v}</div>
               <div style={{ fontSize:10, color:'#64748b', fontWeight:600, marginTop:3 }}>{l}</div>
@@ -563,11 +586,11 @@ export default function Maintenance() {
         </div>
 
         {/* ── KPIs avancés (calcul local) ── */}
-        {incidents.length > 0 && (() => {
+        {jeu.length > 0 && (() => {
           const now = Date.now()
-          const ouverts = incidents.filter(i=>!['resolu','cloture','annule'].includes(i.statut))
+          const ouverts = jeu.filter(i=>!['resolu','cloture','annule'].includes(i.statut))
           // Durée moy. résolution
-          const resolved = incidents.filter(i=>['resolu','cloture'].includes(i.statut)&&i.date_creation)
+          const resolved = jeu.filter(i=>['resolu','cloture'].includes(i.statut)&&i.date_creation)
           const avgDays = resolved.length ? (resolved.reduce((s,i)=>{
             const end = i.date_resolution ? new Date(i.date_resolution) : new Date()
             return s + (end - new Date(i.date_creation))/86400000
@@ -579,10 +602,10 @@ export default function Maintenance() {
           const oldestDays = oldest ? Math.round((now-new Date(oldest.date_creation))/86400000) : null
           // Répartition catégories
           const byCat = {}
-          incidents.forEach(i=>{ if(i.categorie) byCat[i.categorie]=(byCat[i.categorie]||0)+1 })
+          jeu.forEach(i=>{ if(i.categorie) byCat[i.categorie]=(byCat[i.categorie]||0)+1 })
           const topCats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,4)
           // Taux résolution
-          const tauxRes = incidents.length ? Math.round((resolved.length/incidents.length)*100) : 0
+          const tauxRes = jeu.length ? Math.round((resolved.length/jeu.length)*100) : 0
 
           return (
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap:10, marginBottom:20 }}>
@@ -607,10 +630,10 @@ export default function Maintenance() {
               <div style={{ background:'#fff', borderRadius:12, padding:'14px 16px', border:'1px solid #e2e8f0' }}>
                 <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>📊 Top catégories</div>
                 {topCats.map(([cat,n])=>(
-                  <div key={cat} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+                  <div key={cat} role="button" tabIndex={0} onClick={()=>basculer(setCatFilter)(cat)} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5, cursor:'pointer', background:catFilter===cat?'#FFF8E1':'transparent', borderRadius:6 }}>
                     <span style={{ fontSize:11, color:'#374151', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cat}</span>
                     <div style={{ height:5, width:60, background:'#f1f5f9', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
-                      <div style={{ width:`${Math.round(n/incidents.length*100)}%`, height:'100%', background:'var(--rzc-navy)', borderRadius:99 }}/>
+                      <div style={{ width:`${Math.round(n/jeu.length*100)}%`, height:'100%', background:'var(--rzc-navy)', borderRadius:99 }}/>
                     </div>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--rzc-navy)', flexShrink:0 }}>{n}</span>
                   </div>
@@ -621,7 +644,7 @@ export default function Maintenance() {
         })()}
 
         {/* ── KPIs complémentaires : priorité, charge technicien, top résidences ── */}
-        {incidents.length > 0 && (() => {
+        {jeu.length > 0 && (() => {
           const { byPrioFull, prioTotal, topTechs, topResidences, tauxCritResolu } = kpisComplementaires
           const PRIO_COLORS = { critique:'#DC2626', haute:'#D4A017', moyenne:'#2563EB', basse:'#16A34A' }
           const PRIO_LABELS = { critique:'Critique', haute:'Haute', moyenne:'Moyenne', basse:'Basse' }
@@ -635,7 +658,7 @@ export default function Maintenance() {
                 {prioTotal === 0 ? (
                   <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune donnée</p>
                 ) : Object.entries(byPrioFull).filter(([,n])=>n>0).map(([k,n]) => (
-                  <div key={k} style={{ marginBottom:9 }}>
+                  <div key={k} role="button" tabIndex={0} onClick={()=>basculer(setPrioFilter)(k)} style={{ marginBottom:9, cursor:'pointer', background:prioFilter===k?'#FFF8E1':'transparent', borderRadius:6, padding:'2px 4px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                       <span style={{ fontSize:11.5, color:'var(--rzc-text-2)' }}>{PRIO_LABELS[k]}</span>
                       <span style={{ fontSize:11.5, fontWeight:700, color:PRIO_COLORS[k] }}>{n} ({Math.round(n/prioTotal*100)}%)</span>
@@ -659,7 +682,7 @@ export default function Maintenance() {
                 {topTechs.length === 0 ? (
                   <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune assignation</p>
                 ) : topTechs.map(([nom,n]) => (
-                  <div key={nom} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
+                  <div key={nom} role="button" tabIndex={0} onClick={()=>basculer(setTechFilter)(nom)} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7, cursor:'pointer', background:techFilter===nom?'#FFF8E1':'transparent', borderRadius:6 }}>
                     <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', flex:1, overflow:'hidden',
                       textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nom}</span>
                     <div style={{ height:6, width:70, background:'rgba(15,26,46,.06)', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
@@ -676,7 +699,7 @@ export default function Maintenance() {
                 {topResidences.length === 0 ? (
                   <p style={{ textAlign:'center', color:'var(--rzc-text-3)', fontSize:12, padding:'20px 0' }}>Aucune donnée</p>
                 ) : topResidences.map(([res,n]) => (
-                  <div key={res} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
+                  <div key={res} role="button" tabIndex={0} onClick={()=>basculer(setResFilter)(res)} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7, cursor:'pointer', background:resFilter===res?'#FFF8E1':'transparent', borderRadius:6 }}>
                     <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', flex:1, overflow:'hidden',
                       textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{res}</span>
                     <div style={{ height:6, width:70, background:'rgba(15,26,46,.06)', borderRadius:99, overflow:'hidden', flexShrink:0 }}>
@@ -691,20 +714,20 @@ export default function Maintenance() {
         })()}
 
         {/* ── Graphiques visuels à l'écran (camembert, histogramme, courbe) ── */}
-        {incidents.length > 0 && (() => {
+        {jeu.length > 0 && (() => {
           const { pieData, pieTotal, catData, maxCatVal, monthData, maxMonthVal } = chartsData
 
           // ── Camembert SVG (statuts) ──
           let pieAngle = -Math.PI / 2
           const pieR = 70, pieCx = 90, pieCy = 90
-          const pieSlices = pieData.map(([lbl, n, color]) => {
+          const pieSlices = pieData.map(([lbl, n, color, cle]) => {
             const slice = pieTotal ? (n / pieTotal) * Math.PI * 2 : 0
             const x1 = pieCx + pieR * Math.cos(pieAngle), y1 = pieCy + pieR * Math.sin(pieAngle)
             pieAngle += slice
             const x2 = pieCx + pieR * Math.cos(pieAngle), y2 = pieCy + pieR * Math.sin(pieAngle)
             const large = slice > Math.PI ? 1 : 0
             const pct = pieTotal ? Math.round(n / pieTotal * 100) : 0
-            return { lbl, n, color, pct, d: `M${pieCx},${pieCy} L${x1.toFixed(1)},${y1.toFixed(1)} A${pieR},${pieR} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z` }
+            return { lbl, n, color, pct, cle, d: `M${pieCx},${pieCy} L${x1.toFixed(1)},${y1.toFixed(1)} A${pieR},${pieR} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z` }
           })
 
           const barW = Math.min(38, Math.floor(300 / Math.max(catData.length, 1)))
@@ -722,11 +745,11 @@ export default function Maintenance() {
                 ) : (
                   <div style={{ display:'flex', alignItems:'center', gap:16 }}>
                     <svg width={180} height={180} viewBox="0 0 180 180" style={{ flexShrink:0 }}>
-                      {pieSlices.map((s,i) => <path key={i} d={s.d} fill={s.color} stroke="#fff" strokeWidth={2} />)}
+                      {pieSlices.map((s,i) => <path key={i} d={s.d} fill={s.color} stroke={statFilter===s.cle?'#0F2A5C':'#fff'} strokeWidth={statFilter===s.cle?3:2} style={{cursor:'pointer'}} onClick={()=>basculer(setStatFilter)(s.cle)} />)}
                     </svg>
                     <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:0 }}>
                       {pieSlices.map((s,i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <div key={i} role="button" tabIndex={0} onClick={()=>basculer(setStatFilter)(s.cle)} style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontWeight:statFilter===s.cle?800:400 }}>
                           <span style={{ width:9, height:9, borderRadius:'50%', background:s.color, flexShrink:0 }} />
                           <span style={{ fontSize:11.5, color:'var(--rzc-text-2)', whiteSpace:'nowrap' }}>{s.lbl}</span>
                           <span style={{ fontSize:11.5, fontWeight:700, color:s.color, marginLeft:'auto' }}>{s.n} ({s.pct}%)</span>
@@ -749,7 +772,8 @@ export default function Maintenance() {
                       const x = i*(barW+10)+10
                       const color = ROXGOLD_BARS[i % ROXGOLD_BARS.length]
                       return (
-                        <g key={cat}>
+                        <g key={cat} style={{cursor:'pointer'}} onClick={()=>basculer(setCatFilter)(cat)} opacity={catFilter && catFilter!==cat ? .35 : 1}>
+                          <title>{cat} : {n} — cliquer pour filtrer</title>
                           <rect x={x} y={140-h} width={barW} height={h} fill={color} rx={4} />
                           <text x={x+barW/2} y={155} textAnchor="middle" fontSize="9" fill="var(--rzc-text-3)">{cat.slice(0,9)}</text>
                           <text x={x+barW/2} y={134-h} textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>{n}</text>

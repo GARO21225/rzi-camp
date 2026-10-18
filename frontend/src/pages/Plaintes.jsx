@@ -7,6 +7,10 @@ import { toast, confirmDialog } from '../toast'
 import { usePlainteCategories } from '../constants/plaintes'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useSurPulse } from '../hooks/useSurPulse'
+import PhotoCapture from '../components/PhotoCapture'
+import PlaintesDashboard from '../components/PlaintesDashboard'
+import { fichePlainte } from '../utils/fichePlainte'
+import { imprimerHtml } from '../utils/impression'
 const PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
 const FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
 const EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]
@@ -46,11 +50,15 @@ export default function Plaintes() {
   const [liste, setListe] = useState([])
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [filtreStatut, setFiltreStatut] = useState('')
-  const [filtreCategorie, setFiltreCategorie] = useState('')
+  const FILTRES_VIDES = { du:'', au:'', categorie:'', priorite:'', responsable:'', residence:'', statut:'', retard:false }
+  const [filtres, setFiltres] = useState(FILTRES_VIDES)
+  const filtreStatut = filtres.statut, filtreCategorie = filtres.categorie
+  const setFiltreStatut = (v) => setFiltres(x => ({ ...x, statut: v }))
+  const setFiltreCategorie = (v) => setFiltres(x => ({ ...x, categorie: v }))
+  const [photoResolution, setPhotoResolution] = useState('')
   const [detailModal, setDetailModal] = useState(null)
   const [nouvelleModal, setNouvelleModal] = useState(false)
-  const [nouvelleForm, setNouvelleForm] = useState({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:''})
+  const [nouvelleForm, setNouvelleForm] = useState({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:'', photo_base64:''})
   const [controleModal, setControleModal] = useState(false)
   const [notesProprete, setNotesProprete] = useState({})
   const [actionForm, setActionForm] = useState({})
@@ -70,24 +78,30 @@ export default function Plaintes() {
   useEffect(() => {
     if (!detailModal) { setFrise(null); setAgentChoisi(''); return }
     chargerFrise(detailModal.id)
-    if (isAdmin && agents.length === 0) plaintesAPI.agents().then(r => setAgents(r.data || [])).catch(() => {})
+    setPhotoResolution('')
+    // Seuls les comptes ménage / technicien sont proposés, selon la catégorie de la plainte
+    if (isAdmin) plaintesAPI.agents({ categorie: detailModal.categorie }).then(r => setAgents(r.data || [])).catch(() => {})
   }, [detailModal?.id])
+  const [tousAgents, setTousAgents] = useState([])
+  useEffect(() => { if (isAdmin) plaintesAPI.agents().then(r => setTousAgents(r.data || [])).catch(() => {}) }, [isAdmin])
 
   const charger = useCallback(async (silencieux = false) => {
     if (!silencieux) setLoading(true)
     try {
       const params = {}
-      if (filtreStatut) params.statut = filtreStatut
-      if (filtreCategorie) params.categorie = filtreCategorie
+      if (filtres.statut) params.statut = filtres.statut
+      if (filtres.categorie) params.categorie = filtres.categorie
       const r = await plaintesAPI.list(params)
       setListe(r.data?.results || r.data || [])
       if (isAdmin) {
-        const rd = await plaintesAPI.dashboard()
+        const dp = {}
+        for (const k of ['du', 'au', 'categorie', 'priorite', 'responsable', 'residence']) if (filtres[k]) dp[k] = filtres[k]
+        const rd = await plaintesAPI.dashboard(dp)
         setDashboard(rd.data)
       }
     } catch(e) { if (!silencieux) toast.error("Erreur de chargement") }
     setLoading(false)
-  }, [filtreStatut, filtreCategorie, isAdmin])
+  }, [filtres.statut, filtres.categorie, filtres.du, filtres.au, filtres.priorite, filtres.responsable, filtres.residence, isAdmin])
 
   useEffect(() => { charger() }, [charger])
   // Rafraîchissement automatique : la liste (et la frise du dossier ouvert)
@@ -100,12 +114,13 @@ export default function Plaintes() {
   const creerPlainte = async () => {
     if (envoiEnCours) return
     if (!nouvelleForm.description.trim()) return toast.error('Description requise')
+    if (!nouvelleForm.photo_base64) return toast.error('Une photo du problème est obligatoire')
     setEnvoiEnCours(true)
     try {
       await plaintesAPI.creer(nouvelleForm)
       toast.success('Plainte déposée')
       setNouvelleModal(false)
-      setNouvelleForm({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:''})
+      setNouvelleForm({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:'', photo_base64:''})
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
     setEnvoiEnCours(false)
@@ -200,6 +215,34 @@ export default function Plaintes() {
     charger()
   }
 
+  // SLA : échéance, dépassement et temps restant
+  const slaInfo = (p) => {
+    if (!p.sla_echeance) return null
+    const fini = ['resolue','confirmee','cloturee','rejetee'].includes(p.statut)
+    if (p.statut === 'rejetee') return null
+    const ms = new Date(p.sla_echeance) - Date.now()
+    const h = Math.abs(ms) / 3600000
+    const txt = h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${h.toFixed(1).replace('.', ',')} h` : `${Math.round(h / 24)} j`
+    if (p.sla_depasse) return { c:'#dc2626', t: fini ? '⚠ SLA dépassé' : `⚠ En retard de ${txt}` }
+    return fini ? { c:'#16a34a', t:'✓ SLA respecté' } : { c: ms < 4 * 3600000 ? '#f97316' : '#16a34a', t:`⏱ ${txt} restant` }
+  }
+  const imprimerFiche = async (p) => {
+    let etapes = frise?.etapes
+    if (!etapes || detailModal?.id !== p.id) { try { etapes = (await plaintesAPI.chronologie(p.id)).data?.etapes } catch { etapes = [] } }
+    imprimerHtml(fichePlainte(p, etapes || []), `Fiche d'intervention plainte #${p.id}`)
+  }
+  const visibles = liste.filter(p => {
+    if (STATUTS_CLOTURES.includes(p.statut)) return false
+    const f = filtres
+    if (f.priorite && p.priorite !== f.priorite) return false
+    if (f.residence && !(p.batiment_residence || '').toLowerCase().includes(f.residence.toLowerCase())) return false
+    if (f.responsable && String(p.affecte_a) !== String(f.responsable)) return false
+    if (f.du && (p.date_creation || '').slice(0,10) < f.du) return false
+    if (f.au && (p.date_creation || '').slice(0,10) > f.au) return false
+    if (f.retard && !p.sla_depasse) return false
+    return true
+  })
+
   const badge = (statut) => (
     <span style={{background:`${STATUT_COLORS[statut]}20`, color:STATUT_COLORS[statut], padding:'3px 10px',
       borderRadius:20, fontSize:11, fontWeight:700}}>
@@ -231,20 +274,8 @@ export default function Plaintes() {
       </div>
 
       {isAdmin && dashboard && (
-        <div style={isMobile
-          ? {display:'flex', gap:10, marginBottom:16, overflowX:'auto', paddingBottom:4}
-          : {display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10, marginBottom:16}}>
-          {Object.entries(dashboard.par_statut || {}).map(([s,n]) => (
-            <div key={s} style={{flexShrink:0, minWidth: isMobile?90:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:`3px solid ${STATUT_COLORS[s]}`}}>
-              <div style={{fontSize:20, fontWeight:800, color:STATUT_COLORS[s]}}>{n}</div>
-              <div style={{fontSize:10, color:'#64748b', textTransform:'uppercase', fontWeight:700}}>{STATUT_LABELS[s]}</div>
-            </div>
-          ))}
-          <div style={{flexShrink:0, minWidth: isMobile?90:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:'10px 12px', borderTop:'3px solid #dc2626'}}>
-            <div style={{fontSize:20, fontWeight:800, color:'#dc2626'}}>{dashboard.en_retard}</div>
-            <div style={{fontSize:10, color:'#64748b', textTransform:'uppercase', fontWeight:700}}>En retard</div>
-          </div>
-        </div>
+        <PlaintesDashboard data={dashboard} filtres={filtres} setFiltres={setFiltres} categories={CATEGORIES} agents={tousAgents}
+          statutLabels={STATUT_LABELS} statutColors={STATUT_COLORS} isMobile={isMobile} />
       )}
 
       {/* Actives / Historique : l'onglet Historique vit maintenant dans la
@@ -315,13 +346,13 @@ export default function Plaintes() {
 
       {loading ? (
         <div style={{padding:40, textAlign:'center', color:'#94a3b8'}}>⏳ Chargement...</div>
-      ) : liste.filter(p => !STATUTS_CLOTURES.includes(p.statut)).length === 0 ? (
+      ) : visibles.length === 0 ? (
         <div style={{padding:40, textAlign:'center', color:'#94a3b8', background:'#fff', borderRadius:10}}>
           Aucune plainte active.
         </div>
       ) : (
         <div style={{display:'flex', flexDirection:'column', gap:8}}>
-          {liste.filter(p => !STATUTS_CLOTURES.includes(p.statut)).map(p => (
+          {visibles.map(p => (
             <div key={p.id} onClick={()=>setDetailModal(p)}
               style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:14, cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
@@ -336,6 +367,7 @@ export default function Plaintes() {
                     {isAdmin && <span style={{fontSize:11, color:'#64748b'}}>📍 {p.batiment_residence}</span>}
                   </div>
                   <div style={{fontSize:12, color:'#64748b'}}>{p.description}</div>
+                  {(() => { const sl = slaInfo(p); return sl && <span style={{display:'inline-block', marginTop:4, fontSize:10.5, fontWeight:800, color:sl.c, background:`${sl.c}14`, padding:'2px 8px', borderRadius:99}}>{sl.t}</span> })()}
                   {isAdmin && <div style={{fontSize:11, color:'#94a3b8', marginTop:2}}>{p.occupant_nom} · {new Date(p.date_creation).toLocaleDateString('fr-FR')}</div>}
                 </div>
               </div>
@@ -383,6 +415,7 @@ export default function Plaintes() {
             <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Description</label>
             <textarea value={nouvelleForm.description} onChange={e=>setNouvelleForm(f=>({...f, description:e.target.value}))}
               rows={3} style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:14, marginTop:4}}/>
+            <PhotoCapture label="Photo du problème" requis value={nouvelleForm.photo_base64} onChange={v=>setNouvelleForm(f=>({...f, photo_base64:v}))} />
             <button onClick={creerPlainte} disabled={envoiEnCours} style={{opacity:envoiEnCours?.6:1, width:'100%', background:'#dc2626', color:'#fff', border:'none', padding:11, borderRadius:9, cursor:'pointer', fontWeight:700}}>
               Envoyer
             </button>
@@ -457,6 +490,21 @@ export default function Plaintes() {
             <div style={{fontSize:11, color:'#94a3b8', marginBottom:14}}>
               {detailModal.occupant_nom} · {detailModal.batiment_residence} · {new Date(detailModal.date_creation).toLocaleString('fr-FR')}
             </div>
+            {(() => { const sl = slaInfo(detailModal); return sl && (
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, background:`${sl.c}12`, border:`1px solid ${sl.c}55`, borderRadius:10, padding:'8px 12px', marginBottom:12}}>
+                <span style={{fontWeight:800, fontSize:12.5, color:sl.c}}>{sl.t}</span>
+                <span style={{fontSize:11, color:'#5B6B86'}}>Échéance : {new Date(detailModal.sla_echeance).toLocaleString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}</span>
+              </div>) })()}
+            {(detailModal.photo_base64 || detailModal.photo_resolution_base64) && (
+              <div style={{display:'grid', gridTemplateColumns: detailModal.photo_base64 && detailModal.photo_resolution_base64 ? '1fr 1fr' : '1fr', gap:8, marginBottom:12}}>
+                {detailModal.photo_base64 && <div><div style={{fontSize:10.5, fontWeight:800, color:'#7C3AED', textTransform:'uppercase', marginBottom:3}}>Avant</div><img src={`data:image/jpeg;base64,${detailModal.photo_base64}`} alt="Photo du dépôt" style={{width:'100%', maxHeight:200, objectFit:'cover', borderRadius:10, border:'1px solid #D8DEE9'}}/></div>}
+                {detailModal.photo_resolution_base64 && <div><div style={{fontSize:10.5, fontWeight:800, color:'#16A34A', textTransform:'uppercase', marginBottom:3}}>Après</div><img src={`data:image/jpeg;base64,${detailModal.photo_resolution_base64}`} alt="Photo après intervention" style={{width:'100%', maxHeight:200, objectFit:'cover', borderRadius:10, border:'1px solid #D8DEE9'}}/></div>}
+              </div>
+            )}
+            <button onClick={()=>imprimerFiche(detailModal)}
+              style={{background:'#0F2A5C', color:'#fff', border:'none', padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:12, marginBottom:12}}>
+              🖨️ Fiche d'intervention
+            </button>
 
             {/* Frise des étapes */}
             <div style={{margin:'0 0 14px', padding:'12px 14px', background:'#fff', border:'1px solid #e2e8f0', borderRadius:10}}>
@@ -557,12 +605,13 @@ export default function Plaintes() {
               <div style={{background:'#f8fafc', borderRadius:10, padding:12, marginBottom:12}}>
                 <div style={{fontSize:12, fontWeight:700, marginBottom:8}}>Traitement</div>
                 <textarea placeholder="Résultat / action réalisée" onChange={e=>setActionForm(f=>({...f, resultat_resolution:e.target.value, action_resolution:e.target.value}))} rows={2} style={{width:'100%', padding:8, borderRadius:7, border:'1px solid #e2e8f0', marginBottom:6}}/>
+                <PhotoCapture label="Photo après intervention" requis value={photoResolution} onChange={setPhotoResolution} />
                 <div style={{display:'flex', gap:6}}>
                   <button onClick={()=>{
                       const motif = prompt('Motif de mise en attente (obligatoire) :')
                       if (motif) actionAdmin(detailModal.id, 'mettreEnAttente', motif, 'Mise en attente')
                     }} style={{background:'#94a3b8', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700}}>En attente</button>
-                  <button onClick={()=>actionAdmin(detailModal.id, 'resoudre', actionForm, 'Résolue')} style={{background:'#22c55e', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700}}>Résoudre</button>
+                  <button disabled={!photoResolution} title={photoResolution ? '' : 'Photo après intervention obligatoire'} onClick={()=>actionAdmin(detailModal.id, 'resoudre', {...actionForm, photo_resolution_base64: photoResolution}, 'Résolue')} style={{opacity: photoResolution ? 1 : .5, background:'#22c55e', color:'#fff', border:'none', padding:'8px 12px', borderRadius:7, cursor:'pointer', fontWeight:700}}>Résoudre</button>
                 </div>
               </div>
             )}

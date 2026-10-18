@@ -11,49 +11,7 @@ const ETAPE = {
   cloture: ['🔒', 'Clôture', '#64748B'], escalade: ['⚠️', 'Escalade', '#DC2626'], relance: ['⏰', 'Relance SLA', '#DC2626'],
 }
 
-const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-const dt = (d) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-const duree = (a, b) => {
-  if (!a || !b) return '—'
-  const h = (new Date(b) - new Date(a)) / 3600000
-  return h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${h.toFixed(1).replace('.', ',')} h` : `${(h / 24).toFixed(1).replace('.', ',')} j`
-}
-const img = (b64, mime = 'image/jpeg') => {
-  if (!b64 || String(b64).length < 20) return ''
-  const s = String(b64)
-  return s.startsWith('data:') ? s : `data:${mime};base64,${s}`
-}
-const badge = ([l, c]) => `<span class="badge" style="background:${c}1A;color:${c};border-color:${c}55">${esc(l)}</span>`
-
-export function ficheIntervention(inc) {
-  const maintenant = new Date()
-  const cmts = inc.commentaires || []
-  const debut = cmts.find(c => c.type_comment === 'debut')?.date_creation
-  const avant = cmts.filter(c => c.type_comment === 'photo_avant' && img(c.photo_base64))
-  const apres = cmts.filter(c => c.type_comment === 'photo_apres' && img(c.photo_base64))
-  const ouvert = ['declare', 'assigne', 'en_cours'].includes(inc.statut)
-  const fin = inc.date_resolution || inc.date_cloture
-  const horsDelai = inc.sla_depasse || (inc.sla_echeance && new Date(ouvert ? maintenant : (fin || maintenant)) > new Date(inc.sla_echeance))
-  const statut = STATUT[inc.statut] || [inc.statut, GRIS]
-  const prio = PRIO[inc.priorite] || [inc.priorite, GRIS]
-  const photoDecl = img(inc.photo_base64, inc.photo_mime)
-
-  const champ = (l, v) => `<div class="champ"><div class="champ-l">${l}</div><div class="champ-v">${v}</div></div>`
-  const galerie = (titre, liste, couleur) => `<div class="galerie"><div class="gal-t" style="color:${couleur}">${titre}</div>
-    ${liste.length ? liste.map(c => `<figure><img src="${img(c.photo_base64)}" alt=""/><figcaption>${dt(c.date_creation)} · ${esc(c.auteur_nom || '')}</figcaption></figure>`).join('')
-      : '<div class="vide">Aucune photo</div>'}</div>`
-
-  const chronologie = [
-    { t: 'creation', ic: '📝', l: 'Déclaration', c: NAVY, d: inc.date_creation, a: inc.auteur_nom, txt: inc.description },
-    ...cmts.filter(c => !['photo_avant', 'photo_apres'].includes(c.type_comment)).map(c => {
-      const [ic, l, col] = ETAPE[c.type_comment] || ['•', c.type_comment, GRIS]
-      return { ic, l, c: col, d: c.date_creation, a: c.auteur_nom, txt: c.contenu, photo: img(c.photo_base64) }
-    }),
-  ]
-
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Fiche d'intervention #${inc.id} — ${esc(inc.titre)}</title>
-<style>
+export const CSS_FICHE = `
   * { box-sizing: border-box; margin: 0; padding: 0 }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: ${ENCRE}; font-size: 12.5px; line-height: 1.45; background: #fff;
     -webkit-print-color-adjust: exact; print-color-adjust: exact }
@@ -101,7 +59,51 @@ export function ficheIntervention(inc) {
   .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 10.5px; font-weight: 800; border: 1px solid }
   .pied { margin-top: 18px; padding-top: 10px; border-top: 1px solid ${BORD}; font-size: 10px; color: #94A3B8; display: flex; justify-content: space-between }
   @media (max-width: 640px) { .grille, .delais, .photos, .visas { grid-template-columns: 1fr 1fr } }
-</style></head><body><div class="page">
+`
+
+const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const dt = (d) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+const duree = (a, b) => {
+  if (!a || !b) return '—'
+  const h = (new Date(b) - new Date(a)) / 3600000
+  return h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${h.toFixed(1).replace('.', ',')} h` : `${(h / 24).toFixed(1).replace('.', ',')} j`
+}
+const img = (b64, mime = 'image/jpeg') => {
+  if (!b64 || String(b64).length < 20) return ''
+  const s = String(b64)
+  return s.startsWith('data:') ? s : `data:${mime};base64,${s}`
+}
+const badge = ([l, c]) => `<span class="badge" style="background:${c}1A;color:${c};border-color:${c}55">${esc(l)}</span>`
+
+export function ficheIntervention(inc) {
+  const maintenant = new Date()
+  const cmts = inc.commentaires || []
+  const debut = cmts.find(c => c.type_comment === 'debut')?.date_creation
+  const avant = cmts.filter(c => c.type_comment === 'photo_avant' && img(c.photo_base64))
+  const apres = cmts.filter(c => c.type_comment === 'photo_apres' && img(c.photo_base64))
+  const ouvert = ['declare', 'assigne', 'en_cours'].includes(inc.statut)
+  const fin = inc.date_resolution || inc.date_cloture
+  const horsDelai = inc.sla_depasse || (inc.sla_echeance && new Date(ouvert ? maintenant : (fin || maintenant)) > new Date(inc.sla_echeance))
+  const statut = STATUT[inc.statut] || [inc.statut, GRIS]
+  const prio = PRIO[inc.priorite] || [inc.priorite, GRIS]
+  const photoDecl = img(inc.photo_base64, inc.photo_mime)
+
+  const champ = (l, v) => `<div class="champ"><div class="champ-l">${l}</div><div class="champ-v">${v}</div></div>`
+  const galerie = (titre, liste, couleur) => `<div class="galerie"><div class="gal-t" style="color:${couleur}">${titre}</div>
+    ${liste.length ? liste.map(c => `<figure><img src="${img(c.photo_base64)}" alt=""/><figcaption>${dt(c.date_creation)} · ${esc(c.auteur_nom || '')}</figcaption></figure>`).join('')
+      : '<div class="vide">Aucune photo</div>'}</div>`
+
+  const chronologie = [
+    { t: 'creation', ic: '📝', l: 'Déclaration', c: NAVY, d: inc.date_creation, a: inc.auteur_nom, txt: inc.description },
+    ...cmts.filter(c => !['photo_avant', 'photo_apres'].includes(c.type_comment)).map(c => {
+      const [ic, l, col] = ETAPE[c.type_comment] || ['•', c.type_comment, GRIS]
+      return { ic, l, c: col, d: c.date_creation, a: c.auteur_nom, txt: c.contenu, photo: img(c.photo_base64) }
+    }),
+  ]
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>Fiche d'intervention #${inc.id} — ${esc(inc.titre)}</title>
+<style>${CSS_FICHE}</style></head><body><div class="page">
 <div class="tete">
   <div class="tete-l">
     <div class="logo"><b>R</b><span>Roxgold SiteLife<small>Service maintenance · Camp de Sango</small></span></div>
