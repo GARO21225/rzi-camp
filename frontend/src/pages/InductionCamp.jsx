@@ -47,6 +47,26 @@ function urlVideoEmbed(brut) {
   return url // deja un lien direct ou deja un format embed
 }
 
+// Couleur d'accent lisible sur le fond marine de l'induction : une couleur trop sombre
+// (ex. #0f2a5c « Contacts du camp ») rendait titre et contenu invisibles → repli sur l'or.
+function accentLisible(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim())
+  if (!m) return '#F0C24A'
+  const n = parseInt(m[1], 16)
+  const lum = (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255
+  return lum < 0.38 ? '#F0C24A' : '#' + m[1]
+}
+
+// Rend les numéros de téléphone et e-mails cliquables (appel / message en un toucher sur mobile)
+function DetailLiens({ texte }) {
+  const morceaux = String(texte).split(/(\+?\d[\d ()]{7,}\d|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g)
+  return morceaux.map((p, i) => {
+    if (/@/.test(p)) return <a key={i} href={`mailto:${p}`} style={{color:'inherit',textDecoration:'underline'}}>{p}</a>
+    if (/^\+?\d[\d ()]{7,}\d$/.test(p)) return <a key={i} href={`tel:${p.replace(/[^\d+]/g, '')}`} style={{color:'inherit',textDecoration:'underline',whiteSpace:'nowrap'}}>{p}</a>
+    return p
+  })
+}
+
 const NIVEAUX = {
   critique:  { c:'#ef4444', bg:'#fef2f2', label:'CRITIQUE',  ring:'rgba(239,68,68,.3)' },
   important: { c:'#f97316', bg:'#fff7ed', label:'IMPORTANT', ring:'rgba(249,115,22,.3)' },
@@ -681,14 +701,15 @@ export default function InductionCamp() {
               {INFRAS.map(inf=>{
                 const vue = infrasVues.has(inf.id)
                 const sel = infraSel === inf.id
+                const col = accentLisible(inf.couleur)
                 return (
                   <div key={inf.id} className="ic-infra-card"
                     onClick={()=>voirInfra(inf.id)}
                     style={{
-                      background: sel ? `${inf.couleur}22` : 'rgba(255,255,255,.05)',
-                      border: `1.5px solid ${sel?inf.couleur:vue?`${inf.couleur}60`:'rgba(255,255,255,.1)'}`,
+                      background: sel ? `${col}22` : 'rgba(255,255,255,.05)',
+                      border: `1.5px solid ${sel?col:vue?`${col}60`:'rgba(255,255,255,.1)'}`,
                       borderRadius:14,padding:'16px 12px',textAlign:'center',
-                      boxShadow: sel ? `0 0 24px ${inf.couleur}40` : 'none',
+                      boxShadow: sel ? `0 0 24px ${col}40` : 'none',
                     }}>
                     <div style={{marginBottom:8,filter:!vue?'grayscale(0.5)':'none'}}>
                       {inf.photo_base64
@@ -696,7 +717,7 @@ export default function InductionCamp() {
                             style={{width:44,height:44,borderRadius:8,objectFit:'cover',display:'block',margin:'0 auto'}}/>
                         : <span style={{fontSize:28}}>{inf.emoji}</span>}
                     </div>
-                    <div style={{fontSize:12,fontWeight:700,color:vue?inf.couleur:'#C9D4E8'}}>
+                    <div style={{fontSize:12,fontWeight:700,color:vue?col:'#C9D4E8'}}>
                       {inf.titre}
                     </div>
                     {vue && !sel && <div style={{fontSize:9,color:'#10b981',marginTop:4}}>✓ Vue</div>}
@@ -708,10 +729,11 @@ export default function InductionCamp() {
             {/* Détail infra sélectionnée */}
             {infraSel && (() => {
               const inf = INFRAS.find(i=>i.id===infraSel)
+              const col = accentLisible(inf.couleur)
               return (
                 <div className="ic-slide" style={{
-                  background:`linear-gradient(135deg,${inf.couleur}18,${inf.couleur}08)`,
-                  border:`1.5px solid ${inf.couleur}40`,borderRadius:16,
+                  background:`linear-gradient(135deg,${col}18,${col}08)`,
+                  border:`1.5px solid ${col}40`,borderRadius:16,
                   padding:20,marginBottom:16}}>
                   <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
                     {inf.photo_base64
@@ -719,18 +741,18 @@ export default function InductionCamp() {
                           style={{width:72,height:72,borderRadius:12,objectFit:'cover',flexShrink:0}}/>
                       : <span style={{fontSize:40,flexShrink:0}}>{inf.emoji}</span>}
                     <div style={{flex:1}}>
-                      <h3 style={{fontSize:17,fontWeight:800,color:inf.couleur,margin:'0 0 8px'}}>
+                      <h3 style={{fontSize:17,fontWeight:800,color:col,margin:'0 0 8px'}}>
                         {inf.titre}
                       </h3>
                       <p style={{fontSize:13,color:'#cbd5e1',margin:'0 0 12px',lineHeight:1.6}}>
                         {inf.desc}
                       </p>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                      <div style={{display:'flex',flexDirection:'column',gap:6}}>
                         {inf.details.map(d=>(
-                          <span key={d} style={{background:`${inf.couleur}20`,color:inf.couleur,
-                            padding:'4px 10px',borderRadius:99,fontSize:12,fontWeight:600}}>
-                            {d}
-                          </span>
+                          <div key={d} style={{background:`${col}20`,color:'#F3F6FC',borderLeft:`3px solid ${col}`,
+                            padding:'7px 12px',borderRadius:8,fontSize:12.5,fontWeight:500,lineHeight:1.45,overflowWrap:'anywhere'}}>
+                            <DetailLiens texte={d}/>
+                          </div>
                         ))}
                       </div>
                     </div>
