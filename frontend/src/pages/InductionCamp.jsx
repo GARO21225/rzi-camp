@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { toast } from '../toast'
-import { inductionCamp } from '../api'
+import { inductionCamp, personnel as personnelAPI } from '../api'
 import InductionCampAdmin from './InductionCampAdmin'
 
 // ─────────────────────────────────────────────
@@ -174,6 +174,8 @@ export default function InductionCamp() {
 
   const ETAPES = ['Bienvenue','Infrastructures','Règles','Quiz','Appareils','Engagement']
   const nomUser = user?.profile?.nom || user?.username || 'Résident'
+  const [societeUser, setSocieteUser] = useState('')
+  useEffect(() => { personnelAPI.monProfil().then(r => setSocieteUser(r.data?.societe || '')).catch(() => {}) }, [])
 
   // Progression globale
   const progression = Math.round((etape / (ETAPES.length - 1)) * 100)
@@ -600,6 +602,9 @@ export default function InductionCamp() {
               <h2 style={{fontSize:14,color:'#94a3b8',fontWeight:400,margin:0}}>
                 {CAMP.nom}
               </h2>
+              <p style={{fontSize:13,color:'#cbd5e1',maxWidth:520,margin:'14px auto 0',lineHeight:1.6}}>
+                <b style={{color:'#ffd97a'}}>Objectif :</b> vous présenter les règles de conduite et les informations clés de la vie au camp d'opérations de Sango.
+              </p>
             </div>
 
             {/* Stats camp */}
@@ -608,8 +613,9 @@ export default function InductionCamp() {
                 {ic:'👥',val:CAMP.capacite,lbl:'Résidents'},
                 {ic:'📐',val:CAMP.superficie,lbl:'Superficie'},
                 {ic:'⛰️',val:CAMP.altitude,lbl:'Altitude'},
-                {ic:'🔧',val:'8',lbl:'Services'},
-              ].map(({ic,val,lbl})=>(
+                {ic:'🏗️',val:INFRAS.length,lbl:'Infrastructures'},
+                {ic:'📜',val:REGLES.length,lbl:'Règles de vie'},
+              ].filter(x => x.val && x.val !== '0').map(({ic,val,lbl})=>(
                 <div key={lbl} style={{background:'rgba(255,255,255,.06)',
                   backdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.1)',
                   borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
@@ -629,9 +635,9 @@ export default function InductionCamp() {
               </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:8}}>
                 {[
-                  {emoji:'🏗️',label:'Découvrir les 8 infrastructures'},
-                  {emoji:'📜',label:'Lire les 8 règles de vie'},
-                  {emoji:'🧠',label:'Passer le quiz (5 questions)'},
+                  {emoji:'🏗️',label:`Découvrir les ${INFRAS.length} infrastructures et services`},
+                  {emoji:'📜',label:`Lire les ${REGLES.length} règles de vie`},
+                  {emoji:'🧠',label:`Passer le quiz (${QUIZ.length} questions)`},
                   {emoji:'⚡',label:'Déclarer vos appareils {'>'}100W'},
                   {emoji:'✍️',label:'Signer votre engagement'},
                   {emoji:'🏅',label:'Obtenir votre certificat'},
@@ -1109,9 +1115,14 @@ export default function InductionCamp() {
             <div style={{background:'rgba(212,160,23,.08)',border:'1px solid rgba(212,160,23,.2)',
               borderRadius:12,padding:'14px 16px',marginBottom:16,
               fontSize:12,color:'#ffd97a',lineHeight:1.7}}>
-              Je soussigné(e), <strong style={{color:'#fff'}}>{nomUser}</strong>, certifie avoir pris
-              connaissance de l'ensemble des règles de vie du camp résidentiel Roxgold Sango,
-              m'engage à les respecter et à signaler tout manquement à la direction.
+              <div style={{fontWeight:800,color:'#fff',marginBottom:6}}>Formulaire d'acceptation</div>
+              Je soussigné(e), <strong style={{color:'#fff'}}>{nomUser}</strong>, m'engage par la présente à respecter
+              les règles établies et à adopter le comportement requis pendant mon séjour au camp Roxgold Sango.
+              Tout manquement peut entraîner le retrait de mon droit à l'hébergement.
+              <div style={{display:'flex',gap:16,flexWrap:'wrap',marginTop:10,color:'#cbd5e1'}}>
+                <span>Société : <b style={{color:'#fff'}}>{societeUser || '—'}</b></span>
+                <span>Date : <b style={{color:'#fff'}}>{new Date().toLocaleDateString('fr-FR')}</b></span>
+              </div>
             </div>
 
             {/* Canvas signature */}
