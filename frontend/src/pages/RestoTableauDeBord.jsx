@@ -3,6 +3,7 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveCont
 import { restaurants as api } from '../api'
 import { toast } from '../toast'
 import { imprimerElement } from '../utils/impression'
+import { useSurPulse } from '../hooks/useSurPulse'
 
 const NAVY = '#0f2a5c', OR = '#c9972b'
 const COUL_REPAS = { petit_dejeuner: '#f97316', dejeuner: '#2563eb', diner: '#7c3aed' }
@@ -140,6 +141,7 @@ function Rapport({ restos }) {
     finally { setChargement(false) }
   }, [debut, fin, resto, repasF])
   useEffect(() => { charger() }, [charger])
+  useSurPulse(['resto'], () => charger())   // nouveaux repas scannés : chiffres à jour sans recharger
 
   const csv = () => {
     if (!d) return

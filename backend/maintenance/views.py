@@ -129,6 +129,8 @@ def detail_incident(request, pk):
 @pc([IsAuthenticated])
 def stats_incidents(request):
     """Stats incidents via SQL direct"""
+    from .rapport import actualiser_sla_si_necessaire
+    actualiser_sla_si_necessaire()
     from django.db import connection
     from rest_framework.response import Response
     try:
@@ -177,6 +179,8 @@ def list_incidents(request):
     if priorite:  where.append('i.priorite = %s');  args.append(priorite)
     if categorie: where.append('i.categorie = %s'); args.append(categorie)
 
+    from .rapport import actualiser_sla_si_necessaire
+    actualiser_sla_si_necessaire()
     portee_sql, portee_args = _portee_sql(request)
     where_sql = ' AND '.join(where) + portee_sql
     args = args + portee_args
@@ -844,6 +848,20 @@ class IncidentViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=False, methods=['get'])
+    def rapport(self, request):
+        """Rapport de maintenance complet (même HTML que l'email planifié).
+        Portée = get_queryset() : un non-admin n'y voit que SES dossiers."""
+        from .rapport import rapport_html
+        p = request.query_params
+        def date_ou_rien(v):
+            try:
+                return timezone.datetime.strptime(v, '%Y-%m-%d').date() if v else None
+            except ValueError:
+                return None
+        html = rapport_html(self.get_queryset(), date_ou_rien(p.get('debut')), date_ou_rien(p.get('fin')))
+        return Response({'html': html})
+
+    @action(detail=False, methods=['get'])
     def techniciens(self, request):
         """Liste des techniciens disponibles"""
         from accounts.models import Profile
@@ -870,14 +888,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
         is_admin = u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin")
         if not is_admin:
             return Response({'error':"Admin requis"}, status=403)
-        now      = timezone.now()
-        expires  = Incident.objects.filter(
-            sla_echeance__lt=now,
-            statut__in=['declare','assigne','en_cours'],
-            sla_depasse=False
-        )
-        count = expires.count()
-        expires.update(sla_depasse=True)
+        from .rapport import actualiser_sla
+        # Même calcul que le rapport (échéances manquantes complétées depuis
+        # les délais paramétrés). Avant, update() vidait le queryset avant la
+        # boucle : aucune notification ne partait jamais.
+        expires = actualiser_sla()
         for inc in expires:
             _notifier(inc, f"⏰ SLA dépassé — Incident #{inc.id}: {inc.titre}", 'relance')
-        return Response({'alertes_generees': count})
+        return Response({'alertes_generees': len(expires)})

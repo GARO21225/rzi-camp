@@ -33,6 +33,8 @@ OPTIONS_DEFAUT = {
     "resto_debut": "", "resto_fin": "",   # utilisés si resto_periode == "perso"
     "resto_par_restaurant": True, "resto_par_repas": True, "resto_par_superviseur": True,
     "resto_par_societe": True, "resto_par_entite": True, "resto_graphiques": True, "resto_tendance": True,
+    # Maintenance (rapport complet) : période sur la date de déclaration, vide = tout
+    "maint_debut": "", "maint_fin": "",
 }
 BOOLS_OCC = ("occ_departements", "occ_soustraitants", "occ_visiteurs", "occ_graphiques", "occ_tendance", "masquer_zeros",
              "resto_par_restaurant", "resto_par_repas", "resto_par_superviseur", "resto_par_societe", "resto_par_entite", "resto_graphiques", "resto_tendance")
@@ -146,14 +148,11 @@ def _sec_residences(o, today):
 
 def _sec_maintenance(o, today):
     from maintenance.models import Incident
+    from maintenance.rapport import resume_html
     tous = Incident.objects.all()
+    # Mêmes règles SLA que le rapport complet (délais paramétrés, échéances recalculées)
+    corps = resume_html(tous)
     ouverts = tous.exclude(statut__in=["resolu", "cloture", "annule"])
-    sla = ouverts.filter(sla_depasse=True)
-    il_y_a_7 = timezone.now() - datetime.timedelta(days=7)
-    nouveaux = tous.filter(date_creation__gte=il_y_a_7).count()
-    resolus = tous.filter(date_resolution__gte=il_y_a_7).count()
-    corps = _kpis([("Ouverts", ouverts.count(), "#0F2A5C"), ("Dépassement SLA", sla.count(), "#DC2626" if sla.exists() else "#16A34A"),
-                   ("Nouveaux (7 j)", nouveaux, "#EA580C"), ("Résolus (7 j)", resolus, "#16A34A")])
     corps += _barres("Incidents ouverts par priorité", [(dict(Incident.PRIORITE).get(k, k).split(" ", 1)[-1], v) for k, v in _compter(ouverts, "priorite")],
                      lambda l: COUL_PRIO.get(l.lower(), "#64748b"))
     corps += _barres("Incidents ouverts par catégorie", [(dict(Incident.CATEGORIE).get(k, k), v) for k, v in _compter(ouverts, "categorie")][:10], "#0F2A5C")
@@ -356,8 +355,12 @@ def generer_contenu_rapport(nom, type_rapport="synthese", options=None, largeur=
         cles = ["residences", "occupation"]
     else:
         cles = list(SECTIONS) if type_rapport not in SECTIONS else [type_rapport]
-    corps = "".join(SECTIONS[c](o, today) for c in cles)
     sujet = f"📊 {nom} — {today:%d/%m/%Y}"
+    if type_rapport == "maintenance":
+        # Rapport complet : le MÊME que la page Rapports / Maintenance (une seule source)
+        from maintenance.rapport import rapport_html
+        return sujet, rapport_html(debut=o["maint_debut"] or None, fin=o["maint_fin"] or None, largeur=max(600, largeur))
+    corps = "".join(SECTIONS[c](o, today) for c in cles)
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:{largeur}px;margin:0 auto">
       <div style="background:#0F2A5C;color:#fff;padding:20px;border-radius:10px 10px 0 0">

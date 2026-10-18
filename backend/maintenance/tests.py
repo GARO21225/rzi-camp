@@ -115,3 +115,47 @@ class TechnicienTitulaireTests(TestCase):
         self.assertEqual(self.c.post(f"/api/incidents/{self.inc.id}/resoudre/", {"commentaire": "ok"}, format="json").status_code, 200)
         self.inc.refresh_from_db()
         self.assertEqual(self.inc.statut, "resolu")
+
+
+class RapportSlaTests(TestCase):
+    """SLA paramétré (ex. 72 h) : un incident ouvert depuis plus longtemps est
+    « hors délai », même sans échéance enregistrée ; email = rapport complet."""
+
+    def setUp(self):
+        import datetime
+        from django.utils import timezone
+        from accounts.models import Parametre
+        from .models import Incident
+        for k in ("sla_critique_h", "sla_haute_h", "sla_moyenne_h", "sla_basse_h"):
+            Parametre.objects.update_or_create(cle=k, defaults={"valeur": "72"})
+        self.vieux = Incident.objects.create(titre="Fuite ancienne", description="x", categorie="Plomberie", residence="A2", statut="declare")
+        Incident.objects.filter(pk=self.vieux.pk).update(date_creation=timezone.now() - datetime.timedelta(days=5),
+                                                          sla_echeance=None, sla_depasse=False)
+        self.recent = Incident.objects.create(titre="Prise", description="x", categorie="Electricite", residence="B1", statut="declare")
+
+    def test_actualiser_sla_marque_le_dossier_ancien(self):
+        from .rapport import actualiser_sla
+        expires = actualiser_sla()
+        self.vieux.refresh_from_db(); self.recent.refresh_from_db()
+        self.assertTrue(self.vieux.sla_depasse)
+        self.assertIsNotNone(self.vieux.sla_echeance)
+        self.assertFalse(self.recent.sla_depasse)
+        self.assertEqual([i.pk for i in expires], [self.vieux.pk])
+
+    def test_rapport_signale_le_hors_delai_et_email_identique(self):
+        from .rapport import rapport_html
+        from accounts.rapports_email import generer_contenu_rapport
+        html = rapport_html()
+        self.assertIn("1 incident(s) ouvert(s) hors délai SLA", html)
+        self.assertIn("Fuite ancienne", html)
+        _, mail = generer_contenu_rapport("Maintenance", "maintenance", {})
+        self.assertIn("1 incident(s) ouvert(s) hors délai SLA", mail)
+        self.assertIn("Rapport de <span", mail)
+
+    def test_endpoint_rapport(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        c = APIClient(); c.force_authenticate(User.objects.create_superuser("adm", "a@a.ci", "x"))
+        r = c.get("/api/incidents/rapport/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("hors délai", r.data["html"])

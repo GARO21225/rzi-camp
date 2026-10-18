@@ -6,6 +6,7 @@ import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { usePlainteCategories } from '../constants/plaintes'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useSurPulse } from '../hooks/useSurPulse'
 const PROPRETE_CRITERES = ["poubelle","sol","plafond","murs","fenetres","porte","mobilier","douche","wc","lavabo","miroir"]
 const FOURNITURES_CRITERES = ["couverture","drap","serviette","savon","serpillere","insecticide","desodorisant","gel_lave_mains"]
 const EQUIPEMENTS_CRITERES = ["ordinateur","lumieres","climatiseur","refrigerateur"]
@@ -72,8 +73,8 @@ export default function Plaintes() {
     if (isAdmin && agents.length === 0) plaintesAPI.agents().then(r => setAgents(r.data || [])).catch(() => {})
   }, [detailModal?.id])
 
-  const charger = useCallback(async () => {
-    setLoading(true)
+  const charger = useCallback(async (silencieux = false) => {
+    if (!silencieux) setLoading(true)
     try {
       const params = {}
       if (filtreStatut) params.statut = filtreStatut
@@ -84,11 +85,17 @@ export default function Plaintes() {
         const rd = await plaintesAPI.dashboard()
         setDashboard(rd.data)
       }
-    } catch(e) { toast.error("Erreur de chargement") }
+    } catch(e) { if (!silencieux) toast.error("Erreur de chargement") }
     setLoading(false)
   }, [filtreStatut, filtreCategorie, isAdmin])
 
   useEffect(() => { charger() }, [charger])
+  // Rafraîchissement automatique : la liste (et la frise du dossier ouvert)
+  // se mettent à jour dès qu'une plainte change, sans recharger la page.
+  useSurPulse(['plaintes'], () => {
+    charger(true)
+    if (detailModal?.id) plaintesAPI.chronologie(detailModal.id).then(r => setFrise(r.data)).catch(() => {})
+  })
 
   const creerPlainte = async () => {
     if (envoiEnCours) return

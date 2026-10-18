@@ -9,8 +9,8 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { toast, confirmDialog } from '../toast'
 
 
-import { genererRapport } from '../utils/rapportMaintenance'
 import { imprimerHtml } from '../utils/impression'
+import { ficheIntervention } from '../utils/ficheIntervention'
 
 class MaintenanceBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null } }
@@ -214,7 +214,12 @@ export default function Maintenance() {
   }, [])
 
   useEffect(() => { load() }, [load])
-  useSurPulse(['incidents'], () => load(true))
+  // Liste ET fiche ouverte (nouveaux messages, photos, changement de statut) à jour automatiquement
+  const selectedId = selected?.id
+  useSurPulse(['incidents'], () => {
+    load(true)
+    if (selectedId) incAPI.detail(selectedId).then(r => setSelected(cur => cur && cur.id === selectedId ? r.data : cur)).catch(() => {})
+  })
   // Depuis « Mon tableau de bord » / Assignations : ouvre la fiche COMPLÈTE
   // (historique, photos) même si l'incident n'est pas dans les 100 chargés.
   const ouvrirIncident = (id) => {
@@ -464,32 +469,11 @@ export default function Maintenance() {
     input.click()
   }
 
-  const exportIncident = (inc) => {
-    const cmts = (inc.commentaires || []).map(c => {
-      const d = c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR') : ''
-      const ph = c.photo_base64 && c.photo_base64.length > 10
-        ? '<img style="max-width:100%;max-height:180px;border-radius:6px" src="data:image/jpeg;base64,' + c.photo_base64 + '"/>'
-        : ''
-      return '<div style="border-left:3px solid var(--rzc-navy);padding:8px;margin:8px 0">' +
-        '<strong>' + c.type_comment + '</strong> — ' + (c.auteur_nom || '') + ' — ' + d +
-        '<p>' + c.contenu + '</p>' + ph + '</div>'
-    }).join('')
-    const ph_decl = inc.photo_base64 && inc.photo_base64.length > 10
-      ? '<h2>Photo déclaration</h2><img style="max-width:100%;max-height:200px" src="data:' + inc.photo_mime + ';base64,' + inc.photo_base64 + '"/>'
-      : ''
-    const html = '<!DOCTYPE html><html><head><title>Incident #' + inc.id + '</title>' +
-      '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:20px auto;padding:0 20px}' +
-      'table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}' +
-      'th{background:#eef2f7}h2{color:var(--rzc-navy)}</style></head><body>' +
-      '<h2>Rapport Incident #' + inc.id + ' — ' + inc.titre + '</h2><table>' +
-      '<tr><th>Catégorie</th><td>' + inc.categorie + '</td><th>Priorité</th><td>' + inc.priorite + '</td></tr>' +
-      '<tr><th>Statut</th><td>' + inc.statut + '</td><th>Résidence</th><td>' + inc.residence + ' ' + (inc.bloc || '') + '</td></tr>' +
-      '<tr><th>Déclaré par</th><td>' + (inc.auteur_nom || '?') + '</td><th>Assigné à</th><td>' + (inc.assigne_nom || 'Non assigné') + '</td></tr>' +
-      '<tr><th>Déclaration</th><td>' + (inc.date_creation ? new Date(inc.date_creation).toLocaleString('fr-FR') : '?') + '</td>' +
-      '<th>SLA</th><td>' + (inc.sla_echeance ? new Date(inc.sla_echeance).toLocaleString('fr-FR') : 'N/A') + '</td></tr>' +
-      '</table><p>' + inc.description + '</p>' + ph_decl +
-      '<h2>Historique (' + (inc.commentaires || []).length + ' entrées)</h2>' + cmts + '</body></html>'
-    imprimerHtml(html, 'Incident #' + inc.id)
+  const exportIncident = async (inc) => {
+    // Fiche complète (historique + photos) même si la ligne vient de la liste
+    let complet = inc
+    try { complet = (await incAPI.detail(inc.id)).data } catch { /* on garde la ligne */ }
+    imprimerHtml(ficheIntervention(complet), `Fiche d'intervention #${inc.id}`)
   }
 
   return (
@@ -1567,15 +1551,12 @@ export default function Maintenance() {
               </div>
             </div>
             <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>{
-                  const incP = incidents.filter(i=>{
-                    if(periodeRapport.debut&&new Date(i.date_creation)<new Date(periodeRapport.debut)) return false
-                    if(periodeRapport.fin&&new Date(i.date_creation)>new Date(periodeRapport.fin+'T23:59:59')) return false
-                    return true
-                  })
-                  const html = genererRapport(incP, stats, periodeRapport)
-                  imprimerHtml(html, 'Rapport de maintenance')
-                  setShowPeriodeModal(false)
+              <button onClick={async ()=>{
+                  try {
+                    const r = await incAPI.rapport({ debut: periodeRapport.debut || '', fin: periodeRapport.fin || '' })
+                    imprimerHtml(r.data.html, 'Rapport de maintenance')
+                    setShowPeriodeModal(false)
+                  } catch (e) { toast.error(e?.response?.data?.error || 'Rapport indisponible') }
                 }}
                 style={{flex:1,background:'#059669',color:'#fff',border:'none',borderRadius:9,
                   padding:'10px',fontSize:13,fontWeight:700,cursor:'pointer'}}>

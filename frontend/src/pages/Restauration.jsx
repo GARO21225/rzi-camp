@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { useStore } from '../store'
 import { qr as qrAPI, restaurants as restosAPI, menu as menuAPI, avisRestauration as avisAPI, questionsAvis as questionsAvisAPI, parametres as parametresAPI } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useSurPulse } from '../hooks/useSurPulse'
 import { toast, confirmDialog } from '../toast'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
 
@@ -767,8 +768,8 @@ export default function Restauration() {
 
   const repas = REPAS.find(r => r.key === typeRepas)
 
-  const loadHistorique = useCallback(async () => {
-    setLoading(true)
+  const loadHistorique = useCallback(async (silencieux = false) => {
+    if (!silencieux) setLoading(true)
     try {
       const [histData, statsData] = await Promise.all([
         apiGetHistorique(typeRepas, 7),
@@ -803,6 +804,18 @@ export default function Restauration() {
         .catch(() => {})
     }
   }, [typeRepas])
+  // Rafraîchissement automatique (nouveau repas scanné, menu ou avis modifié)
+  useSurPulse(['resto'], () => {
+    const jour = new Date().toISOString().slice(0, 10)
+    if (isResto) {
+      loadHistorique(true)
+      menuAPI.list({ date_service: jour }).then(r => setMenuItems(r.data.results || r.data || [])).catch(() => {})
+      avisAPI.stats('30j').then(r => setAvisStats(r.data)).catch(() => {})
+      avisAPI.list({ page_size: 100 }).then(r => setAvisListe(r.data.results || r.data || [])).catch(() => {})
+    } else {
+      menuAPI.list({ date_service: jour, disponible: true }).then(r => setMenuItems(r.data.results || r.data || [])).catch(() => {})
+    }
+  })
 
 
   const barreVues = isResto && (
