@@ -854,7 +854,6 @@ export default function Restauration() {
             {mesRestos.length > 0 && (
               <select value={restoId} onChange={e => setRestoId(e.target.value)} title="Restaurant où vous scannez"
                 style={{ border: '1px solid #c4b5fd', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontWeight: 700, color: '#5b21b6', background: '#faf5ff', maxWidth: 190 }}>
-                {mesRestos.length > 1 && <option value="">— Restaurant —</option>}
                 {mesRestos.map(r => <option key={r.id} value={r.id}>🍽️ {r.nom}</option>)}
               </select>)}
             <button onClick={() => { setTypeRepas('petit_dejeuner') }} style={{ background: typeRepas === 'petit_dejeuner' ? 'rgba(249,115,22,.1)' : 'var(--rzc-charcoal-l2)', border: `1px solid ${typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-border-light)'}`, color: typeRepas === 'petit_dejeuner' ? '#f97316' : 'var(--rzc-text-3)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
