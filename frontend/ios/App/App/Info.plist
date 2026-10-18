@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Roxgold SiteLife utilise la caméra pour scanner les QR codes (repas, bar, événements) et prendre des photos (induction, maintenance).</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Roxgold SiteLife accède à vos photos pour joindre une image à une demande, une plainte ou un dossier d'induction.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Roxgold SiteLife utilise votre position pour le suivi du convoi que vous conduisez.</string>
   <key>CAPACITOR_DEBUG</key>
@@ -9,7 +15,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>RZI Camp</string>
+        <string>Roxgold SiteLife</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -51,7 +57,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

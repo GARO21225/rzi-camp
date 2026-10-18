@@ -12,6 +12,7 @@ export default function PushActivation() {
   const [envoi, setEnvoi] = useState(false)
 
   useEffect(() => {
+    if (window.Capacitor?.isNativePlatform?.()) return   // app native : pas de Web Push (ni message « écran d'accueil » sur iPhone)
     let masque = false
     try { masque = Date.now() < Number(localStorage.getItem('rzi_push_masque') || 0) } catch { /* ignore */ }
     if (!pushSupporte()) { if (estIOS() && !installee() && !masque) setEtat('ios'); return }
