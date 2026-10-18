@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import serializers as drf_serializers
 from django.utils import timezone
 from django.db import connection, transaction
+from django.db.models import Q
 from django.contrib.auth.models import User
 from evenements.models import SimpleNotification
 from .models import MenuJour, QRToken, RepasLog, AuditLog, ArticleBoutique, ConsommationBoutique, BonCaisse, AvisRestauration, QuestionAvis, ReponseAvis
@@ -293,6 +294,16 @@ class RepasLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = RepasLog.objects.select_related("qr_token", "qr_token__personnel", "valide_par", "personnel").all()
     serializer_class = RepasLogSerializer
+
+    ROLES_VOIENT_TOUT = ("admin", "manager", "superviseur", "camp_boss", "restauration")
+
+    def get_queryset(self):
+        """Historique des repas : la restauration et la gestion voient tout ; tout autre agent ne voit QUE ses propres repas."""
+        qs = super().get_queryset()
+        u = self.request.user
+        if u.is_staff or u.is_superuser or getattr(getattr(u, "profile", None), "role", "") in self.ROLES_VOIENT_TOUT:
+            return qs
+        return qs.filter(Q(personnel__user=u) | Q(qr_token__personnel__user=u))
 
 
     @action(detail=False, methods=['get'])

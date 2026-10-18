@@ -4,6 +4,7 @@ import { evenements as evtAPI, alertes as alertesAPI, groupesDiffusion as groupe
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useNavigate } from 'react-router-dom'
 
 const TYPE_COLORS = {
   reunion:{ bg:'rgba(37,99,235,.12)', color:'var(--rzc-blue)', icon:'👥' },
@@ -125,6 +126,7 @@ export default function Evenements() {
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || user?.profile?.role === 'admin'
 
+  const navigate = useNavigate()
   const [events, setEvents] = useState([])
   const [alertes, setAlertes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -214,8 +216,9 @@ export default function Evenements() {
   // "En cours" le lendemain apres-midi. Plus besoin de dupliquer cette
   // logique ici : on se fie simplement au champ statut renvoye par l'API.
   const upcoming = events.filter(e => e.statut === 'planifie')
-  const past = events.filter(e => e.statut === 'termine' || e.statut === 'annule')
   const enCoursListe = events.filter(e => e.statut === 'en_cours')
+  // Les événements passés (terminés / annulés) vivent dans Historique → Événements passés
+  const actifs = events.filter(e => e.statut !== 'termine' && e.statut !== 'annule')
 
   const ALERTE_COLORS = { info:'var(--rzc-blue)', warning:'#d08800', danger:'#dc2626', success:'#16a34a' }
 
@@ -225,7 +228,7 @@ export default function Evenements() {
         <div>
           <h2 style={{ fontSize: isMobile ? 20 : 19, fontWeight:700, color: isMobile ? '#0F1A2E' : 'var(--blue)' }}>{isMobile ? 'Événements' : '📅 Événements du Camp'}</h2>
           {isMobile ? (
-            <span style={{ fontSize:12.5, color:'#5B6472', fontWeight:600 }}>{events.length} au total</span>
+            <span style={{ fontSize:12.5, color:'#5B6472', fontWeight:600 }}>{actifs.length} actif(s)</span>
           ) : (
             <p style={{ fontSize:12, color:'var(--text-dim)', marginTop:3 }}>Notifications aux résidents · alertes avec sirène en temps réel</p>
           )}
@@ -321,7 +324,7 @@ export default function Evenements() {
         background: isMobile ? 'transparent' : 'var(--surface2)', borderRadius:10,
         padding: isMobile ? 0 : 4, border: isMobile ? 'none' : '1px solid var(--border)',
         overflowX: isMobile ? 'auto' : 'visible' }}>
-        {[['agenda','📅 À venir'],['encours','▶️ En cours'],['passes','⏮ Passés'],['tous','📋 Tout']].map(([k,l])=>(
+        {[['agenda','📅 À venir'],['encours','▶️ En cours'],['tous','📋 Tout']].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={ isMobile ? {
               flexShrink:0, padding:'7px 14px', borderRadius:99, border:`1px solid ${tab===k?'var(--rzc-navy,#0F2A5C)':'var(--border)'}`,
@@ -335,10 +338,17 @@ export default function Evenements() {
         ))}
       </div>
 
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}>
+        <a href="/historique?tab=evenements" onClick={e=>{ e.preventDefault(); navigate('/historique?tab=evenements') }}
+          style={{ padding:'6px 12px', borderRadius:8, textDecoration:'none', fontSize:12, fontWeight:700, background:'#e2e8f0', color:'#475569', cursor:'pointer' }}>
+          🗂️ Événements passés (Historique)
+        </a>
+      </div>
+
       {/* Events list */}
       {loading ? <div style={{ padding:32, textAlign:'center', color:'var(--text-dim)' }}>Chargement...</div> : (
         <div>
-          {(tab==='agenda'?upcoming : tab==='passes'?past : tab==='encours'?enCoursListe : events).map(evt => {
+          {(tab==='agenda'?upcoming : tab==='encours'?enCoursListe : actifs).map(evt => {
             const tc = TYPE_COLORS[evt.type_event] || TYPE_COLORS.autre
             // Le statut renvoye par l'API est toujours a jour (cloture
             // automatique cote backend - voir le commentaire sur `past` /
@@ -439,7 +449,7 @@ export default function Evenements() {
               </div>
             )
           })}
-          {(tab==='agenda'?upcoming:tab==='passes'?past:events).length===0 && (
+          {(tab==='agenda'?upcoming:tab==='encours'?enCoursListe:actifs).length===0 && (
             <div style={{ background:'var(--rzc-white)', border:'1px solid var(--border)', borderRadius:12, padding:40, textAlign:'center', color:'var(--text-dim)', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
               <div style={{ fontSize:14 }}>{tab==='agenda'?"Aucun événement à venir":"Aucun événement"}</div>

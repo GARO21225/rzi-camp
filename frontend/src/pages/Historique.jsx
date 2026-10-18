@@ -1,11 +1,12 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react'
-import { occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI, plaintes as plaintesAPI } from '../api'
+import { evenements as evtAPI, occupationHistory, personnel as personnelAPI, batiments, voyages as voyagesAPI, qr, incidents as incAPI, inductionAPI, audit as auditAPI, plaintes as plaintesAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { imprimerHtml } from '../utils/impression'
 import { ficheIntervention } from '../utils/ficheIntervention'
 import { fichePlainte } from '../utils/fichePlainte'
+import ChoixPersonne from '../components/ChoixPersonne'
 
 // Un role non-admin qui obtient acces a /historique (via Parametrage ->
 // Roles & Acces) ne voit que l'onglet correspondant a son propre
@@ -14,7 +15,7 @@ import { fichePlainte } from '../utils/fichePlainte'
 const TABS_PAR_ROLE = {
   restauration: ['repas'],
   technicien:   ['maintenance'],
-  agent:        ['voyages_pers','personne','trajets'],
+  agent:        ['voyages_pers','personne','trajets','evenements'],
   menage:       ['chambre'],
 }
 
@@ -50,13 +51,49 @@ function SearchCard({ title, color, children }) {
   )
 }
 
+// Choix d'une personne en TAPANT son nom (liste filtrée au fil de la saisie) ; verrouillé sur soi-même pour un agent.
+function PersonnePicker({ pers, value, onChange, verrouille }) {
+  const sel = pers.find(p => String(p.id) === String(value))
+  const nom = sel ? `${sel.nom} ${sel.prenom || ''}${sel.societe ? ' · ' + sel.societe : ''}`.trim() : ''
+  if (verrouille) return <div style={{...inp, background:'#F3F5F9', fontWeight:700, color:'#0F2A5C'}}>🔒 {nom || 'Mon historique'}</div>
+  if (sel) return (
+    <div style={{...inp, display:'flex', alignItems:'center', justifyContent:'space-between', fontWeight:700, color:'#0F2A5C'}}>
+      <span>✔ {nom}</span>
+      <button type="button" onClick={()=>onChange('')} aria-label="Changer de personne" style={{border:'none', background:'none', color:'#dc2626', cursor:'pointer', fontWeight:800, fontSize:16}}>×</button>
+    </div>)
+  return <ChoixPersonne placeholder="Saisir un nom ou une société…" style={{maxWidth:'100%'}}
+    options={pers.map(p => ({ id: p.id, nom: `${p.nom} ${p.prenom || ''}`.trim(), detail: p.societe || '' }))}
+    onChoisir={id => onChange(String(id))} />
+}
+
 export default function Historique() {
   const isMobile = useIsMobile()
   const { user } = useStore()
   const role = (user?.is_staff || user?.is_superuser) ? 'admin' : (user?.profile?.role || 'agent')
   const isAdmin = user?.is_staff || user?.is_superuser || role === 'admin'
   const tabsAutorises = isAdmin ? null : (TABS_PAR_ROLE[role] || [])
-  const [tab, setTab] = useState(isAdmin ? 'chambre' : (tabsAutorises[0] || 'chambre'))
+  const tabDemande = new URLSearchParams(window.location.search).get('tab')
+  const [tab, setTab] = useState(tabDemande && (isAdmin || (tabsAutorises || []).includes(tabDemande)) ? tabDemande : (isAdmin ? 'chambre' : (tabsAutorises[0] || 'chambre')))
+  // ── Événements passés (terminés / annulés) ──
+  const [evtData, setEvtData] = useState([])
+  const [evtLoading, setEvtLoading] = useState(false)
+  const [evtSearch, setEvtSearch] = useState('')
+  const [evtDebut, setEvtDebut] = useState('')
+  const [evtFin, setEvtFin] = useState('')
+  const loadEvenements = () => {
+    setEvtLoading(true)
+    evtAPI.list({ page_size: 2000 })
+      .then(r => setEvtData((r.data.results || r.data || []).filter(e => e.statut === 'termine' || e.statut === 'annule')
+        .sort((a, b) => new Date(b.date_debut) - new Date(a.date_debut))))
+      .catch(() => setEvtData([]))
+      .finally(() => setEvtLoading(false))
+  }
+  useEffect(() => { if (tab === 'evenements') loadEvenements() }, [tab])
+  const evtFiltres = React.useMemo(() => evtData.filter(e => {
+    if (evtSearch && ![e.titre, e.lieu, e.type_event].some(v => (v || '').toLowerCase().includes(evtSearch.toLowerCase()))) return false
+    const d = (e.date_debut || '').slice(0, 10)
+    return (!evtDebut || d >= evtDebut) && (!evtFin || d <= evtFin)
+  }), [evtData, evtSearch, evtDebut, evtFin])
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -259,7 +296,17 @@ export default function Historique() {
   const [personneQ, setPersonneQ] = useState({personnel:'', date_debut:yearAgoStr, date_fin:todayStr})
   const [selPers, setSelPers] = useState('')
 
+  // Un agent ne voit QUE son historique : sa fiche est présélectionnée et verrouillée,
+  // et on ne charge pas la liste complète du personnel (ni les vues d'ensemble) pour rien.
+  const restreint = !isAdmin
   useEffect(() => {
+    if (restreint) {
+      personnelAPI.monProfil().then(r => {
+        setPers([r.data]); setSelPers(String(r.data.id))
+        setPersonneQ(q => ({ ...q, personnel: String(r.data.id) }))
+      }).catch(()=>{})
+      return
+    }
     personnelAPI.list({page_size:500}).then(r => setPers(r.data.results||r.data))
     batiments.list({page_size:300}).then(r => {
       const items = r.data.results||r.data
@@ -416,6 +463,7 @@ export default function Historique() {
     ['maintenance','🛠️ Maintenance (clôturés)'],
     ['plaintes','🧹 Plaintes (historique)'],
     ['induction','🎓 Induction QHSE'],
+    ['evenements','📅 Événements passés'],
     ['audit','🛡️ Audit (archive)'],
   ]
   const TABS = isAdmin ? TABS_TOUTES : TABS_TOUTES.filter(([k]) => tabsAutorises.includes(k))
@@ -516,16 +564,42 @@ export default function Historique() {
         </div>
       )}
 
+      {/* ── ÉVÉNEMENTS PASSÉS ── */}
+      {tab==='evenements' && (
+        <div>
+          <SearchCard title="📅 Événements passés (terminés ou annulés)" color="#0F2A5C">
+            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:10,alignItems:'end'}}>
+              <Fld label="Recherche"><input value={evtSearch} onChange={e=>setEvtSearch(e.target.value)} placeholder="Titre, lieu, type…" style={inp}/></Fld>
+              <Fld label="Du"><input type="date" value={evtDebut} onChange={e=>setEvtDebut(e.target.value)} style={inp}/></Fld>
+              <Fld label="Au"><input type="date" value={evtFin} onChange={e=>setEvtFin(e.target.value)} style={inp}/></Fld>
+            </div>
+          </SearchCard>
+          {evtLoading ? <EmptyState icon="⏳" text="Chargement…"/> : evtFiltres.length===0 ? <EmptyState icon="📅" text="Aucun événement passé"/> : (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {evtFiltres.map(e => (
+                <div key={e.id} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px',borderLeft:`4px solid ${e.statut==='annule'?'#94a3b8':'#0F2A5C'}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                    <div style={{fontWeight:700,fontSize:13.5}}>{e.titre}</div>
+                    <span style={{fontSize:11,fontWeight:700,color:e.statut==='annule'?'#64748b':'#16a34a'}}>{e.statut==='annule'?'Annulé':'Terminé'}</span>
+                  </div>
+                  <div style={{fontSize:12,color:'var(--text-dim)',marginTop:3}}>
+                    📅 {new Date(e.date_debut).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · {new Date(e.date_debut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}{e.lieu?` · 📍 ${e.lieu}`:''}
+                  </div>
+                  {e.description && <div style={{fontSize:12,color:'#475569',marginTop:4}}>{e.description}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── PERSONNE ── */}
       {tab==='personne' && (
         <div>
           <SearchCard title="👤 Où a dormi cette personne ?" color="#7c3aed">
             <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:10,alignItems:'end'}}>
               <Fld label="Personnel *">
-                <select value={personneQ.personnel} onChange={e=>setPersonneQ({...personneQ,personnel:e.target.value})} style={inp}>
-                  <option value="">— Sélectionner —</option>
-                  {pers.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe}</option>)}
-                </select>
+                <PersonnePicker pers={pers} value={personneQ.personnel} verrouille={restreint} onChange={v=>setPersonneQ({...personneQ,personnel:v})} />
               </Fld>
               <Fld label="Du"><input type="date" value={personneQ.date_debut} onChange={e=>setPersonneQ({...personneQ,date_debut:e.target.value})} style={inp}/></Fld>
               <Fld label="Au"><input type="date" value={personneQ.date_fin} onChange={e=>setPersonneQ({...personneQ,date_fin:e.target.value})} style={inp}/></Fld>
@@ -555,10 +629,7 @@ export default function Historique() {
           <SearchCard title="✈️ Voyages d'un personnel" color="#ea580c">
             <div style={{display:'grid',gridTemplateColumns:'3fr auto',gap:10,alignItems:'end'}}>
               <Fld label="Personnel *">
-                <select value={selPers} onChange={e=>setSelPers(e.target.value)} style={inp}>
-                  <option value="">— Sélectionner —</option>
-                  {pers.map(p=><option key={p.id} value={p.id}>{p.nom} {p.prenom} · {p.societe}</option>)}
-                </select>
+                <PersonnePicker pers={pers} value={selPers} verrouille={restreint} onChange={setSelPers} />
               </Fld>
               <button onClick={searchVoyages} disabled={voyLoading}
                 style={{background:'#ea580c',color:'#fff',border:'none',padding:'9px 22px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>

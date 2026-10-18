@@ -408,9 +408,16 @@ class PersonnelViewSet(viewsets.ModelViewSet):
                 p.user.save(update_fields=["is_staff"])
         return Response({"ok":True,"role":role,"message":f"Role '{role}' attribué à {p.nom} {p.prenom}"})
 
+    @staticmethod
+    def _historique_autorise(user, personnel):
+        """Chaque agent ne voit que SON historique ; la gestion (admin, manager, superviseur, camp boss) voit tout."""
+        return OccupationHistoryViewSet._voit_tout(user) or personnel.user_id == user.id
+
     @action(detail=True, methods=["get"])
     def historique_voyages(self, request, pk=None):
         p = self.get_object()
+        if not self._historique_autorise(request.user, p):
+            return Response({"error": "Vous ne pouvez consulter que votre propre historique."}, status=403)
         from voyages.models import Voyage
         voys = Voyage.objects.filter(personnel=p).order_by("-date_depart")
         return Response({
@@ -433,6 +440,8 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def historique_chambres(self, request, pk=None):
         p = self.get_object()
+        if not self._historique_autorise(request.user, p):
+            return Response({"error": "Vous ne pouvez consulter que votre propre historique."}, status=403)
         date_debut = request.query_params.get("date_debut")
         date_fin = request.query_params.get("date_fin")
         qs = OccupationHistory.objects.filter(personnel=p).select_related("batiment")

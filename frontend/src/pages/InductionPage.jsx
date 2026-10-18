@@ -507,25 +507,20 @@ function InductionPageInner() {
   }, [personnel])
 
   useEffect(() => {
-    if (!gestion) return // liste des formateurs : utile à la vue gestion seulement
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
-    const token = localStorage.getItem('access_token') || ''
-    fetch(`${BASE}/api/personnel/?page_size=500`, {headers:{'Authorization':`Bearer ${token}`}})
-      .then(r=>r.json()).then(d=>{
-        const list = d.results || d || []
-        const roxgold = list.filter(p => (p.type_personnel||'').toLowerCase() === 'roxgold')
-        const fallback = roxgold.length > 0 ? roxgold : list
-        const byProfil = (profils) => {
-          const found = list.filter(p => profils.includes(p.profil))
-          return found.length > 0 ? found : fallback
-        }
-        setStaffMap({
-          accueil: byProfil(['accueil', 'admin', 'agent', 'securite']),
-          qhse:    byProfil(['hse', 'admin', 'technicien', 'manager']),
-          medical: byProfil(['medical', 'admin']),
-        })
-      }).catch(()=>{})
-  }, [])
+    if (!gestion || personnel.length === 0) return // formateurs : dérivés de la liste déjà chargée
+    const list = personnel
+    const roxgold = list.filter(p => (p.type_personnel||'').toLowerCase() === 'roxgold')
+    const fallback = roxgold.length > 0 ? roxgold : list
+    const byProfil = (profils) => {
+      const found = list.filter(p => profils.includes(p.profil))
+      return found.length > 0 ? found : fallback
+    }
+    setStaffMap({
+      accueil: byProfil(['accueil', 'admin', 'agent', 'securite']),
+      qhse:    byProfil(['hse', 'admin', 'technicien', 'manager']),
+      medical: byProfil(['medical', 'admin']),
+    })
+  }, [personnel])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -563,25 +558,22 @@ function InductionPageInner() {
       }
       
       // 3. Fusionner avec localStorage (backend prioritaire si plus recent)
+      // Une seule lecture et une seule écriture du localStorage (au lieu d'une par personne)
       const wf = {}
+      const all = getAll()
+      let modifie = false
       list.forEach(p => {
-        const localWf = getWF(p.id)
+        const localWf = all[p.id] || { etapes:{}, data:{}, tentatives_quiz:0, created: new Date().toISOString() }
         const backendWf = backendRecords[p.id]
-        
         if (backendWf && backendWf.fromBackend) {
-          // Utiliser les donnees du backend, mais garder les brouillons locaux
-          wf[p.id] = {
-            ...backendWf,
-            drafts: localWf.drafts || {},
-            id: p.id,
-          }
-          // Mettre a jour localStorage avec les donnees du backend
-          saveWF(p.id, wf[p.id])
+          wf[p.id] = { ...backendWf, drafts: localWf.drafts || {}, id: p.id }
+          all[p.id] = { ...all[p.id], ...wf[p.id] }
+          modifie = true
         } else {
-          // Pas de donnees backend, utiliser localStorage
           wf[p.id] = localWf
         }
       })
+      if (modifie) { try { localStorage.setItem(LS_KEY, JSON.stringify(all)) } catch {} }
       setWfState(wf)
       
       // 4. Tenter de synchroniser la file hors-ligne
