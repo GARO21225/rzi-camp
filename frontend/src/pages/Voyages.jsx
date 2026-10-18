@@ -157,9 +157,11 @@ const CATEGORIES_PAR_MODE = {
   bateau: ['bateau'], a_pied: [], autre: ['autre'],
 }
 const filtrerFlotteParMode = (flotte, mode) => {
-  const cats = CATEGORIES_PAR_MODE[mode]
+  let cats = CATEGORIES_PAR_MODE[mode]
   if (mode === 'a_pied') return []
   if (!cats || cats.length === 0) return flotte
+  // Types créés par l'admin (ambulance, camion...) : proposés avec « Autre »
+  if (mode === 'autre') { const connus = new Set(Object.values(CATEGORIES_PAR_MODE).flat()); return flotte.filter(v => cats.includes(v.categorie) || !connus.has(v.categorie)) }
   return flotte.filter(v => cats.includes(v.categorie))
 }
 

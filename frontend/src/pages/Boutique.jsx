@@ -1926,7 +1926,7 @@ export default function Boutique({ embedded = false } = {}) {
                           cursor: reorganize && !isMobile ? 'grab' : 'default',
                         }}>
                         <ArticleCard a={a} qty={qty(a)}
-                          onAdd={()=>{ if(!reorganize){setTab('caisse');addTo(a)} }}/>
+                          onAdd={()=>{ if(reorganize) return; if(isAdmin){setEditArt(a);setArtModal(true)} else {setTab('caisse');addTo(a)} }}/>
                         {reorganize && isMobile && (
                           <select value={a.categorie} onChange={e=>deplacerArticle(a.id, e.target.value)}
                             style={{width:'100%',marginTop:4,fontSize:11,padding:'5px 6px',borderRadius:7,

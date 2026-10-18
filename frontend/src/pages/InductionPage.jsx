@@ -3,6 +3,7 @@
  * Chaque étape doit être validée pour débloquer la suivante
  * Inspiré des formations en ligne avec QCM
  */
+import ComboLibre from '../components/ComboLibre'
 import React, { useState, useEffect, useCallback } from 'react'
 import { personnel as personnelAPI, inductionAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
@@ -474,6 +475,8 @@ function InductionPageInner() {
   const [dateTo,      setDateTo]      = useState('')
   const [hideNoInduction, setHideNoInduction] = useState(false)
   const [staffMap,      setStaffMap]      = useState({accueil:[],qhse:[],medical:[]})
+  // Noms proposés dans les listes « Saisir ou sélectionner » (accueil / QHSE / médical)
+  const nomsStaff = (role) => (staffMap[role]||[]).map(p=>`${p.nom} ${p.prenom||''}${p.numero?` · ${p.numero}`:''}`.replace(/\s+/g,' ').trim())
   const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
@@ -1521,18 +1524,11 @@ function InductionPageInner() {
                           <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
                             {etape.assignLabel}
                           </div>
-                          <input
-                            value={formData[`assign_${etape.key}`]||''}
-                            onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
-                            list={`staff-list-${etape.key}`}
-                            placeholder="Saisir ou sélectionner..."
-                            style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
-                              padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
-                          <datalist id={`staff-list-${etape.key}`}>
-                            {(staffMap[etape.assignRole]||[]).map(p=>(
-                              <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
-                            ))}
-                          </datalist>
+                          <ComboLibre value={formData[`assign_${etape.key}`]||''}
+                            onChange={v=>setFormData(f=>({...f,[`assign_${etape.key}`]:v}))}
+                            options={nomsStaff(etape.assignRole)} placeholder="Saisir ou sélectionner..." connuLabel="Personne connue"
+                            vide="Aucune personne trouvée — la saisie libre sera utilisée"
+                            style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
                           {formData[`assign_${etape.key}`] && (
                             <div style={{fontSize:11,color:'#0369a1',marginTop:4,fontWeight:600}}>
                               ✅ {formData[`assign_${etape.key}`]}
@@ -1550,18 +1546,11 @@ function InductionPageInner() {
                               <div style={{fontSize:11,fontWeight:700,color:'#0369a1',marginBottom:6}}>
                                 {etape.assignLabel}
                               </div>
-                              <input
-                                value={formData[`assign_${etape.key}`]||''}
-                                onChange={e=>setFormData(f=>({...f,[`assign_${etape.key}`]:e.target.value}))}
-                                list={`staff-list-${etape.key}`}
-                                placeholder="Saisir ou sélectionner..."
-                                style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,
-                                  padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
-                              <datalist id={`staff-list-${etape.key}`}>
-                                {(staffMap[etape.assignRole]||[]).map(p=>(
-                                  <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
-                                ))}
-                              </datalist>
+                              <ComboLibre value={formData[`assign_${etape.key}`]||''}
+                            onChange={v=>setFormData(f=>({...f,[`assign_${etape.key}`]:v}))}
+                            options={nomsStaff(etape.assignRole)} placeholder="Saisir ou sélectionner..." connuLabel="Personne connue"
+                            vide="Aucune personne trouvée — la saisie libre sera utilisée"
+                            style={{width:'100%',border:'1.5px solid #bae6fd',borderRadius:8,padding:'8px 12px',fontSize:13,outline:'none',background:'var(--rzc-white)',boxSizing:'border-box'}}/>
                               {formData[`assign_${etape.key}`] && (
                                 <div style={{fontSize:11,color:'#0369a1',marginTop:4}}>
                                   ✅ Assigné: <b>{formData[`assign_${etape.key}`]}</b>
@@ -1593,30 +1582,17 @@ function InductionPageInner() {
                                 </label>
                               ) : c.type==='select_staff' ? (
                                 <>
-                                <input
-                                  value={formData[c.key]||''}
-                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
-                                  list={`sl-${c.key}`}
-                                  placeholder="Saisir ou sélectionner..."
+                                <ComboLibre value={formData[c.key]||''} onChange={v=>setFormData(f=>({...f,[c.key]:v}))}
+                                  options={nomsStaff(c.profil)} placeholder="Saisir ou sélectionner..." connuLabel="Personne connue"
+                                  vide="Aucune personne trouvée — la saisie libre sera utilisée"
                                   style={{...inp,width:'100%',boxSizing:'border-box'}}/>
-                                <datalist id={`sl-${c.key}`}>
-                                  {(staffMap[c.profil]||[]).map(p=>(
-                                    <option key={p.id} value={`${p.nom} ${p.prenom}${p.numero?` · ${p.numero}`:''}`}/>
-                                  ))}
-                                </datalist>
                                 </>
                               ) : c.type==='datalist' ? (
                                 <>
-                                <input value={formData[c.key]||''}
-                                  onChange={e=>setFormData(f=>({...f,[c.key]:e.target.value}))}
-                                  list={`dl-${c.key}`}
-                                  placeholder={c.placeholder}
+                                <ComboLibre value={formData[c.key]||''} onChange={v=>setFormData(f=>({...f,[c.key]:v}))}
+                                  options={c.datalist==='nationalities' ? NATIONALITIES : []} placeholder={c.placeholder} connuLabel="Valeur connue"
+                                  vide="Aucun résultat — la saisie libre sera utilisée"
                                   style={{...inp,width:'100%',boxSizing:'border-box'}}/>
-                                <datalist id={`dl-${c.key}`}>
-                                  {c.datalist==='nationalities' && NATIONALITIES.map(n=>(
-                                    <option key={n} value={n}/>
-                                  ))}
-                                </datalist>
                                 </>
                               ) : (
                                 <input type={c.type} value={formData[c.key]||''}

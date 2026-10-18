@@ -430,7 +430,7 @@ export default function Residences() {
           style={{ padding:'7px 12px', borderRadius:8, border:`1px solid ${futurDepart?'var(--rzc-red)':'var(--rzc-border-light)'}`,
             background:futurDepart?'rgba(220,38,38,.1)':'var(--rzc-charcoal-l2)', color:futurDepart?'var(--rzc-red)':'var(--rzc-text-3)',
             cursor:'pointer', fontSize:12, fontWeight:futurDepart?700:400 }}>
-          ✈️ S-1{futurDepart?' ✓':''}
+          🚌 S-1{futurDepart?' ✓':''}
         </button>
         <span style={{ marginLeft:'auto', fontSize:11, color:'var(--rzc-text-3)', background:'var(--rzc-charcoal-l2)', padding:'7px 12px', borderRadius:8, border:'1px solid var(--rzc-border-light)' }}>
           {data.length} résidences

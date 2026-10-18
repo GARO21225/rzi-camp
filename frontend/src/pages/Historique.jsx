@@ -44,8 +44,9 @@ function Fld({ label, children }) {
 }
 function SearchCard({ title, color, children }) {
   return (
-    <div style={{background:'#fff',border:`1px solid ${color}25`,borderRadius:12,marginBottom:14,overflow:'hidden',boxShadow:'var(--shadow)'}}>
-      <div style={{padding:'12px 16px',background:color,color:'#fff',fontWeight:600,fontSize:13}}>{title}</div>
+    <div style={{background:'#fff',border:`1px solid ${color}25`,borderRadius:12,marginBottom:14,overflow:'visible',boxShadow:'var(--shadow)'}}>
+      {/* overflow visible : la liste déroulante des noms (ChoixPersonne) doit dépasser de la carte */}
+      <div style={{padding:'12px 16px',background:color,color:'#fff',fontWeight:600,fontSize:13,borderRadius:'11px 11px 0 0'}}>{title}</div>
       <div style={{padding:14}}>{children}</div>
     </div>
   )
@@ -456,7 +457,7 @@ export default function Historique() {
   const TABS_TOUTES = [
     ['chambre','🏠 Occupation chambres'],
     ['personne','👤 Parcours d\'un résident'],
-    ['voyages_pers','✈️ Voyages personnel'],
+    ['voyages_pers','🚌 Voyages personnel'],
     ['ensemble','🌍 Tous les voyages'],
     ['trajets','🚐 Trajets de convois (GPS)'],
     ['repas','🍽️ Restaurant'],
@@ -626,7 +627,7 @@ export default function Historique() {
       {/* ── VOYAGES PERSONNEL ── */}
       {tab==='voyages_pers' && (
         <div>
-          <SearchCard title="✈️ Voyages d'un personnel" color="#ea580c">
+          <SearchCard title="🚌 Voyages d'un personnel" color="#ea580c">
             <div style={{display:'grid',gridTemplateColumns:'3fr auto',gap:10,alignItems:'end'}}>
               <Fld label="Personnel *">
                 <PersonnePicker pers={pers} value={selPers} verrouille={restreint} onChange={setSelPers} />
@@ -641,7 +642,7 @@ export default function Historique() {
           {voyData && (
             <div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:14}}>
-                {[[voyData.total_voyages,'Total','var(--blue)','✈️'],[voyData.en_voyage||0,'En voyage','#ea580c','🚀'],
+                {[[voyData.total_voyages,'Total','var(--blue)','🚌'],[voyData.en_voyage||0,'En voyage','#ea580c','🚀'],
                   [voyData.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [(voyData.voyages||[]).filter(v=>v.statut==='retour'||v.statut?.includes('Retour')).length,'Retours','#16a34a','🏠']
                 ].map(([v,l,c,ic])=>(
@@ -664,7 +665,7 @@ export default function Historique() {
               )}
 
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <div style={{fontWeight:600,color:'var(--blue)',fontSize:13}}>✈️ {voyData.total_voyages} voyage(s) — {voyData.personnel}</div>
+                <div style={{fontWeight:600,color:'var(--blue)',fontSize:13}}>🚌 {voyData.total_voyages} voyage(s) — {voyData.personnel}</div>
                 <button onClick={()=>window.open(voyagesAPI.exportCsv({personnel:selPers}),'_blank')}
                   style={{background:'#16a34a',color:'#fff',border:'none',padding:'6px 14px',borderRadius:7,cursor:'pointer',fontSize:12,fontWeight:700}}>
                   ⬇ Export CSV
@@ -673,7 +674,7 @@ export default function Historique() {
               <VoyageTable voyages={voyData.voyages||[]} isMobile={isMobile}/>
             </div>
           )}
-          {!voyData&&!voyLoading&&searched===false&&<EmptyState icon="✈️" text="Sélectionner un personnel et cliquer Voir"/>}
+          {!voyData&&!voyLoading&&searched===false&&<EmptyState icon="🚌" text="Sélectionner un personnel et cliquer Voir"/>}
         </div>
       )}
 
@@ -683,7 +684,7 @@ export default function Historique() {
           {voyEnsemble?(
             <div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:14}}>
-                {[[voyEnsemble.total,'Total voyages','var(--blue)','✈️'],[voyEnsemble.en_voyage,'En voyage','#ea580c','🚀'],
+                {[[voyEnsemble.total,'Total voyages','var(--blue)','🚌'],[voyEnsemble.en_voyage,'En voyage','#ea580c','🚀'],
                   [voyEnsemble.destinations_uniques?.length||0,'Destinations','#7c3aed','📍'],
                   [voyEnsemble.top_voyageurs?.[0]?.nb||0,'Max/personne','#16a34a','🏆']
                 ].map(([v,l,c,ic])=>(
@@ -1473,7 +1474,7 @@ function ResultsTable({ results, loading, searched, type, isMobile }) {
 }
 
 function VoyageTable({ voyages, showPersonnel, isMobile }) {
-  if (!voyages||voyages.length===0) return <EmptyState icon="✈️" text="Aucun voyage enregistré"/>
+  if (!voyages||voyages.length===0) return <EmptyState icon="🚌" text="Aucun voyage enregistré"/>
   if (isMobile) {
     return (
       <div style={{display:'flex',flexDirection:'column',gap:10}}>

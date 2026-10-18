@@ -6,7 +6,7 @@ const CATEGORIES = [
   { key:'personnel', label:'Personnel', icon:'👤', color:'#7c3aed' },
   { key:'batiments',  label:'Résidences', icon:'🏠', color:'#2563eb' },
   { key:'evenements', label:'Événements', icon:'📅', color:'#16a34a' },
-  { key:'voyages',    label:'Voyages',    icon:'✈️', color:'#f97316' },
+  { key:'voyages',    label:'Voyages',    icon:'🚌', color:'#f97316' },
 ]
 
 export default function GlobalSearch({ onNavigate }) {
@@ -64,7 +64,7 @@ export default function GlobalSearch({ onNavigate }) {
         if (voys.status==='fulfilled') {
           const items = voys.value.data.results || voys.value.data || []
           items.slice(0,3).forEach(x => all.push({
-            cat:'voyages', icon:'✈️', title: x.destination || `Voyage ${x.id}`,
+            cat:'voyages', icon:'🚌', title: x.destination || `Voyage ${x.id}`,
             sub: x.personnel_nom || x.statut_label || '', url:'/voyages', color:'#f97316'
           }))
         }

@@ -199,7 +199,7 @@ export default function WorkflowHub() {
           ['🔧 Incidents ouverts',   stats.declare||0,   '#3b82f6'],
           ['⚙️ En cours',           stats.en_cours||0,  '#eab308'],
           ['⚠️ SLA dépassés',       stats.sla_depasses||0, '#dc2626'],
-          ['✈️ Voyages actifs',      voyagesData.filter(v=>v.status==='en_voyage').length, '#8b5cf6'],
+          ['🚌 Voyages actifs',      voyagesData.filter(v=>v.status==='en_voyage').length, '#8b5cf6'],
           ['🛒 Bons faibles',        boutiqueData.length, '#f59e0b'],
         ].map(([l,v,c])=>(
           <div key={l} style={{background:'var(--rzc-white)',borderRadius:12,padding:'12px 14px',
@@ -218,7 +218,7 @@ export default function WorkflowHub() {
           onViewAll={()=>navigate('/maintenance')}/>
 
         <WorkflowCard
-          icon="✈️" title="Voyages" color="linear-gradient(135deg,#7c3aed,#6d28d9)"
+          icon="🚌" title="Voyages" color="linear-gradient(135deg,#7c3aed,#6d28d9)"
           count={voyagesData.length} items={voyagesData} loading={loading}
           onViewAll={()=>navigate('/voyages')}/>
 

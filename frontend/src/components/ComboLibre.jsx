@@ -3,7 +3,7 @@
 // positionnement absolu) pour ne jamais être rognée par une fenêtre modale.
 import React, { useState, useMemo } from 'react'
 
-export default function ComboLibre({ value, onChange, options = [], placeholder, style, vide = 'Aucun résultat — la saisie libre sera utilisée' }) {
+export default function ComboLibre({ value, onChange, options = [], placeholder, style, vide = 'Aucun résultat — la saisie libre sera utilisée', connuLabel = 'Résidence connue' }) {
   const [ouvert, setOuvert] = useState(false)
   const filtrees = useMemo(() => {
     const q = (value || '').trim().toLowerCase()
@@ -34,7 +34,7 @@ export default function ComboLibre({ value, onChange, options = [], placeholder,
                 {o}
               </div>))}
           <div style={{ padding: '6px 12px', fontSize: 10, color: '#94a3b8', background: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{connu ? '✔ Résidence connue' : value ? '✎ Saisie libre' : 'Choisissez ou saisissez'}</span>
+            <span>{connu ? `✔ ${connuLabel}` : value ? '✎ Saisie libre' : 'Choisissez ou saisissez'}</span>
             <button type="button" onClick={() => setOuvert(false)} style={{ border: 'none', background: 'transparent', color: '#2563eb', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Fermer</button>
           </div>
         </div>

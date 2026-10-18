@@ -1,6 +1,6 @@
 import datetime
 from rest_framework import serializers
-from .models import Voyage, EtapeVoyage, VehiculeFlotte, ItineraireModele, EtapeItineraireModele
+from .models import Voyage, EtapeVoyage, VehiculeFlotte, TypeVehicule, ItineraireModele, EtapeItineraireModele
 
 STATUT_MAP = {
     "planifie":"Planifié","en_voyage":"En voyage",
@@ -279,8 +279,23 @@ class ItineraireModeleSerializer(serializers.ModelSerializer):
         fields = ["id","nom","origine","destination","actif","jours_voyage","etapes"]
 
 
+class TypeVehiculeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TypeVehicule
+        fields = ["id", "code", "label", "icone", "ordre", "actif"]
+
+
 class VehiculeFlotteSerializer(serializers.ModelSerializer):
-    categorie_label = serializers.CharField(source="get_categorie_display", read_only=True)
+    categorie_label = serializers.SerializerMethodField()
+
+    def get_categorie_label(self, obj):
+        t = TypeVehicule.objects.filter(code=obj.categorie).first()
+        return f"{t.icone} {t.label}" if t else obj.get_categorie_display() if hasattr(obj, "get_categorie_display") else obj.categorie
+
+    def validate_categorie(self, v):
+        if not TypeVehicule.objects.filter(code=v, actif=True).exists():
+            raise serializers.ValidationError("Type de véhicule inconnu : créez-le d'abord.")
+        return v
 
     class Meta:
         model = VehiculeFlotte

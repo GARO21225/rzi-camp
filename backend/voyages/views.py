@@ -2293,6 +2293,33 @@ class VehiculeFlotteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
+from .models import TypeVehicule
+from .serializers import TypeVehiculeSerializer
+
+class TypeVehiculeViewSet(viewsets.ModelViewSet):
+    """Types de véhicule (4x4, bus, ambulance...) : lecture ouverte à tout connecté, création/modification admin."""
+    queryset = TypeVehicule.objects.filter(actif=True)
+    serializer_class = TypeVehiculeSerializer
+    pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        u = self.request.user
+        if not (u.is_authenticated and (u.is_staff or u.is_superuser or (hasattr(u,"profile") and getattr(u.profile,"role","")=="admin"))):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin requis")
+        return [IsAuthenticated()]
+
+    def perform_destroy(self, instance):
+        from .models import VehiculeFlotte
+        if VehiculeFlotte.objects.filter(categorie=instance.code, actif=True).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Des véhicules utilisent encore ce type : changez-les d'abord.")
+        instance.actif = False
+        instance.save(update_fields=["actif"])
+
+
 from .models import ItineraireModele, EtapeItineraireModele
 from .serializers import ItineraireModeleSerializer, EtapeItineraireModeleSerializer
 

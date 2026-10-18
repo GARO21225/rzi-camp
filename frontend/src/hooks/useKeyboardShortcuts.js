@@ -52,7 +52,7 @@ export function QuickActionsFAB({ isAdmin }) {
     { icon: '🏠', label: 'Nouvelle chambre', action: () => navigate('/residences') },
     { icon: '👤', label: 'Ajouter personnel', action: () => navigate('/personnel') },
     { icon: '📅', label: 'Nouvel événement', action: () => navigate('/evenements') },
-    { icon: '✈️', label: 'Déclarer voyage', action: () => navigate('/voyages') },
+    { icon: '🚌', label: 'Déclarer voyage', action: () => navigate('/voyages') },
     { icon: '🛠️', label: 'Signaler incident', action: () => navigate('/maintenance') },
     { icon: '📝', label: 'Nouvelle demande', action: () => navigate('/demandes') },
   ]

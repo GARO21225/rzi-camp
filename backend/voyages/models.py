@@ -575,6 +575,23 @@ class EtapeItineraireModele(models.Model):
         return f"{self.itineraire.nom} — étape {self.ordre} : {self.ville}"
 
 
+class TypeVehicule(models.Model):
+    """Type (catégorie) de véhicule créable depuis l'écran Réservations ou Paramétrage :
+    4x4, bus, ambulance... Les 7 types historiques sont créés par la migration."""
+    code   = models.SlugField(max_length=30, unique=True)
+    label  = models.CharField(max_length=60)
+    icone  = models.CharField(max_length=8, default="🚗")
+    ordre  = models.PositiveIntegerField(default=0)
+    actif  = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["ordre", "id"]
+        verbose_name = "Type de véhicule"
+
+    def __str__(self):
+        return f"{self.icone} {self.label}"
+
+
 class VehiculeFlotte(models.Model):
     """
     Catalogue des véhicules du camp (partagé, cote serveur) - permet de
@@ -587,7 +604,8 @@ class VehiculeFlotte(models.Model):
         ("bus", "🚌 Bus"), ("avion", "✈️ Avion"), ("bateau", "⛴️ Bateau"), ("autre", "🚗 Autre"),
     ]
     nom         = models.CharField(max_length=100)
-    categorie   = models.CharField(max_length=15, choices=CATEGORIES, default="4x4")
+    # Libre : le code d'un TypeVehicule (CATEGORIES ne sert plus que de liste de départ)
+    categorie   = models.CharField(max_length=30, default="4x4")
     matricule   = models.CharField(max_length=30, blank=True, default="")
     capacite    = models.PositiveIntegerField(default=7)
     photo       = models.TextField(blank=True, default="")

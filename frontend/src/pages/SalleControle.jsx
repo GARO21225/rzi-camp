@@ -41,13 +41,13 @@ export default function SalleControle() {
   if (sla > 0)       alertes.push({ icone:'⏰', titre:`${sla} SLA dépassé(s)`, urgent:true })
   if (d.epi?.expires > 0) alertes.push({ icone:'🦺', titre:`${d.epi.expires} EPI expiré(s)`, urgent:true })
   if (d.epi?.bientot > 0) alertes.push({ icone:'🦺', titre:`${d.epi.bientot} EPI à renouveler (30j)`, urgent:false })
-  if (d.bat?.departs_s1 > 0) alertes.push({ icone:'✈️', titre:`${d.bat.departs_s1} départ(s) cette semaine`, urgent:false })
+  if (d.bat?.departs_s1 > 0) alertes.push({ icone:'🚌', titre:`${d.bat.departs_s1} départ(s) cette semaine`, urgent:false })
 
   const KPI = [
     { label:'Occupation', valeur:`${d.bat?.taux_occupation ?? '—'}%`, couleur:'#38bdf8', icone:'🏠' },
     { label:'Résidences libres', valeur:d.bat?.par_statut?.['Libre'] ?? '—', couleur:'#4ade80', icone:'🔓' },
     { label:'Incidents ouverts', valeur:ouverts, couleur: ouverts>0 ? '#f87171' : '#4ade80', icone:'🛠️' },
-    { label:'En déplacement', valeur:enVoyage, couleur:'#facc15', icone:'✈️' },
+    { label:'En déplacement', valeur:enVoyage, couleur:'#facc15', icone:'🚌' },
   ]
 
   return (

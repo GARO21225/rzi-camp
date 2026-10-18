@@ -9,7 +9,7 @@ import { useStore } from '../store'
 
 const STATUTS = {
   present:  { label:'Présent',   bg:'#f0fdf4', color:'#16a34a', dot:'#16a34a', icon:'✅' },
-  voyage:   { label:'En voyage', bg:'#fff7ed', color:'#ea580c', dot:'#ea580c', icon:'✈️' },
+  voyage:   { label:'En voyage', bg:'#fff7ed', color:'#ea580c', dot:'#ea580c', icon:'🚌' },
   conge:    { label:'En congé',  bg:'#eff6ff', color:'var(--rzc-blue)', dot:'var(--rzc-blue)', icon:'🏖️' },
   absent:   { label:'Absent',    bg:'#fef2f2', color:'#dc2626', dot:'#dc2626', icon:'❌' },
 }

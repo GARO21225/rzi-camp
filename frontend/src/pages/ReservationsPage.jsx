@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from '../toast'
-import { vehiculesFlotte } from '../api'
+import { vehiculesFlotte, typesVehicule } from '../api'
 import { useStore } from '../store'
+import ComboLibre from '../components/ComboLibre'
 
 const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
@@ -11,8 +12,8 @@ const FLEET_KEY   = 'rzi_fleet_v1'
 // ── Catalogue initial (modifiable) ─────────────────────────────
 const DEFAULT_FLEET = {
   salles: [
-    { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'var(--rzc-navy)', photo:'' },
-    { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'var(--rzc-blue)', photo:'' },
+    { id:'salle_reunion',        cat:'salles',    label:'Salle de réunion',      capacite:20, detail:'Vidéoprojecteur, tableau blanc, climatisée', couleur:'#0F2A5C', photo:'' },
+    { id:'bureau_communautaire', cat:'salles',    label:'Bureau communautaire',  capacite:10, detail:'Espace de travail partagé, imprimante',       couleur:'#2563EB', photo:'' },
   ],
   // Véhicules : source de vérité = parc serveur (VehiculeFlotte), partagé avec le Centre de mobilité
   vehicules_4x4: [], vehicules_pickup: [], vehicules_minibus: [],
@@ -28,23 +29,52 @@ const DEFAULT_FLEET = {
 }
 
 // Parc serveur <-> catégories de cette page
-const CAT_VERS_SERVEUR = { vehicules_4x4:'4x4', vehicules_pickup:'pickup', vehicules_minibus:'minibus' }
-const SERVEUR_VERS_CAT = { '4x4':'vehicules_4x4', pickup:'vehicules_pickup' }
-const COULEURS_VEH = { vehicules_4x4:'#f97316', vehicules_pickup:'#dc2626', vehicules_minibus:'#7c3aed' }
+// Véhicules : catégorie locale = "vehicules_<code du type>" (le type vient du serveur : 4x4, bus, ambulance...)
+const estVehiculeCat = cat => String(cat || '').startsWith('vehicules_')
+const codeDeCat = cat => String(cat || '').replace(/^vehicules_/, '')
+const COULEURS_VEH = { vehicules_4x4:'#f97316', vehicules_pickup:'#dc2626', vehicules_minibus:'#7c3aed', vehicules_bus:'#0F2A5C' }
+const couleurVeh = cat => COULEURS_VEH[cat] || '#D4A017'
 const depuisServeur = (v, kmLocal) => {
-  const cat = SERVEUR_VERS_CAT[v.categorie] || 'vehicules_minibus'
+  const cat = 'vehicules_' + (v.categorie || 'autre')
   return { id:`veh_${v.id}`, serveur_id:v.id, cat, label:v.nom, immat:v.matricule||'', capacite:v.capacite,
-    photo:v.photo||'', km:kmLocal||0, carburant:'Diesel', couleur:COULEURS_VEH[cat] }
+    photo:v.photo||'', km:kmLocal||0, carburant:'Diesel', couleur:couleurVeh(cat) }
 }
-const versServeur = (it) => ({ nom:it.label, categorie:CAT_VERS_SERVEUR[it.cat]||'autre', matricule:it.immat||'', capacite:it.capacite||4, photo:it.photo||'' })
+const versServeur = (it) => ({ nom:it.label, categorie:codeDeCat(it.cat)||'autre', matricule:it.immat||'', capacite:it.capacite||4, photo:it.photo||'' })
 
-const CAT_META = {
+const CAT_META_BASE = {
   salles:           { label:'🏢 Salles',        group:'Salles' },
-  vehicules_4x4:    { label:'🚙 4x4',           group:'Véhicules' },
-  vehicules_pickup:  { label:'🛻 Pick-up',      group:'Véhicules' },
-  vehicules_minibus: { label:'🚌 Mini-Bus',     group:'Véhicules' },
   materiels_hse:    { label:'🦺 Équip. HSE',    group:'Matériels' },
   materiels_engins: { label:'⚙️ Engins',        group:'Matériels' },
+}
+
+// ── Conflits de créneau : expliquer et proposer ─────────────────
+const _min = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0) }
+const _hhmm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+const _chevauche = (r, date, debut, fin) => r.date === date && r.statut !== 'annulé' && !(fin <= r.heure_debut || debut >= r.heure_fin)
+const _fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })
+// Créneaux libres proches de l'horaire demandé (même durée), sinon même horaire les jours suivants
+function proposerCreneaux(reservations, ressourceId, date, debut, fin) {
+  const duree = Math.max(15, _min(fin) - _min(debut))
+  const pour = d => reservations.filter(r => r.ressource_id === ressourceId && r.date === d && r.statut !== 'annulé')
+    .map(r => [_min(r.heure_debut), _min(r.heure_fin)]).sort((a, b) => a[0] - b[0])
+  const occ = pour(date)
+  const bornes = [7 * 60, 19 * 60]
+  const fenetres = []
+  let cur = bornes[0]
+  for (const [d, f] of occ) { if (d - cur >= duree) fenetres.push([cur, d]); cur = Math.max(cur, f) }
+  if (bornes[1] - cur >= duree) fenetres.push([cur, bornes[1]])
+  const voulu = _min(debut)
+  const memeJour = fenetres
+    .map(([a, b]) => { const d = Math.min(Math.max(voulu, a), b - duree); return { date, debut:_hhmm(d), fin:_hhmm(d + duree) } })
+    .sort((x, y) => Math.abs(_min(x.debut) - voulu) - Math.abs(_min(y.debut) - voulu)).slice(0, 3)
+  if (memeJour.length) return memeJour
+  const autres = []
+  for (let i = 1; i <= 14 && autres.length < 3; i++) {
+    const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + i)
+    const iso = d.toISOString().slice(0, 10)
+    if (!pour(iso).some(([a, b]) => !(_min(fin) <= a || _min(debut) >= b))) autres.push({ date: iso, debut, fin })
+  }
+  return autres
 }
 
 const TABS = [
@@ -217,16 +247,20 @@ export default function ReservationsPage() {
   const user = useStore(st => st.user)
   const estAdmin = !!(user?.is_staff || user?.is_superuser || user?.profile?.role === 'admin')
   const [fleet,        setFleet]       = useState(DEFAULT_FLEET)
+  const [types,        setTypes]       = useState([])   // types de véhicule (serveur)
+  const [nouveauType,  setNouveauType]  = useState(null) // {label, icone} en cours de création
+  const CAT_META = { ...CAT_META_BASE, ...Object.fromEntries(types.map(t => [`vehicules_${t.code}`, { label:`${t.icone} ${t.label}`, group:'Véhicules' }])) }
   const [reservations, setReservations]= useState([])
   const [personnel,    setPersonnel]   = useState([])
   const [modal,        setModal]       = useState(null)
   const [ficheEdit,    setFicheEdit]   = useState(null)
   const [qrModal,      setQrModal]      = useState(null)   // réservation dont afficher le QR
   const [showCatalogue,setShowCatalogue]= useState(false)
-  const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
+  const [newResource,  setNewResource]  = useState({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#0F2A5C',photo:'',id:''})
   const [activeTab,    setActiveTab]   = useState('salles')
   const [filterDate,   setFilterDate]  = useState('')
   const [msg,          setMsg]         = useState(null)
+  const [conflit,      setConflit]     = useState(null)   // {raisons:[...], propositions:[...]}
   const [form, setForm] = useState({date:'',heure_debut:'',heure_fin:'',motif:'',demandeur:''})
 
   // Charger données persistées
@@ -244,7 +278,10 @@ export default function ReservationsPage() {
   const chargerFlotte = async () => {
     let saved = {}
     try { saved = JSON.parse(localStorage.getItem(FLEET_KEY)||'{}') } catch(e) {}
-    const VCATS = ['vehicules_4x4','vehicules_pickup','vehicules_minibus']
+    let typesServeur = []
+    try { const rt = await typesVehicule.list(); typesServeur = rt.data?.results || rt.data || [] } catch(e) {}
+    setTypes(typesServeur)
+    const VCATS = [...new Set([...typesServeur.map(t => `vehicules_${t.code}`), ...Object.keys(saved).filter(estVehiculeCat)])]
     const kmLocal = {}
     VCATS.forEach(c => (saved[c]||[]).forEach(v => { kmLocal[v.id] = v.km }))
     try {
@@ -260,12 +297,28 @@ export default function ReservationsPage() {
       const liste = r.data?.results || r.data || []
       const base = { ...DEFAULT_FLEET, ...saved }
       VCATS.forEach(c => { base[c] = (saved[c]||[]).filter(x => String(x.id).startsWith('custom_')) })
+      VCATS.forEach(c => { base[c] = base[c] || [] })   // un type sans véhicule reste visible dans le catalogue
       liste.forEach(v => { const it = depuisServeur(v, kmLocal[`veh_${v.id}`]); base[it.cat] = [...(base[it.cat]||[]), it] })
       setFleet(base)
       localStorage.setItem(FLEET_KEY, JSON.stringify(base))
     } catch(e) {
       if (Object.keys(saved).length) setFleet({ ...DEFAULT_FLEET, ...saved })
     }
+  }
+
+  // Crée un type de véhicule (ex : Bus) : il apparaît aussitôt ici ET dans le Centre de mobilité
+  const creerTypeVehicule = async () => {
+    const label = (nouveauType?.label || '').trim()
+    if (!label) { toast.error('Donnez un nom au type de véhicule.'); return }
+    const code = label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
+    if (!code) { toast.error('Nom invalide.'); return }
+    try {
+      await typesVehicule.create({ code, label, icone: (nouveauType.icone || '🚗').trim() || '🚗', ordre: 60 })
+      toast.success(`Type « ${label} » créé`)
+      setNouveauType(null)
+      await chargerFlotte()
+      setNewResource(n => ({ ...n, cat: `vehicules_${code}` }))
+    } catch (e) { toast.error(e.response?.data?.code?.[0] ? 'Ce type existe déjà.' : (e.response?.data?.error || 'Création impossible (admin requis).')) }
   }
 
   const saveFleet = (newFleet) => {
@@ -277,10 +330,17 @@ export default function ReservationsPage() {
     if (!form.demandeur||!form.date||!form.heure_debut||!form.heure_fin) {
       setMsg({ok:false,text:'Remplissez tous les champs obligatoires'}); return
     }
-    const conflict = reservations.some(r =>
-      r.ressource_id===modal.id && r.date===form.date && r.statut!=='annulé' &&
-      !(form.heure_fin<=r.heure_debut || form.heure_debut>=r.heure_fin))
-    if (conflict) { setMsg({ok:false,text:'⚠️ Conflit sur ce créneau'}); return }
+    if (form.heure_fin <= form.heure_debut) { setConflit(null); setMsg({ok:false,text:"L'heure de fin doit être après l'heure de début."}); return }
+    const enConflit = reservations.filter(r => r.ressource_id===modal.id && _chevauche(r, form.date, form.heure_debut, form.heure_fin))
+    if (enConflit.length) {
+      setMsg(null)
+      setConflit({
+        raisons: enConflit.map(r => `${r.heure_debut}–${r.heure_fin} · réservé par ${r.demandeur || '—'}${r.motif ? ` (${r.motif})` : ''}`),
+        propositions: proposerCreneaux(reservations, modal.id, form.date, form.heure_debut, form.heure_fin),
+      })
+      return
+    }
+    setConflit(null)
     const stored = [...reservations, {
       id:Date.now(), ressource_id:modal.id, ressource_label:modal.label,
       immat:modal.immat||'', cat:modal.cat||'',
@@ -288,7 +348,7 @@ export default function ReservationsPage() {
     }]
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
     setReservations(stored)
-    setModal(null); setMsg(null)
+    setModal(null); setMsg(null); setConflit(null)
     // Proposer le QR pour les véhicules
     if (modal.cat?.startsWith('vehicules')) {
       const newRes = stored[stored.length-1]
@@ -315,11 +375,7 @@ export default function ReservationsPage() {
   // Items à afficher selon l'onglet actif
   const getTabItems = () => {
     if (activeTab==='salles') return fleet.salles||[]
-    if (activeTab==='vehicules') return [
-      ...(fleet.vehicules_4x4||[]),
-      ...(fleet.vehicules_pickup||[]),
-      ...(fleet.vehicules_minibus||[]),
-    ]
+    if (activeTab==='vehicules') return Object.keys(fleet).filter(estVehiculeCat).flatMap(c => fleet[c] || [])
     if (activeTab==='materiels') return [
       ...(fleet.materiels_hse||[]),
       ...(fleet.materiels_engins||[]),
@@ -404,7 +460,7 @@ export default function ReservationsPage() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:14,marginBottom:24}}>
           {tabItems.map(item=>(
             <ResourceCard key={item.id} item={item} reservations={reservations}
-              onReserver={i=>{setModal(i);setMsg(null)}}
+              onReserver={i=>{setModal(i);setMsg(null);setConflit(null)}}
               onEdit={i=>setFicheEdit(i)}/>
           ))}
         </div>
@@ -418,7 +474,7 @@ export default function ReservationsPage() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:12}}>
               {items.map(item=>(
                 <ResourceCard key={item.id} item={item} reservations={reservations}
-                  onReserver={i=>{setModal(i);setMsg(null)}}
+                  onReserver={i=>{setModal(i);setMsg(null);setConflit(null)}}
                   onEdit={i=>setFicheEdit(i)}/>
               ))}
             </div>
@@ -441,7 +497,7 @@ export default function ReservationsPage() {
             <div style={{fontSize:36,marginBottom:8}}>📅</div>Aucune réservation
           </div>
         ) : filtered.map(r=>{
-          const item = allItems.find(i=>i.id===r.ressource_id)||{couleur:'var(--rzc-text-3)'}
+          const item = allItems.find(i=>i.id===r.ressource_id)||{couleur:'#5B6B86'}
           return (
             <div key={r.id} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',
               borderRadius:10,marginBottom:8,background:'var(--rzc-white)',
@@ -495,6 +551,26 @@ export default function ReservationsPage() {
               </div>
             </div>
 
+            {conflit&&(
+              <div role="alert" style={{background:'#fef2f2',border:'1px solid #fecaca',borderLeft:'4px solid #B91C1C',borderRadius:10,padding:'12px 14px',marginBottom:16,fontSize:13,color:'#7f1d1d'}}>
+                <div style={{fontWeight:800,marginBottom:6}}>⚠️ Ce créneau n'est pas libre — {modal?.label}</div>
+                <div style={{marginBottom:8}}>Déjà réservé le {_fmtDate(form.date)} :</div>
+                <ul style={{margin:'0 0 10px',paddingLeft:18}}>{conflit.raisons.map((r,i)=><li key={i}>{r}</li>)}</ul>
+                {conflit.propositions.length>0 ? (
+                  <>
+                    <div style={{fontWeight:700,marginBottom:6}}>Horaires disponibles — touchez pour choisir :</div>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                      {conflit.propositions.map((p,i)=>(
+                        <button key={i} type="button" onClick={()=>{setForm(f=>({...f,date:p.date,heure_debut:p.debut,heure_fin:p.fin}));setConflit(null)}}
+                          style={{background:'#fff',border:'1.5px solid #0F2A5C',color:'#0F2A5C',borderRadius:9,padding:'8px 12px',fontWeight:700,cursor:'pointer',fontSize:12.5,minHeight:40}}>
+                          {p.date!==form.date?`${_fmtDate(p.date)} · `:''}{p.debut}–{p.fin}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : <div style={{fontWeight:600}}>Aucun créneau libre de cette durée dans les 14 prochains jours.</div>}
+              </div>
+            )}
             {msg&&(
               <div style={{background:msg.ok?'#f0fdf4':'#fef2f2',border:`1px solid ${msg.ok?'#bbf7d0':'#fecaca'}`,
                 borderRadius:9,padding:'10px 14px',marginBottom:16,fontSize:13,color:msg.ok?'#16a34a':'#dc2626',fontWeight:600}}>
@@ -505,17 +581,9 @@ export default function ReservationsPage() {
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DEMANDEUR *</label>
-                <input
-                  value={form.demandeur}
-                  onChange={e=>setForm({...form,demandeur:e.target.value})}
-                  list="personnel-list-demandeur"
-                  placeholder="Saisir ou sélectionner un nom..."
-                  style={inp}/>
-                <datalist id="personnel-list-demandeur">
-                  {personnel.map(p=>(
-                    <option key={p.id} value={`${p.nom} ${p.prenom}`}/>
-                  ))}
-                </datalist>
+                <ComboLibre value={form.demandeur} onChange={v=>setForm(f=>({...f,demandeur:v}))}
+                  options={personnel.map(p=>`${p.nom} ${p.prenom||''}`.trim())} placeholder="Saisir ou sélectionner un nom..."
+                  connuLabel="Personne connue" vide="Aucune personne trouvée — la saisie libre sera utilisée" style={inp}/>
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>DATE *</label>
@@ -538,7 +606,7 @@ export default function ReservationsPage() {
                   placeholder="Réunion de chantier, transport équipe..." style={inp}/>
               </div>
               <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
-                <button onClick={()=>{setModal(null);setMsg(null)}}
+                <button onClick={()=>{setModal(null);setMsg(null);setConflit(null)}}
                   style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontSize:13}}>
                   Annuler
                 </button>
@@ -620,6 +688,19 @@ export default function ReservationsPage() {
                     <select value={newResource.cat} onChange={e=>setNewResource(n=>({...n,cat:e.target.value}))} style={inp}>
                       {Object.entries(CAT_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                     </select>
+                    {estAdmin && (nouveauType ? (
+                      <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                        <input value={nouveauType.icone} onChange={e=>setNouveauType(t=>({...t,icone:e.target.value}))} maxLength={4} aria-label="Icône" style={{...inp,width:60,textAlign:'center'}}/>
+                        <input autoFocus value={nouveauType.label} onChange={e=>setNouveauType(t=>({...t,label:e.target.value}))} placeholder="Ex : Bus, Ambulance…" maxLength={60} style={{...inp,flex:1,minWidth:140}}/>
+                        <button type="button" onClick={creerTypeVehicule} style={{background:'#D4A017',color:'#0F2A5C',border:'none',borderRadius:9,padding:'0 14px',fontWeight:700,cursor:'pointer'}}>Créer</button>
+                        <button type="button" onClick={()=>setNouveauType(null)} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:9,padding:'0 12px',cursor:'pointer'}}>✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={()=>setNouveauType({label:'',icone:'🚗'})}
+                        style={{marginTop:8,background:'none',border:'none',color:'#0F2A5C',fontWeight:700,fontSize:12,cursor:'pointer',textDecoration:'underline',padding:0}}>
+                        ➕ Créer un type de véhicule
+                      </button>
+                    ))}
                   </div>
                   <div>
                     <label style={{fontSize:11,fontWeight:700,color:'var(--rzc-text-3)',display:'block',marginBottom:4}}>NOM *</label>
@@ -657,20 +738,20 @@ export default function ReservationsPage() {
                 </div>
                 <button onClick={()=>{
                   if(!newResource.label) return
-                  if (CAT_VERS_SERVEUR[newResource.cat]) {
+                  if (estVehiculeCat(newResource.cat)) {
                     // Véhicule : créé sur le serveur => visible aussi dans le Centre de mobilité
                     vehiculesFlotte.create(versServeur(newResource)).then(() => {
                       toast.success('Véhicule ajouté — visible dans le Centre de mobilité')
                       chargerFlotte()
                     }).catch(e => toast.error(e.response?.status === 403 ? 'Seul un administrateur peut ajouter un véhicule au parc' : 'Ajout impossible'))
-                    setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
+                    setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#0F2A5C',photo:'',id:''})
                     return
                   }
                   const id=`custom_${Date.now()}`
-                  const item={...newResource,id,couleur:newResource.couleur||'var(--rzc-navy)'}
+                  const item={...newResource,id,couleur:newResource.couleur||'#0F2A5C'}
                   const nf={...fleet,[newResource.cat]:[...(fleet[newResource.cat]||[]),item]}
                   saveFleet(nf)
-                  setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'var(--rzc-navy)',photo:'',id:''})
+                  setNewResource({cat:'vehicules_4x4',label:'',immat:'',km:0,capacite:4,detail:'',carburant:'Diesel',couleur:'#0F2A5C',photo:'',id:''})
                 }} style={{width:'100%',background:'#16a34a',color:'var(--rzc-white)',border:'none',borderRadius:9,
                   padding:'11px',cursor:'pointer',fontSize:13,fontWeight:700,marginTop:12}}>
                   ✅ Ajouter au catalogue

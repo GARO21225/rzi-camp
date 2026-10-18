@@ -1029,7 +1029,7 @@ const PAGES_ASSIGNABLES = [
   ['/carte', '🗺️ Carte GIS'], ['/mon-compte', '👤 Mon compte'],
   ['/personnel', '👤 Personnel'], ['/presences', '🟢 Présences'], ['/induction', '🎓 Induction QHSE'],
   ['/induction-camp', '🏕️ Induction Camp'], ['/epi', '🦺 Équipements EPI'], ['/annuaire', '📋 Annuaire'],
-  ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '✈️ Voyages'],
+  ['/residences', '🏠 Résidences'], ['/rotations', '🧭 Centre de Mobilité'], ['/voyages', '🚌 Voyages'],
   ['/restauration', '🍽️ Restauration'], ['/restaurants', '👨‍🍳 Restaurants & superviseurs'], ['/boutique', '🛒 Bar & Boutique'], ['/reservations', '📅 Réservations'],
   ['/maintenance', '🛠️ Maintenance'], ['/plaintes', '🚨 Plaintes'], ['/evenements', '📡 Événements'], ['/demandes', '📝 Demandes'],
   ['/analytics', '📈 Analytics'], ['/rapports', '📄 Rapports'], ['/historique', '📋 Historique'],
@@ -1042,7 +1042,6 @@ function RolesTab({ isAdmin, isMobile }) {
   const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
-  const [nouveauCode, setNouveauCode] = useState('')
   const [nouveauLabel, setNouveauLabel] = useState('')
   const [creating, setCreating] = useState(false)
   const [selRoleId, setSelRoleId] = useState(null)
@@ -1113,17 +1112,60 @@ function RolesTab({ isAdmin, isMobile }) {
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
   }
+  // Le code technique est généré automatiquement depuis le nom (jamais saisi par l'utilisateur)
+  const genererCode = (label) => {
+    const base = label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,24) || 'profil'
+    const pris = new Set(roles.map(r => r.code))
+    let code = base, n = 2
+    while (pris.has(code)) code = `${base}_${n++}`.slice(0,30)
+    return code
+  }
+  const [copieDe, setCopieDe] = useState('')     // créer un profil en copiant les accès d'un existant
+  const [copie, setCopie] = useState(null)       // {sourceId, cibleId} : copier les accès vers un profil existant
   const creerRole = async () => {
-    const code = nouveauCode.trim().toLowerCase().replace(/\s+/g,'_')
-    if (!code || !nouveauLabel.trim()) { toast.error('Code et libellé requis.'); return }
+    const label = nouveauLabel.trim()
+    if (!label) { toast.error('Le nom du profil est requis.'); return }
+    if (roles.some(r => r.label.trim().toLowerCase() === label.toLowerCase())) { toast.error('Un profil porte déjà ce nom.'); return }
+    const src = roles.find(r => String(r.id) === String(copieDe))
     setCreating(true)
     try {
-      await rolesAPI.create({ code, label: nouveauLabel.trim(), menu_pages: [] })
-      toast.success(`Rôle "${nouveauLabel}" créé — cochez ses pages ci-dessous puis enregistrez.`)
-      setNouveauCode(''); setNouveauLabel('')
+      await rolesAPI.create({ code: genererCode(label), label, menu_pages: src ? [...src.menu_pages] : [], pages_readonly: src ? [...src.pages_readonly] : [] })
+      toast.success(src ? `Profil "${label}" créé avec les accès de "${src.label}".` : `Profil "${label}" créé — cochez ses pages ci-dessous puis enregistrez.`)
+      setNouveauLabel(''); setCopieDe('')
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
     setCreating(false)
+  }
+  const copierAcces = async (source, cible) => {
+    if (!cible) { toast.error('Choisissez le profil de destination.'); return }
+    if (!await confirmDialog(`Remplacer tous les accès de "${cible.label}" par ceux de "${source.label}" ?`)) return
+    try {
+      await rolesAPI.update(cible.id, { menu_pages: source.menu_pages, pages_readonly: source.pages_readonly })
+      setRoles(rs => rs.map(r => r.id === cible.id ? {...r, menu_pages:[...source.menu_pages], pages_readonly:[...source.pages_readonly]} : r))
+      setCopie(null)
+      toast.success(`Accès de "${source.label}" copiés vers "${cible.label}".`)
+    } catch(e) { toast.error(e.response?.data?.error || 'Copie impossible.') }
+  }
+  const panneauCopie = (role) => {
+    if (!isAdmin || role.est_systeme) return null
+    if (copie?.sourceId !== role.id) return (
+      <button onClick={()=>setCopie({sourceId:role.id,cibleId:''})}
+        style={{background:'#F3F5F9',color:'#0F2A5C',border:'1px solid #D8DEE9',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700,minHeight:30}}>
+        📋 Copier les accès vers…
+      </button>
+    )
+    return (
+      <span style={{display:'inline-flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+        <select value={copie.cibleId} onChange={e=>setCopie(c=>({...c,cibleId:e.target.value}))}
+          style={{border:'1px solid #D8DEE9',borderRadius:8,padding:'6px 8px',fontSize:12,minHeight:34}}>
+          <option value="">— profil de destination —</option>
+          {roles.filter(r => r.id !== role.id && !r.est_systeme).map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+        </select>
+        <button onClick={()=>copierAcces(role, roles.find(r => String(r.id) === String(copie.cibleId)))}
+          style={{background:'#D4A017',color:'#0F2A5C',border:'none',borderRadius:8,padding:'6px 12px',fontWeight:700,cursor:'pointer',minHeight:34}}>Copier</button>
+        <button onClick={()=>setCopie(null)} style={{background:'#fff',border:'1px solid #D8DEE9',borderRadius:8,padding:'6px 10px',cursor:'pointer',minHeight:34}}>✕</button>
+      </span>
+    )
   }
 
   if (loading) return <div style={{padding:20,textAlign:'center',color:'#94a3b8'}}>⏳ Chargement des rôles...</div>
@@ -1142,8 +1184,11 @@ function RolesTab({ isAdmin, isMobile }) {
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               <input value={nouveauLabel} onChange={e=>setNouveauLabel(e.target.value)} placeholder="Nom affiché (ex: Chef d'équipe)"
                 style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,boxSizing:'border-box'}}/>
-              <input value={nouveauCode} onChange={e=>setNouveauCode(e.target.value)} placeholder="code_technique"
-                style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,fontFamily:'monospace',boxSizing:'border-box'}}/>
+              <select value={copieDe} onChange={e=>setCopieDe(e.target.value)}
+                style={{border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,boxSizing:'border-box'}}>
+                <option value="">Partir de zéro (aucun accès)</option>
+                {roles.filter(r=>!r.est_systeme).map(r=><option key={r.id} value={r.id}>Copier les accès de : {r.label}</option>)}
+              </select>
               <button onClick={creerRole} disabled={creating}
                 style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
                   cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
@@ -1165,6 +1210,8 @@ function RolesTab({ isAdmin, isMobile }) {
               ✏️ Renommer « {selRole.label} »
             </button>)
         )}
+
+        {selRole && panneauCopie(selRole)}
 
         {selRole && selRole.est_systeme && (
           <div style={{fontSize:12,color:'#94a3b8',fontStyle:'italic'}}>Rôle système, protégé — accès complet non modifiable.</div>
@@ -1223,8 +1270,11 @@ function RolesTab({ isAdmin, isMobile }) {
           <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
             <input value={nouveauLabel} onChange={e=>setNouveauLabel(e.target.value)} placeholder="Nom affiché (ex: Chef d'équipe)"
               style={{flex:'1 1 220px',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}/>
-            <input value={nouveauCode} onChange={e=>setNouveauCode(e.target.value)} placeholder="code_technique (ex: chef_equipe)"
-              style={{flex:'1 1 200px',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13,fontFamily:'monospace'}}/>
+            <select value={copieDe} onChange={e=>setCopieDe(e.target.value)}
+              style={{flex:'1 1 220px',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px',fontSize:13}}>
+              <option value="">Partir de zéro (aucun accès)</option>
+              {roles.filter(r=>!r.est_systeme).map(r=><option key={r.id} value={r.id}>Copier les accès de : {r.label}</option>)}
+            </select>
             <button onClick={creerRole} disabled={creating}
               style={{background:'#C9972B',color:'#fff',border:'none',padding:'9px 18px',borderRadius:8,
                 cursor:creating?'not-allowed':'pointer',fontSize:13,fontWeight:700}}>
@@ -1245,6 +1295,7 @@ function RolesTab({ isAdmin, isMobile }) {
                   ✏️ Renommer
                 </button>
               )}
+              {panneauCopie(role)}
             </div>
             {!role.est_systeme && (
               <div style={{display:'flex',alignItems:'center',gap:14}}>

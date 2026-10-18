@@ -38,7 +38,7 @@ function KpiCard({ icon, value, label, sub, color='var(--rzc-navy)', bg='#eff6ff
 
 function AlerteCard({ type, titre, desc, temps, urgent }) {
   const colors = { incident:'#dc2626', sla:'#d97706', voyage:'#3b82f6', induction:'#7c3aed', stock:'#16a34a' }
-  const icons  = { incident:'🚨', sla:'⏰', voyage:'✈️', induction:'🎓', stock:'📦' }
+  const icons  = { incident:'🚨', sla:'⏰', voyage:'🚌', induction:'🎓', stock:'📦' }
   const c = colors[type] || 'var(--rzc-text-3)'
   return (
     <div style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
@@ -143,7 +143,7 @@ export default function CentreOperationnel() {
         <KpiCard icon="📊" value={bat.taux_occupation!=null?`${bat.taux_occupation}%`:'—'} label="Taux occupation" color="#7c3aed" bg="#f5f3ff"/>
         <KpiCard icon="🚨" value={inc.declares??'—'} label="Incidents ouverts" color="#dc2626" bg="#fef2f2"/>
         <KpiCard icon="⏰" value={inc.sla_depasse??'—'} label="SLA dépassés" color="#d97706" bg="#fffbeb"/>
-        <KpiCard icon="✈️" value={voy.en_voyage??'—'} label="En déplacement" color="#3b82f6" bg="#eff6ff"/>
+        <KpiCard icon="🚌" value={voy.en_voyage??'—'} label="En déplacement" color="#3b82f6" bg="#eff6ff"/>
         <KpiCard icon="🛠️" value={inc.en_cours??'—'} label="Interventions actives" color="#f97316" bg="#fff7ed"/>
         <KpiCard icon="🏗️" value={bat.maintenance??'—'} label="Résidences maintenance" color="var(--rzc-text-3)" bg="var(--rzc-charcoal)"/>
       </div>

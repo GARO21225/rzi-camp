@@ -1042,3 +1042,43 @@ class ReplanifierRotationsTests(TestCase):
         r = self.post({"rotation_ids": ["RP-1", "RP-2"], "date_depart": (self.d + datetime.timedelta(days=1)).isoformat()})
         self.assertEqual(r.status_code, 200)
         self.assertEqual([e["rotation_id"] for e in r.json()["echecs"]], ["RP-1"])
+
+
+class TypesVehiculeTests(TestCase):
+    """Types de véhicule créables (bus, ambulance...) et utilisables par la flotte."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from django.contrib.auth.models import User
+        self.c = APIClient()
+        self.admin = User.objects.create_superuser("tvadmin", "t@t.com", "pass")
+        self.agent = User.objects.create_user("tvagent", password="x")
+
+    def test_types_de_depart_presents(self):
+        self.c.force_authenticate(self.agent)
+        codes = {t["code"] for t in self.c.get("/api/types-vehicule/").data}
+        self.assertTrue({"4x4", "pickup", "minibus", "bus"} <= codes)
+
+    def test_admin_cree_un_type_et_un_vehicule(self):
+        self.c.force_authenticate(self.admin)
+        r = self.c.post("/api/types-vehicule/", {"code": "ambulance", "label": "Ambulance", "icone": "🚑"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        r = self.c.post("/api/vehicules-flotte/", {"nom": "Amb 1", "categorie": "ambulance", "capacite": 2}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertIn("Ambulance", r.data["categorie_label"])
+
+    def test_vehicule_type_inconnu_refuse(self):
+        self.c.force_authenticate(self.admin)
+        r = self.c.post("/api/vehicules-flotte/", {"nom": "X", "categorie": "inexistant", "capacite": 2}, format="json")
+        self.assertEqual(r.status_code, 400)
+
+    def test_agent_ne_peut_pas_creer(self):
+        self.c.force_authenticate(self.agent)
+        self.assertEqual(self.c.post("/api/types-vehicule/", {"code": "x", "label": "X"}, format="json").status_code, 403)
+
+    def test_suppression_refusee_si_utilise(self):
+        self.c.force_authenticate(self.admin)
+        self.c.post("/api/vehicules-flotte/", {"nom": "B1", "categorie": "bus", "capacite": 50}, format="json")
+        from .models import TypeVehicule
+        t = TypeVehicule.objects.get(code="bus")
+        self.assertEqual(self.c.delete(f"/api/types-vehicule/{t.id}/").status_code, 400)

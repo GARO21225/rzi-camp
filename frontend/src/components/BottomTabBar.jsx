@@ -26,7 +26,7 @@ const TABS = {
   ],
   agent: [
     { to:'/accueil', label:'Accueil', icon:'🏠', exact:true },
-    { to:'/voyages', label:'Voyages', icon:'✈️' },
+    { to:'/voyages', label:'Voyages', icon:'🚌' },
     { to:'/demandes', label:'Demandes', icon:'📝' },
     { to:'/restauration', label:'Repas', icon:'🍽️' },
     { to:'/maintenance', label:'Signaler', icon:'🛠️' },

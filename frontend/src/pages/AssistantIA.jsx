@@ -54,7 +54,7 @@ function resume(d) {
   const p = d.parc, i = d.incidents, pl = d.plaintes, ev = d.evenements
   return `📊 **Situation du camp**\n\n`
     + `🏠 Occupation : ${p.taux}% (${p.par_statut['Occupé'] || 0} occupée(s), ${p.par_statut['Libre'] || 0} libre(s))\n`
-    + `✈️ ${d.voyages.par_statut.en_voyage || 0} en voyage, ${d.voyages.par_statut.planifie || 0} planifié(s)\n`
+    + `🚌 ${d.voyages.par_statut.en_voyage || 0} en voyage, ${d.voyages.par_statut.planifie || 0} planifié(s)\n`
     + `🛠️ ${i.ouverts} incident(s) ouvert(s)${i.critiques_ouverts ? ` dont ${i.critiques_ouverts} critique(s)` : ''}${i.sla_depasse ? `, ${i.sla_depasse} SLA dépassé(s)` : ''}\n`
     + `🧹 ${pl.ouvertes} plainte(s) ouverte(s)${pl.non_affectees ? ` dont ${pl.non_affectees} non affectée(s)` : ''}\n`
     + `📅 ${ev.en_cours} événement(s) en cours, ${ev.a_venir_7j} dans les 7 jours\n`
@@ -85,7 +85,7 @@ const INTENTIONS = [
   [['voyage', 'deplacement', 'rotation', 'transit', 'depart', 'retour', 'mobilite'], d => {
     const v = d.voyages, prog = v.programme
     const dep = prog.reduce((s, x) => s + x.departs, 0), ret = prog.reduce((s, x) => s + x.retours, 0)
-    return `✈️ ${v.par_statut.en_voyage || 0} personne(s) en voyage, ${v.par_statut.planifie || 0} voyage(s) planifié(s).\n`
+    return `🚌 ${v.par_statut.en_voyage || 0} personne(s) en voyage, ${v.par_statut.planifie || 0} voyage(s) planifié(s).\n`
       + `Sur les 14 prochains jours : ${dep} départ(s) et ${ret} retour(s) attendus.`
   }],
   [['societe', 'sous-traitant', 'sous traitant', 'effectif', 'personnel', 'combien de personnes'], d => {
@@ -132,7 +132,7 @@ export default function AssistantIA() {
   const isMobile = useIsMobile()
   const [messages, setMessages] = useState([{
     role: 'assistant',
-    content: "Bonjour ! Je suis l'assistant du camp Roxgold Sango. Je réponds avec les chiffres réels de l'application (pas de réponse inventée).\n\nJe peux vous renseigner sur :\n• 📊 La situation globale du camp\n• 🏠 Occupation et résidences\n• 🛠️ Maintenance et incidents\n• 🧹 Plaintes en cours\n• 📅 Événements et 🚨 alertes\n• ✈️ Voyages, départs et retours\n• 👥 Personnel par société, 🎓 induction QHSE\n\nQue voulez-vous savoir ?"
+    content: "Bonjour ! Je suis l'assistant du camp Roxgold Sango. Je réponds avec les chiffres réels de l'application (pas de réponse inventée).\n\nJe peux vous renseigner sur :\n• 📊 La situation globale du camp\n• 🏠 Occupation et résidences\n• 🛠️ Maintenance et incidents\n• 🧹 Plaintes en cours\n• 📅 Événements et 🚨 alertes\n• 🚌 Voyages, départs et retours\n• 👥 Personnel par société, 🎓 induction QHSE\n\nQue voulez-vous savoir ?"
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)

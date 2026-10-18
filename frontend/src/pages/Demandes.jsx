@@ -11,7 +11,7 @@ import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 const NAVY = '#0F2A5C', GOLD = '#D4A017', INK = '#5B6B86', LIGNE = '#D8DEE9'
 const TYPE_COLORS = {
   reservation_residence:{ bg:'rgba(15,42,92,.08)', color:NAVY, icon:'🏠', label:'Réservation résidence' },
-  voyage:{ bg:'rgba(212,160,23,.16)', color:'#8A6200', icon:'✈️', label:'Voyage' },
+  voyage:{ bg:'rgba(212,160,23,.16)', color:'#8A6200', icon:'🚌', label:'Voyage' },
   maintenance:{ bg:'rgba(185,28,28,.08)', color:'#B91C1C', icon:'🛠️', label:'Maintenance' },
   plainte:{ bg:'rgba(185,28,28,.08)', color:'#B91C1C', icon:'🧹', label:'Plainte' },
   induction:{ bg:'rgba(30,58,138,.09)', color:'#1E3A8A', icon:'🎓', label:'Induction' },
@@ -109,7 +109,7 @@ export default function Demandes() {
   const [typeFilter, setTypeFilter] = useState('')
   const TYPE_FILTER_BTNS = [
     ['reservation_residence','🏠 Résidence'],
-    ['voyage','✈️ Voyage'],
+    ['voyage','🚌 Voyage'],
     ['maintenance_plaintes','🛠️🧹 Maintenance & Plaintes'],
   ]
 
@@ -399,7 +399,7 @@ export default function Demandes() {
             </button>
             {peutVoyager && <button className="dm-btn" onClick={()=>setCreateModal('voyage')}
               style={{ background:GOLD, color:NAVY, border:'1px solid '+GOLD, minHeight:40, padding:'8px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
-              ✈️ Planifier voyage
+              🚌 Planifier voyage
             </button>}
           </div>
         )}
@@ -438,7 +438,7 @@ export default function Demandes() {
           </button>
           {peutVoyager && <button onClick={()=>setCreateModal('voyage')} aria-label="Planifier voyage"
             style={{ width:54, height:54, borderRadius:27, background:GOLD, border:'none', boxShadow:'0 6px 16px rgba(212,160,23,.45)', fontSize:22, cursor:'pointer' }} className="dm-btn">
-            ✈️
+            🚌
           </button>}
         </div>
       )}

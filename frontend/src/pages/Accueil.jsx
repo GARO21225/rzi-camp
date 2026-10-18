@@ -254,7 +254,7 @@ export default function Accueil() {
                   style={{ marginTop: 14, width: '100%', border: 'none', borderRadius: 14, padding: '13px 16px', cursor: 'pointer',
                     background: `linear-gradient(135deg, ${OR}, ${OR_PROFOND})`, color: NUIT, fontWeight: 700, fontSize: 14,
                     fontFamily: DISPLAY, letterSpacing: .3 }}>
-                  ✈  Demander un voyage
+                  🚌  Demander un voyage
                 </button>
               )}
             </Carte>

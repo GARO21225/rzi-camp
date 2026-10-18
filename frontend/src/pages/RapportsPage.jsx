@@ -351,7 +351,7 @@ tr:last-child td{border-bottom:none}
 <!-- ROTATIONS & VOYAGES -->
 <div class="section page-break">
   <div class="section-header">
-    <div class="section-icon" style="background:#dbeafe">✈️</div>
+    <div class="section-icon" style="background:#dbeafe">🚌</div>
     <div><div class="section-title">Rotations & Voyages</div><div class="section-sub">${voyages.length} voyage(s) sur la période</div></div>
   </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
@@ -578,7 +578,7 @@ function RapportGlobalPdf() {
                 ['🏠','Hébergement','#eff6ff','var(--rzc-navy)'],
                 ['👥','Personnel & Induction','#ede9fe','#7c3aed'],
                 ['🔧','Maintenance & Incidents','#fee2e2','#dc2626'],
-                ['✈️','Rotations & Voyages','#dbeafe','#3b82f6'],
+                ['🚌','Rotations & Voyages','#dbeafe','#3b82f6'],
                 ['📦','Stocks & Boutique','#d1fae5','#059669'],
               ].map(([ic,l,bg,c])=>(
                 <div key={l} style={{background:bg,color:c,padding:'4px 12px',borderRadius:99,
@@ -635,7 +635,7 @@ const TYPES_INSTANT = {
   occupation:  { titre: '🏕️ Camp Occupancy', desc: 'Chambres occupées — départements, sous-traitants, visiteurs' },
   residences:  { titre: '🏠 Résidences', desc: 'Occupation, départs et arrivées, + Camp Occupancy' },
   maintenance: { titre: '🛠️ Maintenance', desc: 'Incidents, SLA, techniciens' },
-  mobilite:    { titre: '✈️ Mobilité', desc: 'Départs et retours à venir' },
+  mobilite:    { titre: '🚌 Mobilité', desc: 'Départs et retours à venir' },
   boutique:    { titre: '🛒 Boutique & stock', desc: 'Ventes et alertes de stock' },
   synthese:    { titre: '📊 Synthèse générale', desc: 'Tout, comme le rapport automatique' },
 }

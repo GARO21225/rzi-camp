@@ -344,6 +344,11 @@ export const vehiculesFlotte = {
   create: (d)     => api.post('/api/vehicules-flotte/', d),
   update: (id, d) => api.patch(`/api/vehicules-flotte/${id}/`, d),
 }
+export const typesVehicule = {
+  list:   ()      => api.get('/api/types-vehicule/'),
+  create: (d)     => api.post('/api/types-vehicule/', d),
+  delete: (id)    => api.delete(`/api/types-vehicule/${id}/`),
+}
 export const itinerairesModeles = {
   list:   ()     => api.get('/api/itineraires-modeles/'),
   create: (d)    => api.post('/api/itineraires-modeles/', d),

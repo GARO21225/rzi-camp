@@ -197,7 +197,7 @@ export default function Analytics() {
   const tendanceInc = useMemo(() => d ? d.incidents.tendance.map(t => ({ ...t, j:jourCourt(t.date) })) : [], [d])
   const progVoy = useMemo(() => d ? d.voyages.programme.map(t => ({ ...t, j:jourCourt(t.date) })) : [], [d])
 
-  const TABS = [['residence','🏠 Hébergement'], ['personnel','👤 Personnel'], ['incidents','🔧 Maintenance'], ['voyages','✈️ Mobilité'], ['hse','🛡️ Conformité HSE']]
+  const TABS = [['residence','🏠 Hébergement'], ['personnel','👤 Personnel'], ['incidents','🔧 Maintenance'], ['voyages','🚌 Mobilité'], ['hse','🛡️ Conformité HSE']]
   const tip = { borderRadius:10, fontSize:12 }
   const grille = { display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap:16 }
 
@@ -223,7 +223,7 @@ export default function Analytics() {
           <StatBlock label="Chambres libres" value={d.parc.par_statut['Libre'] || 0} icon="✅" color={C.green} sub={d.parc.hors_service ? `${d.parc.hors_service} hors service` : 'Aucune hors service'} />
           <StatBlock label="Incidents ouverts" value={d.incidents.ouverts} icon="🚨" color={C.red} sub={`${d.incidents.critiques_ouverts} critique(s) · ${d.incidents.sla_depasse} SLA dépassé`} />
           <StatBlock label="Personnes enregistrées" value={d.personnel.total} icon="👤" color={C.purple} sub={`${d.personnel.par_type.sous_traitant || 0} sous-traitants`} />
-          <StatBlock label="Voyages en cours" value={d.voyages.par_statut.en_voyage || 0} icon="✈️" color={C.orange} sub={`${d.voyages.par_statut.planifie || 0} planifié(s)`} />
+          <StatBlock label="Voyages en cours" value={d.voyages.par_statut.en_voyage || 0} icon="🚌" color={C.orange} sub={`${d.voyages.par_statut.planifie || 0} planifié(s)`} />
         </div>
 
         <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
@@ -294,7 +294,7 @@ export default function Analytics() {
                   <Tooltip contentStyle={tip} /><Legend /><Bar dataKey="departs" name="Départs" fill={C.orange} radius={[3, 3, 0, 0]} /><Bar dataKey="retours" name="Retours" fill={C.green} radius={[3, 3, 0, 0]} /></BarChart>
               </ResponsiveContainer>
             </Carte>
-            <Carte titre="✈️ Par statut" aide={`${d.voyages.total} voyage(s) au total`}>
+            <Carte titre="🚌 Par statut" aide={`${d.voyages.total} voyage(s) au total`}>
               {[['planifie', 'Planifiés', C.gold], ['en_voyage', 'En voyage', C.orange], ['retour', 'Retournés', C.green], ['annule', 'Annulés', C.red]].map(([k, l, c]) => <Barre key={k} libelle={l} n={d.voyages.par_statut[k] || 0} max={d.voyages.total} couleur={c} />)}
             </Carte>
           </div>)}

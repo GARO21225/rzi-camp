@@ -15,7 +15,7 @@ export default function ChoixPersonne({ options = [], onChoisir, placeholder = '
         onChange={e => { setQ(e.target.value); setOuvert(true) }}
         style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: '#fff' }} />
       {ouvert && (
-        <div style={{ position: 'absolute', zIndex: 30, left: 0, right: 0, top: '100%', marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 240, overflowY: 'auto', boxShadow: '0 8px 24px rgba(15,23,42,.15)' }}>
+        <div style={{ position: 'absolute', zIndex: 500, left: 0, right: 0, top: '100%', marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 240, overflowY: 'auto', boxShadow: '0 8px 24px rgba(15,23,42,.15)' }}>
           {filtrees.length === 0
             ? <div style={{ padding: '10px 12px', fontSize: 12.5, color: '#94a3b8' }}>Aucune personne trouvée</div>
             : filtrees.map(o => (

@@ -239,7 +239,7 @@ export default function AnnuairePage() {
 
             {/* Voyage actif */}
             <div style={{marginTop:12,background:'#f0fdf4',borderRadius:10,padding:'10px 14px'}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#16a34a',marginBottom:4}}>✈️ VOYAGE ACTIF</div>
+              <div style={{fontSize:11,fontWeight:700,color:'#16a34a',marginBottom:4}}>🚌 VOYAGE ACTIF</div>
               <div style={{fontSize:12,color:'#166534'}}>
                 {selected.voyage_actif ? selected.voyage_actif : 'Aucun déplacement en cours'}
               </div>
