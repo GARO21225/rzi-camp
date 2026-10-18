@@ -20,6 +20,8 @@ def _admin():
     return User.objects.create_superuser("admintest", "a@a.com", "pass")
 
 
+PHOTO_TEST = "data:image/jpeg;base64," + "A" * 200   # photo factice (dépôt et résolution de plainte obligatoires)
+
 class PlainteCreationTests(TestCase):
     """Section 52 : qui peut deposer une plainte, et comment la chambre est determinee."""
 
@@ -32,6 +34,7 @@ class PlainteCreationTests(TestCase):
         self.chambre = Batiment.objects.create(residence="A12", bloc="A", statut="Occupé", personnel=self.agent)
 
     def _creer(self, user, data):
+        data = {"photo_base64": PHOTO_TEST, **data}
         req = self.rf.post("/api/plaintes/", data, format="json")
         force_authenticate(req, user=user)
         return PlainteViewSet.as_view({"post": "create"})(req)
@@ -45,7 +48,7 @@ class PlainteCreationTests(TestCase):
         sans_logement_u = User.objects.create_user("sanslogement", "s@a.com", "pass")
         Personnel.objects.create(nom="Sans", prenom="Logement", societe="ROXGOLD",
             numero="TPX2", telephone="2", type_personnel="roxgold", user=sans_logement_u)
-        resp = self._creer(sans_logement_u, {"categorie": "Proprete", "description": "Test"})
+        resp = self._creer(sans_logement_u, {"categorie": "Proprete", "description": "Test", "photo_base64": PHOTO_TEST})
         self.assertEqual(resp.status_code, 403)
 
     def test_chambre_jamais_choisie_par_occupant(self):
@@ -59,7 +62,7 @@ class PlainteCreationTests(TestCase):
     def test_type_occupant_deduit_resident_principal(self):
         ResidentPrincipal.objects.create(personnel=self.agent, batiment=self.chambre,
             date_debut="2026-01-01", affecte_par=self.admin)
-        resp = self._creer(self.agent_u, {"categorie": "Proprete", "description": "Test"})
+        resp = self._creer(self.agent_u, {"categorie": "Proprete", "description": "Test", "photo_base64": PHOTO_TEST})
         self.assertEqual(resp.data["type_occupant"], "resident_principal")
 
     def test_visiteur_heberge_peut_deposer(self):
@@ -92,6 +95,7 @@ class PlainteCreerPourOccupantTests(TestCase):
         Batiment.objects.create(residence="F09", bloc="F", statut="Occupé", personnel=self.agent)
 
     def _appel(self, data, user=None):
+        data = {"photo_base64": PHOTO_TEST, **data}
         req = self.rf.post("/api/plaintes/creer_pour_occupant/", data, format="json")
         force_authenticate(req, user=user or self.admin)
         return PlainteViewSet.as_view({"post": "creer_pour_occupant"})(req)
@@ -126,7 +130,7 @@ class PlainteSecuriteTests(TestCase):
         self.agent2 = Personnel.objects.create(nom="Traore", prenom="Awa", societe="ROXGOLD",
             numero="SEC2", telephone="2", type_personnel="roxgold", user=self.agent2_u)
         Batiment.objects.create(residence="B05", bloc="B", statut="Occupé", personnel=self.agent1)
-        req = self.rf.post("/api/plaintes/", {"categorie": "Proprete", "description": "Test"}, format="json")
+        req = self.rf.post("/api/plaintes/", {"categorie": "Proprete", "description": "Test", "photo_base64": PHOTO_TEST}, format="json")
         force_authenticate(req, user=self.agent1_u)
         self.plainte = PlainteViewSet.as_view({"post": "create"})(req).data
 
@@ -179,7 +183,7 @@ class PlainteWorkflowTests(TestCase):
         self.agent = Personnel.objects.create(nom="Kone", prenom="Ibrahim", societe="ROXGOLD",
             numero="WFX1", telephone="1", type_personnel="roxgold", user=self.agent_u)
         Batiment.objects.create(residence="C07", bloc="C", statut="Occupé", personnel=self.agent)
-        req = self.rf.post("/api/plaintes/", {"categorie": "Electricite", "sous_categorie": "prise", "description": "Prise HS"}, format="json")
+        req = self.rf.post("/api/plaintes/", {"categorie": "Electricite", "sous_categorie": "prise", "description": "Prise HS", "photo_base64": PHOTO_TEST}, format="json")
         force_authenticate(req, user=self.agent_u)
         self.pk = PlainteViewSet.as_view({"post": "create"})(req).data["id"]
 
@@ -196,7 +200,7 @@ class PlainteWorkflowTests(TestCase):
         self.assertEqual(r2.data["statut"], "affectee")
         r3 = self._appel("prendre_en_charge", {})
         self.assertEqual(r3.status_code, 200)
-        r4 = self._appel("resoudre", {"resultat_resolution": "Prise remplacée", "action_resolution": "Remplacement"})
+        r4 = self._appel("resoudre", {"resultat_resolution": "Prise remplacée", "action_resolution": "Remplacement", "photo_resolution_base64": PHOTO_TEST})
         self.assertEqual(r4.status_code, 200)
         self.assertEqual(r4.data["statut"], "resolue")
         # Confirmation par l'occupant lui-meme (pas l'admin)
@@ -208,7 +212,7 @@ class PlainteWorkflowTests(TestCase):
         self._appel("qualifier", {"priorite": "haute"})
         self._appel("affecter", {"affecte_a": self.admin.id})
         self._appel("prendre_en_charge", {})
-        self._appel("resoudre", {"resultat_resolution": "fait"})
+        self._appel("resoudre", {"resultat_resolution": "fait", "photo_resolution_base64": PHOTO_TEST})
         r = self._appel("confirmer", {"resolu": False, "motif": "Toujours cassé"}, user=self.agent_u)
         self.assertEqual(r.status_code, 200)
         self.assertIn(r.data["statut"], ("reouverte", "en_cours"))
@@ -875,7 +879,7 @@ class PlainteAssignationEtFriseTests(TestCase):
         occ_u = User.objects.create_user("occup", "o@a.com", "pass")
         occ = Personnel.objects.create(nom="Zadi", prenom="Eric", societe="ROXGOLD", numero="PF1", telephone="1", type_personnel="roxgold", user=occ_u)
         Batiment.objects.create(residence="D01", bloc="D", statut="Occupé", personnel=occ)
-        req = self.rf.post("/api/plaintes/", {"categorie": "Electricite", "sous_categorie": "prise", "description": "Prise HS"}, format="json")
+        req = self.rf.post("/api/plaintes/", {"categorie": "Electricite", "sous_categorie": "prise", "description": "Prise HS", "photo_base64": PHOTO_TEST}, format="json")
         force_authenticate(req, user=occ_u)
         self.pk = PlainteViewSet.as_view({"post": "create"})(req).data["id"]
 
@@ -981,7 +985,7 @@ class PlainteAntiDoublonTests(TestCase):
         Batiment.objects.create(residence="F01", bloc="F", statut="Occupé", personnel=occ)
         ids = set()
         for _ in range(5):
-            req = rf.post("/api/plaintes/creer_pour_occupant/", {"personnel": occ.id, "categorie": "Electricite", "description": "Prise HS"}, format="json")
+            req = rf.post("/api/plaintes/creer_pour_occupant/", {"personnel": occ.id, "categorie": "Electricite", "description": "Prise HS", "photo_base64": PHOTO_TEST}, format="json")
             force_authenticate(req, user=admin)
             r = PlainteViewSet.as_view({"post": "creer_pour_occupant"})(req)
             self.assertIn(r.status_code, (200, 201))
@@ -1034,3 +1038,62 @@ class SuppressionPersonnelDesactiveCompteTests(TestCase):
         p.delete()
         u.refresh_from_db()
         self.assertFalse(u.is_active)
+
+
+class PlainteSlaPhotoAgentsTests(PlainteAssignationEtFriseTests):
+    """SLA, photos obligatoires, assignation limitée ménage/techniciens, dashboard filtrable."""
+
+    def test_photo_obligatoire_au_depot(self):
+        occ = Personnel.objects.get(numero="PF1")
+        req = self.rf.post("/api/plaintes/creer_pour_occupant/",
+                           {"personnel": occ.id, "categorie": "Plomberie", "description": "Fuite sans photo"}, format="json")
+        force_authenticate(req, user=self.admin)
+        r = PlainteViewSet.as_view({"post": "creer_pour_occupant"})(req)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("photo", r.data["error"].lower())
+
+    def test_photo_obligatoire_a_la_resolution(self):
+        self._post("affecter", {"affecte_a": self.t1.id})
+        self._post("prendre_en_charge")
+        r = self._post("resoudre", {"resultat_resolution": "fait"})
+        self.assertEqual(r.status_code, 400)
+        r = self._post("resoudre", {"resultat_resolution": "fait", "photo_resolution_base64": PHOTO_TEST})
+        self.assertEqual(r.status_code, 200)
+
+    def test_sla_calcule_et_recalcule_a_la_qualification(self):
+        from residences.models import Plainte
+        p = Plainte.objects.get(pk=self.pk)
+        self.assertIsNotNone(p.sla_echeance)
+        self.assertAlmostEqual((p.sla_echeance - p.date_creation).total_seconds() / 3600, 48, delta=0.1)
+        self._post("qualifier", {"priorite": "critique"})
+        p.refresh_from_db()
+        self.assertAlmostEqual((p.sla_echeance - p.date_creation).total_seconds() / 3600, 4, delta=0.1)
+
+    def test_sla_depasse_et_dashboard_filtrable(self):
+        from residences.models import Plainte
+        from django.utils import timezone
+        Plainte.objects.filter(pk=self.pk).update(sla_echeance=timezone.now() - timezone.timedelta(hours=1))
+        p = Plainte.objects.get(pk=self.pk)
+        self.assertTrue(p.sla_depasse)
+        def dash(params):
+            req = self.rf.get("/api/plaintes/dashboard/", params)
+            force_authenticate(req, user=self.admin)
+            return PlainteViewSet.as_view({"get": "dashboard"})(req).data
+        d = dash({"categorie": p.categorie})
+        self.assertEqual((d["total"], d["en_retard"], len(d["par_jour"])), (1, 1, 30))
+        self.assertEqual(dash({"categorie": "Inexistante"})["total"], 0)
+
+    def test_agents_limites_menage_et_techniciens(self):
+        from accounts.models import Profile
+        chef = User.objects.create_user("chefx", "c@a.com", "pass")
+        Profile.objects.update_or_create(user=chef, defaults={"role": "manager"})
+        men = User.objects.create_user("menagex", "m@a.com", "pass", first_name="Mia", last_name="Menage")
+        Profile.objects.update_or_create(user=men, defaults={"role": "menage"})
+        def agents(params=None):
+            req = self.rf.get("/api/plaintes/agents/", params or {})
+            force_authenticate(req, user=self.admin)
+            return {a["id"] for a in PlainteViewSet.as_view({"get": "agents"})(req).data}
+        ids = agents()
+        self.assertTrue({self.t1.id, men.id} <= ids)
+        self.assertFalse({chef.id, self.admin.id} & ids)
+        self.assertEqual(agents({"categorie": "Proprete"}), {men.id})

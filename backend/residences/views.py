@@ -2295,6 +2295,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
         if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
 
+        photo = (request.data.get("photo_base64") or "").strip()
+        if len(photo) < 100:
+            return Response({"error":"Une photo du problème est obligatoire."}, status=400)
+
         doublon = self._doublon_recent(pers, categorie, description)
         if doublon:
             return Response(PlainteSerializer(doublon).data, status=200)
@@ -2360,6 +2364,10 @@ class PlainteViewSet(viewsets.ModelViewSet):
         if not PlainteCategorie.objects.filter(nom=categorie, actif=True).exists() and categorie not in Plainte.CATEGORIES:
             return Response({"error":"Catégorie inconnue."}, status=400)
 
+        photo = (request.data.get("photo_base64") or "").strip()
+        if len(photo) < 100:
+            return Response({"error":"Une photo du problème est obligatoire."}, status=400)
+
         doublon = self._doublon_recent(pers, categorie, description)
         if doublon:
             return Response(PlainteSerializer(doublon).data, status=200)
@@ -2368,7 +2376,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
             occupant=pers, utilisateur=request.user, batiment=batiment,
             type_occupant=self._type_occupant_de(pers, batiment),
             categorie=categorie, sous_categorie=sous_categorie, description=description,
-            commentaire=request.data.get("commentaire",""), statut="a_qualifier",
+            commentaire=request.data.get("commentaire",""), photo_base64=photo, statut="a_qualifier",
         )
         self._notifier_habilites("🧹 Nouvelle plainte (signalée par un admin)", f"{pers.nom} {pers.prenom} ({batiment.residence}) — {categorie} : {description[:80]}")
         return Response(PlainteSerializer(plainte).data, status=201)
@@ -2383,7 +2391,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
             return Response({"error":"Cette plainte n'est plus à qualifier."}, status=400)
         if request.data.get("categorie"): p.categorie = request.data["categorie"]
         if request.data.get("sous_categorie") is not None: p.sous_categorie = request.data["sous_categorie"]
-        if request.data.get("priorite"): p.priorite = request.data["priorite"]
+        if request.data.get("priorite"):
+            p.priorite = request.data["priorite"]
+            p.recalculer_sla()
         if request.data.get("service") is not None: p.service = request.data["service"]
         p.maintenance_necessaire = bool(request.data.get("maintenance_necessaire", False))
         p.statut = "affectee" if request.data.get("affecte_a") else "a_qualifier"
@@ -2517,10 +2527,13 @@ class PlainteViewSet(viewsets.ModelViewSet):
             return Response({"error":"Non habilité."}, status=403)
         if p.statut not in ("prise_en_charge","en_cours","en_attente","reouverte"):
             return Response({"error":"Cette plainte ne peut pas être résolue dans son état actuel."}, status=400)
+        photo = (request.data.get("photo_resolution_base64") or "").strip()
+        if len(photo) < 100:
+            return Response({"error":"Une photo après intervention est obligatoire pour clôturer le traitement."}, status=400)
         p.action_resolution = request.data.get("action_resolution", "")
         p.resultat_resolution = request.data.get("resultat_resolution", "")
         p.commentaire_resolution = request.data.get("commentaire_resolution", "")
-        p.photo_resolution_base64 = request.data.get("photo_resolution_base64", "")
+        p.photo_resolution_base64 = photo
         if not p.action_resolution and p.incident_lie:
             p.action_resolution = p.incident_lie.commentaire_resolution or ""
         p.statut = "resolue"
@@ -2582,22 +2595,26 @@ class PlainteViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def agents(self, request):
-        """Responsables assignables (techniciens, ménage, superviseurs, admins) + leur charge en cours."""
+        """Responsables assignables : UNIQUEMENT le ménage et les techniciens (+ charge en cours).
+        ?categorie= affine : Propreté/Fournitures → ménage ; Électricité/Plomberie/Équipements/Sécurité/État → techniciens."""
         if not self._habilite(request.user):
             return Response({"error":"Non habilité."}, status=403)
         from django.db.models import Count
-        roles = ("technicien", "menage", "agent", "superviseur", "manager", "admin")
-        users = (User.objects.filter(is_active=True)
-                 .filter(Q(profile__role__in=roles) | Q(is_staff=True) | Q(is_superuser=True))
-                 # compte « fantôme » (résident dont la fiche Personnel a été supprimée) → pas assignable
-                 .exclude(Q(personnel__isnull=True) & ~Q(is_staff=True) & ~Q(is_superuser=True)
-                          & (Q(profile__isnull=True) | Q(profile__role__in=["agent", ""])))
-                 .select_related("profile").distinct())
+        from unicodedata import normalize
+        cat = normalize("NFKD", (request.query_params.get("categorie") or "")).encode("ascii", "ignore").decode().lower()
+        if cat.startswith(("proprete", "fourniture")):
+            roles = ("menage",)
+        elif cat in ("", "autre"):
+            roles = ("technicien", "menage")
+        else:
+            roles = ("technicien",)
+        # Un compte « fantôme » (fiche Personnel supprimée) est désactivé à la suppression (signal pre_delete) → is_active=False.
+        users = User.objects.filter(is_active=True, profile__role__in=roles).select_related("profile").distinct()
         charge = dict(Plainte.objects.exclude(statut__in=["resolue","confirmee","cloturee","rejetee"])
                       .exclude(affecte_a=None).values_list("affecte_a").annotate(n=Count("id")))
         out = [{
             "id": u.id, "nom": u.get_full_name() or u.username,
-            "role": getattr(getattr(u, "profile", None), "role", "") or ("admin" if u.is_superuser else ""),
+            "role": getattr(getattr(u, "profile", None), "role", ""),
             "en_cours": charge.get(u.id, 0),
         } for u in users]
         out.sort(key=lambda a: (a["en_cours"], a["nom"].lower()))
@@ -2658,23 +2675,52 @@ class PlainteViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def dashboard(self, request):
-        """Section 38-39 : compteurs par statut + indicateurs de base."""
+        """Tableau de bord filtrable : ?du= &au= (dates de dépôt) &categorie= &residence= &responsable= &priorite=.
+        Renvoie compteurs, SLA (respect / dépassé), délais moyens, répartitions et tendance journalière."""
         if not self._habilite(request.user):
             return Response({"error":"Non habilité."}, status=403)
-        from django.db.models import Count, Avg, F
+        from django.db.models import Count
+        from collections import Counter
+        q = request.query_params
         qs = Plainte.objects.all()
-        compteurs = {s: qs.filter(statut=s).count() for s,_ in Plainte.STATUT_CHOICES}
-        en_retard = qs.filter(statut__in=["nouvelle","a_qualifier","affectee","prise_en_charge","en_cours"],
-                               date_creation__lt=timezone.now()-timezone.timedelta(days=3)).count()
-        par_categorie = list(qs.values("categorie").annotate(n=Count("id")).order_by("-n"))
-        par_residence = list(qs.values("batiment__residence").annotate(n=Count("id")).order_by("-n")[:10])
-        reouvertes = qs.filter(statut="reouverte").count() + qs.exclude(motif_reouverture="").count()
-        total = qs.count()
-        taux_reouverture = round(100*reouvertes/total, 1) if total else 0
+        if q.get("du"): qs = qs.filter(date_creation__date__gte=q["du"])
+        if q.get("au"): qs = qs.filter(date_creation__date__lte=q["au"])
+        if q.get("categorie"): qs = qs.filter(categorie=q["categorie"])
+        if q.get("residence"): qs = qs.filter(batiment__residence__icontains=q["residence"])
+        if q.get("responsable"): qs = qs.filter(affecte_a_id=q["responsable"])
+        if q.get("priorite"): qs = qs.filter(priorite=q["priorite"])
+        now = timezone.now()
+        liste = list(qs.select_related("batiment", "affecte_a"))
+        ouvertes = [p for p in liste if p.statut not in Plainte.STATUTS_FIN]
+        traitees = [p for p in liste if p.statut in ("resolue", "confirmee", "cloturee") and p.date_resolution]
+        sla_dep = [p for p in liste if p.sla_depasse]
+        sla_ok_traitees = [p for p in traitees if not p.sla_depasse]
+        durees = [(p.date_resolution - p.date_creation).total_seconds() / 3600 for p in traitees]
+        compteurs = Counter(p.statut for p in liste)
+        par_cat = Counter(p.categorie for p in liste)
+        par_res = Counter(p.batiment.residence for p in liste)
+        par_prio = Counter(p.priorite for p in liste)
+        par_resp = Counter((p.affecte_a.get_full_name() or p.affecte_a.username) for p in ouvertes if p.affecte_a)
+        jours = Counter(timezone.localtime(p.date_creation).date() for p in liste)
+        today = timezone.localdate()
+        total = len(liste)
+        reouvertes = sum(1 for p in liste if p.statut == "reouverte" or p.motif_reouverture)
         return Response({
-            "total": total, "par_statut": compteurs, "en_retard": en_retard,
-            "par_categorie": par_categorie, "residences_les_plus_touchees": par_residence,
-            "taux_reouverture": taux_reouverture,
+            "total": total,
+            "ouvertes": len(ouvertes),
+            "par_statut": {s: compteurs.get(s, 0) for s, _ in Plainte.STATUT_CHOICES},
+            "en_retard": len([p for p in ouvertes if p.sla_depasse]),     # ouvertes hors SLA
+            "sla_depasse_total": len(sla_dep),
+            "taux_sla": round(100 * len(sla_ok_traitees) / len(traitees), 1) if traitees else None,
+            "delai_moyen_h": round(sum(durees) / len(durees), 1) if durees else None,
+            "non_affectees": len([p for p in ouvertes if not p.affecte_a_id]),
+            "par_categorie": [{"categorie": k, "n": v} for k, v in par_cat.most_common()],
+            "residences_les_plus_touchees": [{"batiment__residence": k, "n": v} for k, v in par_res.most_common(10)],
+            "par_priorite": {k: par_prio.get(k, 0) for k, _ in Plainte.PRIORITE_CHOICES},
+            "charge_responsables": [{"nom": k, "n": v} for k, v in par_resp.most_common()],
+            "par_jour": [{"date": (today - timezone.timedelta(days=n)).isoformat(), "n": jours.get(today - timezone.timedelta(days=n), 0)} for n in range(29, -1, -1)],
+            "taux_reouverture": round(100 * reouvertes / total, 1) if total else 0,
+            "sla_heures": Plainte.sla_heures(),
         })
 
     @action(detail=False, methods=["get"])

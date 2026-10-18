@@ -870,3 +870,27 @@ class AnalyticsEndpointTests(TestCase):
             self.assertIn(k, r.data)
         self.assertEqual(len(r.data["parc"]["tendance"]), 14)
         self.assertEqual(len(r.data["voyages"]["programme"]), 14)
+
+
+class RapportBilingueTests(TestCase):
+    def test_rapport_en_francais_et_en_anglais(self):
+        from .rapports_email import generer_contenu_rapport
+        from residences.models import Batiment
+        Batiment.objects.create(residence="R1", bloc="A", statut="Occupé")
+        sujet, html = generer_contenu_rapport("Synthèse", "synthese", {"details": True})
+        self.assertIn("FR / EN", sujet)
+        self.assertIn("FRANÇAIS", html); self.assertIn("ENGLISH", html)
+        fr, en = html.split("ENGLISH", 1)
+        self.assertIn("Taux d", fr); self.assertIn("occupation", fr)
+        self.assertIn("Occupancy rate", en)
+        for fr_txt in ("Taux d&#x27;occupation", "Taux d'occupation", "Dépassement SLA", "Dans les 1 prochain", "TABLEAU DE BORD", "aucun superviseur", "pas de période"):
+            self.assertNotIn(fr_txt, en)
+
+    def test_libelles_des_modeles_traduits(self):
+        from maintenance.models import Incident
+        from voyages.models import Voyage
+        from residences.models import Personnel
+        from .traduction_rapport import libelles_manquants
+        labels = [l for _, l in Incident.PRIORITE] + [l for _, l in Incident.CATEGORIE] + [l for _, l in Incident.STATUT] \
+                 + [l for _, l in Voyage.STATUT] + [l for _, l in Personnel.TYPE_CHOICES]
+        self.assertEqual(libelles_manquants(labels), [])

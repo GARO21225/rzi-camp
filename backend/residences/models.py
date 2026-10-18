@@ -697,7 +697,42 @@ class Plainte(models.Model):
     date_qualification = models.DateTimeField(null=True, blank=True)
     date_affectation = models.DateTimeField(null=True, blank=True)
 
+    # SLA : délai de traitement selon la priorité (voir sla_heures) — échéance calculée depuis le dépôt.
+    sla_echeance = models.DateTimeField(null=True, blank=True)
+
     history = HistoricalRecords()
+
+    SLA_DEFAUT_H = {"critique": 4, "haute": 24, "moyenne": 48, "basse": 72}
+    STATUTS_FIN = ("resolue", "confirmee", "cloturee", "rejetee")
+
+    @classmethod
+    def sla_heures(cls):
+        """Délais (heures) par priorité, surchargeables depuis Paramétrage (sla_plainte_<priorité>_h)."""
+        try:
+            from accounts.models import Parametre
+            return {k: Parametre.get_int(f"sla_plainte_{k}_h", v) for k, v in cls.SLA_DEFAUT_H.items()}
+        except Exception:
+            return dict(cls.SLA_DEFAUT_H)
+
+    def recalculer_sla(self):
+        """Échéance = date de dépôt + délai de la priorité (recalculée si la priorité change à la qualification)."""
+        from django.utils import timezone as _tz
+        debut = self.date_creation or _tz.now()
+        self.sla_echeance = debut + _tz.timedelta(hours=self.sla_heures().get(self.priorite, 48))
+
+    @property
+    def sla_depasse(self):
+        """Dépassé si l'échéance est passée avant la résolution (ou maintenant si encore ouverte). Rejetée = hors SLA."""
+        from django.utils import timezone as _tz
+        if not self.sla_echeance or self.statut == "rejetee":
+            return False
+        ref = (self.date_resolution or _tz.now()) if self.statut in self.STATUTS_FIN else _tz.now()
+        return ref > self.sla_echeance
+
+    def save(self, *args, **kwargs):
+        if not self.sla_echeance:
+            self.recalculer_sla()
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["-date_creation"]

@@ -357,18 +357,28 @@ def generer_contenu_rapport(nom, type_rapport="synthese", options=None, largeur=
     else:
         cles = list(SECTIONS) if type_rapport not in SECTIONS else [type_rapport]
     corps = "".join(SECTIONS[c](o, today) for c in cles)
-    sujet = f"📊 {nom} — {today:%d/%m/%Y}"
-    html = f"""
+    sujet = f"📊 {nom} — {today:%d/%m/%Y} (FR / EN)"
+
+    def _bloc(corps_html, langue):
+        pied = "Rapport généré automatiquement — Roxgold SiteLife"
+        return f"""
     <div style="font-family:Arial,sans-serif;max-width:{largeur}px;margin:0 auto">
-      <div style="background:#0F2A5C;color:#fff;padding:20px;border-radius:10px 10px 0 0">
-        <h2 style="margin:0">{_e(nom)}</h2>
+      <div style="background:#0F2A5C;color:#fff;padding:20px;border-radius:10px 10px 0 0;border-bottom:4px solid #C9972B">
+        <div style="font-size:11px;letter-spacing:2px;color:#F0C24A">{langue}</div>
+        <h2 style="margin:4px 0 0">{_e(nom)}</h2>
         <p style="margin:4px 0 0;opacity:.8">Roxgold SiteLife — {today:%d/%m/%Y}</p>
       </div>
       <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;padding:20px">
-        {corps}
-        <p style="color:#94a3b8;font-size:11px;margin-top:24px">Rapport généré automatiquement — Roxgold SiteLife</p>
+        {corps_html}
+        <p style="color:#94a3b8;font-size:11px;margin-top:24px">{pied}</p>
       </div>
     </div>"""
+
+    from .traduction_rapport import en_anglais
+    # Même rapport, deux langues : français d'abord, puis anglais (traduction des libellés ; noms propres inchangés).
+    html = (_bloc(corps, "FRANÇAIS")
+            + "<div style='height:28px'></div>"
+            + _bloc(en_anglais(corps), "ENGLISH").replace("Rapport généré automatiquement", "Report generated automatically"))
     return sujet, html
 
 

@@ -337,6 +337,7 @@ class PlainteSerializer(serializers.ModelSerializer):
     statut_label = serializers.CharField(source="get_statut_display", read_only=True)
     priorite_label = serializers.CharField(source="get_priorite_display", read_only=True)
     incident_lie_statut = serializers.CharField(source="incident_lie.get_statut_display", read_only=True, default=None)
+    sla_depasse = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Plainte
@@ -348,8 +349,8 @@ class PlainteSerializer(serializers.ModelSerializer):
                   "motif_attente","resolu_par","resolu_par_nom","action_resolution","resultat_resolution",
                   "commentaire_resolution","photo_resolution_base64","date_resolution",
                   "date_confirmation","motif_reouverture","motif_rejet","date_cloture",
-                  "date_creation","date_qualification","date_affectation"]
-        read_only_fields = ["occupant","utilisateur","batiment","type_occupant","statut","date_creation"]
+                  "date_creation","date_qualification","date_affectation","sla_echeance","sla_depasse"]
+        read_only_fields = ["occupant","utilisateur","batiment","type_occupant","statut","date_creation","sla_echeance"]
 
     def get_categorie_label(self, obj):
         return (obj.categorie or "").replace("_"," ")
