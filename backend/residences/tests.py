@@ -557,6 +557,14 @@ class InductionDroitsTests(TestCase):
         self.c.force_authenticate(User.objects.get(pk=user.pk))
         return self.c.post("/api/induction-records/brouillon/", {"personnel_id": pid or self.p.id, "kind": kind, "data": data}, format="json")
 
+    def test_intervenants_visibles_par_un_agent_sans_donnees_personnelles(self):
+        Personnel.objects.create(nom="ACCUEIL", prenom="Awa", societe="R", profil="accueil")
+        self.c.force_authenticate(User.objects.get(pk=self.agent.pk))
+        r = self.c.get("/api/induction-records/intervenants/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("ACCUEIL AWA", [n.upper() for n in r.data["accueil"]])
+        self.assertTrue(all(isinstance(n, str) for n in r.data["qhse"] + r.data["medical"]))
+
     def test_brouillon_remonte_au_serveur_sans_valider_l_etape(self):
         from .models import InductionRecord
         self.maj(self.agent, "accueil")

@@ -476,7 +476,7 @@ function InductionPageInner() {
   const [hideNoInduction, setHideNoInduction] = useState(false)
   const [staffMap,      setStaffMap]      = useState({accueil:[],qhse:[],medical:[]})
   // Noms proposés dans les listes « Saisir ou sélectionner » (accueil / QHSE / médical)
-  const nomsStaff = (role) => (staffMap[role]||[]).map(p=>`${p.nom} ${p.prenom||''}${p.numero?` · ${p.numero}`:''}`.replace(/\s+/g,' ').trim())
+  const nomsStaff = (role) => (staffMap[role]||[]).map(p=>typeof p === 'string' ? p : `${p.nom} ${p.prenom||''}${p.numero?` · ${p.numero}`:''}`.replace(/\s+/g,' ').trim())
   const [statutFilter,setStatutFilter] = useState('')
 
   // Detecter le statut en ligne/hors-ligne
@@ -508,6 +508,14 @@ function InductionPageInner() {
   useEffect(() => {
     if (!gestion && !selected && personnel.length === 1) setSelected(personnel[0])
   }, [personnel])
+
+  // Agent (téléphone) : il ne charge que sa propre fiche, les listes d'intervenants viennent d'un endpoint dédié (noms seuls)
+  useEffect(() => {
+    if (gestion) return
+    inductionAPI.intervenants()
+      .then(r => setStaffMap({ accueil: [], qhse: [], medical: [], ...r.data }))
+      .catch(() => {})
+  }, [gestion])
 
   useEffect(() => {
     if (!gestion || personnel.length === 0) return // formateurs : dérivés de la liste déjà chargée

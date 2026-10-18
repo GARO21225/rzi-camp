@@ -3690,6 +3690,26 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         rec.save(update_fields=['statut','motif_refus'])
         return Response(InductionRecordSerializer(rec).data)
 
+    @action(detail=False, methods=['get'])
+    def intervenants(self, request):
+        """Noms proposés dans les listes « Agent d'accueil / QHSE / Médical » de l'induction.
+        Ouvert à tout utilisateur connecté (un agent ne reçoit que sa propre fiche Personnel, sa liste restait donc vide) ;
+        NOMS UNIQUEMENT, aucune autre donnée. Même règle que le frontend : profils attendus, sinon le personnel Roxgold."""
+        from residences.models import Personnel
+        tous = list(Personnel.objects.exclude(nom="").only("nom", "prenom", "profil", "type_personnel").order_by("nom", "prenom"))
+        roxgold = [p for p in tous if (p.type_personnel or "").lower() == "roxgold"]
+        repli = roxgold or tous
+
+        def noms(profils):
+            trouves = [p for p in tous if p.profil in profils] or repli
+            return [f"{p.nom} {p.prenom or ''}".strip() for p in trouves][:200]
+
+        return Response({
+            "accueil": noms(("accueil", "admin", "agent", "securite")),
+            "qhse": noms(("hse", "admin", "technicien", "manager")),
+            "medical": noms(("medical", "admin")),
+        })
+
     @action(detail=False, methods=['post'])
     def brouillon(self, request):
         """Enregistre un BROUILLON (formulaire d'accueil ou fiche médicale) sur le serveur, sans valider
