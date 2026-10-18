@@ -86,3 +86,32 @@ class PorteeIncidentsSqlTests(TestCase):
         self.c.force_authenticate(self.admin)
         self.assertEqual(self.c.get("/api/incidents/liste/").json()["count"], 2)
         self.assertEqual(self.c.get("/api/incidents/stats-sql/").json()["total"], 2)
+
+
+class TechnicienTitulaireTests(TestCase):
+    """Le technicien assigné doit être reconnu par l'écran (clé assigne_a)
+    et pouvoir démarrer puis résoudre l'intervention."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from accounts.models import Profile
+        from .models import Incident
+        self.agent = User.objects.create_user("agent2", password="x")
+        self.tech = User.objects.create_user("tech2", password="x")
+        Profile.objects.update_or_create(user=self.tech, defaults={"role": "technicien"})
+        self.inc = Incident.objects.create(titre="Clim", description="panne", categorie="Climatisation",
+                                           residence="B1", auteur=self.agent, assigne_a=self.tech, statut="assigne")
+        self.c = APIClient(); self.c.force_authenticate(User.objects.get(pk=self.tech.pk))
+
+    def test_liste_et_detail_exposent_assigne_a(self):
+        r = self.c.get("/api/incidents/liste/")
+        ligne = next(i for i in r.data["results"] if i["id"] == self.inc.id)
+        self.assertEqual(ligne["assigne_a"], self.tech.id)
+        self.assertEqual(self.c.get(f"/api/incidents/{self.inc.id}/detail/").data["assigne_a"], self.tech.id)
+
+    def test_technicien_traite_sa_tache(self):
+        self.assertEqual(self.c.post(f"/api/incidents/{self.inc.id}/commencer/", {}, format="json").status_code, 200)
+        self.assertEqual(self.c.post(f"/api/incidents/{self.inc.id}/resoudre/", {"commentaire": "ok"}, format="json").status_code, 200)
+        self.inc.refresh_from_db()
+        self.assertEqual(self.inc.statut, "resolu")

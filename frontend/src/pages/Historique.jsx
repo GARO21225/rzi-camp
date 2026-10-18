@@ -3,6 +3,7 @@ import { occupationHistory, personnel as personnelAPI, batiments, voyages as voy
 import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { documentComplet } from '../utils/impression'
 
 // Un role non-admin qui obtient acces a /historique (via Parametrage ->
 // Roles & Acces) ne voit que l'onglet correspondant a son propre
@@ -98,7 +99,7 @@ export default function Historique() {
     const esc = (v) => (v ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     const w = window.open('', '_blank', 'width=800,height=900')
     if (!w) return
-    w.document.write(`
+    w.document.write(documentComplet(`
       <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
       <title>Rapport intervention — ${esc(inc.titre)}</title>
       <style>
@@ -169,7 +170,7 @@ export default function Historique() {
 
         <div class="footer">Roxgold SiteLife — Roxgold Sango — Imprimé le ${fmt(new Date())}</div>
       </body></html>
-    `)
+    `))
     w.document.close()
     w.onload = () => { w.focus(); w.print() }
   }

@@ -1034,3 +1034,33 @@ class SuppressionPersonnelDesactiveCompteTests(TestCase):
         p.delete()
         u.refresh_from_db()
         self.assertFalse(u.is_active)
+
+
+class RegenererCompteEnvoiTests(TestCase):
+    """Bouton 🔑 de la fiche Personnel : les nouveaux identifiants partent
+    par le canal configuré, comme à la création."""
+
+    def setUp(self):
+        from accounts.models import Parametre
+        Parametre.objects.update_or_create(cle="canal_otp", defaults={"valeur": "sms"})
+        self.admin = _admin()
+        self.p = Personnel.objects.create(nom="KONE", prenom="Awa", societe="ROXGOLD", type_personnel="roxgold",
+                                          telephone="0701020304", numero_whatsapp="0701020304")
+
+    def test_regeneration_envoie_les_identifiants(self):
+        from unittest import mock
+        from rest_framework.test import APIClient
+        c = APIClient(); c.force_authenticate(self.admin)
+        with mock.patch("accounts.sms.envoyer_sms", return_value=(True, "ok")) as envoi:
+            r = c.post(f"/api/personnel/{self.p.id}/regenerer_compte/")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertTrue(r.data["identifiants_envoyes"]["ok"])
+        texte = envoi.call_args[0][1]
+        self.assertIn(r.data["password"], texte)
+        self.assertIn("réinitialisés", texte)
+
+    def test_regeneration_refusee_hors_admin(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        c = APIClient(); c.force_authenticate(User.objects.create_user("lambda", password="x"))
+        self.assertIn(c.post(f"/api/personnel/{self.p.id}/regenerer_compte/").status_code, (403, 404))

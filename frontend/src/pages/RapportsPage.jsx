@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
 import { rapportsPlanifiesAPI, incidents as incAPI } from '../api'
 import { genererRapport } from '../utils/rapportMaintenance'
+import { imprimerHtml, documentComplet } from '../utils/impression'
 import { useStore } from '../store'
 import { toast } from '../toast'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
@@ -487,7 +488,7 @@ function RapportGlobalPdf() {
 
       setProgress('Génération du PDF...')
       const html = buildHTML(data, p)
-      const blob = new Blob([html], {type:'text/html;charset=utf-8'})
+      const blob = new Blob([documentComplet(html)], {type:'text/html;charset=utf-8'})
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href=url; a.target='_blank'; a.rel='noopener'
@@ -688,7 +689,7 @@ function RapportInstantane({ type }) {
         {['boutique', 'synthese'].includes(type) && (
           <label style={{ fontSize: 12.5 }}>Seuil stock <input type="number" min="0" value={opts.seuil_stock} onChange={e => setOpts(o => ({ ...o, seuil_stock: e.target.value }))} style={{ ...champ, width: 64 }} /></label>)}
         <label style={{ fontSize: 12.5, display: 'flex', gap: 5, alignItems: 'center' }}><input type="checkbox" checked={opts.details} onChange={e => setOpts(o => ({ ...o, details: e.target.checked }))} /> Détails</label>
-        <button onClick={() => window.print()} style={{ ...champ, cursor: 'pointer', fontWeight: 700 }}>🖨️ Imprimer</button>
+        <button onClick={() => data && imprimerHtml(data.html, TYPES_INSTANT[type].titre.replace(/^\S+\s/, 'Rapport '))} disabled={!data} style={{ ...champ, cursor: 'pointer', fontWeight: 700 }}>🖨️ Imprimer</button>
         <button onClick={() => setMail(m => !m)} style={{ background: '#0f2a5c', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 12.5 }}>✉️ Envoyer par email</button>
       </div>
       {mail && (
@@ -735,9 +736,7 @@ function RapportMaintenance() {
   const onglet = v => ({ padding: '7px 16px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12.5,
     background: vue === v ? '#0f2a5c' : '#e2e8f0', color: vue === v ? '#fff' : '#334155' })
   const imprimer = () => {
-    const w = window.open('', '_blank')
-    if (!w) return toast.error('Autorisez les fenêtres pour imprimer')
-    w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400)
+    imprimerHtml(html, 'Rapport de maintenance')
   }
 
   return (

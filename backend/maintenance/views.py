@@ -92,6 +92,11 @@ def detail_incident(request, pk):
         for k in ['date_creation', 'date_resolution', 'date_cloture', 'sla_echeance']:
             if inc.get(k) and hasattr(inc[k], 'isoformat'):
                 inc[k] = inc[k].isoformat()
+        # Mêmes clés que le serializer ORM (assigne_a / auteur = id) : l'écran
+        # compare selected.assigne_a à l'utilisateur pour afficher les boutons
+        # du technicien - avec seulement assigne_a_id, ils n'apparaissaient jamais.
+        inc['assigne_a'] = inc['assigne_a_id']
+        inc['auteur'] = inc['auteur_id']
         inc['statut_label'] = inc['statut']
         inc['priorite_label'] = inc['priorite']
         inc['sla_restant_h'] = 0
@@ -204,6 +209,8 @@ def list_incidents(request):
             for k in ['date_creation', 'date_resolution', 'date_cloture', 'sla_echeance']:
                 if d.get(k):
                     d[k] = d[k].isoformat() if hasattr(d[k], 'isoformat') else str(d[k])
+            d['assigne_a']      = d['assigne_a_id']
+            d['auteur']         = d['auteur_id']
             d['commentaires']   = []
             d['statut_label']   = d['statut']
             d['priorite_label'] = d['priorite']
@@ -563,50 +570,35 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def commencer(self, request, pk=None):
         err = self._refuse_si_pas_titulaire(request, pk)
         if err: return err
-        from django.db import connection
-        auteur_id = request.user.id if request.user and request.user.is_authenticated else None
-        commentaire = request.data.get('commentaire', 'Intervention démarrée')
-        try:
-            with connection.cursor() as c:
-                c.execute("UPDATE maintenance_incident SET statut='en_cours', date_debut=NOW() WHERE id=%s", [pk])
-                try:
-                    c.execute('INSERT INTO maintenance_commentaireincident (incident_id,auteur_id,type_comment,contenu,date_creation,photo_base64) VALUES (%s,%s,%s,%s,NOW(),%s)', [pk, auteur_id, 'debut', commentaire, ''])
-                except Exception: pass
-            return Response({'id': pk, 'statut': 'en_cours'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        # ORM .update() (pas de save() ni de signaux, comme l'ancien SQL brut)
+        # au lieu de NOW() : portable et testable.
+        commentaire = request.data.get('commentaire') or 'Intervention démarrée'
+        if not Incident.objects.filter(pk=pk).update(**dict(statut='en_cours', date_debut=timezone.now())):
+            return Response({'error': 'Incident introuvable'}, status=404)
+        CommentaireIncident.objects.create(incident_id=pk, auteur=request.user, type_comment='debut', contenu=commentaire)
+        return Response({'id': pk, 'statut': 'en_cours'})
     @action(detail=True, methods=['post'])
     def resoudre(self, request, pk=None):
         err = self._refuse_si_pas_titulaire(request, pk)
         if err: return err
-        from django.db import connection
-        auteur_id = request.user.id if request.user and request.user.is_authenticated else None
-        commentaire = request.data.get('commentaire', 'Incident résolu')
-        try:
-            with connection.cursor() as c:
-                c.execute("UPDATE maintenance_incident SET statut='resolu', date_resolution=NOW(), commentaire_resolution=%s WHERE id=%s", [commentaire, pk])
-                try:
-                    c.execute('INSERT INTO maintenance_commentaireincident (incident_id,auteur_id,type_comment,contenu,date_creation,photo_base64) VALUES (%s,%s,%s,%s,NOW(),%s)', [pk, auteur_id, 'resolution', commentaire, ''])
-                except Exception: pass
-            return Response({'id': pk, 'statut': 'resolu'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        # ORM .update() (pas de save() ni de signaux, comme l'ancien SQL brut)
+        # au lieu de NOW() : portable et testable.
+        commentaire = request.data.get('commentaire') or 'Incident résolu'
+        if not Incident.objects.filter(pk=pk).update(**dict(statut='resolu', date_resolution=timezone.now(), commentaire_resolution=commentaire)):
+            return Response({'error': 'Incident introuvable'}, status=404)
+        CommentaireIncident.objects.create(incident_id=pk, auteur=request.user, type_comment='resolution', contenu=commentaire)
+        return Response({'id': pk, 'statut': 'resolu'})
     @action(detail=True, methods=['post'])
     def cloturer(self, request, pk=None):
         err = self._refuse_si_pas_titulaire(request, pk)
         if err: return err
-        from django.db import connection
-        auteur_id = request.user.id if request.user and request.user.is_authenticated else None
-        commentaire = request.data.get('commentaire', 'Incident clôturé')
-        try:
-            with connection.cursor() as c:
-                c.execute("UPDATE maintenance_incident SET statut='cloture', date_cloture=NOW(), commentaire_cloture=%s WHERE id=%s", [commentaire, pk])
-                try:
-                    c.execute('INSERT INTO maintenance_commentaireincident (incident_id,auteur_id,type_comment,contenu,date_creation,photo_base64) VALUES (%s,%s,%s,%s,NOW(),%s)', [pk, auteur_id, 'cloture', commentaire, ''])
-                except Exception: pass
-            return Response({'id': pk, 'statut': 'cloture'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        # ORM .update() (pas de save() ni de signaux, comme l'ancien SQL brut)
+        # au lieu de NOW() : portable et testable.
+        commentaire = request.data.get('commentaire') or 'Incident clôturé'
+        if not Incident.objects.filter(pk=pk).update(**dict(statut='cloture', date_cloture=timezone.now(), commentaire_cloture=commentaire)):
+            return Response({'error': 'Incident introuvable'}, status=404)
+        CommentaireIncident.objects.create(incident_id=pk, auteur=request.user, type_comment='cloture', contenu=commentaire)
+        return Response({'id': pk, 'statut': 'cloture'})
     @action(detail=True, methods=['post'])
     def escalader(self, request, pk=None):
         """Escalader la priorité"""

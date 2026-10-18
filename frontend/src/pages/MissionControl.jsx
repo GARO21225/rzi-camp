@@ -24,6 +24,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
 import { useStore } from '../store'
+import { documentComplet } from '../utils/impression'
 
 
 // ── Palette & Config ────────────────────────────────────────────────
@@ -1921,7 +1922,7 @@ export default function MissionControl() {
                 const corps = lignesJour.map((v,i) => `<tr><td>${i+1}</td><td>${v.personnel_nom||''}</td><td>${v.personnel_departement||v.personnel_societe||''}</td>
                   <td class="c v">${v.vehicule_personnel?'':'X'}</td><td class="c r">${v.vehicule_personnel?'X':''}</td><td class="c r">${chambreDe(v)}</td>
                   <td class="c">${dCourte(v.date_depart)}</td><td class="c">${dCourte(fin(v))}</td><td class="c r">${nuits(v)}</td></tr>`).join('')
-                w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${jour}</title><style>
+                w.document.write(documentComplet(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${jour}</title><style>
                   body{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:16px}table{width:100%;border-collapse:collapse}
                   td,th{border:1px solid #999;padding:3px 6px}th{background:#d9d9d9}.c{text-align:center}.v{color:#16a34a;font-weight:700}.r{color:#dc2626;font-weight:700}
                   .tot td{background:#d9d9d9;font-weight:700;text-align:center}h2{color:#c00;font-size:14px;margin:0 0 8px}
@@ -1929,7 +1930,7 @@ export default function MissionControl() {
                   <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
                   <h2>${titreDate.charAt(0).toUpperCase()+titreDate.slice(1)} — ${manifSens==='arrivees'?'Arrivées au camp':'Départs du camp'}</h2>
                   <table><thead><tr><th>N°</th><th>Nom</th><th>Département / Société</th><th>Car</th><th>Véhicule perso</th><th>Chambre</th><th>${manifSens==='arrivees'?'Arrivée':'Départ'}</th><th>${colFin}</th><th>${colNb}</th></tr></thead>
-                  <tbody>${corps}</tbody><tfoot><tr class="tot"><td colspan="3">TOTAL</td><td>${nbCar}</td><td>${nbPerso}</td><td>${lignesJour.length}</td><td colspan="3"></td></tr></tfoot></table></body></html>`)
+                  <tbody>${corps}</tbody><tfoot><tr class="tot"><td colspan="3">TOTAL</td><td>${nbCar}</td><td>${nbPerso}</td><td>${lignesJour.length}</td><td colspan="3"></td></tr></tfoot></table></body></html>`))
                 w.document.close()
               }
               const th = { padding:'7px 8px', fontSize:10.5, fontWeight:800, textTransform:'uppercase', letterSpacing:.4, color:C.muted, textAlign:'left', borderBottom:`2px solid ${C.border}`, whiteSpace:'nowrap' }
@@ -2070,7 +2071,7 @@ export default function MissionControl() {
                       <td>${l.destination||''}</td>
                     </tr>`).join('')
                   const w = window.open('', '_blank')
-                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${manifFiltreConvoi!=='tous'?manifFiltreConvoi:''}</title>
+                  w.document.write(documentComplet(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${manifFiltreConvoi!=='tous'?manifFiltreConvoi:''}</title>
                     <style>
                       body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#111}
                       table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -2111,7 +2112,7 @@ export default function MissionControl() {
                         ${lignesTable}
                       </tbody>
                     </table>
-                  </body></html>`)
+                  </body></html>`))
                   w.document.close()
                 }
 

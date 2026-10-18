@@ -1054,7 +1054,7 @@ export default function Personnel() {
                               if (!await confirmDialog(`Régénérer les identifiants de ${p.nom} ${p.prenom} ? L'ancien mot de passe ne fonctionnera plus.`)) return
                               try {
                                 const r = await personnelAPI.regenererCompte(p.id)
-                                setCredentialsModal({ nom: p.nom, prenom: p.prenom, login: r.data.login, password: r.data.password })
+                                setCredentialsModal({ nom: p.nom, prenom: p.prenom, login: r.data.login, password: r.data.password, envois: r.data.identifiants_envoyes })
                               } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
                             }}
                             style={{background:'var(--rzc-bright-gold-l)',color:'var(--rzc-bright-gold)',border:'1px solid rgba(245,197,66,.3)',

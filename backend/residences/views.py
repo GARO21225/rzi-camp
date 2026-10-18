@@ -362,11 +362,16 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def regenerer_compte(self, request, pk=None):
-        if not request.user.is_staff:
+        user = request.user
+        if not (user.is_staff or user.is_superuser or (hasattr(user, 'profile') and user.profile.role == 'admin')):
             return Response({"error":"Admin uniquement"}, status=403)
         p = self.get_object()
         username, password = p.creer_utilisateur()
-        return Response({"login":username,"password":password})
+        # Comme à la création : les nouveaux identifiants partent aussi par
+        # le canal configuré (SMS/WhatsApp/email), en plus de l'affichage.
+        from accounts.notifications import envoyer_identifiants
+        envoi = envoyer_identifiants(p, username, password, regeneration=True)
+        return Response({"login":username,"password":password,"identifiants_envoyes":envoi})
 
     @action(detail=True, methods=["patch"])
     def assigner_role(self, request, pk=None):

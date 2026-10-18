@@ -14,10 +14,10 @@ inoperant) au lieu du systeme email deja en place pour l'OTP
 (accounts/email.py, fournisseur Resend).
 """
 from .models import Parametre
-from .messages_bienvenue import message_bienvenue_identifiants
+from .messages_bienvenue import message_bienvenue_identifiants, message_nouveaux_identifiants
 
 
-def envoyer_identifiants(personnel, username, password):
+def envoyer_identifiants(personnel, username, password, regeneration=False):
     """
     Renvoie {"canal": "sms"|"whatsapp"|"email", "ok": bool, "info": str,
     "mode_test": bool}.
@@ -37,7 +37,12 @@ def envoyer_identifiants(personnel, username, password):
     """
     nom_app = Parametre.get('nom_application', 'Roxgold SiteLife')
     canal = Parametre.get('canal_otp', 'sms')
-    texte, corps_html = message_bienvenue_identifiants(nom_app, personnel.prenom, username, password)
+    if regeneration:
+        texte, corps_html = message_nouveaux_identifiants(nom_app, personnel.prenom, username, password)
+        sujet = f"🔑 Vos nouveaux identifiants {nom_app}"
+    else:
+        texte, corps_html = message_bienvenue_identifiants(nom_app, personnel.prenom, username, password)
+        sujet = f"🔑 Bienvenue — vos identifiants {nom_app}"
 
     try:
         if canal == 'email':
@@ -45,7 +50,7 @@ def envoyer_identifiants(personnel, username, password):
                 return {"canal": "email", "ok": False, "info": "Aucune adresse email associée à ce compte.", "mode_test": False}
             from .email import envoyer_email
             ok, info = envoyer_email(
-                personnel.email, sujet=f"🔑 Bienvenue — vos identifiants {nom_app}",
+                personnel.email, sujet=sujet,
                 corps_html=corps_html, corps_texte=texte, type_message="identifiants",
             )
             return {"canal": "email", "ok": ok, "info": info, "mode_test": info == "mode_test"}
