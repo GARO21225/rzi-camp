@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { iconeEtLibelle } from '../constants/roleNav'
 import Icon, { iconeRoute } from './Icon'
+import ChoixLangue from './ChoixLangue'
 
 // En-tête et tiroir de navigation propres au TÉLÉPHONE (direction « Filon
 // d'or », même langage visuel que l'Accueil résident). La version
@@ -172,6 +173,7 @@ export function MobileDrawer({ open, onClose, user, roleLabel, nav, onLogout, on
               <div className="md-nom">{nomAffiche(user)}</div>
               <div className="md-role">{roleLabel}</div>
             </div>
+            <span onPointerDown={e => e.stopPropagation()}><ChoixLangue sombre /></span>
             <button type="button" onClick={onClose} onPointerDown={e => e.stopPropagation()} aria-label="Fermer" className="mh-bouton" style={{ borderRadius: '50%' }}>
               <Icon name="close" size={17} />
             </button>

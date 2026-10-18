@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { auth } from '../api'
 import { useAppName } from '../hooks/useAppName'
+import ChoixLangue from '../components/ChoixLangue'
 
 function ForgotModal({ onClose }) {
   const [step, setStep] = useState('request')
@@ -226,6 +227,7 @@ export default function Login() {
         overflowY:'auto',
       }}>
         <div style={{ width:'100%', maxWidth:400 }}>
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:18 }}><ChoixLangue sombre /></div>
           <div style={{ marginBottom:32, textAlign:'center' }}>
             <div style={{ fontSize:22, fontWeight:800, color:'var(--rzc-white)', marginBottom:6 }}>
               Connexion

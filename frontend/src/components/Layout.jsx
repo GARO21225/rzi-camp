@@ -12,6 +12,7 @@ import ConfirmDialogContainer from './ConfirmDialogContainer'
 import { toast } from '../toast'
 import { MobileHeader, MobileDrawer } from './MobileChrome'
 import { prechargerPages } from '../prechargement'
+import ChoixLangue from './ChoixLangue'
 import { demarrerPulse, arreterPulse, sonNotifActif, activerSonNotif } from '../utils/pulse'
 import { rolesAPI, batiments, suiviConvois, itinerairesModeles, inductionCamp } from '../api'
 
@@ -572,6 +573,7 @@ export default function Layout() {
           </div>
         )}
 
+          {!isMobile && <ChoixLangue sombre />}
           <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button onClick={() => setNotifOpen(o => !o)}
             style={{ background: notifOpen ? 'rgba(255,255,255,.15)' : 'transparent', border: 'none', color: notifOpen ? '#fff' : '#CBD5E1', width: 36, height: 36, borderRadius: 6, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 150ms' }}

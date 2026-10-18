@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { password as pwdAPI, personnel as personnelAPI } from '../api'
+import ChoixLangue from '../components/ChoixLangue'
 
 // ─── Config rôles ────────────────────────────────────────────────
 const ROLES = {
@@ -164,6 +165,10 @@ export default function MonCompte() {
         <div style={{ background:'var(--rzc-white)', border:'1px solid #e2e8f0', borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(30,58,138,.07)' }}>
           <div style={{ padding:'14px 20px', borderBottom:'1px solid #f1f5f9', background:'var(--rzc-charcoal)' }}>
             <h3 style={{ fontWeight:700, fontSize:15, color:'var(--rzc-navy)', margin:0 }}>Informations du compte</h3>
+          </div>
+          <div style={{ padding:'14px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <span style={{ fontSize:13, fontWeight:600, color:'#334155' }}>🌐 Langue de l'application</span>
+            <ChoixLangue />
           </div>
           <div style={{ padding:20, display:'flex', flexDirection:'column', gap:10 }}>
             {[
