@@ -131,7 +131,7 @@ export default function InductionCamp() {
           fetch(`${BASE}/api/induction-config/actuelle/`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
           fetch(`${BASE}/api/induction-infras/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
           fetch(`${BASE}/api/induction-regles/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
-          fetch(`${BASE}/api/induction-quiz/?actives_only=1`, { headers: { Authorization: `Bearer ${tok()}` } }).then(r => r.json()),
+          Promise.resolve(null),   // le quiz est tiré à part (chargerSerie) : une nouvelle série à chaque tentative
         ])
         if (rC.status === 'fulfilled' && rC.value?.nom) setCAMP(rC.value)
         if (rI.status === 'fulfilled') {
@@ -142,13 +142,10 @@ export default function InductionCamp() {
           const list = rR.value.results || rR.value || []
           if (list.length) setREGLES(list)
         }
-        if (rQ.status === 'fulfilled') {
-          const list = rQ.value.results || rQ.value || []
-          if (list.length) setQUIZ(list.map(q => ({ q: q.question, opts: q.options, id: q.id, explication: q.explication })))
-        }
       } catch (e) { /* fallback déjà en place, pas d'écran blanc */ }
     }
     loadContenu()
+    chargerSerie()
   }, [])
 
   // Vérifier si induction déjà validée
@@ -245,31 +242,38 @@ export default function InductionCamp() {
     setRegleSel(id === regleSel ? null : id)
   }
 
+  // Tire une NOUVELLE série de questions (au hasard, propositions mélangées) et remet les réponses à zéro
+  const chargerSerie = async () => {
+    try {
+      const r = await fetch(`${BASE}/api/induction-quiz/tirage/`, { headers: { Authorization: `Bearer ${tok()}` } })
+      const d = await r.json()
+      if (Array.isArray(d.questions) && d.questions.length) {
+        setQUIZ(d.questions.map(q => ({ q: q.question, opts: q.options, id: q.id })))
+        setQuizRep({}); setQuizErr(false); setQuizResult(null); setQuizScore(0)
+      }
+    } catch (e) { toast.error('Impossible de charger les questions — vérifiez le réseau.') }
+  }
+
   // Valider quiz
   const validerQuiz = async () => {
-    // Vérification côté serveur — la bonne réponse n'est jamais transmise
-    // au navigateur avant validation (voir InductionQuizQuestionViewSet.verifier).
+    // Vérification côté serveur : on envoie le TEXTE choisi, le serveur ne renvoie ni bonne réponse ni explication.
+    if (QUIZ.some((q, i) => quizRep[i] === undefined)) { toast.error('Répondez à toutes les questions.'); return }
     try {
       const reponses = {}
-      QUIZ.forEach((q, i) => { if (q.id) reponses[q.id] = quizRep[i] })
+      QUIZ.forEach((q, i) => { reponses[q.id] = q.opts[quizRep[i]] })
       const r = await fetch(`${BASE}/api/induction-quiz/verifier/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
         body: JSON.stringify({ reponses })
       })
       const data = await r.json()
+      if (!r.ok) { toast.error(data.error || 'Vérification impossible'); return }
       setQuizResult(data)
       setQuizScore(data.correctes ?? 0)
       if (data.score === 100) { setQuizOk(true); setQuizErr(false) }
       else { setQuizErr(true) }
     } catch (e) {
-      // Fallback local si l'API est inaccessible (réseau terrain faible) —
-      // moins sûr mais évite de bloquer le parcours d'induction.
-      let score = 0
-      QUIZ.forEach((q, i) => { if (quizRep[i] === q.rep) score++ })
-      setQuizScore(score)
-      if (score === QUIZ.length) { setQuizOk(true); setQuizErr(false) }
-      else { setQuizErr(true) }
+      toast.error('Réseau indisponible — le quiz ne peut pas être vérifié, réessayez.')
     }
   }
 
@@ -908,8 +912,9 @@ export default function InductionCamp() {
                 <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:20}}>
                   {QUIZ.map((q,qi)=>{
                     const rep = quizRep[qi]
-                    const correct = quizErr && rep!==undefined && rep===q.rep
-                    const wrong   = quizErr && rep!==undefined && rep!==q.rep
+                    const detailQ = quizResult?.detail?.find(d => d.id === q.id)
+                    const correct = quizErr && detailQ?.correct === true
+                    const wrong   = quizErr && detailQ?.correct === false
                     return (
                       <div key={qi} style={{
                         background: wrong?'rgba(239,68,68,.08)':correct?'rgba(16,185,129,.08)':'rgba(255,255,255,.05)',
@@ -925,11 +930,9 @@ export default function InductionCamp() {
                         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:6}}>
                           {q.opts.map((opt,oi)=>{
                             const chosen = rep===oi
-                            // bonne_reponse vient du résultat serveur (quizResult), jamais affiché avant validation
-                            const detailQ = quizResult?.detail?.find(d => d.id === q.id)
-                            const bonneReponseIdx = detailQ?.bonne_reponse ?? q.rep
-                            const isRight = quizErr && oi===bonneReponseIdx
-                            const isWrong = quizErr && chosen && oi!==bonneReponseIdx
+                            // La bonne réponse n'est JAMAIS révélée : seule la mauvaise réponse choisie est marquée
+                            const isRight = false
+                            const isWrong = quizErr && chosen && wrong
                             return (
                               <label key={oi} className="ic-quiz-opt"
                                 style={{
@@ -950,13 +953,6 @@ export default function InductionCamp() {
                             )
                           })}
                         </div>
-                        {quizErr && wrong && (
-                          <div style={{marginTop:10,padding:'8px 12px',
-                            background:'rgba(212,160,23,.1)',borderRadius:8,
-                            fontSize:12,color:'#ffd97a'}}>
-                            💡 {q.explication}
-                          </div>
-                        )}
                       </div>
                     )
                   })}
@@ -966,7 +962,7 @@ export default function InductionCamp() {
                   <div style={{background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.3)',
                     borderRadius:12,padding:'12px 16px',marginBottom:12,textAlign:'center'}}>
                     <div style={{fontSize:13,color:'#fca5a5',fontWeight:600}}>
-                      {quizScore}/{QUIZ.length} correctes — Corrigez les réponses en rouge
+                      {quizScore}/{QUIZ.length} correctes — les erreurs sont en rouge. Une nouvelle série de questions vous attend : relisez les règles et réessayez.
                     </div>
                   </div>
                 )}
@@ -974,13 +970,13 @@ export default function InductionCamp() {
                 <div style={{display:'flex',gap:8}}>
                   <button className="ic-btn ic-btn-ghost"
                     style={{flex:'none',padding:'12px 20px',fontSize:13}}
-                    onClick={()=>{setEtape(2);setQuizRep({});setQuizErr(false)}}>
+                    onClick={()=>{setEtape(2);if(quizErr) chargerSerie(); else setQuizRep({})}}>
                     ← Revoir les règles
                   </button>
                   <button className="ic-btn ic-btn-primary"
                     style={{flex:1,padding:'12px',fontSize:14,borderRadius:12}}
-                    onClick={validerQuiz}>
-                    {quizErr ? '🔄 Réessayer' : '✓ Valider le quiz'}
+                    onClick={quizErr ? chargerSerie : validerQuiz}>
+                    {quizErr ? '🔄 Réessayer avec de nouvelles questions' : '✓ Valider le quiz'}
                   </button>
                 </div>
               </>

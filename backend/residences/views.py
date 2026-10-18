@@ -4136,23 +4136,49 @@ class InductionQuizQuestionViewSet(InductionAdminWriteMixin, viewsets.ModelViewS
             qs = qs.filter(actif=True)
         return qs.order_by("ordre", "id")
 
+    NB_QUESTIONS_QUIZ = 10
+
+    @action(detail=False, methods=["get"])
+    def tirage(self, request):
+        """Série de questions pour UNE tentative : NB_QUESTIONS_QUIZ questions actives tirées au hasard,
+        propositions mélangées, jamais la bonne réponse. Chaque nouvelle tentative = nouveau tirage."""
+        import random
+        actives = list(InductionQuizQuestion.objects.filter(actif=True))
+        random.shuffle(actives)
+        serie = []
+        for q in actives[:self.NB_QUESTIONS_QUIZ]:
+            opts = [str(o) for o in (q.options or [])]
+            random.shuffle(opts)
+            serie.append({"id": q.id, "question": q.question, "options": opts})
+        return Response({"questions": serie, "total": len(serie), "pool": len(actives)})
+
     @action(detail=False, methods=["post"])
     def verifier(self, request):
-        """Vérifie les réponses soumises sans jamais exposer les bonnes réponses
-        d'avance. Payload attendu: {"reponses": {"<question_id>": <index_choisi>, ...}}"""
+        """Vérifie une série sans JAMAIS renvoyer les bonnes réponses ni les explications (sinon, à la tentative
+        suivante, on pourrait les recopier). Corps : {"reponses": {"<id question>": "<texte de la proposition choisie>"}}
+        (un index est aussi accepté). Toute la série attendue doit être soumise."""
         reponses = request.data.get("reponses", {})
-        questions = InductionQuizQuestion.objects.filter(actif=True)
-        total = questions.count()
-        correctes = 0
-        detail = []
-        for q in questions:
-            choisi = reponses.get(str(q.id))
-            ok = choisi is not None and int(choisi) == q.bonne_reponse
-            if ok: correctes += 1
-            detail.append({
-                "id": q.id, "correct": ok,
-                "bonne_reponse": q.bonne_reponse, "explication": q.explication,
-            })
+        if not isinstance(reponses, dict):
+            return Response({"error": "reponses invalides"}, status=400)
+        attendu = min(self.NB_QUESTIONS_QUIZ, InductionQuizQuestion.objects.filter(actif=True).count())
+        if len(reponses) < attendu:
+            return Response({"error": f"Répondez aux {attendu} questions."}, status=400)
+        questions = {str(q.id): q for q in InductionQuizQuestion.objects.filter(actif=True, id__in=[k for k in reponses if str(k).isdigit()])}
+        correctes, detail = 0, []
+        for qid, choisi in reponses.items():
+            q = questions.get(str(qid))
+            if not q:
+                continue
+            opts = [str(o) for o in (q.options or [])]
+            bonne = opts[q.bonne_reponse] if 0 <= q.bonne_reponse < len(opts) else None
+            try:
+                texte = opts[int(choisi)] if isinstance(choisi, int) or str(choisi).isdigit() and str(choisi) not in opts else str(choisi)
+            except (IndexError, ValueError):
+                texte = str(choisi)
+            ok = bonne is not None and texte == bonne
+            correctes += 1 if ok else 0
+            detail.append({"id": q.id, "correct": ok})
+        total = len(detail)
         score = round(correctes / total * 100) if total else 0
         return Response({"score": score, "correctes": correctes, "total": total, "detail": detail})
 

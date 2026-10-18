@@ -578,6 +578,39 @@ class InductionDroitsTests(TestCase):
         self.assertEqual(self.brouillon(self.med, "medical", {"tension": "12"}, pid=autre.id).status_code, 200)
 
 
+class InductionQuizTirageTests(TestCase):
+    """Quiz de l'Induction Camp : tirage aléatoire, propositions mélangées, aucune fuite des bonnes réponses."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from .models import InductionQuizQuestion
+        InductionQuizQuestion.objects.all().delete()
+        for i in range(15):
+            InductionQuizQuestion.objects.create(question=f"Q{i}", options=["A", "B", "C", "D"], bonne_reponse=2, explication="secret")
+        self.u = User.objects.create_user("quiz", password="x")
+        self.c = APIClient(); self.c.force_authenticate(self.u)
+
+    def test_tirage_dix_questions_sans_bonne_reponse(self):
+        r = self.c.get("/api/induction-quiz/tirage/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data["questions"]), 10)
+        self.assertEqual(r.data["pool"], 15)
+        self.assertNotIn("bonne_reponse", str(r.data)); self.assertNotIn("secret", str(r.data))
+        series = {tuple(q["id"] for q in self.c.get("/api/induction-quiz/tirage/").data["questions"]) for _ in range(6)}
+        self.assertGreater(len(series), 1)   # les tirages diffèrent
+
+    def test_verifier_ne_divulgue_rien_et_exige_toute_la_serie(self):
+        qs = self.c.get("/api/induction-quiz/tirage/").data["questions"]
+        ok = self.c.post("/api/induction-quiz/verifier/", {"reponses": {str(q["id"]): "C" for q in qs}}, format="json")
+        self.assertEqual(ok.data["score"], 100)
+        faux = self.c.post("/api/induction-quiz/verifier/", {"reponses": {str(q["id"]): "A" for q in qs}}, format="json")
+        self.assertEqual(faux.data["correctes"], 0)
+        self.assertNotIn("bonne_reponse", str(faux.data)); self.assertNotIn("secret", str(faux.data))
+        # tricher en ne soumettant qu'une seule bonne réponse
+        triche = self.c.post("/api/induction-quiz/verifier/", {"reponses": {str(qs[0]["id"]): "C"}}, format="json")
+        self.assertEqual(triche.status_code, 400)
+
+
 class ChambresAdminTests(TestCase):
     """Historique, KML, étages, actions en masse (admin)."""
 

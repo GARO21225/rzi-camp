@@ -106,6 +106,75 @@ QUIZ = [
      "Le linge taché de sang ou de selles est pré-nettoyé par le résident."),
 ]
 
+# Questions supplémentaires (toutes tirées du contenu ci-dessus) : à chaque tentative, le quiz tire au hasard
+# NB_QUESTIONS_QUIZ questions dans l'ensemble des questions actives, avec les réponses mélangées.
+QUIZ_COMPLEMENT = [
+    ("Quelles sont les heures du petit-déjeuner ?", ["5h00 – 7h00", "6h00 – 9h00", "4h00 – 6h00", "7h00 – 10h00"], 0,
+     "Petit-déjeuner : 5h00 – 7h00 (le dimanche jusqu'à 8h00)."),
+    ("Jusqu'à quelle heure sert-on le petit-déjeuner le dimanche ?", ["7h00", "8h00", "9h00", "10h00"], 1,
+     "Le dimanche, le petit-déjeuner est servi jusqu'à 8h00."),
+    ("Quelles sont les heures du déjeuner ?", ["11h45 – 13h00", "12h00 – 14h00", "11h00 – 12h00", "13h00 – 15h00"], 0,
+     "Déjeuner : 11h45 – 13h00."),
+    ("Quelles sont les heures du dîner ?", ["19h00 – 21h00", "18h00 – 20h00", "17h00 – 19h00", "20h00 – 22h00"], 1,
+     "Dîner : 18h00 – 20h00."),
+    ("Vous suivez un régime alimentaire particulier. Qui informer ?", ["Le serveur à chaque repas", "L'administration du camp", "Personne", "Le barman"], 1,
+     "Régime alimentaire particulier : informez l'administration du camp."),
+    ("À qui adresser une réclamation sur la qualité des repas ?", ["Au barman", "À la sécurité", "À l'administration du camp", "Au médecin"], 2,
+     "Les réclamations sur la qualité des repas vont à l'administration du camp."),
+    ("Peut-on sortir du restaurant avec un repas chaud ou des couverts ?", ["Oui, toujours", "Non, pas sans autorisation", "Oui, après 20h00", "Oui, le dimanche"], 1,
+     "Repas chauds et couverts ne sortent pas sans autorisation."),
+    ("Quelles sont les heures d'ouverture du bar du lundi au samedi ?", ["17h00 – 21h00", "12h00 – 22h00", "18h00 – 23h00", "16h00 – 20h00"], 0,
+     "Lundi au samedi : 17h00 – 21h00."),
+    ("Quelles sont les heures d'ouverture du bar le dimanche ?", ["17h00 – 21h00", "12h00 – 22h00", "10h00 – 18h00", "Fermé"], 1,
+     "Dimanche : 12h00 – 22h00."),
+    ("Le bar accorde-t-il du crédit ?", ["Oui, jusqu'à la fin du mois", "Oui, aux habitués", "Non, aucun crédit n'est accordé", "Oui, le dimanche"], 2,
+     "Aucun crédit n'est accordé au bar."),
+    ("Que valent les carnets de tickets vendus au bar ?", ["1 000 F CFA", "5 000 F CFA", "10 000 F CFA", "50 000 F CFA"], 2,
+     "Les tickets sont vendus en carnet de 10 000 F CFA (un ticket = 500 F CFA)."),
+    ("Qu'est-ce qui est interdit au bar ?", ["Commander une boisson", "Passer derrière le comptoir", "S'asseoir", "Payer en tickets"], 1,
+     "Il est interdit de passer derrière le comptoir, de se battre, de jouer dangereusement ou de mal utiliser le matériel (ex. le billard)."),
+    ("Que fait-on de son linge sale ?", ["On le lave dans la chambre", "On le met dans le sac à linge marqué du numéro de chambre", "On le jette", "On le dépose au restaurant"], 1,
+     "Un sac à linge marqué du numéro de chambre est fourni : mettez-y le linge sale."),
+    ("Où accroche-t-on le sac à linge sale ?", ["À la fenêtre", "À la porte de la chambre", "Au restaurant", "À la réception du camp"], 1,
+     "Le sac à linge se met à la porte de la chambre."),
+    ("Quand le linge est-il rendu ?", ["Le jour même", "Sous 3 jours", "En fin de rotation", "Le lundi suivant"], 0,
+     "Retour du linge le jour même."),
+    ("L'assistance médicale sur site est disponible…", ["De 8h à 17h", "24h/24 et 7j/7", "Uniquement la nuit", "Du lundi au vendredi"], 1,
+     "Une assistance médicale est disponible sur site 24h/24 et 7j/7."),
+    ("Que devez-vous signaler au médecin ?", ["Votre salaire", "Vos antécédents (diabète, épilepsie, hypertension…)", "Vos horaires de repas", "Le numéro de votre chambre uniquement"], 1,
+     "Signalez au médecin vos antécédents (diabète, épilepsie, hypertension…)."),
+    ("Un reptile est dans votre chambre la nuit. Que faites-vous ?", ["Vous attendez le matin", "Vous appelez les numéros d'urgence", "Vous le chassez seul", "Vous prévenez un voisin"], 1,
+     "Urgence : appelez les numéros d'urgence."),
+    ("Au téléphone en cas d'urgence, que faut-il faire ?", ["Raccrocher dès que possible", "Parler clairement, donner son nom et sa position, décrire le danger", "Envoyer un SMS", "Rappeler plus tard"], 1,
+     "Parlez clairement, donnez votre nom et votre position, décrivez le danger."),
+    ("Le harcèlement ou l'intimidation sont…", ["Tolérés entre collègues", "Tolérés en dehors des heures de travail", "Tolérés en aucune circonstance", "Tolérés au bar"], 2,
+     "Le harcèlement ou l'intimidation ne seront tolérés en aucune circonstance."),
+    ("Que risque-t-on en cas de jeux d'argent, de bagarre ou de délit ?", ["Rien", "Un rapport et une possible expulsion du camp", "Une simple remarque orale", "Une amende au bar"], 1,
+     "Ces faits font l'objet d'un rapport et peuvent entraîner l'expulsion du camp."),
+    ("Quelles sont les heures calmes de jour ?", ["9h00 – 16h00", "12h00 – 14h00", "6h00 – 9h00", "16h00 – 21h00"], 0,
+     "Heures calmes : jour 9h00 – 16h00, nuit 21h00 – 6h00."),
+    ("Les chambres sont-elles insonorisées ?", ["Oui, totalement", "Non : soyez courtois envers vos voisins", "Seulement les étages", "Oui, la nuit"], 1,
+     "Les chambres ne sont pas insonorisées : soyez courtois envers vos voisins."),
+    ("Quelle tenue est exigée dans les espaces communs ?", ["Une tenue appropriée", "Aucune règle", "La tenue de travail uniquement", "Un uniforme du camp"], 0,
+     "Une tenue appropriée est obligatoire dans tous les espaces communs."),
+    ("Peut-on amener un animal de compagnie au camp ?", ["Oui, s'il est petit", "Oui, avec autorisation", "Non, les animaux ne sont pas admis", "Oui, pour les longues rotations"], 2,
+     "Les animaux de compagnie ne sont pas admis au camp."),
+    ("Les règles HSE de la mine s'appliquent-elles au camp ?", ["Non, seulement sur le site minier", "Oui, le camp est dans le périmètre de la mine", "Seulement la nuit", "Seulement pour les visiteurs"], 1,
+     "Le camp est dans le périmètre de la mine : les règles HSE s'y appliquent aussi."),
+    ("La salle de sport est…", ["Un espace non-fumeur", "Une zone fumeurs", "Réservée aux cadres", "Fermée le dimanche"], 0,
+     "La salle de sport est un espace non-fumeur."),
+    ("Qui quitte le camp à la fin de sa période de travail ?", ["Les résidents, sauf autorisation de l'administration", "Personne", "Seulement les visiteurs", "Seulement les sous-traitants"], 0,
+     "Les résidents quittent le camp à la fin de leur période de travail, sauf autorisation de l'administration."),
+    ("Que peut contrôler la sécurité au départ ?", ["Les bagages", "Les téléphones", "Les chaussures", "Rien"], 0,
+     "La sécurité peut contrôler les bagages au départ."),
+    ("Qui est le Coordinateur du camp ?", ["Moulaye TAMBOURA", "Ahmed TRAORE", "Olivier BAHI", "Dylan DABIRE"], 0,
+     "Moulaye TAMBOURA est le Coordinateur du camp."),
+    ("Qui est le Responsable maintenance du camp ?", ["Moulaye TAMBOURA", "Ahmed TRAORE", "Olivier BAHI", "Dylan DABIRE"], 3,
+     "Dylan DABIRE est le Responsable maintenance du camp."),
+]
+
+QUIZ_TOUT = QUIZ + QUIZ_COMPLEMENT
+
 
 def charger(apps=None):
     """Désactive le contenu existant et charge le contenu Roxgold. Idempotent :
@@ -130,6 +199,6 @@ def charger(apps=None):
     for ordre, (titre, emoji, niveau, texte) in enumerate(REGLES, 1):
         Regle.objects.update_or_create(titre=titre, defaults=dict(emoji=emoji, niveau=niveau, texte=texte, ordre=ordre, actif=True))
     Quiz.objects.update(actif=False)
-    for ordre, (question, options, bonne, explication) in enumerate(QUIZ, 1):
+    for ordre, (question, options, bonne, explication) in enumerate(QUIZ_TOUT, 1):
         Quiz.objects.update_or_create(question=question, defaults=dict(options=options, bonne_reponse=bonne,
                                                                        explication=explication, ordre=ordre, actif=True))
