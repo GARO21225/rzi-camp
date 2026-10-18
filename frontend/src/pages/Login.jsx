@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useId } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { auth } from '../api'
@@ -63,6 +63,61 @@ function ForgotModal({ onClose }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Fond « filon d'or » : courbes de niveau tracées une à une + deux halos qui dérivent. */
+function LoginFond() {
+  const gid = 'lgFilon' + useId().replace(/:/g, '')   // id unique : la copie cachée (display:none) casserait sinon la référence du dégradé
+  return (
+    <div aria-hidden="true" style={{ position:'absolute', inset:0, overflow:'hidden', pointerEvents:'none' }}>
+      <span className="lg-orbe lg-orbe-a"/>
+      <span className="lg-orbe lg-orbe-b"/>
+      <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" className="lg-derive"
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:.5 }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#f0a500" stopOpacity=".05"/>
+            <stop offset=".55" stopColor="#f0a500" stopOpacity=".55"/>
+            <stop offset="1" stopColor="#f0a500" stopOpacity=".08"/>
+          </linearGradient>
+        </defs>
+        {Array.from({ length: 9 }, (_, i) => (
+          <path key={i} pathLength="1" className="lg-trace" style={{ '--i': i }} fill="none" stroke={`url(#${gid})`} strokeWidth={i === 4 ? 1.6 : .8}
+            d={`M -40 ${40 + i * 26} C 60 ${10 + i * 24}, 140 ${90 + i * 22}, 230 ${50 + i * 25} S 380 ${20 + i * 27}, 460 ${70 + i * 23}`}/>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+/** Logo dans sa carte : anneaux dorés qui pulsent, légère flottaison. */
+function LogoAnime({ taille }) {
+  return (
+    <div className="lg-logo-wrap" style={{ position:'relative', width:taille, height:taille, margin:'0 auto' }}>
+      <span className="lg-anneau"/><span className="lg-anneau" style={{ animationDelay:'1.2s' }}/>
+      <div className="lg-logo" style={{ position:'relative', width:'100%', height:'100%', borderRadius:Math.round(taille*.2),
+        background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', padding:8, boxSizing:'border-box',
+        boxShadow:'0 16px 48px rgba(240,165,0,.45)', border:'3px solid #f0a500' }}>
+        <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{ width:'100%', height:'100%', objectFit:'contain' }}/>
+      </div>
+    </div>
+  )
+}
+
+/** Texte révélé lettre par lettre (par mots, pour que les retours à la ligne restent naturels). */
+function Lettres({ texte, debut = 0 }) {
+  let n = 0
+  return (
+    <>
+      {String(texte).split(' ').map((mot, w, tous) => (
+        <React.Fragment key={w}>
+          <span className="lg-mot">
+            {Array.from(mot).map((c, k) => <span key={k} className="lg-lettre" style={{ '--i': debut + n++ }}>{c}</span>)}
+          </span>{w < tous.length - 1 ? ' ' : ''}
+        </React.Fragment>
+      ))}
+    </>
   )
 }
 
@@ -138,7 +193,7 @@ export default function Login() {
 
   return (
     <div style={{
-      minHeight:'100dvh', display:'flex', alignItems:'stretch',
+      minHeight:'100dvh', display:'flex', alignItems:'stretch', position:'relative', overflow:'hidden',
       background:'#050f23',
       fontFamily:'"DM Sans", "Inter", system-ui, sans-serif',
     }}>
@@ -148,34 +203,70 @@ export default function Login() {
           .login-brand { display: none !important; }
           .login-form-panel {
             flex: 1 !important;
-            padding: 90px 20px 24px !important;
+            padding: 28px 20px 24px !important;
             justify-content: flex-start !important;
+            background: transparent !important;
+            position: relative; z-index: 1;
           }
-          .login-mobile-header {
-            display: flex !important;
-          }
+          .login-mobile-hero { display: block !important; }
+          .lg-fond-mobile { display: block !important; }
         }
         @media (min-width:769px) {
-          .login-mobile-header { display: none !important; }
+          .login-mobile-hero { display: none !important; }
         }
+        .lg-fond-mobile { display: none; }
+        .lg-orbe { position: absolute; border-radius: 50%; filter: blur(8px); }
+        .lg-orbe-a { width: 320px; height: 320px; right: -110px; top: -110px;
+          background: radial-gradient(circle, rgba(240,165,0,.28), transparent 70%); animation: lgDerive1 14s ease-in-out infinite alternate; }
+        .lg-orbe-b { width: 280px; height: 280px; left: -100px; bottom: -90px;
+          background: radial-gradient(circle, rgba(37,99,235,.28), transparent 70%); animation: lgDerive2 17s ease-in-out infinite alternate; }
+        @keyframes lgDerive1 { to { transform: translate(-36px, 46px) scale(1.12) } }
+        @keyframes lgDerive2 { to { transform: translate(40px, -36px) scale(1.1) } }
+        @keyframes lgTrace { to { stroke-dashoffset: 0 } }
+        .lg-trace { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lgTrace 1.6s cubic-bezier(.23, 1, .32, 1) calc(var(--i) * 90ms) forwards; }
+        @keyframes lgDeriveSvg { from { transform: translateX(0) scale(1.04) } to { transform: translateX(-16px) scale(1.04) } }
+        .lg-derive { animation: lgDeriveSvg 22s ease-in-out infinite alternate; }
+        /* Logo : entrée, flottaison, anneaux */
+        @keyframes lgLogoIn { from { opacity: 0; transform: scale(.82) translateY(10px) } to { opacity: 1; transform: none } }
+        @keyframes lgFlotte { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+        .lg-logo-wrap { animation: lgFlotte 5.5s ease-in-out 1s infinite; }
+        .lg-logo { animation: lgLogoIn .7s cubic-bezier(.23, 1, .32, 1) both; }
+        @keyframes lgAnneau { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(1.7); opacity: 0 } }
+        .lg-anneau { position: absolute; inset: 0; border-radius: 22%; border: 2px solid #f0a500; opacity: 0;
+          animation: lgAnneau 2.4s cubic-bezier(.23, 1, .32, 1) .6s infinite; }
+        /* Titre lettre par lettre */
+        .lg-mot { display: inline-block; white-space: nowrap; overflow: hidden; vertical-align: bottom; }
+        .lg-lettre { display: inline-block; transform: translateY(110%); animation: lgLettre .6s cubic-bezier(.23, 1, .32, 1) calc(280ms + var(--i) * 30ms) forwards; }
+        @keyframes lgLettre { to { transform: translateY(0) } }
+        /* Montée en cascade des blocs */
+        @keyframes lgMonte { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+        .lg-monte { animation: lgMonte .5s cubic-bezier(.23, 1, .32, 1) both; animation-delay: calc(var(--d, 0) * 70ms + 450ms); }
+        .lg-echange { animation: lgMonte .28s cubic-bezier(.23, 1, .32, 1) both; }
+        /* Champs : halo doré au focus */
+        .lg-champ { transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
+        .lg-champ:focus { box-shadow: 0 0 0 4px rgba(240,165,0,.16); background-color: rgba(255,255,255,.09) !important; }
+        /* Bouton : reflet qui balaie */
+        .lg-btn { position: relative; overflow: hidden; transition: background-color .2s ease, box-shadow .2s ease, transform .16s cubic-bezier(.23, 1, .32, 1); }
+        .lg-btn:active:not(:disabled) { transform: scale(.97); }
+        .lg-btn::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+          background: linear-gradient(105deg, transparent, rgba(255,255,255,.55), transparent);
+          transform: translateX(-130%) skewX(-18deg); animation: lgReflet 3.8s cubic-bezier(.23, 1, .32, 1) 1.6s infinite; }
+        .lg-btn:disabled::after { animation: none; opacity: 0; }
+        @keyframes lgReflet { 0% { transform: translateX(-130%) skewX(-18deg) } 38%, 100% { transform: translateX(330%) skewX(-18deg) } }
+        /* Erreur : secousse */
+        @keyframes lgSecousse { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-7px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(2px) } }
+        .lg-erreur { animation: lgSecousse .4s cubic-bezier(.23, 1, .32, 1) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .lg-orbe, .lg-derive, .lg-logo-wrap, .lg-anneau, .lg-btn::after, .lg-erreur { animation: none !important }
+          .lg-trace { animation: none; stroke-dashoffset: 0 }
+          .lg-lettre { animation: none; transform: none }
+          .lg-logo, .lg-monte, .lg-echange { animation: lgFondu .3s ease both !important; animation-delay: 0s !important }
+        }
+        @keyframes lgFondu { from { opacity: 0 } to { opacity: 1 } }
       `}</style>
 
-      {/* En-tête mobile uniquement */}
-      <div className="login-mobile-header" style={{
-        display:'none', position:'fixed', top:0, left:0, right:0, zIndex:100,
-        background:'linear-gradient(135deg,#060d1f,#0c1a38)',
-        padding:'12px 20px', alignItems:'center', gap:12,
-        borderBottom:'1px solid rgba(240,165,0,.2)',
-      }}>
-        <div style={{width:36,height:36,background:'var(--rzc-white)',borderRadius:8,
-          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-          <img src="/roxgold-logo.png" alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:3}}/>
-        </div>
-        <div>
-          <div style={{fontSize:12,fontWeight:800,color:'var(--rzc-white)',letterSpacing:1}}>{nomApp.toUpperCase()}</div>
-          <div style={{fontSize:10,color:'#f0a500',fontWeight:600}}>ROXGOLD · SANGO</div>
-        </div>
-      </div>
+      {/* Fond animé : mobile (le panneau marque, lui, porte le sien sur desktop) */}
+      <div className="lg-fond-mobile" style={{ position:'absolute', inset:0 }}><LoginFond/></div>
 
       {/* Panel gauche - branding desktop */}
       <div className="login-brand" style={{
@@ -187,30 +278,23 @@ export default function Login() {
         <div style={{ position:'absolute', inset:0, opacity:.07,
           backgroundImage:'linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)',
           backgroundSize:'40px 40px' }}/>
-        <div style={{ position:'absolute', top:-100, right:-100, width:420, height:400,
-          borderRadius:'50%', background:'radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%)' }}/>
-        <div style={{ position:'absolute', bottom:-80, left:-80, width:320, height:300,
-          borderRadius:'50%', background:'radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%)' }}/>
+        <LoginFond/>
         <div style={{ position:'relative', textAlign:'center', maxWidth:400 }}>
-          <div style={{ height:90, margin:'0 auto 28px', borderRadius:18,
-            background:'var(--rzc-white)', display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 16px 48px rgba(240,165,0,.5)', border:'3px solid #f0a500', padding:8 }}>
-            <img src="/roxgold-logo.png" alt="Roxgold Sango" style={{height:'100%',objectFit:'contain'}}/>
-          </div>
-          <div style={{ fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700,
+          <div style={{ marginBottom:28 }}><LogoAnime taille={96}/></div>
+          <div className="lg-monte" style={{ '--d':1, fontSize:11, letterSpacing:4, color:'#f0a500', fontWeight:700,
             textTransform:'uppercase', marginBottom:12 }}>
             ROXGOLD · SANGO MINE - CÔTE D'IVOIRE
           </div>
           <div style={{ fontSize:28, fontWeight:900, color:'var(--rzc-white)', lineHeight:1.2, marginBottom:16 }}>
-            {nomApp}
+            <Lettres texte={nomApp}/>
           </div>
-          <div style={{ fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
+          <div className="lg-monte" style={{ '--d':3, fontSize:14, color:'rgba(255,255,255,.6)', lineHeight:1.7 }}>
             Gestion intégrée de la résidence<br/>
             minière Roxgold Sango
           </div>
           <div style={{ marginTop:32, display:'flex', gap:16, justifyContent:'center', flexWrap:'wrap' }}>
-            {['🏠 Résidences','👤 Personnel','🎓 Induction','🛠️ Maintenance'].map(f=>(
-              <span key={f} style={{ fontSize:12, color:'rgba(255,255,255,.5)',
+            {['🏠 Résidences','👤 Personnel','🎓 Induction','🛠️ Maintenance'].map((f,i)=>(
+              <span key={f} className="lg-monte" style={{ '--d':4+i, fontSize:12, color:'rgba(255,255,255,.5)',
                 background:'rgba(255,255,255,.07)', padding:'6px 12px', borderRadius:20 }}>
                 {f}
               </span>
@@ -227,8 +311,18 @@ export default function Login() {
         overflowY:'auto',
       }}>
         <div style={{ width:'100%', maxWidth:400 }}>
-          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:18 }}><ChoixLangue sombre /></div>
-          <div style={{ marginBottom:32, textAlign:'center' }}>
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}><ChoixLangue sombre /></div>
+          {/* Hero mobile : remplace le petit bandeau fixe */}
+          <div className="login-mobile-hero" style={{ display:'none', textAlign:'center', marginBottom:26 }}>
+            <LogoAnime taille={84}/>
+            <div className="lg-monte" style={{ '--d':0, fontSize:10.5, letterSpacing:3, color:'#f0a500', fontWeight:700, textTransform:'uppercase', margin:'18px 0 8px' }}>
+              ROXGOLD · SANGO
+            </div>
+            <div style={{ fontSize:25, fontWeight:900, color:'var(--rzc-white)', lineHeight:1.15 }}>
+              <Lettres texte={nomApp}/>
+            </div>
+          </div>
+          <div className="lg-monte" style={{ '--d':1, marginBottom:28, textAlign:'center' }}>
             <div style={{ fontSize:22, fontWeight:800, color:'var(--rzc-white)', marginBottom:6 }}>
               Connexion
             </div>
@@ -238,7 +332,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
+            <div key={error} className="lg-erreur" role="alert" style={{ background:'rgba(220,38,38,.15)', border:'1px solid rgba(220,38,38,.3)',
               borderRadius:10, padding:'12px 16px', marginBottom:20,
               fontSize:13, color:'#fca5a5', fontWeight:600 }}>
               ❌ {error}
@@ -253,7 +347,7 @@ export default function Login() {
             </div>
           )}
 
-          <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+          <div className="lg-monte" style={{ '--d':2, display:'flex', gap:8, marginBottom:20 }}>
             <button type="button" onClick={()=>{setMode('password');setError('');setInfoMsg('')}}
               style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer',
                 fontSize:12, fontWeight:700, background: mode==='password' ? '#f0a500' : 'rgba(255,255,255,.08)',
@@ -269,7 +363,7 @@ export default function Login() {
           </div>
 
           {mode === 'password' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div key="pwd" className="lg-monte lg-echange" style={{ '--d':3, display:'flex', flexDirection:'column', gap:16 }}>
             <div>
               <label style={{ display:'block', fontSize:11, fontWeight:700,
                 color:'rgba(255,255,255,.5)', marginBottom:8, letterSpacing:1, textTransform:'uppercase' }}>
@@ -285,6 +379,7 @@ export default function Login() {
                   padding:'13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                   boxSizing:'border-box', transition:'border-color .2s',
                 }}
+                className="lg-champ"
                 onFocus={e=>e.target.style.borderColor='#f0a500'}
                 onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
               />
@@ -307,6 +402,7 @@ export default function Login() {
                     padding:'13px 48px 13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                     boxSizing:'border-box', transition:'border-color .2s',
                   }}
+                  className="lg-champ"
                   onFocus={e=>e.target.style.borderColor='#f0a500'}
                   onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
                 />
@@ -319,11 +415,11 @@ export default function Login() {
               </div>
             </div>
 
-            <button onClick={doLogin} disabled={loading}
+            <button onClick={doLogin} disabled={loading} className="lg-btn"
               style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                 color:'#000', border:'none', borderRadius:10, padding:14,
                 fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer',
-                transition:'all .2s', marginTop:4,
+                marginTop:4,
                 boxShadow: loading ? 'none' : '0 4px 16px rgba(240,165,0,.3)',
               }}>
               {loading ? '⏳ Connexion...' : 'Se connecter →'}
@@ -338,7 +434,7 @@ export default function Login() {
           )}
 
           {mode === 'otp' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div key="otp" className="lg-echange" style={{ display:'flex', flexDirection:'column', gap:16 }}>
             {otpStep === 'telephone' ? (
               <>
                 <div>
@@ -356,7 +452,7 @@ export default function Login() {
                       boxSizing:'border-box' }}
                   />
                 </div>
-                <button onClick={doDemanderOtp} disabled={loading}
+                <button onClick={doDemanderOtp} disabled={loading} className="lg-btn"
                   style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                     color:'#000', border:'none', borderRadius:10, padding:14,
                     fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer' }}>
@@ -384,7 +480,7 @@ export default function Login() {
                       color:'var(--rzc-white)', outline:'none', boxSizing:'border-box' }}
                   />
                 </div>
-                <button onClick={doVerifierOtp} disabled={loading}
+                <button onClick={doVerifierOtp} disabled={loading} className="lg-btn"
                   style={{ width:'100%', background: loading ? 'rgba(240,165,0,.5)' : '#f0a500',
                     color:'#000', border:'none', borderRadius:10, padding:14,
                     fontSize:15, fontWeight:800, cursor: loading ? 'not-allowed' : 'pointer' }}>
