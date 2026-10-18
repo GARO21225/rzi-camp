@@ -94,6 +94,8 @@ export default function InductionCamp() {
   // Admin : arrive directement sur le suivi de toutes les inductions (il peut
   // basculer sur l'aperçu « participant ») ; un agent ne voit que SON parcours.
   const [adminView,    setAdminView]    = useState(isAdmin)
+  // Admin/superuser : revoir le parcours complet même s'il l'a déjà validé (aucun enregistrement créé)
+  const [revoir,        setRevoir]       = useState(false)
 
   // Contenu administrable — chargé depuis l'API, avec fallback si réseau indisponible
   const [CAMP,   setCAMP]   = useState(CAMP_FALLBACK)
@@ -261,6 +263,7 @@ export default function InductionCamp() {
 
   const soumettre = async () => {
     if (!signature) return
+    if (revoir) { setValidated(true); return }   // revue du parcours : pas d'enregistrement
     setSaving(true)
     try {
       const r = await fetch(`${BASE}/api/induction-camp/`, {
@@ -426,10 +429,10 @@ export default function InductionCamp() {
   )
 
   // ── Vue Admin : cockpit registre (KPI, filtres, exemptions, exports) ──
-  if (isAdmin && adminView) return <InductionCampAdmin onApercu={()=>setAdminView(false)} />
+  if (isAdmin && adminView) return <InductionCampAdmin onApercu={()=>{ setRevoir(true); setAdminView(false) }} />
 
   // ── Exempté : aucune induction à passer ─────────────────────────
-  if (exempte && !dejaComplete) return (
+  if (exempte && !dejaComplete && !revoir) return (
     <div style={{minHeight:'100%',background:'#F3F5F9',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{maxWidth:460,width:'100%',background:'#FFFFFF',border:'1px solid #D8DEE9',borderRadius:14,overflow:'hidden',boxShadow:'0 10px 30px rgba(15,42,92,.12)'}}>
         <div style={{height:10,background:'linear-gradient(90deg,#D4A017,#F0C24A 55%,#D4A017)'}}/>
@@ -444,7 +447,7 @@ export default function InductionCamp() {
   )
 
   // ── Déjà complété — permis d'accès (papier ivoire, encre marine) ──
-  if (dejaComplete) return (
+  if (dejaComplete && !revoir) return (
     <div style={{minHeight:'100%',background:'#F3F5F9',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{maxWidth:460,width:'100%',background:'#FFFFFF',border:'1px solid #D8DEE9',borderRadius:14,overflow:'hidden',boxShadow:'0 10px 30px rgba(15,42,92,.12)',color:'#0F2A5C',position:'relative'}}>
         <div style={{height:10,background:'linear-gradient(90deg,#D4A017,#F0C24A 55%,#D4A017)'}}/>
@@ -462,6 +465,7 @@ export default function InductionCamp() {
           ))}
           <div style={{display:'flex',gap:8,marginTop:20,flexWrap:'wrap'}}>
             <button onClick={()=>window.location.href='/'} style={{background:'#D4A017',color:'#0F2A5C',border:'none',borderRadius:8,padding:'11px 22px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Tableau de bord →</button>
+            {isAdmin && <button onClick={()=>setRevoir(true)} style={{background:'#FFFFFF',color:'#0F2A5C',border:'1px solid #D8DEE9',borderRadius:14,padding:'9px 20px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Revoir le parcours</button>}
             {isAdmin && <button onClick={()=>setAdminView(true)} style={{background:'#FFFFFF',color:'#0F2A5C',border:'1px solid #D8DEE9',borderRadius:14,overflow:'hidden',boxShadow:'0 10px 30px rgba(15,42,92,.12)',padding:'9px 20px',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",fontSize:16,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,cursor:'pointer'}}>Registre admin</button>}
           </div>
         </div>

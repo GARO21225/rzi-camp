@@ -174,6 +174,8 @@ class RestaurantsSuperviseursTests(TestCase):
         Profile.objects.update_or_create(user=self.autre, defaults={"role": "restauration"})
         self.agent = Personnel.objects.create(nom="Agent", prenom="Un", societe="ROXGOLD")
         self.R = Restaurant
+        for i, nom in enumerate(["Restaurant du CAMP", "Restaurant du Process", "Restaurant de l'atelier"]):
+            Restaurant.objects.get_or_create(nom=nom, defaults={"ordre": i})   # créés « dans les paramètres »
         self.cb, self.cs, self.ca = APIClient(), APIClient(), APIClient()
         # relire les utilisateurs : le profil reverse est mis en cache par le signal de creation
         self.boss, self.sup, self.autre = (User.objects.get(pk=u.pk) for u in (self.boss, self.sup, self.autre))
@@ -183,9 +185,9 @@ class RestaurantsSuperviseursTests(TestCase):
         from residences.models import Personnel
         return c.post("/api/qr/scan/", {"qr_data": Personnel.qr_signe(self.agent.id), "type_repas": "dejeuner", **kw}, format="json")
 
-    def test_trois_restaurants_par_defaut(self):
-        self.assertEqual(sorted(self.R.objects.values_list("nom", flat=True)),
-                         ["Restaurant de l'atelier", "Restaurant du CAMP", "Restaurant du Process"])
+    def test_aucun_restaurant_impose_par_la_migration(self):
+        self.R.objects.all().delete()
+        self.assertEqual(self.cb.get('/api/restaurants/mes/').data['restaurants'], [])
 
     def test_seul_le_camp_boss_affecte(self):
         r = self.R.objects.get(nom="Restaurant du CAMP")

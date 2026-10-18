@@ -439,7 +439,7 @@ export default function Historique() {
   const loadRepas = async () => {
     setRepasLoading(true)
     try {
-      const p = repasFilter !== 'all' ? { type_repas: repasFilter } : {}
+      const p = { page_size: 5000, ...(repasFilter !== 'all' ? { type_repas: repasFilter } : {}) }
       const r = await qr.historiqueScans(p)
       setRepasData(r.data.results || r.data || [])
     } catch(e) { console.error(e) }
