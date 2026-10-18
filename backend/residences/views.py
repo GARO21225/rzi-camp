@@ -2279,6 +2279,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
         presente dans la requete.
         """
         u = request.user
+        # Admin / superuser : peut déposer une plainte pour n'importe quel occupant (champ « personnel »)
+        if self._habilite(u) and request.data.get("personnel"):
+            return self.creer_pour_occupant(request)
         pers = Personnel.objects.filter(user=u).first()
         if not pers:
             return Response({"error":"Aucune fiche personnel associée à votre compte."}, status=403)
@@ -2703,6 +2706,8 @@ class PlainteViewSet(viewsets.ModelViewSet):
         durees = [(p.date_resolution - p.date_creation).total_seconds() / 3600 for p in traitees]
         compteurs = Counter(p.statut for p in liste)
         par_cat = Counter(p.categorie for p in liste)
+        # Les catégories désactivées dans Paramétrage n'apparaissent plus dans le tableau de bord
+        actives = set(PlainteCategorie.objects.filter(actif=True).values_list("nom", flat=True))
         par_res = Counter(p.batiment.residence for p in liste)
         par_prio = Counter(p.priorite for p in liste)
         par_resp = Counter((p.affecte_a.get_full_name() or p.affecte_a.username) for p in ouvertes if p.affecte_a)
@@ -2719,7 +2724,7 @@ class PlainteViewSet(viewsets.ModelViewSet):
             "taux_sla": round(100 * len(sla_ok_traitees) / len(traitees), 1) if traitees else None,
             "delai_moyen_h": round(sum(durees) / len(durees), 1) if durees else None,
             "non_affectees": len([p for p in ouvertes if not p.affecte_a_id]),
-            "par_categorie": [{"categorie": k, "n": v} for k, v in par_cat.most_common()],
+            "par_categorie": [{"categorie": k, "n": v} for k, v in par_cat.most_common() if k in actives or not actives],
             "residences_les_plus_touchees": [{"batiment__residence": k, "n": v} for k, v in par_res.most_common(10)],
             "par_priorite": {k: par_prio.get(k, 0) for k, _ in Plainte.PRIORITE_CHOICES},
             "charge_responsables": [{"nom": k, "n": v} for k, v in par_resp.most_common()],

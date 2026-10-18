@@ -290,6 +290,7 @@ export default function InductionCamp() {
   }
 
   const canNext = () => {
+    if (isAdmin && !adminView) return true   // aperçu admin : parcourt toutes les étapes sans prérequis
     if (etape===1) return infrasVues.size >= 4
     if (etape===2) return reglesVues.size >= REGLES.length
     if (etape===3) return quizOk
@@ -329,7 +330,7 @@ export default function InductionCamp() {
     .ic-btn-primary:hover::before { transform:translateX(100%); }
     .ic-btn-primary:hover { background:linear-gradient(135deg,#ffb800,#dba52f);
       box-shadow:0 8px 28px rgba(212,160,23,.55),inset 0 1px 0 rgba(255,255,255,.4);transform:translateY(-2px); }
-    .ic-btn-primary:disabled { background:#4b5568;color:#94a3b8;box-shadow:none;transform:none;cursor:not-allowed; }
+    .ic-btn-primary:disabled { background:rgba(255,255,255,.14);color:#E2E8F0;box-shadow:none;transform:none;cursor:not-allowed; }
     .ic-btn-primary:disabled::before { display:none; }
     .ic-btn-ghost { background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.16);
       backdrop-filter:blur(8px); }
@@ -363,11 +364,11 @@ export default function InductionCamp() {
             border:'1px solid rgba(255,255,255,.15)',borderRadius:24,padding:40,
             boxShadow:'0 25px 60px rgba(0,0,0,.4)',animation:'glowPulse 3s ease infinite'}}>
             
-            <div style={{fontSize:11,fontWeight:700,letterSpacing:2,textTransform:'uppercase',
-              color:'#94a3b8',marginBottom:16}}>CERTIFICAT D'INDUCTION CAMP</div>
+            <div style={{fontSize:12,fontWeight:700,letterSpacing:2,textTransform:'uppercase',
+              color:'#C9D4E8',marginBottom:16}}>CERTIFICAT D'INDUCTION CAMP</div>
             
             <div style={{fontSize:24,fontWeight:900,color:'#fff',marginBottom:6}}>{nomUser}</div>
-            <div style={{fontSize:13,color:'#94a3b8',marginBottom:28}}>
+            <div style={{fontSize:13,color:'#C9D4E8',marginBottom:28}}>
               {new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
             </div>
             
@@ -417,7 +418,7 @@ export default function InductionCamp() {
   if (loadingCheck) return (
     <div style={{minHeight:'100%',background:'var(--rzc-fond-induction,#0F2A5C)',display:'flex',
       alignItems:'center',justifyContent:'center'}}>
-      <div style={{textAlign:'center',color:'#94a3b8'}}>
+      <div style={{textAlign:'center',color:'#C9D4E8'}}>
         <div style={{fontSize:40,marginBottom:12}}>⏳</div>
         <div style={{fontSize:14}}>Vérification...</div>
       </div>
@@ -500,19 +501,19 @@ export default function InductionCamp() {
             </div>
             <div style={{minWidth:0}}>
               <div style={{fontSize:16,fontWeight:800,color:'#fff'}}>Induction du Camp</div>
-              <div style={{fontSize:11,color:'#94a3b8'}}>Roxgold Sango · Bienvenue, {nomUser}</div>
+              <div style={{fontSize:12,color:'#C9D4E8'}}>Roxgold Sango · Bienvenue, {nomUser}</div>
             </div>
             <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
               {isAdmin && (
                 <button onClick={()=>setAdminView(true)}
                   style={{background:'rgba(212,160,23,.18)',color:'var(--rzc-bright-gold)',
                     border:'1px solid rgba(212,160,23,.35)',borderRadius:8,
-                    padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                    padding:'6px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                   👁️ Admin
                 </button>
               )}
               <ProgressRing pct={progression} size={52} stroke={4} color='#D4A017'>
-                <span style={{fontSize:11,fontWeight:700,color:'#fff'}}>{progression}%</span>
+                <span style={{fontSize:12,fontWeight:700,color:'#fff'}}>{progression}%</span>
               </ProgressRing>
             </div>
           </div>
@@ -529,7 +530,7 @@ export default function InductionCamp() {
                       <div onClick={()=>done&&setEtape(i)}
                         style={{width:26,height:26,borderRadius:'50%',flexShrink:0,
                           display:'flex',alignItems:'center',justifyContent:'center',
-                          fontSize:11,fontWeight:700,cursor:done?'pointer':'default',
+                          fontSize:12,fontWeight:700,cursor:done?'pointer':'default',
                           background: done?'#10b981':actif?'#D4A017':'rgba(255,255,255,.1)',
                           color:'#fff',
                           border: actif?'2px solid rgba(212,160,23,.6)':'2px solid transparent'}}>
@@ -570,7 +571,7 @@ export default function InductionCamp() {
                       {done ? '✓' : i+1}
                     </div>
                     <div style={{fontSize:9,marginTop:4,fontWeight:600,
-                      color:actif?'#ffd97a':done?'#6ee7b7':'#475569',
+                      color:actif?'#ffd97a':done?'#6ee7b7':'#A9B8D3',
                       textAlign:'center',whiteSpace:'nowrap',
                       letterSpacing:.3,textTransform:'uppercase'}}>
                       {e}
@@ -599,7 +600,7 @@ export default function InductionCamp() {
                 WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
                 Bienvenue au Camp
               </h1>
-              <h2 style={{fontSize:14,color:'#94a3b8',fontWeight:400,margin:0}}>
+              <h2 style={{fontSize:14,color:'#C9D4E8',fontWeight:400,margin:0}}>
                 {CAMP.nom}
               </h2>
               <p style={{fontSize:13,color:'#cbd5e1',maxWidth:520,margin:'14px auto 0',lineHeight:1.6}}>
@@ -621,7 +622,7 @@ export default function InductionCamp() {
                   borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
                   <div style={{fontSize:24,marginBottom:6}}>{ic}</div>
                   <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>{val}</div>
-                  <div style={{fontSize:10,color:'#64748b',textTransform:'uppercase',
+                  <div style={{fontSize:11.5,color:'#A9B8D3',textTransform:'uppercase',
                     letterSpacing:.5,marginTop:2}}>{lbl}</div>
                 </div>
               ))}
@@ -662,11 +663,11 @@ export default function InductionCamp() {
         {etape===1 && (
           <div className="ic-slide">
             <div style={{textAlign:'center',marginBottom:20}}>
-              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>🏗️ Infrastructures du Camp</h2>
-              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px',color:'#F0C24A',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>🏗️ Infrastructures du Camp</h2>
+              <p style={{fontSize:13,color:'#C9D4E8',margin:0}}>
                 Explorez les 8 zones — cliquez pour en savoir plus
                 <span style={{marginLeft:8,background:'rgba(212,160,23,.2)',padding:'2px 8px',
-                  borderRadius:99,fontSize:11,color:'#ffd97a'}}>
+                  borderRadius:99,fontSize:12,color:'#ffd97a'}}>
                   {infrasVues.size}/{INFRAS.length} vues
                 </span>
               </p>
@@ -691,7 +692,7 @@ export default function InductionCamp() {
                             style={{width:44,height:44,borderRadius:8,objectFit:'cover',display:'block',margin:'0 auto'}}/>
                         : <span style={{fontSize:28}}>{inf.emoji}</span>}
                     </div>
-                    <div style={{fontSize:11,fontWeight:700,color:vue?inf.couleur:'#94a3b8'}}>
+                    <div style={{fontSize:12,fontWeight:700,color:vue?inf.couleur:'#C9D4E8'}}>
                       {inf.titre}
                     </div>
                     {vue && !sel && <div style={{fontSize:9,color:'#10b981',marginTop:4}}>✓ Vue</div>}
@@ -723,7 +724,7 @@ export default function InductionCamp() {
                       <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                         {inf.details.map(d=>(
                           <span key={d} style={{background:`${inf.couleur}20`,color:inf.couleur,
-                            padding:'4px 10px',borderRadius:99,fontSize:11,fontWeight:600}}>
+                            padding:'4px 10px',borderRadius:99,fontSize:12,fontWeight:600}}>
                             {d}
                           </span>
                         ))}
@@ -762,7 +763,7 @@ export default function InductionCamp() {
             <div style={{background:'rgba(255,255,255,.05)',borderRadius:12,
               padding:'12px 16px',marginBottom:16,display:'flex',
               alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{fontSize:13,color:'#94a3b8'}}>
+              <span style={{fontSize:13,color:'#C9D4E8'}}>
                 {infrasVues.size < 4
                   ? `Visitez encore ${4-infrasVues.size} infrastructure(s) pour continuer`
                   : `${infrasVues.size}/${INFRAS.length} infrastructures visitées ✓`}
@@ -787,11 +788,11 @@ export default function InductionCamp() {
         {etape===2 && (
           <div className="ic-slide">
             <div style={{textAlign:'center',marginBottom:20}}>
-              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>📜 Règles de Vie du Camp</h2>
-              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px',color:'#F0C24A',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>📜 Règles de Vie du Camp</h2>
+              <p style={{fontSize:13,color:'#C9D4E8',margin:0}}>
                 Cliquez sur chaque règle pour la lire — un quiz suivra
                 <span style={{marginLeft:8,background:'rgba(139,92,246,.2)',padding:'2px 8px',
-                  borderRadius:99,fontSize:11,color:'#E8C468'}}>
+                  borderRadius:99,fontSize:12,color:'#E8C468'}}>
                   {reglesVues.size}/{REGLES.length} lues
                 </span>
               </p>
@@ -818,8 +819,8 @@ export default function InductionCamp() {
                           <span style={{fontSize:13,fontWeight:700,color:lue?niv.c:'#e2e8f0'}}>
                             {r.titre}
                           </span>
-                          <span style={{background:`${niv.c}25`,color:niv.c,
-                            padding:'1px 7px',borderRadius:99,fontSize:9,fontWeight:700,
+                          <span style={{background:niv.c,color:'#fff',
+                            padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:800,
                             letterSpacing:.5,textTransform:'uppercase'}}>
                             {niv.label}
                           </span>
@@ -832,7 +833,7 @@ export default function InductionCamp() {
                           </p>
                         )}
                       </div>
-                      <div style={{fontSize:16,color:'#475569',flexShrink:0}}>
+                      <div style={{fontSize:16,color:'#A9B8D3',flexShrink:0}}>
                         {sel?'▲':'▼'}
                       </div>
                     </div>
@@ -855,8 +856,8 @@ export default function InductionCamp() {
         {etape===3 && (
           <div className="ic-slide">
             <div style={{textAlign:'center',marginBottom:24}}>
-              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>🧠 Quiz de Validation</h2>
-              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px',color:'#F0C24A',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>🧠 Quiz de Validation</h2>
+              <p style={{fontSize:13,color:'#C9D4E8',margin:0}}>
                 {QUIZ.length} questions · Toutes les bonnes réponses requises
               </p>
             </div>
@@ -867,7 +868,7 @@ export default function InductionCamp() {
                 <div style={{fontSize:20,fontWeight:800,color:'#10b981',marginBottom:8}}>
                   Quiz réussi ! {quizScore}/{QUIZ.length}
                 </div>
-                <div style={{fontSize:13,color:'#94a3b8',marginBottom:24}}>
+                <div style={{fontSize:13,color:'#C9D4E8',marginBottom:24}}>
                   Excellent ! Vous connaissez les règles du camp.
                 </div>
                 <button className="ic-btn ic-btn-primary"
@@ -891,8 +892,8 @@ export default function InductionCamp() {
                         boxShadow: wrong?'0 0 16px rgba(239,68,68,.15)':correct?'0 0 16px rgba(16,185,129,.15)':'none',
                       }}>
                         <div style={{fontSize:13,fontWeight:700,color:'#f1f5f9',marginBottom:12}}>
-                          <span style={{color:'#64748b',fontFamily:'JetBrains Mono,monospace',
-                            fontSize:11}}>{qi+1}/{QUIZ.length} </span>
+                          <span style={{color:'#A9B8D3',fontFamily:'JetBrains Mono,monospace',
+                            fontSize:12}}>{qi+1}/{QUIZ.length} </span>
                           {q.q}
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:6}}>
@@ -926,7 +927,7 @@ export default function InductionCamp() {
                         {quizErr && wrong && (
                           <div style={{marginTop:10,padding:'8px 12px',
                             background:'rgba(212,160,23,.1)',borderRadius:8,
-                            fontSize:11,color:'#ffd97a'}}>
+                            fontSize:12,color:'#ffd97a'}}>
                             💡 {q.explication}
                           </div>
                         )}
@@ -965,8 +966,8 @@ export default function InductionCamp() {
         {etape===4 && (
           <div className="ic-slide">
             <div style={{textAlign:'center',marginBottom:20}}>
-              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>⚡ Appareils Énergivores</h2>
-              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px',color:'#F0C24A',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>⚡ Appareils Énergivores</h2>
+              <p style={{fontSize:13,color:'#C9D4E8',margin:0}}>
                 Tout appareil de plus de 100W doit être déclaré
               </p>
             </div>
@@ -991,12 +992,12 @@ export default function InductionCamp() {
                     <span style={{fontSize:20}}>🔌</span>
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,fontWeight:600,color:'#6ee7b7'}}>{a.type}</div>
-                      <div style={{fontSize:11,color:'#94a3b8'}}>
+                      <div style={{fontSize:12,color:'#C9D4E8'}}>
                         {[a.marque,a.modele,a.puissance?a.puissance+'W':'',a.chambre?'Ch.'+a.chambre:''].filter(Boolean).join(' · ')}
                       </div>
                     </div>
                     <span style={{background:'rgba(16,185,129,.2)',color:'#10b981',
-                      padding:'2px 8px',borderRadius:99,fontSize:10,fontWeight:700}}>
+                      padding:'2px 8px',borderRadius:99,fontSize:11.5,fontWeight:700}}>
                       Déclaré ✓
                     </span>
                   </div>
@@ -1013,7 +1014,7 @@ export default function InductionCamp() {
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
                   <div style={{gridColumn:'span 2'}}>
-                    <label style={{fontSize:10,fontWeight:700,color:'#64748b',
+                    <label style={{fontSize:11.5,fontWeight:700,color:'#A9B8D3',
                       textTransform:'uppercase',letterSpacing:.5,display:'block',marginBottom:4}}>
                       Type *
                     </label>
@@ -1028,7 +1029,7 @@ export default function InductionCamp() {
                     ['Puissance (W)','puissance','ex: 1500'],
                     ['N° Chambre','chambre','ex: A-204']].map(([l,k,ph])=>(
                     <div key={k}>
-                      <label style={{fontSize:10,fontWeight:700,color:'#64748b',
+                      <label style={{fontSize:11.5,fontWeight:700,color:'#A9B8D3',
                         textTransform:'uppercase',letterSpacing:.5,display:'block',marginBottom:4}}>
                         {l}
                       </label>
@@ -1082,8 +1083,8 @@ export default function InductionCamp() {
         {etape===5 && !validated && (
           <div className="ic-slide">
             <div style={{textAlign:'center',marginBottom:24}}>
-              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px'}}>✍️ Engagement & Signature</h2>
-              <p style={{fontSize:13,color:'#94a3b8',margin:0}}>
+              <h2 style={{fontSize:22,fontWeight:800,margin:'0 0 6px',color:'#F0C24A',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>✍️ Engagement & Signature</h2>
+              <p style={{fontSize:13,color:'#C9D4E8',margin:0}}>
                 Signez pour finaliser votre induction
               </p>
             </div>
@@ -1091,7 +1092,7 @@ export default function InductionCamp() {
             {/* Récapitulatif */}
             <div style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',
               borderRadius:14,padding:18,marginBottom:20}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#94a3b8',
+              <div style={{fontSize:12,fontWeight:700,color:'#C9D4E8',
                 textTransform:'uppercase',letterSpacing:.5,marginBottom:12}}>
                 Récapitulatif de votre induction
               </div>
@@ -1103,10 +1104,10 @@ export default function InductionCamp() {
                 {ic:'⚡',l:`${appareils.length} appareil(s) déclaré(s)`,ok:true},
               ].map(({ic,l,ok})=>(
                 <div key={l} style={{display:'flex',gap:8,alignItems:'center',
-                  padding:'5px 0',fontSize:12,color:ok?'#e2e8f0':'#94a3b8'}}>
+                  padding:'5px 0',fontSize:12,color:ok?'#e2e8f0':'#C9D4E8'}}>
                   <span>{ic}</span>
                   <span style={{flex:1}}>{l}</span>
-                  <span style={{color:ok?'#10b981':'#64748b'}}>{ok?'✓':'…'}</span>
+                  <span style={{color:ok?'#10b981':'#A9B8D3'}}>{ok?'✓':'…'}</span>
                 </div>
               ))}
             </div>
@@ -1127,7 +1128,7 @@ export default function InductionCamp() {
 
             {/* Canvas signature */}
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#64748b',
+              <div style={{fontSize:12,fontWeight:700,color:'#A9B8D3',
                 textTransform:'uppercase',letterSpacing:.5,marginBottom:8}}>
                 Votre signature
               </div>
@@ -1138,12 +1139,12 @@ export default function InductionCamp() {
                   style={{width:'100%',height:180,touchAction:'none',display:'block',cursor:'crosshair'}}/>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
-                <span style={{fontSize:11,color:'#475569'}}>
+                <span style={{fontSize:12,color:'#A9B8D3'}}>
                   {signature ? '✓ Signature enregistrée' : 'Signez dans la zone ci-dessus'}
                 </span>
                 <button onClick={clearCanvas}
                   style={{background:'transparent',color:'#ef4444',border:'1px solid rgba(239,68,68,.3)',
-                    borderRadius:6,padding:'4px 10px',fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
+                    borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                   Effacer
                 </button>
               </div>

@@ -1098,6 +1098,25 @@ class PlainteSlaPhotoAgentsTests(PlainteAssignationEtFriseTests):
         self.assertFalse({chef.id, self.admin.id} & ids)
         self.assertEqual(agents({"categorie": "Proprete"}), {men.id})
 
+    def test_dashboard_masque_les_categories_desactivees(self):
+        from residences.models import Plainte, PlainteCategorie
+        cat = Plainte.objects.get(pk=self.pk).categorie
+        PlainteCategorie.objects.update_or_create(nom=cat, defaults={"actif": False})
+        PlainteCategorie.objects.update_or_create(nom="CategorieActive", defaults={"actif": True})
+        req = self.rf.get("/api/plaintes/dashboard/")
+        force_authenticate(req, user=self.admin)
+        r = PlainteViewSet.as_view({"get": "dashboard"})(req)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn(cat, [c["categorie"] for c in r.data["par_categorie"]])
+
+    def test_create_par_un_admin_pour_un_occupant(self):
+        occ = Personnel.objects.get(numero="PF1")
+        req = self.rf.post("/api/plaintes/", {"personnel": occ.id, "categorie": "Plomberie", "description": "Fuite signalée par l'admin",
+                                              "photo_base64": PHOTO_TEST}, format="json")
+        force_authenticate(req, user=self.admin)
+        r = PlainteViewSet.as_view({"post": "create"})(req)
+        self.assertIn(r.status_code, (200, 201), r.data)
+
 
 class RegenererCompteEnvoiTests(TestCase):
     """Bouton 🔑 de la fiche Personnel : les nouveaux identifiants partent

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import ChoixPersonne from '../components/ChoixPersonne'
 import { useNavigate } from 'react-router-dom'
-import { plaintes as plaintesAPI, controlesChambre as controlesAPI } from '../api'
+import { plaintes as plaintesAPI, controlesChambre as controlesAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { usePlainteCategories } from '../constants/plaintes'
@@ -71,6 +71,13 @@ export default function Plaintes() {
   const [agents, setAgents] = useState([])
   const [agentChoisi, setAgentChoisi] = useState('')
   const [frise, setFrise] = useState(null)
+  // Admin / superuser : dépose une plainte AU NOM d'un occupant (choisi dans la liste du personnel)
+  const [personnes, setPersonnes] = useState([])
+  const [pourPersonne, setPourPersonne] = useState(null)
+  useEffect(() => {
+    if (isAdmin && nouvelleModal && personnes.length === 0)
+      personnelAPI.list({ page_size: 3000 }).then(r => setPersonnes((r.data?.results || r.data || []).map(p => ({ id: p.id, nom: `${p.nom} ${p.prenom || ''}`.trim(), detail: p.societe || '' })))).catch(() => {})
+  }, [isAdmin, nouvelleModal])
   const chargerFrise = useCallback(async (id) => {
     setFrise(null)
     try { const r = await plaintesAPI.chronologie(id); setFrise(r.data) } catch { setFrise({ etapes: [] }) }
@@ -115,11 +122,12 @@ export default function Plaintes() {
     if (envoiEnCours) return
     if (!nouvelleForm.description.trim()) return toast.error('Description requise')
     if (!nouvelleForm.photo_base64) return toast.error('Une photo du problème est obligatoire')
+    if (isAdmin && !pourPersonne) return toast.error("Choisissez l'occupant concerné")
     setEnvoiEnCours(true)
     try {
-      await plaintesAPI.creer(nouvelleForm)
+      await plaintesAPI.creer(isAdmin ? { ...nouvelleForm, personnel: pourPersonne.id } : nouvelleForm)
       toast.success('Plainte déposée')
-      setNouvelleModal(false)
+      setNouvelleModal(false); setPourPersonne(null)
       setNouvelleForm({categorie:'Proprete', sous_categorie:'poubelle', description:'', commentaire:'', photo_base64:''})
       charger()
     } catch(e) { toast.error(e.response?.data?.error || 'Erreur') }
@@ -259,6 +267,13 @@ export default function Plaintes() {
             {isAdmin ? 'Suivi, qualification et traitement des plaintes des occupants' : 'Ma chambre — contrôle et signalements'}
           </p>
         </div>
+        {isAdmin && (
+          <button onClick={()=>setNouvelleModal(true)}
+            style={{background:'#0F2A5C', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, cursor:'pointer', fontWeight:700, fontSize:12.5, transition:'transform .16s cubic-bezier(.23,1,.32,1)'}}
+            onMouseDown={e=>e.currentTarget.style.transform='scale(.97)'} onMouseUp={e=>e.currentTarget.style.transform=''} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+            + Déposer une plainte
+          </button>
+        )}
         {!isAdmin && !isMobile && (
           <div style={{display:'flex', gap:8}}>
             <button onClick={()=>setControleModal(true)}
@@ -401,7 +416,15 @@ export default function Plaintes() {
           onClick={e=>e.target===e.currentTarget && setNouvelleModal(false)}>
           <div style={{background:'#fff', borderRadius:14, maxWidth:440, width:'100%', padding:20, marginTop:8, marginBottom:8, maxHeight:'92vh', overflowY:'auto'}}>
             <div style={{fontWeight:700, fontSize:15, marginBottom:14}}>🧹 Déposer une plainte</div>
-            <div style={{fontSize:11, color:'#94a3b8', marginBottom:10}}>Votre chambre actuelle sera associée automatiquement.</div>
+            {isAdmin ? (
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', marginBottom:4}}>Occupant concerné <span style={{color:'#dc2626'}}>*</span></div>
+                {pourPersonne
+                  ? <div style={{display:'flex', alignItems:'center', gap:8, fontWeight:800, color:'#0F2A5C'}}>✔ {pourPersonne.nom} <button type="button" onClick={()=>setPourPersonne(null)} style={{border:'none', background:'none', color:'#dc2626', cursor:'pointer', fontWeight:700}}>×</button></div>
+                  : <ChoixPersonne placeholder="Saisir un nom…" options={personnes} onChoisir={id => setPourPersonne(personnes.find(p => p.id === id) || null)} style={{maxWidth:'100%'}} />}
+                <div style={{fontSize:11, color:'#94a3b8', marginTop:4}}>La chambre est celle de son hébergement actuel.</div>
+              </div>
+            ) : <div style={{fontSize:11, color:'#94a3b8', marginBottom:10}}>Votre chambre actuelle sera associée automatiquement.</div>}
             <label style={{fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase'}}>Catégorie</label>
             <select value={nouvelleForm.categorie} onChange={e=>setNouvelleForm(f=>({...f, categorie:e.target.value, sous_categorie:CATEGORIES[e.target.value][0]}))}
               style={{width:'100%', padding:9, borderRadius:8, border:'1px solid #e2e8f0', marginBottom:10, marginTop:4}}>

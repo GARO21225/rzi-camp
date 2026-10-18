@@ -736,6 +736,7 @@ function InductionPageInner() {
   const etapeDebloquee = (pid, etapeKey) => {
     const idx = ETAPES.findIndex(e=>e.key===etapeKey)
     try {
+      if (estAdmin) return true   // superuser / admin : toutes les étapes, sans ordre imposé
       if (idx<=0) return true
       const prev = ETAPES[idx-1]
       return getEtapeDone(pid, prev.key)
@@ -884,8 +885,8 @@ function InductionPageInner() {
         boxShadow:'0 8px 24px rgba(15,36,71,.25)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div>
-            <h1 style={{fontSize:22,fontWeight:900,margin:0}}>{gestion ? 'Induction QHSE - Roxgold Sango' : 'Mon induction QHSE'}</h1>
-            <p style={{fontSize:12,color:'rgba(255,255,255,.7)',margin:'4px 0 0'}}>
+            <h1 style={{fontSize:26,fontWeight:700,margin:0,color:'#fff',fontFamily:"'Barlow Condensed','Arial Narrow',sans-serif",letterSpacing:'.03em',textTransform:'uppercase'}}>{gestion ? 'Induction QHSE - Roxgold Sango' : 'Mon induction QHSE'}</h1>
+            <p style={{fontSize:12,color:'rgba(255,255,255,.88)',margin:'4px 0 0'}}>
               Workflow sequentiel en 6 etapes - Chaque etape debloque la suivante
             </p>
             <p style={{fontSize:11.5,color:'#fde68a',margin:'6px 0 0',fontWeight:700}}>
