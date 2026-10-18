@@ -553,6 +553,22 @@ class InductionDroitsTests(TestCase):
         self.assertEqual(self.maj(self.med, "quiz"), 403)
         self.assertEqual(self.maj(self.hse, "badge"), 200)
 
+    def brouillon(self, user, kind, data, pid=None):
+        self.c.force_authenticate(User.objects.get(pk=user.pk))
+        return self.c.post("/api/induction-records/brouillon/", {"personnel_id": pid or self.p.id, "kind": kind, "data": data}, format="json")
+
+    def test_brouillon_remonte_au_serveur_sans_valider_l_etape(self):
+        from .models import InductionRecord
+        self.maj(self.agent, "accueil")
+        self.assertEqual(self.brouillon(self.agent, "form", {"nationalite": "Ivoirienne"}).status_code, 200)
+        rec = InductionRecord.objects.get(personnel=self.p)
+        self.assertEqual(rec.form_data["nationalite"], "Ivoirienne")
+        self.assertTrue(rec.etapes_data["accueil"]["done"])   # l'étape déjà validée n'est pas défaite
+        self.assertEqual(self.brouillon(self.agent, "medical", {"x": 1}).status_code, 403)
+        autre = Personnel.objects.create(nom="Z", prenom="Autre", societe="R")
+        self.assertEqual(self.brouillon(self.agent, "form", {"a": 1}, pid=autre.id).status_code, 403)
+        self.assertEqual(self.brouillon(self.med, "medical", {"tension": "12"}, pid=autre.id).status_code, 200)
+
 
 class ChambresAdminTests(TestCase):
     """Historique, KML, étages, actions en masse (admin)."""

@@ -602,7 +602,8 @@ function InductionPageInner() {
     if (!selected) { setFormData({}); setDocUploads({}); setMedData({}); return }
     const w = getWF(selected.id)
     const drafts = w.drafts || {}
-    setFormData(drafts.form || w.etapes?.accueil?.form || {})
+    // brouillon local > données validées > brouillon serveur (saisi sur un autre appareil, ex. le téléphone)
+    setFormData(drafts.form || w.etapes?.accueil?.form || w.data?.form || {})
     const docDraft = drafts.docs || {}
     // Support ancien format (juste noms) et nouveau format {uploads, data}
     setDocUploads(docDraft.uploads || (typeof docDraft === 'object' && !docDraft.uploads && !docDraft.data ? docDraft : {}))
@@ -616,7 +617,7 @@ function InductionPageInner() {
       })
     }
     setDocData({...restoredDocData, ...(docDraft.data || drafts.docData || {})})
-    setMedData(drafts.medical || w.etapes?.medical?.medical || {})
+    setMedData(drafts.medical || w.etapes?.medical?.medical || w.data?.medical || {})
   },[selected])
 
   // Sauvegarde brouillon (sans valider l'étape)
@@ -628,6 +629,11 @@ function InductionPageInner() {
     setWfState(prev => ({...prev, [selected.id]: newWf}))
     setSavedMsg('💾 Brouillon enregistré')
     setTimeout(()=>setSavedMsg(''), 2000)
+    // Envoi au serveur (formulaire / médical) pour que la saisie remonte à l'admin et aux autres appareils
+    if (kind === 'form' || kind === 'medical') {
+      inductionAPI.brouillon({ personnel_id: selected.id, kind, data })
+        .catch(() => toast.error("Brouillon gardé sur cet appareil seulement (réseau indisponible) — réessayez avec du réseau."))
+    }
   }
 
   // Téléchargement du dossier complet (HTML imprimable → PDF via navigateur)

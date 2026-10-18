@@ -3691,6 +3691,38 @@ class InductionRecordViewSet(viewsets.ModelViewSet):
         return Response(InductionRecordSerializer(rec).data)
 
     @action(detail=False, methods=['post'])
+    def brouillon(self, request):
+        """Enregistre un BROUILLON (formulaire d'accueil ou fiche médicale) sur le serveur, sans valider
+        l'étape ni toucher à etapes_data : la saisie faite sur un téléphone remonte ainsi à l'admin/HSE
+        et se retrouve sur n'importe quel autre appareil. Corps : {personnel_id, kind: 'form'|'medical', data:{...}}"""
+        from residences.models import Personnel, InductionRecord
+        kind = request.data.get('kind')
+        data = request.data.get('data')
+        if kind not in ('form', 'medical') or not isinstance(data, dict):
+            return Response({'error': "kind ('form' ou 'medical') et data requis"}, status=400)
+        personnel = Personnel.objects.filter(pk=request.data.get('personnel_id')).first()
+        if not personnel:
+            return Response({'error': 'Personnel introuvable'}, status=404)
+        u = request.user
+        role = getattr(getattr(u, "profile", None), "role", "")
+        gestion = u.is_staff or u.is_superuser or role in ("admin", "hse")
+        if not gestion:
+            if role == "medical":
+                if kind != "medical":
+                    return Response({'error': "Le service médical ne saisit que la fiche médicale."}, status=403)
+            else:
+                if kind != "form" or getattr(u, "personnel", None) is None or u.personnel.id != personnel.id:
+                    return Response({'error': "Vous ne pouvez enregistrer que votre propre brouillon."}, status=403)
+        rec, _ = InductionRecord.objects.get_or_create(personnel=personnel)
+        if kind == 'form':
+            rec.form_data = {**(rec.form_data or {}), **data}
+            rec.save(update_fields=['form_data'])
+        else:
+            rec.medical_data = {**(rec.medical_data or {}), **data}
+            rec.save(update_fields=['medical_data'])
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['post'])
     def update_etape(self, request):
         """Mettre a jour une etape pour un personnel."""
         personnel_id  = request.data.get('personnel_id')

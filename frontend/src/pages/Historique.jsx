@@ -15,7 +15,8 @@ import ChoixPersonne from '../components/ChoixPersonne'
 const TABS_PAR_ROLE = {
   restauration: ['repas'],
   technicien:   ['maintenance'],
-  agent:        ['voyages_pers','personne','trajets','evenements'],
+  // Agent : uniquement SES données (le backend filtre déjà repas, incidents, plaintes et induction sur l'utilisateur)
+  agent:        ['voyages_pers','repas','plaintes','maintenance','induction','personne','evenements'],
   menage:       ['chambre'],
 }
 
@@ -431,6 +432,9 @@ export default function Historique() {
     )
   }
 
+  // Chargement automatique à l'ouverture de l'onglet et à chaque changement de type de repas
+  useEffect(() => { if (tab === 'repas') loadRepas() }, [tab, repasFilter])
+
   const supprimerRepas = async (r) => {
     if (!(await confirmDialog(`Supprimer le repas de ${r.resident} (${r.type_repas_label || r.type_repas}) ? Il pourra reprendre ce repas.`))) return
     try { await qr.supprimerRepas(r.id); toast.success('Repas supprimé'); loadRepas() }
@@ -756,7 +760,7 @@ export default function Historique() {
           <SearchCard title="🍽️ Historique des repas restaurant" color="#7c3aed">
             <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
               {/* Filtre type repas */}
-              <select value={repasFilter} onChange={e=>{setRepasFilter(e.target.value);loadRepas()}}
+              <select value={repasFilter} onChange={e=>setRepasFilter(e.target.value)}
                 style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:140}}>
                 <option value="all">🍽️ Tous les repas</option>
                 <option value="petit_dejeuner">🌅 Petit-déjeuner</option>

@@ -37,12 +37,33 @@ const jourJ = (dateStr) => {
   return Math.round((d - t) / 86400000)
 }
 
+/** Chiffre qui monte de 0 à n (ease-out, ~700 ms) ; immédiat si l'utilisateur réduit les animations. */
+function Compte({ n, duree = 700, delai = 350 }) {
+  const cible = Number(n) || 0
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || cible === 0) { setV(cible); return }
+    let raf, debut = null
+    const t0 = setTimeout(() => {
+      const pas = (t) => {
+        if (debut === null) debut = t
+        const p = Math.min(1, (t - debut) / duree)
+        setV(Math.round(cible * (1 - Math.pow(1 - p, 3))))
+        if (p < 1) raf = requestAnimationFrame(pas)
+      }
+      raf = requestAnimationFrame(pas)
+    }, delai)
+    return () => { clearTimeout(t0); cancelAnimationFrame(raf) }
+  }, [cible, duree, delai])
+  return <>{v}</>
+}
+
 /** Courbes de niveau dorées, qui dérivent lentement (signature de l'écran). */
 function CourbesDeNiveau() {
   const lignes = Array.from({ length: 9 }, (_, i) => i)
   return (
     <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true"
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: .55 }}>
+      className="acc-derive" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: .55 }}>
       <defs>
         <linearGradient id="filon" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={OR} stopOpacity=".05" />
@@ -53,7 +74,8 @@ function CourbesDeNiveau() {
       {lignes.map(i => (
         <path key={i}
           d={`M -40 ${40 + i * 26} C 60 ${10 + i * 24}, 140 ${90 + i * 22}, 230 ${50 + i * 25} S 380 ${20 + i * 27}, 460 ${70 + i * 23}`}
-          fill="none" stroke="url(#filon)" strokeWidth={i === 4 ? 1.6 : .8} />
+          fill="none" stroke="url(#filon)" strokeWidth={i === 4 ? 1.6 : .8}
+          pathLength="1" className="acc-trace" style={{ '--i': i }} />
       ))}
     </svg>
   )
@@ -79,13 +101,15 @@ function LigneDeRoute({ voyage }) {
           return (
             <div key={`${v}${i}`} ref={estDescente ? refDescente : undefined} style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 84, padding: '0 3px' }}>
               {i > 0 && (
-                <span style={{ position: 'absolute', top: 7, right: '50%', width: '100%', height: 3, borderRadius: 2,
+                <span className={i <= fin ? 'acc-segment' : undefined} style={{ '--i': i, position: 'absolute', top: 7, right: '50%', width: '100%', height: 3, borderRadius: 2,
                   background: i <= fin ? `linear-gradient(90deg, ${OR_PROFOND}, ${OR})` : '#E2E8F0' }} />
               )}
               <span style={{ position: 'relative', zIndex: 1, width: estDescente ? 17 : 11, height: estDescente ? 17 : 11, marginTop: estDescente ? 0 : 3,
                 borderRadius: '50%', background: estDescente ? OR : (parcouru ? '#fff' : '#F1F5F9'),
                 border: `3px solid ${parcouru ? OR_PROFOND : '#CBD5E1'}`,
-                boxShadow: estDescente ? `0 0 0 5px ${OR}33` : 'none' }} />
+                boxShadow: estDescente ? `0 0 0 5px ${OR}33` : 'none' }}>
+                {estDescente && <span className="acc-halo" style={{ position: 'absolute', inset: -3, borderRadius: '50%', border: `2px solid ${OR}` }} />}
+              </span>
               <span style={{ marginTop: 6, fontSize: 9.5, fontWeight: estDescente ? 800 : 600, letterSpacing: .3,
                 color: parcouru ? ENCRE : '#94A3B8', textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2, maxWidth: 80, overflowWrap: 'anywhere',
                 fontFamily: DISPLAY }}>{v}</span>
@@ -168,14 +192,39 @@ export default function Accueil() {
         .acc-reveal { animation: accReveal .4s cubic-bezier(.23, 1, .32, 1) both; }
         .acc-tuile { transition: transform .14s cubic-bezier(.23, 1, .32, 1); }
         .acc-tuile:active { transform: scale(.95); }
-        @media (prefers-reduced-motion: reduce) { .acc-reveal { animation: none !important } }
+        /* Courbes de niveau : tracées une à une, puis dérive lente */
+        @keyframes accTrace { to { stroke-dashoffset: 0 } }
+        .acc-trace { stroke-dasharray: 1; stroke-dashoffset: 1;
+          animation: accTrace 1.5s cubic-bezier(.23, 1, .32, 1) calc(var(--i) * 80ms) forwards; }
+        @keyframes accDerive { from { transform: translateX(0) scale(1.04) } to { transform: translateX(-16px) scale(1.04) } }
+        .acc-derive { animation: accDerive 20s ease-in-out infinite alternate; }
+        /* Halo d'or qui respire */
+        @keyframes accOrbe { 0%, 100% { transform: scale(1); opacity: .8 } 50% { transform: scale(1.14); opacity: 1 } }
+        .acc-orbe { animation: accOrbe 6s ease-in-out infinite; }
+        /* Prénom révélé en balayage */
+        @keyframes accBalaye { from { clip-path: inset(0 100% 0 0); opacity: 0 } to { clip-path: inset(0 0 0 0); opacity: 1 } }
+        .acc-prenom { display: inline-block; animation: accBalaye .7s cubic-bezier(.23, 1, .32, 1) .3s both; }
+        /* Pastilles : apparition échelonnée */
+        @keyframes accPop { from { opacity: 0; transform: scale(.85) translateY(6px) } to { opacity: 1; transform: none } }
+        .acc-pop { animation: accPop .4s cubic-bezier(.23, 1, .32, 1) both; }
+        /* Trajet : trait doré qui se remplit, pulsation sur la ville de descente */
+        @keyframes accSegment { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+        .acc-segment { transform-origin: left center; animation: accSegment .5s cubic-bezier(.23, 1, .32, 1) calc(500ms + var(--i) * 110ms) both; }
+        @keyframes accHalo { 0% { transform: scale(1); opacity: .7 } 100% { transform: scale(2.3); opacity: 0 } }
+        .acc-halo { animation: accHalo 2.2s cubic-bezier(.23, 1, .32, 1) 1.2s infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .acc-reveal, .acc-derive, .acc-orbe, .acc-segment, .acc-halo, .acc-pop { animation: none !important }
+          .acc-prenom { animation: accFondu .3s ease both }
+          .acc-trace { animation: none; stroke-dashoffset: 0 }
+        }
+        @keyframes accFondu { from { opacity: 0 } to { opacity: 1 } }
       `}</style>
 
       {/* ── HERO ─────────────────────────────────────────────── */}
       <div style={{ position: 'relative', overflow: 'hidden', padding: '22px 18px 64px',
         background: `radial-gradient(120% 90% at 85% 0%, ${NUIT_2} 0%, ${NUIT} 60%)`, color: '#fff' }}>
         <CourbesDeNiveau />
-        <div style={{ position: 'absolute', width: 220, height: 220, right: -70, top: -90, borderRadius: '50%',
+        <div className="acc-orbe" style={{ position: 'absolute', width: 220, height: 220, right: -70, top: -90, borderRadius: '50%',
           background: `radial-gradient(circle, ${OR}40, transparent 70%)`, filter: 'blur(6px)' }} />
         <div style={{ position: 'relative' }}>
           <div className="acc-reveal" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: OR, textTransform: 'uppercase' }}>
@@ -183,15 +232,15 @@ export default function Accueil() {
           </div>
           <h1 className="acc-reveal" style={{ animationDelay: '60ms', margin: '8px 0 0', fontFamily: DISPLAY,
             fontWeight: 700, fontSize: 26, lineHeight: 1.15, letterSpacing: -.3, color: '#fff' }}>
-            {salutation()},<br /><span style={{ color: OR }}>{prenom}</span>
+            {salutation()},<br /><span className="acc-prenom" style={{ color: OR }}>{prenom}</span>
           </h1>
-          <div className="acc-reveal" style={{ animationDelay: '120ms', display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
             {[
               chambre && ['🏠', `Chambre ${chambre}`],
               ['⛏️', ROLE_LABELS[role] || role],
               profil?.societe && ['🏢', profil.societe],
-            ].filter(Boolean).map(([ic, t]) => (
-              <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 99,
+            ].filter(Boolean).map(([ic, t], i) => (
+              <span key={t} className="acc-pop" style={{ animationDelay: `${320 + i * 80}ms`, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 99,
                 background: 'rgba(255,255,255,.08)', border: '1px solid rgba(227,178,60,.28)', fontSize: 11.5, fontWeight: 600 }}>
                 <span>{ic}</span>{t}
               </span>
@@ -235,7 +284,7 @@ export default function Accueil() {
                 {trajet.statut === 'planifie' && j !== null && (
                   <div style={{ textAlign: 'center', flexShrink: 0, padding: '8px 12px', borderRadius: 16,
                     background: `linear-gradient(160deg, ${NUIT_2}, ${NUIT})`, color: '#fff' }}>
-                    <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 24, color: OR, lineHeight: 1 }}>{j <= 0 ? 'J' : `J-${j}`}</div>
+                    <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 24, color: OR, lineHeight: 1 }}>{j <= 0 ? 'J' : <>J-<Compte n={j} /></>}</div>
                     <div style={{ fontSize: 9, letterSpacing: 1, opacity: .75, marginTop: 3 }}>{j <= 0 ? "AUJOURD'HUI" : j === 1 ? 'DEMAIN' : 'JOURS'}</div>
                   </div>
                 )}
@@ -293,7 +342,7 @@ export default function Accueil() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[[demandesEnAttente, 'En attente', '#D97706'], [demandesValidees, 'Validées', '#16A34A']].map(([n, l, c]) => (
                 <div key={l} style={{ background: '#F8FAFC', borderRadius: 14, padding: '12px 14px' }}>
-                  <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 26, color: c, lineHeight: 1 }}>{n}</div>
+                  <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 26, color: c, lineHeight: 1 }}><Compte n={n} delai={600} /></div>
                   <div style={{ fontSize: 11.5, color: GRIS, marginTop: 4, fontWeight: 600 }}>{l}</div>
                 </div>
               ))}
