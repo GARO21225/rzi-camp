@@ -61,7 +61,7 @@ class ProfilTechnicienTests(TestCase):
         self.assertEqual(self.c1.post(f"/api/plaintes/{self.pl.id}/prendre_en_charge/").status_code, 200)
         self.assertEqual(self.c1.post(f"/api/plaintes/{self.pl.id}/demarrer/").status_code, 200)
         self.assertEqual(self.c1.post(f"/api/plaintes/{self.pl.id}/affecter/", {"affecte_a": self.t2.id}, format="json").status_code, 403)
-        self.assertEqual(self.c1.post(f"/api/plaintes/{self.pl.id}/resoudre/", {"action_resolution": "ok"}, format="json").status_code, 200)
+        self.assertEqual(self.c1.post(f"/api/plaintes/{self.pl.id}/resoudre/", {"action_resolution": "ok", "photo_resolution_base64": "data:image/jpeg;base64," + "A" * 200}, format="json").status_code, 200)
 
     def test_retirer_plainte_et_liste_en_deux_blocs(self):
         self.a.post(f"/api/plaintes/{self.pl.id}/affecter/", {"affecte_a": self.t1.id}, format="json")

@@ -8,6 +8,7 @@ import { personnel as personnelAPI, inductionAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 import { getRole, isAdminUser } from '../constants/roleNav'
+import { documentComplet } from '../utils/impression'
 
 // Vues de l'induction QHSE :
 //  - GESTION (admin, HSE) : tout le personnel, toutes les étapes ;
@@ -716,7 +717,7 @@ function InductionPageInner() {
       </div>
       <script>setTimeout(()=>window.print(),400)</script>
       </body></html>`
-    const blob = new Blob([html], {type:'text/html'})
+    const blob = new Blob([documentComplet(html)], {type:'text/html'})
     const url = URL.createObjectURL(blob)
     const w2 = window.open(url, '_blank')
     if (!w2) {

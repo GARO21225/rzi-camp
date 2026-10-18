@@ -17,6 +17,12 @@ def _sig(d):
     return "|".join(str(v) for v in d.values())
 
 
+def _repartition(qs, champ="statut"):
+    """Signature des statuts (une annulation, un retrait d'assignation... ne
+    changent aucune date mais doivent quand même rafraîchir les écrans)."""
+    return ",".join(f"{k}:{n}" for k, n in sorted(qs.values_list(champ).annotate(n=Count("id")).order_by()))
+
+
 def _calculer(u):
     profil = getattr(getattr(u, "profile", None), "role", "")
     admin = bool(u.is_staff or u.is_superuser or profil == "admin")
@@ -49,15 +55,31 @@ def _calculer(u):
     out["demandes"] = {"sig": _sig(a)}
 
     from maintenance.models import Incident
-    iq = Incident.objects.all() if admin else (Incident.objects.filter(Q(assigne_a=u) | Q(auteur=u)) if technicien else Incident.objects.filter(auteur=u))
+    from maintenance.models import CommentaireIncident
+    # Tout non-admin voit ses dossiers déclarés ET ceux qui lui sont assignés
+    # (un admin peut assigner à un rôle autre que « technicien »).
+    iq = Incident.objects.all() if admin else Incident.objects.filter(Q(assigne_a=u) | Q(auteur=u))
     a = iq.aggregate(n=Count("id"), nouv=Count("id", filter=Q(statut="declare")), dernier=Max("id"), asg=Max("date_assignation"),
                      deb=Max("date_debut"), res=Max("date_resolution"), clo=Max("date_cloture"))
+    # Messages, photos avant/après, escalades : nouveaux commentaires
+    a["cmt"] = CommentaireIncident.objects.filter(incident__in=iq).aggregate(m=Max("id"))["m"]
+    a["st"] = _repartition(iq)
     out["incidents"] = {"sig": _sig(a)}
 
     pq = Plainte.objects.all() if admin else (Plainte.objects.filter(Q(affecte_a=u) | Q(utilisateur=u)) if technicien else Plainte.objects.filter(utilisateur=u))
     a = pq.aggregate(n=Count("id"), nouv=Count("id", filter=Q(statut="nouvelle")), dernier=Max("id"), aff=Max("date_affectation"),
-                     pec=Max("date_prise_en_charge"), res=Max("date_resolution"), clo=Max("date_cloture"), qua=Max("date_qualification"))
+                     pec=Max("date_prise_en_charge"), res=Max("date_resolution"), clo=Max("date_cloture"), qua=Max("date_qualification"),
+                     conf=Max("date_confirmation"))
+    a["st"] = _repartition(pq)
     out["plaintes"] = {"sig": _sig(a)}
+
+    # Restauration : repas scannés, menu, avis (tableau de bord et écran de scan)
+    from restauration.models import RepasLog, MenuJour, AvisRestauration
+    out["resto"] = {"sig": _sig({
+        "repas": RepasLog.objects.aggregate(m=Max("id"))["m"], "nrepas": RepasLog.objects.count(),
+        "menu": MenuJour.objects.aggregate(m=Max("id"))["m"], "nmenu": MenuJour.objects.count(),
+        "avis": AvisRestauration.objects.aggregate(m=Max("id"))["m"],
+    })}
     return out
 
 

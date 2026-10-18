@@ -15,7 +15,7 @@ def remplir_sla(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("residences", "0033_induction_camp_exemption"),
+        ("residences", "0034_induction_contenu_roxgold"),
     ]
 
     operations = [

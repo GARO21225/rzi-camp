@@ -232,6 +232,7 @@ export const incidents = {
   delete:       (id) => api.delete(`/api/incidents/${id}/`),
   stats:        () => api.get('/api/incidents/stats-sql/'),
   techniciens:  () => api.get('/api/incidents/techniciens/'),
+  rapport:      (p) => api.get('/api/incidents/rapport/', {params:p}),
   verifierSLA:  () => api.post('/api/incidents/verifier_sla/'),
   // Workflow
   assigner:     (id,d) => api.post(`/api/incidents/${id}/assigner/`, d),

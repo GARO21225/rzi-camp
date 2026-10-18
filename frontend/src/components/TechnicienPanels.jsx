@@ -69,7 +69,11 @@ export function TableauTechnicien({ technicienId, onOuvrirIncident }) {
       </div>
       <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a' }}>Mes tâches ({taches.length})</div>
       {taches.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>Aucune tâche assignée 🎉</div>}
-      {d.incidents.map(t => <LigneTache key={`i${t.id}`} t={t} onOuvrir={onOuvrirIncident} />)}
+      {d.incidents.map(t => <LigneTache key={`i${t.id}`} t={t} onOuvrir={onOuvrirIncident} actions={onOuvrirIncident && (
+        <button style={btn(t.statut === 'en_cours' ? '#16a34a' : '#eab308')} onClick={() => onOuvrirIncident(t.id)}>
+          {t.statut === 'en_cours' ? '✅ Terminer' : '⚙️ Traiter'}
+        </button>
+      )} />)}
       {d.plaintes.map(t => (
         <LigneTache key={`p${t.id}`} t={t} actions={!technicienId && (
           <div style={{ display: 'flex', gap: 6 }}>

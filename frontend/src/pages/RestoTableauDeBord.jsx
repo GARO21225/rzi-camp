@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, BarChart } from 'recharts'
 import { restaurants as api } from '../api'
 import { toast } from '../toast'
+import { imprimerElement } from '../utils/impression'
+import { useSurPulse } from '../hooks/useSurPulse'
 
 const NAVY = '#0f2a5c', OR = '#c9972b'
 const COUL_REPAS = { petit_dejeuner: '#f97316', dejeuner: '#2563eb', diner: '#7c3aed' }
@@ -126,6 +128,7 @@ function Rapport({ restos }) {
   const [d, setD] = useState(null)
   const [chargement, setChargement] = useState(false)
   const [mail, setMail] = useState(false)
+  const zoneRapport = useRef(null)
   const [detail, setDetail] = useState(false)
   const [debut, fin] = bornes(periode, perso)
 
@@ -138,6 +141,7 @@ function Rapport({ restos }) {
     finally { setChargement(false) }
   }, [debut, fin, resto, repasF])
   useEffect(() => { charger() }, [charger])
+  useSurPulse(['resto'], () => charger())   // nouveaux repas scannés : chiffres à jour sans recharger
 
   const csv = () => {
     if (!d) return
@@ -176,13 +180,13 @@ function Rapport({ restos }) {
         <span style={{ flex: 1 }} />
         <button onClick={charger} style={btn('#eef2f7', '#334155')}>🔄</button>
         <button onClick={csv} disabled={!d} style={btn('#16a34a')}>📥 CSV</button>
-        <button onClick={() => window.print()} style={btn('#475569')}>🖨️ PDF / Imprimer</button>
+        <button onClick={() => imprimerElement(zoneRapport.current, `Restauration — ${debut} au ${fin}`)} disabled={!d} style={btn('#475569')}>🖨️ PDF / Imprimer</button>
         <button onClick={() => setMail(true)} style={btn(OR)}>📧 Envoyer par email</button>
       </div>
       {mail && <ModalEmail debut={debut} fin={fin} onClose={() => setMail(false)} />}
       {chargement && !d && <div style={{ textAlign: 'center', padding: 40, fontSize: 28 }}>⏳</div>}
 
-      {d && (<div style={{ opacity: chargement ? .55 : 1, transition: 'opacity .15s' }}>
+      {d && (<div ref={zoneRapport} style={{ opacity: chargement ? .55 : 1, transition: 'opacity .15s' }}>
         <div style={{ fontSize: 12.5, color: '#64748b', margin: '0 0 10px' }}>
           Période <b>{fmtJ(d.debut)} → {fmtJ(d.fin)}</b> ({d.nb_jours} jour{d.nb_jours > 1 ? 's' : ''}, {d.jours_actifs} avec des scans)
         </div>

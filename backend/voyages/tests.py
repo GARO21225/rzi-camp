@@ -986,3 +986,59 @@ class ChambresDoublesTests(TestCase):
         simple = self.Batiment.objects.create(residence="D1", bloc="D", statut="Libre")
         self.assertIsNone(conflit_residence_principale(simple, invite, None, None))
         self.assertEqual(self.declarer(self.P[0], simple).status_code, 409)  # déjà résident de C20-A
+
+
+class ReplanifierRotationsTests(TestCase):
+    """Centre de mobilité → Rotations : changer la date / l'itinéraire d'un ou plusieurs convois."""
+
+    def setUp(self):
+        from .models import ItineraireModele, EtapeItineraireModele
+        self.admin = User.objects.create_user("adm-rp", password="x", is_staff=True)
+        self.up = User.objects.create_user("pass-rp", password="x")
+        self.pers = Personnel.objects.create(nom="Kone", prenom="Awa", societe="ROXGOLD", user=self.up)
+        self.d = datetime.date.today() + datetime.timedelta(days=3)
+        for rid in ("RP-1", "RP-2"):
+            Rotation.objects.create(rotation_id=rid, vehicule="BUS", origine="Camp", destination="Abidjan",
+                                    date_depart=self.d, date_retour_prevue=self.d + datetime.timedelta(days=14))
+        self.v = Voyage.objects.create(personnel=self.pers, rotation_id="RP-1", origine="Camp", destination="Abidjan",
+                                       date_depart=self.d, date_retour_prevue=self.d + datetime.timedelta(days=14), statut="planifie")
+        self.it = ItineraireModele.objects.create(nom="Camp → Bouaké", origine="Camp", destination="Bouaké")
+        EtapeItineraireModele.objects.create(itineraire=self.it, ordre=1, ville="Yamoussoukro")
+        EtapeItineraireModele.objects.create(itineraire=self.it, ordre=2, ville="Bouaké")
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+
+    def post(self, body):
+        return self.c.post("/api/voyages/replanifier_rotations/", body, format="json")
+
+    def test_changer_date_en_masse_decale_les_passagers_et_notifie(self):
+        from evenements.models import SimpleNotification
+        nd = self.d + datetime.timedelta(days=2)
+        r = self.post({"rotation_ids": ["RP-1", "RP-2"], "date_depart": nd.isoformat(), "motif": "pluie"})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(len(r.json()["ok"]), 2)
+        self.v.refresh_from_db()
+        self.assertEqual(self.v.date_depart, nd)
+        self.assertEqual(self.v.date_retour_prevue, nd + datetime.timedelta(days=14))
+        self.assertEqual(Rotation.objects.get(rotation_id="RP-2").date_depart, nd)
+        self.assertTrue(SimpleNotification.objects.filter(user=self.up, titre__contains="RP-1").exists())
+
+    def test_changer_itineraire(self):
+        from .models import EtapeVoyage
+        r = self.post({"rotation_ids": ["RP-1"], "itineraire_id": self.it.id})
+        self.assertEqual(r.status_code, 200, r.content)
+        rot = Rotation.objects.get(rotation_id="RP-1")
+        self.assertEqual((rot.destination, rot.itineraire_modele_id), ("Bouaké", self.it.id))
+        self.v.refresh_from_db()
+        self.assertEqual(self.v.destination, "Bouaké")  # Abidjan n'est plus sur le trajet
+        self.assertEqual(list(EtapeVoyage.objects.filter(voyage=self.v, sens="aller").order_by("ordre").values_list("destination", flat=True)),
+                         ["Yamoussoukro", "Bouaké"])
+
+    def test_refus(self):
+        c = APIClient(); c.force_authenticate(self.up)
+        self.assertEqual(c.post("/api/voyages/replanifier_rotations/", {"rotation_ids": ["RP-1"], "date_depart": "2099-01-01"}, format="json").status_code, 403)
+        self.assertEqual(self.post({"rotation_ids": ["RP-1"]}).status_code, 400)
+        self.assertEqual(self.post({"rotation_ids": ["RP-1"], "date_depart": "2000-01-01"}).status_code, 400)
+        SuiviConvoi.objects.create(rotation=Rotation.objects.get(rotation_id="RP-1"), statut="en_route", depart_at=timezone.now())
+        r = self.post({"rotation_ids": ["RP-1", "RP-2"], "date_depart": (self.d + datetime.timedelta(days=1)).isoformat()})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([e["rotation_id"] for e in r.json()["echecs"]], ["RP-1"])

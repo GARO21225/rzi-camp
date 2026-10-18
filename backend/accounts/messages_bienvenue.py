@@ -46,6 +46,28 @@ def message_bienvenue_identifiants(nom_app, prenom, username, password):
     return texte, corps_html
 
 
+def message_nouveaux_identifiants(nom_app, prenom, username, password):
+    """Mot de passe régénéré par l'admin (fiche Personnel, bouton 🔑)."""
+    lien = _lien_connexion()
+    texte = (
+        f"🔑 {nom_app} — {prenom}, vos identifiants ont été réinitialisés.\n\n"
+        f"Identifiant : {username}\n"
+        f"Nouveau mot de passe : {password}\n\n"
+        f"Connexion ici : {lien}\n\n"
+        "L'ancien mot de passe ne fonctionne plus. Si vous n'êtes pas à l'origine "
+        "de cette demande, prévenez l'administration du camp."
+    )
+    corps_html = (
+        f"<p>🔑 {prenom}, vos identifiants <strong>{nom_app}</strong> ont été réinitialisés.</p>"
+        f"<p>Identifiant : <strong>{username}</strong><br>"
+        f"Nouveau mot de passe : <strong>{password}</strong></p>"
+        f"<p>Connexion ici : <a href=\"{lien}\">{lien}</a></p>"
+        "<p>L'ancien mot de passe ne fonctionne plus. Si vous n'êtes pas à l'origine "
+        "de cette demande, prévenez l'administration du camp.</p>"
+    )
+    return texte, corps_html
+
+
 def message_code_otp(nom_app, prenom, code, duree_min):
     texte = (
         f"🔐 {nom_app} frappe à votre porte, {prenom} ! Votre code de connexion est {code} "

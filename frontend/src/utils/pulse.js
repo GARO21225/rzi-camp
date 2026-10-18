@@ -62,7 +62,7 @@ export function alarme() {
 export const sonDebloque = () => { debloquerAudio(); return !!audioCtx && audioCtx.state === 'running' }
 
 const sigs = (d) => ({
-  notifs: JSON.stringify(d.notifs), alertes: d.alertes?.sig, demandes: d.demandes?.sig, incidents: d.incidents?.sig, plaintes: d.plaintes?.sig,
+  notifs: JSON.stringify(d.notifs), alertes: d.alertes?.sig, demandes: d.demandes?.sig, incidents: d.incidents?.sig, plaintes: d.plaintes?.sig, resto: d.resto?.sig,
 })
 
 async function tick() {

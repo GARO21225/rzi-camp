@@ -18,3 +18,15 @@ class PulseTests(TestCase):
         SimpleNotification.objects.create(user=u, titre="x", message="y", type_notif="info")
         cache.clear()
         self.assertEqual(c.get("/api/pulse/").json()["notifs"]["non_lues"], 1)
+
+    def test_message_sur_dossier_et_resto_changent_la_signature(self):
+        from rzi_camp.pulse import _calculer
+        from maintenance.models import Incident, CommentaireIncident
+        u = User.objects.create_user("pu2", password="x")
+        inc = Incident.objects.create(titre="t", description="d", categorie="Plomberie", residence="A2", auteur=u)
+        avant = _calculer(u)
+        self.assertIn("resto", avant)
+        CommentaireIncident.objects.create(incident=inc, auteur=u, contenu="photo", type_comment="photo_avant")
+        self.assertNotEqual(_calculer(u)["incidents"]["sig"], avant["incidents"]["sig"])
+        Incident.objects.filter(pk=inc.pk).update(statut="annule")
+        self.assertNotEqual(_calculer(u)["incidents"]["sig"], avant["incidents"]["sig"])

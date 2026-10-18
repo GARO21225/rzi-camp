@@ -24,6 +24,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import CarteItineraire from '../components/CarteItineraire'
 import CarteConvoisDirect from '../components/CarteConvoisDirect'
 import { useStore } from '../store'
+import { documentComplet } from '../utils/impression'
 
 
 // ── Palette & Config ────────────────────────────────────────────────
@@ -114,6 +115,10 @@ export default function MissionControl() {
   const [voyagesSelectionnes, setVoyagesSelectionnes] = useState([])
   const [modifRot, setModifRot] = useState(null) // { r, vehicule_matricule, vehicule, conducteur_id, conducteur_secondaire_id, motif }
   const [modifBusy, setModifBusy] = useState(false)
+  // Sélection en masse des convois (cases en bordure) + fenêtre « Date / itinéraire »
+  const [rotSel, setRotSel] = useState(() => new Set())
+  const [replan, setReplan] = useState(null) // { ids, date_depart, date_retour_prevue, heure_depart, itineraire_id, motif }
+  const [replanBusy, setReplanBusy] = useState(false)
   const [arriveeModal, setArriveeModal] = useState(null) // { voyage, prochain } : arrivée au camp
   const [organiserMode, setOrganiserMode] = useState('nouvelle')
   const { enCours, agir, envoyer } = useActionsMobilite(load)
@@ -676,6 +681,60 @@ export default function MissionControl() {
     marginBottom:4,textTransform:'uppercase',letterSpacing:.5,
   }
 
+  const rotationsVisibles = rotations
+    .filter(r=>afficherConvoisTermines || r.statut!=='retour')
+    .filter(r=>rotFiltreStatut==='tous' || r.statut===rotFiltreStatut)
+    .filter(r=>!rotFiltreDateDebut || (r.date_depart||'') >= rotFiltreDateDebut)
+    .filter(r=>!rotFiltreDateFin || (r.date_depart||'') <= rotFiltreDateFin)
+    .filter(r=>{
+      if (!rotFiltreTexte.trim()) return true
+      const q = rotFiltreTexte.trim().toLowerCase()
+      return [r.destination,r.origine,r.vehicule,r.vehicule_matricule,r.conducteur,r.conducteur_secondaire,r.rotation_id]
+        .some(v=>(v||'').toLowerCase().includes(q))
+    })
+  const rotSelectionnees = rotationsVisibles.filter(r => rotSel.has(r.rotation_id))
+  const basculerRot = (id) => setRotSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const ouvrirReplan = (liste) => {
+    const r0 = liste[0]
+    setReplan({ ids: liste.map(r => r.rotation_id), date_depart: liste.length === 1 ? (r0.date_depart||'') : '',
+      date_retour_prevue: '', heure_depart: liste.length === 1 ? (r0.heure_depart||'').slice(0,5) : '', itineraire_id: '', motif: '' })
+  }
+  const enregistrerReplan = async () => {
+    const m = replan; if (!m || replanBusy) return
+    if (!m.date_depart && !m.date_retour_prevue && !m.heure_depart && !m.itineraire_id) { toast.error('Indiquez une date, une heure ou un itinéraire'); return }
+    setReplanBusy(true)
+    try {
+      const body = { rotation_ids: m.ids, motif: m.motif }
+      ;['date_depart','date_retour_prevue','heure_depart','itineraire_id'].forEach(k => { if (m[k]) body[k] = m[k] })
+      const res = await api('/api/voyages/replanifier_rotations/', { method:'POST', body: JSON.stringify(body) })
+      const d = await res.json().catch(()=>({}))
+      if (d.ok?.length) flash(`📅 ${d.ok.length} convoi(s) replanifié(s) — passagers prévenus`)
+      if (d.echecs?.length) toast.error(d.echecs.map(e => `${e.rotation_id} : ${e.error}`).join(' | '), 9000)
+      else if (!res.ok) toast.error(d.error || 'Modification impossible', 8000)
+      if (d.ok?.length) { setReplan(null); setRotSel(new Set()); load() }
+    } catch { flash('Erreur réseau', false) } finally { setReplanBusy(false) }
+  }
+  const masse = async (action) => {
+    const liste = rotSelectionnees
+    if (!liste.length) return
+    if (action === 'replan') return ouvrirReplan(liste.filter(r => r.statut === 'planifie'))
+    if (action === 'partir') {
+      const ok = liste.filter(r => r.statut === 'planifie' && sansDecision(r).length === 0)
+      if (!ok.length) { toast.error('Aucun convoi sélectionné ne peut partir (déjà parti ou demandes sans décision).'); return }
+      if (!await confirmDialog(`Faire partir ${ok.length} convoi(s) ?`)) return
+      for (const r of ok) await partirRotation(r.rotation_id)
+    }
+    if (action === 'supprimer') {
+      if (!await confirmDialog(`Supprimer définitivement ${liste.length} convoi(s) et leurs passagers ?\n\nCette action est irréversible.`)) return
+      let n = 0
+      for (const r of liste) {
+        try { const res = await api('/api/voyages/supprimer_rotation/', { method:'POST', body: JSON.stringify({ rotation_id: r.rotation_id }) }); if (res.ok) n++ } catch {}
+      }
+      toast.success(`${n} convoi(s) supprimé(s)`); load()
+    }
+    setRotSel(new Set())
+  }
+
   return (
     <div className="mc-root">
       <style>{css}</style>
@@ -1083,18 +1142,28 @@ export default function MissionControl() {
               )
             })()}
 
+            {isAdmin && rotationsVisibles.length > 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:10,padding:'8px 12px',borderRadius:10,
+                background: rotSelectionnees.length ? `${C.accent}12` : 'transparent', border:`1px solid ${rotSelectionnees.length ? C.accent+'40' : C.border}`,
+                position:'sticky',top:0,zIndex:5,backdropFilter:'blur(6px)'}}>
+                <label style={{display:'flex',alignItems:'center',gap:8,fontSize:12.5,fontWeight:700,color:C.text,cursor:'pointer'}}>
+                  <input type="checkbox" style={{width:18,height:18,accentColor:C.accent}}
+                    checked={rotSelectionnees.length>0 && rotSelectionnees.length===rotationsVisibles.length}
+                    ref={el=>{ if (el) el.indeterminate = rotSelectionnees.length>0 && rotSelectionnees.length<rotationsVisibles.length }}
+                    onChange={e=>setRotSel(e.target.checked ? new Set(rotationsVisibles.map(r=>r.rotation_id)) : new Set())}/>
+                  {rotSelectionnees.length ? `${rotSelectionnees.length} convoi(s) sélectionné(s)` : 'Tout sélectionner'}
+                </label>
+                {rotSelectionnees.length > 0 && (<>
+                  <span style={{flex:1}}/>
+                  <button className="mc-btn" style={{fontSize:11.5}} onClick={()=>masse('replan')}>📅 Date / itinéraire</button>
+                  <button className="mc-btn mc-btn-primary" style={{fontSize:11.5}} onClick={()=>masse('partir')}>🚦 Partir</button>
+                  <button className="mc-btn" style={{fontSize:11.5,background:`${C.red}18`,color:C.red}} onClick={()=>masse('supprimer')}>🗑️ Supprimer</button>
+                  <button className="mc-btn mc-btn-ghost" style={{fontSize:11.5}} onClick={()=>setRotSel(new Set())}>✕</button>
+                </>)}
+              </div>
+            )}
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              {rotations
-                .filter(r=>afficherConvoisTermines || r.statut!=='retour')
-                .filter(r=>rotFiltreStatut==='tous' || r.statut===rotFiltreStatut)
-                .filter(r=>!rotFiltreDateDebut || (r.date_depart||'') >= rotFiltreDateDebut)
-                .filter(r=>!rotFiltreDateFin || (r.date_depart||'') <= rotFiltreDateFin)
-                .filter(r=>{
-                  if (!rotFiltreTexte.trim()) return true
-                  const q = rotFiltreTexte.trim().toLowerCase()
-                  return [r.destination,r.origine,r.vehicule,r.vehicule_matricule,r.conducteur,r.conducteur_secondaire,r.rotation_id]
-                    .some(v=>(v||'').toLowerCase().includes(q))
-                })
+              {rotationsVisibles
                 .map(r=>{
                 const total   = r.nb_places_total || 15
                 const prises  = r.nb_passagers
@@ -1119,8 +1188,17 @@ export default function MissionControl() {
                   } catch { toast.error('Erreur réseau') }
                 }
                 return (
-                  <Panel key={r.rotation_id} glow={isOpen}
-                    style={{overflow:'visible'}}>
+                  <Panel key={r.rotation_id} glow={isOpen || rotSel.has(r.rotation_id)}
+                    style={{overflow:'visible', ...(isAdmin ? {paddingLeft:34} : {})}}>
+                    {isAdmin && (
+                      <label onClick={e=>e.stopPropagation()} title="Sélectionner ce convoi"
+                        style={{position:'absolute',left:0,top:0,bottom:0,width:34,display:'flex',justifyContent:'center',paddingTop:isMobile?15:26,
+                          cursor:'pointer',borderRight:`1px solid ${C.border}`,borderRadius:'12px 0 0 12px',zIndex:2,
+                          background: rotSel.has(r.rotation_id) ? `${C.accent}22` : 'rgba(15,26,46,.03)'}}>
+                        <input type="checkbox" checked={rotSel.has(r.rotation_id)} onChange={()=>basculerRot(r.rotation_id)}
+                          style={{width:18,height:18,accentColor:C.accent,cursor:'pointer'}}/>
+                      </label>
+                    )}
                     {/* Header rotation */}
                     {isMobile ? (
                       /* Mobile : carte fidèle à la maquette validée — icône véhicule
@@ -1162,6 +1240,8 @@ export default function MissionControl() {
                           )}
                           {isAdmin && r.statut!=='retour' && <button className="mc-btn" style={{flex:1,justifyContent:'center'}}
                             onClick={e=>{e.stopPropagation();ouvrirModifRot(r)}}>🔁 Changer</button>}
+                          {isAdmin && r.statut==='planifie' && <button className="mc-btn" style={{flex:1,justifyContent:'center'}}
+                            onClick={e=>{e.stopPropagation();ouvrirReplan([r])}}>📅 Date</button>}
                           {isAdmin && r.statut==='planifie'&&<button className="mc-btn mc-btn-primary" style={{flex:1,justifyContent:'center',...(sansDecision(r).length?{opacity:.45,cursor:'not-allowed'}:{})}}
                             disabled={sansDecision(r).length>0} title={sansDecision(r).length?`${sansDecision(r).length} demande(s) sans décision : validez ou refusez chaque voyageur`:undefined}
                             onClick={e=>{e.stopPropagation();partirRotation(r.rotation_id)}}>
@@ -1254,6 +1334,12 @@ export default function MissionControl() {
                           title="Changer le chauffeur ou le véhicule (panne, indisponibilité)"
                           onClick={e=>{e.stopPropagation();ouvrirModifRot(r)}}>
                           🔁 Changer
+                        </button>}
+                        {isAdmin && r.statut==='planifie' && <button className="mc-btn"
+                          style={{padding:'6px 10px',fontSize:11,background:`${C.amber}1A`,color:'#b45309'}}
+                          title="Changer la date ou l'itinéraire du convoi"
+                          onClick={e=>{e.stopPropagation();ouvrirReplan([r])}}>
+                          📅 Date / trajet
                         </button>}
                         {isAdmin && <button className="mc-btn"
                           style={{padding:'6px 10px',fontSize:11,background:`${C.red}18`,color:C.red}}
@@ -1921,7 +2007,7 @@ export default function MissionControl() {
                 const corps = lignesJour.map((v,i) => `<tr><td>${i+1}</td><td>${v.personnel_nom||''}</td><td>${v.personnel_departement||v.personnel_societe||''}</td>
                   <td class="c v">${v.vehicule_personnel?'':'X'}</td><td class="c r">${v.vehicule_personnel?'X':''}</td><td class="c r">${chambreDe(v)}</td>
                   <td class="c">${dCourte(v.date_depart)}</td><td class="c">${dCourte(fin(v))}</td><td class="c r">${nuits(v)}</td></tr>`).join('')
-                w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${jour}</title><style>
+                w.document.write(documentComplet(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${jour}</title><style>
                   body{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:16px}table{width:100%;border-collapse:collapse}
                   td,th{border:1px solid #999;padding:3px 6px}th{background:#d9d9d9}.c{text-align:center}.v{color:#16a34a;font-weight:700}.r{color:#dc2626;font-weight:700}
                   .tot td{background:#d9d9d9;font-weight:700;text-align:center}h2{color:#c00;font-size:14px;margin:0 0 8px}
@@ -1929,7 +2015,7 @@ export default function MissionControl() {
                   <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
                   <h2>${titreDate.charAt(0).toUpperCase()+titreDate.slice(1)} — ${manifSens==='arrivees'?'Arrivées au camp':'Départs du camp'}</h2>
                   <table><thead><tr><th>N°</th><th>Nom</th><th>Département / Société</th><th>Car</th><th>Véhicule perso</th><th>Chambre</th><th>${manifSens==='arrivees'?'Arrivée':'Départ'}</th><th>${colFin}</th><th>${colNb}</th></tr></thead>
-                  <tbody>${corps}</tbody><tfoot><tr class="tot"><td colspan="3">TOTAL</td><td>${nbCar}</td><td>${nbPerso}</td><td>${lignesJour.length}</td><td colspan="3"></td></tr></tfoot></table></body></html>`)
+                  <tbody>${corps}</tbody><tfoot><tr class="tot"><td colspan="3">TOTAL</td><td>${nbCar}</td><td>${nbPerso}</td><td>${lignesJour.length}</td><td colspan="3"></td></tr></tfoot></table></body></html>`))
                 w.document.close()
               }
               const th = { padding:'7px 8px', fontSize:10.5, fontWeight:800, textTransform:'uppercase', letterSpacing:.4, color:C.muted, textAlign:'left', borderBottom:`2px solid ${C.border}`, whiteSpace:'nowrap' }
@@ -2070,7 +2156,7 @@ export default function MissionControl() {
                       <td>${l.destination||''}</td>
                     </tr>`).join('')
                   const w = window.open('', '_blank')
-                  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${manifFiltreConvoi!=='tous'?manifFiltreConvoi:''}</title>
+                  w.document.write(documentComplet(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manifeste ${manifFiltreConvoi!=='tous'?manifFiltreConvoi:''}</title>
                     <style>
                       body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#111}
                       table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -2111,7 +2197,7 @@ export default function MissionControl() {
                         ${lignesTable}
                       </tbody>
                     </table>
-                  </body></html>`)
+                  </body></html>`))
                   w.document.close()
                 }
 
@@ -2222,6 +2308,43 @@ export default function MissionControl() {
             </div>
           </div>
         )}
+
+        {replan && (() => {
+          const m = replan, un = m.ids.length === 1
+          const r0 = un ? rotations.find(r=>r.rotation_id===m.ids[0]) : null
+          return (
+          <div onClick={()=>setReplan(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:480,maxHeight:'90vh',overflowY:'auto'}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:4}}>📅 Changer la date / l'itinéraire</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:14}}>
+                {un ? <>Convoi {r0?.rotation_id} · {r0?.origine||'Camp'} → {r0?.destination} · {fmt(r0?.date_depart)}</> : <>{m.ids.length} convois sélectionnés (seuls ceux pas encore partis)</>}
+                <br/>Les dates des passagers sont décalées d'autant ; passagers et chauffeurs sont prévenus.
+              </div>
+              {m.ids.length === 0 ? <div style={{fontSize:13,color:C.red}}>Aucun des convois sélectionnés n'est encore planifié.</div> : (<>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div><label style={labelStyle}>Nouveau départ</label>
+                  <input type="date" value={m.date_depart} min={new Date().toISOString().slice(0,10)} onChange={e=>setReplan(x=>({...x,date_depart:e.target.value}))} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Heure de départ</label>
+                  <input type="time" value={m.heure_depart} onChange={e=>setReplan(x=>({...x,heure_depart:e.target.value}))} style={inputStyle}/></div>
+              </div>
+              <label style={{...labelStyle,marginTop:10}}>Retour prévu (facultatif — sinon décalé d'autant)</label>
+              <input type="date" value={m.date_retour_prevue} min={m.date_depart||undefined} onChange={e=>setReplan(x=>({...x,date_retour_prevue:e.target.value}))} style={inputStyle}/>
+              <label style={{...labelStyle,marginTop:10}}>Nouvel itinéraire (facultatif)</label>
+              <select value={m.itineraire_id} onChange={e=>setReplan(x=>({...x,itineraire_id:e.target.value}))} style={inputStyle}>
+                <option value="">— Garder l'itinéraire actuel —</option>
+                {itineraires.filter(i=>i.actif).map(i=><option key={i.id} value={i.id}>{i.nom} ({i.origine} → {i.destination})</option>)}
+              </select>
+              {m.itineraire_id && <div style={{fontSize:11,color:C.muted,marginTop:4}}>Les étapes sont recalculées ; un passager dont la ville de descente n'est plus sur le trajet descendra au terminus.</div>}
+              <label style={{...labelStyle,marginTop:10}}>Motif (facultatif, envoyé aux passagers)</label>
+              <input value={m.motif} onChange={e=>setReplan(x=>({...x,motif:e.target.value}))} placeholder="Route coupée, report, météo…" style={inputStyle}/>
+              </>)}
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button className="mc-btn" style={{flex:1,justifyContent:'center'}} onClick={()=>setReplan(null)}>Annuler</button>
+                {m.ids.length > 0 && <button className="mc-btn mc-btn-primary" disabled={replanBusy} style={{flex:1,justifyContent:'center'}} onClick={enregistrerReplan}>{replanBusy?'…':'✓ Appliquer'}</button>}
+              </div>
+            </div>
+          </div>)
+        })()}
 
         {modifRot && (() => {
           const m = modifRot, r = m.r

@@ -7,6 +7,7 @@ import datetime, csv, uuid
 from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from .models import Voyage, Rotation
 from .serializers import VoyageSerializer
 
@@ -1727,6 +1728,120 @@ class VoyageViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
         return Response({"ok": True, "rotation_id": rotation.rotation_id, "avant": avant, "apres": apres})
+
+    @action(detail=False, methods=["post"])
+    def replanifier_rotations(self, request):
+        """Change la DATE et/ou l'ITINÉRAIRE d'un ou plusieurs convois pas encore
+        partis (sélection en masse du Centre de mobilité).
+        Champs : rotation_ids (liste) ; date_depart (AAAA-MM-JJ, facultatif) ;
+        date_retour_prevue (facultatif - sinon décalée d'autant) ; heure_depart ;
+        itineraire_id (facultatif) ; motif. Les dates des passagers sont décalées
+        du même nombre de jours, les étapes recalculées, chacun est prévenu.
+        Renvoie {ok: [...], echecs: [{rotation_id, error}]}."""
+        import datetime as _dt
+        from .models import SuiviConvoi as _Suivi, ItineraireModele, EtapeVoyage
+        u = request.user
+        if not (u.is_staff or u.is_superuser or (hasattr(u, "profile") and getattr(u.profile, "role", "") == "admin")):
+            return Response({"error": "Admin requis"}, status=403)
+        d = request.data
+        ids = d.get("rotation_ids") or ([d.get("rotation_id")] if d.get("rotation_id") else [])
+        if not ids:
+            return Response({"error": "Aucun convoi sélectionné."}, status=400)
+
+        def lire_date(cle):
+            v = d.get(cle)
+            if not v:
+                return None
+            try:
+                return _dt.date.fromisoformat(str(v)[:10])
+            except ValueError:
+                raise ValueError(f"Date invalide : {v}")
+        try:
+            nouveau_depart, nouveau_retour = lire_date("date_depart"), lire_date("date_retour_prevue")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+        heure = (d.get("heure_depart") or "").strip()[:5] or None
+        itin = None
+        if d.get("itineraire_id"):
+            itin = ItineraireModele.objects.filter(pk=d.get("itineraire_id")).first()
+            if not itin:
+                return Response({"error": "Itinéraire introuvable."}, status=400)
+        if not (nouveau_depart or nouveau_retour or heure or itin):
+            return Response({"error": "Indiquez une nouvelle date, une heure ou un itinéraire."}, status=400)
+        if nouveau_depart and nouveau_depart < timezone.localdate():
+            return Response({"error": "La nouvelle date de départ est déjà passée."}, status=400)
+        motif = (d.get("motif") or "").strip()[:200]
+
+        ok, echecs = [], []
+        for rid in ids:
+            rot = Rotation.objects.filter(rotation_id=rid).first()
+            if not rot:
+                echecs.append({"rotation_id": rid, "error": "Convoi introuvable"}); continue
+            if rot.statut == "annule" or _Suivi.objects.filter(rotation=rot).exists():
+                echecs.append({"rotation_id": rid, "error": "Convoi déjà parti, terminé ou annulé"}); continue
+            membres = list(Voyage.objects.filter(rotation_id=rid).exclude(statut__in=["annule", "retour"]).select_related("personnel"))
+            if any(m.statut != "planifie" for m in membres):
+                echecs.append({"rotation_id": rid, "error": "Des passagers sont déjà en route"}); continue
+            depart = nouveau_depart or rot.date_depart
+            decalage = depart - rot.date_depart
+            retour = nouveau_retour or (rot.date_retour_prevue + decalage if rot.date_retour_prevue else depart)
+            if retour < depart:
+                echecs.append({"rotation_id": rid, "error": "Le retour est avant le départ"}); continue
+            # Véhicule et chauffeurs encore libres aux nouvelles dates ?
+            if decalage or nouveau_retour:
+                if rot.vehicule_matricule and Rotation.objects.filter(vehicule_matricule=rot.vehicule_matricule, date_depart__lte=retour,
+                        date_retour_prevue__gte=depart).exclude(rotation_id=rid).exclude(statut="annule").exists():
+                    echecs.append({"rotation_id": rid, "error": f"Véhicule {rot.vehicule_matricule} déjà pris à ces dates"}); continue
+                conflit = None
+                for pers in (rot.conducteur_personnel, rot.conducteur_secondaire_personnel):
+                    if pers and _conducteur_en_conflit(pers.id, f"{pers.nom} {pers.prenom}", depart, retour, exclude_rotation_id=rid):
+                        conflit = f"{pers.nom} {pers.prenom} conduit déjà un autre convoi à ces dates"
+                if conflit:
+                    echecs.append({"rotation_id": rid, "error": conflit}); continue
+            avant = f"{rot.origine or 'Camp'} → {rot.destination} le {rot.date_depart:%d/%m/%Y}"
+            with transaction.atomic():
+                rot.date_depart, rot.date_retour_prevue = depart, retour
+                if heure:
+                    rot.heure_depart = heure
+                if itin:
+                    rot.itineraire_modele, rot.origine, rot.destination = itin, itin.origine, itin.destination
+                rot.save()
+                villes = None
+                if itin:
+                    villes = {itin.origine.lower(), itin.destination.lower()} | {e.ville.lower() for e in itin.etapes.all()}
+                for v in membres:
+                    v.date_depart = v.date_depart + decalage if v.date_depart else depart
+                    if v.date_retour_prevue:
+                        v.date_retour_prevue = (v.date_retour_prevue + decalage) if not nouveau_retour else retour
+                    champs = ["date_depart", "date_retour_prevue"]
+                    if heure and hasattr(v, "heure_depart"):
+                        v.heure_depart = heure; champs.append("heure_depart")
+                    if itin:
+                        # Montée / descente gardées si elles restent sur le nouveau trajet
+                        if (v.origine or "").lower() not in villes:
+                            v.origine = itin.origine
+                        if (v.destination or "").lower() not in villes:
+                            v.destination = itin.destination
+                        champs += ["origine", "destination"]
+                    v.save(update_fields=champs)
+                    if itin:
+                        EtapeVoyage.objects.filter(voyage=v, sens="aller").delete()
+                        _appliquer_itineraire_a_voyage(v, itin)
+                    elif decalage:
+                        for e in EtapeVoyage.objects.filter(voyage=v, sens="aller", date_etape__isnull=False):
+                            e.date_etape = e.date_etape + decalage
+                            e.save(update_fields=["date_etape"])
+            apres = f"{rot.origine or 'Camp'} → {rot.destination} le {rot.date_depart:%d/%m/%Y}" + (f" à {heure}" if heure else "")
+            try:
+                from evenements.models import SimpleNotification
+                dest = {m.personnel.user_id for m in membres if m.personnel and m.personnel.user_id}
+                dest |= {p.user_id for p in (rot.conducteur_personnel, rot.conducteur_secondaire_personnel) if p and p.user_id}
+                SimpleNotification.objects.bulk_create([SimpleNotification(user_id=x, type_notif="voyage",
+                    titre=f"📅 Convoi {rid} replanifié", message=f"{avant}  →  {apres}" + (f" · {motif}" if motif else "")) for x in dest])
+            except Exception:
+                pass
+            ok.append({"rotation_id": rid, "avant": avant, "apres": apres})
+        return Response({"ok": ok, "echecs": echecs}, status=200 if ok else 400)
 
     @action(detail=False, methods=["post"])
     def partir_rotation(self, request):

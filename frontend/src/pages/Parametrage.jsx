@@ -11,6 +11,7 @@ import Boutique from './Boutique'
 import { questionsAvis as questionsAvisAPI } from '../api'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { documentComplet } from '../utils/impression'
 
 // Coordonnées imprimées sur chaque Plan de gestion de voyage - affichées dans
 // l'onglet « JMP » (avec les itinéraires), plus dans « Général & SLA ».
@@ -1915,7 +1916,7 @@ function BadgesTab({ valeurs }) {
 
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) return
-    w.document.write(`
+    w.document.write(documentComplet(`
       <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Badges Personnel — Roxgold SiteLife</title>
       <style>
         * { box-sizing:border-box; }
@@ -1941,7 +1942,7 @@ function BadgesTab({ valeurs }) {
       <body>
         <div class="grid">${gens.map(badgeHtml).join('')}</div>
       </body></html>
-    `)
+    `))
     w.document.close()
     w.onload = () => { w.focus(); w.print() }
   }

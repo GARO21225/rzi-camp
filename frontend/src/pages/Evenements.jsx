@@ -223,7 +223,7 @@ export default function Evenements() {
     <div style={{ padding: isMobile ? '16px' : '20px 24px', width:'100%', boxSizing:'border-box' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems: isMobile ? 'baseline' : 'flex-start', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontSize: isMobile ? 20 : 19, fontWeight:700, color: isMobile ? '#0F1A2E' : 'var(--blue)' }}>{isMobile ? 'Événements' : '📅 Événements du Campus'}</h2>
+          <h2 style={{ fontSize: isMobile ? 20 : 19, fontWeight:700, color: isMobile ? '#0F1A2E' : 'var(--blue)' }}>{isMobile ? 'Événements' : '📅 Événements du Camp'}</h2>
           {isMobile ? (
             <span style={{ fontSize:12.5, color:'#5B6472', fontWeight:600 }}>{events.length} au total</span>
           ) : (
@@ -233,7 +233,7 @@ export default function Evenements() {
           <div style={{ display:'flex', gap:8 }}>
             {isMobile ? (
               isAdmin && (
-                <button onClick={()=>setAlerteModal(true)} aria-label="Déclencher une alerte campus"
+                <button onClick={()=>setAlerteModal(true)} aria-label="Déclencher une alerte"
                   style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', width:36, height:36, borderRadius:9, cursor:'pointer', fontSize:15 }}>
                   🚨
                 </button>
@@ -245,7 +245,7 @@ export default function Evenements() {
                     🔊 Tester le son
                   </button>
                   <button onClick={()=>setAlerteModal(true)} style={{ background:'rgba(220,38,38,.1)', color:'#dc2626', border:'1px solid rgba(220,38,38,.3)', padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>
-                    ⚠️ Alerte campus
+                    ⚠️ Alerte
                   </button>
                   <button onClick={()=>setModal(true)} style={{ background:'var(--rzc-navy)', color:'var(--rzc-white)', border:'none', padding:'7px 16px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700 }}>
                     + Créer événement
@@ -562,7 +562,7 @@ export default function Evenements() {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
           <div style={{ background:'var(--rzc-white)', borderRadius:14, width:'100%', maxWidth:420, boxShadow:'0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ padding:'14px 18px', background:'#dc2626', borderRadius:'14px 14px 0 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>⚠️ Alerte Campus</h3>
+              <h3 style={{ color:'var(--rzc-white)', fontSize:15 }}>⚠️ Alerte</h3>
               <button onClick={()=>setAlerteModal(false)} style={{ background:'rgba(255,255,255,.2)', border:'none', color:'var(--rzc-white)', borderRadius:6, cursor:'pointer', width:28, height:28, fontSize:16 }}>✕</button>
             </div>
             <div style={{ padding:'18px 20px' }}>
