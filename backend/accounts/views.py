@@ -449,6 +449,12 @@ class RoleCustomViewSet(viewsets.ModelViewSet):
         role = self.get_object()
         if role.est_systeme and ("code" in request.data or "est_systeme" in request.data):
             return Response({"error":"Le rôle Administrateur ne peut pas être renommé."}, status=400)
+        if "label" in request.data:
+            label = (request.data.get("label") or "").strip()
+            if not label:
+                return Response({"error":"Le nom du profil ne peut pas être vide."}, status=400)
+            if RoleCustom.objects.filter(label__iexact=label).exclude(pk=role.pk).exists():
+                return Response({"error":f"Un profil nommé « {label} » existe déjà."}, status=400)
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):

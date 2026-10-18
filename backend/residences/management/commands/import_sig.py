@@ -95,8 +95,6 @@ class Command(BaseCommand):
                     "latitude": round(centre_lat, 8),
                     "longitude": round(centre_lon, 8),
                     "geojson_geometry": geom,
-                    "description": f"Importé de SIG_V2.kml — couche {'/'.join(el['layer_path'])}"
-                                    + ("" if cls["reconnu"] else " — NON CLASSIFIÉ automatiquement, à vérifier manuellement"),
                 }
                 if dry_run:
                     existe = PointInteret.objects.filter(source_ref=source_ref).exists()

@@ -24,6 +24,14 @@ const STATUT_STYLES = {
   acceptee:{ bg:'rgba(21,128,61,.11)', color:'#166534', label:'✅ Acceptée' },
   annulee:{ bg:'rgba(91,107,134,.12)', color:'#475569', label:'🚫 Annulée' },
 }
+const IC = {
+  check:'M20 6 9 17l-5-5', croix:'M18 6 6 18M6 6l12 12', fleche:'M5 12h14M13 6l6 6-6 6',
+  bulle:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  corbeille:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6', annuler:'M3 7v6h6M3 13a9 9 0 1 0 3-7',
+}
+const Ico = ({ d, size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink:0 }}><path d={d}/></svg>
+)
 const LBL = { display:'block', fontSize:11.5, color:INK, marginBottom:5, fontFamily:"'IBM Plex Sans', sans-serif", fontWeight:700, textTransform:'uppercase', letterSpacing:.8 }
 const TITRE = { fontFamily:"'Barlow Condensed', 'IBM Plex Sans', sans-serif", letterSpacing:'.01em' }
 const MONO = { fontFamily:"'JetBrains Mono', ui-monospace, monospace" }
@@ -315,38 +323,41 @@ export default function Demandes() {
   }
 
   // Boutons d'action d'une demande (carte mobile et ligne de tableau PC)
-  // Un seul gabarit : hauteur tactile 40 px sur mobile, 34 px sur PC, retour :active via .dm-btn
-  const bt = (ton, plein) => {
-    const T = {
-      ok:  { c:'#166534', bg:'rgba(21,128,61,.10)', bd:'rgba(21,128,61,.25)', pleinBg:'#166534' },
-      ko:  { c:'#B91C1C', bg:'rgba(185,28,28,.08)', bd:'rgba(185,28,28,.22)', pleinBg:'#B91C1C' },
-      alt: { c:'#1E3A8A', bg:'rgba(30,58,138,.08)', bd:'rgba(30,58,138,.22)', pleinBg:'#1E3A8A' },
-      neutre:{ c:'#475569', bg:'rgba(91,107,134,.10)', bd:'rgba(91,107,134,.25)', pleinBg:'#475569' },
-    }[ton]
-    return {
-      flex: isMobile ? 1 : 'none', minHeight: isMobile ? 40 : 34, padding: isMobile ? '8px 10px' : '6px 12px',
-      borderRadius:9, cursor:'pointer', fontSize: isMobile ? 12.5 : 12, fontWeight:700, fontFamily:'inherit',
-      background: plein && isMobile ? T.pleinBg : T.bg, color: plein && isMobile ? '#fff' : T.c,
-      border: `1px solid ${plein && isMobile ? T.pleinBg : T.bd}`,
+  // Hiérarchie : Valider = plein vert (action principale), Proposer = plein navy,
+  // Rejeter = contour rouge, Annuler/Supprimer = discrets. Icônes SVG (nettes à toute taille).
+  const bt = (ton) => {
+    const base = {
+      display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7,
+      flex: isMobile ? 1 : 'none', minHeight: isMobile ? 42 : 36, padding: isMobile ? '8px 12px' : '7px 14px',
+      borderRadius:10, cursor:'pointer', fontSize: isMobile ? 13 : 12.5, fontWeight:700, fontFamily:'inherit', letterSpacing:.1,
+      whiteSpace:'nowrap', border:'1px solid transparent',
     }
+    const T = {
+      ok:    { background:'linear-gradient(180deg,#1b7f45,#166534)', color:'#fff', borderColor:'#14532d', boxShadow:'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(22,101,52,.28)' },
+      alt:   { background:`linear-gradient(180deg,#183a78,${NAVY})`, color:'#fff', borderColor:'#081B3D', boxShadow:'inset 0 1px 0 rgba(255,255,255,.14), 0 2px 6px rgba(15,42,92,.28)' },
+      ko:    { background:'#fff', color:'#B91C1C', borderColor:'rgba(185,28,28,.45)' },
+      lien:  { background:'#fff', color:NAVY, borderColor:NAVY },
+      neutre:{ background:'#fff', color:'#475569', borderColor:LIGNE },
+    }[ton]
+    return { ...base, ...T }
   }
   const actionsDe = (d, compact) => (
-    <div style={{ display:'flex', flexWrap:'wrap', gap:8, width:'100%', marginTop: isMobile ? 2 : 0,
+    <div style={{ display:'flex', flexWrap:'wrap', gap:8, width:'100%', marginTop: isMobile ? 4 : 0,
         ...(!isMobile && !compact ? { paddingTop:10, borderTop:'1px solid '+LIGNE } : {}) }}>
       {/* Plainte : son workflow vit déjà dans la page Plaintes, on y renvoie */}
       {isAdmin && d._source === 'plainte' && (
-        <button className="dm-btn" onClick={()=>navigate('/plaintes')} style={bt('ko')}>🧹 Traiter dans Plaintes →</button>
+        <button className="dm-btn" onClick={()=>navigate('/plaintes')} style={bt('lien')}>Plaintes <Ico d={IC.fleche}/></button>
       )}
       {isAdmin && d._source !== 'plainte' && d.statut === 'en_attente' && (
         <>
           <button className="dm-btn" onClick={()=>{ setActionModal({demande:d,action:'valider'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-            style={bt('ok', true)}>✅ Valider</button>
+            style={bt('ok')}><Ico d={IC.check}/> Valider</button>
           {!['induction','incident'].includes(d._source) && (
             <button className="dm-btn" onClick={()=>{ setActionModal({demande:d,action:'proposer'}); setActionForm({commentaire:'',proposition:{residence:d.residence_souhaitee}}) }}
-              style={bt('alt')}>💬 Proposer</button>
+              style={bt('alt')}><Ico d={IC.bulle}/> Proposer</button>
           )}
-          <button className="dm-btn" aria-label="Rejeter" onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
-            style={bt('ko')}>❌ Rejeter</button>
+          <button className="dm-btn" onClick={()=>{ setActionModal({demande:d,action:'rejeter'}); setActionForm({commentaire:'',proposition:{}}) }}
+            style={bt('ko')}><Ico d={IC.croix}/> Rejeter</button>
         </>
       )}
       {isAdmin && d.statut === 'proposition' && (
@@ -354,16 +365,16 @@ export default function Demandes() {
       )}
       {!isAdmin && d.statut === 'proposition' && (
         <>
-          <button className="dm-btn" onClick={()=>doAgentAction(d,'accepter')} style={bt('ok', true)}>✅ Accepter</button>
-          <button className="dm-btn" onClick={()=>doAgentAction(d,'refuser')} style={bt('ko')}>❌ Refuser</button>
+          <button className="dm-btn" onClick={()=>doAgentAction(d,'accepter')} style={bt('ok')}><Ico d={IC.check}/> Accepter</button>
+          <button className="dm-btn" onClick={()=>doAgentAction(d,'refuser')} style={bt('ko')}><Ico d={IC.croix}/> Refuser</button>
         </>
       )}
       {!isAdmin && d.statut === 'en_attente' && (
-        <button className="dm-btn" onClick={()=>doAgentAction(d,'annuler')} style={bt('neutre')}>Annuler la demande</button>
+        <button className="dm-btn" onClick={()=>doAgentAction(d,'annuler')} style={bt('neutre')}><Ico d={IC.annuler}/> Annuler la demande</button>
       )}
       {isAdmin && d._source !== 'plainte' && (
-        <button className="dm-btn" aria-label="Supprimer" onClick={()=>deleteDemande(d)}
-          style={{ ...bt('ko'), flex:'none', minWidth: isMobile ? 44 : 36, padding:'6px 10px', marginLeft: isMobile ? 0 : 'auto' }}>🗑</button>
+        <button className="dm-btn" aria-label="Supprimer" title="Supprimer" onClick={()=>deleteDemande(d)}
+          style={{ ...bt('neutre'), flex:'none', minWidth: isMobile ? 44 : 36, padding:'7px 10px', color:'#B91C1C', marginLeft: isMobile ? 0 : 'auto' }}><Ico d={IC.corbeille}/></button>
       )}
     </div>
   )
@@ -481,7 +492,7 @@ export default function Demandes() {
             </div>
           )}
           {!isMobile && filterData().length > 0 && (
-            <div style={{ gridColumn:'1 / -1', background:'#fff', border:'1px solid '+LIGNE, borderRadius:14, boxShadow:'var(--shadow)', overflow:'hidden' }}>
+            <div style={{ gridColumn:'1 / -1', background:'#fff', border:'1px solid '+LIGNE, borderRadius:14, boxShadow:'var(--shadow)', overflowX:'auto' }}>
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                 <thead>
                   <tr style={{ background:'#F3F5F9', textAlign:'left' }}>
@@ -501,7 +512,7 @@ export default function Demandes() {
                           </span>
                         </td>
                         {isAdmin && <td style={{ padding:'14px 16px', fontWeight:600 }}>{d.demandeur_nom}</td>}
-                        <td style={{ padding:'14px 16px', minWidth:260, maxWidth:460 }}>
+                        <td style={{ padding:'14px 16px', minWidth:200, maxWidth:380 }}>
                           {d.message_demandeur && <div style={{ lineHeight:1.45, marginBottom:4 }}>{d.message_demandeur}</div>}
                           <div style={{ display:'flex', gap:12, fontSize:12, color:INK, flexWrap:'wrap' }}>
                             {d.residence_souhaitee && <span>🏠 {d.residence_souhaitee}</span>}
@@ -518,7 +529,7 @@ export default function Demandes() {
                         </td>
                         <td style={{ padding:'14px 16px', whiteSpace:'nowrap', color:INK }}>{new Date(d.date_creation).toLocaleDateString('fr-FR')}</td>
                         <td style={{ padding:'14px 16px', whiteSpace:'nowrap' }}><span style={{ background:sc.bg, color:sc.color, padding:'4px 11px', borderRadius:20, fontSize:12, fontWeight:700 }}>{sc.label}</span></td>
-                        <td style={{ padding:'14px 16px', minWidth:230 }}>{actionsDe(d, true)}</td>
+                        <td style={{ padding:'14px 12px', minWidth:150 }}>{actionsDe(d, true)}</td>
                       </tr>)
                   })}
                 </tbody>

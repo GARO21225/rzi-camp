@@ -160,7 +160,7 @@ function FitBounds({geojson}){
   return null
 }
 
-function NavLayer({userPos, route, target, targetName}){
+function NavLayer({userPos, route, target, targetName, departNom}){
   const map=useMap()
   useEffect(()=>{
     if(userPos&&target){
@@ -182,7 +182,7 @@ function NavLayer({userPos, route, target, targetName}){
 
   return (
     <>
-      <Marker position={userPos} icon={meIcon}><Popup><b>📍 Vous êtes ici</b><br/><span style={{fontSize:'12px'}}>→ {targetName}<br/>📏 {distStr(d)} · 🧭 {bear}</span></Popup></Marker>
+      <Marker position={userPos} icon={meIcon}><Popup><b>{departNom?`🚩 Départ : ${departNom}`:'📍 Vous êtes ici'}</b><br/><span style={{fontSize:'12px'}}>→ {targetName}<br/>📏 {distStr(d)} · 🧭 {bear}</span></Popup></Marker>
       <Marker position={target} icon={destIcon}><Popup>
         <b style={{color:'#dc2626'}}>📍 {targetName}</b><br/>
         <span style={{fontSize:'12px'}}>📏 {distStr(d)}<br/>🧭 Direction {bear}</span><br/>
@@ -222,6 +222,11 @@ export default function MapPage() {
   const [userPos,setUserPos]=useState(null)
   const [target,setTarget]=useState(null)
   const [targetName,setTargetName]=useState('')
+  // Départ choisi sur la carte (« Partir d'ici ») : remplace le GPS quand on prépare un trajet depuis un bureau/chambre
+  const [departManuel,setDepartManuel]=useState(null)
+  const [departNom,setDepartNom]=useState('')
+  const [routeSource,setRouteSource]=useState('')   // 'chemins' | 'osrm' | 'droite'
+  const [renamePoi,setRenamePoi]=useState(null)     // {id, nom} : renommage d'une infrastructure
   const [route,setRoute]=useState(null)
   const [gpsLoading,setGpsLoading]=useState(false)
   const [gpsErr,setGpsErr]=useState('')
@@ -305,6 +310,13 @@ export default function MapPage() {
     } catch { toast.error("Erreur lors de l'enregistrement du point d'intérêt") }
   }
 
+  const enregistrerRenommage = async () => {
+    const nom = (renamePoi?.nom || '').trim()
+    if (!nom) { toast.error('Le nom ne peut pas être vide.'); return }
+    try { await poiAPI.update(renamePoi.id, { nom }); setRenamePoi(null); loadPois(); toast.success('Infrastructure renommée') }
+    catch { toast.error('Erreur lors du renommage') }
+  }
+
   const deletePoi = async (id) => {
     if (!await confirmDialog('Supprimer ce point d\'intérêt ?')) return
     try { await poiAPI.delete(id); loadPois() } catch { toast.error('Erreur suppression') }
@@ -376,16 +388,24 @@ export default function MapPage() {
     const onNavRequest = (e) => {
       const { lat, lng, name } = e.detail || {}
       if (lat == null || lng == null) return
-      if (!navMode) { setNavMode(true); startGPS() }
+      if (!navMode) { setNavMode(true); if (!departManuel) startGPS() }
       setTarget([lat, lng]); setTargetName(name || '')
     }
+    const onDepartRequest = (e) => {
+      const { lat, lng, name } = e.detail || {}
+      if (lat == null || lng == null) return
+      if (!navMode) setNavMode(true)
+      setDepartManuel([lat, lng]); setDepartNom(name || '')
+    }
     window.addEventListener('nav-request', onNavRequest)
-    return () => window.removeEventListener('nav-request', onNavRequest)
-  }, [navMode])
+    window.addEventListener('nav-depart', onDepartRequest)
+    return () => { window.removeEventListener('nav-request', onNavRequest); window.removeEventListener('nav-depart', onDepartRequest) }
+  }, [navMode, departManuel])
 
   useEffect(() => {
-    if (target && userPos) getRoute(userPos, target)
-  }, [target])
+    const o = departManuel || userPos
+    if (target && o) getRoute(o, target)
+  }, [target, departManuel, userPos && !departManuel])
 
   const startGPS=()=>{
     setGpsLoading(true);setGpsErr('')
@@ -406,7 +426,7 @@ export default function MapPage() {
       try{
         const rc = await cheminAPI.itineraire(from, to)
         if (rc.data?.trouve && rc.data.points?.length) {
-          setRoute(rc.data.points)
+          setRoute(rc.data.points); setRouteSource('chemins')
           setRouteLoading(false)
           return
         }
@@ -419,22 +439,22 @@ export default function MapPage() {
       const d=await r.json()
       if(d.routes?.[0]?.geometry?.coordinates){
         const pts=d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])
-        setRoute(pts)
-      } else setRoute(null)
+        setRoute(pts); setRouteSource('osrm')
+      } else { setRoute(null); setRouteSource('droite') }
     }catch{
-      setRoute(null) // fallback: ligne droite
+      setRoute(null); setRouteSource('droite') // fallback: ligne droite
     }finally{setRouteLoading(false)}
   }
 
   const handleNav=(lat,lng,name)=>{
     if(!navMode)return
     setTarget([lat,lng]);setTargetName(name)
-    if(userPos)getRoute(userPos,[lat,lng])
+    if(origine)getRoute(origine,[lat,lng])
   }
 
   const toggleNav=()=>{
     if(navMode){
-      setNavMode(false);setTarget(null);setTargetName('');setRoute(null)
+      setNavMode(false);setTarget(null);setTargetName('');setRoute(null);setDepartManuel(null);setDepartNom('');setRouteSource('')
       if(watchId.current){navigator.geolocation?.clearWatch(watchId.current);watchId.current=null}
     }else{
       setNavMode(true);startGPS()
@@ -442,8 +462,11 @@ export default function MapPage() {
   }
 
   const ps=stats?.par_statut||{}
-  const dist=userPos&&target?calcDist(userPos,target):null
-  const bear=userPos&&target?calcBearing(userPos,target):null
+  const origine=departManuel||userPos
+  const dist=origine&&target?calcDist(origine,target):null
+  const bear=origine&&target?calcBearing(origine,target):null
+  const routeLong=route&&route.length>1?route.slice(1).reduce((t,pt,i)=>t+calcDist(route[i],pt),0):null
+  const dureeMin=routeLong?Math.max(1,Math.round(routeLong/80)):null   // ≈ 80 m/min à pied
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - 54px)',overflow:'hidden',position:'relative'}}>
@@ -536,12 +559,22 @@ export default function MapPage() {
         <div style={{background:'linear-gradient(90deg,rgba(240,165,0,.1),rgba(240,165,0,.05))',borderBottom:'1px solid rgba(240,165,0,.25)',padding:'6px 14px',display:'flex',alignItems:'center',gap:12,fontSize:12,flexShrink:0,flexWrap:'wrap'}}>
           <span style={{color:'#d08800',fontWeight:700,flexShrink:0}}>🧭 Mode Navigation</span>
           {gpsErr&&<span style={{color:'#dc2626',fontSize:11}}>⚠️ {gpsErr}</span>}
-          {!target&&!gpsLoading&&<span style={{color:'var(--text-dim)'}}>👆 Cliquez sur une résidence pour l'itinéraire</span>}
+          {departManuel&&(
+            <span style={{background:'rgba(15,42,92,.08)',padding:'2px 10px',borderRadius:20,color:'#0F2A5C',fontWeight:700,flexShrink:0}}>
+              🚩 Départ : {departNom||'point choisi'}
+              <button onClick={()=>{setDepartManuel(null);setDepartNom('')}} aria-label="Revenir au GPS" style={{marginLeft:6,background:'none',border:'none',cursor:'pointer',color:'#0F2A5C',fontWeight:700}}>✕</button>
+            </span>
+          )}
+          {!target&&!gpsLoading&&<span style={{color:'var(--text-dim)'}}>👆 Cliquez sur une résidence ou un point pour l'itinéraire — « 🚩 Partir d'ici » pour choisir le départ</span>}
           {target&&(
             <>
               <span style={{fontWeight:600,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>→ {targetName}</span>
               {dist&&<span style={{background:'rgba(240,165,0,.2)',padding:'2px 10px',borderRadius:20,color:'#d08800',fontWeight:700,flexShrink:0}}>📏 {distStr(dist)}</span>}
               {bear&&<span style={{background:'rgba(37,99,235,.1)',padding:'2px 10px',borderRadius:20,color:'var(--rzc-blue)',fontWeight:700,flexShrink:0}}>🧭 {bear}</span>}
+              {!routeLoading&&routeLong&&<span style={{background:routeSource==='chemins'?'rgba(21,128,61,.14)':'rgba(240,165,0,.2)',padding:'2px 10px',borderRadius:20,color:routeSource==='chemins'?'#166534':'#7A5200',fontWeight:700,flexShrink:0}}>
+                🚶 {distStr(routeLong)} · ~{dureeMin} min {routeSource==='chemins'?'par les chemins du camp':routeSource==='osrm'?'(voirie publique)':''}
+              </span>}
+              {!routeLoading&&target&&routeSource==='droite'&&<span style={{color:'#7A5200',fontSize:11,fontWeight:600}}>⚠️ Aucun chemin tracé à proximité — ligne droite</span>}
               {routeLoading&&<span style={{color:'var(--text-dim)',fontSize:11}}>Calcul itinéraire...</span>}
               <a href={`https://www.google.com/maps/dir/?api=1&destination=${target[0]},${target[1]}`}
                 target="_blank" rel="noreferrer"
@@ -678,6 +711,10 @@ export default function MapPage() {
                         style="margin-top:8px;width:100%;background:#f0a500;color:#000;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">
                         🧭 Naviguer ici
                       </button>
+                      <button onclick="window.dispatchEvent(new CustomEvent('nav-depart',{detail:{lat:${p.latitude},lng:${p.longitude},name:'${p.residence}'}}))"
+                        style="margin-top:6px;width:100%;background:#fff;color:#0F2A5C;border:1px solid #0F2A5C;padding:6px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">
+                        🚩 Partir d'ici
+                      </button>
                     </div>
                   `,{maxWidth:240})
                   layer.on('mouseover',function(){this.setStyle({fillOpacity:.75,weight:2.5})})
@@ -689,7 +726,7 @@ export default function MapPage() {
               />
             </>
           )}
-          <NavLayer userPos={userPos} route={route} target={target} targetName={targetName}/>
+          <NavLayer userPos={origine} route={route} target={target} targetName={targetName} departNom={departNom}/>
 
           {/* Points d'intérêt (restaurant, sport, rampe, etc.) */}
           {pois.filter(poi => {
@@ -702,11 +739,21 @@ export default function MapPage() {
               <div style={{fontFamily:'sans-serif',minWidth:180}}>
                 <div style={{fontWeight:700,color:st.color,fontSize:14,marginBottom:4}}>{iconeAffichee} {poi.nom}</div>
                 <div style={{fontSize:11,color:'#64748b',marginBottom:6}}>{GROUPE_LABEL[COUCHE_SIG[poi.categorie]] || 'Point d\'intérêt'} — {poi.categorie_label}</div>
-                {poi.description && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
+                {poi.description && !/^Importé de /.test(poi.description) && <div style={{fontSize:12,marginBottom:8}}>{poi.description}</div>}
                 <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-request',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
                   style={{width:'100%',background:'#f0a500',color:'#000',border:'none',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isSuperuser?6:0}}>
                   🧭 Aller à ce point
                 </button>
+                <button onClick={()=>window.dispatchEvent(new CustomEvent('nav-depart',{detail:{lat:poi.latitude,lng:poi.longitude,name:poi.nom}}))}
+                  style={{width:'100%',background:'#fff',color:'#0F2A5C',border:'1px solid #0F2A5C',padding:'6px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:isSuperuser?6:0}}>
+                  🚩 Partir d'ici
+                </button>
+                {isSuperuser && (
+                  <button onClick={()=>setRenamePoi({id:poi.id,nom:poi.nom})}
+                    style={{width:'100%',background:'#F3F5F9',color:'#0F2A5C',border:'1px solid #D8DEE9',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700,marginBottom:6}}>
+                    ✏️ Renommer
+                  </button>
+                )}
                 {isSuperuser && (
                   <button onClick={()=>deletePoi(poi.id)}
                     style={{width:'100%',background:'#fee2e2',color:'#dc2626',border:'1px solid #fecaca',padding:'5px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:700}}>
@@ -1208,6 +1255,23 @@ export default function MapPage() {
                 window.location.reload()
               }} style={{background:'var(--rzc-navy)',color:'var(--rzc-white)',border:'none',borderRadius:9,
                 padding:'10px 20px',cursor:'pointer',fontWeight:700}}>💾 Sauvegarder</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renamePoi && (
+        <div onClick={()=>setRenamePoi(null)} style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:380,overflow:'hidden',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+            <div style={{padding:'14px 18px',background:'linear-gradient(135deg,#0F2A5C,#081B3D)',borderBottom:'3px solid #D4A017',color:'#fff',fontWeight:700,fontSize:16}}>✏️ Renommer l'infrastructure</div>
+            <div style={{padding:18}}>
+              <input autoFocus value={renamePoi.nom} onChange={e=>setRenamePoi(r=>({...r,nom:e.target.value}))}
+                onKeyDown={e=>{ if(e.key==='Enter') enregistrerRenommage(); if(e.key==='Escape') setRenamePoi(null) }}
+                maxLength={100} style={{width:'100%',boxSizing:'border-box',padding:'10px 12px',minHeight:40,fontSize:16,border:'1px solid #D8DEE9',borderRadius:10,outline:'none'}}/>
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
+                <button onClick={()=>setRenamePoi(null)} style={{background:'#fff',border:'1px solid #D8DEE9',color:'#334155',minHeight:40,padding:'8px 18px',borderRadius:10,cursor:'pointer',fontWeight:600}}>Annuler</button>
+                <button onClick={enregistrerRenommage} style={{background:'#D4A017',color:'#0F2A5C',border:'none',minHeight:40,padding:'8px 20px',borderRadius:10,cursor:'pointer',fontWeight:700}}>Enregistrer</button>
+              </div>
             </div>
           </div>
         </div>

@@ -876,6 +876,9 @@ class CheminCirculationViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_permissions(self):
+        # Calculer un itinéraire est une LECTURE (POST seulement pour passer départ/arrivée) : ouvert à tout connecté
+        if getattr(self, "action", None) == "itineraire":
+            return [IsAuthenticated()]
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticated(), _IsSuperuser()]
         return [IsAuthenticated()]
@@ -906,7 +909,8 @@ class CheminCirculationViewSet(viewsets.ModelViewSet):
             h = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
             return 2 * R * math.asin(math.sqrt(h))
 
-        chemins = list(CheminCirculation.objects.filter(actif=True).values_list('points', flat=True))
+        # clôtures et talus ne sont pas praticables : hors du graphe de navigation
+        chemins = list(CheminCirculation.objects.filter(actif=True).exclude(type_chemin__in=['cloture', 'talus']).values_list('points', flat=True))
         if not chemins:
             return Response({'trouve': False, 'raison': 'Aucun chemin de circulation tracé pour le moment.'})
 
@@ -1628,7 +1632,19 @@ class BatimentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def geojson(self, request):
-        qs = self._build_qs(request)
+        u = request.user
+        voit_occupants = u.is_staff or u.is_superuser or getattr(getattr(u, "profile", None), "role", None) == "admin"
+        if voit_occupants:
+            qs = self._build_qs(request)
+        else:
+            # Tout agent voit TOUTES les résidences sur la carte, mais jamais qui les occupe
+            qs = Batiment.objects.select_related("personnel").all()
+            prm = request.query_params
+            if prm.get("statut"): qs = qs.filter(statut=prm["statut"])
+            if prm.get("bloc"): qs = qs.filter(bloc=prm["bloc"])
+            if prm.get("residence"): qs = qs.filter(residence__icontains=prm["residence"])
+        from residences.models import Personnel
+        mon_id = getattr(Personnel.objects.filter(user=u).first(), "id", None)
         features = []
         for b in qs:
             # Utiliser geojson_geometry OU créer un Point depuis lat/lng
@@ -1641,11 +1657,11 @@ class BatimentViewSet(viewsets.ModelViewSet):
                     "type":"Feature",
                     "properties":{
                         "id":b.id,"residence":b.residence,"bloc":b.bloc,"etage":b.etage,"statut":b.statut,
-                        "occupant":f"{p.nom} {p.prenom}" if p else b.occupant,
-                        "societe":p.societe if p else b.societe,
+                        "occupant":(f"{p.nom} {p.prenom}" if p else b.occupant) if (voit_occupants or (p and p.id == mon_id)) else "",
+                        "societe":(p.societe if p else b.societe) if (voit_occupants or (p and p.id == mon_id)) else "",
                         "latitude":b.latitude,"longitude":b.longitude,
                     },
-                    "geometry":b.geojson_geometry
+                    "geometry":geom
                 })
         return Response({"type":"FeatureCollection","features":features})
 
@@ -1704,6 +1720,12 @@ class BatimentViewSet(viewsets.ModelViewSet):
         personnel_loge = len(personnel_loge_ids)
         personnel_non_loge = max(0, personnel_total - personnel_loge)
 
+        u = request.user
+        if not (u.is_staff or u.is_superuser or getattr(getattr(u, "profile", None), "role", None) == "admin"):
+            # les compteurs restent visibles ; les noms des occupants non
+            departs_s1_list = []
+            departs_en_retard_list = []
+            departs_en_retard = 0
         return Response({
             "total":total,"par_statut":par_statut,"par_bloc":par_bloc,
             "taux_occupation":round(par_statut.get("Occupé",0)/total*100,1) if total else 0,

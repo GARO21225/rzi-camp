@@ -1146,3 +1146,103 @@ class RegenererCompteEnvoiTests(TestCase):
         from rest_framework.test import APIClient
         c = APIClient(); c.force_authenticate(User.objects.create_user("lambda", password="x"))
         self.assertIn(c.post(f"/api/personnel/{self.p.id}/regenerer_compte/").status_code, (403, 404))
+
+
+class HistoriqueParAgentTests(TestCase):
+    """Chaque agent ne voit que SON historique (voyages, chambres, repas) ; la gestion voit tout."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from django.utils import timezone
+        from datetime import timedelta
+        from restauration.models import QRToken, RepasLog
+        self.APIClient = APIClient
+        self.admin = _admin()
+        self.u1 = User.objects.create_user("hist1", password="x")
+        self.u2 = User.objects.create_user("hist2", password="x")
+        self.p1 = Personnel.objects.create(nom="A", prenom="Un", societe="ROXGOLD", numero="H1", telephone="1", type_personnel="roxgold", user=self.u1)
+        self.p2 = Personnel.objects.create(nom="B", prenom="Deux", societe="ROXGOLD", numero="H2", telephone="2", type_personnel="roxgold", user=self.u2)
+        now = timezone.now()
+        for p, tok in ((self.p1, "tok-h1"), (self.p2, "tok-h2")):
+            qr = QRToken.objects.create(token=tok, personnel=p, resident=p.nom, genere_par=self.admin, expire_le=now + timedelta(days=1))
+            RepasLog.objects.create(qr_token=qr, personnel=p, valide_par=self.admin)
+
+    def _get(self, user, url):
+        c = self.APIClient(); c.force_authenticate(user)
+        return c.get(url)
+
+    def test_agent_voit_son_historique(self):
+        for suffixe in ("historique_voyages", "historique_chambres"):
+            self.assertEqual(self._get(self.u1, f"/api/personnel/{self.p1.id}/{suffixe}/").status_code, 200)
+
+    def test_agent_ne_voit_pas_lhistorique_dun_autre(self):
+        for suffixe in ("historique_voyages", "historique_chambres"):
+            self.assertEqual(self._get(self.u1, f"/api/personnel/{self.p2.id}/{suffixe}/").status_code, 403)
+
+    def test_gestion_voit_tout(self):
+        for suffixe in ("historique_voyages", "historique_chambres"):
+            self.assertEqual(self._get(self.admin, f"/api/personnel/{self.p2.id}/{suffixe}/").status_code, 200)
+
+    def test_repas_limites_a_lagent(self):
+        r = self._get(self.u1, "/api/repas/")
+        self.assertEqual(r.status_code, 200)
+        data = r.data.get("results", r.data)
+        self.assertEqual({x["personnel_id"] for x in data}, {self.p1.id})
+
+    def test_repas_gestion_voit_tout(self):
+        data = self._get(self.admin, "/api/repas/").data
+        data = data.get("results", data)
+        self.assertEqual({x["personnel_id"] for x in data}, {self.p1.id, self.p2.id})
+
+
+class CarteResidencesSansOccupantTests(TestCase):
+    """Carte GIS : tout agent voit toutes les résidences, mais pas leurs occupants ; l'admin voit tout."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.APIClient = APIClient
+        self.admin = _admin()
+        self.u1 = User.objects.create_user("carte1", password="x")
+        self.u2 = User.objects.create_user("carte2", password="x")
+        self.p1 = Personnel.objects.create(nom="Kone", prenom="Ibra", societe="ROXGOLD", numero="C1", telephone="1", type_personnel="roxgold", user=self.u1)
+        self.p2 = Personnel.objects.create(nom="Traore", prenom="Awa", societe="ROXGOLD", numero="C2", telephone="2", type_personnel="roxgold", user=self.u2)
+        pt = {"type": "Point", "coordinates": [-6.82, 8.11]}
+        Batiment.objects.create(residence="C01", bloc="C", statut="Occupé", personnel=self.p1, geojson_geometry=pt, latitude=8.11, longitude=-6.82)
+        Batiment.objects.create(residence="C02", bloc="C", statut="Occupé", personnel=self.p2, geojson_geometry=pt, latitude=8.11, longitude=-6.82)
+        Batiment.objects.create(residence="C03", bloc="C", statut="Libre", geojson_geometry=pt, latitude=8.11, longitude=-6.82)
+
+    def _features(self, user):
+        c = self.APIClient(); c.force_authenticate(user)
+        r = c.get("/api/batiments/geojson/")
+        self.assertEqual(r.status_code, 200)
+        return {f["properties"]["residence"]: f["properties"] for f in r.data["features"] if f["properties"]["residence"].startswith("C0")}
+
+    def test_agent_voit_toutes_les_residences(self):
+        self.assertEqual(set(self._features(self.u1)), {"C01", "C02", "C03"})
+
+    def test_agent_ne_voit_pas_les_occupants_des_autres(self):
+        f = self._features(self.u1)
+        self.assertEqual(f["C02"]["occupant"], "")
+        self.assertEqual(f["C02"]["societe"], "")
+        self.assertIn("KONE", f["C01"]["occupant"].upper())   # sa propre chambre
+
+    def test_admin_voit_les_occupants(self):
+        f = self._features(self.admin)
+        self.assertIn("TRAORE", f["C02"]["occupant"].upper())
+
+    def test_stats_sans_noms_pour_un_agent(self):
+        c = self.APIClient(); c.force_authenticate(self.u1)
+        r = c.get("/api/batiments/stats/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["departs_s1_list"], [])
+        self.assertEqual(r.data["departs_en_retard_list"], [])
+
+    def test_itineraire_ignore_les_clotures(self):
+        CheminCirculation.objects.create(nom="Clôture", type_chemin="cloture", points=[[8.1100, -6.8200], [8.1110, -6.8200]])
+        c = self.APIClient(); c.force_authenticate(self.u1)
+        r = c.post("/api/chemins-circulation/itineraire/", {"depart": [8.1100, -6.8200], "arrivee": [8.1110, -6.8200]}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertFalse(r.data["trouve"])
+        CheminCirculation.objects.create(nom="Chemin", type_chemin="chemin", points=[[8.1100, -6.8200], [8.1110, -6.8200]])
+        r = c.post("/api/chemins-circulation/itineraire/", {"depart": [8.1100, -6.8200], "arrivee": [8.1110, -6.8200]}, format="json")
+        self.assertTrue(r.data["trouve"])

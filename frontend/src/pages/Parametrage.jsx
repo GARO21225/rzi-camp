@@ -1074,6 +1074,28 @@ function RolesTab({ isAdmin, isMobile }) {
       : [...role.pages_readonly, path]
     setRoles(rs => rs.map(r => r.id === role.id ? {...r, pages_readonly: next} : r))
   }
+  // Renommage d'un profil (le code technique ne change jamais : seuls le libellé affiché et les comptes liés par code restent intacts)
+  const [renommage, setRenommage] = useState(null)   // {id, label}
+  const validerRenommage = async () => {
+    const label = (renommage?.label || '').trim()
+    if (!label) { toast.error('Le nom du profil ne peut pas être vide.'); return }
+    try {
+      await rolesAPI.update(renommage.id, { label })
+      setRoles(rs => rs.map(r => r.id === renommage.id ? {...r, label} : r))
+      setRenommage(null)
+      toast.success('Profil renommé.')
+    } catch (e) { toast.error(e.response?.data?.error || 'Erreur lors du renommage.') }
+  }
+  const champRenommage = () => (
+    <span style={{display:'inline-flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+      <input autoFocus value={renommage.label} maxLength={100}
+        onChange={e=>setRenommage(r=>({...r,label:e.target.value}))}
+        onKeyDown={e=>{ if(e.key==='Enter') validerRenommage(); if(e.key==='Escape') setRenommage(null) }}
+        style={{border:'1px solid #D8DEE9',borderRadius:8,padding:'7px 10px',fontSize:14,minHeight:36,outline:'none'}}/>
+      <button onClick={validerRenommage} style={{background:'#D4A017',color:'#0F2A5C',border:'none',borderRadius:8,padding:'7px 12px',fontWeight:700,cursor:'pointer',minHeight:36}}>OK</button>
+      <button onClick={()=>setRenommage(null)} style={{background:'#fff',color:'#334155',border:'1px solid #D8DEE9',borderRadius:8,padding:'7px 10px',cursor:'pointer',minHeight:36}}>✕</button>
+    </span>
+  )
   const enregistrerRole = async (role) => {
     setSavingId(role.id)
     try {
@@ -1135,6 +1157,14 @@ function RolesTab({ isAdmin, isMobile }) {
           style={{border:'1px solid #e2e8f0',borderRadius:10,padding:'9px 10px',fontSize:13,color:'#0F1A2E'}}>
           {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
+
+        {isAdmin && selRole && selRole.code !== 'admin' && (
+          renommage?.id === selRole.id ? champRenommage() : (
+            <button onClick={()=>setRenommage({id:selRole.id,label:selRole.label})}
+              style={{alignSelf:'flex-start',background:'#F3F5F9',color:'#0F2A5C',border:'1px solid #D8DEE9',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,minHeight:40}}>
+              ✏️ Renommer « {selRole.label} »
+            </button>)
+        )}
 
         {selRole && selRole.est_systeme && (
           <div style={{fontSize:12,color:'#94a3b8',fontStyle:'italic'}}>Rôle système, protégé — accès complet non modifiable.</div>
@@ -1207,8 +1237,14 @@ function RolesTab({ isAdmin, isMobile }) {
       {roles.map(role => (
         <div key={role.id} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:16, opacity: role.est_systeme ? .7 : 1}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
-            <div style={{fontWeight:700,fontSize:14,color:'#0f172a'}}>
-              {role.label} {role.est_systeme && <span style={{fontSize:11,color:'#94a3b8',fontWeight:400}}>(rôle système, protégé)</span>}
+            <div style={{fontWeight:700,fontSize:14,color:'#0f172a',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              {renommage?.id === role.id ? champRenommage() : <>{role.label} {role.est_systeme && <span style={{fontSize:11,color:'#94a3b8',fontWeight:400}}>(rôle système, protégé)</span>}</>}
+              {isAdmin && role.code !== 'admin' && renommage?.id !== role.id && (
+                <button onClick={()=>setRenommage({id:role.id,label:role.label})} aria-label={`Renommer ${role.label}`}
+                  style={{background:'#F3F5F9',color:'#0F2A5C',border:'1px solid #D8DEE9',padding:'4px 10px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}>
+                  ✏️ Renommer
+                </button>
+              )}
             </div>
             {!role.est_systeme && (
               <div style={{display:'flex',alignItems:'center',gap:14}}>

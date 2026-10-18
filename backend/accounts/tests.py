@@ -894,3 +894,38 @@ class RapportBilingueTests(TestCase):
         labels = [l for _, l in Incident.PRIORITE] + [l for _, l in Incident.CATEGORIE] + [l for _, l in Incident.STATUT] \
                  + [l for _, l in Voyage.STATUT] + [l for _, l in Personnel.TYPE_CHOICES]
         self.assertEqual(libelles_manquants(labels), [])
+
+
+class RenommerProfilTests(TestCase):
+    """Paramétrage → Rôles & Accès : renommer un profil existant."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from django.contrib.auth.models import User
+        from .models import RoleCustom
+        self.RoleCustom = RoleCustom
+        self.c = APIClient()
+        self.admin = User.objects.create_superuser("renadmin", "r@r.com", "pass")
+        self.simple = User.objects.create_user("rensimple", password="x")
+        self.r1 = RoleCustom.objects.create(code="rn_un", label="Profil Un")
+        self.r2 = RoleCustom.objects.create(code="rn_deux", label="Profil Deux")
+
+    def test_admin_renomme(self):
+        self.c.force_authenticate(self.admin)
+        r = self.c.patch(f"/api/roles/{self.r1.id}/", {"label": "Chef de poste"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.r1.refresh_from_db()
+        self.assertEqual(self.r1.label, "Chef de poste")
+        self.assertEqual(self.r1.code, "rn_un")   # le code technique ne bouge jamais
+
+    def test_nom_vide_refuse(self):
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.patch(f"/api/roles/{self.r1.id}/", {"label": "  "}, format="json").status_code, 400)
+
+    def test_doublon_refuse(self):
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.patch(f"/api/roles/{self.r1.id}/", {"label": "profil deux"}, format="json").status_code, 400)
+
+    def test_non_admin_refuse(self):
+        self.c.force_authenticate(self.simple)
+        self.assertEqual(self.c.patch(f"/api/roles/{self.r1.id}/", {"label": "X"}, format="json").status_code, 403)
