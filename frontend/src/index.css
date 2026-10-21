@@ -130,6 +130,14 @@ input, select, textarea {
   background: var(--surface) !important;
   max-width: 100%;
 }
+/* Évasion du forçage ci-dessus pour les écrans à thème volontairement sombre
+   (Login, ForgotModal…) : .lg-input porte son propre texte/fond. Une classe
+   a une spécificité plus forte qu'un sélecteur de type, donc elle l'emporte
+   même à !important égal — sans ça, « color: var(--text) !important »
+   écrasait le blanc inline voulu et rendait le texte illisible (texte
+   sombre sur fond sombre, cas remonté : « noir sur noir » page de connexion). */
+.lg-input { color: var(--rzc-white) !important; background: rgba(255,255,255,.06) !important; }
+.lg-input::placeholder { color: rgba(255,255,255,.35) !important; }
 input::placeholder, textarea::placeholder { color: var(--text-4) !important; }
 
 /* ── Tables responsive ── */
@@ -554,6 +562,14 @@ input, select, textarea {
 /* ── Fade-in pour transitions de module ── */
 @keyframes rzcFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .rzc-fade-in { animation: rzcFadeIn .25s ease; }
+
+/* ── Entrée en cascade d'une liste (cartes mobiles Personnel, etc.) —
+   générique, pas la palette sombre du Mission Control (cf. .md-tuile). ── */
+@keyframes rzcListeEntree { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.rzc-liste-entree { animation: rzcListeEntree .32s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 28ms); }
+@media (prefers-reduced-motion: reduce) {
+  .rzc-liste-entree { animation: rzcFadeIn .18s ease both; animation-delay: 0ms; }
+}
 
 /* ── Scope sombre : appliquer uniquement aux pages qui adoptent la nouvelle identité ── */
 /* .rzc-page-scope est le nom actuel (fond clair). .rzc-dark-scope est conservé comme

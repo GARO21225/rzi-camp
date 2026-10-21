@@ -694,11 +694,11 @@ export default function Personnel() {
               <div style={{fontSize:40,marginBottom:10}}>👤</div>
               Aucun membre trouvé
             </div>
-          ) : filtered.map(p => {
+          ) : filtered.map((p, i) => {
             const initiales = `${(p.nom||'?')[0]||''}${(p.prenom||'')[0]||''}`.toUpperCase()
             const chambre = p.residence_principale?.residence || p.chambre
             return (
-              <button key={p.id} onClick={() => {
+              <button key={p.id} className="rzc-liste-entree" onClick={() => {
                   setForm({
                     nom:p.nom, prenom:p.prenom, email:p.email||'',
                     telephone:p.telephone||'', telephone_2:p.telephone_2||'', numero_whatsapp:p.numero_whatsapp||'', departement:p.departement||'', societe:p.societe||'',
@@ -710,7 +710,7 @@ export default function Personnel() {
                 }}
                 style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',
                   background:'#fff',border:'1px solid rgba(15,26,46,.10)',borderRadius:14,padding:12,
-                  boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit'}}>
+                  boxSizing:'border-box',cursor:'pointer',fontFamily:'inherit', '--i': Math.min(i, 14)}}>
                 <div style={{width:42,height:42,borderRadius:'50%',background:'var(--rzc-navy,#0F2A5C)',color:'#fff',
                   display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:600,flexShrink:0}}>
                   {initiales || '?'}

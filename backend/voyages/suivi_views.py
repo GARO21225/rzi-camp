@@ -59,6 +59,15 @@ def _est_conducteur(u, rotation):
     return any((n or "").strip().lower() in noms for n in (rotation.conducteur, rotation.conducteur_secondaire) if n)
 
 
+def _est_passager(u, rotation):
+    """Le passager d'un convoi peut suivre SA position en direct (lecture seule) —
+    jusqu'ici réservé au conducteur/admin, ce qui empêchait tout affichage du
+    rapprochement du bus côté passager."""
+    return Voyage.objects.filter(
+        rotation_id=rotation.rotation_id, personnel__user=u
+    ).exclude(statut="annule").exists()
+
+
 def _nom(p):
     return f"{p.prenom} {p.nom}".strip() if p else "—"
 
@@ -221,9 +230,16 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
         return Response([_serialiser(r, avec_trace=True) for r in qs])
 
     def retrieve(self, request, rotation_id=None):
-        rotation, err = self._rotation(request, rotation_id, ecriture=False)
-        if err:
-            return err
+        # Lecture seule : admin, conducteur OU un passager affecté à ce convoi
+        # (c'est lui qui veut voir son bus se rapprocher — _rotation() seul
+        # l'aurait bloqué avec un 403, réservé au conducteur/admin).
+        rotation = Rotation.objects.select_related(
+            "conducteur_personnel", "conducteur_secondaire_personnel"
+        ).filter(rotation_id=rotation_id).first()
+        if not rotation:
+            return Response({"error": "Rotation introuvable"}, status=404)
+        if not (_est_admin(request.user) or _est_conducteur(request.user, rotation) or _est_passager(request.user, rotation)):
+            return Response({"error": "Réservé aux passagers de ce convoi, à son conducteur ou à l'admin"}, status=403)
         return Response(_serialiser(rotation, avec_trace=True))
 
     # ── Actions conducteur ──────────────────────────────────────

@@ -10,6 +10,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import CarteItineraire from '../components/CarteItineraire'
 import LieuInput from '../components/LieuInput'
+import SuiviBus from '../components/SuiviBus'
 
 const STATUT_STYLES = {
   planifie:  { bg:'rgba(201,151,43,.14)',  color:'#a67d1f',  label:'Planifié'    },
@@ -620,6 +621,11 @@ export default function Voyages() {
                         <div style={{ fontSize:10, color:'var(--rzc-text-4)', marginTop:2 }}>
                           {(v.origine||'Camp')} → {v.destination||'—'}
                         </div>
+                        {v.statut === 'en_voyage' && v.rotation_id && (
+                          <div style={{ marginTop:6 }}>
+                            <SuiviBus rotationId={v.rotation_id} destination={v.destination}/>
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding:'11px 13px', fontSize:12, color:'var(--rzc-text-2)' }}>
                         <span style={{ background:'var(--rzc-charcoal)', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600 }}>

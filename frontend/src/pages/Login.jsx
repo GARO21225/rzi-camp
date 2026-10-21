@@ -53,11 +53,11 @@ function ForgotModal({ onClose }) {
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14 }}>
           {msg && <div style={{ padding:'10px 14px', borderRadius:10, fontSize:13, fontWeight:600, background: msg.type==='error'?'rgba(220,38,38,.15)':msg.type==='success'?'rgba(22,163,74,.15)':'rgba(37,99,235,.15)', color: msg.type==='error'?'#fca5a5':msg.type==='success'?'#86efac':'#93c5fd', border:`1px solid ${msg.type==='error'?'rgba(220,38,38,.3)':msg.type==='success'?'rgba(22,163,74,.3)':'rgba(37,99,235,.3)'}` }}>{msg.text}</div>}
           {step === 'request' ? <>
-            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
+            <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Identifiant de connexion" className="lg-input" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
             <button onClick={requestReset} disabled={loading} style={{ background:'linear-gradient(135deg,#f0a500,#d09400)', color:'#1a0e00', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Envoi...':'Recevoir le code par email'}</button>
           </> : <>
-            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Code reçu par email" autoCapitalize="characters" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
-            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
+            <input value={token} onChange={e=>setToken(e.target.value)} placeholder="Code reçu par email" autoCapitalize="characters" className="lg-input" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'monospace', width:'100%', boxSizing:'border-box' }}/>
+            <input value={newPwd} onChange={e=>setNewPwd(e.target.value)} type="password" placeholder="Nouveau mot de passe (min. 6 car.)" className="lg-input" style={{ background:'rgba(255,255,255,.06)', border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10, padding:'11px 14px', fontSize:14, outline:'none', color:'var(--rzc-white)', fontFamily:'inherit', width:'100%', boxSizing:'border-box' }}/>
             <button onClick={confirmReset} disabled={loading} style={{ background:'linear-gradient(135deg,#16a34a,#15803d)', color:'var(--rzc-white)', border:'none', padding:'12px', borderRadius:10, cursor:loading?'wait':'pointer', fontSize:14, fontWeight:800, fontFamily:'inherit' }}>{loading?'⏳ Confirmation...':'Confirmer la réinitialisation'}</button>
           </>}
         </div>
@@ -379,7 +379,7 @@ export default function Login() {
                   padding:'13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                   boxSizing:'border-box', transition:'border-color .2s',
                 }}
-                className="lg-champ"
+                className="lg-champ lg-input"
                 onFocus={e=>e.target.style.borderColor='#f0a500'}
                 onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
               />
@@ -402,7 +402,7 @@ export default function Login() {
                     padding:'13px 48px 13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
                     boxSizing:'border-box', transition:'border-color .2s',
                   }}
-                  className="lg-champ"
+                  className="lg-champ lg-input"
                   onFocus={e=>e.target.style.borderColor='#f0a500'}
                   onBlur={e=>e.target.style.borderColor='rgba(255,255,255,.12)'}
                 />
@@ -446,6 +446,7 @@ export default function Login() {
                     value={telephone} onChange={e=>setTelephone(e.target.value)}
                     onKeyDown={e=>e.key==='Enter'&&doDemanderOtp()}
                     placeholder="07 00 00 00 00" autoComplete="tel"
+                    className="lg-input"
                     style={{ width:'100%', background:'rgba(255,255,255,.06)',
                       border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
                       padding:'13px 16px', fontSize:14, color:'var(--rzc-white)', outline:'none',
@@ -474,6 +475,7 @@ export default function Login() {
                     value={otpCode} onChange={e=>setOtpCode(e.target.value)}
                     onKeyDown={e=>e.key==='Enter'&&doVerifierOtp()}
                     placeholder="123456" maxLength={6} inputMode="numeric"
+                    className="lg-input"
                     style={{ width:'100%', background:'rgba(255,255,255,.06)',
                       border:'1.5px solid rgba(255,255,255,.12)', borderRadius:10,
                       padding:'13px 16px', fontSize:20, letterSpacing:6, textAlign:'center',
