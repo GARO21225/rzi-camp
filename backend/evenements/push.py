@@ -88,13 +88,18 @@ def _envoyer_un(sub, donnees, urgent, priv, pub):
 
 
 def envoyer(users, titre, corps="", url="/", urgent=False, tag=None):
-    """Envoie un push à tous les appareils des `users` (iterable de User ou d'ids), en arrière-plan."""
+    """Envoie un push à tous les appareils des `users` (iterable de User ou d'ids), en arrière-plan.
+    Deux canaux systématiquement : Web Push (PWA/navigateur, ce module) et push natif FCM (app
+    Capacitor Android/iOS, evenements.push_natif) — un même appel couvre tous les appareils de
+    l'utilisateur, quelle que soit la façon dont il a installé l'app."""
     from django.db import transaction
     from .models import PushSubscription
+    from . import push_natif
     ids = [getattr(u, "pk", u) for u in users]
     if not ids:
         return
     donnees = {"titre": titre, "corps": (corps or "")[:180], "url": url, "urgent": bool(urgent), "tag": tag}
+    push_natif.envoyer(ids, titre, corps, url, tag)
 
     def lancer():
         try:

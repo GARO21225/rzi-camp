@@ -450,6 +450,9 @@ export const pushAPI = {
   abonner: (subscription) => api.post('/api/push/abonner/', { subscription }),
   desabonner: (endpoint) => api.post('/api/push/desabonner/', { endpoint }),
   test: () => api.post('/api/push/test/'),
+  // Push natif (app Capacitor Android/iOS, jeton FCM) — distinct du Web Push ci-dessus.
+  enregistrerTokenNatif: (token, plateforme) => api.post('/api/push/token-natif/', { token, plateforme }),
+  retirerTokenNatif: (token) => api.post('/api/push/token-natif/retirer/', { token }),
 }
 
 export const analyticsAPI = { get: (jours = 30) => api.get('/api/analytics/', { params: { jours } }) }

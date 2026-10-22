@@ -2,6 +2,7 @@
 // quand l'application est fermée ou en arrière-plan.
 import React, { useState, useEffect } from 'react'
 import { pushSupporte, activerPush, resynchroniserPush } from '../utils/push'
+import { pushNatifSupporte, activerPushNatif } from '../utils/pushNatif'
 import { toast } from '../toast'
 
 const estIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
@@ -12,7 +13,9 @@ export default function PushActivation() {
   const [envoi, setEnvoi] = useState(false)
 
   useEffect(() => {
-    if (window.Capacitor?.isNativePlatform?.()) return   // app native : pas de Web Push (ni message « écran d'accueil » sur iPhone)
+    // App native (Capacitor) : pas de Web Push, mais le vrai push système (FCM) — la permission est
+    // la boîte de dialogue native de l'OS, pas besoin de notre propre bandeau pour la déclencher.
+    if (pushNatifSupporte()) { activerPushNatif().catch(() => {}); return }
     let masque = false
     try { masque = Date.now() < Number(localStorage.getItem('rzi_push_masque') || 0) } catch { /* ignore */ }
     if (!pushSupporte()) { if (estIOS() && !installee() && !masque) setEtat('ios'); return }

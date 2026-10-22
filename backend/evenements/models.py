@@ -212,3 +212,17 @@ class PushSubscription(models.Model):
     auth = models.CharField(max_length=100)
     user_agent = models.CharField(max_length=300, blank=True, default="")
     date_creation = models.DateTimeField(auto_now_add=True)
+
+
+class AppareilPushNatif(models.Model):
+    """Jeton FCM d'un appareil de l'app NATIVE (Capacitor Android/iOS, compilée depuis le Play/App Store).
+    Distinct de PushSubscription (Web Push, PWA/navigateur) : sur un WebView natif, le Push API web ne
+    livre rien quand l'app est fermée (pas de processus navigateur en arrière-plan) — seul un vrai push
+    système (FCM côté serveur, relayé à APNs par Firebase côté iOS) réveille le téléphone. Les deux canaux
+    sont envoyés ensemble par evenements.push.envoyer() : aucun appel existant à modifier."""
+    PLATEFORME = [("android", "Android"), ("ios", "iOS")]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="appareils_push_natifs")
+    token = models.TextField(unique=True)
+    plateforme = models.CharField(max_length=10, choices=PLATEFORME)
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_maj = models.DateTimeField(auto_now=True)

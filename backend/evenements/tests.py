@@ -86,6 +86,63 @@ class WebPushTests(TestCase):
         self.assertEqual(len(appels), 1)
         self.assertTrue(appels[0][2])  # urgent
 
+    def test_push_natif_sans_credentials_fcm_ne_plante_pas(self):
+        """FCM_SERVICE_ACCOUNT_JSON absent (cas par défaut tant qu'Edgar n'a pas créé le projet
+        Firebase) : push.envoyer() doit continuer silencieusement, sans exception ni appel réseau."""
+        from unittest import mock
+        from django.contrib.auth.models import User
+        from . import push, push_natif
+        u = User.objects.create_user("sanscred", "s@a.com", "pass")
+        with mock.patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("FCM_SERVICE_ACCOUNT_JSON", None)
+            with mock.patch("requests.post") as m:
+                with self.captureOnCommitCallbacks(execute=True):
+                    push.envoyer([u.pk], "Titre", "corps")
+                self.assertFalse(m.called)
+
+    def test_enregistrement_jeton_natif_puis_envoi_fcm(self):
+        """Un appareil Android enregistré reçoit bien un appel FCM v1 (requests.post mocké), avec le
+        bon jeton OAuth2 signé à partir du compte de service."""
+        import json as _json
+        from unittest import mock
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        from .models import AppareilPushNatif
+        from . import push_natif
+
+        u = User.objects.create_user("natifu", "n@a.com", "pass")
+        c = APIClient(); c.force_authenticate(u)
+        r = c.post("/api/push/token-natif/", {"token": "FCM-TOKEN-ABC", "plateforme": "android"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AppareilPushNatif.objects.filter(user=u, plateforme="android").count(), 1)
+
+        r = c.post("/api/push/token-natif/", {"token": "mauvais", "plateforme": "windows"}, format="json")
+        self.assertEqual(r.status_code, 400)
+
+        cle = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        pem = cle.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+        compte = _json.dumps({"client_email": "svc@test.iam.gserviceaccount.com", "private_key": pem, "project_id": "rzi-camp-test"})
+
+        appels = []
+        def _post_fake(url, **kw):
+            appels.append((url, kw))
+            if "oauth2.googleapis.com" in url:
+                return mock.Mock(status_code=200, json=lambda: {"access_token": "abc123", "expires_in": 3600}, raise_for_status=lambda: None)
+            return mock.Mock(status_code=200, text="{}")
+
+        with mock.patch.dict("os.environ", {"FCM_SERVICE_ACCOUNT_JSON": compte}):
+            push_natif._jeton_cache.update({"valeur": None, "expire": 0})
+            with mock.patch("requests.post", side_effect=_post_fake):
+                with self.captureOnCommitCallbacks(execute=True):
+                    push_natif.envoyer([u.pk], "Titre", "Corps", "/x")
+                import time; time.sleep(0.3)
+        self.assertEqual(len(appels), 2)  # 1 échange OAuth2 + 1 envoi FCM
+        self.assertIn("fcm.googleapis.com/v1/projects/rzi-camp-test/messages:send", appels[1][0])
+        self.assertEqual(appels[1][1]["headers"]["Authorization"], "Bearer abc123")
+
     def test_jwt_vapid_verifiable_avec_la_cle_publique(self):
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec

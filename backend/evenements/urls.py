@@ -12,4 +12,6 @@ urlpatterns=router.urls + [
     path("push/abonner/", push_views.push_abonner),
     path("push/desabonner/", push_views.push_desabonner),
     path("push/test/", push_views.push_test),
+    path("push/token-natif/", push_views.push_token_natif_enregistrer),
+    path("push/token-natif/retirer/", push_views.push_token_natif_retirer),
 ]

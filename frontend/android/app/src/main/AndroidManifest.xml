@@ -32,6 +32,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Push natif (FCM) : sans cette permission, Android 13+ refuse l'affichage des notifications
+         même si l'enregistrement FCM a réussi côté serveur. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Suivi GPS du chauffeur (page « Ma conduite ») : sans ces lignes Android refuse la position
          sans même afficher la demande d'autorisation. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
