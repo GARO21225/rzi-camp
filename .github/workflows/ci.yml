@@ -1,0 +1,55 @@
+name: CI
+
+# Jusqu'ici, aucun test ne tournait automatiquement : chaque push partait directement sur main et
+# sur le VPS, vérifié à la main (quand il l'était). Ce workflow ne fait QUE lancer les mêmes
+# commandes déjà utilisées pour vérifier le code avant un push (voir CLAUDE.md) — il ne déploie
+# rien et ne bloque aucun merge pour l'instant : c'est de la visibilité (un badge rouge sur GitHub
+# après un push cassé), pas une porte automatique.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      # Sans DATABASE_URL, Django retombe sur SQLite en mémoire pour les tests (voir
+      # settings.py) : pas besoin d'un service Postgres ici.
+      - run: python manage.py test
+        env:
+          DEBUG: "True"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Non-bloquant pour l'instant : le repo a de la dette lint pré-existante (~1400
+      # avertissements, 13 erreurs scattées dans des fichiers non liés à ce chantier) jamais
+      # traitée d'un coup faute d'une vérification exhaustive de chacune (certaines touchent des
+      # dépendances de useEffect, risquées à corriger à la chaîne sans tester le comportement de
+      # chaque écran). Reste visible dans les logs du run ; à durcir une fois la dette résorbée.
+      - run: npm run lint
+        continue-on-error: true
+      - run: npm test -- src/features src/utils src/components
+      - run: npm run build

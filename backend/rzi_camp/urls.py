@@ -31,13 +31,23 @@ def custom_login(request):
     if not username or not password:
         return Response({'detail': 'Identifiants requis'}, status=400)
 
-    if not username or not password:
-        return Response({'detail': 'Identifiants requis'}, status=400)
+    # Anti-bruteforce — même mécanisme (cache partagé, voir settings.py "Cache partagé entre
+    # workers") que forgot_password/reset_password dans accounts/views.py, appliqué ici au login
+    # lui-même (seul point d'entrée qui n'avait aucune limite : les échecs étaient journalisés
+    # dans l'Audit mais rien ne bloquait les tentatives répétées). Clé IP+identifiant plutôt
+    # qu'IP seule : ne bloque pas tout un bâtiment/NAT derrière la même IP pour un compte visé.
+    from django.core.cache import cache
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown')).split(',')[0].strip()
+    rl_key = f"login_rl:{ip}:{username.lower()}"
+    tentatives = cache.get(rl_key, 0)
+    if tentatives >= 10:
+        return Response({'detail': 'Trop de tentatives. Réessayez dans 15 minutes.'}, status=429)
 
     from accounts.audit import journaliser_connexion
 
     user = authenticate(request, username=username, password=password)
     if not user:
+        cache.set(rl_key, tentatives + 1, timeout=900)
         journaliser_connexion(request, None, False, 'mot_de_passe', detail=f"identifiant tenté : {username}")
         return Response({'detail': 'Identifiants incorrects'}, status=401)
 

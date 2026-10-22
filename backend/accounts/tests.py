@@ -584,6 +584,40 @@ class AuditLoginTrackingTests(TestCase):
         self.assertEqual(entry.utilisateur, self.user)
 
 
+class LoginAntiBruteforceTests(TestCase):
+    """custom_login (rzi_camp/urls.py) n'avait aucune limite de tentatives — seulement une trace
+    dans l'Audit après coup (AuditLoginTrackingTests ci-dessus). Même mécanisme que
+    forgot_password/reset_password (accounts/views.py) : compteur en cache, clé IP+identifiant."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.user = User.objects.create_user("bruteforce_cible", "b@example.com", "bonmotdepasse")
+
+    def test_bloque_apres_10_echecs_sur_le_meme_identifiant(self):
+        for _ in range(10):
+            r = self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "faux"}, format="json")
+            self.assertEqual(r.status_code, 401)
+        r = self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "faux"}, format="json")
+        self.assertEqual(r.status_code, 429)
+        # Même avec le BON mot de passe : le compteur est déjà plein, pas de contournement.
+        r = self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "bonmotdepasse"}, format="json")
+        self.assertEqual(r.status_code, 429)
+
+    def test_un_autre_identifiant_depuis_la_meme_ip_n_est_pas_bloque(self):
+        for _ in range(10):
+            self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "faux"}, format="json")
+        autre = User.objects.create_user("quelquun_dautre", "a@example.com", "motdepasse456")
+        r = self.client.post("/api/auth/login/", {"username": "quelquun_dautre", "password": "motdepasse456"}, format="json")
+        self.assertEqual(r.status_code, 200)
+
+    def test_un_login_reussi_ne_declenche_pas_le_compteur(self):
+        for _ in range(9):
+            self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "faux"}, format="json")
+        r = self.client.post("/api/auth/login/", {"username": "bruteforce_cible", "password": "bonmotdepasse"}, format="json")
+        self.assertEqual(r.status_code, 200)
+
+
 class ModeTestVisibiliteTests(TestCase):
     """
     Signalement : "le mail n'est pas parti" alors que la reponse ne

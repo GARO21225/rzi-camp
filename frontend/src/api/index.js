@@ -273,8 +273,6 @@ export const qr = {
   validerParNumero: (d) => api.post('/api/qr/valider_par_numero/', d),
   supprimerRepas: (id) => api.delete(`/api/repas/${id}/`),
   regenererTousQr: () => api.post('/api/personnel/regenerer_tous_qr/', {}),
-  repas: (p) => api.get('/api/repas/', {params:p}),
-  historiqueScans: (p) => api.get('/api/repas/', {params:p}),
 }
 
 // ── Avis restauration — amélioration continue ──
