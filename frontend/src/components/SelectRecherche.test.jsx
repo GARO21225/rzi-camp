@@ -22,15 +22,19 @@ describe('SelectRecherche', () => {
     expect(container.querySelector('datalist')).toBeNull()
   })
 
-  it('ouvre la liste au focus et sélectionne une option au pointerdown (sans perdre le focus avant)', () => {
+  it('ouvre la liste au focus et sélectionne une option au clic (le mousedown annule la fermeture différée du blur)', () => {
     const onChange = vi.fn()
     render(<SelectRecherche value="" onChange={onChange}>{options}</SelectRecherche>)
     const input = screen.getByPlaceholderText('— Choisir —')
     fireEvent.focus(input)
     const option = screen.getByText('Yamoussoukro')
-    // pointerdown (pas click) : c'est le point précis du bug — sur mobile, un
-    // onBlur déclenché avant le onClick refermait la liste sans rien choisir.
-    fireEvent.pointerDown(option)
+    // Reproduit l'ordre réel des événements sur mobile : le blur du champ
+    // (fermeture du clavier) survient AVANT le click sur l'option. Le
+    // mousedown doit annuler la fermeture différée programmée par le blur,
+    // sinon la liste se referme et le tap est ignoré ("ne prend pas").
+    fireEvent.mouseDown(option)
+    fireEvent.blur(input)
+    fireEvent.click(option)
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ target: expect.objectContaining({ value: 'y' }) }))
   })
 
