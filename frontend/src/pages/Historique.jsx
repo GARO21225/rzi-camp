@@ -757,7 +757,7 @@ export default function Historique() {
       {/* ── RESTAURANT ── */}
       {tab==='repas' && (
         <div>
-          <SearchCard title="🍽️ Historique des repas restaurant" color="#7c3aed">
+          <SearchCard title="🍽️ Historique des repas restaurant" color="#C9972B">
             <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
               {/* Filtre type repas */}
               <select value={repasFilter} onChange={e=>setRepasFilter(e.target.value)}
@@ -784,7 +784,7 @@ export default function Historique() {
                 style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',padding:'8px 12px',borderRadius:8,fontSize:13,minWidth:160}} />
 
               <button onClick={loadRepas} disabled={repasLoading}
-                style={{background:'#7c3aed',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                style={{background:'#C9972B',color:'#fff',border:'none',padding:'8px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
                 {repasLoading?'⏳ Recherche...':'🔍 Rechercher'} Actualiser
               </button>
 
@@ -798,7 +798,7 @@ export default function Historique() {
 
               {repasFiltered.length > 0 && (
                 <button onClick={exportRepasCSV}
-                  style={{background:'rgba(124,58,237,.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
+                  style={{background:'rgba(201,151,43,.1)',color:'#C9972B',border:'1px solid rgba(201,151,43,.3)',padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700}}>
                   ⬇ Export CSV ({repasFiltered.length})
                 </button>
               )}
@@ -814,7 +814,7 @@ export default function Historique() {
                     <div key={r.id||i} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:14,padding:'12px 13px',boxShadow:'var(--shadow)'}}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
                         <span style={{fontSize:13,fontWeight:700,color:'var(--blue)'}}>{r.resident||'—'}</span>
-                        <span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span>
+                        <span style={{background:'rgba(201,151,43,.12)',color:'#C9972B',padding:'2px 9px',borderRadius:20,fontSize:10.5,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span>
                       </div>
                       <p style={{margin:0,fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}{r.restaurant_nom ? ` · 🍽️ ${r.restaurant_nom}` : ''}</p>
                       <p style={{margin:'4px 0 0',fontSize:11.5,color:'var(--text-dim)'}}>
@@ -827,7 +827,7 @@ export default function Historique() {
               </div>
             ) : (
             <div style={{background:'#fff',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
-              <div style={{padding:'10px 16px',background:'#7c3aed',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{padding:'10px 16px',background:'#C9972B',color:'#fff',fontWeight:600,fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span>📋 {repasFiltered.length}/{repasData.length} scan(s) de repas</span>
                 <button onClick={exportRepasCSV}
                   style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.4)',padding:'4px 12px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600}}>
@@ -849,7 +849,7 @@ export default function Historique() {
                           <td style={{padding:'9px 12px',fontWeight:600,color:'var(--blue)'}}>{r.resident||'—'}</td>
                           <td style={{padding:'9px 12px',fontSize:12,color:'var(--text-dim)'}}>{r.societe||'—'}</td>
                           <td style={{padding:'9px 12px',fontSize:12,fontWeight:600,color:'#0f2a5c'}}>{r.restaurant_nom ? `🍽️ ${r.restaurant_nom}` : <span style={{color:'#94a3b8'}}>—</span>}</td>
-                          <td style={{padding:'9px 12px'}}><span style={{background:'rgba(124,58,237,.12)',color:'#7c3aed',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span></td>
+                          <td style={{padding:'9px 12px'}}><span style={{background:'rgba(201,151,43,.12)',color:'#C9972B',padding:'3px 8px',borderRadius:20,fontSize:11,fontWeight:700}}>{r.type_repas_label||r.type_repas}</span></td>
                           <td style={{padding:'9px 12px',fontFamily:'monospace',fontSize:11}}>
                             {dt ? dt.toLocaleDateString('fr-FR') + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}
                           </td>
