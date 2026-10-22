@@ -131,6 +131,12 @@ export default function SelectRecherche({ value, defaultValue, onChange, childre
             top: rect.bottom + 4, left: rect.left, width: rect.width,
             background: '#fff', border: '1px solid rgba(15,26,46,.14)', borderRadius: 10,
             boxShadow: '0 12px 32px rgba(15,26,46,.18)', maxHeight: 220, overflowY: 'auto',
+            // Sans -webkit-overflow-scrolling, les WebView natives (Android/iOS)
+            // ne font pas de défilement tactile fluide dans un volet imbriqué —
+            // le doigt glisse sans rien faire bouger. overscrollBehavior:'contain'
+            // empêche aussi le défilement de "remonter" vers la modale en dessous
+            // une fois arrivé en haut/bas de la liste.
+            WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y',
           }}>
           {filtrees.map(o => (
             <div key={o.value} role="option" aria-selected={o.value === courant}
