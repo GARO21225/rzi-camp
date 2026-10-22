@@ -207,14 +207,20 @@ export function homePathFor() {
 
 // Libellés courts (barre du bas, tuiles de l'accueil) — le libellé du menu
 // est trop long sous une icône.
+// '/induction' (dossier QHSE formel) et '/induction-camp' (parcours immersif
+// bienvenue/règles/quiz) coexistent dans le menu d'un même résident/agent
+// (cf. lignes 17-18, 57-58 ci-dessus) : avant, les deux tombaient sur le
+// même libellé court "Induction" — deux tuiles identiques à l'écran,
+// distinguables seulement par l'icône (🎓 vs 🏕️). D'où la remontée
+// "tuiles Induction en double" sur l'accueil.
 const LIBELLES_COURTS = {
   '/carte':'Carte', '/evenements':'Événements', '/restauration':'Repas',
-  '/maintenance':'Maintenance', '/induction':'Induction', '/epi':'EPI',
+  '/maintenance':'Maintenance', '/induction':'QHSE', '/epi':'EPI',
   '/annuaire':'Annuaire', '/residences':'Résidences', '/boutique':'Bar',
   '/demandes':'Demandes', '/rapports':'Rapports', '/analytics':'Analytics',
   '/historique':'Historique', '/voyages':'Voyages', '/plaintes':'Plaintes',
   '/personnel':'Personnel', '/presences':'Présences', '/rotations':'Mobilité',
-  '/reservations':'Réservations', '/operations':'Centre Op.', '/workflows':'Workflows', '/boutique-pos':'POS', '/induction-admin':'Induction', '/induction-camp':'Induction', '/conduite':'Conduite',
+  '/reservations':'Réservations', '/operations':'Centre Op.', '/workflows':'Workflows', '/boutique-pos':'POS', '/induction-admin':'QHSE', '/induction-camp':'Induction', '/conduite':'Conduite',
   '/mon-compte':'Mon compte',
 }
 

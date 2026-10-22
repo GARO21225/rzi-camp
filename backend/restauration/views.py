@@ -951,35 +951,6 @@ class ArticleBoutiqueViewSet(viewsets.ModelViewSet):
             'montant_total': float(qs.aggregate(t=Sum('montant'))['t'] or 0),
         })
 
-    @action(detail=True, methods=['post'])
-    def stock_update(self, request, pk=None):
-        """Modifier le stock d'un article."""
-        u = request.user
-        if _profil_bar(u) not in ("admin", "gerant"):
-            return Response({'detail':"Réservé à l'administrateur et au gérant du bar"}, status=403)
-        article = self.get_object()
-        operation = request.data.get('operation', 'set')  # set | add | subtract
-        quantite = int(request.data.get('quantite', 0))
-        raison = request.data.get('raison', '')
-        
-        stock_avant = article.stock
-        if operation == 'set':
-            article.stock = quantite
-        elif operation == 'add':
-            article.stock += quantite
-        elif operation == 'subtract':
-            article.stock = max(0, article.stock - quantite)
-        article.save(update_fields=['stock'])
-        
-        return Response({
-            'ok': True,
-            'article': article.nom,
-            'stock_avant': stock_avant,
-            'stock_apres': article.stock,
-            'operation': operation,
-            'quantite': quantite,
-        })
-    
     @action(detail=False, methods=['get'])
     def alertes_stock(self, request):
         """Articles dont le stock est bas (< 20)."""
