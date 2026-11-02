@@ -78,7 +78,6 @@ export default function Personnel() {
   const [credentialsModal, setCredentialsModal] = useState(null) // Identifiants generes a afficher UNE fois
   const [newRole,      setNewRole]      = useState('')
   const [newProfil,    setNewProfil]    = useState('')
-  const [newLoginRole, setNewLoginRole] = useState('')
   const [rpModal, setRpModal] = useState(null)       // personnel en cours de declaration resident principal
   const [rpBatiments, setRpBatiments] = useState([])
   const [rpBatimentChoisi, setRpBatimentChoisi] = useState('')
@@ -276,8 +275,18 @@ export default function Personnel() {
       if (Object.keys(payload).length > 0) {
         await personnelAPI.update(roleModal.id, payload)
       }
-      if (newLoginRole) {
-        await personnelAPI.assigRole(roleModal.id, newLoginRole)
+      if (newProfil) {
+        // BUG REEL CORRIGE ICI : assigRole() pilotait auparavant sur un état
+        // séparé (newLoginRole) initialisé à '' à l'ouverture de la modale
+        // (contrairement à newProfil, initialisé à p.profil). Si le select
+        // affichait déjà le profil cible à l'ouverture, cliquer "Enregistrer"
+        // sans toucher le select ne déclenchait aucun onChange → cet état
+        // restait '' → le seul appel qui synchronise réellement l'accès
+        // (Profile.role/is_staff) était silencieusement sauté, même si le
+        // PATCH profil passait. Contournement observé : basculer sur un autre
+        // profil puis revenir forçait deux vrais onChange et marchait. On
+        // pilote maintenant directement sur newProfil (état supprimé).
+        await personnelAPI.assigRole(roleModal.id, newProfil)
         // BUG REEL CORRIGE ICI : changer le rôle (ex: admin -> agent) mettait
         // bien à jour la base, mais la bannière/le contenu affichés restaient
         // sur l'ancien rôle tant que la page n'était pas rechargée - le store
@@ -290,8 +299,8 @@ export default function Personnel() {
         // exact signalé (un admin qui se rétrograde lui-même en agent).
         try { const me = await authAPI.me(); setUser(me.data) } catch {}
       }
-      if (Object.keys(payload).length === 0 && !newLoginRole) { setRoleModal(null); return }
-      setRoleModal(null); setNewProfil(''); setNewLoginRole(''); load()
+      if (Object.keys(payload).length === 0 && !newProfil) { setRoleModal(null); return }
+      setRoleModal(null); setNewProfil(''); load()
     } catch(e) {
       const msg = e.response?.data ? JSON.stringify(e.response.data) : 'Erreur réseau'
       toast.error('Erreur: ' + msg)
@@ -1050,7 +1059,7 @@ export default function Personnel() {
                             title={p.a_droit_mobilite ? 'Droit au Centre de Mobilité — cliquer pour retirer' : 'Pas de droit mobilité — cliquer pour accorder'}>
                             🧭
                           </button>
-                          <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setNewLoginRole('');setRoleModal(p)}}
+                          <button onClick={() => {setNewRole(p.type_personnel);setNewProfil(p.profil||'agent');setRoleModal(p)}}
                             style={{background:'var(--rzc-blue-l)',color:'#2563EB',border:'1px solid rgba(37,99,235,.25)',
                               padding:'4px 8px',borderRadius:7,cursor:'pointer',fontSize:11,fontWeight:700}}
                             title="Changer le profil">
@@ -1606,7 +1615,7 @@ export default function Personnel() {
                   <div style={{fontSize:10,fontWeight:700,color:'var(--rzc-text-3)',marginBottom:5,textTransform:'uppercase'}}>
                     🔑 Rôle (profil et accès)
                   </div>
-                  <select value={newProfil||''} onChange={e=>{setNewProfil(e.target.value); setNewLoginRole(e.target.value)}} style={inp}>
+                  <select value={newProfil||''} onChange={e=>setNewProfil(e.target.value)} style={inp}>
                     <option value="">Inchangé</option>
                     {PROFILS.map(pr => <option key={pr.v} value={pr.v}>{pr.l}</option>)}
                   </select>
