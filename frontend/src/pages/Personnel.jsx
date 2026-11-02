@@ -220,7 +220,19 @@ export default function Personnel() {
       try {
         let body = {}
         if (action.startsWith('type:'))    body = { type_personnel: action.slice(5) }
-        else if (action.startsWith('profil:')) body = { profil: action.slice(7) }
+        else if (action.startsWith('profil:')) {
+          // BUG RÉEL CORRIGÉ ICI : cette action groupée ne PATCHait que Personnel.profil
+          // (métier/affichage) sans jamais appeler assigner_role — contrairement au modal
+          // individuel "Changer le profil" (handleChangeRole ci-dessus) qui, lui, synchronise
+          // aussi Profile.role + is_staff (droits réels de connexion/menu). Un admin changeant
+          // le profil en masse voyait donc la fiche mise à jour dans la liste, mais la personne
+          // gardait ses anciens droits/menu jusqu'à ce qu'on lui réassigne le rôle une par une
+          // via le modal — "ça n'a pas pris automatiquement". assigner_role ne fait rien (mais
+          // répond 200) si la fiche n'a pas de compte utilisateur lié (visiteur sans login) :
+          // seule une vraie erreur (rôle invalide, etc.) remonte ici.
+          body = { profil: action.slice(7) }
+          await personnelAPI.assigRole(id, action.slice(7))
+        }
         else if (action === 'activer')    body = { actif: true }
         else if (action === 'desactiver') body = { actif: false }
         else if (action === 'expatrie')       body = { est_expatrie: true }
@@ -233,6 +245,10 @@ export default function Personnel() {
       } catch(e) { echecs++ }
     }
     if (echecs) toast.error(`${echecs} modification(s) refusée(s) par le serveur`)
+    // Même filet de sécurité que handleChangeRole : si l'admin s'est inclus lui-même dans la
+    // sélection groupée, sans ça la bannière/le menu resteraient sur son ancien rôle jusqu'au
+    // prochain rechargement complet de la page.
+    if (action.startsWith('profil:')) { try { const me = await authAPI.me(); setUser(me.data) } catch {} }
     setSelectedIds(new Set()); load(); setMassAction('')
   }
 
