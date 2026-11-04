@@ -40,6 +40,9 @@ try { langue = localStorage.getItem(CLE) === 'en' ? 'en' : 'fr' } catch { /* ign
 
 export const getLangue = () => langue
 
+/** Résolue quand la langue choisie est prête à l'affichage (dictionnaire chargé en anglais). */
+export const i18nPret = () => (langue === 'en' ? chargerDico().then(() => {}, () => {}) : Promise.resolve())
+
 /** Traduction d'un texte construit en JS (même dictionnaire). */
 export function t(fr) {
   if (langue !== 'en' || fr == null) return fr

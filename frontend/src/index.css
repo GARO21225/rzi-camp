@@ -709,15 +709,21 @@ input:focus, select:focus, textarea:focus {
   .main-scroll { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 }
 
-/* ── Mobile : toute fenêtre modale (overlay plein écran) doit rester scrollable et entièrement
-   atteignable (boutons du bas), même quand la barre d'adresse réduit la hauteur visible. ── */
+/* ── Mobile : toute fenêtre modale / panneau (overlay plein écran, position fixed + inset 0) ──
+   - reste scrollable et entièrement atteignable, même quand la barre d'adresse réduit l'écran ;
+   - ne passe PAS sous la barre d'état du téléphone : dans l'application installée (Capacitor,
+     affichage bord à bord), le haut de l'écran est occupé par l'heure / la batterie et n'accepte
+     pas le toucher — les boutons du haut des panneaux (🖨️ imprimer, ✕ fermer) y étaient
+     inaccessibles. --safe-area-inset-* est injecté par Capacitor quand env() n'est pas fourni ;
+   - plus de bande vide de 110 px en bas : la barre d'onglets est masquée tant qu'une fenêtre
+     est ouverte (quel que soit son z-index ; avant, seuls 1000/1100/2xxx la masquaient). */
 @media (max-width: 768px) {
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     align-items: safe center !important;
-    /* la barre de menu flottante (≈ 90 px) ne doit jamais masquer les boutons du bas */
-    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)) !important;
     /* le geste de défilement reste DANS la fenêtre (ne « traverse » pas vers la page en arrière-plan) */
     overscroll-behavior: contain;
   }
@@ -725,18 +731,18 @@ input:focus, select:focus, textarea:focus {
     max-height: none !important;
     overflow-y: visible !important;
   }
+  /* Panneaux latéraux (fiche dossier, détail…) : pleine hauteur visible, sans laisser voir la page */
+  div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div[style*="height: 100%"] {
+    min-height: 100%; height: auto !important;
+  }
 }
 
 /* Une fenêtre modale ouverte passe AU-DESSUS de tout : la barre de menu flottante est masquée
    (sinon elle recouvre les boutons « Valider / Soumettre » en bas de la fenêtre). */
 @media (max-width: 768px) {
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]) .bottom-tab-bar,
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]) .bottom-tab-bar,
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) .bottom-tab-bar { display: none !important; }
+  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index"]) .bottom-tab-bar { display: none !important; }
   /* Fenêtre ouverte : la page derrière ne défile plus (seule la fenêtre défile). */
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]),
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]),
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) { overflow: hidden !important; }
+  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index"]) { overflow: hidden !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════

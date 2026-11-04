@@ -7,7 +7,10 @@ const config: CapacitorConfig = {
   backgroundColor: '#0F2A5C',
   plugins: {
     SplashScreen: {
-      launchShowDuration: 800,
+      // Masqué par le code (src/main.jsx) une fois la première page dessinée,
+      // au plus tard après 5 s.
+      launchAutoHide: false,
+      launchShowDuration: 5000,
       backgroundColor: '#0F2A5C',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
