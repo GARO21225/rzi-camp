@@ -91,6 +91,8 @@ export default function SuiviTrajetDirect({ voyage, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 2100, background: '#06142E', display: 'flex', flexDirection: 'column' }}>
+      {/* Enveloppe pleine hauteur : seul le bas défile, l'en-tête (✕) et la carte restent en place */}
+      <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#06142E', color: '#fff', flexShrink: 0, width: '100%', boxSizing: 'border-box' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 16 }}>📍 Mon trajet en direct</div>
@@ -120,7 +122,7 @@ export default function SuiviTrajetDirect({ voyage, onClose }) {
         </MapSafe>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box', background: '#F1F5F9', paddingBottom: 'calc(14px + var(--zone-bas, 0px))' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box', background: '#F1F5F9', paddingBottom: 'calc(14px + var(--zone-bas, 0px))' }}>
         <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 6px 18px -10px rgba(6,20,46,.25)' }}>
           <div style={{ fontSize: 19, fontWeight: 800, color: ENCRE }}>{titre}</div>
           {sousTitre && <div style={{ fontSize: 13, color: GRIS, marginTop: 4 }}>{sousTitre}</div>}
@@ -162,6 +164,7 @@ export default function SuiviTrajetDirect({ voyage, onClose }) {
           })}
           {arrets.length === 0 && <div style={{ fontSize: 13, color: GRIS }}>Itinéraire non renseigné pour ce convoi.</div>}
         </div>
+      </div>
       </div>
     </div>
   )

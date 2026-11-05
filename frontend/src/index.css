@@ -733,11 +733,17 @@ input:focus, select:focus, textarea:focus {
   }
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div {
     max-height: none !important;
-    overflow-y: visible !important;
+    /* les DEUX axes : « overflow: auto » en ligne + overflow-y: visible seul redevenait auto,
+       et l'en-tête collant (✕, 🖨️) de la fenêtre partait hors de l'écran au défilement */
+    overflow: visible !important;
+    overflow: clip !important;   /* garde les coins arrondis, sans créer de zone de défilement */
   }
-  /* Panneaux latéraux (fiche dossier, détail…) : pleine hauteur visible, sans laisser voir la page */
+  /* Panneaux latéraux (fiche dossier, détail…) : pleine hauteur sous la barre d'état, et ce sont
+     EUX qui défilent (pas le fond) — sinon leur en-tête collant (🖨️, ✕) remontait sous l'heure /
+     la batterie, ou hors de l'écran, dès qu'on faisait défiler un dossier long. */
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div[style*="height: 100%"] {
-    min-height: 100%; height: auto !important;
+    height: 100% !important; max-height: 100% !important;
+    overflow-y: auto !important; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   }
 }
 
