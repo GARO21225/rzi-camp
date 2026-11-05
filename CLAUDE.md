@@ -43,6 +43,8 @@ npm run dev
 
 ## Règles non négociables avant de pousser du code
 
+0. **Toujours fusionner dans `main` après chaque lot de corrections** (demande explicite d'Edgar) : la production est déployée depuis `main`. Pousser la branche de travail, ouvrir/mettre à jour la PR, puis la fusionner dans `main` une fois le build et les tests validés.
+
 1. **Toujours valider le build avant de push.** `cd frontend && rm -rf dist/ && npm run build`. Zéro tolérance pour une erreur esbuild. Un warning n'est pas bloquant mais doit être lu.
 2. **Toute nouvelle page = lazy-loaded.** Jamais `import X from './pages/X'` en haut de `App.jsx`. Toujours `const X = lazy(() => import('./pages/X'))` + wrapper `<Suspense>` autour de la route. Un import statique fait gonfler le bundle principal et ralentit le premier chargement pour tout le monde, même ceux qui ne visitent jamais cette page. (C'était la cause #1 de la lenteur signalée — voir Journal d'erreurs.)
 3. **Jamais de composant `lazy()` rendu sans `<Suspense>` parent.** React lève une erreur non catchée → page blanche totale, pas juste sur le composant concerné. Si une page est rendue via une fonction intermédiaire (ex: `RoleHome()`), vérifier que le `<Suspense>` est bien à l'intérieur de cette fonction, pas seulement dans la route.
