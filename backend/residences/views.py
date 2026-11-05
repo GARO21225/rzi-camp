@@ -1688,26 +1688,12 @@ class BatimentViewSet(viewsets.ModelViewSet):
         # tard. Desormais "lte" (<=) : inclut le jour J, pas seulement apres.
         # cf. residences/management/commands/verifier_departs_residence.py pour
         # la notification admin equivalente, meme regle d'exclusion ici.
-        from voyages.models import Voyage
-        candidats_retard = list(qs.filter(statut="Occupé", personnel__isnull=False, date_depart__lte=today)
-                                 .select_related("personnel"))
-        personnels_couverts = set(Voyage.objects.filter(
-            personnel_id__in=[b.personnel_id for b in candidats_retard],
-            statut__in=["planifie","en_voyage"],
-        ).values_list("personnel_id", flat=True))
-        # Egalement couvert : une demande de voyage deja soumise (confirmee
-        # depuis l'app via confirmer_depart, ou creee normalement) et pas
-        # encore traitee/rejetee - la decision a ete prise, en attente de
-        # validation admin, inutile de la re-signaler comme "en retard".
-        users_couverts = set(Demande.objects.filter(
-            demandeur__personnel__id__in=[b.personnel_id for b in candidats_retard],
-            type_demande="voyage", statut__in=["en_attente","validee","proposition"],
-        ).values_list("demandeur__personnel__id", flat=True))
-        personnels_couverts |= users_couverts
+        # Même règle que la tâche quotidienne (residences/departs.py) : une seule source de vérité.
+        from .departs import departs_sans_decision
         departs_en_retard_list = [
             {"batiment_id":b.id,"residence":b.residence,"occupant":b.occupant,"date_depart":b.date_depart,
              "personnel__nom":b.personnel.nom,"personnel__prenom":b.personnel.prenom}
-            for b in candidats_retard if b.personnel_id not in personnels_couverts
+            for b in departs_sans_decision(today, jusqu_a=today)
         ]
         departs_en_retard = len(departs_en_retard_list)
 
