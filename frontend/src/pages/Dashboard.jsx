@@ -167,16 +167,17 @@ function ProgBar({ value, color = 'var(--rzc-ore-gold)' }) {
   )
 }
 
-function AlertRow({ icon, title, desc, severity = 'info' }) {
+function AlertRow({ icon, title, desc, severity = 'info', onClick }) {
   const cls = { ok:'rzc-badge-ok', alert:'rzc-badge-alert', info:'rzc-badge-info', gold:'rzc-badge-gold' }[severity]
   const borderColor = { ok:'var(--rzc-green)', alert:'var(--rzc-red)', info:'var(--rzc-blue)', gold:'var(--rzc-ore-gold)' }[severity]
   return (
-    <div style={{ display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 8,
+    <div onClick={onClick} style={{ display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 8, cursor: onClick ? 'pointer' : 'default',
       background: 'rgba(15,26,46,.025)', borderLeft: `3px solid ${borderColor}`, marginBottom: 8 }}>
       <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--rzc-text)', margin: 0 }}>{title}</p>
-        <p style={{ fontSize: 11, color: 'var(--rzc-text-3)', margin: '2px 0 0' }}>{desc}</p>
+        <p style={{ fontSize: 11, color: 'var(--rzc-text-3)', margin: '2px 0 0', whiteSpace: 'pre-line' }}>{desc}</p>
+        {onClick && <p style={{ fontSize: 10, color: 'var(--rzc-navy)', margin: '4px 0 0', fontWeight: 700 }}>Voir les dossiers →</p>}
       </div>
     </div>
   )
@@ -472,9 +473,18 @@ export default function Dashboard() {
 
   // ── Alertes actives — fusionné depuis l'ancienne page Centre Opérationnel
   // (mêmes données déjà chargées ci-dessus, aucun nouvel appel réseau) ──
+  // SLA : quels dossiers, de combien ils sont en retard, qui s'en occupe (au lieu d'un « 1 SLA dépassé(s) » vague)
+  const slaListe = d.inc?.sla_depasse_liste || []
+  const retardTxt = h => h == null ? '' : h < 1 ? 'depuis moins d\'1 h' : h < 24 ? `de ${h} h` : `de ${Math.floor(h / 24)} j ${h % 24} h`
+  const slaTitre = `${sla} intervention${sla > 1 ? 's' : ''} de maintenance hors délai (SLA)`
+  const slaDesc = slaListe.length
+    ? slaListe.slice(0, 3).map(i => `• ${i.titre} — ${i.residence}${i.retard_h != null ? ` · en retard ${retardTxt(i.retard_h)}` : ''} · ${i.assigne_a ? `assignée à ${i.assigne_a}` : 'non assignée'}`).join('\n')
+      + (sla > 3 ? `\n… et ${sla - 3} autre(s)` : '')
+    : 'Délai de résolution dépassé, dossier encore ouvert'
+  const voirSla = () => nav('/maintenance?sla=1')
   const alertes = []
   if (critiques > 0) alertes.push({ type:'incident', titre:`${critiques} incident(s) critique(s)`, desc:'Nécessite intervention immédiate', temps:'Maintenant', urgent:true })
-  if (sla > 0)       alertes.push({ type:'sla', titre:`${sla} SLA dépassé(s)`, desc:'Délai de résolution expiré', temps:'Urgent', urgent:true })
+  if (sla > 0)       alertes.push({ type:'sla', titre: slaTitre, desc: slaDesc, temps:'Urgent', urgent:true })
   if (d.bat?.departs_s1 > 0) alertes.push({ type:'voyage', titre:`${d.bat.departs_s1} départ(s) cette semaine`, desc:'Libérations de résidences prévues', temps:'7 jours', urgent:false })
   if (d.bat?.departs_en_retard > 0) alertes.push({ type:'residence', titre:`${d.bat.departs_en_retard} départ(s) résidence dû(s) aujourd'hui ou dépassé(s)`, desc:'Date de départ atteinte ou passée, encore logé — confirmer son départ (chambre libérée, voyage créé) ou donner une nouvelle date', temps:"Aujourd'hui / en retard", urgent:true })
   if (enVoyage > 5)  alertes.push({ type:'voyage', titre:`${enVoyage} personnes en déplacement`, desc:'Rotations en cours', temps:'En cours', urgent:false })
@@ -674,16 +684,17 @@ export default function Dashboard() {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:8 }}>
             {alertes.map((a,i) => (
-              <div key={i} onClick={a.type==='residence' ? ()=>setDeptModal(true) : undefined}
+              <div key={i} onClick={a.type==='residence' ? ()=>setDeptModal(true) : a.type==='sla' ? voirSla : undefined}
                 style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:10,
                 background: a.urgent ? 'var(--rzc-red-l)' : 'var(--rzc-charcoal-l2)',
-                cursor: a.type==='residence' ? 'pointer' : 'default',
+                cursor: ['residence','sla'].includes(a.type) ? 'pointer' : 'default',
                 border:`1.5px solid ${a.urgent ? 'rgba(220,38,38,.25)' : 'var(--rzc-border-light)'}` }}>
                 <span style={{ fontSize:18, flexShrink:0 }}>{{incident:'🚨',sla:'⏰',voyage:'🧳',residence:'🏠',epi:'🦺'}[a.type]||'📋'}</span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:12, color: a.urgent ? 'var(--rzc-red)' : 'var(--rzc-text)' }}>{a.titre}</div>
-                  <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1 }}>{a.desc}</div>
+                  <div style={{ fontSize:11, color:'var(--rzc-text-3)', marginTop:1, whiteSpace:'pre-line' }}>{a.desc}</div>
                   {a.type==='residence' && <div style={{ fontSize:10, color:'var(--rzc-navy)', marginTop:4, fontWeight:700 }}>Cliquer pour confirmer/reporter à sa place →</div>}
+                  {a.type==='sla' && <div style={{ fontSize:10, color:'var(--rzc-navy)', marginTop:4, fontWeight:700 }}>Voir les dossiers hors délai dans Maintenance →</div>}
                 </div>
                 <div style={{ fontSize:10, color:'var(--rzc-text-4)', flexShrink:0 }}>{a.temps}</div>
               </div>
@@ -714,7 +725,7 @@ export default function Dashboard() {
           sub={stockCritiqueCount > 0 ? 'Articles sous le seuil' : 'Aucune alerte'} />
         <Kpi loading={loading && !sync} icon="🚨" label="Alertes sécurité" accent={critiques > 0 ? 'red' : 'green'}
           value={ouverts}
-          sub={`${critiques} critique(s) · ${sla} SLA dépassé(s)`} />
+          sub={`${critiques} critique(s) · ${sla} hors délai (SLA)`} />
         <Kpi loading={loading && !sync} icon="🛠️" label="Maintenance en attente" accent={ouverts > 0 ? 'red' : 'green'}
           value={ouverts}
           sub="Incidents non résolus" />
@@ -750,8 +761,8 @@ export default function Dashboard() {
         <Panel title="⚠️ Alertes opérationnelles">
           {critiques > 0 && <AlertRow icon="🚨" severity="alert"
             title={`${critiques} incident(s) critique(s)`} desc="Intervention immédiate requise" />}
-          {sla > 0 && <AlertRow icon="⏰" severity="alert"
-            title={`${sla} SLA dépassé(s)`} desc="Délai de résolution expiré" />}
+          {sla > 0 && <AlertRow icon="⏰" severity="alert" onClick={voirSla}
+            title={slaTitre} desc={slaDesc} />}
           {stockCritiqueCount > 0 && <AlertRow icon="📦" severity="gold"
             title={`${stockCritiqueCount} article(s) en stock bas`} desc="Réapprovisionnement à prévoir" />}
           {enVoyage > 0 && <AlertRow icon="🧳" severity="info"

@@ -152,6 +152,25 @@ class RapportSlaTests(TestCase):
         self.assertIn("1 incident(s) ouvert(s) hors délai SLA", mail)
         self.assertIn("Rapport de <span", mail)
 
+    def test_tableau_de_bord_detaille_le_hors_delai(self):
+        """Le tableau de bord ne dit plus seulement « 1 SLA dépassé(s) » : il liste le dossier, son retard,
+        et ne compte que les dossiers encore ouverts (un dossier résolu en attente de clôture n'est plus urgent)."""
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from .rapport import actualiser_sla
+        from .models import Incident
+        actualiser_sla()
+        resolu = Incident.objects.create(titre="Déjà résolu", description="x", categorie="Autre", residence="C3", statut="resolu")
+        Incident.objects.filter(pk=resolu.pk).update(sla_depasse=True)
+        c = APIClient(); c.force_authenticate(User.objects.create_superuser("adm2", "b@a.ci", "x"))
+        r = c.get("/api/incidents/stats-sql/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["sla_depasse"], 1)
+        liste = r.data["sla_depasse_liste"]
+        self.assertEqual([x["titre"] for x in liste], ["Fuite ancienne"])
+        self.assertEqual(liste[0]["residence"], "A2")
+        self.assertGreaterEqual(liste[0]["retard_h"], 24)
+
     def test_endpoint_rapport(self):
         from django.contrib.auth.models import User
         from rest_framework.test import APIClient
