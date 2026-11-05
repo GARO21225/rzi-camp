@@ -203,7 +203,7 @@ export default function Login() {
           .login-brand { display: none !important; }
           .login-form-panel {
             flex: 1 !important;
-            padding: 28px 20px 24px !important;
+            padding: calc(20px + var(--zone-haut, 0px)) 20px calc(24px + var(--zone-bas, 0px)) !important;
             justify-content: flex-start !important;
             background: transparent !important;
             position: relative; z-index: 1;

@@ -75,6 +75,31 @@ function PanneauGps({ statut, position, message, onAutoriser }) {
   )
 }
 
+// Montées / descentes PRÉVUES, arrêt par arrêt (Voyage.origine / destination de chaque passager).
+// ✓ = déjà fait (parti avec le convoi, ramassé ou déposé).
+function FeuilleDeRoute({ feuille, enCours }) {
+  if (!feuille?.length) return null
+  const nom = (p) => <span key={p.voyage_id} style={{ display: 'inline-block', marginRight: 8, color: p.fait ? '#16A34A' : '#0F1A2E', textDecoration: p.fait ? 'line-through' : 'none' }}>{p.fait ? '✓ ' : ''}{p.nom}</span>
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#5B6472', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>🗺️ Feuille de route — montées / descentes prévues</div>
+      {feuille.map((a, i) => {
+        const fini = enCours && [...a.montent, ...a.descendent].length > 0 && [...a.montent, ...a.descendent].every(p => p.fait)
+        return (
+          <div key={a.ville} style={{ padding: '7px 0', borderBottom: i < feuille.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: fini ? '#16A34A' : '#0F1A2E' }}>
+              {i === 0 ? '🟢' : i === feuille.length - 1 ? '🏁' : '📍'} {a.ville}{fini ? ' ✓' : ''}
+            </div>
+            {a.descendent.length > 0 && <div style={{ fontSize: 13, marginTop: 3 }}><b style={{ color: '#B45309' }}>⬇️ Descendent ({a.descendent.length}) :</b> {a.descendent.map(nom)}</div>}
+            {a.montent.length > 0 && <div style={{ fontSize: 13, marginTop: 3 }}><b style={{ color: '#1D4ED8' }}>⬆️ Montent ({a.montent.length}) :</b> {a.montent.map(nom)}</div>}
+            {a.montent.length === 0 && a.descendent.length === 0 && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Aucune montée ni descente prévue</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ModalArret({ convoi, onClose, onValider, typeInitial }) {
   const [type, setType] = useState(typeInitial || 'pause')
   const [lieu, setLieu] = useState('')
@@ -86,10 +111,23 @@ function ModalArret({ convoi, onClose, onValider, typeInitial }) {
   const aRamasser = convoi.suivi?.a_ramasser || []
   const basculer = id => setRamasses(d => d.includes(id) ? d.filter(x => x !== id) : [...d, id])
   const toggle = id => setDeposes(d => d.includes(id) ? d.filter(x => x !== id) : [...d, id])
+  // Ville choisie : coche d'office les passagers dont c'est la descente / la montée prévue
+  const choisirVille = (a) => {
+    setLieu(a.ville)
+    const ids = l => new Set((l || []).filter(p => !p.fait).map(p => p.voyage_id))
+    const desc = ids(a.descendent), mont = ids(a.montent)
+    const d = aBord.filter(p => desc.has(p.voyage_id)).map(p => p.voyage_id)
+    const m = aRamasser.filter(p => mont.has(p.voyage_id)).map(p => p.voyage_id)
+    setDeposes(d); setRamasses(m)
+    if (!typeInitial && (d.length || m.length)) setType(d.length ? 'depose' : 'ramassage')
+  }
 
+  // Dépose et ramassage peuvent avoir lieu au même arrêt : les deux listes sont proposées.
+  const dr = type === 'depose' || type === 'ramassage'
+  const vide = dr && deposes.length === 0 && ramasses.length === 0
   const valider = async () => {
     setBusy(true)
-    try { await onValider({ type, lieu, note, deposes: type === 'depose' ? deposes : [], ramasses: type === 'ramassage' ? ramasses : [] }) }
+    try { await onValider({ type, lieu, note, deposes: dr ? deposes : [], ramasses: dr ? ramasses : [] }) }
     finally { setBusy(false) }
   }
 
@@ -110,9 +148,19 @@ function ModalArret({ convoi, onClose, onValider, typeInitial }) {
             </button>
           ))}
         </div>
+        {(convoi.feuille_de_route || []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {convoi.feuille_de_route.map(a => (
+              <button key={a.ville} type="button" onClick={() => choisirVille(a)}
+                style={{ border: lieu === a.ville ? '2px solid #C9972B' : '1px solid #e2e8f0', background: lieu === a.ville ? '#FFF8E6' : '#fff', borderRadius: 99, padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#0F1A2E', cursor: 'pointer' }}>
+                📍 {a.ville}
+              </button>
+            ))}
+          </div>
+        )}
         <input value={lieu} onChange={e => setLieu(e.target.value)} placeholder="Lieu (ex : Yamoussoukro, péage...)"
           style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px', marginBottom: 10, boxSizing: 'border-box' }} />
-        {type === 'depose' && (
+        {(type === 'depose' || (type === 'ramassage' && aBord.length > 0)) && (
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1A2E', marginBottom: 6 }}>Qui descend ici ? ({deposes.length})</div>
             {aBord.length === 0 && <div style={{ fontSize: 13, color: '#5B6472' }}>Plus aucun passager à bord.</div>}
@@ -125,7 +173,7 @@ function ModalArret({ convoi, onClose, onValider, typeInitial }) {
             ))}
           </div>
         )}
-        {type === 'ramassage' && (
+        {(type === 'ramassage' || (type === 'depose' && aRamasser.length > 0)) && (
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1A2E', marginBottom: 6 }}>Qui monte ici ? ({ramasses.length}/{aRamasser.length})</div>
             {aRamasser.length === 0 && <div style={{ fontSize: 13, color: '#5B6472', lineHeight: 1.4 }}>Aucun passager à ramasser : tous les passagers affectés à ce convoi sont déjà à bord. Le Centre de Mobilité peut en ajouter à ce convoi.</div>}
@@ -142,8 +190,8 @@ function ModalArret({ convoi, onClose, onValider, typeInitial }) {
           <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Détail (facultatif)" rows={2}
             style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, marginBottom: 10, boxSizing: 'border-box', fontFamily: 'inherit' }} />
         )}
-        <button onClick={valider} disabled={busy || (type === 'depose' && deposes.length === 0) || (type === 'ramassage' && ramasses.length === 0)}
-          style={btn(busy || (type === 'depose' && deposes.length === 0) || (type === 'ramassage' && ramasses.length === 0) ? '#94a3b8' : (type === 'incident' ? '#DC2626' : '#0F2A5C'))}>
+        <button onClick={valider} disabled={busy || vide}
+          style={btn(busy || vide ? '#94a3b8' : (type === 'incident' ? '#DC2626' : '#0F2A5C'))}>
           {busy ? '⏳ Envoi...' : '📣 Notifier le Centre de Mobilité'}
         </button>
       </div>
@@ -358,6 +406,7 @@ export default function Conduite() {
               {cv.point_rdv && <> · RDV {cv.point_rdv}</>}
               <br />👥 {cv.nb_passagers_prevus} passager(s) prévus
             </div>
+            {cv.feuille_de_route?.length > 2 && <div style={{ marginBottom: 12 }}><FeuilleDeRoute feuille={cv.feuille_de_route} /></div>}
             <button onClick={() => partir(cv)} disabled={busy || statut !== 'active'} style={btn(busy || statut !== 'active' ? '#94a3b8' : '#16A34A', { fontSize: 20, letterSpacing: 1 })}>
               {busy ? '⏳' : '▶  PARTIR'}
             </button>
@@ -428,6 +477,8 @@ export default function Conduite() {
             <button onClick={() => setModalArret('ramassage')} style={btn('#D4A017', { marginTop: 10, minHeight: 46, fontSize: 15 })}>⬆️ Ramasser des passagers</button>
           </div>
         )}
+
+        <FeuilleDeRoute feuille={actif.feuille_de_route} enCours />
 
         {s.arrets?.length > 0 && (
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>

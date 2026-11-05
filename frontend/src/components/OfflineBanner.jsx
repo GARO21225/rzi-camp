@@ -22,7 +22,7 @@ export function OfflineBanner() {
     <div style={{
       position:'fixed', top:0, left:0, right:0, zIndex:9999,
       background:'linear-gradient(135deg,#92400e,#b45309)',
-      color:'#fff', padding:'10px 20px',
+      color:'#fff', padding:'calc(10px + var(--zone-haut, 0px)) 20px 10px',
       display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
       boxShadow:'0 2px 12px rgba(0,0,0,.3)', cursor:'pointer',
     }} onClick={()=>setShowDetail(!showDetail)}>

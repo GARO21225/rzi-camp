@@ -26,7 +26,7 @@ export default function ToastContainer() {
 
   return (
     <div style={{
-      position: 'fixed', top: 16, right: 16, zIndex: 9999,
+      position: 'fixed', top: 'calc(16px + var(--zone-haut, 0px))', right: 16, zIndex: 9999,
       display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360,
       pointerEvents: 'none',
     }}>

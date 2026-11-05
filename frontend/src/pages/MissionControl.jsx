@@ -748,7 +748,7 @@ export default function MissionControl() {
 
       {/* TOAST */}
       {msg && (
-        <div className="mc-fade" style={{position:'fixed',top:20,right:20,zIndex:9999,
+        <div className="mc-fade" style={{position:'fixed',top:'calc(20px + var(--zone-haut, 0px))',right:20,zIndex:9999,
           padding:'10px 20px',borderRadius:10,fontWeight:700,fontSize:13,
           background:msg.ok?'rgba(52,211,153,.15)':'rgba(248,113,113,.15)',
           color:msg.ok?C.green:C.red,

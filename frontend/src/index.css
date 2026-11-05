@@ -2,6 +2,10 @@
 
 /* ROXGOLD SITELIFE — Design System */
 :root {
+  /* Hauteur de la barre d'état (heure, batterie) dans l'app installée bord à bord.
+     env() sur les WebView récentes / iOS ; --safe-area-inset-top injecté par Capacitor sinon. */
+  --zone-haut: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --zone-bas: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
   /* ══════════════════════════════════════════════════════════════
      ROXGOLD SANGO — Design Token System v3
      Source de vérité unique. Les alias ci-dessous font pointer
@@ -722,8 +726,8 @@ input:focus, select:focus, textarea:focus {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     align-items: safe center !important;
-    padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px)) !important;
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)) !important;
+    padding-top: var(--zone-haut) !important;
+    padding-bottom: var(--zone-bas) !important;
     /* le geste de défilement reste DANS la fenêtre (ne « traverse » pas vers la page en arrière-plan) */
     overscroll-behavior: contain;
   }
@@ -758,8 +762,8 @@ input:focus, select:focus, textarea:focus {
 .mh {
   position: relative; z-index: 500; flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
-  height: calc(60px + env(safe-area-inset-top, 0px));
-  padding: env(safe-area-inset-top, 0px) 12px 0;
+  height: calc(60px + var(--zone-haut));
+  padding: var(--zone-haut) 12px 0;
   background: #06142E;
   transition: box-shadow 220ms ease;
 }
@@ -819,7 +823,7 @@ input:focus, select:focus, textarea:focus {
 /* Panneau de notifications : pleine largeur, déplié depuis la cloche */
 @media (max-width: 767px) {
   .notif-panel {
-    top: calc(66px + env(safe-area-inset-top, 0px)) !important;
+    top: calc(66px + var(--zone-haut)) !important;
     left: 8px; right: 8px !important; width: auto !important;
     transform-origin: calc(100% - 76px) 0;
     animation: notifIn 220ms var(--ease-out) both;

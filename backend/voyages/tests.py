@@ -1082,3 +1082,76 @@ class TypesVehiculeTests(TestCase):
         from .models import TypeVehicule
         t = TypeVehicule.objects.get(code="bus")
         self.assertEqual(self.c.delete(f"/api/types-vehicule/{t.id}/").status_code, 400)
+
+
+class FeuilleDeRouteMonteesDescentesTests(TestCase):
+    """Montées/descentes prévues prises en compte au départ, visibles du conducteur et du passager."""
+
+    def setUp(self):
+        from .models import ItineraireModele, EtapeItineraireModele
+        self.chauffeur_user = User.objects.create_user("chauffeur2", password="x")
+        chauffeur = Personnel.objects.create(nom="Koné", prenom="Ali", societe="ROXGOLD", user=self.chauffeur_user)
+        it = ItineraireModele.objects.create(nom="Abidjan → Camp", origine="Abidjan", destination="CAMP")
+        for i, ville in enumerate(["Yamoussoukro", "Bouaké"], start=1):
+            EtapeItineraireModele.objects.create(itineraire=it, ordre=i, ville=ville)
+        today = datetime.date.today()
+        self.rotation = Rotation.objects.create(
+            rotation_id="ROT-FR", conducteur_personnel=chauffeur, origine="Abidjan", destination="Camp Roxgold Sango",
+            date_depart=today, date_retour_prevue=today, itineraire_modele=it,
+        )
+        self.passager_user = User.objects.create_user("passager", password="x")
+        def voyage(nom, origine, destination, user=None):
+            p = Personnel.objects.create(nom=nom, prenom="P", societe="ROXGOLD", user=user)
+            return Voyage.objects.create(personnel=p, rotation_id="ROT-FR", origine=origine, destination=destination,
+                                         statut_validation="valide", date_depart=today, date_retour_prevue=today)
+        self.v_abj = voyage("Abidjanais", "Abidjan", "Camp Roxgold Sango")
+        self.v_yak = voyage("Yakro", "Yamoussoukro", "CAMP", user=self.passager_user)
+        self.v_bke = voyage("Bouake", "Abidjan", "Bouaké")
+        self.c = APIClient()
+
+    def test_depart_et_feuille_de_route(self):
+        self.c.force_authenticate(self.chauffeur_user)
+        r = self.c.get("/api/suivi-convois/mes_convois/")
+        feuille = r.data[0]["feuille_de_route"]
+        self.assertEqual([a["ville"] for a in feuille], ["Abidjan", "Yamoussoukro", "Bouaké", "Camp Roxgold Sango"])
+        self.assertEqual([p["voyage_id"] for p in feuille[1]["montent"]], [self.v_yak.id])
+        self.assertEqual(len(feuille[2]["descendent"]), 1)
+        self.assertEqual(len(feuille[3]["descendent"]), 2)
+
+        r = self.c.post("/api/suivi-convois/ROT-FR/partir/", {"latitude": 5.35, "longitude": -4.0}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        # Le passager de Yamoussoukro n'est pas à bord au départ d'Abidjan : il est à ramasser
+        self.assertEqual(r.data["suivi"]["nb_a_bord"], 2)
+        self.assertEqual([p["voyage_id"] for p in r.data["suivi"]["a_ramasser"]], [self.v_yak.id])
+        self.v_yak.refresh_from_db()
+        self.assertEqual(self.v_yak.statut, "planifie")
+        self.assertTrue(all(p["fait"] for p in r.data["feuille_de_route"][0]["montent"]))
+        self.assertFalse(r.data["feuille_de_route"][1]["montent"][0]["fait"])
+
+        r = self.c.post("/api/suivi-convois/ROT-FR/arret/", {"type": "ramassage", "lieu": "Yamoussoukro", "ramasses": [self.v_yak.id]}, format="json")
+        self.assertEqual(r.data["suivi"]["nb_a_bord"], 3)
+        self.assertTrue(r.data["feuille_de_route"][1]["montent"][0]["fait"])
+
+        # Le passager voit le convoi, sa feuille de route et la position
+        self.c.force_authenticate(self.passager_user)
+        r = self.c.get("/api/suivi-convois/ROT-FR/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("feuille_de_route", r.data)
+        self.assertEqual(r.data["suivi"]["statut"], "arret")
+
+    def test_vers_camp_pas_declare_arrive_pendant_le_trajet(self):
+        """Le passager vers le camp reste « à bord » tant que le bus roule, puis est relogé à l'arrivée."""
+        from .automatisation import appliquer_voyages_du_jour
+        appliquer_voyages_du_jour()   # matin : convoi avec conducteur pas encore parti
+        self.v_abj.refresh_from_db()
+        self.assertEqual(self.v_abj.statut, "planifie")
+        self.c.force_authenticate(self.chauffeur_user)
+        self.c.post("/api/suivi-convois/ROT-FR/partir/", {"latitude": 5.35, "longitude": -4.0}, format="json")
+        appliquer_voyages_du_jour()   # pendant le trajet
+        self.v_abj.refresh_from_db()
+        self.assertEqual(self.v_abj.statut, "en_voyage")
+        r = self.c.get("/api/suivi-convois/ROT-FR/")
+        self.assertIn(self.v_abj.id, [p["voyage_id"] for p in r.data["suivi"]["a_bord"]])
+        self.c.post("/api/suivi-convois/ROT-FR/arriver/", {"latitude": 8.98, "longitude": -5.65}, format="json")
+        self.v_abj.refresh_from_db()
+        self.assertEqual(self.v_abj.statut, "retour")
