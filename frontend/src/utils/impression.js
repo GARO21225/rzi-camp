@@ -31,8 +31,26 @@ export function documentComplet(html, titre) {
     + `<style>body{font-family:Inter,Arial,sans-serif;color:#0f172a}</style>${style}</head><body>${html}</body></html>`
 }
 
+// Application installée (Capacitor) : window.print() ne fait rien dans la WebView
+// Android/iOS — le bouton 🖨️ restait sans effet. Le plugin natif « Impression »
+// (android/.../ImpressionPlugin.java, ios/App/App/SceneDelegate.swift) ouvre la
+// fenêtre d'impression du téléphone (imprimante ou enregistrement en PDF).
+export const estNatif = () => !!window.Capacitor?.isNativePlatform?.()
+async function imprimerNatif(html, titre) {
+  const { registerPlugin } = await import('@capacitor/core')
+  return registerPlugin('Impression').imprimer({ html: documentComplet(html, titre), titre: titre || 'Rapport' })
+}
+
 /** Imprime un document HTML (complet ou fragment) sans le reste de l'application. */
 export function imprimerHtml(html, titre) {
+  if (estNatif() && window.Capacitor?.isPluginAvailable?.('Impression')) {
+    imprimerNatif(html, titre).catch(() => imprimerDansCadre(html, titre))
+    return
+  }
+  imprimerDansCadre(html, titre)
+}
+
+function imprimerDansCadre(html, titre) {
   const cadre = document.createElement('iframe')
   cadre.setAttribute('aria-hidden', 'true')
   Object.assign(cadre.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' })
@@ -63,4 +81,15 @@ export function imprimerElement(el, titre) {
   const styles = [...document.querySelectorAll('style, link[rel="stylesheet"]')].map(n => n.outerHTML).join('')
   imprimerHtml(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre || 'Rapport'}</title>${styles}</head>`
     + `<body style="background:#fff">${el.outerHTML}</body></html>`, titre)
+}
+
+/** Aperçu dans un nouvel onglet (navigateur) ; dans l'application installée,
+ *  où les nouveaux onglets ne s'ouvrent pas, ouvre directement l'impression.
+ *  `imprimer` : lancer aussi l'impression dans l'onglet d'aperçu. */
+export function ouvrirApercu(html, titre, { imprimer = false } = {}) {
+  if (estNatif()) return imprimerHtml(html, titre)
+  const w = window.open('', '_blank')
+  if (!w) return imprimerHtml(html, titre)   // fenêtres bloquées : impression directe
+  w.document.write(documentComplet(html, titre)); w.document.close()
+  if (imprimer) w.onload = () => { w.focus(); w.print() }
 }

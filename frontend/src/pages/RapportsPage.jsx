@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react'
 import { rapportsPlanifiesAPI, incidents as incAPI } from '../api'
-import { imprimerHtml, documentComplet } from '../utils/impression'
+import { imprimerHtml, documentComplet, estNatif } from '../utils/impression'
 import { useStore } from '../store'
 import { toast } from '../toast'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
@@ -487,6 +487,7 @@ function RapportGlobalPdf() {
 
       setProgress('Génération du PDF...')
       const html = buildHTML(data, p)
+      if (estNatif()) { imprimerHtml(html, 'Rapport opérationnel'); setLastGen(now); setLoading(false); setProgress(''); return }
       const blob = new Blob([documentComplet(html)], {type:'text/html;charset=utf-8'})
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')

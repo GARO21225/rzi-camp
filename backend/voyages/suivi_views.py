@@ -121,6 +121,97 @@ def _passagers(rotation):
     ).exclude(statut="annule")
 
 
+def _norm(lieu):
+    """« BOUAKE » = « Bouaké » : casse et accents ignorés."""
+    import unicodedata
+    t = unicodedata.normalize("NFKD", (lieu or "").strip().lower())
+    return "".join(c for c in t if not unicodedata.combining(c))
+
+
+def _meme_lieu(a, b):
+    """Deux libellés désignent-ils le même arrêt ? (« CAMP » = « Camp Roxgold Sango »)."""
+    from .trajets import est_camp
+    if est_camp(a) and est_camp(b):
+        return True
+    return bool(_norm(a)) and _norm(a) == _norm(b)
+
+
+def _monte_au_depart(voyage, rotation, villes=None):
+    """Le passager monte-t-il au point de départ du convoi ? Sinon (montée prévue
+    dans une ville de l'itinéraire), il n'est PAS à bord au départ : il apparaît
+    dans « à ramasser » jusqu'à ce que le conducteur le ramasse à sa ville."""
+    if not _norm(voyage.origine) or not _norm(rotation.origine):
+        return True
+    if _meme_lieu(voyage.origine, rotation.origine):
+        return True
+    villes = villes if villes is not None else _villes_convoi(rotation)
+    return _norm(voyage.origine) not in [_norm(v) for v in villes[1:-1]]
+
+
+def _villes_convoi(rotation):
+    """Arrêts du convoi dans l'ordre du trajet : départ, villes de l'itinéraire, destination."""
+    it = rotation.itineraire_modele
+    villes = [rotation.origine or (it.origine if it else "")]
+    if it:
+        villes += it.villes_descente()
+    if rotation.destination:
+        if len(villes) > 1 and _meme_lieu(rotation.destination, villes[-1]):
+            villes[-1] = rotation.destination   # libellé du convoi (« Camp Roxgold Sango » plutôt que « CAMP »)
+        elif not _meme_lieu(rotation.destination, villes[-1]):
+            villes.append(rotation.destination)
+    propres, vus = [], set()
+    for v in villes:
+        v = (v or "").strip()
+        if v and _norm(v) not in vus:
+            propres.append(v)
+            vus.add(_norm(v))
+    return propres
+
+
+def _feuille_de_route(rotation, suivi=None):
+    """Plan des montées/descentes prévues, arrêt par arrêt (ce que le conducteur
+    doit faire à chaque ville, et ce que voit le passager). Chaque passager est
+    rattaché à la ville de sa montée (Voyage.origine) et de sa descente
+    (Voyage.destination) ; une ville hors itinéraire est ajoutée avant la destination."""
+    villes = _villes_convoi(rotation)
+    villes_itin = list(villes)
+    a_bord = suivi.ids_a_bord() if suivi else set()
+    deja_montes, deja_descendus = set(), set()
+    if suivi:
+        for a in suivi.arrets.all():
+            deja_descendus |= {d.voyage_id for d in a.deposes.all()}
+            deja_montes |= {r.voyage_id for r in a.ramasses.all()}
+    arrets = {_norm(v): {"ville": v, "montent": [], "descendent": []} for v in villes}
+
+    def arret_pour(lieu, defaut_index):
+        for v in villes:
+            if _meme_lieu(lieu, v):
+                return arrets[_norm(v)]
+        if not _norm(lieu):
+            return arrets[_norm(villes[defaut_index])] if villes else None
+        # Ville hors itinéraire : insérée juste avant la destination finale
+        cle = _norm(lieu)
+        if cle not in arrets:
+            arrets[cle] = {"ville": lieu.strip(), "montent": [], "descendent": []}
+            villes.insert(max(len(villes) - 1, 0), lieu.strip())
+        return arrets[cle]
+
+    for v in _passagers(rotation).exclude(statut_validation="refuse"):
+        if not villes:
+            break
+        nom = _nom(v.personnel)
+        part = suivi is not None
+        m = arret_pour(v.origine, 0)
+        if m is not None:
+            fait = part and (v.id in deja_montes or (v.statut in ("en_voyage", "retour") and _monte_au_depart(v, rotation, villes_itin)))
+            m["montent"].append({"voyage_id": v.id, "nom": nom, "fait": bool(fait)})
+        d = arret_pour(v.destination, -1)
+        if d is not None and d is not m:
+            fait = part and (v.id in deja_descendus or v.statut == "retour" or (suivi.statut == "arrive" and v.id in a_bord))
+            d["descendent"].append({"voyage_id": v.id, "nom": nom, "fait": bool(fait)})
+    return [arrets[_norm(v)] for v in villes]
+
+
 def _serialiser(rotation, avec_trace=False):
     suivi = getattr(rotation, "suivi", None)
     data = {
@@ -138,6 +229,7 @@ def _serialiser(rotation, avec_trace=False):
         "intervalle_envoi_s": INTERVALLE_ENVOI_S,
         "suivi": None,
     }
+    data["feuille_de_route"] = _feuille_de_route(rotation, suivi)
     if not suivi:
         return data
     arrets = list(suivi.arrets.prefetch_related("deposes__voyage__personnel", "ramasses__voyage__personnel"))
@@ -151,6 +243,7 @@ def _serialiser(rotation, avec_trace=False):
         if v.statut == "planifie" and v.statut_validation == "en_attente":
             continue
         a_ramasser.append({"voyage_id": v.id, "nom": _nom(v.personnel), "origine": v.origine,
+                           "destination": v.destination,
                            "etat": "descendu" if v.statut == "en_voyage" else "attendu"})
     data["suivi"] = {
         "statut": suivi.statut,
@@ -177,7 +270,7 @@ def _serialiser(rotation, avec_trace=False):
             "ramasses": [_nom(d.voyage.personnel) for d in a.ramasses.all()],
         } for a in arrets],
         "a_bord": [
-            {"voyage_id": v.id, "nom": _nom(v.personnel), "destination": v.destination}
+            {"voyage_id": v.id, "nom": _nom(v.personnel), "origine": v.origine, "destination": v.destination}
             for v in _passagers(rotation).filter(statut="en_voyage") if v.id in a_bord_ids
         ],
         "a_ramasser": a_ramasser,
@@ -268,7 +361,12 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
         with transaction.atomic():
             # Même effet que "Départ" côté Centre de Mobilité (partir_rotation) :
             # les passagers encore "planifiés" passent "en voyage".
+            # Exception : un passager dont la montée prévue est une ville plus loin sur
+            # l'itinéraire n'est pas à bord au départ — il reste « à ramasser » à sa ville.
+            villes_itin = _villes_convoi(rotation)
             for v in _passagers(rotation).filter(statut="planifie").exclude(statut_validation="refuse"):
+                if not _monte_au_depart(v, rotation, villes_itin):
+                    continue
                 try:
                     v.partir(None)
                 except Exception as e:
@@ -460,11 +558,22 @@ class SuiviConvoiViewSet(viewsets.ViewSet):
             suivi.distance_km = suivi_rapports.distance_trace_km(suivi_rapports.lire_points(suivi))
             suivi.save()
         rotation.suivi = suivi
+        # Arrivée au camp : les passagers encore à bord sont relogés maintenant
+        # (l'automatisme du jour attendait la fin du trajet suivi en direct).
+        from .trajets import est_camp
+        ids_bord = suivi.ids_a_bord()
+        nb_a_bord_arrivee = len(ids_bord)
+        for v in _passagers(rotation).filter(statut="en_voyage", id__in=ids_bord):
+            if est_camp(v.destination) and not est_camp(v.origine):
+                try:
+                    v.revenir(timezone.localdate())
+                except Exception:
+                    pass
         h, m = divmod(suivi.duree_s // 60, 60)
         _notifier_admins(
             f"🏁 Convoi {rotation.vehicule_matricule or rotation.rotation_id} arrivé",
             f"{rotation.destination or 'Destination'} atteinte à {timezone.localtime(now):%H:%M} "
-            f"(trajet {h}h{m:02d}, ~{suivi.distance_km} km) · {suivi.nb_a_bord()} passager(s) à bord",
+            f"(trajet {h}h{m:02d}, ~{suivi.distance_km} km) · {nb_a_bord_arrivee} passager(s) à bord",
         )
         return Response(_serialiser(rotation))
 

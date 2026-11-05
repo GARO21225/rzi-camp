@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useStore } from '../store'
 import { personnel as personnelAPI, voyages as voyagesAPI, evenements as evenementsAPI, demandes as demandesAPI } from '../api'
 import { ROLE_LABELS, getRole, iconeEtLibelle } from '../constants/roleNav'
 import { nomAffiche } from '../components/MobileChrome'
 import Icon, { iconeRoute } from '../components/Icon'
+const SuiviTrajetDirect = lazy(() => import('../components/SuiviTrajetDirect'))
 
 // ════════════════════════════════════════════════════════════════
 // Accueil résident — direction « Filon d'or » : nuit marine profonde
@@ -154,6 +155,7 @@ export default function Accueil() {
   const cache = useMemo(() => { try { return JSON.parse(localStorage.getItem(CLE_CACHE) || '{}') } catch { return {} } }, [])
   const [profil, setProfil] = useState(cache.profil || null)
   const [mesVoyages, setMesVoyages] = useState(cache.voyages || null)
+  const [suiviDirect, setSuiviDirect] = useState(false)
   const [agenda, setAgenda] = useState(cache.agenda || [])
   const [mesDemandes, setMesDemandes] = useState(cache.demandes || [])
 
@@ -290,6 +292,13 @@ export default function Accueil() {
                 )}
               </div>
               <LigneDeRoute voyage={trajet} />
+              {trajet.rotation_id && !trajet.vehicule_personnel && (trajet.statut === 'en_voyage' || (j !== null && j <= 0)) && (
+                <button onClick={e => { e.stopPropagation(); setSuiviDirect(true) }}
+                  style={{ marginTop: 12, width: '100%', minHeight: 46, border: 'none', borderRadius: 12, cursor: 'pointer',
+                    background: `linear-gradient(160deg, ${NUIT_2}, ${NUIT})`, color: '#fff', fontWeight: 800, fontSize: 14.5 }}>
+                  📍 Suivre mon bus en direct
+                </button>
+              )}
             </Carte>
           ) : (
             <Carte delai={160}>
@@ -387,6 +396,7 @@ export default function Accueil() {
           👤 Mon compte · mot de passe
         </button>
       </div>
+      {suiviDirect && trajet && <Suspense fallback={null}><SuiviTrajetDirect voyage={trajet} onClose={() => setSuiviDirect(false)} /></Suspense>}
     </div>
   )
 }

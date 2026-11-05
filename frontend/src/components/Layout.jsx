@@ -85,7 +85,7 @@ function WelcomeToast({ user, roleCustomLabel, onClose }) {
   const name = user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || ''
   return (
     <div style={{
-      position: 'fixed', top: 72, right: 16, zIndex: 9999,
+      position: 'fixed', top: 'calc(72px + var(--zone-haut, 0px))', right: 16, zIndex: 9999,
       width: 'min(320px, calc(100vw - 32px))',
       background: '#fff', border: '1px solid #e2e8f0',
       borderLeft: '4px solid #1e3a8a',

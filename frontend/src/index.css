@@ -2,6 +2,10 @@
 
 /* ROXGOLD SITELIFE — Design System */
 :root {
+  /* Hauteur de la barre d'état (heure, batterie) dans l'app installée bord à bord.
+     env() sur les WebView récentes / iOS ; --safe-area-inset-top injecté par Capacitor sinon. */
+  --zone-haut: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --zone-bas: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
   /* ══════════════════════════════════════════════════════════════
      ROXGOLD SANGO — Design Token System v3
      Source de vérité unique. Les alias ci-dessous font pointer
@@ -709,34 +713,46 @@ input:focus, select:focus, textarea:focus {
   .main-scroll { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 }
 
-/* ── Mobile : toute fenêtre modale (overlay plein écran) doit rester scrollable et entièrement
-   atteignable (boutons du bas), même quand la barre d'adresse réduit la hauteur visible. ── */
+/* ── Mobile : toute fenêtre modale / panneau (overlay plein écran, position fixed + inset 0) ──
+   - reste scrollable et entièrement atteignable, même quand la barre d'adresse réduit l'écran ;
+   - ne passe PAS sous la barre d'état du téléphone : dans l'application installée (Capacitor,
+     affichage bord à bord), le haut de l'écran est occupé par l'heure / la batterie et n'accepte
+     pas le toucher — les boutons du haut des panneaux (🖨️ imprimer, ✕ fermer) y étaient
+     inaccessibles. --safe-area-inset-* est injecté par Capacitor quand env() n'est pas fourni ;
+   - plus de bande vide de 110 px en bas : la barre d'onglets est masquée tant qu'une fenêtre
+     est ouverte (quel que soit son z-index ; avant, seuls 1000/1100/2xxx la masquaient). */
 @media (max-width: 768px) {
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     align-items: safe center !important;
-    /* la barre de menu flottante (≈ 90 px) ne doit jamais masquer les boutons du bas */
-    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: var(--zone-haut) !important;
+    padding-bottom: var(--zone-bas) !important;
     /* le geste de défilement reste DANS la fenêtre (ne « traverse » pas vers la page en arrière-plan) */
     overscroll-behavior: contain;
   }
   div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div {
     max-height: none !important;
-    overflow-y: visible !important;
+    /* les DEUX axes : « overflow: auto » en ligne + overflow-y: visible seul redevenait auto,
+       et l'en-tête collant (✕, 🖨️) de la fenêtre partait hors de l'écran au défilement */
+    overflow: visible !important;
+    overflow: clip !important;   /* garde les coins arrondis, sans créer de zone de défilement */
+  }
+  /* Panneaux latéraux (fiche dossier, détail…) : pleine hauteur sous la barre d'état, et ce sont
+     EUX qui défilent (pas le fond) — sinon leur en-tête collant (🖨️, ✕) remontait sous l'heure /
+     la batterie, ou hors de l'écran, dès qu'on faisait défiler un dossier long. */
+  div[style*="position: fixed"][style*="inset: 0"][style*="z-index"] > div[style*="height: 100%"] {
+    height: 100% !important; max-height: 100% !important;
+    overflow-y: auto !important; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   }
 }
 
 /* Une fenêtre modale ouverte passe AU-DESSUS de tout : la barre de menu flottante est masquée
    (sinon elle recouvre les boutons « Valider / Soumettre » en bas de la fenêtre). */
 @media (max-width: 768px) {
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]) .bottom-tab-bar,
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]) .bottom-tab-bar,
-  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) .bottom-tab-bar { display: none !important; }
+  body:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index"]) .bottom-tab-bar { display: none !important; }
   /* Fenêtre ouverte : la page derrière ne défile plus (seule la fenêtre défile). */
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 2"]),
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1000"]),
-  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index: 1100"]) { overflow: hidden !important; }
+  .main-scroll:has(div[style*="position: fixed"][style*="inset: 0"][style*="z-index"]) { overflow: hidden !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -752,8 +768,8 @@ input:focus, select:focus, textarea:focus {
 .mh {
   position: relative; z-index: 500; flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
-  height: calc(60px + env(safe-area-inset-top, 0px));
-  padding: env(safe-area-inset-top, 0px) 12px 0;
+  height: calc(60px + var(--zone-haut));
+  padding: var(--zone-haut) 12px 0;
   background: #06142E;
   transition: box-shadow 220ms ease;
 }
@@ -813,7 +829,7 @@ input:focus, select:focus, textarea:focus {
 /* Panneau de notifications : pleine largeur, déplié depuis la cloche */
 @media (max-width: 767px) {
   .notif-panel {
-    top: calc(66px + env(safe-area-inset-top, 0px)) !important;
+    top: calc(66px + var(--zone-haut)) !important;
     left: 8px; right: 8px !important; width: auto !important;
     transform-origin: calc(100% - 76px) 0;
     animation: notifIn 220ms var(--ease-out) both;

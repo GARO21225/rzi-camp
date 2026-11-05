@@ -23,6 +23,24 @@ FENETRE_RATTRAPAGE_JOURS = 7
 CLE_THROTTLE = "voyages:appliquer_du_jour"
 
 
+def _convoi_suivi_en_cours(v, today):
+    """Vers le camp : ne pas déclarer la personne « arrivée » tant que son convoi
+    est suivi en direct et pas encore arrivé (sinon elle disparaît de « à bord »
+    côté conducteur et du suivi passager pendant le trajet). Le jour même, un
+    convoi dont le conducteur a un compte et qui n'est pas encore parti est
+    aussi attendu ; les jours suivants, le rattrapage s'applique comme avant."""
+    from .models import Rotation
+    if not v.rotation_id:
+        return False
+    r = Rotation.objects.select_related("suivi", "conducteur_personnel").filter(rotation_id=v.rotation_id).first()
+    if not r:
+        return False
+    suivi = getattr(r, "suivi", None)
+    if suivi is not None:
+        return suivi.statut in ("en_route", "arret")
+    return v.date_depart == today and bool(r.conducteur_personnel and r.conducteur_personnel.user_id)
+
+
 def appliquer_voyages_du_jour(today=None):
     today = today or datetime.date.today()
     debut = today - datetime.timedelta(days=FENETRE_RATTRAPAGE_JOURS)
@@ -44,6 +62,8 @@ def appliquer_voyages_du_jour(today=None):
                 v._notifier_retour(v.personnel, f"🧳 Départ du camp enregistré ({v.date_depart:%d/%m/%Y}) — votre chambre est libérée"
                                    + (f", retour prévu le {v.date_retour_prevue:%d/%m/%Y}." if v.date_retour_prevue and v.date_retour_prevue > v.date_depart else "."))
             elif est_camp(v.destination) and not est_camp(v.origine):
+                if _convoi_suivi_en_cours(v, today):
+                    continue   # le bus roule encore : relogé à l'arrivée du convoi (SuiviConvoi « arriver »)
                 info = v.revenir(v.date_depart)
                 resultat["arrivees"] += 1
                 if info.get("chambre_restituee"):

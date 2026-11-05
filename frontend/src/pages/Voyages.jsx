@@ -2,7 +2,7 @@
  * VOYAGES v3 — Gestion des voyages du camp
  * Chargement instantané + delete visible + nouvelles actions
  */
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import { voyages, personnel as personnelAPI, batiments as batsAPI, etapesVoyage, vehiculesFlotte } from '../api'
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
@@ -11,6 +11,7 @@ import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
 import CarteItineraire from '../components/CarteItineraire'
 import LieuInput from '../components/LieuInput'
 import SuiviBus from '../components/SuiviBus'
+const SuiviTrajetDirect = lazy(() => import('../components/SuiviTrajetDirect'))
 
 const STATUT_STYLES = {
   planifie:  { bg:'rgba(201,151,43,.14)',  color:'#a67d1f',  label:'Planifié'    },
@@ -174,6 +175,7 @@ export default function Voyages() {
   const isAdmin = user?.is_staff === true || user?.is_superuser === true || role === 'admin'
 
   const [data,          setData]          = useState([])
+  const [suiviDirect,   setSuiviDirect]   = useState(null)   // voyage suivi en direct (façon Uber)
   const [stats,         setStats]         = useState({total:0,planifies:0,en_voyage:0,retours:0,annules:0})
   const [loading,       setLoading]       = useState(true)
   const [filterStatut,  setFilterStatut]  = useState('')
@@ -621,9 +623,10 @@ export default function Voyages() {
                         <div style={{ fontSize:10, color:'var(--rzc-text-4)', marginTop:2 }}>
                           {(v.origine||'Camp')} → {v.destination||'—'}
                         </div>
-                        {v.statut === 'en_voyage' && v.rotation_id && (
-                          <div style={{ marginTop:6 }}>
+                        {['en_voyage', 'planifie'].includes(v.statut) && v.rotation_id && (
+                          <div style={{ marginTop:6, display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
                             <SuiviBus rotationId={v.rotation_id} destination={v.destination}/>
+                            <button onClick={() => setSuiviDirect(v)} style={{ background:'#0F2A5C', color:'#fff', border:'none', borderRadius:8, padding:'5px 10px', fontSize:11.5, fontWeight:700, cursor:'pointer' }}>📍 Suivre en direct</button>
                           </div>
                         )}
                       </td>
@@ -1021,6 +1024,7 @@ export default function Voyages() {
           </div>
         </div>
       )}
+      {suiviDirect && <Suspense fallback={null}><SuiviTrajetDirect voyage={suiviDirect} onClose={() => setSuiviDirect(null)} /></Suspense>}
     </div>
   )
 }
