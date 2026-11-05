@@ -125,7 +125,13 @@ def generer_docx(rotation_id):
 
     # ── Tableau 0 : informations générales ──
     t0 = d.tables[0]
-    typ = re.sub(r"^[^A-Za-zÀ-ÿ]+", "", vf.get_categorie_display()).upper() if vf else ""
+    # Type de véhicule : table TypeVehicule (Paramétrage), plus de liste fixe `choices`
+    # (VehiculeFlotte.get_categorie_display n'existe plus -> erreur serveur au JMP)
+    typ = ""
+    if vf:
+        from .models import TypeVehicule
+        tv = TypeVehicule.objects.filter(code=vf.categorie).first()
+        typ = re.sub(r"^[^A-Za-zÀ-ÿ]+", "", tv.label if tv else (vf.categorie or "")).upper()
     fin = rot.date_depart if (rot.trajet_aller_seul or not rot.date_retour_prevue) else rot.date_retour_prevue
     vals = {
         (0, 1): "ROXGOLD SANGO", (0, 3): aujourdhui, (0, 5): typ,
