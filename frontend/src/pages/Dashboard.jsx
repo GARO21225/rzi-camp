@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAppName } from '../hooks/useAppName'
@@ -384,6 +384,11 @@ export default function Dashboard() {
   const [monDepartBusy, setMonDepartBusy] = useState(false)
   const [monDepartDate, setMonDepartDate] = useState('')
   const [deptModal, setDeptModal] = useState(false)
+  // Lien depuis la notification « Départ résidence dépassé — décision requise » : ouvre la fenêtre de décision
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (params.get('departs')) { setDeptModal(true); params.delete('departs'); setParams(params, { replace: true }) }
+  }, [params, setParams])
   const [deptDates, setDeptDates] = useState({})
   const [departOuvert, setDepartOuvert] = useState(null)   // chambre dont on saisit descente + retour
   const [deptBusy, setDeptBusy] = useState(null)

@@ -41,25 +41,10 @@ from django.contrib.auth.models import User
 class Command(BaseCommand):
     help = "Relance le résident à J-1 de son départ annoncé, puis alerte les admins si la date est dépassée sans décision."
 
-    def _deja_pris_en_charge(self, personnel, Voyage, Demande):
-        if Voyage.objects.filter(personnel=personnel, statut__in=["planifie", "en_voyage"]).exists():
-            return True
-        # BUG REEL CORRIGE ICI : "validee" est un statut TERMINAL - une
-        # fois une Demande de voyage validee, c'est le Voyage qui en
-        # resulte (verifie juste au-dessus) qui fait foi de l'etat reel,
-        # pas la Demande elle-meme, qui ne change plus jamais ensuite. En
-        # incluant "validee" ici, une demande validee il y a des semaines
-        # (voire sans Voyage reellement cree, ex: conflit ou erreur a la
-        # validation) bloquait TOUTE relance future pour cette personne,
-        # pour toujours, meme pour un depart totalement sans rapport - cas
-        # reel observe (Demande #6 d'Edgar, validee, aucun Voyage associe).
-        # Seuls "en_attente"/"proposition" sont de vraies decisions encore
-        # EN COURS qui justifient de ne pas relancer.
-        if Demande.objects.filter(
-            demandeur=personnel.user, type_demande="voyage", statut__in=["en_attente", "proposition"],
-        ).exists():
-            return True
-        return False
+    def _deja_pris_en_charge(self, personnel, Voyage=None, Demande=None):
+        # Règle partagée avec le tableau de bord admin (residences/departs.py)
+        from residences.departs import personnels_pris_en_charge
+        return personnel.id in personnels_pris_en_charge([personnel.id])
 
     def _deja_envoyee_aujourdhui(self, SimpleNotification, today, **kwargs):
         return SimpleNotification.objects.filter(date_envoi__date=today, **kwargs).exists()
@@ -101,7 +86,7 @@ class Command(BaseCommand):
             quand = "aujourd'hui" if est_aujourdhui else "demain"
             message = (
                 f"Vous deviez partir {quand} ({b.date_depart.strftime('%d/%m/%Y')}) — "
-                f"confirmez-vous votre départ ? Rendez-vous sur Résidences pour répondre : "
+                f"confirmez-vous votre départ ? Répondez depuis l'accueil de l'application : "
                 f"départ confirmé (demande de voyage Camp → Abidjan) ou nouvelle date."
             )
             if b.personnel.user_id and not self._deja_envoyee_aujourdhui(
@@ -115,7 +100,7 @@ class Command(BaseCommand):
             message_admin = (
                 f"{b.personnel.nom} {b.personnel.prenom} ({b.residence}) part {quand} "
                 f"({b.date_depart.strftime('%d/%m/%Y')}) — relance envoyée au résident. "
-                f"Vous pouvez aussi confirmer ou reporter à sa place depuis Résidences."
+                f"Vous pouvez aussi confirmer ou reporter à sa place depuis le Tableau de bord (alerte 🏠)."
             )
             if not self._deja_envoyee_aujourdhui(
                 SimpleNotification, today, type_notif="info", message=message_admin,
@@ -135,7 +120,7 @@ class Command(BaseCommand):
             message = (
                 f"{b.personnel.nom} {b.personnel.prenom} ({b.residence}) devait partir le "
                 f"{b.date_depart.strftime('%d/%m/%Y')} — toujours logé, aucune décision prise depuis "
-                f"(relance J-1 restée sans réponse). Confirmez ou reportez à sa place depuis Résidences."
+                f"(relance J-1 restée sans réponse). Confirmez ou reportez à sa place depuis le Tableau de bord (alerte 🏠)."
             )
             if self._deja_envoyee_aujourdhui(SimpleNotification, today, type_notif="alerte", message=message):
                 continue

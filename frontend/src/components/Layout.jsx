@@ -23,6 +23,10 @@ import { ROLE_LABELS, getRole, isAdminUser, buildNav, isPathAllowed, homePathFor
 // Page à ouvrir pour une notification système, d'après son titre
 function pageNotif(n) {
   const t = (n.evenement_titre || '').toLowerCase()
+  // Départ résidence (tâche quotidienne) : l'admin décide depuis le Tableau de bord (fenêtre
+  // « Il part / Il reste » ouverte directement) ; le résident répond depuis son accueil.
+  if (t.includes('départ résidence') || t.includes('départ prévu')) return '/?departs=1'
+  if (t.includes('confirmez-vous votre départ')) return '/accueil'
   if (t.includes('maintenance') || t.includes('incident') || t.includes('tâche') || t.includes('plainte')) return '/maintenance'
   if (t.includes('demande')) return '/demandes'
   if (t.includes('convoi') || t.includes('départ') || t.includes('mobilit') || t.includes('voyage')) return '/rotations'

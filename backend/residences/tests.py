@@ -1303,3 +1303,40 @@ class CarteResidencesSansOccupantTests(TestCase):
         CheminCirculation.objects.create(nom="Chemin", type_chemin="chemin", points=[[8.1100, -6.8200], [8.1110, -6.8200]])
         r = c.post("/api/chemins-circulation/itineraire/", {"depart": [8.1100, -6.8200], "arrivee": [8.1110, -6.8200]}, format="json")
         self.assertTrue(r.data["trouve"])
+
+
+class DepartResidenceSansDecisionTests(TestCase):
+    """La notification « Départ résidence dépassé — décision requise » et la liste du tableau de bord
+    appliquent la même règle : une ancienne demande de voyage VALIDÉE ne masque plus le résident."""
+
+    def setUp(self):
+        import datetime
+        from django.contrib.auth.models import User
+        from .models import Batiment, Personnel, Demande
+        self.admin = User.objects.create_user("adm_dep", password="x", is_staff=True)
+        u = User.objects.create_user("res_dep", password="x")
+        self.p = Personnel.objects.create(nom="KOFFI", prenom="Ama", societe="ROXGOLD", user=u)
+        self.b = Batiment.objects.create(residence="DEP01", statut="Occupé", personnel=self.p,
+                                         occupant="KOFFI Ama", date_depart=datetime.date.today() - datetime.timedelta(days=2))
+        Demande.objects.create(type_demande="voyage", statut="validee", demandeur=u)   # ancienne, sans voyage
+
+    def test_meme_regle_notification_et_tableau_de_bord(self):
+        from django.core.management import call_command
+        from rest_framework.test import APIClient
+        from evenements.models import SimpleNotification
+        call_command("verifier_departs_residence", stdout=open("/dev/null", "w"))
+        self.assertTrue(SimpleNotification.objects.filter(user=self.admin, titre__startswith="🏠 Départ résidence dépassé").exists())
+        c = APIClient(); c.force_authenticate(self.admin)
+        r = c.get("/api/batiments/stats/")
+        self.assertEqual([x["batiment_id"] for x in r.data["departs_en_retard_list"]], [self.b.id])
+
+    def test_demande_en_cours_masque_des_deux_cotes(self):
+        from django.core.management import call_command
+        from rest_framework.test import APIClient
+        from evenements.models import SimpleNotification
+        from .models import Demande
+        Demande.objects.create(type_demande="voyage", statut="en_attente", demandeur=self.p.user)
+        call_command("verifier_departs_residence", stdout=open("/dev/null", "w"))
+        self.assertFalse(SimpleNotification.objects.filter(titre__startswith="🏠 Départ résidence dépassé").exists())
+        c = APIClient(); c.force_authenticate(self.admin)
+        self.assertEqual(c.get("/api/batiments/stats/").data["departs_en_retard_list"], [])
