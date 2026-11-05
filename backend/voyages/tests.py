@@ -519,6 +519,23 @@ class JMPModeleTests(TestCase):
         self.assertEqual(c2.get("/api/voyages/jmp/?rotation_id=JMPT1").status_code, 403)
 
 
+    def test_jmp_avec_vehicule_de_la_flotte(self):
+        """Véhicule du catalogue rattaché au convoi : le type vient de TypeVehicule (plus de liste fixe)."""
+        import io, docx
+        from .models import VehiculeFlotte, TypeVehicule
+        admin = User.objects.create_user("adminjmp2", password="x", is_staff=True)
+        c = APIClient(); c.force_authenticate(admin)
+        TypeVehicule.objects.get_or_create(code="minibus", defaults={"label": "Minibus", "icone": "🚐"})
+        VehiculeFlotte.objects.create(nom="Hiace", categorie="minibus", matricule="BB-2", capacite=15)
+        today = datetime.date.today()
+        Rotation.objects.create(rotation_id="JMPT2", origine="Abidjan", destination="CAMP", vehicule="Hiace",
+                                vehicule_matricule="BB-2", date_depart=today, date_retour_prevue=today)
+        r = c.get("/api/voyages/jmp/?rotation_id=JMPT2&type=docx")
+        self.assertEqual(r.status_code, 200, getattr(r, "data", r.content[:300]))
+        d = docx.Document(io.BytesIO(r.content))
+        self.assertIn("MINIBUS", "\n".join(cel.text for t in d.tables for row in t.rows for cel in row.cells))
+        self.assertEqual(c.get("/api/voyages/jmp/?rotation_id=JMPT2&type=pdf").status_code, 200)
+
 class DepartBloqueTantQueDemandesEnAttenteTests(TestCase):
     def test_partir_refuse_si_voyageur_sans_statut(self):
         admin = User.objects.create_user("adminpart", password="x", is_staff=True)

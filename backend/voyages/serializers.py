@@ -290,7 +290,7 @@ class VehiculeFlotteSerializer(serializers.ModelSerializer):
 
     def get_categorie_label(self, obj):
         t = TypeVehicule.objects.filter(code=obj.categorie).first()
-        return f"{t.icone} {t.label}" if t else obj.get_categorie_display() if hasattr(obj, "get_categorie_display") else obj.categorie
+        return f"{t.icone} {t.label}" if t else obj.categorie
 
     def validate_categorie(self, v):
         if not TypeVehicule.objects.filter(code=v, actif=True).exists():
