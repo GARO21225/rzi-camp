@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import LieuIncident from '../components/LieuIncident'
 import { TableauTechnicien, AssignationsPanel } from '../components/TechnicienPanels'
 import { useSurPulse } from '../hooks/useSurPulse'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { incidents as incAPI } from '../api'
 import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -87,7 +87,9 @@ export default function Maintenance() {
   const [search,    setSearch]    = useState('')
   const [statFilter, setStatFilter] = useState('')
   const [prioFilter, setPrioFilter] = useState('')
-  const [slaOnly,    setSlaOnly]    = useState(false)
+  // Lien « Voir les dossiers hors délai » du tableau de bord : /maintenance?sla=1
+  const [urlParams] = useSearchParams()
+  const [slaOnly,    setSlaOnly]    = useState(() => urlParams.get('sla') === '1')
   const [catFilter,  setCatFilter]  = useState('')
   const [resFilter,  setResFilter]  = useState('')
   const [techFilter, setTechFilter] = useState('')

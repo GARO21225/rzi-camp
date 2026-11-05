@@ -125,6 +125,26 @@ def detail_incident(request, pk):
         return Response({'detail': str(e)}, status=500)
 
 
+def _sla_depasse_liste(request, limite=5):
+    """Dossiers encore OUVERTS dont le délai (SLA) est dépassé, du plus en retard au moins en retard :
+    ce que le tableau de bord affiche au lieu d'un simple « 1 SLA dépassé(s) »."""
+    from django.utils import timezone
+    qs = Incident.objects.filter(sla_depasse=True).exclude(statut__in=['resolu', 'cloture', 'annule'])
+    if not _est_admin(request.user):
+        qs = qs.filter(Q(auteur=request.user) | Q(assigne_a=request.user))
+    now = timezone.now()
+    res = []
+    for i in qs.select_related('assigne_a').order_by('sla_echeance')[:limite]:
+        retard_h = int((now - i.sla_echeance).total_seconds() // 3600) if i.sla_echeance else None
+        a = i.assigne_a
+        res.append({
+            'id': i.id, 'titre': i.titre, 'residence': i.residence, 'priorite': i.priorite,
+            'statut': i.get_statut_display(), 'sla_echeance': i.sla_echeance, 'retard_h': retard_h,
+            'assigne_a': ((a.get_full_name() or a.username) if a else ''),
+        })
+    return res
+
+
 @api_view(['GET'])
 @pc([IsAuthenticated])
 def stats_incidents(request):
@@ -143,7 +163,7 @@ def stats_incidents(request):
                     COUNT(*) FILTER (WHERE statut='en_cours') as en_cours,
                     COUNT(*) FILTER (WHERE statut='resolu') as resolu,
                     COUNT(*) FILTER (WHERE statut='cloture') as cloture,
-                    COUNT(*) FILTER (WHERE sla_depasse=TRUE AND statut NOT IN ('cloture','annule')) as sla_depasse,
+                    COUNT(*) FILTER (WHERE sla_depasse=TRUE AND statut NOT IN ('resolu','cloture','annule')) as sla_depasse,
                     COUNT(*) FILTER (WHERE priorite='critique' AND statut NOT IN ('cloture','annule')) as critique
                 FROM maintenance_incident i
                 WHERE 1=1 """ + _portee_sql(request)[0], _portee_sql(request)[1])
@@ -151,10 +171,11 @@ def stats_incidents(request):
             cols = [d[0] for d in c.description]
             stats = dict(zip(cols, row))
             stats['ouverts'] = stats['total'] - stats['cloture']
+        stats['sla_depasse_liste'] = _sla_depasse_liste(request)
         return Response(stats)
     except Exception as e:
         return Response({'total':0,'declare':0,'assigne':0,'en_cours':0,
-                         'resolu':0,'cloture':0,'sla_depasse':0,'critique':0,'ouverts':0})
+                         'resolu':0,'cloture':0,'sla_depasse':0,'critique':0,'ouverts':0,'sla_depasse_liste':[]})
 
 
 @api_view(['GET'])
@@ -843,7 +864,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
             'resolu':    qs.filter(statut='resolu').count(),
             'cloture':   qs.filter(statut='cloture').count(),
             'ouverts':   qs.exclude(statut__in=['cloture','annule']).count(),
-            'sla_depasse': qs.filter(sla_depasse=True).exclude(statut__in=['cloture','annule']).count(),
+            'sla_depasse': qs.filter(sla_depasse=True).exclude(statut__in=['resolu','cloture','annule']).count(),
             'critique':  qs.filter(priorite='critique').exclude(statut__in=['cloture','annule']).count(),
         })
 
