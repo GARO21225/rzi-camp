@@ -73,11 +73,13 @@ async function tick() {
     if (derniere) {
       const changes = Object.keys(s).filter(k => s[k] !== derniere[k])
       if (changes.length) {
-        if (changes.includes('notifs') && (data.notifs?.dernier || 0) > (derniere._dernier || 0) && sonActif) bip()
+        // Nouvelle notification (système OU événement) : la cloche sonne
+        const nouvelle = (data.notifs?.dernier || 0) > (derniere._dernier || 0) || (data.notifs?.dernier_ev || 0) > (derniere._dernierEv || 0)
+        if (changes.includes('notifs') && nouvelle && sonActif) bip()
         abonnes.slice().forEach(a => { if (changes.some(c => a.domaines.includes(c))) { try { a.cb(data) } catch {} } })
       }
     }
-    derniere = { ...s, _dernier: data.notifs?.dernier || 0 }
+    derniere = { ...s, _dernier: data.notifs?.dernier || 0, _dernierEv: data.notifs?.dernier_ev || 0 }
   } catch {}
 }
 

@@ -378,7 +378,26 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         SimpleNotification.objects.filter(user=request.user, lu=False).update(
             lu=True, date_lecture=timezone.now()
         )
+        # L'alerte calculée « inductions qui expirent » n'est pas une ligne en base : sans cette
+        # trace, elle revenait « non lue » à chaque actualisation et le badge de la cloche
+        # repassait à 1 juste après « Tout lire ». Vue = masquée 7 jours.
+        from django.core.cache import cache
+        cache.set(f"notif_induction_vue:{request.user.id}", True, 7 * 24 * 3600)
         return Response({"ok":True})
+
+    @action(detail=False, methods=["post"])
+    def lire(self, request):
+        """Marque UNE notification lue, quelle que soit sa source (id « s12 » = système, « 34 » = événement)."""
+        from django.utils import timezone
+        from django.core.cache import cache
+        nid = str(request.data.get("id") or "")
+        if nid == "induction_expiry":
+            cache.set(f"notif_induction_vue:{request.user.id}", True, 7 * 24 * 3600)
+        elif nid.startswith("s") and nid[1:].isdigit():
+            SimpleNotification.objects.filter(user=request.user, id=int(nid[1:]), lu=False).update(lu=True, date_lecture=timezone.now())
+        elif nid.isdigit() and hasattr(request.user, "personnel"):
+            Notification.objects.filter(personnel=request.user.personnel, id=int(nid), lu=False).update(lu=True, date_lecture=timezone.now())
+        return Response({"ok": True})
 
     @action(detail=False, methods=["get"])
     def compteur(self, request):
@@ -446,15 +465,18 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                             "JOIN residences_personnel p ON p.id=ir.personnel_id "
                             "WHERE ir.statut='valide' AND ir.mis_a_jour<%s", [seuil])
                         nb_expiring = c.fetchone()[0]
+                        from django.core.cache import cache
+                        vue = bool(cache.get(f"notif_induction_vue:{request.user.id}"))
                         if nb_expiring > 0:
-                            count += 1
+                            if not vue:
+                                count += 1
                             all_notifs.insert(0, {
                                 'id': 'induction_expiry',
                                 'evenement_titre': f'{nb_expiring} induction(s) expirent dans 30 jours',
                                 'evenement_type': 'alerte_induction',
                                 'evenement_date': None,
                                 'evenement_lieu': '',
-                                'lu': False,
+                                'lu': vue,
                                 'date_envoi': datetime.now().isoformat(),
                                 'message': f'{nb_expiring} membre(s) du personnel ont une induction valide depuis plus de 11 mois. Renouvellement requis.',
                                 'source': 'induction_expiry',

@@ -55,5 +55,12 @@ export function useNotifications() {
     } catch {}
   }
 
-  return { count, items, alertes, prochainEvt, fetch, marquerToutLu }
+  // Ouvrir une notification la marque lue (elle disparaît de la liste des nouvelles)
+  const marquerLue = async (id) => {
+    setItems(prev => prev.map(n => n.id === id ? { ...n, lu: true } : n))
+    setCount(c => Math.max(0, c - 1))
+    try { await notifications.lire(id) } catch {}
+  }
+
+  return { count, items, alertes, prochainEvt, fetch, marquerToutLu, marquerLue }
 }
