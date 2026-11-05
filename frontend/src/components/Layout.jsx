@@ -33,8 +33,13 @@ function pageNotif(n) {
   return '/accueil'
 }
 
-function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
+function NotifPanel({ items, count, onClose, onMarkAll, onRead, navigate }) {
   const [son, setSon] = React.useState(sonNotifActif())
+  // Seules les NON LUES sont affichées : « Tout lire » vide la liste. Les lues restent consultables.
+  const [voirLues, setVoirLues] = React.useState(false)
+  const nonLues = items.filter(n => !n.lu)
+  const affichees = voirLues ? items : nonLues
+  const nbLues = items.length - nonLues.length
   return (
     <div className="notif-panel" style={{
       position: 'fixed', top: 58, right: 8, width: 350, maxWidth: 'calc(100vw - 16px)',
@@ -52,11 +57,14 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
         </div>
       </div>
       <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
-        {items.length === 0
-          ? <div style={{ padding: '32px 16px', textAlign: 'center', color: '#525252' }}><div style={{ fontSize: 40, marginBottom: 8 }}>🔔</div>Aucune notification</div>
-          : items.map(n => (
+        {affichees.length === 0
+          ? <div style={{ padding: '28px 16px', textAlign: 'center', color: '#525252' }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+              {items.length ? 'Tout est lu — aucune nouvelle notification' : 'Aucune notification'}
+            </div>
+          : affichees.map(n => (
             <div key={n.id}
-              onClick={() => { onClose(); navigate(n.source === 'system' ? pageNotif(n) : '/evenements') }}
+              onClick={() => { if (!n.lu) onRead?.(n.id); onClose(); navigate(n.source === 'system' ? pageNotif(n) : n.source === 'induction_expiry' ? '/induction' : '/evenements') }}
               style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: n.lu ? '#ffffff' : 'rgba(37,99,235,.04)', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
               onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
               onMouseLeave={e => e.currentTarget.style.background = n.lu ? '#ffffff' : 'rgba(37,99,235,.04)'}>
@@ -71,6 +79,12 @@ function NotifPanel({ items, count, onClose, onMarkAll, navigate }) {
             </div>
           ))
         }
+        {nbLues > 0 && (
+          <button onClick={() => setVoirLues(v => !v)}
+            style={{ width: '100%', background: 'none', border: 'none', borderTop: '1px solid #e2e8f0', padding: '10px', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            {voirLues ? 'Masquer les notifications lues' : `Voir les notifications déjà lues (${nbLues})`}
+          </button>
+        )}
       </div>
       <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
         <button onClick={() => { onClose(); navigate('/evenements') }}
@@ -338,7 +352,7 @@ export default function Layout() {
   // neutralise le mode sombre pour éviter ce bug d'illisibilité.
   const theme = 'light'
   const notifRef = useRef(null)
-  const { count: notifCount, items: notifItems, alertes, marquerToutLu } = useNotifications()
+  const { count: notifCount, items: notifItems, alertes, marquerToutLu, marquerLue } = useNotifications()
   useEffect(() => { demarrerPulse(); return () => arreterPulse() }, [])
   // Induction du camp OBLIGATOIRE dès le 1er hébergement : tant qu'elle n'est pas signée, retour forcé sur la page d'induction.
   const [inductionRequise, setInductionRequise] = useState(false)
@@ -528,7 +542,7 @@ export default function Layout() {
       {isMobile ? (<>
         <MobileHeader user={user} logoUrl={logoUrl} nav={nav}
           notifRef={notifRef} notifOpen={notifOpen} onNotif={() => setNotifOpen(o => !o)} notifCount={notifCount}
-          notifPanel={notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
+          notifPanel={notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => marquerToutLu()} onRead={marquerLue} navigate={navigate} />}
           searchOpen={mobileSearchOpen} onSearch={() => setMobileSearchOpen(o => !o)}
           onMenu={() => setSidebarOpen(true)} />
         {showWelcome && <WelcomeToast user={user} roleCustomLabel={roleCustomLabel} onClose={() => setShowWelcome(false)} />}
@@ -591,7 +605,7 @@ export default function Layout() {
             )}
           </button>
     {showWelcome && <WelcomeToast user={user} roleCustomLabel={roleCustomLabel} onClose={() => setShowWelcome(false)} />}
-      {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => { marquerToutLu(); setNotifOpen(false) }} navigate={navigate} />}
+      {notifOpen && <NotifPanel items={notifItems} count={notifCount} onClose={() => setNotifOpen(false)} onMarkAll={() => marquerToutLu()} onRead={marquerLue} navigate={navigate} />}
         </div>
 
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: isMobile ? 3 : '3px 10px 3px 3px', background: 'rgba(255,255,255,.06)', borderRadius: 99, cursor: 'pointer', transition: 'all 150ms' }}

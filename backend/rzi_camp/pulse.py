@@ -32,13 +32,16 @@ def _calculer(u):
     from evenements.models import SimpleNotification, Notification
     n = SimpleNotification.objects.filter(user=u)
     a = n.aggregate(non_lues=Count("id", filter=Q(lu=False)), dernier=Max("id"))
-    ev = 0
+    ev, dernier_ev = 0, 0
     try:
         if hasattr(u, "personnel"):
-            ev = Notification.objects.filter(personnel=u.personnel, lu=False).count()
+            e = Notification.objects.filter(personnel=u.personnel).aggregate(
+                non_lues=Count("id", filter=Q(lu=False)), dernier=Max("id"))
+            ev, dernier_ev = e["non_lues"] or 0, e["dernier"] or 0
     except Exception:
         pass
-    out["notifs"] = {"non_lues": (a["non_lues"] or 0) + ev, "dernier": a["dernier"] or 0}
+    # dernier_ev : une invitation / notification d'ÉVÉNEMENT doit aussi faire sonner la cloche
+    out["notifs"] = {"non_lues": (a["non_lues"] or 0) + ev, "dernier": a["dernier"] or 0, "dernier_ev": dernier_ev}
 
     # Alertes campus + événements d'urgence : visibles de TOUT utilisateur
     # connecté (même sans fiche personnel, ex. compte admin) pour déclencher

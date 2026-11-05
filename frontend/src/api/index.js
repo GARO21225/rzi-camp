@@ -394,6 +394,7 @@ export const notifications = {
   compteur: () => api.get('/api/notifications/compteur/'),
   marquerLu: (id) => api.post(`/api/notifications/${id}/marquer_lu/`),
   toutLire: () => api.post('/api/notifications/tout_lire/'),
+  lire: (id) => api.post('/api/notifications/lire/', { id }),
 }
 export const alertes = {
   list: () => api.get('/api/alertes/'),
