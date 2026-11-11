@@ -6,6 +6,7 @@
 | Modules | Repas (`pages/Restauration.jsx`, vue « Mon QR »), Mon bar (`pages/BarClient.jsx`) |
 | Public | Tout résident qui n'est ni équipe restauration, ni gérant du bar, ni administrateur (ceux-là ont d'autres écrans : T17 à T20) |
 | Support filmé | Mobile (iPhone 13), navigateur en français |
+| Durée | 1 min 42 (catalogue : 1 min 30) |
 | Difficulté | Facile |
 | Statut fonctionnel | ✅ Opérationnel. Menu du jour, carte du bar et bon de caisse créés le 11/11/2026 par la vraie API (administrateur de démo) ; consommations ajoutées selon la logique de la caisse (voir `06_PROJETS_HYPERFRAMES/T07_repas_bar/seed_demo_t07.py`). |
 
