@@ -25,6 +25,13 @@ jobs:
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
+      # LibreOffice : l'export PDF du JMP (voyages/jmp_docx.py, docx_vers_pdf) appelle `soffice`.
+      # Sans lui, /api/voyages/jmp/?type=pdf répond 400 et test_jmp_avec_vehicule_de_la_flotte échoue.
+      - name: Installer LibreOffice (conversion PDF du JMP)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-writer fonts-dejavu-core
+          soffice --version
       # Sans DATABASE_URL, Django retombe sur SQLite en mémoire pour les tests (voir
       # settings.py) : pas besoin d'un service Postgres ici.
       - run: python manage.py test
