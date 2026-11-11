@@ -7,6 +7,7 @@ import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useMotifsMobilite, libelleMotif } from '../hooks/useMotifsMobilite'
+import { formatDate } from '../utils/exportUtils'
 
 const NAVY = '#0F2A5C', GOLD = '#D4A017', INK = '#5B6B86', LIGNE = '#D8DEE9'
 const TYPE_COLORS = {
@@ -55,6 +56,8 @@ const CSS_DEMANDES = `
 
 const inp = { background:'#fff', border:`1px solid ${LIGNE}`, color:'#0F1A2E', padding:'10px 12px', borderRadius:10, fontSize:14, minHeight:40, outline:'none', fontFamily:'inherit', width:'100%' }
 const today = new Date().toISOString().slice(0,10)
+// Date « YYYY-MM-DD » de l'API -> « 16 nov. 2026 » (minuit local, pas UTC : jamais de décalage d'un jour)
+const jourFr = iso => iso ? formatDate(`${iso}T00:00:00`) : ''
 
 export default function Demandes() {
   const navigate = useNavigate()
@@ -96,6 +99,12 @@ export default function Demandes() {
     date_debut_souhaitee:today, date_fin_souhaitee:'',
     donnees:{}
   })
+  // Ouvre le formulaire de création. Voyage d'un non-admin : départ prérempli à J+2 (le minimum autorisé),
+  // pas à aujourd'hui — sinon la date proposée par défaut était toujours refusée (règle des 48 h).
+  const ouvrirCreation = (type) => {
+    if (type === 'voyage' && !isAdmin) setForm(f => (f.date_debut_souhaitee < dansAuMoins48h ? { ...f, date_debut_souhaitee: dansAuMoins48h } : f))
+    setCreateModal(type)
+  }
   const [actionForm, setActionForm] = useState({ commentaire:'', proposition:{} })
 
   const [voyagesEnAttente, setVoyagesEnAttente] = useState([])
@@ -397,7 +406,7 @@ export default function Demandes() {
               style={{ background:NAVY, color:'#fff', border:'1px solid '+NAVY, minHeight:40, padding:'8px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
               🏠 Réserver résidence
             </button>
-            {peutVoyager && <button className="dm-btn" onClick={()=>setCreateModal('voyage')}
+            {peutVoyager && <button className="dm-btn" onClick={()=>ouvrirCreation('voyage')}
               style={{ background:GOLD, color:NAVY, border:'1px solid '+GOLD, minHeight:40, padding:'8px 16px', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit' }}>
               🚌 Planifier voyage
             </button>}
@@ -436,7 +445,7 @@ export default function Demandes() {
             style={{ width:46, height:46, borderRadius:23, background:NAVY, border:'none', boxShadow:'0 6px 16px rgba(15,42,92,.4)', fontSize:19, cursor:'pointer' }} className="dm-btn">
             🏠
           </button>
-          {peutVoyager && <button onClick={()=>setCreateModal('voyage')} aria-label="Planifier voyage"
+          {peutVoyager && <button onClick={()=>ouvrirCreation('voyage')} aria-label="Planifier voyage"
             style={{ width:54, height:54, borderRadius:27, background:GOLD, border:'none', boxShadow:'0 6px 16px rgba(212,160,23,.45)', fontSize:22, cursor:'pointer' }} className="dm-btn">
             🚌
           </button>}
@@ -516,7 +525,7 @@ export default function Demandes() {
                           {d.message_demandeur && <div style={{ lineHeight:1.45, marginBottom:4 }}>{d.message_demandeur}</div>}
                           <div style={{ display:'flex', gap:12, fontSize:12, color:INK, flexWrap:'wrap' }}>
                             {d.residence_souhaitee && <span>🏠 {d.residence_souhaitee}</span>}
-                            {d.date_debut_souhaitee && <span>📅 {d.date_debut_souhaitee}{d.date_fin_souhaitee ? ` → ${d.date_fin_souhaitee}` : ''}</span>}
+                            {d.date_debut_souhaitee && <span>📅 {jourFr(d.date_debut_souhaitee)}{d.date_fin_souhaitee ? ` → ${jourFr(d.date_fin_souhaitee)}` : ''}</span>}
                           </div>
                           {d.commentaire_admin && (
                             <div style={{ marginTop:6, fontSize:12, background:d.statut==='proposition'?'rgba(30,58,138,.06)':'rgba(22,163,74,.06)', borderRadius:8, padding:'6px 10px' }}>
@@ -552,8 +561,8 @@ export default function Demandes() {
                   {d.message_demandeur && <div style={{ fontSize:13, color:'#334155', marginBottom:6, lineHeight:1.4, ...(isMobile ? { display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' } : {}) }}>{d.message_demandeur}</div>}
                   <div style={{ display:'flex', gap:12, fontSize:12, color:INK, flexWrap:'wrap' }}>
                     {d.residence_souhaitee && <span>🏠 {d.residence_souhaitee}</span>}
-                    {d.date_debut_souhaitee && <span>📅 {d.date_debut_souhaitee}</span>}
-                    {d.date_fin_souhaitee && <span>→ {d.date_fin_souhaitee}</span>}
+                    {d.date_debut_souhaitee && <span>📅 {jourFr(d.date_debut_souhaitee)}</span>}
+                    {d.date_fin_souhaitee && <span>→ {jourFr(d.date_fin_souhaitee)}</span>}
                     <span>🕐 {new Date(d.date_creation).toLocaleDateString('fr-FR')}</span>
                   </div>
                   {d.commentaire_admin && (
