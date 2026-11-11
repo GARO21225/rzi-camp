@@ -1,0 +1,44 @@
+T05 - SIGNALER UN INCIDENT DE MAINTENANCE - VOIX OFF FLORA
+Un fichier audio par plan. Nommer les fichiers T05_P01.mp3 ... T05_P14.mp3
+
+[P01]
+Roxgold SiteLife. ... Signaler un incident de maintenance.
+
+[P02]
+Un climatiseur qui ne refroidit plus. ... Une fuite sous le lavabo. ... Signalé de vive voix, le problème est vite oublié... et personne ne sait où en est la réparation.
+
+[P03]
+Avec Roxgold SiteLife, vous déclarez l'incident depuis votre téléphone, en quelques gestes. Il est ensuite suivi jusqu'à sa résolution.
+
+[P04]
+Depuis votre accueil, appuyez sur l'onglet Signaler, en bas de l'écran.
+
+[P05]
+La page Maintenance s'ouvre. Appuyez sur le bouton doré, avec le signe plus.
+
+[P06]
+Le formulaire Déclarer un incident s'affiche.
+
+[P07]
+Commencez par un titre court. Par exemple : Climatiseur en panne.
+
+[P08]
+Décrivez ensuite le problème. Choisissez la catégorie, ici Climatisation, puis la priorité : Haute.
+
+[P09]
+Indiquez le lieu : Hébergement pour votre chambre, ou Autre infrastructure. Saisissez la résidence, puis le bloc ou la chambre.
+
+[P10]
+Ajoutez une photo si besoin. Le délai de traitement est fixé automatiquement selon la priorité. ... Appuyez sur Déclarer l'incident.
+
+[P11]
+C'est fait. ... L'incident apparaît dans votre liste, avec le statut Déclaré et sa date d'échéance.
+
+[P12]
+Touchez-le pour voir son parcours : déclaré, assigné, en cours, résolu, puis clôturé.
+
+[P13]
+Les responsables du camp sont prévenus dès la déclaration. ... Chaque incident est tracé, priorisé et suivi, jusqu'à sa résolution.
+
+[P14]
+Roxgold SiteLife. ... Un signalement, un suivi.
