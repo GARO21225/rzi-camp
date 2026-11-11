@@ -7,7 +7,7 @@ T05_signaler_incident/
 ├── captures/                      # captures RÉELLES de l'application (instance de démo, données fictives)
 ├── capture_t05.js                 # rejoue le parcours et refait les captures (Playwright)
 ├── seed_demo.py                   # crée le compte et les résidences fictifs sur une base locale vierge
-├── generer_composition.py         # génère la composition à partir des captures, du script et des sous-titres
+├── generer_composition.py         # configuration du tutoriel (plans, textes, encadrés, sous-titres) → ../_commun/generateur_tutoriel.py
 ├── hyperframes/                   # PROJET HYPERFRAMES LOCAL (CLI)
 │   ├── index.html                 # composition 1920×1080, 100 s, 14 plans + 21 sous-titres
 │   ├── assets/                    # captures, logo, gsap.min.js (local)
