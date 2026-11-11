@@ -1,0 +1,48 @@
+T03 - DEMANDER UN VOYAGE ET SUIVRE SA DEMANDE - VOIX OFF FLORA
+Même voix que T05, T02 et T01. Un fichier par plan : T03_P01.mp3 ... T03_P15.mp3
+« SiteLife » se prononce saït-laïf. « 48 heures » se lit « quarante-huit heures ».
+
+[P01]
+Roxgold SiteLife. ... Demander un voyage et suivre sa demande.
+
+[P02]
+Pour partir en repos, la demande se fait souvent à l'oral ou sur papier. ... Sans réponse tracée, difficile de savoir si elle est validée.
+
+[P03]
+Avec Roxgold SiteLife, vous faites votre demande en ligne et vous la suivez jusqu'à la validation.
+
+[P04]
+Depuis votre accueil, appuyez sur Demander un voyage.
+
+[P05]
+La page Demandes s'ouvre. Appuyez sur le bouton doré au bus.
+
+[P06]
+Votre demande sera envoyée à l'administration pour validation. ... Choisissez d'abord l'itinéraire.
+
+[P07]
+Indiquez où vous montez et où vous descendez. ... Les jours de circulation s'affichent : ici, lundi, mercredi et vendredi.
+
+[P08]
+Choisissez le car du camp ou votre véhicule personnel. ... Puis la date de départ, au moins quarante-huit heures à l'avance, et la date de retour au camp.
+
+[P09]
+Choisissez le motif, ajoutez des précisions si besoin, ... puis appuyez sur Soumettre la demande.
+
+[P10]
+La demande apparaît : En attente. ... Tant qu'elle n'est pas traitée, vous pouvez l'annuler.
+
+[P11]
+L'administration la valide : le statut passe à Validée, avec son commentaire.
+
+[P12]
+Vous en êtes informé par une notification.
+
+[P13]
+Sur votre accueil, le voyage devient votre prochain trajet : date, compte à rebours et villes du trajet.
+
+[P14]
+Une demande en quelques gestes, et une décision tracée. ... En cas de refus, le motif vous est toujours indiqué.
+
+[P15]
+Roxgold SiteLife. ... Demandez, suivez, partez.

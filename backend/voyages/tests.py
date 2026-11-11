@@ -314,6 +314,41 @@ class TrajetsAllerSimpleTests(TestCase):
         self.b.refresh_from_db()
         self.assertEqual(self.b.statut, "Libre")
 
+    def _demande_camp_abidjan(self, dd, retour):
+        from residences.models import Demande
+        return Demande.objects.create(type_demande="voyage", demandeur=self.u, message_demandeur="repos",
+                                      date_debut_souhaitee=dd, date_fin_souhaitee=retour,
+                                      donnees={"itineraire_modele": self.camp_abj.id})
+
+    def test_validation_d_un_depart_futur_garde_la_chambre_jusqu_au_jour_j(self):
+        """Valider plusieurs jours avant ne doit ni marquer « en voyage » ni libérer la chambre :
+        c'est la tâche automatique qui fait partir la personne à la date du voyage."""
+        from .automatisation import appliquer_voyages_du_jour
+        lundi = self.today + datetime.timedelta(days=3)
+        lundi += datetime.timedelta(days=(0 - lundi.weekday()) % 7)        # lundi : Camp → Abidjan circule
+        d = self._demande_camp_abidjan(lundi, lundi + datetime.timedelta(days=12))   # samedi : Abidjan → Camp circule
+        self.c.force_authenticate(self.admin)
+        self.assertEqual(self.c.post(f"/api/demandes/{d.id}/valider/", {}, format="json").status_code, 200)
+        v = Voyage.objects.get(demande_origine=d, destination__icontains="ABIDJAN")
+        self.assertEqual(v.statut, "planifie")
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.statut, self.b.personnel_id), ("Occupé", self.p.id))
+        # Jour J : la tâche automatique fait partir le voyage et libère la chambre
+        appliquer_voyages_du_jour(today=lundi)
+        v.refresh_from_db(); self.b.refresh_from_db()
+        self.assertEqual(v.statut, "en_voyage")
+        self.assertEqual(self.b.statut, "Libre")
+
+    def test_validation_d_un_depart_le_jour_meme_libere_la_chambre_tout_de_suite(self):
+        d = self._demande_camp_abidjan(self.today, self.mardi_apres(10))
+        self.c.force_authenticate(self.admin)
+        r = self.c.post(f"/api/demandes/{d.id}/valider/", {"forcer_jour": True}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        v = Voyage.objects.get(demande_origine=d, destination__icontains="ABIDJAN")
+        self.assertEqual(v.statut, "en_voyage")
+        self.b.refresh_from_db()
+        self.assertEqual(self.b.statut, "Libre")
+
     def test_demande_vers_le_camp_ne_libere_pas_la_chambre(self):
         from residences.models import Demande
         from .models import ItineraireModele

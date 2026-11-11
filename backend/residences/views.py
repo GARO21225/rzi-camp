@@ -3380,8 +3380,16 @@ class DemandeViewSet(viewsets.ModelViewSet):
                             # Edgar affiche "toujours dans sa chambre"
                             # malgre sa demande validee et son voyage cree.
                             if not vers_camp:
-                                voyage_cree.partir(dd)
-                                _cloturer_sejour_personnel(p, dd)
+                                # Départ FUTUR depuis le camp : le voyage reste « planifie » et la
+                                # personne garde sa chambre jusqu'au jour J. C'est la tâche
+                                # automatique (voyages/automatisation.py, chaque minute via asgi.py)
+                                # qui la fait partir et libère la chambre à la date du voyage.
+                                # Avant, partir() était appelé dès la validation : « Trajet en
+                                # cours · En route » et chambre « Libre » (réattribuable) plusieurs
+                                # jours avant le départ réel.
+                                if dd <= datetime.date.today() or not est_camp(voyage_cree.origine):
+                                    voyage_cree.partir(dd)
+                                    _cloturer_sejour_personnel(p, dd)
                                 if demande.date_fin_souhaitee:
                                     creer_trajet_retour(voyage_cree, itineraire_obj, request.user)
                         except Exception as ve:
