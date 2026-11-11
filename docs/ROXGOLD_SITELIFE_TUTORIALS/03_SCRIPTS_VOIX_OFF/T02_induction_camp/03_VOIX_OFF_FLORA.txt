@@ -1,0 +1,69 @@
+T02 - REALISER SON INDUCTION CAMP - VOIX OFF FLORA
+Même voix que T05. Un fichier par plan : T02_P01.mp3 ... T02_P22.mp3
+« SiteLife » se prononce saït-laïf. « 100 W » se lit « cent watts ».
+
+[P01]
+Roxgold SiteLife. ... Réaliser son Induction Camp.
+
+[P02]
+À votre arrivée, les règles du camp se transmettent souvent à l'oral. ... Horaires, sécurité, contacts d'urgence : on retient mal, et rien ne prouve qu'elles ont été comprises.
+
+[P03]
+Avec Roxgold SiteLife, chaque nouvel arrivant suit l'Induction Camp : un parcours guidé en six étapes. ... Il se termine par une signature et un certificat.
+
+[P04]
+Dès que vous êtes hébergé au camp, l'application ouvre directement l'Induction Camp. Tant qu'elle n'est pas terminée, les autres pages restent inaccessibles.
+
+[P05]
+L'écran de bienvenue présente votre parcours, d'environ quinze minutes. Appuyez sur Commencer l'induction.
+
+[P06]
+Étape 2 : les infrastructures du camp. ... Touchez une zone pour la découvrir.
+
+[P07]
+Chaque fiche donne l'essentiel : horaires, règles d'usage, consignes.
+
+[P08]
+Après quatre zones visitées, le bouton Continuer s'active.
+
+[P09]
+Étape 3 : les règles de vie. ... Elles sont classées : critique, important, standard.
+
+[P10]
+Touchez chaque règle pour la lire.
+
+[P11]
+Toutes les règles sont lues : passez au quiz de validation.
+
+[P12]
+Étape 4 : le quiz. Dix questions, tirées au hasard. ... Toutes les réponses doivent être justes.
+
+[P13]
+Choisissez une réponse par question, puis validez le quiz.
+
+[P14]
+Quiz réussi. ... En cas d'erreur, vous revenez aux règles, puis une nouvelle série de questions est proposée.
+
+[P15]
+Étape 5 : les appareils énergivores. Tout appareil de plus de cent watts doit être déclaré. ... Sans appareil concerné, choisissez : Je n'ai pas d'appareil de plus de cent watts.
+
+[P16]
+Pour déclarer un appareil : choisissez le type, indiquez la puissance et la chambre, puis Déclarer.
+
+[P17]
+L'appareil apparaît comme déclaré. Appuyez sur Continuer.
+
+[P18]
+Étape 6 : l'engagement. ... Le récapitulatif confirme chaque étape.
+
+[P19]
+Signez avec le doigt, puis appuyez sur Finaliser mon induction.
+
+[P20]
+Votre certificat d'induction s'affiche. ... Le reste de l'application est débloqué.
+
+[P21]
+Les règles sont connues, le quiz prouve qu'elles sont comprises, la signature engage. ... L'administration suit qui a terminé, depuis le registre de l'induction.
+
+[P22]
+Roxgold SiteLife. ... Bienvenue au camp.
