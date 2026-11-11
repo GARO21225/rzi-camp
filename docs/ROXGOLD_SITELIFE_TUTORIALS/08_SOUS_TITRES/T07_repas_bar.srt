@@ -1,0 +1,83 @@
+1
+00:00:00,300 --> 00:00:07,250
+Roxgold SiteLife.
+Repas et bar : mon QR, le menu, mon bon.
+
+2
+00:00:08,300 --> 00:00:12,140
+Au restaurant, le pointage se fait souvent
+sur une liste papier.
+
+3
+00:00:12,190 --> 00:00:17,130
+Au bar, difficile de savoir ce que l'on a consommé,
+et ce qu'il reste sur son bon.
+
+4
+00:00:18,300 --> 00:00:25,330
+Avec Roxgold SiteLife, votre QR, le menu du jour
+et votre bon de caisse sont dans votre téléphone.
+
+5
+00:00:26,380 --> 00:00:30,590
+Depuis votre accueil, appuyez sur l'onglet Repas,
+en bas de l'écran.
+
+6
+00:00:32,380 --> 00:00:34,840
+Votre QR restaurant s'affiche, à votre nom.
+
+7
+00:00:34,890 --> 00:00:39,700
+Présentez-le à l'entrée du restaurant :
+l'équipe le scanne pour valider votre repas.
+
+8
+00:00:41,380 --> 00:00:46,240
+Juste dessous, le menu du jour :
+petit-déjeuner, déjeuner et dîner.
+
+9
+00:00:48,380 --> 00:00:50,210
+Puis les horaires de chaque repas.
+
+10
+00:00:53,380 --> 00:00:57,200
+Pour le bar, ouvrez Plus, puis Bar.
+
+11
+00:00:59,380 --> 00:01:04,430
+En haut, votre bon de caisse de l'année :
+ce qu'il reste, sur le montant de départ.
+
+12
+00:01:04,480 --> 00:01:06,980
+Et le total de vos consommations du mois.
+
+13
+00:01:09,380 --> 00:01:14,530
+La carte du bar affiche chaque article,
+avec son prix et sa disponibilité.
+
+14
+00:01:14,580 --> 00:01:16,100
+Filtrez par catégorie.
+
+15
+00:01:17,380 --> 00:01:20,330
+Un article en rupture apparaît : Épuisé.
+
+16
+00:01:22,380 --> 00:01:29,040
+Enfin, Mes consommations : chaque achat,
+avec sa date, son montant et son mode de paiement.
+
+17
+00:01:30,380 --> 00:01:36,360
+Le repas validé en un scan, le menu sous les yeux,
+et un bon de caisse toujours à jour.
+
+18
+00:01:38,380 --> 00:01:41,650
+Roxgold SiteLife.
+Bon appétit !

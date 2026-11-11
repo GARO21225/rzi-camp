@@ -1,0 +1,45 @@
+T07 - REPAS ET BAR : MON QR, LE MENU, MON BON - VOIX OFF FLORA
+Voix FLORA : Gemini 3.1 Flash TTS, voix Charon (fr-FR), consigne « voix naturelle, chaleureuse et posée ». Un fichier par plan : T07_P01.mp3 ... T07_P14.mp3
+« SiteLife » se prononce saït-laïf.
+
+[P01]
+Roxgold SiteLife. Repas et bar : mon QR, le menu, mon bon.
+
+[P02]
+Au restaurant, le pointage se fait souvent sur une liste papier. Au bar, difficile de savoir ce que l'on a consommé, et ce qu'il reste sur son bon.
+
+[P03]
+Avec Roxgold SiteLife, votre QR, le menu du jour et votre bon de caisse sont dans votre téléphone.
+
+[P04]
+Depuis votre accueil, appuyez sur l'onglet Repas, en bas de l'écran.
+
+[P05]
+Votre QR restaurant s'affiche, à votre nom. Présentez-le à l'entrée du restaurant : l'équipe le scanne pour valider votre repas.
+
+[P06]
+Juste dessous, le menu du jour : petit-déjeuner, déjeuner et dîner.
+
+[P07]
+Puis les horaires de chaque repas.
+
+[P08]
+Pour le bar, ouvrez Plus, puis Bar.
+
+[P09]
+En haut, votre bon de caisse de l'année : ce qu'il reste, sur le montant de départ. Et le total de vos consommations du mois.
+
+[P10]
+La carte du bar affiche chaque article, avec son prix et sa disponibilité. Filtrez par catégorie.
+
+[P11]
+Un article en rupture apparaît : Épuisé.
+
+[P12]
+Enfin, Mes consommations : chaque achat, avec sa date, son montant et son mode de paiement.
+
+[P13]
+Le repas validé en un scan, le menu sous les yeux, et un bon de caisse toujours à jour.
+
+[P14]
+Roxgold SiteLife. Bon appétit !
