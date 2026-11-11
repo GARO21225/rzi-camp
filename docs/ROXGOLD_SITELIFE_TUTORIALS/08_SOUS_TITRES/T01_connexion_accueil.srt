@@ -1,102 +1,102 @@
 1
-00:00:00,300 --> 00:00:03,600
+00:00:00,300 --> 00:00:05,000
 Roxgold SiteLife.
 Se connecter et prendre en main son espace.
 
 2
-00:00:04,300 --> 00:00:08,200
-Mon prochain trajet ? Ma demande est-elle validée ?
+00:00:06,050 --> 00:00:12,440
+Mon prochain trajet ? Ma demande est-elle validée ?
 Les informations sont souvent dispersées.
 
 3
-00:00:08,400 --> 00:00:13,600
+00:00:12,490 --> 00:00:16,630
 Et sans espace personnel,
 chacun doit demander autour de lui.
 
 4
-00:00:14,300 --> 00:00:21,600
+00:00:17,680 --> 00:00:23,090
 Avec Roxgold SiteLife, votre espace personnel
 réunit tout, sur votre téléphone.
 
 5
-00:00:22,300 --> 00:00:28,600
-Sur iPhone, ouvrez l'application dans Safari : elle vous explique
+00:00:25,680 --> 00:00:31,790
+Sur iPhone, ouvrez l'application dans Safari : elle vous explique
 comment l'ajouter à votre écran d'accueil.
 
 6
-00:00:29,300 --> 00:00:32,600
+00:00:32,840 --> 00:00:36,170
 Saisissez votre identifiant et votre mot de passe,
 
 7
-00:00:32,800 --> 00:00:36,600
+00:00:36,220 --> 00:00:38,200
 puis appuyez sur Se connecter.
 
 8
-00:00:37,300 --> 00:00:42,600
+00:00:40,840 --> 00:00:46,540
 Selon la configuration de votre site,
 une connexion par code SMS peut aussi être proposée.
 
 9
-00:00:43,300 --> 00:00:51,600
-Vous arrivez sur votre accueil : votre prochain trajet,
+00:00:47,590 --> 00:00:53,730
+Vous arrivez sur votre accueil : votre prochain trajet,
 sa date, son heure et le compte à rebours.
 
 10
-00:00:52,300 --> 00:00:58,600
+00:00:56,590 --> 00:01:00,010
 Les raccourcis mènent directement
 aux pages de votre menu.
 
 11
-00:00:59,300 --> 00:01:05,600
-Plus bas : vos demandes,
+00:01:03,590 --> 00:01:07,070
+Plus bas : vos demandes,
 en attente et validées.
 
 12
-00:01:06,300 --> 00:01:12,600
-En bas de l'écran, la barre d'onglets :
+00:01:10,590 --> 00:01:19,550
+En bas de l'écran, la barre d'onglets :
 Accueil, Voyages, Demandes, Repas, Signaler.
 
 13
-00:01:13,300 --> 00:01:20,600
+00:01:20,600 --> 00:01:25,250
 Plus ouvre toutes vos pages.
-En bas : Mon compte et Déconnexion.
+En bas : Mon compte et Déconnexion.
 
 14
-00:01:21,300 --> 00:01:27,600
+00:01:28,600 --> 00:01:33,880
 Mon compte affiche votre profil
-et le choix de la langue : français ou anglais.
+et le choix de la langue : français ou anglais.
 
 15
-00:01:28,300 --> 00:01:34,600
+00:01:35,600 --> 00:01:39,340
 Dans l'onglet Sécurité,
 vous pouvez modifier votre mot de passe.
 
 16
-00:01:35,300 --> 00:01:39,600
+00:01:42,600 --> 00:01:47,060
 Saisissez l'ancien mot de passe,
 puis le nouveau, deux fois.
 
 17
-00:01:39,800 --> 00:01:43,600
+00:01:47,110 --> 00:01:51,880
 La jauge indique sa force.
 Appuyez sur Modifier le mot de passe.
 
 18
-00:01:44,300 --> 00:01:50,600
-Vous êtes alors déconnecté :
+00:01:52,930 --> 00:01:57,090
+Vous êtes alors déconnecté :
 reconnectez-vous avec le nouveau mot de passe.
 
 19
-00:01:51,300 --> 00:01:56,000
+00:01:59,930 --> 00:02:03,720
 Tout au même endroit, sur votre téléphone,
 avec un compte protégé.
 
 20
-00:01:56,200 --> 00:02:00,600
+00:02:03,770 --> 00:02:08,630
 Sans activité pendant quinze minutes,
 l'application vous déconnecte automatiquement.
 
 21
-00:02:01,300 --> 00:02:04,600
+00:02:09,930 --> 00:02:13,220
 Roxgold SiteLife.
 Bienvenue dans votre espace.

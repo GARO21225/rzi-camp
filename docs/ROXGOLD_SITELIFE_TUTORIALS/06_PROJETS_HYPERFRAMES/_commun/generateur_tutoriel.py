@@ -106,7 +106,69 @@ html,body{width:1920px;height:1080px;overflow:hidden;background:var(--nuit);colo
 """.replace("%(SW)s", str(SCR_W)).replace("%(SH)s", str(SCR_H)).replace("%(IW)s", str(W_IMG)).replace("%(IH)s", str(H_IMG))
 
 
-def construire(cfg, images, fonts, gsap_tag):
+def duree_audio(path):
+    import subprocess
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                       capture_output=True, text=True, check=True)
+    return float(r.stdout.strip())
+
+
+DEBUT_VOIX = 0.3     # la voix démarre 0,3 s après l'image qu'elle décrit
+MARGE_FIN = 0.7      # respiration après la dernière phrase du plan
+
+
+def adapter_a_la_voix(cfg, voix_dir):
+    """Si les voix FLORA existent (voix_dir/<CODE>_<PLAN>.mp3), allonge chaque plan pour contenir sa voix,
+    remet les temps internes du plan (encadrés, appuis, étiquettes) à l'échelle, et recale les sous-titres du
+    plan sur la durée réelle de la voix, au prorata du nombre de caractères. Renvoie (cfg, audios)."""
+    import copy, re
+    fichiers = {pid: os.path.join(voix_dir, f'{cfg["code"]}_{pid.upper()}.mp3') for pid, _ in cfg["plans"]}
+    if not os.path.isdir(voix_dir) or not all(os.path.exists(f) for f in fichiers.values()):
+        return cfg, []
+    cfg = copy.deepcopy(cfg)
+    anciens, t = {}, 0
+    for pid, d in cfg["plans"]:
+        anciens[pid] = (t, d); t += d
+    voix = {pid: duree_audio(f) for pid, f in fichiers.items()}
+    nouveaux = [(pid, round(max(d, DEBUT_VOIX + voix[pid] + MARGE_FIN), 2)) for pid, d in cfg["plans"]]
+    facteur = {pid: nd / anciens[pid][1] for pid, nd in nouveaux}
+    cfg["plans"] = nouveaux
+    k = lambda pid, t: round(t * facteur[pid], 2)
+    for pid, v in cfg["telephone"].items():
+        img, etape, kick, tit, sous, zones = v
+        cfg["telephone"][pid] = (img, etape, kick, tit, sous, [(x, y, w, h, k(pid, tt), z) for (x, y, w, h, tt, z) in zones])
+    for pid, l in cfg.get("recentrages", {}).items():
+        cfg["recentrages"][pid] = [(x, y, w, h, k(pid, tt), z) for (x, y, w, h, tt, z) in l]
+    for pid, (x, y, tt) in cfg.get("taps", {}).items():
+        cfg["taps"][pid] = (x, y, k(pid, tt))
+    pc = cfg["constat"]["plan"]
+    cfg["constat"]["maux"] = [(txt, k(pc, tt)) for txt, tt in cfg["constat"]["maux"]]
+    # sous-titres : chaque sous-titre appartient au plan où il commençait ; répartition au prorata des caractères
+    debuts, t = {}, 0
+    for pid, d in nouveaux:
+        debuts[pid] = t; t += d
+    groupes = {pid: [] for pid, _ in nouveaux}
+    for (a0, b0, txt) in cfg["sous_titres"]:
+        pid = next(p for p, (s0, d0) in anciens.items() if s0 <= a0 < s0 + d0)
+        groupes[pid].append(txt)
+    st = []
+    for pid, _ in nouveaux:
+        txts = groupes[pid]
+        if not txts:
+            continue
+        n = [len(re.sub("<[^>]+>", "", x)) for x in txts]
+        tot, cumul = sum(n), 0
+        for txt, c in zip(txts, n):
+            a0 = debuts[pid] + DEBUT_VOIX + voix[pid] * cumul / tot
+            cumul += c
+            b0 = debuts[pid] + DEBUT_VOIX + voix[pid] * cumul / tot
+            st.append((round(a0, 2), round(b0 - 0.05, 2), txt))
+    cfg["sous_titres"] = st
+    audios = [(pid, fichiers[pid], round(debuts[pid] + DEBUT_VOIX, 2), round(voix[pid], 2)) for pid, _ in nouveaux]
+    return cfg, audios
+
+
+def construire(cfg, images, fonts, gsap_tag, audios=()):
     plans, total = [], 0
     for pid, d in cfg["plans"]:
         plans.append((pid, total, d)); total += d
@@ -243,6 +305,7 @@ def construire(cfg, images, fonts, gsap_tag):
 <div class="fond clip" id="fond" data-start="0" data-duration="{total}" data-track-index="2"><svg class="courbes" id="courbes" viewBox="0 0 2040 1080" preserveAspectRatio="none"><path d="M-50 820 C 400 700, 800 900, 1300 760 S 1900 640, 2080 700"/><path d="M-50 900 C 420 800, 820 1000, 1320 860 S 1900 760, 2080 800"/><path d="M-50 240 C 380 160, 760 330, 1260 210 S 1900 120, 2080 170"/></svg></div>
 {"".join(scenes)}
 {subs}
+{"".join(f'<audio class="clip" id="voix-{pid}" src="{src}" data-start="{st0}" data-duration="{du}" data-track-index="3" data-volume="1"></audio>' for pid, src, st0, du in audios)}
 </div>
 <script>
 window.__timelines = window.__timelines || {{}};
@@ -256,9 +319,26 @@ window.__timelines["main"] = tl;
 ''', total
 
 
+def typo(v):
+    """Espaces insécables du français (avant ? ! : ; et dans « »), pour éviter
+    qu'un signe se retrouve seul en début de ligne à l'écran."""
+    if isinstance(v, str):
+        for a, b in ((" ?", "\u00a0?"), (" !", "\u00a0!"), (" :", "\u00a0:"), (" ;", "\u00a0;"), ("« ", "«\u00a0"), (" »", "\u00a0»")):
+            v = v.replace(a, b)
+        return v
+    if isinstance(v, dict):
+        return {k: typo(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return type(v)(typo(x) for x in v)
+    return v
+
+
 def generer(cfg):
     gsap, fonts_dir = sys.argv[1], sys.argv[2]
+    cfg = {k: (v if k == "dossier" else typo(v)) for k, v in cfg.items()}
     ici = cfg["dossier"]; cap = os.path.join(ici, "captures"); out = os.path.join(ici, "hyperframes")
+    voix_dir = os.path.join(out, "assets", "voix")
+    cfg, audios = adapter_a_la_voix(cfg, voix_dir)
     os.makedirs(os.path.join(out, "assets"), exist_ok=True)
     fonts = {w: b64(os.path.join(fonts_dir, f"ibm-plex-sans-latin-{w}-normal.woff2"), "font/woff2") for w in (400, 600, 700)}
     utilisees = sorted({v[0] for v in cfg["telephone"].values()})
@@ -267,12 +347,14 @@ def generer(cfg):
     for n in utilisees:
         shutil.copy(os.path.join(cap, n), os.path.join(out, "assets", n)); imgs[n] = f"assets/{n}"
     shutil.copy(gsap, os.path.join(out, "assets", "gsap.min.js"))
-    html, total = construire(cfg, imgs, fonts, '<script src="assets/gsap.min.js"></script>')
+    loc = [(pid, f"assets/voix/{os.path.basename(f)}", st0, du) for pid, f, st0, du in audios]
+    html, total = construire(cfg, imgs, fonts, '<script src="assets/gsap.min.js"></script>', loc)
     open(os.path.join(out, "index.html"), "w").write(html)
     imgs = {"logo": b64(LOGO, "image/png"), **{n: jpeg_b64(os.path.join(cap, n)) for n in utilisees}}
     os.makedirs(os.path.join(ici, "send_to_hyperframes"), exist_ok=True)
+    inl = [(pid, b64(f, "audio/mpeg"), st0, du) for pid, f, st0, du in audios]
     html, _ = construire(cfg, imgs, fonts, '<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>\n'
-                         '<script src="https://cdn.jsdelivr.net/npm/@hyperframes/core/dist/hyperframe.runtime.iife.js"></script>')
+                         '<script src="https://cdn.jsdelivr.net/npm/@hyperframes/core/dist/hyperframe.runtime.iife.js"></script>', inl)
     open(os.path.join(ici, "send_to_hyperframes", f'{cfg["code"]}_send_to_hyperframes.html'), "w").write(html)
     json.dump({"id": f'roxgold-sitelife-{cfg["code"].lower()}', "name": f'{cfg["code"]} {cfg["titre"]}'},
               open(os.path.join(out, "meta.json"), "w"), ensure_ascii=False, indent=2)
@@ -281,4 +363,4 @@ def generer(cfg):
     open(os.path.join(out, ".gitignore"), "w").write(".hyperframes/\nrenders/\n")
     srt_path = os.path.join(TUTOS, "08_SOUS_TITRES", f'{cfg["code"]}_{os.path.basename(ici).split("_", 1)[1]}.srt')
     open(srt_path, "w").write(srt(cfg["sous_titres"]))
-    print(f'ok {cfg["code"]} : {total} s, {len(cfg["plans"])} plans, {len(cfg["sous_titres"])} sous-titres -> {os.path.relpath(srt_path, TUTOS)}')
+    print(f'ok {cfg["code"]} : {total} s, {len(cfg["plans"])} plans, {len(cfg["sous_titres"])} sous-titres, {len(audios)} voix -> {os.path.relpath(srt_path, TUTOS)}')

@@ -1,0 +1,64 @@
+1
+00:00:00,300 --> 00:00:04,270
+Roxgold SiteLife.
+Suivre son bus en direct.
+
+2
+00:00:05,320 --> 00:00:09,600
+Sur la route, on attend souvent sans information :
+où est le bus ?
+
+3
+00:00:09,650 --> 00:00:13,130
+Quand arrive-t-il ?
+On finit par appeler le chauffeur.
+
+4
+00:00:14,320 --> 00:00:19,960
+Avec Roxgold SiteLife, vous suivez votre bus en direct,
+depuis votre téléphone.
+
+5
+00:00:21,320 --> 00:00:25,260
+Dès le jour du départ,
+votre accueil affiche votre trajet.
+
+6
+00:00:25,310 --> 00:00:27,770
+Appuyez sur
+Suivre mon bus en direct.
+
+7
+00:00:29,320 --> 00:00:35,590
+La carte montre le bus, le trajet déjà parcouru en vert,
+et votre descente, en or.
+
+8
+00:00:37,320 --> 00:00:42,100
+Juste dessous : l'heure d'arrivée estimée,
+le temps et les kilomètres restants.
+
+9
+00:00:45,320 --> 00:00:51,250
+Le parcours liste les arrêts :
+ceux déjà passés, votre montée, puis votre descente.
+
+10
+00:00:53,320 --> 00:00:58,700
+Vous voyez entre quelles villes se trouve le bus.
+La position s'actualise toutes les quinze secondes.
+
+11
+00:01:00,320 --> 00:01:04,790
+Le suivi est aussi accessible depuis la page Voyages :
+Suivre en direct.
+
+12
+00:01:07,320 --> 00:01:12,230
+Fini l'attente à l'aveugle : vous savez où est le bus
+et quand il arrive.
+
+13
+00:01:15,320 --> 00:01:19,400
+Roxgold SiteLife.
+Votre bus, en direct.
