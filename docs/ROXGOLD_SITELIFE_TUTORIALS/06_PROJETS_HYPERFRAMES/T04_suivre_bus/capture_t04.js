@@ -26,6 +26,13 @@ const OUT = path.join(__dirname, 'captures') + '/';
   const bus = pg.getByText('Le bus est entre').first();
   if (await bus.count()) { await bus.scrollIntoViewIfNeeded(); await shot('04_suivi_bus_entre.png', 800); }
   await pg.locator('button[aria-label="Fermer"]').first().click();
-  await pg.goto('http://127.0.0.1:5173/voyages'); await pg.waitForLoadState('networkidle'); await shot('05_voyages.png', 2500);
+  await pg.goto('http://127.0.0.1:5173/voyages'); await pg.waitForLoadState('networkidle'); await pg.waitForTimeout(2500);
+  // La liste est triée du plus récent au plus ancien : le retour planifié (convoi à venir) passe en premier.
+  // On amène à l'écran la ligne du trajet EN COURS (Camp → Yamoussoukro), celle que l'on suit.
+  const ligne = pg.locator('tr', { hasText: /CAMP\s*→\s*YAMOUSSOUKRO/ }).first();
+  await ligne.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  const bt = await ligne.getByText('Suivre en direct').boundingBox();
+  console.log('bouton 05 (px x3)', Math.round(bt.x*3), Math.round(bt.y*3), Math.round(bt.width*3), Math.round(bt.height*3));
+  await shot('05_voyages.png', 1200);
   await b.close();
 })();

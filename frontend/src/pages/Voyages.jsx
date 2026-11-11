@@ -21,6 +21,10 @@ const STATUT_STYLES = {
 }
 const STATUT_LABELS = { planifie:'Planifié', en_voyage:'En voyage', retour:'Retour camp', annule:'Annulé' }
 const fmtFR = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '—'
+// Date complète « 21/11/2026 » pour le tableau (l'API renvoie AAAA-MM-JJ).
+const fmtJour = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'
+// L'API voyages renvoie personnel_nom / personnel_societe (pas d'objet personnel_detail).
+const nomPersonnel = (v) => v?.personnel_nom || ''
 
 function exportVoyagesCSV(liste) {
   const headers = ['ID','Personnel','Société','Destination','Motif','Départ prévu','Départ réel','Retour prévu','Retour réel','Statut']
@@ -94,15 +98,15 @@ function VueCalendrier({ voyages: data, mois, setMois, onSelectVoyage }) {
             <div key={i} style={{minHeight:64,border:`1px solid ${isToday?'#C9972B':'#f1f5f9'}`,borderRadius:8,padding:4,fontSize:10,background:isToday?'#fffbeb':'#fff'}}>
               <div style={{fontWeight:700,color:isToday?'#C9972B':'var(--rzc-text-3)',marginBottom:2}}>{j}</div>
               {info?.departs.slice(0,2).map(v=>(
-                <div key={'d'+v.id} onClick={()=>onSelectVoyage(v)} title={`Départ — ${v.personnel_detail?.nom||''}`}
+                <div key={'d'+v.id} onClick={()=>onSelectVoyage(v)} title={`Départ — ${nomPersonnel(v)}`}
                   style={{background:'#fff7ed',color:'#c2410c',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  🧳 {v.personnel_detail?.nom||v.destination}
+                  🧳 {nomPersonnel(v)||v.destination}
                 </div>
               ))}
               {info?.retours.slice(0,2).map(v=>(
-                <div key={'r'+v.id} onClick={()=>onSelectVoyage(v)} title={`Retour — ${v.personnel_detail?.nom||''}`}
+                <div key={'r'+v.id} onClick={()=>onSelectVoyage(v)} title={`Retour — ${nomPersonnel(v)}`}
                   style={{background:'#f0fdf4',color:'#15803d',borderRadius:4,padding:'1px 4px',marginBottom:2,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                  🏠 {v.personnel_detail?.nom||v.destination}
+                  🏠 {nomPersonnel(v)||v.destination}
                 </div>
               ))}
             </div>
@@ -248,12 +252,12 @@ export default function Voyages() {
     catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
   const annulerVoyage = async (v) => {
-    if (!await confirmDialog(`Annuler le voyage de ${v.personnel_detail?.nom||''} ?`)) return
+    if (!await confirmDialog(`Annuler le voyage de ${nomPersonnel(v)} ?`)) return
     try { await voyages.annuler(v.id); loadVoyages() }
     catch(e) { toast.error(e.response?.data?.error||'Erreur') }
   }
   const supprimerVoyage = async (v) => {
-    if (!await confirmDialog(`🗑️ Supprimer définitivement le voyage de ${v.personnel_detail?.nom||'?'} vers ${v.destination||'?'} ?\n\nCette action est irréversible.`)) return
+    if (!await confirmDialog(`🗑️ Supprimer définitivement le voyage de ${nomPersonnel(v)||'?'} vers ${v.destination||'?'} ?\n\nCette action est irréversible.`)) return
     try { await voyages.supprimer(v.id); loadVoyages() }
     catch(e) { toast.error(e.response?.data?.error || 'Impossible de supprimer ce voyage') }
   }
@@ -362,19 +366,19 @@ export default function Voyages() {
 
   const filtered = data.filter(v => {
     if (filterStatut && v.statut !== filterStatut) return false
-    if (filterSociete && v.personnel_detail?.societe !== filterSociete) return false
+    if (filterSociete && v.personnel_societe !== filterSociete) return false
     if (dateDebut && v.date_depart < dateDebut) return false
     if (dateFin && v.date_depart > dateFin) return false
     if (search) {
       const s = search.toLowerCase()
-      const nom = `${v.personnel_detail?.nom||''} ${v.personnel_detail?.prenom||''}`.toLowerCase()
+      const nom = nomPersonnel(v).toLowerCase()
       const dest = (v.destination||'').toLowerCase()
       const orig = (v.origine||'').toLowerCase()
       if (!nom.includes(s) && !dest.includes(s) && !orig.includes(s)) return false
     }
     return true
   })
-  const societesDisponibles = [...new Set(data.map(v=>v.personnel_detail?.societe).filter(Boolean))].sort()
+  const societesDisponibles = [...new Set(data.map(v=>v.personnel_societe).filter(Boolean))].sort()
   const filtresActifs = !!(filterSociete || dateDebut || dateFin || search)
 
   // Styles
@@ -601,7 +605,7 @@ export default function Voyages() {
               <tbody>
                 {filtered.map((v, i) => {
                   const sc = STATUT_STYLES[v.statut] || STATUT_STYLES.planifie
-                  const p  = v.personnel_detail
+                  const nom = nomPersonnel(v)
                   const autresDuConvoi = v.rotation_id ? filtered.filter(x => x.rotation_id === v.rotation_id && x.id !== v.id) : []
                   const trajetDiffere = autresDuConvoi.some(x => x.destination && v.destination && x.destination !== v.destination)
                   return (
@@ -610,7 +614,7 @@ export default function Voyages() {
                       onMouseLeave={e => e.currentTarget.style.background = i%2?'#fafafa':'var(--rzc-white)'}>
                       <td style={{ padding:'11px 13px' }}>
                         <div style={{ fontWeight:700, color:'var(--rzc-navy)', fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
-                          {p ? `${p.nom} ${p.prenom}` : v.destination || '—'}
+                          {nom || v.destination || '—'}
                           {trajetDiffere && (
                             <span title="Ce trajet diffère des autres passagers du même convoi"
                               style={{fontSize:9,fontWeight:700,color:'#7c3aed',background:'rgba(124,58,237,.12)',
@@ -619,7 +623,7 @@ export default function Voyages() {
                             </span>
                           )}
                         </div>
-                        {p?.societe && <div style={{ fontSize:10.5, color:'var(--rzc-text-4)', marginTop:1 }}>{p.societe}</div>}
+                        {v.personnel_societe && <div style={{ fontSize:10.5, color:'var(--rzc-text-4)', marginTop:1 }}>{v.personnel_societe}</div>}
                         <div style={{ fontSize:10, color:'var(--rzc-text-4)', marginTop:2 }}>
                           {(v.origine||'Camp')} → {v.destination||'—'}
                         </div>
@@ -635,9 +639,9 @@ export default function Voyages() {
                           {v.motif || 'repos'}
                         </span>
                       </td>
-                      <td style={{ padding:'11px 13px', fontFamily:'monospace', fontSize:12, color:'#334155' }}>{v.date_depart}</td>
+                      <td style={{ padding:'11px 13px', fontFamily:'monospace', fontSize:12, color:'#334155', whiteSpace:'nowrap' }}>{fmtJour(v.date_depart)}</td>
                       <td style={{ padding:'11px 13px', fontFamily:'monospace', fontSize:12, color:'#7c3aed' }}>{v.heure_depart || '—'}</td>
-                      <td style={{ padding:'11px 13px', fontFamily:'monospace', fontSize:12 }}>{v.date_retour_prevue}</td>
+                      <td style={{ padding:'11px 13px', fontFamily:'monospace', fontSize:12, whiteSpace:'nowrap' }}>{fmtJour(v.date_retour_prevue)}</td>
                       <td style={{ padding:'11px 13px' }}>
                         <span style={{ background:sc.bg, color:sc.color, padding:'4px 12px', borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>
                           {sc.label}
@@ -1012,7 +1016,7 @@ export default function Voyages() {
             </div>
             <div style={{ padding:20,display:'flex',flexDirection:'column',gap:12 }}>
               <p style={{fontSize:13,color:'var(--rzc-text-2)',margin:0}}>
-                Voyage de <b>{refusModal.personnel_detail?.nom} {refusModal.personnel_detail?.prenom}</b> vers {refusModal.destination}.
+                Voyage de <b>{nomPersonnel(refusModal)}</b> vers {refusModal.destination}.
               </p>
               <textarea value={motifRefus} onChange={e=>setMotifRefus(e.target.value)}
                 placeholder="Motif du refus (optionnel)…" rows={3} style={{...inp,resize:'vertical'}}/>

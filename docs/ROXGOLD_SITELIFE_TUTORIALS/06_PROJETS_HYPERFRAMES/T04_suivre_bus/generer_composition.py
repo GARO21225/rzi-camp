@@ -24,7 +24,7 @@ CFG = {
         "p06": ("02_suivi_carte.png", 2, "L'arrivée", "Heure d'arrivée estimée", "Temps et kilomètres restants.", [(30,1105,1110,330,0.5,None)]),
         "p07": ("03_suivi_parcours.png", 3, "Le parcours", "Arrêts passés et à venir", "Votre montée · votre descente.", [(30,1460,1110,520,0.5,None)]),
         "p08": ("04_suivi_bus_entre.png", 3, "Le parcours", "Où est le bus ?", "Actualisé toutes les 15 secondes.", [(90,1480,1000,110,0.5,None)]),
-        "p09": ("05_voyages.png", 4, "Autre accès", "Page Voyages", "« Suivre en direct » sur votre voyage.", [(80,1435,380,120,0.5,None)]),
+        "p09": ("05_voyages.png", 4, "Autre accès", "Page Voyages", "« Suivre en direct » sur le trajet en cours.", [(80,1160,385,460,0.5,None)]),
     },
     "taps": {"p04": (585, 1378, 6.4)},
     "resultat": {"plan": "p10", "titre": "Fini l'attente<br>à l'aveugle.",

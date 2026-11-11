@@ -11,4 +11,9 @@
 - [ ] Le fond de carte montre l'itinéraire réel Camp → Abidjan et la position approximative du camp : à faire valider par la sécurité du site.
 
 ## Image, son, sous-titres
-- [ ] Logo HD · voix FLORA (11 fichiers) · SRT recalé · illustration P02 · export `T04_suivre_bus_v1.mp4`.
+- [x] Voix FLORA (11 fichiers, voix Charon) · SRT recalé sur la voix · export `T04_suivre_bus_v1.mp4`.
+- [ ] Logo HD officiel · illustration P02 (optionnelle).
+
+## Défauts de l'application relevés et corrigés (11/11/2026, avec accord)
+- [x] Page Voyages : colonnes Départ et Retour prévu au format brut `2026-11-21` → `21/11/2026`.
+- [x] Page Voyages : colonne « Personnel » vide de nom (affichait la destination) pour tous les profils, recherche par nom et filtre société inopérants : la page lisait `personnel_detail`, que l'API voyages ne renvoie pas (elle renvoie `personnel_nom` / `personnel_societe`).

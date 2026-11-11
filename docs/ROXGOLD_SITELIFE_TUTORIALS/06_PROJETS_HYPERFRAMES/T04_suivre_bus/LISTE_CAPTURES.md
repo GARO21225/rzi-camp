@@ -1,6 +1,6 @@
 # T04 : captures d'écran
 
-Captures **réelles** prises le 11/11/2026 sur l'instance locale de démonstration (jamais la production), iPhone 13 émulé, navigateur en français, **heure réelle**. Le convoi a été mis en route par la vraie API (`seed_demo_t04.py`), avec un tracé GPS fictif. Le fond de carte est celui de l'application (tuiles Esri World Street Map).
+Captures **réelles** prises le 11/11/2026 vers 05 h 15 UTC sur l'instance locale de démonstration (jamais la production), iPhone 13 émulé, navigateur en français, **heure réelle**. Le convoi a été mis en route par la vraie API (`seed_demo_t04.py`), avec un tracé GPS fictif. Le fond de carte est celui de l'application (tuiles Esri World Street Map).
 
 | Fichier | Plan | Contenu |
 |---|---|---|
@@ -8,7 +8,7 @@ Captures **réelles** prises le 11/11/2026 sur l'instance locale de démonstrati
 | `02_suivi_carte.png` | P03, P05, P06 | Panneau « Mon trajet en direct » : carte, arrivée estimée, km restants |
 | `03_suivi_parcours.png` | P07 | Parcours : arrêts passés, votre montée |
 | `04_suivi_bus_entre.png` | P08 | « Le bus est entre… » et votre descente |
-| `05_voyages.png` | P09 | Page Voyages, bouton « Suivre en direct » |
+| `05_voyages.png` | P09 | Page Voyages, ligne du trajet **en cours** (Camp → Yamoussoukro) : « En route » et bouton « Suivre en direct ». La ligne du retour planifié (21/11) a aussi ce bouton (son propre convoi, à venir) : elle n'est pas celle mise en avant. |
 
 ## Reproduire (à lancer juste avant la capture, pour des positions fraîches)
 
