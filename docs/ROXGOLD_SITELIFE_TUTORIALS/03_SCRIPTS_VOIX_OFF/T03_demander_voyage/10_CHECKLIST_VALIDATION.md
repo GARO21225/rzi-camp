@@ -4,7 +4,7 @@
 - [x] Parcours rejoué : demande, validation (administrateur fictif, API), notification, accueil.
 - [x] Défaut « Trajet en cours dès la validation » corrigé et testé ; les captures 08 à 10 ont été prises **après** le correctif (voyage « Planifié », chambre conservée).
 - [x] Règles vérifiées dans le code : 48 h minimum (client et serveur), motif obligatoire, jours de circulation, refus avec motif obligatoire, annulation tant que la demande n'est pas traitée.
-- [ ] Décider pour les deux petits défauts d'affichage (dates brutes sur la carte, date de départ préremplie).
+- [x] Les deux petits défauts d'affichage sont corrigés (dates en français sur la carte, départ prérempli à J+2) ; les captures ont été refaites.
 
 ## Données
 - [x] Compte fictif Aya DEMO, administrateur fictif `demo.admin`, motif et précisions marqués démo.

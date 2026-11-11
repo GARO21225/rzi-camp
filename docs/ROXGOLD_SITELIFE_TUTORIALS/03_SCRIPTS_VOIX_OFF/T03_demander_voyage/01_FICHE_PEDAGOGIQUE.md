@@ -29,9 +29,9 @@
 ## Défaut corrigé pendant le tournage (avec l'accord d'Edgar)
 - **Validation d'un départ futur depuis le camp** : la personne était marquée « en voyage » et sa chambre libérée **dès la validation**, plusieurs jours avant le départ. L'accueil affichait « Trajet en cours · En route ». **Corrigé** : le voyage reste « Planifié » et la chambre occupée jusqu'au jour J, puis la tâche automatique fait partir la personne (`residences/views.py`, tests `TrajetsAllerSimpleTests.test_validation_d_un_depart_*`).
 
-## Petits défauts relevés (non corrigés, à décider)
-- La carte d'une demande affiche ses dates au format brut « 2026-11-16 → 2026-11-28 », au lieu de `toLocaleDateString('fr-FR')` (convention de `CLAUDE.md`).
-- Le champ « Date départ » est prérempli avec la date du jour, alors qu'un résident doit demander au moins 48 h à l'avance : il faut toujours le changer.
+## Petits défauts d'affichage, **corrigés le 11/11/2026** (avec l'accord d'Edgar)
+- La carte d'une demande affiche ses dates au format brut « 2026-11-16 → 2026-11-28 », au lieu de `toLocaleDateString('fr-FR')` (convention de `CLAUDE.md`). **Corrigé** : « 16 nov. 2026 → 28 nov. 2026 ».
+- Le champ « Date départ » est prérempli avec la date du jour, alors qu'un résident doit demander au moins 48 h à l'avance : il fallait toujours le changer. **Corrigé** : il est prérempli à J+2, le minimum autorisé.
 
 ## Ce que la vidéo ne dit pas
 - La **contre-proposition** de l'administration ne concerne en pratique que les résidences. Pour un voyage, l'acceptation d'une proposition ne crée aucun voyage : ce n'est donc pas montré.
