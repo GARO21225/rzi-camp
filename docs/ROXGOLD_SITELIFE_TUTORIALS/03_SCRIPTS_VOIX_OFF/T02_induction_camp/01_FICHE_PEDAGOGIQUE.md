@@ -34,12 +34,12 @@
 | Engager la personne | Récapitulatif, formulaire d'acceptation, signature au doigt, certificat. |
 | Suivre la conformité | Registre de l'administration (terminés, à faire, exemptés, taux de conformité, export Excel) depuis la même page. |
 
-## Défauts de l'application constatés pendant le tournage (non corrigés : le code métier n'est pas modifié sans ton accord)
+## Défauts de l'application constatés pendant le tournage, **corrigés le 11/11/2026** (avec l'accord d'Edgar)
 
-1. **Étape Bienvenue, liste du parcours** : la ligne ⚡ s'affiche **sans texte**. Dans `InductionCamp.jsx:670`, le libellé `'Déclarer vos appareils {'>'}100W'` est une chaîne JavaScript, pas du JSX : il est évalué comme la comparaison `'…{' > '}100W'`, qui vaut `false`. Correctif : `label:'Déclarer vos appareils >100W'`.
-2. **Certificat** : « ✅ **8** règles de vie lues et comprises » et « 8 infrastructures » sont **écrits en dur** (`InductionCamp.jsx:413-414`), alors que le camp a 9 règles et que seules 4 infrastructures sont exigées. Correctif : utiliser `REGLES.length` et `infrasVues.size`.
+1. **Étape Bienvenue, liste du parcours** : la ligne ⚡ s'affiche **sans texte**. Dans `InductionCamp.jsx:670`, le libellé `'Déclarer vos appareils {'>'}100W'` est une chaîne JavaScript, pas du JSX : il est évalué comme la comparaison `'…{' > '}100W'`, qui vaut `false`. **Corrigé** : `label:'Déclarer vos appareils >100W'`.
+2. **Certificat** : « ✅ **8** règles de vie lues et comprises » et « 8 infrastructures » sont **écrits en dur** (`InductionCamp.jsx:413-414`), alors que le camp a 9 règles et que seules 4 infrastructures sont exigées. **Corrigé** : `REGLES.length` et `infrasVues.size`, avec les traductions anglaises ajoutées dans `src/i18n/en.json`.
 
-La vidéo ne fait lire aucun de ces deux textes. Il faudra refaire les captures 02 et 17 une fois ces défauts corrigés.
+Les captures 02 et 17 ont été refaites après correction.
 
 ## Ce que la vidéo ne dit pas (et pourquoi)
 

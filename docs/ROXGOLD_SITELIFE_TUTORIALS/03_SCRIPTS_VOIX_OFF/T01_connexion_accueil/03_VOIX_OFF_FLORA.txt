@@ -1,0 +1,54 @@
+T01 - SE CONNECTER ET PRENDRE EN MAIN SON ESPACE - VOIX OFF FLORA
+Même voix que T05 et T02. Un fichier par plan : T01_P01.mp3 ... T01_P17.mp3
+« SiteLife » se prononce saït-laïf.
+
+[P01]
+Roxgold SiteLife. ... Se connecter et prendre en main son espace.
+
+[P02]
+Mon prochain trajet ? Ma demande est-elle validée ? ... Les informations sont souvent dispersées. Et sans espace personnel, chacun doit demander autour de lui.
+
+[P03]
+Avec Roxgold SiteLife, votre espace personnel réunit tout, sur votre téléphone.
+
+[P04]
+Sur iPhone, ouvrez l'application dans Safari : elle vous explique comment l'ajouter à votre écran d'accueil.
+
+[P05]
+Saisissez votre identifiant et votre mot de passe, ... puis appuyez sur Se connecter.
+
+[P06]
+Selon la configuration de votre site, une connexion par code SMS peut aussi être proposée.
+
+[P07]
+Vous arrivez sur votre accueil : votre prochain trajet, sa date, son heure et le compte à rebours.
+
+[P08]
+Les raccourcis mènent directement aux pages de votre menu.
+
+[P09]
+Plus bas : vos demandes, en attente et validées.
+
+[P10]
+En bas de l'écran, la barre d'onglets : Accueil, Voyages, Demandes, Repas, Signaler.
+
+[P11]
+Plus ouvre toutes vos pages. ... En bas : Mon compte et Déconnexion.
+
+[P12]
+Mon compte affiche votre profil et le choix de la langue : français ou anglais.
+
+[P13]
+Dans l'onglet Sécurité, vous pouvez modifier votre mot de passe.
+
+[P14]
+Saisissez l'ancien mot de passe, puis le nouveau, deux fois. ... La jauge indique sa force. Appuyez sur Modifier le mot de passe.
+
+[P15]
+Vous êtes alors déconnecté : reconnectez-vous avec le nouveau mot de passe.
+
+[P16]
+Tout au même endroit, sur votre téléphone, avec un compte protégé. ... Sans activité pendant quinze minutes, l'application vous déconnecte automatiquement.
+
+[P17]
+Roxgold SiteLife. ... Bienvenue dans votre espace.

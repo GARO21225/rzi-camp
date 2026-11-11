@@ -6,7 +6,7 @@ Le contenu de l'induction est le contenu officiel chargé par les migrations (`r
 | Fichier | Plan | Contenu |
 |---|---|---|
 | `01_bienvenue.png` | P03, P04 | Étape 1/6 Bienvenue (ouverte automatiquement après la connexion) |
-| `02_bienvenue_parcours.png` | P05 | Chiffres du camp et « Votre parcours d'induction — ~15 minutes » (⚠️ ligne ⚡ vide : défaut de l'application) |
+| `02_bienvenue_parcours.png` | P05 | Chiffres du camp et « Votre parcours d'induction — ~15 minutes » |
 | `03_infras_grille.png` | P06 | Grille des 8 infrastructures |
 | `04_infra_selection.png` | — | Carte Restaurant sélectionnée (non utilisée) |
 | `04b_infra_detail.png` | P07 | Fiche Restaurant : horaires et consignes |
@@ -22,7 +22,7 @@ Le contenu de l'induction est le contenu officiel chargé par les migrations (`r
 | `14_appareil_declare.png` | P17 | Appareil déclaré |
 | `15_engagement.png` | P18 | Récapitulatif de l'induction |
 | `16_signature.png` | P19 | Signature tracée, bouton Finaliser |
-| `17_certificat.png` | P20 | Certificat d'induction Camp (⚠️ « 8 règles » codé en dur : défaut de l'application) |
+| `17_certificat.png` | P20 | Certificat d'induction Camp |
 
 ## Reproduire
 

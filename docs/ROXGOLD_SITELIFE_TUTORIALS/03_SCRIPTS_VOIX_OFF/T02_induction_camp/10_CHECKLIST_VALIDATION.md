@@ -4,8 +4,8 @@
 - [x] Parcours complet rejoué de bout en bout sur l'instance de démo : 6 étapes, quiz 10/10, certificat.
 - [x] Règles d'accès vérifiées dans le code : au moins 4 infrastructures, toutes les règles, quiz à 100 %, signature obligatoire.
 - [x] Aucune promesse fausse : pas de « première connexion », pas de « toute l'application ».
-- [ ] **Défaut 1** (ligne ⚡ vide sur l'écran Bienvenue) : corriger, puis refaire la capture `02_bienvenue_parcours.png`.
-- [ ] **Défaut 2** (« 8 règles » écrit en dur sur le certificat) : corriger, puis refaire la capture `17_certificat.png`.
+- [x] **Défaut 1** (ligne ⚡ vide sur l'écran Bienvenue) : corrigé, capture `02_bienvenue_parcours.png` refaite.
+- [x] **Défaut 2** (« 8 règles » écrit en dur sur le certificat) : corrigé, capture `17_certificat.png` refaite.
 
 ## Données et confidentialité
 - [x] Les **vrais contacts** du contenu d'induction (noms, téléphones, e-mails, numéros de chambre, prestataire médical) ont été **remplacés par des données « DÉMO »** dans la base de démonstration (`seed_demo_t02.py`), puis vérifiés par recherche : 0 occurrence restante.

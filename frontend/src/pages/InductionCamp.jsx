@@ -410,8 +410,8 @@ export default function InductionCamp() {
             <div style={{background:'rgba(16,185,129,.1)',border:'1px solid rgba(16,185,129,.3)',
               borderRadius:12,padding:16,textAlign:'left',marginBottom:24}}>
               {[
-                '✅ 8 infrastructures du camp découvertes',
-                '✅ 8 règles de vie lues et comprises',
+                `✅ ${infrasVues.size} infrastructures du camp découvertes`,
+                `✅ ${REGLES.length} règles de vie lues et comprises`,
                 `✅ Quiz validé — ${quizScore}/${QUIZ.length} bonnes réponses`,
                 `✅ ${appareils.length} appareil(s) énergivore(s) déclaré(s)`,
                 '✅ Engagement signé électroniquement',
@@ -667,7 +667,7 @@ export default function InductionCamp() {
                   {emoji:'🏗️',label:`Découvrir les ${INFRAS.length} infrastructures et services`},
                   {emoji:'📜',label:`Lire les ${REGLES.length} règles de vie`},
                   {emoji:'🧠',label:`Passer le quiz (${QUIZ.length} questions)`},
-                  {emoji:'⚡',label:'Déclarer vos appareils {'>'}100W'},
+                  {emoji:'⚡',label:'Déclarer vos appareils >100W'},
                   {emoji:'✍️',label:'Signer votre engagement'},
                   {emoji:'🏅',label:'Obtenir votre certificat'},
                 ].map(({emoji,label})=>(
