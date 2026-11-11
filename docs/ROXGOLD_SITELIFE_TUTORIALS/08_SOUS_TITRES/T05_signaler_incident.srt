@@ -1,99 +1,99 @@
 1
-00:00:00,300 --> 00:00:03,600
+00:00:00,300 --> 00:00:04,640
 Roxgold SiteLife.
 Signaler un incident de maintenance.
 
 2
-00:00:04,300 --> 00:00:07,800
+00:00:05,690 --> 00:00:09,770
 Un climatiseur qui ne refroidit plus.
 Une fuite sous le lavabo.
 
 3
-00:00:08,000 --> 00:00:14,600
+00:00:09,820 --> 00:00:16,040
 Signalé de vive voix, le problème est vite oublié…
 et personne ne sait où en est la réparation.
 
 4
-00:00:15,300 --> 00:00:19,200
+00:00:17,090 --> 00:00:22,540
 Avec Roxgold SiteLife, vous déclarez l'incident
 depuis votre téléphone, en quelques gestes.
 
 5
-00:00:19,400 --> 00:00:22,600
+00:00:22,590 --> 00:00:25,160
 Il est ensuite suivi jusqu'à sa résolution.
 
 6
-00:00:23,300 --> 00:00:28,600
+00:00:26,210 --> 00:00:30,760
 Depuis votre accueil, appuyez sur l'onglet Signaler,
 en bas de l'écran.
 
 7
-00:00:29,300 --> 00:00:34,600
+00:00:32,210 --> 00:00:37,700
 La page Maintenance s'ouvre.
 Appuyez sur le bouton doré, avec le signe plus.
 
 8
-00:00:35,300 --> 00:00:38,600
+00:00:38,750 --> 00:00:41,990
 Le formulaire Déclarer un incident s'affiche.
 
 9
-00:00:39,300 --> 00:00:44,600
+00:00:43,040 --> 00:00:47,540
 Commencez par un titre court.
-Par exemple : Climatiseur en panne.
+Par exemple : Climatiseur en panne.
 
 10
-00:00:45,300 --> 00:00:48,000
+00:00:49,040 --> 00:00:51,490
 Décrivez ensuite le problème.
 
 11
-00:00:48,100 --> 00:00:52,600
+00:00:51,540 --> 00:00:57,350
 Choisissez la catégorie, ici Climatisation,
-puis la priorité : Haute.
+puis la priorité : Haute.
 
 12
-00:00:53,300 --> 00:00:57,500
-Indiquez le lieu : Hébergement pour votre chambre,
+00:00:58,400 --> 00:01:03,850
+Indiquez le lieu : Hébergement pour votre chambre,
 ou Autre infrastructure.
 
 13
-00:00:57,700 --> 00:01:01,600
+00:01:03,900 --> 00:01:07,570
 Saisissez la résidence,
 puis le bloc ou la chambre.
 
 14
-00:01:02,300 --> 00:01:04,300
+00:01:08,620 --> 00:01:10,460
 Ajoutez une photo si besoin.
 
 15
-00:01:04,500 --> 00:01:08,200
+00:01:10,510 --> 00:01:14,850
 Le délai de traitement est fixé automatiquement
 selon la priorité.
 
 16
-00:01:08,500 --> 00:01:10,700
+00:01:14,900 --> 00:01:17,010
 Appuyez sur Déclarer l'incident.
 
 17
-00:01:11,300 --> 00:01:17,600
+00:01:18,060 --> 00:01:24,100
 C'est fait. L'incident apparaît dans votre liste,
 avec le statut Déclaré et sa date d'échéance.
 
 18
-00:01:18,300 --> 00:01:25,600
-Touchez-le pour voir son parcours : déclaré,
+00:01:25,150 --> 00:01:33,620
+Touchez-le pour voir son parcours : déclaré,
 assigné, en cours, résolu, puis clôturé.
 
 19
-00:01:26,300 --> 00:01:30,000
+00:01:34,670 --> 00:01:38,290
 Les responsables du camp sont prévenus
 dès la déclaration.
 
 20
-00:01:30,300 --> 00:01:35,600
+00:01:38,340 --> 00:01:42,610
 Chaque incident est tracé, priorisé et suivi,
 jusqu'à sa résolution.
 
 21
-00:01:36,300 --> 00:01:39,600
+00:01:44,670 --> 00:01:48,750
 Roxgold SiteLife.
 Un signalement, un suivi.
