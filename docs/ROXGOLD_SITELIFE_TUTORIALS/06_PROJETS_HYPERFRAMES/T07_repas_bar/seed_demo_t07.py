@@ -13,6 +13,8 @@ import datetime, os
 from django.conf import settings
 if not settings.DEBUG or os.environ.get('DATABASE_URL') or settings.DATABASES['default']['ENGINE'] != 'django.db.backends.sqlite3':
     raise SystemExit('Refusé : ce script ne tourne que sur une base SQLite locale avec DEBUG=True.')
+
+EN = os.environ.get("LANGUE") == "en"   # version anglaise : contenus de démo en anglais
 from django.db.models import F
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -23,6 +25,7 @@ from evenements.models import SimpleNotification
 from restauration.models import MenuJour, ArticleBoutique, ConsommationBoutique, BonCaisse
 
 u = User.objects.get(username="demo.resident"); p = Personnel.objects.filter(user=u).first()
+u.set_password("DemoSiteLife2026!"); u.save()   # la capture T01 change ce mot de passe
 admin = User.objects.get(username="demo.admin")
 
 # Aya au camp, sans voyage en cours (efface l'état laissé par T04)
@@ -40,6 +43,18 @@ today = datetime.date.today()
 
 # ── Menu du jour (API menu, comme l'équipe restauration) ──
 MenuJour.objects.filter(date_service=today).delete()
+MENU_EN = [
+    ("matin", "boisson", "Coffee, tea or hot chocolate", ""),
+    ("matin", "plat", "Omelette and fresh bread", "With butter and jam"),
+    ("matin", "dessert", "Seasonal fruit", ""),
+    ("midi", "entree", "Raw vegetable salad", ""),
+    ("midi", "plat", "Chicken in peanut sauce with rice", ""),
+    ("midi", "plat", "Attiéké with grilled fish", "Served with alloco"),
+    ("midi", "dessert", "Plain yoghurt", ""),
+    ("soir", "plat", "Foutou with palm nut sauce", ""),
+    ("soir", "plat", "Spaghetti bolognese", ""),
+    ("soir", "dessert", "Fruit salad", ""),
+]
 MENU = [
     ("matin", "boisson", "Café, thé ou chocolat chaud", ""),
     ("matin", "plat", "Omelette et pain frais", "Avec beurre et confiture"),
@@ -52,13 +67,24 @@ MENU = [
     ("soir", "plat", "Pâtes à la bolognaise", ""),
     ("soir", "dessert", "Salade de fruits", ""),
 ]
-for repas, typ, nom, desc in MENU:
+for repas, typ, nom, desc in (MENU_EN if EN else MENU):
     r = ca.post("/api/menu/", {"nom": nom, "description": desc, "type_plat": typ, "repas": repas,
                                "date_service": today.isoformat(), "disponible": True}, format="json")
     assert r.status_code in (200, 201), (r.status_code, r.data)
 
 # ── Carte du bar (API articles, réservée à l'administrateur) ──
 ConsommationBoutique.objects.all().delete(); ArticleBoutique.objects.all().delete()
+ARTICLES_EN = [
+    ("Mineral water 1.5 L", "drinks", 500, 48),
+    ("Soft drink 33 cl", "drinks", 700, 36),
+    ("Bissap juice 50 cl", "drinks", 600, 20),
+    ("Espresso", "drinks", 400, 60),
+    ("Ginger juice 50 cl", "drinks", 600, 0),
+    ("Dry biscuits", "snacks", 500, 25),
+    ("Roasted peanuts", "snacks", 300, 30),
+    ("Bar of soap", "toiletries", 800, 15),
+    ("Toothpaste", "toiletries", 1200, 10),
+]
 ARTICLES = [  # nom, catégorie, prix FCFA (fictifs), stock
     ("Eau minérale 1,5 L", "boissons", 500, 48),
     ("Soda 33 cl", "boissons", 700, 36),
@@ -71,7 +97,7 @@ ARTICLES = [  # nom, catégorie, prix FCFA (fictifs), stock
     ("Dentifrice", "hygiène", 1200, 10),
 ]
 art = {}
-for nom, cat, prix, stock in ARTICLES:
+for nom, cat, prix, stock in (ARTICLES_EN if EN else ARTICLES):
     r = ca.post("/api/boutique/articles/", {"nom": nom, "categorie": cat, "prix": prix, "stock": stock, "actif": True}, format="json")
     assert r.status_code in (200, 201), (r.status_code, r.data)
     art[nom] = ArticleBoutique.objects.get(id=r.data["id"])
@@ -91,8 +117,9 @@ CONSOS = [  # article, quantité, mode, il y a N jours, heure (Abidjan = UTC)
     ("Savon de toilette", 1, "bon", 6, "17:30"),
     ("Jus de bissap 50 cl", 1, "bon", 8, "19:45"),
 ]
+FR_EN = dict(zip([x[0] for x in ARTICLES], [x[0] for x in ARTICLES_EN]))
 for nom, q, mode, j, hm in CONSOS:
-    a = art[nom]
+    a = art[FR_EN[nom] if EN else nom]
     c = ConsommationBoutique.objects.create(personnel=p, article=a, quantite=q, mode_paiement=mode, valide_par=admin)
     ConsommationBoutique.objects.filter(id=c.id).update(date_conso=datetime.datetime.combine(
         today - datetime.timedelta(days=j), datetime.time(*map(int, hm.split(":"))), tzinfo=datetime.timezone.utc))

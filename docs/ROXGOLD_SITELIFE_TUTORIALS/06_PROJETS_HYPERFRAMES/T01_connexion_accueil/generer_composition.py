@@ -4,7 +4,7 @@ Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 W = 1090
 CFG = {
@@ -66,5 +66,58 @@ CFG = {
     ],
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Logging in and getting started",
+    "titre_intro_html": "Logging in and<br>getting started",
+    "etiquette": "Tutorial · Resident area",
+    "constat": {"titre": "Where is my information?", "notes": ["My trip?", "My request?", "Password?"],
+                "maux": ["Information scattered", "No personal view", "Poorly protected logins"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "Your personal space", "Trip, requests, shortcuts: all in one place."),
+        "p04": ("Install", "The app on your home screen", "On iPhone: Safari › Share › “Add to Home Screen”."),
+        "p05": ("Log in", "Username · Password", "Then “Log in →”."),
+        "p06": ("Log in", "SMS code", "Depending on your site's settings."),
+        "p07": ("Home", "Your next trip", "Destination, date, time, countdown."),
+        "p08": ("Home", "Shortcuts", "The pages of your menu, in one tap."),
+        "p09": ("Home", "My requests", "Pending · Approved"),
+        "p10": ("Getting around", "The tab bar", "Home · Trips · Requests · Meals · Report · More"),
+        "p11": ("Getting around", "“More”: all your pages", "And at the bottom: My account, Log out."),
+        "p12": ("My account", "Profile and language", "Company, username, French or English."),
+        "p13": ("Security", "“Security” tab", "Change your password."),
+        "p14": ("Security", "Current · New · Confirm", "The gauge shows how strong the password is."),
+        "p15": ("Security", "Log in again", "With your new password."),
+    },
+    "resultat": {"titre": "Your camp,<br>in your pocket.",
+                 "cartes": [("All in one place", "Next trip, requests, shortcuts"),
+                            ("On your phone", "Installable app, tab bar"),
+                            ("Protected account", "Personal password, logged out after 15 min of inactivity")]},
+    "conclusion": {"phrase": "Welcome to your space.", "chemin": "Home › My account"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Logging in and getting started.",
+        "My next trip? Has my request been approved?<br>Information is often scattered.",
+        "And without a personal space,<br>everyone has to ask around.",
+        "With Roxgold SiteLife, your personal space<br>brings everything together, on your phone.",
+        "On iPhone, open the app in Safari: it shows you<br>how to add it to your home screen.",
+        "Enter your username and your password,",
+        "then tap Log in.",
+        "Depending on your site's settings,<br>logging in with an SMS code may also be offered.",
+        "You land on your home screen: your next trip,<br>its date, its time and the countdown.",
+        "The shortcuts take you straight<br>to the pages of your menu.",
+        "Further down: your requests,<br>pending and approved.",
+        "At the bottom of the screen, the tab bar:<br>Home, Trips, Requests, Meals, Report.",
+        "More opens all your pages.<br>At the bottom: My account and Log out.",
+        "My account shows your profile<br>and the language choice: French or English.",
+        "In the Security tab,<br>you can change your password.",
+        "Enter your current password,<br>then the new one, twice.",
+        "The gauge shows its strength.<br>Tap Change the password.",
+        "You are then logged out:<br>log in again with the new password.",
+        "Everything in one place, on your phone,<br>with a protected account.",
+        "After fifteen minutes without activity,<br>the app logs you out automatically.",
+        "Roxgold SiteLife.<br>Welcome to your space.",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))

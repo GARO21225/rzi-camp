@@ -4,7 +4,7 @@ Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 PLANS = [("p01",4),("p02",10),("p03",7),("p04",6),("p05",9),("p06",7),("p07",5),("p08",6),
          ("p09",10),("p10",8),("p11",5),("p12",8),("p13",8),("p14",4)]
@@ -76,5 +76,55 @@ CFG = {
     "sous_titres": sous_titres(),
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Meals and bar: my QR, the menu, my voucher",
+    "titre_intro_html": "Meals and bar<br>my QR, the menu, my voucher",
+    "etiquette": "Tutorial · Resident area",
+    "constat": {"titre": "At the restaurant, at the bar…", "notes": ["Is my meal counted?", "What's on the menu?", "How much is left on my voucher?"],
+                "maux": ["Paper check-in list", "Bar purchases not tracked", "Voucher balance unknown"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "Meals and bar, in your pocket", "Your QR, today's menu, your cash voucher."),
+        "p04": ("Where to start", "“Meals” tab", "Tab bar, at the bottom of the home screen."),
+        "p05": ("My restaurant QR", "Show it at the restaurant", "The team scans it to validate your meal."),
+        "p06": ("Today's menu", "Morning, noon and evening", "Breakfast, lunch, dinner."),
+        "p07": ("Opening hours", "Meal times", "Below today's menu."),
+        "p08": ("The bar", "More › Bar", "All your pages, from the More tab."),
+        "p09": ("My cash voucher", "This year's balance", "And your purchases this month."),
+        "p10": ("The bar menu", "Price and availability", "Filter by category."),
+        "p11": ("The bar menu", "Sold out", "Out of stock, clearly shown."),
+        "p12": ("My purchases", "Every purchase, recorded", "Date, amount, payment method."),
+    },
+    # Mise en page anglaise : puce « Drinks » plus étroite, article épuisé dans la colonne de gauche
+    "zones": {"p10": [(36,184,1098,1560,0.5,None),(229,455,190,102,4.6,None)], "p11": [(87,1101,483,479,0.5,None)]},
+    "taps": {"p10": (324, 506, 5.6)},
+    "resultat": {"titre": "Meals and bar,<br>without paper.",
+                 "cartes": [("My QR", "Shown at the entrance, scanned by the restaurant team"),
+                            ("Today's menu", "Breakfast, lunch, dinner, and the meal times"),
+                            ("My cash voucher", "Balance, bar menu and purchases")]},
+    "conclusion": {"phrase": "Enjoy your meal!", "chemin": "Meals · More › Bar"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Meals and bar: my QR, the menu, my voucher.",
+        "At the restaurant, check-in is often done<br>on a paper list.",
+        "At the bar, it is hard to know what you have bought,<br>and what is left on your voucher.",
+        "With Roxgold SiteLife, your QR, today's menu<br>and your cash voucher are on your phone.",
+        "From your home screen, tap the Meals tab,<br>at the bottom of the screen.",
+        "Your restaurant QR appears, in your name.",
+        "Show it at the restaurant entrance:<br>the team scans it to validate your meal.",
+        "Just below, today's menu:<br>breakfast, lunch and dinner.",
+        "Then the times of each meal.",
+        "For the bar, open More, then Bar.",
+        "At the top, this year's cash voucher:<br>what is left, out of the starting amount.",
+        "And the total of your purchases this month.",
+        "The bar menu shows every item,<br>with its price and availability.",
+        "Filter by category.",
+        "An out-of-stock item shows: Sold out.",
+        "Finally, My purchases: every purchase,<br>with its date, amount and payment method.",
+        "Your meal validated with one scan, the menu at a glance,<br>and a cash voucher that is always up to date.",
+        "Roxgold SiteLife.<br>Enjoy your meal!",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))

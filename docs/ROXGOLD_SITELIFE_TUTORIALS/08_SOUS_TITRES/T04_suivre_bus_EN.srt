@@ -1,0 +1,64 @@
+1
+00:00:00,300 --> 00:00:03,600
+Roxgold SiteLife.
+Tracking your bus live.
+
+2
+00:00:04,300 --> 00:00:08,200
+On the road, you often wait with no information:
+where is the bus?
+
+3
+00:00:08,400 --> 00:00:12,600
+When will it arrive?
+You end up calling the driver.
+
+4
+00:00:13,300 --> 00:00:19,600
+With Roxgold SiteLife, you track your bus live,
+from your phone.
+
+5
+00:00:20,300 --> 00:00:24,000
+From the day of departure,
+your home screen shows your trip.
+
+6
+00:00:24,200 --> 00:00:27,600
+Tap
+Track my bus live.
+
+7
+00:00:28,300 --> 00:00:35,600
+The map shows the bus, the distance already covered in green,
+and your stop, in gold.
+
+8
+00:00:36,300 --> 00:00:43,600
+Just below: the estimated arrival time,
+the time and kilometres left.
+
+9
+00:00:44,300 --> 00:00:51,600
+The route lists the stops:
+those already passed, where you get on, then where you get off.
+
+10
+00:00:52,300 --> 00:00:58,600
+You can see which towns the bus is between.
+The position updates every fifteen seconds.
+
+11
+00:00:59,300 --> 00:01:05,600
+Tracking is also available from the Trips page:
+Track live.
+
+12
+00:01:06,300 --> 00:01:13,600
+No more waiting blind: you know where the bus is
+and when it will arrive.
+
+13
+00:01:14,300 --> 00:01:17,600
+Roxgold SiteLife.
+Your bus, live.

@@ -9,6 +9,8 @@ import datetime, math, os
 from django.conf import settings
 if not settings.DEBUG or os.environ.get('DATABASE_URL') or settings.DATABASES['default']['ENGINE'] != 'django.db.backends.sqlite3':
     raise SystemExit('Refusé : ce script ne tourne que sur une base SQLite locale avec DEBUG=True.')
+
+EN = os.environ.get("LANGUE") == "en"   # version anglaise : contenus de démo en anglais
 from django.utils import timezone
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
@@ -18,6 +20,7 @@ from voyages.models import Voyage, Rotation, SuiviConvoi, PositionConvoi, Itiner
 from evenements.models import SimpleNotification
 
 u = User.objects.get(username="demo.resident"); p = Personnel.objects.filter(user=u).first()
+u.set_password("DemoSiteLife2026!"); u.save()   # la capture T01 change ce mot de passe
 admin = User.objects.get(username="demo.admin")
 SuiviConvoi.objects.all().delete(); Voyage.objects.filter(personnel=p).delete(); Demande.objects.filter(demandeur=u).delete()
 SimpleNotification.objects.filter(user=u).delete()
@@ -30,22 +33,26 @@ ch, _ = User.objects.get_or_create(username="demo.chauffeur", defaults={"first_n
 ch.set_password("DemoSiteLife2026!"); ch.save()
 pc, _ = Profile.objects.get_or_create(user=ch); pc.role = "agent"; pc.save()
 pch = Personnel.objects.filter(user=ch).first() or Personnel.objects.create(nom="DEMO", prenom="Chauffeur", societe="DEMO TRANSPORT", user=ch)
+# Convois de démo laissés par un passage précédent (sinon : « déjà conducteur d'un autre convoi à ces dates »)
+Rotation.objects.filter(conducteur_personnel=pch).delete()
 
 today = datetime.date.today()
 itin = ItineraireModele.objects.get(nom="Camp → Abidjan")
-d = Demande.objects.create(type_demande="voyage", demandeur=u, statut="en_attente", message_demandeur="Repos — démonstration",
+d = Demande.objects.create(type_demande="voyage", demandeur=u, statut="en_attente", message_demandeur=("Rest — demo" if EN else "Repos — démonstration"),
                            date_debut_souhaitee=today, date_fin_souhaitee=today + datetime.timedelta(days=10),
                            donnees={"itineraire_modele": itin.id, "origine": "CAMP", "destination": "YAMOUSSOUKRO", "motif": "repos"})
 ca = APIClient(); ca.force_authenticate(admin)
-r = ca.post(f"/api/demandes/{d.id}/valider/", {"forcer_jour": True, "commentaire": "Validée — bon voyage."}, format="json")
+r = ca.post(f"/api/demandes/{d.id}/valider/", {"forcer_jour": True, "commentaire": ("Approved — have a good trip." if EN else "Validée — bon voyage.")}, format="json")
 assert r.status_code == 200, r.data
 v = Voyage.objects.get(demande_origine=d, destination__icontains="YAMOUSSOUKRO")
 rot = Rotation.objects.get(rotation_id=v.rotation_id)
 # Véhicule et chauffeur affectés comme depuis le Centre de Mobilité (action « modifier_rotation » de l'API)
 from voyages.models import VehiculeFlotte
-VehiculeFlotte.objects.get_or_create(matricule="DEMO-001", defaults={"nom": "Bus DÉMO", "categorie": "bus", "capacite": 30})
-r = ca.post("/api/voyages/modifier_rotation/", {"rotation_id": rot.rotation_id, "vehicule_matricule": "DEMO-001", "vehicule": "Bus DÉMO",
-            "conducteur_id": pch.id, "motif": "Affectation (démo)"}, format="json")
+BUS = "DEMO bus" if EN else "Bus DÉMO"
+vf, _ = VehiculeFlotte.objects.get_or_create(matricule="DEMO-001", defaults={"nom": BUS, "categorie": "bus", "capacite": 30})
+vf.nom = BUS; vf.save(update_fields=["nom"])
+r = ca.post("/api/voyages/modifier_rotation/", {"rotation_id": rot.rotation_id, "vehicule_matricule": "DEMO-001", "vehicule": BUS,
+            "conducteur_id": pch.id, "motif": ("Assignment (demo)" if EN else "Affectation (démo)")}, format="json")
 assert r.status_code == 200, r.data
 rot.refresh_from_db()
 

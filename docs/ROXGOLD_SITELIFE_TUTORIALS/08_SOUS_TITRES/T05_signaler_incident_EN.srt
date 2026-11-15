@@ -1,0 +1,99 @@
+1
+00:00:00,300 --> 00:00:03,700
+Roxgold SiteLife.
+Reporting a maintenance issue.
+
+2
+00:00:04,750 --> 00:00:09,470
+An air conditioner that no longer cools.
+A leak under the washbasin.
+
+3
+00:00:09,520 --> 00:00:16,460
+Reported by word of mouth, the problem is soon forgotten…
+and nobody knows how the repair is going.
+
+4
+00:00:17,510 --> 00:00:22,570
+With Roxgold SiteLife, you report the incident
+from your phone, in just a few taps.
+
+5
+00:00:22,620 --> 00:00:25,060
+It is then tracked until it is resolved.
+
+6
+00:00:26,110 --> 00:00:30,210
+From your home screen, tap the Report tab,
+at the bottom of the screen.
+
+7
+00:00:32,110 --> 00:00:36,320
+The Maintenance page opens.
+Tap the gold button with the plus sign.
+
+8
+00:00:38,110 --> 00:00:40,230
+The Report an incident form appears.
+
+9
+00:00:42,110 --> 00:00:46,530
+Start with a short title.
+For example: Air conditioner not working.
+
+10
+00:00:48,110 --> 00:00:50,170
+Then describe the problem.
+
+11
+00:00:50,220 --> 00:00:55,610
+Choose the category, here Air conditioning,
+then the priority: High.
+
+12
+00:00:56,660 --> 00:01:01,610
+Give the location: Accommodation for your room,
+or Other facility.
+
+13
+00:01:01,660 --> 00:01:04,920
+Enter the residence,
+then the block or room.
+
+14
+00:01:05,970 --> 00:01:07,450
+Add a photo if needed.
+
+15
+00:01:07,500 --> 00:01:12,170
+The handling deadline is set automatically
+according to the priority.
+
+16
+00:01:12,220 --> 00:01:13,840
+Tap Report the incident.
+
+17
+00:01:14,970 --> 00:01:20,670
+Done. The incident appears in your list,
+with the Reported status and its due date.
+
+18
+00:01:21,970 --> 00:01:29,390
+Tap it to see its journey: reported,
+assigned, in progress, resolved, then closed.
+
+19
+00:01:30,440 --> 00:01:34,370
+The camp managers are notified
+as soon as it is reported.
+
+20
+00:01:34,420 --> 00:01:39,560
+Every incident is recorded, prioritised and tracked,
+until it is resolved.
+
+21
+00:01:40,610 --> 00:01:44,560
+Roxgold SiteLife.
+One report, one follow-up.
