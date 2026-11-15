@@ -1,77 +1,77 @@
 1
-00:00:00,300 --> 00:00:03,500
+00:00:00,300 --> 00:00:05,110
 Roxgold SiteLife.
 Restauration : scanner les repas.
 
 2
-00:00:04,300 --> 00:00:08,850
+00:00:06,160 --> 00:00:10,530
 À l'entrée du restaurant, le pointage se fait souvent
 sur une liste papier.
 
 3
-00:00:08,950 --> 00:00:13,500
+00:00:10,580 --> 00:00:14,650
 Les comptes sont approximatifs,
 et rien n'empêche de passer deux fois.
 
 4
-00:00:14,300 --> 00:00:20,500
+00:00:16,160 --> 00:00:23,660
 Avec Roxgold SiteLife, votre téléphone devient un scanner :
 chaque repas est validé, compté et tracé.
 
 5
-00:00:21,300 --> 00:00:26,500
+00:00:24,710 --> 00:00:29,410
 Connectez-vous avec votre compte restauration,
 puis appuyez sur l'onglet Repas.
 
 6
-00:00:27,300 --> 00:00:31,350
+00:00:30,710 --> 00:00:36,420
 Vérifiez votre restaurant et le repas en cours :
 petit-déjeuner, déjeuner ou dîner.
 
 7
-00:00:31,450 --> 00:00:35,500
+00:00:36,470 --> 00:00:38,810
 Les compteurs du jour s'affichent.
 
 8
-00:00:36,300 --> 00:00:43,500
+00:00:39,860 --> 00:00:47,230
 Le scanner s'active : autorisez la caméra,
 puis présentez le QR du résident devant l'objectif.
 
 9
-00:00:44,300 --> 00:00:49,500
+00:00:48,280 --> 00:00:52,620
 Écran vert et bip : le repas est validé,
 au nom du résident.
 
 10
-00:00:50,300 --> 00:00:55,500
+00:00:54,280 --> 00:00:57,990
 Le résident peut noter son repas en un instant,
 ou passer.
 
 11
-00:00:56,300 --> 00:01:02,500
+00:01:00,280 --> 00:01:05,640
 S'il se présente une deuxième fois pour le même repas :
 écran orange, Déjà pris.
 
 12
-00:01:03,300 --> 00:01:09,500
+00:01:07,280 --> 00:01:12,660
 Un QR inconnu ou falsifié est refusé :
 écran rouge, Non reconnu.
 
 13
-00:01:10,300 --> 00:01:16,500
+00:01:14,280 --> 00:01:18,490
 L'historique liste les repas validés,
 avec l'heure et le restaurant.
 
 14
-00:01:17,300 --> 00:01:21,500
+00:01:21,280 --> 00:01:23,710
 Et les compteurs se mettent à jour automatiquement.
 
 15
-00:01:22,300 --> 00:01:29,500
+00:01:26,280 --> 00:01:31,140
 Un scan par repas, un compte exact,
 et une trace pour chaque passage.
 
 16
-00:01:30,300 --> 00:01:33,500
+00:01:34,280 --> 00:01:37,570
 Roxgold SiteLife.
 Bon service !

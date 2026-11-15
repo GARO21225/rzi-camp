@@ -1,77 +1,77 @@
 1
-00:00:00,300 --> 00:00:03,500
+00:00:00,300 --> 00:00:04,220
 Roxgold SiteLife.
 Catering: scanning meals.
 
 2
-00:00:04,300 --> 00:00:08,850
+00:00:05,270 --> 00:00:09,240
 At the restaurant entrance, check-in is often done
 on a paper list.
 
 3
-00:00:08,950 --> 00:00:13,500
+00:00:09,290 --> 00:00:13,810
 Counts are approximate,
 and nothing stops someone from coming through twice.
 
 4
-00:00:14,300 --> 00:00:20,500
+00:00:15,270 --> 00:00:22,120
 With Roxgold SiteLife, your phone becomes a scanner:
 every meal is validated, counted and recorded.
 
 5
-00:00:21,300 --> 00:00:26,500
+00:00:23,170 --> 00:00:26,880
 Sign in with your catering account,
 then tap the Meals tab.
 
 6
-00:00:27,300 --> 00:00:31,350
+00:00:29,170 --> 00:00:33,720
 Check your restaurant and the current meal:
 breakfast, lunch or dinner.
 
 7
-00:00:31,450 --> 00:00:35,500
+00:00:33,770 --> 00:00:35,490
 Today's counters are shown.
 
 8
-00:00:36,300 --> 00:00:43,500
+00:00:38,170 --> 00:00:44,440
 The scanner starts: allow the camera,
 then hold the resident's QR code in front of the lens.
 
 9
-00:00:44,300 --> 00:00:49,500
+00:00:46,170 --> 00:00:50,930
 Green screen and a beep: the meal is validated,
 in the resident's name.
 
 10
-00:00:50,300 --> 00:00:55,500
+00:00:52,170 --> 00:00:55,230
 The resident can rate the meal in a moment,
 or skip.
 
 11
-00:00:56,300 --> 00:01:02,500
+00:00:58,170 --> 00:01:03,190
 If they come back for the same meal:
 orange screen, Already taken.
 
 12
-00:01:03,300 --> 00:01:09,500
+00:01:05,170 --> 00:01:11,150
 An unknown or forged QR code is refused:
 red screen, Not recognised.
 
 13
-00:01:10,300 --> 00:01:16,500
+00:01:12,200 --> 00:01:16,830
 The history lists validated meals,
 with the time and the restaurant.
 
 14
-00:01:17,300 --> 00:01:21,500
+00:01:19,200 --> 00:01:21,470
 And the counters update automatically.
 
 15
-00:01:22,300 --> 00:01:29,500
+00:01:24,200 --> 00:01:28,800
 One scan per meal, an accurate count,
 and a record of every visit.
 
 16
-00:01:30,300 --> 00:01:33,500
+00:01:32,200 --> 00:01:35,050
 Roxgold SiteLife.
 Have a good service!

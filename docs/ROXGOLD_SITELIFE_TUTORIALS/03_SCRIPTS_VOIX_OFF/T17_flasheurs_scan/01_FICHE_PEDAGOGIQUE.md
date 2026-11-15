@@ -8,6 +8,7 @@ Deux versions : **française** et **anglaise** (même parcours, application film
 | Modules | Repas (`pages/Restauration.jsx`, vue équipe restauration : scanner, compteurs, historique, avis) |
 | Public | Flasheurs : personnes qui scannent les QR à l'entrée du restaurant (rôle « restauration », affectées à un restaurant par le Camp Boss) |
 | Support filmé | Mobile (iPhone 13), navigateur en français puis en anglais |
+| Durée | 1:38 (FR) · 1:35 (EN) — catalogue : 3 min, scan seul ici |
 | Difficulté | Facile |
 | Statut fonctionnel | ✅ Opérationnel. Scans **réels** : la caméra du téléphone est remplacée par une vidéo du QR de démonstration (option de Chromium), l'application décode le QR et l'API de scan valide ou refuse, exactement comme sur le terrain. |
 | Périmètre | Le scan uniquement. La publication du menu (réservée à l'écran d'ordinateur) fera l'objet d'un tutoriel à part. |
