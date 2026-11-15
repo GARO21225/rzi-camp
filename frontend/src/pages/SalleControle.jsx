@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE } from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 const hdrs = () => ({ Authorization: `Bearer ${localStorage.getItem('access_token')||''}` })
 
 export default function SalleControle() {

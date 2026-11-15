@@ -1,5 +1,6 @@
+import { API_BASE } from '../../../api'
 // Accès API du Centre de Mobilité (fetch authentifié) — séparé de l'interface.
-export const BASE = import.meta.env.VITE_API_URL || window.location.origin
+export const BASE = API_BASE
 export const tok = () => localStorage.getItem('access_token') || ''
 export const hdrs = () => ({ Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' })
 export const api = (path, opts) => fetch(`${BASE}${path}`, { headers: hdrs(), ...opts })

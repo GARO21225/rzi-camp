@@ -3690,5 +3690,17 @@
 "🪢 Harnais": "🪢 Harness",
 "🪪 Badges QR — Personnel": "🪪 QR badges — Staff",
 "🪪 Badges QR — Personnel (Restauration)": "🪪 QR badges — Staff (Catering)",
-"🪪 Matricule": "🪪 Employee no."
+"🪪 Matricule": "🪪 Employee no.",
+"Accueil": "Home",
+"Demandes": "Requests",
+"Repas": "Meals",
+"Carte": "Map",
+"🚌 Demander un voyage": "🚌 Request a trip",
+"Equipe Restauration": "Catering team",
+"QR invalide (signature incorrecte)": "Invalid QR (wrong signature)",
+"QR ancien format (numéro seul) refusé : faire régénérer le badge par l'administrateur.": "Old QR format (number only) refused: ask the administrator to regenerate the badge.",
+"Seul un superviseur affecté à un restaurant peut scanner. Contactez le Camp Boss.": "Only a supervisor assigned to a restaurant can scan. Contact the Camp Boss.",
+"Choisissez le restaurant où vous scannez.": "Choose the restaurant where you are scanning.",
+"Vous n'êtes pas superviseur de ce restaurant.": "You are not a supervisor of this restaurant.",
+"QR vide": "Empty QR"
 }

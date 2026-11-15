@@ -10,6 +10,7 @@ import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
 import { getRole, isAdminUser } from '../constants/roleNav'
 import { documentComplet, estNatif, imprimerHtml } from '../utils/impression'
+import { API_BASE } from '../api'
 
 // Vues de l'induction QHSE :
 //  - GESTION (admin, HSE) : tout le personnel, toutes les étapes ;
@@ -1054,7 +1055,7 @@ function InductionPageInner() {
                     ev.stopPropagation()
                     if(!await confirmDialog(`Supprimer tout le parcours d'induction de ${p.nom} ${p.prenom} ?`)) return
                     try {
-                      const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+                      const BASE = API_BASE
                       const token = localStorage.getItem('access_token') || ''
                       const recId = p.inductionrecord?.id || p.induction_record_id
 

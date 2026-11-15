@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { API_BASE } from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 const hdrs = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')||''}` })
 
 // BUG REEL CORRIGE ICI (2e fois) : le premier correctif retirait le "0"

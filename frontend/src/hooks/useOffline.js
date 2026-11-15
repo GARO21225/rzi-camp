@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { API_BASE } from '../api'
 
 const QUEUE_KEY = 'rzi_offline_queue'
 
@@ -16,7 +17,7 @@ export function useOffline() {
     // intranet/camp (le serveur local reste joignable même si l'OS pense
     // qu'il n'y a pas d'accès internet global). La seule preuve fiable
     // est une vraie requête au serveur, ci-dessous.
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     // Timeout manuel via AbortController — AbortSignal.timeout() n'existe
     // pas sur tous les navigateurs/versions ; s'il manquait, l'appel
     // plantait avant même d'atteindre le fetch, faisant échouer CE test
@@ -52,7 +53,7 @@ export function useOffline() {
     if (!queue.length) return
     setSyncing(true)
     setSyncMsg(`🔄 Synchronisation de ${queue.length} opération(s)...`)
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     const token = localStorage.getItem('access_token') || ''
     let success = 0, failed = []
     for (const op of queue) {

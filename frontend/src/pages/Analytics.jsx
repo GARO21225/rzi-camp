@@ -9,6 +9,7 @@ import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from 'recharts'
+import { API_BASE } from '../api'
 
 const C = { blue:'var(--rzc-navy)', orange:'#f97316', green:'#16a34a', red:'#dc2626', purple:'#7c3aed', gold:'#f0a500', teal:'#0891b2' }
 
@@ -31,7 +32,7 @@ function RapportHSESousTraitants() {
   const [data, setData] = React.useState([])
   const [loading, setLoading] = React.useState(true)
   const [lastUpdate, setLastUpdate] = React.useState(null)
-  const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+  const BASE = API_BASE
 
   React.useEffect(() => {
     const token = localStorage.getItem('access_token') || ''

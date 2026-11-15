@@ -10,6 +10,7 @@ import { useStore } from '../store'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { MobileMoneyBadge, MOBILE_MONEY_LABELS } from '../components/MobileMoneyIcons'
 import { toast, confirmDialog } from '../toast'
+import { API_BASE } from '../api'
 
 // ── Images par défaut (fallback si pas d'image en DB) ──────
 const DEFAULT_PHOTOS = {
@@ -657,7 +658,7 @@ function GererBonsPanel({ bons, personnel, annee, onRefresh }) {
               </div>
               <button onClick={async()=>{
                 try {
-                  const base = (import.meta?.env?.VITE_API_URL||window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+                  const base = (API_BASE).replace(/\/+$/,'')
                   const tok  = localStorage.getItem('access_token')
                   const r = await fetch(base+'/api/boutique/bons/crediter/',{
                     method:'POST',
@@ -1129,7 +1130,7 @@ export default function Boutique({ embedded = false } = {}) {
     setSubmitting(true)
     setMsg({type:'info',text:'⏳ Traitement...'})
     setShowPayModal(false)
-    const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin)
+    const BASE = (API_BASE)
     const token = localStorage.getItem('access_token')||''
     let allOk = true, lastError = ''
     const doPost = (body) => new Promise((resolve, reject) => {
@@ -2085,7 +2086,7 @@ export default function Boutique({ embedded = false } = {}) {
                     if(!cols[idxNom]) continue
                     try {
                       const tok = localStorage.getItem('access_token')||''
-                      const BASE2 = import.meta.env.VITE_API_URL || window.location.origin
+                      const BASE2 = API_BASE
                       await fetch(`${BASE2}/api/boutique/articles/`,{
                         method:'POST',
                         headers:{'Content-Type':'application/json','Authorization':`Bearer ${tok}`},
