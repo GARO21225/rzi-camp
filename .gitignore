@@ -67,3 +67,4 @@ backups/
 # Sauvegardes
 backups/
 deploy/backup.conf
+frontend/_*.cjs
