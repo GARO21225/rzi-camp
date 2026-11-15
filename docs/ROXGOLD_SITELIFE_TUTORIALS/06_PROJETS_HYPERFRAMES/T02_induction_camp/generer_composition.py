@@ -4,7 +4,7 @@ Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 W = 1090  # largeur utile des zones (pleine largeur de l'écran, marges comprises)
 CFG = {
@@ -80,5 +80,72 @@ CFG = {
     ],
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Completing your Camp Induction",
+    "titre_intro_html": "Completing your<br>Camp Induction",
+    "etiquette": "Tutorial · New arrival",
+    "constat": {"titre": "Arriving at camp…", "notes": ["Opening hours?", "Emergencies?", "Rules?"],
+                "maux": ["Passed on by word of mouth", "Quickly forgotten", "No proof of acceptance"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "A guided journey in 6 steps", "Welcome · Facilities · Rules · Quiz · Appliances · Commitment"),
+        "p04": ("Welcome", "Opens automatically", "Until the induction is signed, the rest of the app is locked."),
+        "p05": ("Welcome", "Your journey", "About 15 minutes · “Start the induction”"),
+        "p06": ("Facilities", "Discover the camp", "Tap an area to open it."),
+        "p07": ("Facilities", "The essentials of each area", "Opening hours, rules of use, instructions."),
+        "p08": ("Facilities", "4 areas visited", "The “Continue” button becomes active."),
+        "p09": ("Camp rules", "Critical · Important · Standard", "Each rule is ranked by level."),
+        "p10": ("Camp rules", "Read each rule", "Tap a rule to expand it."),
+        "p11": ("Camp rules", "All rules read", "“I have read everything → Validation quiz”"),
+        "p12": ("Quiz", "10 random questions", "Every answer must be correct."),
+        "p13": ("Quiz", "One answer per question", "Then “Submit the quiz”."),
+        "p14": ("Quiz", "Quiz passed", "If you make a mistake: back to the rules, then a new set."),
+        "p15": ("Appliances", "Over 100 W: declare it", "Otherwise: “I have no appliance”."),
+        "p16": ("Appliances", "Type · Power · Room", "Then “✓ Declare”."),
+        "p17": ("Appliances", "Appliance declared", "“Continue” to the commitment."),
+        "p18": ("Commitment", "The summary", "Each step is confirmed."),
+        "p19": ("Commitment", "Sign with your finger", "Then “Finalise my induction”."),
+        "p20": ("Result", "Induction certificate", "The rest of the app is unlocked."),
+    },
+    "resultat": {"titre": "Rules known,<br>understood and accepted.",
+                 "cartes": [("Rules known", "Camp facilities and rules reviewed"),
+                            ("Understanding checked", "Quiz: 10 correct answers out of 10"),
+                            ("Commitment recorded", "Signature, certificate and the administration's register")]},
+    "conclusion": {"phrase": "Welcome to the camp.", "chemin": "Menu › Camp Induction"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Completing your Camp Induction.",
+        "When you arrive, the camp rules<br>are often passed on by word of mouth.",
+        "Opening hours, safety, emergency contacts: they are hard to remember,<br>and nothing proves they were understood.",
+        "With Roxgold SiteLife, every new arrival follows<br>the Camp Induction: a guided journey in six steps.",
+        "It ends with a signature<br>and a certificate.",
+        "As soon as you are housed at the camp,<br>the app opens the Camp Induction directly.",
+        "Until it is completed,<br>the other pages remain locked.",
+        "The welcome screen presents your journey,<br>which takes about fifteen minutes.",
+        "Tap Start the induction.",
+        "Step 2: the camp facilities.<br>Tap an area to discover it.",
+        "Each card gives the essentials:<br>opening hours, rules of use, instructions.",
+        "After four areas visited,<br>the Continue button becomes active.",
+        "Step 3: the camp rules. They are ranked:<br>critical, important, standard.",
+        "Tap each rule to read it.",
+        "All the rules have been read:<br>move on to the validation quiz.",
+        "Step 4: the quiz.<br>Ten questions, drawn at random.",
+        "Every answer must be correct.",
+        "Choose one answer per question,<br>then submit the quiz.",
+        "Quiz passed.",
+        "If you make a mistake, you go back to the rules,<br>then a new set of questions is offered.",
+        "Step 5: power-hungry appliances. Any appliance<br>over 100 watts must be declared.",
+        "If you have none, choose<br>“I have no appliance”.",
+        "To declare an appliance: choose the type,<br>enter the power and the room, then Declare.",
+        "The appliance shows as declared.<br>Tap Continue.",
+        "Step 6: the commitment.<br>The summary confirms each step.",
+        "Sign with your finger,<br>then tap Finalise my induction.",
+        "Your induction certificate appears.<br>The rest of the app is unlocked.",
+        "The rules are known, the quiz proves<br>they are understood, the signature commits.",
+        "The administration sees who has finished,<br>from the induction register.",
+        "Roxgold SiteLife.<br>Welcome to the camp.",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))

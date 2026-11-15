@@ -52,11 +52,33 @@ export function t(fr) {
 // Texte complet, puis morceaux autour des nombres et séparateurs usuels
 // (« 3 convoi(s) actif(s) », « Convoi R-A1 · Planifié », « Total : 12 »).
 const SEP = /(\s*(?:\d[\d\s.,:/h]*|·|—|–|\||:|\/|\(|\)|→|«|»|\+)\s*)/
+const NOMS_JOURS = { lundi: 'Monday', mardi: 'Tuesday', mercredi: 'Wednesday', jeudi: 'Thursday', vendredi: 'Friday', samedi: 'Saturday', dimanche: 'Sunday' }
+const jours = (s) => s.replace(/\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/g, (j) => NOMS_JOURS[j]).replace(/ et /g, ' and ')
+const SENS = { Aller: 'Outbound', Retour: 'Return', Return: 'Return', Outbound: 'Outbound' }
+
 // Phrases qui contiennent un nom propre (messages du serveur, par ex. au scan
 // du restaurant) : le dictionnaire ne peut pas les connaître mot pour mot.
 const MOTIFS = [
   [/^(.+) a déjà pris ce repas aujourd'hui$/, '$1 has already had this meal today'],
   [/^Personnel non trouvé: \[(.*)\]$/, 'Staff member not found: [$1]'],
+  [/^Chambre (\S+)$/, 'Room $1'],
+  [/^chambre (.+)$/, 'room $1'],
+  [/^Médecins (.+)$/, 'Doctors $1'],
+  [/^Infirmiers (.+)$/, 'Nurses $1'],
+  [/^Départ prévu le (.+?)( à (.+?))?( · RDV (.+))?$/, (m, d, _a, h, _b, r) => `Departure scheduled on ${d}${h ? ` at ${h}` : ''}${r ? ` · Meeting point ${r}` : ''}`],
+  [/^Le bus arrive à (.+) vers (.+)$/, 'The bus reaches $1 around $2'],
+  [/^Le bus vient vous chercher à (.+)$/, 'The bus is coming to pick you up at $1'],
+  [/^Vous êtes arrivé à (.+)$/, 'You have arrived at $1'],
+  // Jours de circulation d'un trajet (utils/itineraires.js et voyages/models.py)
+  [/^(?:(Aller|Retour|Return|Outbound) ?: ?)?(?:Ce trajet|Le trajet (.+?)) circule le (.+) uniquement \((?:le )?(.+) est un (.+)\)\.$/,
+    (m, sens, trajet, js, date, j) => `${sens ? SENS[sens] + ': ' : ''}${trajet ? `The ${trajet} route` : 'This route'} only runs on ${jours(js)} (${date} is a ${jours(j)}).`],
+  // Notifications de décision sur une demande (residences/views.py)
+  [/^✅ Votre demande a été validée\.\s*(.*)$/, (m, c) => `✅ Your request has been approved.${c ? ' ' + c : ''}`],
+  [/^❌ Votre demande a été rejetée\.\s*Motif ?: ?(.*)$/, '❌ Your request has been rejected. Reason: $1'],
+  [/^Retour au camp — planifié automatiquement au départ du (.+)$/, 'Back to camp — planned automatically on departure of $1'],
+  // Compteurs avec « (s) » (le découpage du traducteur coupe sur les parenthèses)
+  [/^(✅ )?(\d+) appareil\(s\) énergivore\(s\) déclaré\(s\)$/, '$1$2 power-hungry appliance(s) declared'],
+  [/^(\d+) appareil\(s\) déclaré\(s\)( → Continuer)?$/, (m, n, c) => `${n} appliance(s) declared${c ? ' → Continue' : ''}`],
 ]
 
 function traduireTexte(brut) {
@@ -116,13 +138,15 @@ function traiterAttributs(el) {
 function parcourir(racine) {
   if (!racine) return
   if (racine.nodeType === 3) return traiterTexte(racine)
+  // Zone de saisie (textarea) : jamais son contenu, mais son texte d'aide (placeholder) oui
+  if (racine.nodeType === 1 && racine.tagName === 'TEXTAREA') return traiterAttributs(racine)
   if (racine.nodeType !== 1 || ignore(racine)) return
   traiterAttributs(racine)
   const w = document.createTreeWalker(racine, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
   let n
   while ((n = w.nextNode())) {
     if (n.nodeType === 3) traiterTexte(n)
-    else if (!IGNORER.has(n.tagName)) traiterAttributs(n)
+    else if (!IGNORER.has(n.tagName) || n.tagName === 'TEXTAREA') traiterAttributs(n)
   }
 }
 

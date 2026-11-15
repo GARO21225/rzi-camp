@@ -377,3 +377,42 @@ def generer(cfg):
     srt_path = os.path.join(TUTOS, "08_SOUS_TITRES", f'{cfg["code"]}_{os.path.basename(ici).split("_", 1)[1]}{sfx}.srt')
     open(srt_path, "w").write(srt(cfg["sous_titres"]))
     print(f'ok {cfg["code"]} : {total} s, {len(cfg["plans"])} plans, {len(cfg["sous_titres"])} sous-titres, {len(audios)} voix -> {os.path.relpath(srt_path, TUTOS)}')
+
+
+def version_anglaise(cfg, en):
+    """Version anglaise d'un tutoriel à partir de sa configuration française : mêmes plans, encadrés et minutage,
+    captures prises dans l'application en anglais (captures/en/), textes remplacés par ceux du dictionnaire `en` :
+      titre, titre_intro_html, etiquette, constat {titre, maux[], notes[]?}, telephone {plan: (kicker, titre, sous_titre)},
+      zones {plan: [...]} et taps {plan: (x, y, t)} (facultatifs, si la mise en page anglaise décale un élément), resultat {titre, cartes[]},
+      conclusion {phrase, chemin}, sous_titres [textes, dans l'ordre des sous-titres français]."""
+    import copy
+    c = copy.deepcopy(cfg)
+    c.update(langue="en", captures="en", suffixe_langue=True,
+             titre=en["titre"], titre_intro_html=en["titre_intro_html"], etiquette=en["etiquette"])
+    k = en["constat"]
+    c["constat"]["titre"] = k["titre"]
+    c["constat"]["maux"] = [(t, tt) for t, (_, tt) in zip(k["maux"], cfg["constat"]["maux"])]
+    if "notes" in k:
+        c["constat"]["notes"] = k["notes"]
+    for pid, (kick, tit, sous) in en["telephone"].items():
+        cap, n, _, _, _, zones = cfg["telephone"][pid]
+        c["telephone"][pid] = (cap, n, kick, tit, sous, en.get("zones", {}).get(pid, zones))
+    c["resultat"]["titre"] = en["resultat"]["titre"]
+    c["resultat"]["cartes"] = en["resultat"]["cartes"]
+    c["conclusion"].update(en["conclusion"])
+    c.setdefault("taps", {}).update(en.get("taps", {}))   # appuis déplacés par la mise en page anglaise
+    assert len(en["sous_titres"]) == len(cfg["sous_titres"]), "un sous-titre anglais par sous-titre français"
+    c["sous_titres"] = [(a, b, t) for (a, b, _), t in zip(cfg["sous_titres"], en["sous_titres"])]
+    return c
+
+
+def textes_voix_par_plan(cfg):
+    """Texte à dire pour chaque plan : les sous-titres qui commencent dans ce plan, mis bout à bout."""
+    debut, t = {}, 0.0
+    for pid, d in cfg["plans"]:
+        debut[pid] = (t, t + d); t += d
+    out = {pid: [] for pid, _ in cfg["plans"]}
+    for a, _, txt in cfg["sous_titres"]:
+        pid = next(p for p, (x, y) in debut.items() if x <= a < y)
+        out[pid].append(txt.replace("<br>", " "))
+    return {pid: " ".join(v) for pid, v in out.items()}

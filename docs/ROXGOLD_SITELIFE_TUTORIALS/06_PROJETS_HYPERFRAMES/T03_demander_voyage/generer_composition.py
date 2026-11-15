@@ -4,7 +4,7 @@ Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 CFG = {
     "dossier": os.path.dirname(os.path.abspath(__file__)),
@@ -62,5 +62,56 @@ CFG = {
     ],
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Requesting a trip and tracking your request",
+    "titre_intro_html": "Requesting a trip<br>and tracking your request",
+    "etiquette": "Tutorial · Resident area",
+    "constat": {"titre": "Going on leave…", "notes": ["Approved?", "Which bus?", "Which date?"],
+                "maux": ["Requests by word of mouth or on paper", "No recorded answer", "Status unknown"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "Request · Track · Travel", "An online request, tracked until it is approved."),
+        "p04": ("Where to start", "“Request a trip”", "On your home screen, under “Next trip”."),
+        "p05": ("Where to start", "“Trip” button", "The gold bus button, at the bottom right."),
+        "p06": ("Route", "Choose the route", "The request goes to the administration for approval."),
+        "p07": ("Route", "I get on at · I get off at", "The days the bus runs are shown."),
+        "p08": ("Transport and dates", "Camp bus or own vehicle", "Departure at least 48 h ahead · date back at camp."),
+        "p09": ("Reason", "Reason · Details", "Then “Submit the request”."),
+        "p10": ("Tracking", "Pending", "You can still cancel it."),
+        "p11": ("Tracking", "Approved", "With the administration's comment."),
+        "p12": ("Tracking", "Notification", "The decision arrives under the bell."),
+        "p13": ("Home", "Your next trip", "Date, countdown, towns along the route."),
+    },
+    "resultat": {"titre": "A clear request,<br>a recorded decision.",
+                 "cartes": [("In a few taps", "Route, dates, reason, from your phone"),
+                            ("Recorded decision", "Approved, or refused with a mandatory reason"),
+                            ("Trip ready", "The trip appears on your home screen, return included")]},
+    "conclusion": {"phrase": "Request, track, travel.", "chemin": "Home › Request a trip"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Requesting a trip and tracking your request.",
+        "To go on leave, the request is often made<br>by word of mouth or on paper.",
+        "With no recorded answer,<br>it is hard to know whether it was approved.",
+        "With Roxgold SiteLife, you make your request online<br>and track it until it is approved.",
+        "From your home screen,<br>tap Request a trip.",
+        "The Requests page opens.<br>Tap the gold bus button.",
+        "Your request will be sent<br>to the administration for approval.",
+        "First, choose the route.",
+        "Say where you get on<br>and where you get off.",
+        "The days the bus runs are shown:<br>here, Monday, Wednesday and Friday.",
+        "Choose the camp bus<br>or your own vehicle.",
+        "Then the departure date, at least 48 hours ahead,<br>and the date you return to camp.",
+        "Choose the reason,<br>add details if needed,",
+        "then tap Submit the request.",
+        "The request appears: Pending.<br>Until it has been handled, you can cancel it.",
+        "The administration approves it:<br>the status changes to Approved, with its comment.",
+        "You are informed<br>by a notification.",
+        "On your home screen, the trip becomes your next trip:<br>date, countdown and towns along the route.",
+        "A request in a few taps,<br>and a recorded decision.",
+        "If it is refused,<br>you are always told why.",
+        "Roxgold SiteLife.<br>Request, track, travel.",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))

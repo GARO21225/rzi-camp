@@ -4,7 +4,7 @@ Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 CFG = {
     "dossier": os.path.dirname(os.path.abspath(__file__)),
@@ -49,5 +49,44 @@ CFG = {
     ],
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Tracking your bus live",
+    "titre_intro_html": "Tracking your bus<br>live",
+    "etiquette": "Tutorial · Resident area",
+    "constat": {"titre": "On the road…", "notes": ["Where is the bus?", "When will it arrive?", "Where do I get off?"],
+                "maux": ["Waiting with no information", "Calling the driver", "Unknown arrival time"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "Your bus, live", "Position, kilometres left, estimated arrival time."),
+        "p04": ("Where to start", "“Track my bus live”", "On your home screen, from the day of departure."),
+        "p05": ("The map", "The bus and your trip", "Distance covered in green · your stop in gold."),
+        "p06": ("Arrival", "Estimated arrival time", "Time and kilometres left."),
+        "p07": ("The route", "Past and upcoming stops", "Where you get on · where you get off."),
+        "p08": ("The route", "Where is the bus?", "Updated every 15 seconds."),
+        "p09": ("Another way in", "Trips page", "“Track live” on the current trip."),
+    },
+    "resultat": {"titre": "No more<br>waiting blind.",
+                 "cartes": [("The bus, live", "Its position on the map, in real time"),
+                            ("Estimated arrival", "Time and km left to your stop"),
+                            ("Always up to date", "Updated every 15 s, alert if the GPS stops responding")]},
+    "conclusion": {"phrase": "Your bus, live.", "chemin": "Home › Track my bus live"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Tracking your bus live.",
+        "On the road, you often wait with no information:<br>where is the bus?",
+        "When will it arrive?<br>You end up calling the driver.",
+        "With Roxgold SiteLife, you track your bus live,<br>from your phone.",
+        "From the day of departure,<br>your home screen shows your trip.",
+        "Tap<br>Track my bus live.",
+        "The map shows the bus, the distance already covered in green,<br>and your stop, in gold.",
+        "Just below: the estimated arrival time,<br>the time and kilometres left.",
+        "The route lists the stops:<br>those already passed, where you get on, then where you get off.",
+        "You can see which towns the bus is between.<br>The position updates every fifteen seconds.",
+        "Tracking is also available from the Trips page:<br>Track live.",
+        "No more waiting blind: you know where the bus is<br>and when it will arrive.",
+        "Roxgold SiteLife.<br>Your bus, live.",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))

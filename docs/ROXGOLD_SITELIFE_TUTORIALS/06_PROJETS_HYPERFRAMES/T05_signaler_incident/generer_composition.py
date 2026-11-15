@@ -5,7 +5,7 @@ Le rendu est fait par le module commun ../_commun/generateur_tutoriel.py.
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "_commun"))
-from generateur_tutoriel import generer
+from generateur_tutoriel import generer, version_anglaise
 
 CFG = {
     "dossier": os.path.dirname(os.path.abspath(__file__)),
@@ -66,5 +66,54 @@ CFG = {
     ],
 }
 
+# Version anglaise (application filmée en anglais : captures/en/) — mêmes plans, encadrés et minutage
+EN = {
+    "titre": "Reporting a maintenance issue",
+    "titre_intro_html": "Reporting a<br>maintenance issue",
+    "etiquette": "Tutorial · Resident area",
+    "constat": {"titre": "A fault in your room…", "maux": ["Reported by word of mouth", "Quickly forgotten", "No follow-up"]},
+    "telephone": {
+        "p03": ("Roxgold SiteLife", "Report · Prioritise · Track", "Camp maintenance, from your phone."),
+        "p04": ("Where to start", "“Report” tab", "Tab bar, at the bottom of the home screen."),
+        "p05": ("Open the form", "“+” button", "Maintenance page, gold button at the bottom right."),
+        "p06": ("The form", "Report an incident", "Fields marked * are required."),
+        "p07": ("Title", "A short title", "For example: “Air conditioner not working”."),
+        "p08": ("Describe", "Description · Category · Priority", "Category: Air conditioning · Priority: High."),
+        "p09": ("Locate", "Place type · Residence · Block", "Accommodation or another camp facility."),
+        "p10": ("Send", "Photo · Deadline · Report", "The handling deadline follows the priority."),
+        "p11": ("Result", "Incident reported", "“Reported” status and due date (SLA)."),
+        "p12": ("Follow-up", "The incident's journey", "Reported → Assigned → In progress → Resolved → Closed"),
+    },
+    "resultat": {"titre": "Every incident is recorded,<br>prioritised and tracked.",
+                 "cartes": [("Managers notified", "A notification as soon as it is reported"),
+                            ("Priority &amp; deadline", "Handling deadline set automatically"),
+                            ("Tracked journey", "Reported → Assigned → In progress → Resolved → Closed")]},
+    "conclusion": {"phrase": "One report, one follow-up.", "chemin": "Maintenance › Report"},
+    "sous_titres": [
+        "Roxgold SiteLife.<br>Reporting a maintenance issue.",
+        "An air conditioner that no longer cools.<br>A leak under the washbasin.",
+        "Reported by word of mouth, the problem is soon forgotten…<br>and nobody knows how the repair is going.",
+        "With Roxgold SiteLife, you report the incident<br>from your phone, in just a few taps.",
+        "It is then tracked until it is resolved.",
+        "From your home screen, tap the Report tab,<br>at the bottom of the screen.",
+        "The Maintenance page opens.<br>Tap the gold button with the plus sign.",
+        "The Report an incident form appears.",
+        "Start with a short title.<br>For example: Air conditioner not working.",
+        "Then describe the problem.",
+        "Choose the category, here Air conditioning,<br>then the priority: High.",
+        "Give the location: Accommodation for your room,<br>or Other facility.",
+        "Enter the residence,<br>then the block or room.",
+        "Add a photo if needed.",
+        "The handling deadline is set automatically<br>according to the priority.",
+        "Tap Report the incident.",
+        "Done. The incident appears in your list,<br>with the Reported status and its due date.",
+        "Tap it to see its journey: reported,<br>assigned, in progress, resolved, then closed.",
+        "The camp managers are notified<br>as soon as it is reported.",
+        "Every incident is recorded, prioritised and tracked,<br>until it is resolved.",
+        "Roxgold SiteLife.<br>One report, one follow-up.",
+    ],
+}
+
 if __name__ == "__main__":
     generer(CFG)
+    generer(version_anglaise(CFG, EN))
