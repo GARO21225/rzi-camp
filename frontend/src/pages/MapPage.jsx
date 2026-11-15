@@ -8,6 +8,7 @@ import { batiments, pointsInteret as poiAPI, cheminsCirculation as cheminAPI, pa
 import { useStore } from '../store'
 import { toast, confirmDialog } from '../toast'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { API_BASE } from '../api'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -365,7 +366,7 @@ export default function MapPage() {
   }, [])
 
   useEffect(() => {
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     const token = localStorage.getItem('access_token') || ''
     window._mapEdit = (id, residence, statut) => setEditBat({id, residence, statut})
     window._mapDelete = async (id, residence) => {
@@ -1200,7 +1201,7 @@ export default function MapPage() {
                     setGeoKey(k => k+1)
 
                     setImportMsg({ok:true,text:`✅ ${count} entité(s) affichées sur la carte — Couche: ${importLayer}`})
-                    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+                    const BASE = API_BASE
                     const token = localStorage.getItem('access_token') || ''
                     fetch(`${BASE}/api/gis/import/`, {
                       method:'POST',
@@ -1244,7 +1245,7 @@ export default function MapPage() {
               <button onClick={()=>setEditBat(null)}
                 style={{background:'var(--rzc-charcoal)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer'}}>Annuler</button>
               <button onClick={async()=>{
-                const BASE=import.meta?.env?.VITE_API_URL || window.location.origin
+                const BASE=API_BASE
                 const token=localStorage.getItem('access_token')||''
                 const statut=document.getElementById('edit-bat-statut')?.value
                 await fetch(`${BASE}/api/batiments/${editBat.id}/`,{

@@ -5,16 +5,10 @@
  *   const token = localStorage.getItem('access_token') || ''
  */
 import { useCallback } from 'react'
+import { API_BASE } from '../api'
 
-const BASE_URL = (() => {
-  if (import.meta?.env?.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '')
-  const h = window.location.hostname
-  if (h.includes('onrender.com') && h.includes('frontend'))
-    return 'https://' + h.replace('frontend', 'backend')
-  if (h !== 'localhost' && h !== '127.0.0.1')
-    return window.location.origin
-  return 'http://localhost:8000'
-})()
+// Même adresse que l'instance axios (api/index.js) : une seule règle dans toute l'application.
+const BASE_URL = API_BASE
 
 export function getBase() { return BASE_URL }
 

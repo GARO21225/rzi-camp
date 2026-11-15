@@ -11,6 +11,9 @@ const BASE = (() => {
     return window.location.origin
   return 'http://localhost:8000'
 })()
+/** Adresse du serveur API, la même partout (pages qui appellent fetch() directement comprises). */
+export const API_BASE = BASE
+
 const api = axios.create({
   baseURL: BASE,
   timeout: 30000,

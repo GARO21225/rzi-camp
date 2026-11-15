@@ -4,6 +4,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { toast } from '../toast'
 import { inductionCamp, personnel as personnelAPI } from '../api'
 import InductionCampAdmin from './InductionCampAdmin'
+import { API_BASE } from '../api'
 
 // ─────────────────────────────────────────────
 //  DONNÉES CAMP
@@ -103,7 +104,7 @@ function ProgressRing({ pct, size=80, stroke=6, color='#D4A017', children }) {
 export default function InductionCamp() {
   const isMobile = useIsMobile()
   const { user } = useStore()
-  const BASE = import.meta.env.VITE_API_URL || window.location.origin
+  const BASE = API_BASE
   const tok  = () => localStorage.getItem('access_token') || ''
 
   // Vérification induction existante

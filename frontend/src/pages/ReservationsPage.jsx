@@ -3,8 +3,9 @@ import { toast } from '../toast'
 import { vehiculesFlotte, typesVehicule } from '../api'
 import { useStore } from '../store'
 import ComboLibre from '../components/ComboLibre'
+import { API_BASE } from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 const hdrs = () => ({'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('access_token')||''}`})
 const STORAGE_KEY = 'rzi_reservations_v3'
 const FLEET_KEY   = 'rzi_fleet_v1'

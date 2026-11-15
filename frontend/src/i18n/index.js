@@ -52,11 +52,19 @@ export function t(fr) {
 // Texte complet, puis morceaux autour des nombres et séparateurs usuels
 // (« 3 convoi(s) actif(s) », « Convoi R-A1 · Planifié », « Total : 12 »).
 const SEP = /(\s*(?:\d[\d\s.,:/h]*|·|—|–|\||:|\/|\(|\)|→|«|»|\+)\s*)/
+// Phrases qui contiennent un nom propre (messages du serveur, par ex. au scan
+// du restaurant) : le dictionnaire ne peut pas les connaître mot pour mot.
+const MOTIFS = [
+  [/^(.+) a déjà pris ce repas aujourd'hui$/, '$1 has already had this meal today'],
+  [/^Personnel non trouvé: \[(.*)\]$/, 'Staff member not found: [$1]'],
+]
+
 function traduireTexte(brut) {
   const n = norm(brut)
   if (!n) return null
   const direct = D.get(n)
   if (direct) return entourer(brut, direct)
+  for (const [re, en] of MOTIFS) if (re.test(n)) return entourer(brut, n.replace(re, en))
   if (n.length > 400) return null
   const morceaux = n.split(SEP)
   if (morceaux.length < 2) return null

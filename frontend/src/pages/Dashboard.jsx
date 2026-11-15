@@ -5,6 +5,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useAppName } from '../hooks/useAppName'
 import MapSafe from '../components/MapSafe'
 import DepartResidentForm from '../components/DepartResidentForm'
+import { API_BASE } from '../api'
 
 // ─────────────────────────────────────────────────────────────────
 //  CARTE DIGITAL TWIN — évolution de la carte Leaflet existante
@@ -368,7 +369,7 @@ function MobileDashboard({ nomApp, sync, loading, load, alertes, taux, occupes, 
 //  autres KPIs — c'est le comportement déjà en place et il est
 //  volontairement conservé pour la résilience réseau terrain.
 // ─────────────────────────────────────────────────────────────────
-const BASE = import.meta.env.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 const tok  = () => localStorage.getItem('access_token') || ''
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 

@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { boutique as boutiqueAPI, personnel as personnelAPI } from '../api'
 import { useStore } from '../store'
+import { API_BASE } from '../api'
 
 export default function BoutiquePOS() {
   const { user } = useStore()
@@ -102,7 +103,7 @@ export default function BoutiquePOS() {
     setSubmitting(true)
     setMsg({ type: 'info', text: '⏳ Traitement...' })
     
-    const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin)
+    const BASE = (API_BASE)
     const token = localStorage.getItem('access_token') || ''
     
     let allOk = true

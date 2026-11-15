@@ -10,6 +10,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useReadOnly } from '../hooks/useReadOnly'
 import { toast, confirmDialog } from '../toast'
 import { useStore } from '../store'
+import { API_BASE } from '../api'
 
 // ── Error Boundary ───────────────────────────────────────
 class PersonnelBoundary extends React.Component {
@@ -186,7 +187,7 @@ export default function Personnel() {
   }
 
   const massChangerRole = async (action) => {
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     const token = localStorage.getItem('access_token') || ''
     const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${token}`}
     

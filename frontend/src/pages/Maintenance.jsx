@@ -12,6 +12,7 @@ import { toast, confirmDialog } from '../toast'
 import { imprimerHtml } from '../utils/impression'
 import { ficheIntervention } from '../utils/ficheIntervention'
 import { compressImage } from '../utils/photo'
+import { API_BASE } from '../api'
 
 class MaintenanceBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null } }
@@ -208,7 +209,7 @@ export default function Maintenance() {
   }, [jeu])
 
   useEffect(() => {
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     const token = localStorage.getItem('access_token') || ''
     const h = {'Authorization':`Bearer ${token}`}
     // Noms de toutes les résidences (ouvert à tout connecté, sans occupants) : la liste complète est
@@ -335,7 +336,7 @@ export default function Maintenance() {
       if (file.size > 10*1024*1024) { toast.success('Max 10Mo'); return }
       try {
         const b64 = await compressImage(file, 800)
-        const BASE = (import.meta?.env?.VITE_API_URL || window.location.origin.replace('frontend','backend')).replace(/\/+$/,'')
+        const BASE = (API_BASE).replace(/\/+$/,'')
         const token = localStorage.getItem('access_token') || ''
         const resp = await fetch(`${BASE}/api/incidents/${selected.id}/commenter/`, {
           method: 'POST',

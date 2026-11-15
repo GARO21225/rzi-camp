@@ -3,10 +3,11 @@ import { rapportsPlanifiesAPI, incidents as incAPI } from '../api'
 import { imprimerHtml, documentComplet, estNatif } from '../utils/impression'
 import { useStore } from '../store'
 import { toast } from '../toast'
+import { API_BASE } from '../api'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
 import { useNavigate } from 'react-router-dom'
 
-const BASE = import.meta.env.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 const hdrs = () => ({ Authorization:`Bearer ${localStorage.getItem('access_token')||''}` })
 const j = r => r.json()
 

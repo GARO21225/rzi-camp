@@ -9,6 +9,7 @@ import { qr as qrAPI, restaurants as restosAPI, menu as menuAPI, avisRestauratio
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useSurPulse } from '../hooks/useSurPulse'
 import { toast, confirmDialog } from '../toast'
+import { API_BASE } from '../api'
 const RestoTableauDeBord = lazy(() => import('./RestoTableauDeBord'))
 
 // ── Configuration repas ───────────────────────────────────────────
@@ -85,7 +86,7 @@ async function apiGetHistorique(type_repas, jours = 7) {
 async function apiGetStats() {
   try {
     // Appel direct API avec filtre date côté backend
-    const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+    const BASE = API_BASE
     const token = localStorage.getItem('access_token') || ''
     const today = new Date().toISOString().slice(0, 10)
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-6)

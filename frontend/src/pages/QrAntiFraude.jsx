@@ -2,8 +2,9 @@
 // Affiche le QR code rotatif de l'utilisateur courant (HMAC-SHA256 + timestamp)
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
+import { API_BASE } from '../api'
 
-const BASE = import.meta?.env?.VITE_API_URL || window.location.origin
+const BASE = API_BASE
 
 function generateToken() {
   // Token rotatif 30s (placeholder — la vraie génération est côté backend)
