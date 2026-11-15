@@ -1,0 +1,17 @@
+T17 - CATERING: SCANNING MEALS (SCANNER STAFF) - FLORA VOICE-OVER, ENGLISH VERSION
+FLORA voice: Gemini 3.1 Flash TTS, voice Charon (en-US), prompt "natural, warm and calm voice". Files: hyperframes_en/assets/voix/T17_P01.mp3 ... T17_P14.mp3
+
+[P01] Roxgold SiteLife. Catering: scanning meals.
+[P02] At the restaurant entrance, check-in is often done on a paper list. Counts are approximate, and nothing stops someone from coming through twice.
+[P03] With Roxgold SiteLife, your phone becomes a scanner: every meal is validated, counted and recorded.
+[P04] Sign in with your catering account, then tap the Meals tab.
+[P05] Check your restaurant and the current meal: breakfast, lunch or dinner. Today's counters are shown.
+[P06] The scanner starts: allow the camera, then hold the resident's QR code in front of the lens.
+[P07] Green screen and a beep: the meal is validated, in the resident's name.
+[P08] The resident can rate the meal in a moment, or skip.
+[P09] If they come back for the same meal: orange screen, Already taken.
+[P10] An unknown or forged QR code is refused: red screen, Not recognised.
+[P11] The history lists validated meals, with the time and the restaurant.
+[P12] And the counters update automatically.
+[P13] One scan per meal, an accurate count, and a record of every visit.
+[P14] Roxgold SiteLife. Have a good service!

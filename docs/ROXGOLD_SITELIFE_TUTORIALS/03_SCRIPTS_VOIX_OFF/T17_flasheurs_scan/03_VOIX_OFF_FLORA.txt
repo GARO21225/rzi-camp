@@ -1,0 +1,17 @@
+T17 - RESTAURATION : SCANNER LES REPAS (FLASHEURS) - VOIX OFF FLORA, VERSION FRANÇAISE
+Voix FLORA : Gemini 3.1 Flash TTS, voix Charon (fr-FR), consigne « voix naturelle, chaleureuse et posée ». Fichiers : hyperframes/assets/voix/T17_P01.mp3 ... T17_P14.mp3
+
+[P01] Roxgold SiteLife. Restauration : scanner les repas.
+[P02] À l'entrée du restaurant, le pointage se fait souvent sur une liste papier. Les comptes sont approximatifs, et rien n'empêche de passer deux fois.
+[P03] Avec Roxgold SiteLife, votre téléphone devient un scanner : chaque repas est validé, compté et tracé.
+[P04] Connectez-vous avec votre compte restauration, puis appuyez sur l'onglet Repas.
+[P05] Vérifiez votre restaurant et le repas en cours : petit-déjeuner, déjeuner ou dîner. Les compteurs du jour s'affichent.
+[P06] Le scanner s'active : autorisez la caméra, puis présentez le QR du résident devant l'objectif.
+[P07] Écran vert et bip : le repas est validé, au nom du résident.
+[P08] Le résident peut noter son repas en un instant, ou passer.
+[P09] S'il se présente une deuxième fois pour le même repas : écran orange, Déjà pris.
+[P10] Un QR inconnu ou falsifié est refusé : écran rouge, Non reconnu.
+[P11] L'historique liste les repas validés, avec l'heure et le restaurant.
+[P12] Et les compteurs se mettent à jour automatiquement.
+[P13] Un scan par repas, un compte exact, et une trace pour chaque passage.
+[P14] Roxgold SiteLife. Bon service !

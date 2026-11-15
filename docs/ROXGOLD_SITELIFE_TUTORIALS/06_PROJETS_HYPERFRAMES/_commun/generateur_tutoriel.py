@@ -14,6 +14,9 @@ Chaque tutoriel fournit un dictionnaire de configuration (voir T05/T02 `generer_
   resultat       {"plan", "titre", "cartes": [(titre, sous_titre)]}
   conclusion     {"plan", "phrase", "chemin"}
   sous_titres    [(début, fin, texte avec <br>)]  -> aussi exportés en .srt (source unique)
+  langue         "fr" (défaut) ou "en" : libellés de l'habillage, attribut lang, typographie
+  captures       sous-dossier de captures/ (ex. "en") quand le tutoriel existe en plusieurs langues
+  suffixe_langue True : sorties suffixées (hyperframes_en/, TXX_EN_send_to..., TXX_..._EN.srt)
 Sorties : <dossier>/hyperframes/index.html (projet CLI local), <dossier>/send_to_hyperframes/<code>_send_to_hyperframes.html
 (fichier unique pour le flux hébergé), 08_SOUS_TITRES/<code>_<slug>.srt.
 Usage : python3 generer_composition.py <gsap.min.js 3.14.2> <dossier @fontsource/ibm-plex-sans/files>
@@ -27,6 +30,11 @@ K0 = SCR_W / W_IMG
 RACINE = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".."))  # racine du dépôt
 LOGO = os.path.join(RACINE, "roxgold-logo.png")
 TUTOS = os.path.join(RACINE, "docs", "ROXGOLD_SITELIFE_TUTORIALS")
+
+
+# Libellés fixes de l'habillage, par langue (cfg["langue"], "fr" par défaut)
+LIBELLES = {"fr": {"constat": "LE CONSTAT", "resultat": "LE RÉSULTAT"},
+            "en": {"constat": "THE PROBLEM", "resultat": "THE RESULT"}}
 
 
 def b64(path, mime):
@@ -207,7 +215,7 @@ def construire(cfg, images, fonts, gsap_tag, audios=()):
             f'<div class="note" id="{pc}-n{i}" style="left:{40+i*90}px;top:{30+i*140}px;transform:rotate({[-6,4,-3][i%3]}deg)">{t}</div>'
             for i, t in enumerate(notes)) + '</div>'
     maux = "".join(f'<div class="mal" id="{pc}-m{i}"><span class="croix">✕</span>{t}</div>' for i, (t, _) in enumerate(c["maux"]))
-    scene(pc, f'<div class="constat"><div class="kicker rouge" id="{pc}-k">LE CONSTAT</div>'
+    scene(pc, f'<div class="constat"><div class="kicker rouge" id="{pc}-k">{LIBELLES[cfg.get("langue", "fr")]["constat"]}</div>'
               f'<h2 class="titre-l" id="{pc}-t">{c["titre"]}</h2>{decor}<div class="maux">{maux}</div></div>')
     a(f'tl.from("#{pc}-k",{{autoAlpha:0,x:-30,duration:.5,ease:"power2.out"}},{s+.2});'
       f'tl.from("#{pc}-t",{{autoAlpha:0,y:30,duration:.6,ease:"power4.out"}},{s+.4});'
@@ -265,7 +273,7 @@ def construire(cfg, images, fonts, gsap_tag, audios=()):
 
     # Résultat
     r = cfg["resultat"]; pr = r["plan"]; s = START[pr]
-    scene(pr, f'<div class="kicker or" id="{pr}-k">LE RÉSULTAT</div><h2 class="titre-l centre" id="{pr}-t">{r["titre"]}</h2>'
+    scene(pr, f'<div class="kicker or" id="{pr}-k">{LIBELLES[cfg.get("langue", "fr")]["resultat"]}</div><h2 class="titre-l centre" id="{pr}-t">{r["titre"]}</h2>'
               '<div class="cartes">' + "".join(f'<div class="carte" id="{pr}-c{i}"><div class="carte-n">{i+1}</div><div class="carte-t">{t}</div><div class="carte-s">{st}</div></div>'
                                                for i, (t, st) in enumerate(r["cartes"])) + '</div>')
     a(f'tl.from("#{pr}-k",{{autoAlpha:0,y:-20,duration:.5,ease:"power2.out"}},{s+.2});'
@@ -290,7 +298,7 @@ def construire(cfg, images, fonts, gsap_tag, audios=()):
     subs = "".join(f'<div class="st clip" id="st{i}" data-start="{a0}" data-duration="{round(b0-a0,2)}" data-track-index="1"><span>{t}</span></div>'
                    for i, (a0, b0, t) in enumerate(cfg["sous_titres"]))
     return f'''<!doctype html>
-<html lang="fr" style="overflow:hidden;margin:0">
+<html lang="{cfg.get('langue', 'fr')}" style="overflow:hidden;margin:0">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=1920, height=1080">
 <title>{cfg["code"]} · {cfg["titre"]} · Roxgold SiteLife</title>
@@ -335,8 +343,13 @@ def typo(v):
 
 def generer(cfg):
     gsap, fonts_dir = sys.argv[1], sys.argv[2]
-    cfg = {k: (v if k == "dossier" else typo(v)) for k, v in cfg.items()}
-    ici = cfg["dossier"]; cap = os.path.join(ici, "captures"); out = os.path.join(ici, "hyperframes")
+    langue = cfg.get("langue", "fr")
+    if langue == "fr":   # espaces insécables : typographie française uniquement
+        cfg = {k: (v if k == "dossier" else typo(v)) for k, v in cfg.items()}
+    sfx = "" if langue == "fr" or not cfg.get("suffixe_langue") else f"_{langue.upper()}"
+    ici = cfg["dossier"]
+    cap = os.path.join(ici, "captures", *( [cfg["captures"]] if cfg.get("captures") else [] ))
+    out = os.path.join(ici, "hyperframes" + sfx.lower())
     voix_dir = os.path.join(out, "assets", "voix")
     cfg, audios = adapter_a_la_voix(cfg, voix_dir)
     os.makedirs(os.path.join(out, "assets"), exist_ok=True)
@@ -355,12 +368,12 @@ def generer(cfg):
     inl = [(pid, b64(f, "audio/mpeg"), st0, du) for pid, f, st0, du in audios]
     html, _ = construire(cfg, imgs, fonts, '<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>\n'
                          '<script src="https://cdn.jsdelivr.net/npm/@hyperframes/core/dist/hyperframe.runtime.iife.js"></script>', inl)
-    open(os.path.join(ici, "send_to_hyperframes", f'{cfg["code"]}_send_to_hyperframes.html'), "w").write(html)
-    json.dump({"id": f'roxgold-sitelife-{cfg["code"].lower()}', "name": f'{cfg["code"]} {cfg["titre"]}'},
+    open(os.path.join(ici, "send_to_hyperframes", f'{cfg["code"]}{sfx}_send_to_hyperframes.html'), "w").write(html)
+    json.dump({"id": f'roxgold-sitelife-{cfg["code"].lower()}{sfx.lower().replace("_", "-")}', "name": f'{cfg["code"]}{sfx} {cfg["titre"]}'},
               open(os.path.join(out, "meta.json"), "w"), ensure_ascii=False, indent=2)
     if not os.path.exists(os.path.join(out, "hyperframes.json")):
         shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "hyperframes.json"), out)
     open(os.path.join(out, ".gitignore"), "w").write(".hyperframes/\nrenders/\n")
-    srt_path = os.path.join(TUTOS, "08_SOUS_TITRES", f'{cfg["code"]}_{os.path.basename(ici).split("_", 1)[1]}.srt')
+    srt_path = os.path.join(TUTOS, "08_SOUS_TITRES", f'{cfg["code"]}_{os.path.basename(ici).split("_", 1)[1]}{sfx}.srt')
     open(srt_path, "w").write(srt(cfg["sous_titres"]))
     print(f'ok {cfg["code"]} : {total} s, {len(cfg["plans"])} plans, {len(cfg["sous_titres"])} sous-titres, {len(audios)} voix -> {os.path.relpath(srt_path, TUTOS)}')
