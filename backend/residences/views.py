@@ -2269,6 +2269,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
                 SimpleNotification.objects.create(user=user_cible, titre=titre, message=message, type_notif="info")
         except Exception:
             pass
+        # Copie WhatsApp (occupant, personne affectée…) — no-op si WhatsApp non configuré.
+        from accounts.notifications import notifier_whatsapp
+        notifier_whatsapp([user_cible], titre, message)
 
     def _notifier_habilites(self, titre, message):
         # BUG REEL CORRIGE ICI : ne couvrait que is_staff/is_superuser,
@@ -2285,7 +2288,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
             for a in admins:
                 SimpleNotification.objects.create(user=a, titre=titre, message=message, type_notif="alerte")
         except Exception:
-            pass
+            admins = set()
+        from accounts.notifications import notifier_whatsapp
+        notifier_whatsapp(admins, titre, message)
 
     def create(self, request, *args, **kwargs):
         """
@@ -2602,6 +2607,9 @@ class PlainteViewSet(viewsets.ModelViewSet):
             p.statut = "en_cours"
             p.save()
             self._notifier_habilites("🧹 Plainte réouverte", f"#{p.id} — {p.occupant.nom} {p.occupant.prenom} : le problème persiste.")
+            # La personne affectée doit aussi savoir que le travail est à reprendre.
+            if p.affecte_a_id and not (p.affecte_a.is_staff or p.affecte_a.is_superuser):
+                self._notifier(p.affecte_a, "🧹 Plainte réouverte — à reprendre", f"#{p.id} ({p.batiment.residence}) — le problème persiste. {p.motif_reouverture}".strip())
         return Response(PlainteSerializer(p).data)
 
     @action(detail=True, methods=["post"])

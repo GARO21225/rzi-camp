@@ -75,6 +75,8 @@ const CHAMPS = [
   { section: '💬 WhatsApp — API Meta officielle', items: [
     { cle: 'whatsapp_provider', label: 'Fournisseur WhatsApp', suffix: '', type: 'text',
       hint: "meta pour activer (API WhatsApp Business officielle, remplit les champs ci-dessous) — vide/auto désactive le canal WhatsApp" },
+    { cle: 'whatsapp_notif_plaintes', label: 'Notifications des plaintes sur WhatsApp', suffix: '', type: 'text',
+      hint: "oui (par défaut) ou non — copie WhatsApp de chaque notification de plainte aux admins, à l'occupant et à la personne affectée (numéro WhatsApp de la fiche Personnel, sinon téléphone). Nécessite whatsapp_provider=meta." },
     { cle: 'meta_whatsapp_phone_number_id', label: 'Meta — Phone Number ID', suffix: '', type: 'text', hint: 'Depuis developers.facebook.com → votre app → WhatsApp → API Setup' },
     { cle: 'meta_whatsapp_access_token', label: 'Meta — Access Token', suffix: '', type: 'password', hint: 'Token permanent généré via un utilisateur système (System User) dans Meta Business Manager — pas le token temporaire de 24h affiché par défaut' },
     { cle: 'meta_whatsapp_template_name', label: 'Meta — Nom du modèle de message', suffix: '', type: 'text', hint: 'Le modèle doit être créé et approuvé dans Meta Business Manager au préalable, avec UNE seule variable {{1}} dans le corps' },

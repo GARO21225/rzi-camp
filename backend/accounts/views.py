@@ -52,6 +52,7 @@ def liste_parametres(request):
         'sms_provider': ('test', "Fournisseur SMS pour la connexion par code OTP : test, orange, africastalking, prosms, hsms"),
         'canal_otp': ('sms', "Canal d'envoi du code OTP : sms, whatsapp ou email"),
         'whatsapp_provider': ('auto', "Fournisseur pour le canal WhatsApp spécifiquement : meta (API WhatsApp Business officielle) — vide/auto désactive le canal WhatsApp"),
+        'whatsapp_notif_plaintes': ('oui', "Copie WhatsApp des notifications de plaintes (admins, occupant, personne affectée) — oui/non, nécessite whatsapp_provider=meta"),
         # Canal EMAIL (ajouté suite à l'échec de livraison SMS constaté en
         # production — HSMS accepte le numéro mais l'opérateur mobile ne
         # remet pas toujours le SMS au terminal). Resend est le seul
