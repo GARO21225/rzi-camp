@@ -1384,3 +1384,12 @@ class PlainteWhatsAppTests(PlainteAssignationEtFriseTests):
         self._param("whatsapp_notif_plaintes", "non")
         self._post("affecter", {"affecte_a": self.t1.id})
         self.envoi.assert_not_called()
+
+
+class PlainteAgentsWhatsAppTests(PlainteAssignationEtFriseTests):
+    def test_agents_expose_numero_whatsapp_international(self):
+        Personnel.objects.create(nom="Tech", prenom="Awa", societe="ROXGOLD", numero="PF3", telephone="0102030405",
+                                 numero_whatsapp="0707070707", type_personnel="roxgold", user=self.t1)
+        a = {x["id"]: x for x in self._get("agents", detail=False).data}
+        self.assertEqual(a[self.t1.id]["whatsapp"], "2250707070707")
+        self.assertEqual(a[self.t2.id]["whatsapp"], "")

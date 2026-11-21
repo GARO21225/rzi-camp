@@ -594,6 +594,16 @@ export default function Plaintes() {
                   {detailModal.affecte_a ? (
                     <>
                       <span style={{background:'#ede9fe', color:'#6d28d9', fontWeight:800, fontSize:12.5, padding:'5px 12px', borderRadius:99}}>{detailModal.affecte_a_nom}</span>
+                      {(() => {
+                        // Comme REZI : ouvre WhatsApp avec le message déjà rédigé (gratuit, sans API Meta) — il reste à appuyer sur Envoyer.
+                        const wa = [...tousAgents, ...agents].find(a => a.id === detailModal.affecte_a)?.whatsapp
+                        if (!wa) return null
+                        const texte = `Bonjour ${detailModal.affecte_a_nom}, la plainte #${detailModal.id} vous est affectée — ${detailModal.batiment_residence} — ${detailModal.categorie_label}${detailModal.sous_categorie ? ' / ' + detailModal.sous_categorie : ''} : ${detailModal.description}. Priorité : ${detailModal.priorite_label}. Merci de la prendre en charge dans l'application.`
+                        return (
+                          <a href={`https://wa.me/${wa}?text=${encodeURIComponent(texte)}`} target="_blank" rel="noreferrer"
+                            style={{background:'#25D366', color:'#fff', textDecoration:'none', padding:'5px 10px', borderRadius:7, fontWeight:700, fontSize:11.5}}>📲 Prévenir sur WhatsApp</a>
+                        )
+                      })()}
                       <button onClick={async()=>{ if (await confirmDialog(`Retirer ${detailModal.affecte_a_nom} de cette plainte ?`)) actionAdmin(detailModal.id, 'retirer', undefined, 'Affectation retirée') }}
                         style={{background:'#fff', color:'#dc2626', border:'1px solid #fecaca', padding:'5px 10px', borderRadius:7, cursor:'pointer', fontWeight:700, fontSize:11.5}}>✕ Retirer</button>
                     </>

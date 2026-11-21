@@ -41,7 +41,7 @@ class PhoneNumberServiceTests(TestCase):
         self.assertEqual(normaliser(None), "")
 
     def test_vers_international(self):
-        self.assertEqual(vers_international("0701234567"), "+225701234567")
+        self.assertEqual(vers_international("0701234567"), "+2250701234567")
 
 
 class ProviderFactoryTests(TestCase):
@@ -82,7 +82,7 @@ class ProviderFactoryTests(TestCase):
         # Verifie que le numero a bien ete converti au format international
         # attendu par l'API (+225...), pas laisse au format local.
         appel = mock_post.call_args
-        self.assertEqual(appel.kwargs["json"]["recipients"], ["+225701234567"])
+        self.assertEqual(appel.kwargs["json"]["recipients"], ["+2250701234567"])
         self.assertEqual(appel.kwargs["headers"]["X-Client-ID"], "cid")
 
     @patch("requests.post")
