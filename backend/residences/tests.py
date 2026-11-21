@@ -1340,3 +1340,47 @@ class DepartResidenceSansDecisionTests(TestCase):
         self.assertFalse(SimpleNotification.objects.filter(titre__startswith="🏠 Départ résidence dépassé").exists())
         c = APIClient(); c.force_authenticate(self.admin)
         self.assertEqual(c.get("/api/batiments/stats/").data["departs_en_retard_list"], [])
+
+
+class PlainteWhatsAppTests(PlainteAssignationEtFriseTests):
+    """Copie WhatsApp des notifications de plainte (admins, occupant, personne affectée)."""
+
+    def setUp(self):
+        super().setUp()
+        from unittest import mock
+        Personnel.objects.create(nom="Tech", prenom="Awa", societe="ROXGOLD", numero="PF2", telephone="0102030405",
+                                 numero_whatsapp="0707070707", type_personnel="roxgold", user=self.t1)
+        # Envoi synchrone dans les tests (en prod : thread d'arrière-plan)
+        p1 = mock.patch("accounts.notifications._en_arriere_plan", side_effect=lambda fn, *a: fn(*a))
+        self.envoi = mock.patch("accounts.sms.envoyer_sms", return_value=(True, "ok")).start()
+        p1.start()
+        self.addCleanup(mock.patch.stopall)
+
+    def _param(self, cle, val):
+        from accounts.models import Parametre
+        Parametre.objects.update_or_create(cle=cle, defaults={"valeur": val})
+
+    def test_personne_affectee_recoit_whatsapp_sur_son_numero_whatsapp(self):
+        self._param("whatsapp_provider", "meta")
+        self._post("affecter", {"affecte_a": self.t1.id})
+        numeros = [c.args[0] for c in self.envoi.call_args_list]
+        self.assertIn("0707070707", numeros)
+        appel = next(c for c in self.envoi.call_args_list if c.args[0] == "0707070707")
+        self.assertEqual(appel.kwargs["canal"], "whatsapp")
+        self.assertNotIn("\n", appel.args[1])
+        self.assertIn("Plainte", appel.args[1])
+
+    def test_occupant_recoit_whatsapp_sur_son_telephone_a_defaut(self):
+        self._param("whatsapp_provider", "meta")
+        self._post("affecter", {"affecte_a": self.t1.id})
+        self.assertIn("1", [c.args[0] for c in self.envoi.call_args_list])  # téléphone de l'occupant (pas de n° WhatsApp)
+
+    def test_rien_si_whatsapp_non_configure(self):
+        self._post("affecter", {"affecte_a": self.t1.id})
+        self.envoi.assert_not_called()
+
+    def test_rien_si_interrupteur_coupe(self):
+        self._param("whatsapp_provider", "meta")
+        self._param("whatsapp_notif_plaintes", "non")
+        self._post("affecter", {"affecte_a": self.t1.id})
+        self.envoi.assert_not_called()

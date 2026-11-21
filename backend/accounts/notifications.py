@@ -63,3 +63,71 @@ def envoyer_identifiants(personnel, username, password, regeneration=False):
         return {"canal": canal, "ok": ok, "info": info, "mode_test": info == "mode_test"}
     except Exception as e:
         return {"canal": canal, "ok": False, "info": f"Erreur inattendue lors de l'envoi des identifiants : {e}", "mode_test": False}
+
+
+# ─── WhatsApp en complément des notifications de l'application ──────────────
+# Demande : recevoir les notifications des plaintes sur WhatsApp (admins,
+# occupant, et personne à qui la plainte est affectée). Passe par le même
+# envoyer_sms(canal='whatsapp') que l'OTP — un seul modèle Meta à variable
+# {{1}} suffit, le texte entier y est injecté.
+
+def _whatsapp_actif(cle_module):
+    """Actif seulement si l'API Meta est réellement configurée (sinon chaque
+    notification créerait une ligne « échec » dans l'historique SMS) et si
+    l'interrupteur du module n'est pas coupé dans Paramétrage."""
+    if (Parametre.get('whatsapp_provider', 'auto') or '').strip().lower() != 'meta':
+        return False
+    return (Parametre.get(cle_module, 'oui') or '').strip().lower() not in ('non', '0', 'false', 'off')
+
+
+def _texte_whatsapp(titre, message):
+    # Meta refuse dans une variable de modèle : retours à la ligne, tabulations,
+    # plus de 4 espaces consécutifs. Une seule ligne, tronquée.
+    texte = f"{titre} — {message}" if message else str(titre)
+    texte = ' '.join(texte.split())
+    return texte[:900]
+
+
+def _en_arriere_plan(fn, *args):
+    """L'appel Meta peut prendre jusqu'à 10 s par numéro : jamais dans la requête HTTP."""
+    import threading
+
+    def _run():
+        from django.db import close_old_connections
+        try:
+            fn(*args)
+        finally:
+            close_old_connections()
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _envoyer_lot(numeros, texte, campagne):
+    from .sms import envoyer_sms
+    for n in numeros:
+        try:
+            envoyer_sms(n, texte, canal='whatsapp', type_message='notification', campagne=campagne)
+        except Exception:
+            pass
+
+
+def notifier_whatsapp(users, titre, message, cle_module='whatsapp_notif_plaintes', campagne='plaintes'):
+    """Envoie la notification sur WhatsApp aux comptes donnés (via le numéro
+    WhatsApp de leur fiche Personnel, sinon leur téléphone). Ne lève jamais.
+    Renvoie le nombre de numéros visés."""
+    try:
+        if not _whatsapp_actif(cle_module):
+            return 0
+        from residences.models import Personnel
+        ids = {u.id for u in users if u is not None}
+        if not ids:
+            return 0
+        numeros = []
+        for wa, tel in Personnel.objects.filter(user_id__in=ids).values_list('numero_whatsapp', 'telephone'):
+            n = (wa or tel or '').strip()
+            if n and n not in numeros:
+                numeros.append(n)
+        if numeros:
+            _en_arriere_plan(_envoyer_lot, numeros, _texte_whatsapp(titre, message), campagne)
+        return len(numeros)
+    except Exception:
+        return 0
