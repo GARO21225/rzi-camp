@@ -2645,10 +2645,18 @@ class PlainteViewSet(viewsets.ModelViewSet):
         users = User.objects.filter(is_active=True, profile__role__in=roles).select_related("profile").distinct()
         charge = dict(Plainte.objects.exclude(statut__in=["resolue","confirmee","cloturee","rejetee"])
                       .exclude(affecte_a=None).values_list("affecte_a").annotate(n=Count("id")))
+        # Numéro pour le bouton « Prévenir sur WhatsApp » (lien wa.me, comme REZI) : WhatsApp de la fiche, sinon téléphone.
+        from accounts.phone import vers_international
+        def _wa(n):
+            try: return vers_international(n).lstrip("+") if n else ""
+            except Exception: return ""
+        tels = {uid: _wa((wa or tel or "").strip()) for uid, wa, tel in
+                Personnel.objects.filter(user__in=users).values_list("user_id", "numero_whatsapp", "telephone")}
         out = [{
             "id": u.id, "nom": u.get_full_name() or u.username,
             "role": getattr(getattr(u, "profile", None), "role", ""),
             "en_cours": charge.get(u.id, 0),
+            "whatsapp": tels.get(u.id, ""),
         } for u in users]
         out.sort(key=lambda a: (a["en_cours"], a["nom"].lower()))
         return Response(out)

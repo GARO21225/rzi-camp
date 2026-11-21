@@ -34,10 +34,14 @@ def _normaliser_ci(v: str) -> str:
 
 
 def _vers_international_ci(v_local: str) -> str:
-    """0XXXXXXXXX -> +225XXXXXXXXXX, pour les fournisseurs qui exigent le
-    format international (proSMS, HSMS, Meta WhatsApp)."""
+    """0XXXXXXXXX -> +2250XXXXXXXXX, pour les fournisseurs qui exigent le
+    format international (proSMS, Meta WhatsApp, liens wa.me).
+    Depuis la réforme de 2021, le numéro ivoirien a 10 chiffres et le 0
+    initial en FAIT PARTIE : il est conservé après +225 (07 07 07 07 07 →
+    +225 07 07 07 07 07). L'ancienne version le retirait (+225 + 9 chiffres),
+    rejet « Aucun destinataire valide » constaté en production chez HSMS."""
     if v_local.startswith('0') and len(v_local) == 10:
-        return '+225' + v_local[1:]
+        return '+225' + v_local
     return v_local
 
 
