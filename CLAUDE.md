@@ -77,6 +77,8 @@ npm run dev
 - **API voyages (`VoyageSerializer`) : le nom du passager est `personnel_nom` (et `personnel_societe`), pas d'objet `personnel_detail`** (celui-là existe sur les demandes et les chambres, `residences/serializers.py`). `Voyages.jsx` lisait `personnel_detail` : colonne « Personnel » sans nom, recherche par nom et filtre société inopérants jusqu'au 11/11/2026. Passer par `nomPersonnel(v)`.
 - **Haut d'écran dans l'app installée** : utiliser `var(--zone-haut)` (défini dans `index.css`, = barre d'état) pour tout élément fixé en haut (`top`, `padding-top`), pas `env(safe-area-inset-top)` seul (vaut 0 sur les anciennes WebView Android, où Capacitor injecte `--safe-area-inset-top`).
 
+- **Phase pilote (25/11) : plus aucune donnée de test.** `seed_db` ne charge plus que les chambres (plan SIG), toutes « Libre » ; les comptes de test (`admin/admin123`, `agent/agent123`…), le personnel fictif, les occupants inventés, le faux historique et la boutique de démo ne sont créés qu'avec `seed_db --demo` (jamais en production). Pour vider une base : `python manage.py purger_donnees_test --garder LOGIN_ADMIN` (essai à blanc) puis `--confirmer` — garde la configuration du camp (chambres libérées, itinéraires, véhicules, paramètres, restaurants, contenus d'induction…). Tout nouveau modèle doit être classé dans `A_VIDER` ou `A_GARDER` de cette commande, sinon elle refuse de tourner.
+
 ## Conventions de code observées (à respecter pour la cohérence)
 
 - Couleurs en dur dans le JSX (`#1e3a8a`, `#0f172a`...) plutôt que variables CSS partout — c'est l'état actuel, pas forcément l'idéal, mais rester cohérent avec l'existant plutôt que de mélanger deux systèmes dans le même fichier.
