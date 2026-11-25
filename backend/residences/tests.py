@@ -1444,6 +1444,28 @@ class PurgeDonneesTestTests(TestCase):
         from maintenance.models import Incident
         self.assertTrue(Incident.objects.exists())
 
+    def test_table_externe_qui_bloque_ne_laisse_pas_les_chambres_occupees(self):
+        """Production : une table ajoutée à la main référence un compte -> sa suppression est refusée.
+        Avant, TOUT était annulé (chambres toujours occupées). Maintenant les chambres sont libérées,
+        le reste est vidé, et le compte bloqué est désactivé."""
+        from io import StringIO
+        from django.core.management import call_command
+        from django.db import connection
+        from django.contrib.auth.models import User
+        from .models import Batiment
+        from maintenance.models import Incident
+        with connection.cursor() as c:
+            c.execute("CREATE TABLE table_externe_test (id integer primary key, user_id integer NOT NULL REFERENCES auth_user(id))")
+            c.execute("INSERT INTO table_externe_test (user_id) VALUES (%s)", [self.agent.id])
+        out = StringIO()
+        call_command("purger_donnees_test", garder="edgar_pilote", confirmer=True, stdout=out)
+        self.assertEqual(Batiment.objects.get(residence="PUR01").statut, "Libre")
+        self.assertFalse(Incident.objects.exists())
+        self.agent.refresh_from_db()
+        self.assertFalse(self.agent.is_active)
+        self.assertFalse(self.agent.has_usable_password())
+        self.assertIn("PARTIELLE", out.getvalue())
+
     def test_seed_sans_demo_n_invente_rien(self):
         from io import StringIO
         from django.core.management import call_command

@@ -26,6 +26,10 @@ from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
+
+# Chambre à libérer : statut autre que « Libre », ou encore un occupant / une fiche liée
+CHAMBRE_NON_LIBRE = ~Q(statut="Libre") | Q(personnel__isnull=False) | Q(occupant__gt="")
 
 # Ordre = enfants avant parents (évite les blocages PROTECT) ; les cascades font le reste.
 A_VIDER = [
@@ -75,8 +79,10 @@ class Command(BaseCommand):
     help = "Vide les données de test (phase pilote) en gardant la configuration du camp et le compte admin."
 
     def add_arguments(self, parser):
-        parser.add_argument("--garder", required=True,
+        parser.add_argument("--garder", default="",
                             help="Login(s) des comptes à conserver, séparés par des virgules (au moins un admin).")
+        parser.add_argument("--chambres-seulement", action="store_true",
+                            help="Libère seulement toutes les chambres (occupants, historiques, résidents principaux).")
         parser.add_argument("--confirmer", action="store_true", help="Exécute réellement la purge (sinon : essai à blanc).")
         parser.add_argument("--vider-boutique", action="store_true",
                             help="Supprime aussi le catalogue Bar & Boutique (articles de démonstration et leurs prix).")
@@ -100,8 +106,31 @@ class Command(BaseCommand):
                        if m.__name__.startswith("Historical")]
         return [apps.get_model(l) for l in A_VIDER], historiques
 
+    def _liberer_chambres(self):
+        """Libère toutes les chambres, dans sa PROPRE transaction : un échec ailleurs ne l'annule plus."""
+        from residences.models import Batiment, ResidentPrincipal, OccupationHistory
+        with transaction.atomic():
+            ResidentPrincipal.objects.all().delete()          # PROTECT vers Batiment : avant tout
+            OccupationHistory.objects.all().delete()
+            n = Batiment.objects.filter(CHAMBRE_NON_LIBRE).count()
+            Batiment.objects.update(statut="Libre", personnel=None, occupant="", societe="",
+                                    date_arrivee=None, date_depart=None)
+        reste = Batiment.objects.filter(CHAMBRE_NON_LIBRE).count()
+        self.stdout.write(self.style.SUCCESS(f"  Chambres libérées : {n}  (encore occupées : {reste})"))
+        return reste
+
     def handle(self, *args, **o):
+        if o["chambres_seulement"]:
+            if not o["confirmer"]:
+                from residences.models import Batiment
+                self.stdout.write(f"Chambres non libres : {Batiment.objects.filter(CHAMBRE_NON_LIBRE).count()} "
+                                  f"sur {Batiment.objects.count()}. Essai à blanc : relancez avec --confirmer.")
+                return
+            self._liberer_chambres()
+            return
         garder = [g.strip() for g in o["garder"].split(",") if g.strip()]
+        if not garder:
+            raise CommandError("Indiquez --garder VOTRE_LOGIN (compte admin à conserver).")
         gardes = list(User.objects.filter(username__in=garder))
         manquants = set(garder) - {u.username for u in gardes}
         self.stdout.write("Comptes existants (★ = admin) :")
@@ -128,7 +157,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  {'historique des modifications':<45} {n_hist:>7}")
         self.stdout.write(f"  {'personnel (hors comptes gardés)':<45} {Personnel.objects.exclude(pk__in=perso_gardes).count():>7}")
         self.stdout.write(f"  {'comptes utilisateurs (hors --garder)':<45} {User.objects.exclude(pk__in=[u.pk for u in gardes]).count():>7}")
-        occupees = Batiment.objects.exclude(statut="Libre").count() + Batiment.objects.filter(statut="Libre", personnel__isnull=False).count()
+        occupees = Batiment.objects.filter(CHAMBRE_NON_LIBRE).count()
         self.stdout.write(f"  {'chambres remises « Libre » sans occupant':<45} {occupees:>7}  (sur {Batiment.objects.count()}, plan SIG conservé)")
 
         if not o["confirmer"]:
@@ -137,15 +166,54 @@ class Command(BaseCommand):
                 "puis relancez avec --confirmer."))
             return
 
-        with transaction.atomic():
-            Batiment.objects.update(statut="Libre", personnel=None, occupant="", societe="",
-                                    date_arrivee=None, date_depart=None)
-            for m in a_vider:
-                m._base_manager.all().delete()
-            Personnel.objects.exclude(pk__in=perso_gardes).delete()
-            User.objects.exclude(pk__in=[u.pk for u in gardes]).delete()
-            for m in historiques:
-                m._base_manager.all().delete()
-        self.stdout.write(self.style.SUCCESS(
-            f"\nPurge terminée. Comptes conservés : {', '.join(u.username for u in gardes)}. "
-            "Configuration du camp intacte, chambres libres."))
+        # Chaque étape dans sa propre transaction : sur une base de production (tables ajoutées à la
+        # main, contraintes en plus), UNE suppression refusée annulait TOUT, chambres comprises.
+        self.stdout.write("\nExécution :")
+        reste = self._liberer_chambres()
+        echecs = []
+
+        def etape(libelle, fn):
+            try:
+                with transaction.atomic():
+                    fn()
+            except Exception as e:
+                echecs.append(libelle)
+                self.stdout.write(self.style.ERROR(f"  ÉCHEC {libelle} : {type(e).__name__}: {e}"))
+
+        for m in a_vider:
+            etape(str(m._meta.verbose_name_plural), lambda m=m: m._base_manager.all().delete())
+        etape("personnel", lambda: Personnel.objects.exclude(pk__in=perso_gardes).delete())
+        etape("comptes utilisateurs", lambda: User.objects.exclude(pk__in=[u.pk for u in gardes]).delete())
+        for m in historiques:
+            etape(str(m._meta.verbose_name_plural), lambda m=m: m._base_manager.all().delete())
+        # Les échecs ont pu venir d'un ordre défavorable : un second passage règle la plupart des cas.
+        if echecs:
+            self.stdout.write("  Second passage pour les étapes en échec…")
+            premiers, echecs[:] = list(echecs), []
+            for m in a_vider + historiques:
+                if str(m._meta.verbose_name_plural) in premiers:
+                    etape(str(m._meta.verbose_name_plural), lambda m=m: m._base_manager.all().delete())
+            if "personnel" in premiers:
+                etape("personnel", lambda: Personnel.objects.exclude(pk__in=perso_gardes).delete())
+            if "comptes utilisateurs" in premiers:
+                etape("comptes utilisateurs", lambda: User.objects.exclude(pk__in=[u.pk for u in gardes]).delete())
+            reste = self._liberer_chambres()
+
+        if "comptes utilisateurs" in echecs:
+            # Comptes impossibles à supprimer (table externe qui les référence) : au minimum, ils ne
+            # doivent plus pouvoir se connecter (comptes de test aux mots de passe connus).
+            n = 0
+            for u in User.objects.exclude(pk__in=[u.pk for u in gardes]):
+                u.is_active = False
+                u.set_unusable_password()
+                u.save(update_fields=["is_active", "password"])
+                n += 1
+            self.stdout.write(self.style.WARNING(f"  {n} compte(s) non supprimable(s) DÉSACTIVÉ(S) (connexion impossible)."))
+
+        if echecs or reste:
+            self.stdout.write(self.style.WARNING(
+                f"\nPurge PARTIELLE : {', '.join(echecs) or 'chambres'} non vidé(s). Envoyez ce message d'erreur."))
+        else:
+            self.stdout.write(self.style.SUCCESS(
+                f"\nPurge terminée. Comptes conservés : {', '.join(u.username for u in gardes)}. "
+                "Configuration du camp intacte, toutes les chambres libres."))
