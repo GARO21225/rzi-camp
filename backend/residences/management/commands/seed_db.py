@@ -5,9 +5,17 @@ from accounts.models import Profile
 import json, random, datetime
 
 class Command(BaseCommand):
-    help = "Initialise la base de donnees Roxgold SiteLife"
+    help = ("Initialise la base Roxgold SiteLife : charge les chambres (plan SIG), toutes LIBRES. "
+            "--demo ajoute les données de démonstration (comptes de test, personnel fictif, occupants, boutique).")
+
+    def add_arguments(self, parser):
+        # Phase pilote : plus AUCUNE donnée inventée par défaut. Avant, chaque lancement (start.sh,
+        # Procfile release) recréait les comptes admin/admin123, agent/agent123…, 6 employés fictifs,
+        # des occupants au hasard dans les chambres et un faux historique d'occupation.
+        parser.add_argument("--demo", action="store_true", help="Ajoute les données de démonstration (jamais en production).")
 
     def handle(self, *args, **kwargs):
+        demo = kwargs.get("demo", False)
         random.seed(42)
         noms = ["Kouame A.", "Diallo M.", "Kone B.", "Toure S.", "Traore R.", "Bamba K.", "Coulibaly J.", "Ouattara F."]
         noms_hist = ["Martin K.", "Koffi A.", "Sanogo B.", "Diaby M.", "Kouyate L.", "Yoro G.", "Soro E."]
@@ -22,7 +30,7 @@ class Command(BaseCommand):
         count = 0
         for b in buildings:
             statut_key = random.choices(statuts_list, weights=weights)[0]
-            statut = statut_map[statut_key]
+            statut = statut_map[statut_key] if demo else "Libre"
             occupant = None
             societe = None
             arr_date = None
@@ -41,6 +49,9 @@ class Command(BaseCommand):
             )
             if created: count += 1
         self.stdout.write(f"  {count} batiments charges")
+        if not demo:
+            self.stdout.write(self.style.SUCCESS("Seed OK (chambres seulement, aucune donnée de démonstration)."))
+            return
 
         # Occupation history for current occupants
         hist_count = 0

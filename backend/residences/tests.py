@@ -1393,3 +1393,62 @@ class PlainteAgentsWhatsAppTests(PlainteAssignationEtFriseTests):
         a = {x["id"]: x for x in self._get("agents", detail=False).data}
         self.assertEqual(a[self.t1.id]["whatsapp"], "2250707070707")
         self.assertEqual(a[self.t2.id]["whatsapp"], "")
+
+
+class PurgeDonneesTestTests(TestCase):
+    """Phase pilote : purger_donnees_test vide les données de test, garde la configuration du camp et
+    le compte admin désigné ; refuse de tourner sans admin ; seed_db n'invente plus rien sans --demo."""
+
+    def setUp(self):
+        import datetime
+        from django.contrib.auth.models import User
+        from accounts.models import Profile
+        from .models import Personnel, Batiment
+        from maintenance.models import Incident
+        from voyages.models import Rotation, ItineraireModele
+        self.admin = User.objects.create_superuser("edgar_pilote", "e@x.ci", "x")
+        Profile.objects.update_or_create(user=self.admin, defaults={"role": "admin"})
+        self.agent = User.objects.create_user("agent_test", password="x")
+        self.pa = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD", user=self.admin)
+        Personnel.objects.create(nom="FICTIF", prenom="Test", societe="X")
+        Batiment.objects.create(residence="PUR01", statut="Occupé", occupant="FICTIF Test", date_arrivee=datetime.date.today())
+        Incident.objects.create(titre="t", description="d", categorie="Plomberie", residence="PUR01", auteur=self.agent)
+        Rotation.objects.create(rotation_id="PUR-R", date_depart=datetime.date.today(), date_retour_prevue=datetime.date.today())
+        self.nb_itin = ItineraireModele.objects.count()
+
+    def test_essai_a_blanc_puis_purge(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.contrib.auth.models import User
+        from .models import Personnel, Batiment
+        from maintenance.models import Incident
+        from voyages.models import Rotation, ItineraireModele
+        call_command("purger_donnees_test", garder="edgar_pilote", stdout=StringIO())
+        self.assertTrue(Incident.objects.exists())           # essai à blanc : rien supprimé
+        call_command("purger_donnees_test", garder="edgar_pilote", confirmer=True, stdout=StringIO())
+        self.assertEqual(list(User.objects.values_list("username", flat=True)), ["edgar_pilote"])
+        self.assertEqual(list(Personnel.objects.values_list("pk", flat=True)), [self.pa.pk])
+        self.assertFalse(Incident.objects.exists() or Rotation.objects.exists())
+        b = Batiment.objects.get(residence="PUR01")
+        self.assertEqual((b.statut, b.occupant, b.date_arrivee), ("Libre", "", None))
+        self.assertEqual(ItineraireModele.objects.count(), self.nb_itin)   # configuration gardée
+
+    def test_refuse_sans_admin(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        with self.assertRaises(CommandError):
+            call_command("purger_donnees_test", garder="agent_test", confirmer=True, stdout=StringIO())
+        with self.assertRaises(CommandError):
+            call_command("purger_donnees_test", garder="inconnu", confirmer=True, stdout=StringIO())
+        from maintenance.models import Incident
+        self.assertTrue(Incident.objects.exists())
+
+    def test_seed_sans_demo_n_invente_rien(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.contrib.auth.models import User
+        from .models import Batiment
+        call_command("seed_db", stdout=StringIO())
+        self.assertFalse(User.objects.filter(username__in=["admin", "agent", "resto", "technicien", "menage"]).exists())
+        self.assertEqual(Batiment.objects.exclude(residence="PUR01").exclude(statut="Libre").count(), 0)

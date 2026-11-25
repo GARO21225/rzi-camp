@@ -61,7 +61,7 @@ rzi-camp/
 cd backend
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py seed_db
+python manage.py seed_db          # chambres seulement ; --demo pour des données de démonstration (jamais en prod)
 python manage.py runserver
 ```
 → http://localhost:8000
