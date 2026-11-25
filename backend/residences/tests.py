@@ -1451,3 +1451,43 @@ class NettoyageDonneesInventeesTests(TestCase):
         self.assertFalse(User.objects.exists())
         self.assertEqual(Batiment.objects.exclude(statut="Libre").count(), 0)
         self.assertGreaterEqual(Batiment.objects.count(), n - 1)   # le fixture du script (la migration 0021 en ajoute une)
+
+
+class SuppressionPersonnelChambreTests(TestCase):
+    """Supprimer une fiche : plus d'erreur de clé étrangère (exemption d'induction…) et sa chambre est
+    libérée (avant : nom resté affiché, chambre « fantôme »). Réparation des fantômes existants."""
+
+    def setUp(self):
+        import datetime
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        from .models import Personnel, Batiment
+        self.admin = User.objects.create_superuser("adm_sup", "s@x.ci", "x")
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+        self.p = Personnel.objects.create(nom="DYLAN", prenom="VIP", societe="ROXGOLD")
+        self.b = Batiment.objects.create(residence="SUP01", statut="Occupé", personnel=self.p,
+                                         occupant="DYLAN VIP", date_arrivee=datetime.date.today())
+
+    def test_suppression_libere_la_chambre_malgre_l_exemption(self):
+        from .models import Personnel, InductionCampExemption
+        InductionCampExemption.objects.create(personnel=self.p, motif="VIP")
+        r = self.c.delete(f"/api/personnel/{self.p.id}/")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertFalse(Personnel.objects.filter(pk=self.p.pk).exists())
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.statut, self.b.occupant, self.b.personnel_id), ("Libre", None, None))
+
+    def test_reparation_des_chambres_fantomes(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from .models import Batiment
+        manuelle = Batiment.objects.create(residence="SUP02", statut="Réservé", occupant="EDGAR KOUAME")
+        self.p.delete()      # ancien comportement : lien retiré, nom resté affiché
+        self.b.refresh_from_db()
+        self.assertEqual((self.b.statut, self.b.occupant), ("Occupé", "DYLAN VIP"))
+        call_command("liberer_chambres_orphelines", stdout=StringIO())
+        self.b.refresh_from_db(); self.assertEqual(self.b.statut, "Occupé")          # essai à blanc
+        call_command("liberer_chambres_orphelines", confirmer=True, stdout=StringIO())
+        self.b.refresh_from_db(); manuelle.refresh_from_db()
+        self.assertEqual((self.b.statut, self.b.occupant), ("Libre", None))
+        self.assertEqual((manuelle.statut, manuelle.occupant), ("Réservé", "EDGAR KOUAME"))   # saisie manuelle : intacte

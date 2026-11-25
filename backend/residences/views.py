@@ -464,90 +464,28 @@ class PersonnelViewSet(viewsets.ModelViewSet):
 
 
     def destroy(self, request, *args, **kwargs):
-        """Supprimer un personnel — admin uniquement (SQL direct pour éviter FK).
+        """Supprimer un personnel — admin uniquement.
 
-        Bug corrige ici : cette liste de tables etait incomplete. Django ne
-        pose PAS de clause "ON DELETE CASCADE/SET NULL" au niveau de la base
-        (on_delete= est gere par l'ORM en Python, jamais par une contrainte
-        SQL reelle) - donc un DELETE en SQL direct qui saute une table
-        encore referencee echoue avec une violation de contrainte FK, quel
-        que soit le on_delete= declare dans models.py. Or de nouvelles
-        tables ont ete ajoutees au fil des sessions (InductionRecord,
-        EquipementEPI, Rotation.conducteur_personnel, EtapeVoyage lie a
-        Voyage, etc.) sans jamais etre ajoutees ici - la suppression d'un
-        personnel avec la moindre etape de voyage, un dossier d'induction,
-        un EPI attribue ou designe comme chauffeur echouait silencieusement
-        (message generique "Erreur suppression" cote frontend).
-        Liste reconstituee par introspection de TOUTES les FK reelles vers
-        Personnel (apps.get_models() + f.related_model is Personnel), en
-        excluant les tables "historical*" de simple_history qui n'ont
-        jamais de contrainte reelle (db_constraint=False)."""
+        Passe par l'ORM (obj.delete()) : Django applique le on_delete de CHAQUE modèle lié
+        (CASCADE / SET_NULL), y compris ceux ajoutés plus tard. L'ancienne version supprimait en
+        SQL brut d'après une liste de tables écrite à la main, toujours incomplète : la suppression
+        échouait dès qu'une table oubliée référençait la fiche (ex. exemption d'induction camp :
+        « violates foreign key constraint … residences_inductioncampexemption »), et la chambre
+        gardait le nom de la personne supprimée (statut « Occupé », occupant affiché) — chambre
+        fantôme. On libère donc d'abord ses chambres, proprement."""
         if not self._is_admin(request.user):
             return Response({"error": "Admin requis"}, status=403)
         try:
             obj = self.get_object()
             personnel_info = f"{obj.nom} {obj.prenom}"
-            pers_id = obj.id
-
-            from django.db import connection
-            with connection.cursor() as cursor:
-                # 0. Dependants des voyages de ce personnel (CASCADE reel sur
-                # voyages_voyage, non nettoyes automatiquement) - a supprimer
-                # AVANT les voyages eux-memes, sinon leur suppression echoue.
-                cursor.execute("""
-                    DELETE FROM voyages_etapevoyage
-                    WHERE voyage_id IN (SELECT id FROM voyages_voyage WHERE personnel_id = %s)
-                """, [pers_id])
-                cursor.execute("""
-                    DELETE FROM voyages_evenementmonteedescente
-                    WHERE voyage_id IN (SELECT id FROM voyages_voyage WHERE personnel_id = %s)
-                """, [pers_id])
-
-                # 1. Tables liées voyages
-                cursor.execute("DELETE FROM voyages_voyage WHERE personnel_id = %s", [pers_id])
-                # Rotation ou ce personnel est designe chauffeur (principal
-                # ou second) - SET NULL, ne supprime pas la rotation.
-                cursor.execute("UPDATE voyages_rotation SET conducteur_personnel_id = NULL WHERE conducteur_personnel_id = %s", [pers_id])
-                cursor.execute("UPDATE voyages_rotation SET conducteur_secondaire_personnel_id = NULL WHERE conducteur_secondaire_personnel_id = %s", [pers_id])
-
-                # 2. Tables liées restauration
-                cursor.execute("DELETE FROM restauration_repaslog WHERE personnel_id = %s", [pers_id])
-                cursor.execute("UPDATE restauration_qrtoken SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
-                cursor.execute("UPDATE restauration_consommationboutique SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
-                cursor.execute("UPDATE restauration_avisrestauration SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM restauration_boncaisse WHERE personnel_id = %s", [pers_id])
-
-                # 3. Tables occupation history
-                cursor.execute("DELETE FROM residences_occupationhistory WHERE personnel_id = %s", [pers_id])
-
-                # 4. Batiments - SET NULL puis DELETE
-                cursor.execute("UPDATE residences_batiment SET personnel_id = NULL WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM residences_residentprincipal WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM residences_equipementepi WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM residences_plainte WHERE occupant_id = %s", [pers_id])
-                cursor.execute("UPDATE residences_controlechambre SET occupant_id = NULL WHERE occupant_id = %s", [pers_id])
-                cursor.execute("DELETE FROM residences_inductionrecord WHERE personnel_id = %s", [pers_id])
-
-                # 4b. Notifications / QR d'événements
-                cursor.execute("DELETE FROM evenements_notification WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM evenements_simplenotification WHERE personnel_id = %s", [pers_id])
-                cursor.execute("DELETE FROM evenements_qrevenement WHERE personnel_id = %s", [pers_id])
-
-                # 5. Demandes
-                cursor.execute("SELECT user_id FROM residences_personnel WHERE id = %s", [pers_id])
-                row = cursor.fetchone()
-                if row and row[0]:
-                    user_id = row[0]
-                    cursor.execute("DELETE FROM residences_demande WHERE demandeur_id = %s", [user_id])
-
-                # 6. Historical records
-                try:
-                    cursor.execute("DELETE FROM residences_historicalpersonnel WHERE personnel_ptr_id = %s", [pers_id])
-                except: pass
-
-                # 7. finally delete personnel
-                cursor.execute("DELETE FROM residences_personnel WHERE id = %s", [pers_id])
-
+            today = datetime.date.today()
+            with transaction.atomic():
+                OccupationHistory.objects.filter(personnel=obj, date_depart__isnull=True).update(
+                    date_depart=today, motif_depart="Fiche personnel supprimée")
+                Batiment.objects.filter(personnel=obj).update(
+                    statut="Libre", personnel=None, occupant=None, societe=None,
+                    date_arrivee=None, date_depart=None)
+                obj.delete()
             return Response({"ok": True, "message": f"Personnel supprimé: {personnel_info}"})
         except Exception as e:
             return Response({"error": f"Erreur: {str(e)}"}, status=400)
