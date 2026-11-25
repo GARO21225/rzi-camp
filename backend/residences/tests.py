@@ -1395,82 +1395,59 @@ class PlainteAgentsWhatsAppTests(PlainteAssignationEtFriseTests):
         self.assertEqual(a[self.t2.id]["whatsapp"], "")
 
 
-class PurgeDonneesTestTests(TestCase):
-    """Phase pilote : purger_donnees_test vide les données de test, garde la configuration du camp et
-    le compte admin désigné ; refuse de tourner sans admin ; seed_db n'invente plus rien sans --demo."""
+class NettoyageDonneesInventeesTests(TestCase):
+    """Phase pilote : seules les données inventées par seed_db sont retirées ; le personnel réel,
+    le compte admin, les réservations / maintenances réelles et les chambres réellement occupées restent."""
 
     def setUp(self):
         import datetime
-        from django.contrib.auth.models import User
-        from accounts.models import Profile
-        from .models import Personnel, Batiment
-        from maintenance.models import Incident
-        from voyages.models import Rotation, ItineraireModele
-        self.admin = User.objects.create_superuser("edgar_pilote", "e@x.ci", "x")
-        Profile.objects.update_or_create(user=self.admin, defaults={"role": "admin"})
-        self.agent = User.objects.create_user("agent_test", password="x")
-        self.pa = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD", user=self.admin)
-        Personnel.objects.create(nom="FICTIF", prenom="Test", societe="X")
-        Batiment.objects.create(residence="PUR01", statut="Occupé", occupant="FICTIF Test", date_arrivee=datetime.date.today())
-        Incident.objects.create(titre="t", description="d", categorie="Plomberie", residence="PUR01", auteur=self.agent)
-        Rotation.objects.create(rotation_id="PUR-R", date_depart=datetime.date.today(), date_retour_prevue=datetime.date.today())
-        self.nb_itin = ItineraireModele.objects.count()
-
-    def test_essai_a_blanc_puis_purge(self):
         from io import StringIO
         from django.core.management import call_command
         from django.contrib.auth.models import User
         from .models import Personnel, Batiment
-        from maintenance.models import Incident
-        from voyages.models import Rotation, ItineraireModele
-        call_command("purger_donnees_test", garder="edgar_pilote", stdout=StringIO())
-        self.assertTrue(Incident.objects.exists())           # essai à blanc : rien supprimé
-        call_command("purger_donnees_test", garder="edgar_pilote", confirmer=True, stdout=StringIO())
-        self.assertEqual(list(User.objects.values_list("username", flat=True)), ["edgar_pilote"])
-        self.assertEqual(list(Personnel.objects.values_list("pk", flat=True)), [self.pa.pk])
-        self.assertFalse(Incident.objects.exists() or Rotation.objects.exists())
-        b = Batiment.objects.get(residence="PUR01")
-        self.assertEqual((b.statut, b.occupant, b.date_arrivee), ("Libre", "", None))
-        self.assertEqual(ItineraireModele.objects.count(), self.nb_itin)   # configuration gardée
+        call_command("seed_db", demo=True, stdout=StringIO())
+        self.vrai = Personnel.objects.create(nom="KOUAME", prenom="Edgar", societe="ROXGOLD", numero="0700000001")
+        # Chambre réellement occupée et réservation réelle, saisies par une personne (historique avec auteur)
+        u = User.objects.get(username="admin")
+        self.reelle = Batiment.objects.filter(personnel__isnull=True).exclude(occupant__gt="").first()
+        self.reelle.statut, self.reelle.personnel, self.reelle.occupant = "Occupé", self.vrai, "KOUAME Edgar"
+        self.reelle._history_user = u; self.reelle.save()
+        self.resa = Batiment.objects.filter(statut="Libre", personnel__isnull=True).exclude(pk=self.reelle.pk).first()
+        self.resa.statut = "Réservé"; self.resa._history_user = u; self.resa.save()
 
-    def test_refuse_sans_admin(self):
+    def test_essai_a_blanc_puis_nettoyage_cible(self):
         from io import StringIO
         from django.core.management import call_command
-        from django.core.management.base import CommandError
-        with self.assertRaises(CommandError):
-            call_command("purger_donnees_test", garder="agent_test", confirmer=True, stdout=StringIO())
-        with self.assertRaises(CommandError):
-            call_command("purger_donnees_test", garder="inconnu", confirmer=True, stdout=StringIO())
-        from maintenance.models import Incident
-        self.assertTrue(Incident.objects.exists())
-
-    def test_table_externe_qui_bloque_ne_laisse_pas_les_chambres_occupees(self):
-        """Production : une table ajoutée à la main référence un compte -> sa suppression est refusée.
-        Avant, TOUT était annulé (chambres toujours occupées). Maintenant les chambres sont libérées,
-        le reste est vidé, et le compte bloqué est désactivé."""
-        from io import StringIO
-        from django.core.management import call_command
-        from django.db import connection
         from django.contrib.auth.models import User
-        from .models import Batiment
-        from maintenance.models import Incident
-        with connection.cursor() as c:
-            c.execute("CREATE TABLE table_externe_test (id integer primary key, user_id integer NOT NULL REFERENCES auth_user(id))")
-            c.execute("INSERT INTO table_externe_test (user_id) VALUES (%s)", [self.agent.id])
+        from .models import Personnel, Batiment, OccupationHistory
+        from .management.commands.nettoyer_donnees_inventees import NOMS_INVENTES
+        avant = Batiment.objects.filter(occupant__in=NOMS_INVENTES).count()
+        self.assertGreater(avant, 0)
+        call_command("nettoyer_donnees_inventees", stdout=StringIO())
+        self.assertEqual(Batiment.objects.filter(occupant__in=NOMS_INVENTES).count(), avant)   # essai à blanc
         out = StringIO()
-        call_command("purger_donnees_test", garder="edgar_pilote", confirmer=True, stdout=out)
-        self.assertEqual(Batiment.objects.get(residence="PUR01").statut, "Libre")
-        self.assertFalse(Incident.objects.exists())
-        self.agent.refresh_from_db()
-        self.assertFalse(self.agent.is_active)
-        self.assertFalse(self.agent.has_usable_password())
-        self.assertIn("PARTIELLE", out.getvalue())
+        call_command("nettoyer_donnees_inventees", confirmer=True, stdout=out)
+        self.assertEqual(Batiment.objects.filter(occupant__in=NOMS_INVENTES).count(), 0)
+        self.assertFalse(OccupationHistory.objects.filter(occupant_nom__in=NOMS_INVENTES).exists())
+        self.assertFalse(Batiment.objects.filter(statut="Maintenance").exists())   # statuts tirés au hasard, jamais touchés
+        # Réel conservé
+        self.assertTrue(Personnel.objects.filter(pk=self.vrai.pk).exists())
+        self.assertFalse(Personnel.objects.filter(nom="ADAMA", prenom__iexact="Kouyaté").exists())
+        self.assertEqual(Personnel.objects.count(), 1)
+        self.reelle.refresh_from_db(); self.resa.refresh_from_db()
+        self.assertEqual((self.reelle.statut, self.reelle.personnel_id), ("Occupé", self.vrai.pk))
+        self.assertEqual(self.resa.statut, "Réservé")
+        self.assertEqual(sorted(User.objects.values_list("username", flat=True)), ["admin"])
+        self.assertIn("admin123", out.getvalue())   # alerte mot de passe de test
 
     def test_seed_sans_demo_n_invente_rien(self):
         from io import StringIO
         from django.core.management import call_command
         from django.contrib.auth.models import User
         from .models import Batiment
+        n = Batiment.objects.count()
+        Batiment.objects.all().delete(); User.objects.all().delete()
         call_command("seed_db", stdout=StringIO())
-        self.assertFalse(User.objects.filter(username__in=["admin", "agent", "resto", "technicien", "menage"]).exists())
-        self.assertEqual(Batiment.objects.exclude(residence="PUR01").exclude(statut="Libre").count(), 0)
+        self.assertFalse(User.objects.exists())
+        self.assertEqual(Batiment.objects.exclude(statut="Libre").count(), 0)
+        self.assertGreaterEqual(Batiment.objects.count(), n - 1)   # le fixture du script (la migration 0021 en ajoute une)
